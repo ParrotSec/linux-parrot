@@ -1,0 +1,2 @@
+# Kernel dbg packages contain a full image with debug data
+linux-image-4.7.0-1-alpha-smp-dbgsym: dbg-package-missing-depends
