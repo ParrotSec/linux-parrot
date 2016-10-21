@@ -120,9 +120,6 @@ endif
 ifdef DOCBOOK_SUPPRESS_SP
 XMLTO_EXTRA += -m manpage-suppress-sp.xsl
 endif
-ifdef KBUILD_BUILD_TIMESTAMP
-ASCIIDOC_EXTRA += -a revdate=$(shell date -u -d '$(KBUILD_BUILD_TIMESTAMP)' +%Y-%m-%d)
-endif
 
 SHELL_PATH ?= $(SHELL)
 # Shell quote;
@@ -186,16 +183,14 @@ ifdef missing_tools
 	$(error "You need to install $(missing_tools) for man pages")
 endif
 
-do-install-man: $(addprefix install-man-,$(_DOC_MAN1))
-
-install-man-perf.1: $(OUTPUT)perf.1
-	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
-	sed -e 's/"PERF"/"PERF_$(VERSION)"/' -e 's/fBperf-/fBperf_$(VERSION)-/g' $^ > $(DESTDIR)$(man1dir)/perf_$(VERSION).1
-
-install-man-perf%.1: $(OUTPUT)perf%.1
+do-install-man: man
 	$(call QUIET_INSTALL, Documentation-man) \
 		$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir); \
-		sed -e 's/"PERF\\-/"PERF_$(VERSION)\\-/' -e 's/fBperf-/fBperf_$(VERSION)-/g' $^ > $(DESTDIR)$(man1dir)/perf_$(VERSION)$*.1
+#		$(INSTALL) -d -m 755 $(DESTDIR)$(man5dir); \
+#		$(INSTALL) -d -m 755 $(DESTDIR)$(man7dir); \
+		$(INSTALL) -m 644 $(DOC_MAN1) $(DESTDIR)$(man1dir); \
+#		$(INSTALL) -m 644 $(DOC_MAN5) $(DESTDIR)$(man5dir); \
+#		$(INSTALL) -m 644 $(DOC_MAN7) $(DESTDIR)$(man7dir)
 
 install-man: check-man-tools man
 

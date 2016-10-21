@@ -154,8 +154,11 @@ static int r128_cce_load_microcode(drm_r128_private_t *dev_priv)
 	}
 	rc = request_firmware(&fw, FIRMWARE_NAME, &pdev->dev);
 	platform_device_unregister(pdev);
-	if (rc)
+	if (rc) {
+		printk(KERN_ERR "r128_cce: Failed to load firmware \"%s\"\n",
+		       FIRMWARE_NAME);
 		return rc;
+	}
 
 	if (fw->size != 256 * 8) {
 		printk(KERN_ERR

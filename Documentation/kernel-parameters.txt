@@ -1803,10 +1803,12 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 	js=		[HW,JOY] Analog joystick
 			See Documentation/input/joystick.txt.
 
-	nokaslr		[KNL]
-			When CONFIG_RANDOMIZE_BASE is set, this disables
-			kernel and module base offset ASLR (Address Space
-			Layout Randomization).
+	kaslr/nokaslr	[X86]
+			Enable/disable kernel and module base offset ASLR
+			(Address Space Layout Randomization) if built into
+			the kernel. When CONFIG_HIBERNATION is selected,
+			kASLR is disabled by default. When kASLR is enabled,
+			hibernation will be disabled.
 
 	keepinitrd	[HW,ARM]
 
@@ -3874,10 +3876,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			         wouldn't be automatically used by the kernel
 
 	switches=	[HW,M68k]
-
-	syscall.x32=	[KNL,x86_64] Enable/disable use of x32 syscalls on
-			an x86_64 kernel where CONFIG_X86_X32 is enabled.
-			Default depends on CONFIG_X86_X32_DISABLED.
 
 	sysfs.deprecated=0|1 [KNL]
 			Enable/disable old style sysfs layout for old udev

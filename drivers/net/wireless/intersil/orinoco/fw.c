@@ -132,6 +132,7 @@ orinoco_dl_firmware(struct orinoco_private *priv,
 		err = request_firmware(&fw_entry, firmware, priv->dev);
 
 		if (err) {
+			dev_err(dev, "Cannot find firmware %s\n", firmware);
 			err = -ENOENT;
 			goto free;
 		}
@@ -291,8 +292,10 @@ symbol_dl_firmware(struct orinoco_private *priv,
 	const struct firmware *fw_entry;
 
 	if (!orinoco_cached_fw_get(priv, true)) {
-		if (request_firmware(&fw_entry, fw->pri_fw, priv->dev) != 0)
+		if (request_firmware(&fw_entry, fw->pri_fw, priv->dev) != 0) {
+			dev_err(dev, "Cannot find firmware: %s\n", fw->pri_fw);
 			return -ENOENT;
+		}
 	} else
 		fw_entry = orinoco_cached_fw_get(priv, true);
 
@@ -308,8 +311,10 @@ symbol_dl_firmware(struct orinoco_private *priv,
 	}
 
 	if (!orinoco_cached_fw_get(priv, false)) {
-		if (request_firmware(&fw_entry, fw->sta_fw, priv->dev) != 0)
+		if (request_firmware(&fw_entry, fw->sta_fw, priv->dev) != 0) {
+			dev_err(dev, "Cannot find firmware: %s\n", fw->sta_fw);
 			return -ENOENT;
+		}
 	} else
 		fw_entry = orinoco_cached_fw_get(priv, false);
 

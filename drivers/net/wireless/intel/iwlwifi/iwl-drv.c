@@ -224,8 +224,10 @@ static int iwl_request_firmware(struct iwl_drv *drv, bool first)
 		sprintf(tag, "%d", drv->fw_index);
 	}
 
-	if (drv->fw_index < drv->cfg->ucode_api_min)
+	if (drv->fw_index < drv->cfg->ucode_api_min) {
+		IWL_ERR(drv, "no suitable firmware found!\n");
 		return -ENOENT;
+	}
 
 	snprintf(drv->firmware_name, sizeof(drv->firmware_name), "%s%s.ucode",
 		 name_pre, tag);
