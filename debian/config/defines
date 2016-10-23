@@ -1,5 +1,5 @@
 [abi]
-abiname: kali1
+abiname: parrot
 ignore-changes:
 # Private to ceph
  ceph_monc_do_statfs

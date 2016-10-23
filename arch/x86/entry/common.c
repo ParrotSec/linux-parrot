@@ -334,6 +334,7 @@ __visible void do_syscall_64(struct pt_regs *regs)
 {
 	struct thread_info *ti = pt_regs_to_thread_info(regs);
 	unsigned long nr = regs->orig_ax;
+	unsigned int syscall_mask, nr_syscalls_enabled;
 
 	enter_from_user_mode();
 	local_irq_enable();
@@ -346,8 +347,19 @@ __visible void do_syscall_64(struct pt_regs *regs)
 	 * table.  The only functional difference is the x32 bit in
 	 * regs->orig_ax, which changes the behavior of some syscalls.
 	 */
-	if (likely((nr & __SYSCALL_MASK) < NR_syscalls)) {
-		regs->ax = sys_call_table[nr & __SYSCALL_MASK](
+	if (__SYSCALL_MASK == ~0U || x32_enabled) {
+		syscall_mask = __SYSCALL_MASK;
+		nr_syscalls_enabled = NR_syscalls;
+	} else {
+		/*
+		 * x32 syscalls present but not enabled.  Don't mask out
+		 * the x32 flag and don't enable any x32-specific calls.
+		 */
+		syscall_mask = ~0U;
+		nr_syscalls_enabled = 512;
+	}
+	if (likely((nr & syscall_mask) < nr_syscalls_enabled)) {
+		regs->ax = sys_call_table[nr & syscall_mask](
 			regs->di, regs->si, regs->dx,
 			regs->r10, regs->r8, regs->r9);
 	}

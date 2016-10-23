@@ -5471,5 +5471,13 @@ static void __exit ext4_exit_fs(void)
 MODULE_AUTHOR("Remy Card, Stephen Tweedie, Andrew Morton, Andreas Dilger, Theodore Ts'o and others");
 MODULE_DESCRIPTION("Fourth Extended Filesystem");
 MODULE_LICENSE("GPL");
+
+#ifdef CONFIG_EXT4_FS_ENCRYPTION
+#define EXT4_ENC_EXTRA_SOFTDEPS " crypto-aes crypto-ecb"
+#else
+#define EXT4_ENC_EXTRA_SOFTDEPS ""
+#endif
+MODULE_SOFTDEP("pre: crypto-crc32c" EXT4_ENC_EXTRA_SOFTDEPS);
+
 module_init(ext4_init_fs)
 module_exit(ext4_exit_fs)

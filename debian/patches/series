@@ -2,7 +2,7 @@
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-#debian/gitignore.patch # Kali: we have that in the git repo already
+#debian/gitignore.patch # Parrot: we have that in the git repo already
 debian/mips-disable-werror.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/powerpcspe-omit-uimage.patch
@@ -18,8 +18,8 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 
-# Kali changes
-features/all/kali-wifi-injection.patch
+# Parrot changes
+features/all/wifi-injection.patch
 
 # Patches from aufs4 repository, imported with
 # debian/patches/features/all/aufs4/gen-patch.  These are only the

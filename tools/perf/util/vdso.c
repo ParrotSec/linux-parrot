@@ -51,12 +51,12 @@ static struct vdso_info *vdso_info__new(void)
 		.vdso32  = {
 			.temp_file_name = VDSO__TEMP_FILE_NAME,
 			.dso_name = DSO__NAME_VDSO32,
-			.read_prog = "perf-read-vdso32",
+			.read_prog = PERFEXECDIR "/perf-read-vdso32",
 		},
 		.vdsox32  = {
 			.temp_file_name = VDSO__TEMP_FILE_NAME,
 			.dso_name = DSO__NAME_VDSOX32,
-			.read_prog = "perf-read-vdsox32",
+			.read_prog = PERFEXECDIR "/perf-read-vdsox32",
 		},
 #endif
 	};

@@ -1776,6 +1776,19 @@ config EFI_MIXED
 
 	   If unsure, say N.
 
+config EFI_SECURE_BOOT_SECURELEVEL
+        def_bool n
+	depends on SECURITY_SECURELEVEL
+	depends on EFI
+	prompt "Automatically set securelevel when UEFI Secure Boot is enabled"
+	---help---
+	  UEFI Secure Boot provides a mechanism for ensuring that the
+	  firmware will only load signed bootloaders and kernels. Certain
+	  use cases may also require that the kernel restrict any userspace
+	  mechanism that could insert untrusted code into the kernel.
+	  Say Y here to automatically enable securelevel enforcement
+	  when a system boots with UEFI Secure Boot enabled.
+
 config SECCOMP
 	def_bool y
 	prompt "Enable seccomp to safely compute untrusted bytecode"
@@ -2673,6 +2686,14 @@ config X86_X32
 	  You will need a recent binutils (2.22 or later) with
 	  elf32_x86_64 support enabled to compile a kernel with this
 	  option set.
+
+config X86_X32_DISABLED
+	bool "x32 ABI disabled by default"
+	depends on X86_X32
+	default n
+	help
+	  Disable the x32 ABI unless explicitly enabled using the
+	  kernel paramter "syscall.x32=y".
 
 config COMPAT
 	def_bool y

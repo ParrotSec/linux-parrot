@@ -193,8 +193,12 @@ entry_SYSCALL_64_fastpath:
 #if __SYSCALL_MASK == ~0
 	cmpq	$__NR_syscall_max, %rax
 #else
-	andl	$__SYSCALL_MASK, %eax
-	cmpl	$__NR_syscall_max, %eax
+.global system_call_fast_compare
+.global system_call_fast_compare_end
+system_call_fast_compare:
+	cmpq	$511, %rax			/* x32 syscalls start at 512 */
+	.byte	P6_NOP4
+system_call_fast_compare_end:
 #endif
 	ja	1f				/* return -ENOSYS (already in pt_regs->ax) */
 	movq	%r10, %rcx
@@ -323,6 +327,16 @@ opportunistic_sysret_failed:
 	SWAPGS
 	jmp	restore_c_regs_and_iret
 END(entry_SYSCALL_64)
+
+#if __SYSCALL_MASK != ~0
+	/* This replaces the usual comparisons if syscall.x32 is set */
+.global system_call_mask_compare
+.global system_call_mask_compare_end
+system_call_mask_compare:
+	andl	$__SYSCALL_MASK, %eax
+	cmpl	$__NR_syscall_max, %eax
+system_call_mask_compare_end:
+#endif
 
 ENTRY(stub_ptregs_64)
 	/*

@@ -44,6 +44,8 @@
 
 #include "drm_crtc_helper.h"
 #include "radeon_kfd.h"
+#include <linux/namei.h>
+#include <linux/path.h>
 
 /*
  * KMS wrapper.
@@ -306,6 +308,29 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
 
 static struct drm_driver kms_driver;
 
+/* Test that /lib/firmware/radeon is a directory (or symlink to a
+ * directory).  We could try to match the udev search path, but let's
+ * assume people take the easy route and install
+ * firmware-linux-nonfree.
+ */
+static bool radeon_firmware_installed(void)
+{
+#if IS_BUILTIN(CONFIG_DRM_RADEON)
+	/* It may be too early to tell.  Assume it's there. */
+	return true;
+#else
+	struct path path;
+
+	if (kern_path("/lib/firmware/radeon", LOOKUP_DIRECTORY | LOOKUP_FOLLOW,
+		      &path) == 0) {
+		path_put(&path);
+		return true;
+	}
+
+	return false;
+#endif
+}
+
 static int radeon_kick_out_firmware_fb(struct pci_dev *pdev)
 {
 	struct apertures_struct *ap;
@@ -348,6 +373,12 @@ static int radeon_pci_probe(struct pci_dev *pdev,
 	    apple_gmux_present() && pdev != vga_default_device() &&
 	    !vga_switcheroo_handler_flags())
 		return -EPROBE_DEFER;
+
+	if ((ent->driver_data & RADEON_FAMILY_MASK) >= CHIP_R600 &&
+	    !radeon_firmware_installed()) {
+		DRM_ERROR("radeon kernel modesetting for R600 or later requires firmware-linux-nonfree.\n");
+		return -ENODEV;
+	}
 
 	/* Get rid of things like offb */
 	ret = radeon_kick_out_firmware_fb(pdev);

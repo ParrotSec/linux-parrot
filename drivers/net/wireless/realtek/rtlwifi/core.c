@@ -111,7 +111,6 @@ static void rtl_fw_do_work(const struct firmware *firmware, void *context,
 			if (!err)
 				goto found_alt;
 		}
-		pr_err("Firmware %s not available\n", rtlpriv->cfg->fw_name);
 		rtlpriv->max_fw_size = 0;
 		return;
 	}

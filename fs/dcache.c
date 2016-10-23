@@ -1205,7 +1205,7 @@ enum d_walk_ret {
  *
  * The @enter() and @finish() callbacks are called with d_lock held.
  */
-static void d_walk(struct dentry *parent, void *data,
+void d_walk(struct dentry *parent, void *data,
 		   enum d_walk_ret (*enter)(void *, struct dentry *),
 		   void (*finish)(void *))
 {
@@ -1313,6 +1313,7 @@ rename_retry:
 	seq = 1;
 	goto again;
 }
+EXPORT_SYMBOL_GPL(d_walk);
 
 /*
  * Search for at least 1 mount point in the dentry's subdirs.

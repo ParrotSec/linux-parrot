@@ -10,7 +10,9 @@
 #include <asm-generic/uaccess-unaligned.h>
 
 #include <linux/bug.h>
+#ifndef __GENKSYMS__
 #include <linux/string.h>
+#endif
 
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1
