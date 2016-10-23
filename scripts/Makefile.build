@@ -241,6 +241,11 @@ cmd_record_mcount =						\
 	fi;
 endif
 
+# Don't require recordmcount source for an OOT build.
+ifdef KBUILD_EXTMOD
+recordmcount_source :=
+endif
+
 ifdef CONFIG_STACK_VALIDATION
 ifneq ($(SKIP_STACK_VALIDATION),1)
 

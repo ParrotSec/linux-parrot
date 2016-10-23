@@ -566,3 +566,4 @@ static void __exit fscrypt_exit(void)
 module_exit(fscrypt_exit);
 
 MODULE_LICENSE("GPL");
+MODULE_SOFTDEP("pre: crypto-aes crypto-ecb");

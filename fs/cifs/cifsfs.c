@@ -1379,5 +1379,13 @@ MODULE_DESCRIPTION
     ("VFS to access servers complying with the SNIA CIFS Specification "
      "e.g. Samba and Windows");
 MODULE_VERSION(CIFS_VERSION);
+
+#ifdef CONFIG_CIFS_SMB2
+#define CIFS_SMB2_EXTRA_SOFTDEPS " crypto-aes crypto-cmac crypto-sha256"
+#else
+#define CIFS_SMB2_EXTRA_SOFTDEPS ""
+#endif
+MODULE_SOFTDEP("pre: crypto-arc4 crypto-des crypto-ecb crypto-hmac crypto-md4 crypto-md5" CIFS_SMB2_EXTRA_SOFTDEPS);
+
 module_init(init_cifs)
 module_exit(exit_cifs)

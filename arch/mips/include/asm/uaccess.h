@@ -14,7 +14,9 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/thread_info.h>
+#ifndef __GENKSYMS__
 #include <linux/string.h>
+#endif
 #include <asm/asm-eva.h>
 
 /*

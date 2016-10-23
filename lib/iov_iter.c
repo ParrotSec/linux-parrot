@@ -301,6 +301,14 @@ done:
 	return wanted - bytes;
 }
 
+/* bwh: Retained for ABI compatibility */
+#undef iov_iter_fault_in_multipages_readable
+int iov_iter_fault_in_multipages_readable(struct iov_iter *i, size_t bytes)
+{
+	return iov_iter_fault_in_readable(i, bytes);
+}
+EXPORT_SYMBOL(iov_iter_fault_in_multipages_readable);
+
 /*
  * Fault in one or more iovecs of the given iov_iter, to a maximum length of
  * bytes.  For each iovec, fault in each page that constitutes the iovec.

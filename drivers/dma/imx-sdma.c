@@ -1408,11 +1408,8 @@ static void sdma_load_firmware(const struct firmware *fw, void *context)
 	const struct sdma_script_start_addrs *addr;
 	unsigned short *ram_code;
 
-	if (!fw) {
-		dev_info(sdma->dev, "external firmware not found, using ROM firmware\n");
-		/* In this case we just use the ROM firmware. */
+	if (!fw)
 		return;
-	}
 
 	if (fw->size < sizeof(*header))
 		goto err_firmware;

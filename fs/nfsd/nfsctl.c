@@ -1314,5 +1314,8 @@ static void __exit exit_nfsd(void)
 
 MODULE_AUTHOR("Olaf Kirch <okir@monad.swb.de>");
 MODULE_LICENSE("GPL");
+#ifdef CONFIG_NFSD_V4
+MODULE_SOFTDEP("pre: crypto-md5");
+#endif
 module_init(init_nfsd)
 module_exit(exit_nfsd)

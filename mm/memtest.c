@@ -26,6 +26,10 @@ static u64 patterns[] __initdata = {
 
 static void __init reserve_bad_mem(u64 pattern, phys_addr_t start_bad, phys_addr_t end_bad)
 {
+#ifdef CONFIG_X86
+	WARN_ONCE(1, "Bad RAM detected. Use memtest86+ to perform a thorough test\n"
+		  "and the memmap= parameter to reserve the bad areas.");
+#endif
 	pr_info("  %016llx bad mem addr %pa - %pa reserved\n",
 		cpu_to_be64(pattern), &start_bad, &end_bad);
 	memblock_reserve(start_bad, end_bad - start_bad);

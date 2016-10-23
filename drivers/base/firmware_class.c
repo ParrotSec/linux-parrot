@@ -329,20 +329,21 @@ static int fw_get_filesystem_firmware(struct device *device,
 		rc = kernel_read_file_from_path(path, &buf->data, &size,
 						INT_MAX, READING_FIRMWARE);
 		if (rc) {
-			if (rc == -ENOENT)
-				dev_dbg(device, "loading %s failed with error %d\n",
-					 path, rc);
-			else
-				dev_warn(device, "loading %s failed with error %d\n",
-					 path, rc);
+			dev_dbg(device, "loading %s failed with error %d\n",
+				path, rc);
 			continue;
 		}
-		dev_dbg(device, "direct-loading %s\n", buf->fw_id);
+		dev_info(device, "firmware: direct-loading firmware %s\n",
+			 buf->fw_id);
 		buf->size = size;
 		fw_finish_direct_load(device, buf);
 		break;
 	}
 	__putname(path);
+
+	if (rc)
+		dev_err(device, "firmware: failed to load %s (%d)\n",
+			buf->fw_id, rc);
 
 	return rc;
 }
@@ -1114,7 +1115,7 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 	if (opt_flags & FW_OPT_NOWAIT) {
 		timeout = usermodehelper_read_lock_wait(timeout);
 		if (!timeout) {
-			dev_dbg(device, "firmware: %s loading timed out\n",
+			dev_err(device, "firmware: %s loading timed out\n",
 				name);
 			ret = -EBUSY;
 			goto out;

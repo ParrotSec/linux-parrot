@@ -1759,10 +1759,8 @@ gf100_gr_ctor_fw(struct gf100_gr *gr, const char *fwname,
 	int ret;
 
 	ret = nvkm_firmware_get(device, fwname, &fw);
-	if (ret) {
-		nvkm_error(subdev, "failed to load %s\n", fwname);
+	if (ret)
 		return ret;
-	}
 
 	fuc->size = fw->size;
 	fuc->data = kmemdup(fw->data, fuc->size, GFP_KERNEL);
