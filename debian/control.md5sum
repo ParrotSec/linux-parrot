@@ -1,11 +1,11 @@
 2aa04c7053be4bc9a7f4214cd37c55f8  debian/bin/gencontrol.py
-f4874e6ba1f7879be58fcfe8d16d1c2a  debian/changelog
+b29b2ebb0b57129b854e5f7a842135ac  debian/changelog
 e492c730e8bc71cc52aa5315391e587e  debian/templates/control.main.in
 51797b6c275eb14e99009e78553904cc  debian/templates/lintian-overrides.perf.in
 38004750aa03cea41d5d3aeafff16fcc  debian/templates/image.preinst.in
 afb508873a44a1f196c2a525fec4b415  debian/templates/image.prerm.in
 63c0d01ea032d0acfa5e069d31daa938  debian/templates/control.libc-dev.in
-c0478360b227290363d6710b9cc14d22  debian/templates/control.tools.in
+c5d973ed108ad32277a32ab99e2f5a0c  debian/templates/control.tools.in
 814dda166c7e3ef02e6e259e805ac66a  debian/templates/tests-control.main.in
 a4a60fc48b3240e46bbac6a1ddcaad30  debian/templates/image.postrm.in
 0d7f6ea42f52d0a6013535a80111ee3e  debian/templates/headers.postinst.in
@@ -13,7 +13,7 @@ a4a60fc48b3240e46bbac6a1ddcaad30  debian/templates/image.postrm.in
 8909fff8d38c596de7ac7ee5ff85bce1  debian/templates/control.xen-linux-system.in
 ae49ef5fe8221e8aa846a8dd8faaed0e  debian/templates/control.image.in
 aaefe1e8777c46e773f8cc2515eb8d7c  debian/templates/control.image-dbg.in
-e9d01d2bad5bdd7fbc0d5e94f22b3ac9  debian/templates/control.source.in
+81c79275f6758cba747c202788984d9f  debian/templates/control.source.in
 6bf8fd71accd1530c46f3d6887d1ad4c  debian/templates/image-dbg.lintian-override.in
 33d9f01ea04fa16fe4030923886ff912  debian/templates/control.headers.featureset.in
 0327750d6696dee915a532aec73a0fd6  debian/templates/image.postinst.in
@@ -21,7 +21,7 @@ e9d01d2bad5bdd7fbc0d5e94f22b3ac9  debian/templates/control.source.in
 14e9cbe3ee40ba7f829fa7b4b272b17d  debian/templates/control.extra.in
 fc3e8629682e63a1858b15d7f3df0ef9  debian/templates/control.docs.in
 5f1df5cd150d7663b81f5c54a604a766  debian/templates/control.headers.arch.in
-c8f6d5db186bf2c44a209d05e23bf118  debian/config/defines
+216797a89f1279f307b50949fcceb69c  debian/config/defines
 b12112f8abe15d96f149edd471112043  debian/config/i386/defines
 6f7d102847d8168a3c71c044ea7127ac  debian/config/tilegx/defines
 6efeb6f3f8ad4ecef3fff0d012fabad0  debian/config/mips64el/defines

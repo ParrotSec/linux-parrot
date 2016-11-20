@@ -1622,8 +1622,13 @@ static struct fwentry *at76_load_firmware(struct usb_device *udev,
 
 	at76_dbg(DBG_FW, "downloading firmware %s", fwe->fwname);
 	ret = request_firmware(&fwe->fw, fwe->fwname, &udev->dev);
-	if (ret)
+	if (ret < 0) {
+		dev_err(&udev->dev, "firmware %s not found!\n",
+			fwe->fwname);
+		dev_err(&udev->dev,
+			"you may need to download the firmware from http://developer.berlios.de/projects/at76c503a/\n");
 		goto exit;
+	}
 
 	at76_dbg(DBG_FW, "got it.");
 	fwh = (struct at76_fw_header *)(fwe->fw->data);
@@ -1917,6 +1922,9 @@ static void at76_dwork_hw_scan(struct work_struct *work)
 {
 	struct at76_priv *priv = container_of(work, struct at76_priv,
 					      dwork_hw_scan.work);
+	struct cfg80211_scan_info info = {
+		.aborted = false,
+	};
 	int ret;
 
 	if (priv->device_unplugged)
@@ -1943,7 +1951,7 @@ static void at76_dwork_hw_scan(struct work_struct *work)
 
 	mutex_unlock(&priv->mtx);
 
-	ieee80211_scan_completed(priv->hw, false);
+	ieee80211_scan_completed(priv->hw, &info);
 
 	ieee80211_wake_queues(priv->hw);
 }

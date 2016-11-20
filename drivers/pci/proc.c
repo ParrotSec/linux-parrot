@@ -11,7 +11,6 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/capability.h>
-#include <linux/security.h>
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
 #include "pci.h"
@@ -117,9 +116,6 @@ static ssize_t proc_bus_pci_write(struct file *file, const char __user *buf,
 	int size = dev->cfg_size;
 	int cnt;
 
-	if (get_securelevel() > 0)
-		return -EPERM;
-
 	if (pos >= size)
 		return 0;
 	if (nbytes >= size)
@@ -199,9 +195,6 @@ static long proc_bus_pci_ioctl(struct file *file, unsigned int cmd,
 #endif /* HAVE_PCI_MMAP */
 	int ret = 0;
 
-	if (get_securelevel() > 0)
-		return -EPERM;
-
 	switch (cmd) {
 	case PCIIOC_CONTROLLER:
 		ret = pci_domain_nr(dev->bus);
@@ -238,9 +231,9 @@ static int proc_bus_pci_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct pci_dev *dev = PDE_DATA(file_inode(file));
 	struct pci_filp_private *fpriv = file->private_data;
-	int i, ret;
+	int i, ret, write_combine;
 
-	if (!capable(CAP_SYS_RAWIO) || (get_securelevel() > 0))
+	if (!capable(CAP_SYS_RAWIO))
 		return -EPERM;
 
 	/* Make sure the caller is mapping a real resource for this device */
@@ -252,9 +245,12 @@ static int proc_bus_pci_mmap(struct file *file, struct vm_area_struct *vma)
 	if (i >= PCI_ROM_RESOURCE)
 		return -ENODEV;
 
+	if (fpriv->mmap_state == pci_mmap_mem)
+		write_combine = fpriv->write_combine;
+	else
+		write_combine = 0;
 	ret = pci_mmap_page_range(dev, vma,
-				  fpriv->mmap_state,
-				  fpriv->write_combine);
+				  fpriv->mmap_state, write_combine);
 	if (ret < 0)
 		return ret;
 

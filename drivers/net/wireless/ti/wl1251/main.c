@@ -71,8 +71,10 @@ static int wl1251_fetch_firmware(struct wl1251 *wl)
 
 	ret = request_firmware(&fw, WL1251_FW_NAME, dev);
 
-	if (ret)
+	if (ret < 0) {
+		wl1251_error("could not get firmware: %d", ret);
 		return ret;
+	}
 
 	if (fw->size % 4) {
 		wl1251_error("firmware size is not multiple of 32 bits: %zu",
@@ -108,8 +110,10 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
 
 	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
 
-	if (ret)
+	if (ret < 0) {
+		wl1251_error("could not get nvs file: %d", ret);
 		return ret;
+	}
 
 	if (fw->size % 4) {
 		wl1251_error("nvs size is not multiple of 32 bits: %zu",
@@ -444,7 +448,11 @@ static void wl1251_op_stop(struct ieee80211_hw *hw)
 	WARN_ON(wl->state != WL1251_STATE_ON);
 
 	if (wl->scanning) {
-		ieee80211_scan_completed(wl->hw, true);
+		struct cfg80211_scan_info info = {
+			.aborted = true,
+		};
+
+		ieee80211_scan_completed(wl->hw, &info);
 		wl->scanning = false;
 	}
 

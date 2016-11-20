@@ -111,6 +111,7 @@ static void rtl_fw_do_work(const struct firmware *firmware, void *context,
 			if (!err)
 				goto found_alt;
 		}
+		pr_err("Firmware %s not available\n", rtlpriv->cfg->fw_name);
 		rtlpriv->max_fw_size = 0;
 		return;
 	}
@@ -525,7 +526,7 @@ static void _rtl_add_wowlan_patterns(struct ieee80211_hw *hw,
 		/* 3. calculate crc */
 		rtl_pattern.crc = _calculate_wol_pattern_crc(content, len);
 		RT_TRACE(rtlpriv, COMP_POWER, DBG_TRACE,
-			 "CRC_Remainder = 0x%x", rtl_pattern.crc);
+			 "CRC_Remainder = 0x%x\n", rtl_pattern.crc);
 
 		/* 4. write crc & mask_for_hw to hw */
 		rtlpriv->cfg->ops->add_wowlan_pattern(hw, &rtl_pattern, i);

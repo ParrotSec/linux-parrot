@@ -71,9 +71,10 @@ static __u32 ext4_inode_csum(struct inode *inode, struct ext4_inode *raw,
 			csum = ext4_chksum(sbi, csum, (__u8 *)&dummy_csum,
 					   csum_size);
 			offset += csum_size;
+			csum = ext4_chksum(sbi, csum, (__u8 *)raw + offset,
+					   EXT4_INODE_SIZE(inode->i_sb) -
+					   offset);
 		}
-		csum = ext4_chksum(sbi, csum, (__u8 *)raw + offset,
-				   EXT4_INODE_SIZE(inode->i_sb) - offset);
 	}
 
 	return csum;
@@ -391,7 +392,7 @@ int ext4_issue_zeroout(struct inode *inode, ext4_lblk_t lblk, ext4_fsblk_t pblk,
 	int ret;
 
 	if (ext4_encrypted_inode(inode))
-		return ext4_encrypted_zeroout(inode, lblk, pblk, len);
+		return fscrypt_zeroout_range(inode, lblk, pblk, len);
 
 	ret = sb_issue_zeroout(inode->i_sb, pblk, len, GFP_NOFS);
 	if (ret > 0)
@@ -646,11 +647,19 @@ found:
 		/*
 		 * We have to zeroout blocks before inserting them into extent
 		 * status tree. Otherwise someone could look them up there and
-		 * use them before they are really zeroed.
+		 * use them before they are really zeroed. We also have to
+		 * unmap metadata before zeroing as otherwise writeback can
+		 * overwrite zeros with stale data from block device.
 		 */
 		if (flags & EXT4_GET_BLOCKS_ZERO &&
 		    map->m_flags & EXT4_MAP_MAPPED &&
 		    map->m_flags & EXT4_MAP_NEW) {
+			ext4_lblk_t i;
+
+			for (i = 0; i < map->m_len; i++) {
+				unmap_underlying_metadata(inode->i_sb->s_bdev,
+							  map->m_pblk + i);
+			}
 			ret = ext4_issue_zeroout(inode, map->m_lblk,
 						 map->m_pblk, map->m_len);
 			if (ret) {
@@ -986,7 +995,7 @@ struct buffer_head *ext4_bread(handle_t *handle, struct inode *inode,
 		return bh;
 	if (!bh || buffer_uptodate(bh))
 		return bh;
-	ll_rw_block(READ | REQ_META | REQ_PRIO, 1, &bh);
+	ll_rw_block(REQ_OP_READ, REQ_META | REQ_PRIO, 1, &bh);
 	wait_on_buffer(bh);
 	if (buffer_uptodate(bh))
 		return bh;
@@ -1140,7 +1149,7 @@ static int ext4_block_write_begin(struct page *page, loff_t pos, unsigned len,
 		if (!buffer_uptodate(bh) && !buffer_delay(bh) &&
 		    !buffer_unwritten(bh) &&
 		    (block_start < from || block_end > to)) {
-			ll_rw_block(READ, 1, &bh);
+			ll_rw_block(REQ_OP_READ, 0, 1, &bh);
 			*wait_bh++ = bh;
 			decrypt = ext4_encrypted_inode(inode) &&
 				S_ISREG(inode->i_mode);
@@ -1157,7 +1166,7 @@ static int ext4_block_write_begin(struct page *page, loff_t pos, unsigned len,
 	if (unlikely(err))
 		page_zero_new_buffers(page, from, to);
 	else if (decrypt)
-		err = ext4_decrypt(page);
+		err = fscrypt_decrypt_page(page);
 	return err;
 }
 #endif
@@ -1648,6 +1657,8 @@ static void mpage_release_unused_pages(struct mpage_da_data *mpd,
 			BUG_ON(!PageLocked(page));
 			BUG_ON(PageWriteback(page));
 			if (invalidate) {
+				if (page_mapped(page))
+					clear_page_dirty_for_io(page);
 				block_invalidatepage(page, 0, PAGE_SIZE);
 				ClearPageUptodate(page);
 			}
@@ -3726,7 +3737,7 @@ static int __ext4_block_zero_page_range(handle_t *handle,
 
 	if (!buffer_uptodate(bh)) {
 		err = -EIO;
-		ll_rw_block(READ, 1, &bh);
+		ll_rw_block(REQ_OP_READ, 0, 1, &bh);
 		wait_on_buffer(bh);
 		/* Uhhuh. Read error. Complain and punt. */
 		if (!buffer_uptodate(bh))
@@ -3734,9 +3745,9 @@ static int __ext4_block_zero_page_range(handle_t *handle,
 		if (S_ISREG(inode->i_mode) &&
 		    ext4_encrypted_inode(inode)) {
 			/* We expect the key to be set. */
-			BUG_ON(!ext4_has_encryption_key(inode));
+			BUG_ON(!fscrypt_has_encryption_key(inode));
 			BUG_ON(blocksize != PAGE_SIZE);
-			WARN_ON_ONCE(ext4_decrypt(page));
+			WARN_ON_ONCE(fscrypt_decrypt_page(page));
 		}
 	}
 	if (ext4_should_journal_data(inode)) {
@@ -3889,7 +3900,7 @@ int ext4_update_disksize_before_punch(struct inode *inode, loff_t offset,
 }
 
 /*
- * ext4_punch_hole: punches a hole in a file by releaseing the blocks
+ * ext4_punch_hole: punches a hole in a file by releasing the blocks
  * associated with the given offset and length
  *
  * @inode:  File inode
@@ -3918,7 +3929,7 @@ int ext4_punch_hole(struct inode *inode, loff_t offset, loff_t length)
 	 * Write out all dirty pages to avoid race conditions
 	 * Then release them.
 	 */
-	if (mapping->nrpages && mapping_tagged(mapping, PAGECACHE_TAG_DIRTY)) {
+	if (mapping_tagged(mapping, PAGECACHE_TAG_DIRTY)) {
 		ret = filemap_write_and_wait_range(mapping, offset,
 						   offset + length - 1);
 		if (ret)
@@ -4309,7 +4320,7 @@ make_io:
 		trace_ext4_load_inode(inode);
 		get_bh(bh);
 		bh->b_end_io = end_buffer_read_sync;
-		submit_bh(READ | REQ_META | REQ_PRIO, bh);
+		submit_bh(REQ_OP_READ, REQ_META | REQ_PRIO, bh);
 		wait_on_buffer(bh);
 		if (!buffer_uptodate(bh)) {
 			EXT4_ERROR_INODE_BLOCK(inode, block,
@@ -4813,14 +4824,14 @@ static int ext4_do_update_inode(handle_t *handle,
  * Fix up interoperability with old kernels. Otherwise, old inodes get
  * re-used with the upper 16 bits of the uid/gid intact
  */
-		if (!ei->i_dtime) {
+		if (ei->i_dtime && list_empty(&ei->i_orphan)) {
+			raw_inode->i_uid_high = 0;
+			raw_inode->i_gid_high = 0;
+		} else {
 			raw_inode->i_uid_high =
 				cpu_to_le16(high_16_bits(i_uid));
 			raw_inode->i_gid_high =
 				cpu_to_le16(high_16_bits(i_gid));
-		} else {
-			raw_inode->i_uid_high = 0;
-			raw_inode->i_gid_high = 0;
 		}
 	} else {
 		raw_inode->i_uid_low = cpu_to_le16(fs_high2lowuid(i_uid));

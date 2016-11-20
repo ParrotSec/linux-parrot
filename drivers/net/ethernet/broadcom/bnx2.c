@@ -3720,13 +3720,16 @@ static int bnx2_request_uncached_firmware(struct bnx2 *bp)
 	}
 
 	rc = request_firmware(&bp->mips_firmware, mips_fw_file, &bp->pdev->dev);
-	if (rc)
+	if (rc) {
+		pr_err("Can't load firmware file \"%s\"\n", mips_fw_file);
 		goto out;
+	}
 
 	rc = request_firmware(&bp->rv2p_firmware, rv2p_fw_file, &bp->pdev->dev);
-	if (rc)
+	if (rc) {
+		pr_err("Can't load firmware file \"%s\"\n", rv2p_fw_file);
 		goto err_release_mips_firmware;
-
+	}
 	mips_fw = (const struct bnx2_mips_fw_file *) bp->mips_firmware->data;
 	rv2p_fw = (const struct bnx2_rv2p_fw_file *) bp->rv2p_firmware->data;
 	if (bp->mips_firmware->size < sizeof(*mips_fw) ||
@@ -6353,10 +6356,6 @@ bnx2_open(struct net_device *dev)
 	struct bnx2 *bp = netdev_priv(dev);
 	int rc;
 
-	rc = bnx2_request_firmware(bp);
-	if (rc < 0)
-		goto out;
-
 	netif_carrier_off(dev);
 
 	bnx2_disable_int(bp);
@@ -6425,7 +6424,6 @@ open_err:
 	bnx2_free_irq(bp);
 	bnx2_free_mem(bp);
 	bnx2_del_napi(bp);
-	bnx2_release_firmware(bp);
 	goto out;
 }
 
@@ -8572,6 +8570,12 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	pci_set_drvdata(pdev, dev);
 
+	rc = bnx2_request_firmware(bp);
+	if (rc < 0)
+		goto error;
+
+
+	bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
 	memcpy(dev->dev_addr, bp->mac_addr, ETH_ALEN);
 
 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
@@ -8604,6 +8608,7 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	return 0;
 
 error:
+	bnx2_release_firmware(bp);
 	pci_iounmap(pdev, bp->regview);
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);

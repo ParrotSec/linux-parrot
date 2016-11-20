@@ -32,8 +32,10 @@ cna_read_firmware(struct pci_dev *pdev, u32 **bfi_image,
 	const struct firmware *fw;
 	u32 n;
 
-	if (request_firmware(&fw, fw_name, &pdev->dev))
+	if (request_firmware(&fw, fw_name, &pdev->dev)) {
+		dev_alert(&pdev->dev, "can't load firmware %s\n", fw_name);
 		goto error;
+	}
 
 	*bfi_image = (u32 *)fw->data;
 	*bfi_image_size = fw->size/sizeof(u32);

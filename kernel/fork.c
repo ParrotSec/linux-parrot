@@ -88,11 +88,6 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/task.h>
-#ifdef CONFIG_USER_NS
-extern int unprivileged_userns_clone;
-#else
-#define unprivileged_userns_clone 0
-#endif
 
 /*
  * Minimum number of threads to boot the kernel
@@ -167,23 +162,15 @@ void __weak arch_release_thread_stack(unsigned long *stack)
 static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
 						  int node)
 {
-	struct page *page = alloc_kmem_pages_node(node, THREADINFO_GFP,
-						  THREAD_SIZE_ORDER);
-
-	if (page)
-		memcg_kmem_update_page_stat(page, MEMCG_KERNEL_STACK,
-					    1 << THREAD_SIZE_ORDER);
+	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
+					     THREAD_SIZE_ORDER);
 
 	return page ? page_address(page) : NULL;
 }
 
 static inline void free_thread_stack(unsigned long *stack)
 {
-	struct page *page = virt_to_page(stack);
-
-	memcg_kmem_update_page_stat(page, MEMCG_KERNEL_STACK,
-				    -(1 << THREAD_SIZE_ORDER));
-	__free_kmem_pages(page, THREAD_SIZE_ORDER);
+	__free_pages(virt_to_page(stack), THREAD_SIZE_ORDER);
 }
 # else
 static struct kmem_cache *thread_stack_cache;
@@ -228,9 +215,15 @@ static struct kmem_cache *mm_cachep;
 
 static void account_kernel_stack(unsigned long *stack, int account)
 {
-	struct zone *zone = page_zone(virt_to_page(stack));
+	/* All stack pages are in the same zone and belong to the same memcg. */
+	struct page *first_page = virt_to_page(stack);
 
-	mod_zone_page_state(zone, NR_KERNEL_STACK, account);
+	mod_zone_page_state(page_zone(first_page), NR_KERNEL_STACK_KB,
+			    THREAD_SIZE / 1024 * account);
+
+	memcg_kmem_update_page_stat(
+		first_page, MEMCG_KERNEL_STACK_KB,
+		account * (THREAD_SIZE / 1024));
 }
 
 void free_task(struct task_struct *tsk)
@@ -484,7 +477,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 			struct inode *inode = file_inode(file);
 			struct address_space *mapping = file->f_mapping;
 
-			vma_get_file(tmp);
+			get_file(file);
 			if (tmp->vm_flags & VM_DENYWRITE)
 				atomic_dec(&inode->i_writecount);
 			i_mmap_lock_write(mapping);
@@ -943,14 +936,12 @@ void mm_release(struct task_struct *tsk, struct mm_struct *mm)
 	deactivate_mm(tsk, mm);
 
 	/*
-	 * If we're exiting normally, clear a user-space tid field if
-	 * requested.  We leave this alone when dying by signal, to leave
-	 * the value intact in a core dump, and to save the unnecessary
-	 * trouble, say, a killed vfork parent shouldn't touch this mm.
-	 * Userland only wants this done for a sys_exit.
+	 * Signal userspace if we're not exiting with a core dump
+	 * because we want to leave the value intact for debugging
+	 * purposes.
 	 */
 	if (tsk->clear_child_tid) {
-		if (!(tsk->flags & PF_SIGNALED) &&
+		if (!(tsk->signal->flags & SIGNAL_GROUP_COREDUMP) &&
 		    atomic_read(&mm->mm_users) > 1) {
 			/*
 			 * We don't check the error code - if userspace has
@@ -1322,10 +1313,6 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 
 	if ((clone_flags & (CLONE_NEWUSER|CLONE_FS)) == (CLONE_NEWUSER|CLONE_FS))
 		return ERR_PTR(-EINVAL);
-
-	if ((clone_flags & CLONE_NEWUSER) && !unprivileged_userns_clone)
-		if (!capable(CAP_SYS_ADMIN))
-			return ERR_PTR(-EPERM);
 
 	/*
 	 * Thread groups must share signals as well, and detached threads
@@ -2059,12 +2046,6 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 	 */
 	if (unshare_flags & CLONE_NEWNS)
 		unshare_flags |= CLONE_FS;
-
-	if ((unshare_flags & CLONE_NEWUSER) && !unprivileged_userns_clone) {
-		err = -EPERM;
-		if (!capable(CAP_SYS_ADMIN))
-			goto bad_unshare_out;
-	}
 
 	err = check_unshare_flags(unshare_flags);
 	if (err)

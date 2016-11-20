@@ -17,7 +17,6 @@
 #include <linux/syscalls.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
-#include <linux/security.h>
 
 #include "kexec_internal.h"
 
@@ -49,7 +48,8 @@ static int kimage_alloc_init(struct kimage **rimage, unsigned long entry,
 
 	if (kexec_on_panic) {
 		/* Verify we have a valid entry point */
-		if ((entry < crashk_res.start) || (entry > crashk_res.end))
+		if ((entry < phys_to_boot_phys(crashk_res.start)) ||
+		    (entry > phys_to_boot_phys(crashk_res.end)))
 			return -EADDRNOTAVAIL;
 	}
 
@@ -191,9 +191,6 @@ SYSCALL_DEFINE4(kexec_load, unsigned long, entry, unsigned long, nr_segments,
 
 	/* We only trust the superuser with rebooting the system. */
 	if (!capable(CAP_SYS_BOOT) || kexec_load_disabled)
-		return -EPERM;
-
-	if (get_securelevel() > 0)
 		return -EPERM;
 
 	/*

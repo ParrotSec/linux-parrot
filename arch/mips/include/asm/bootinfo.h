@@ -71,7 +71,6 @@ enum loongson_machine_type {
 	MACH_LEMOTE_NAS,
 	MACH_LEMOTE_LL2F,
 	MACH_LOONGSON_GENERIC,
-	MACH_LOONGSON_3A780E1W,
 	MACH_LOONGSON_END
 };
 
@@ -127,6 +126,10 @@ extern char arcs_cmdline[COMMAND_LINE_SIZE];
  * Registers a0, a1, a3 and a4 as passed to the kernel entry by firmware
  */
 extern unsigned long fw_arg0, fw_arg1, fw_arg2, fw_arg3;
+
+#ifdef CONFIG_USE_OF
+extern unsigned long fw_passed_dtb;
+#endif
 
 /*
  * Platform memory detection hook called by setup_arch

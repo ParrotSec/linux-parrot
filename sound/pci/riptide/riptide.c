@@ -1231,8 +1231,11 @@ static int try_to_load_firmware(struct cmdif *cif, struct snd_riptide *chip)
 	if (!chip->fw_entry) {
 		err = request_firmware(&chip->fw_entry, "riptide.hex",
 				       &chip->pci->dev);
-		if (err)
+		if (err) {
+			snd_printk(KERN_ERR
+				   "Riptide: Firmware not available %d\n", err);
 			return -EIO;
+		}
 	}
 	err = loadfirmware(cif, chip->fw_entry->data, chip->fw_entry->size);
 	if (err) {
@@ -1493,7 +1496,7 @@ static int snd_riptide_prepare(struct snd_pcm_substream *substream)
 		f = PAGE_SIZE;
 		while ((size + (f >> 1) - 1) <= (f << 7) && (f << 1) > period)
 			f = f >> 1;
-		pages = (size + f - 1) / f;
+		pages = DIV_ROUND_UP(size, f);
 		data->size = size;
 		data->pages = pages;
 		snd_printdd

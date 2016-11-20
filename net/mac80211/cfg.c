@@ -543,8 +543,7 @@ static int ieee80211_set_monitor_channel(struct wiphy *wiphy,
 			ret = ieee80211_vif_use_channel(sdata, chandef,
 					IEEE80211_CHANCTX_EXCLUSIVE);
 		}
-       // Patch: Always allow channel change, even if a normal virtual interface is present
-       } else /*if (local->open_count == local->monitors)*/ {
+	} else if (local->open_count == local->monitors) {
 		local->_oper_chandef = *chandef;
 		ieee80211_hw_config(local, 0);
 	}
@@ -998,6 +997,7 @@ static void sta_apply_mesh_params(struct ieee80211_local *local,
 			if (sta->mesh->plink_state != NL80211_PLINK_ESTAB)
 				changed = mesh_plink_inc_estab_count(sdata);
 			sta->mesh->plink_state = params->plink_state;
+			sta->mesh->aid = params->peer_aid;
 
 			ieee80211_mps_sta_status_update(sta);
 			changed |= ieee80211_mps_set_sta_local_pm(sta,

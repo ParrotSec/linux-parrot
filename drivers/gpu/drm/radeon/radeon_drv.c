@@ -34,18 +34,14 @@
 #include "radeon_drv.h"
 
 #include <drm/drm_pciids.h>
-#include <linux/apple-gmux.h>
 #include <linux/console.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
-#include <linux/vgaarb.h>
 #include <linux/vga_switcheroo.h>
 #include <drm/drm_gem.h>
 
 #include "drm_crtc_helper.h"
 #include "radeon_kfd.h"
-#include <linux/namei.h>
-#include <linux/path.h>
 
 /*
  * KMS wrapper.
@@ -97,9 +93,10 @@
  *   2.43.0 - RADEON_INFO_GPU_RESET_COUNTER
  *   2.44.0 - SET_APPEND_CNT packet3 support
  *   2.45.0 - Allow setting shader registers using DMA/COPY packet3 on SI
+ *   2.46.0 - Add PFP_SYNC_ME support on evergreen
  */
 #define KMS_DRIVER_MAJOR	2
-#define KMS_DRIVER_MINOR	45
+#define KMS_DRIVER_MINOR	46
 #define KMS_DRIVER_PATCHLEVEL	0
 int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags);
 int radeon_driver_unload_kms(struct drm_device *dev);
@@ -166,9 +163,13 @@ void radeon_debugfs_cleanup(struct drm_minor *minor);
 #if defined(CONFIG_VGA_SWITCHEROO)
 void radeon_register_atpx_handler(void);
 void radeon_unregister_atpx_handler(void);
+bool radeon_has_atpx_dgpu_power_cntl(void);
+bool radeon_is_atpx_hybrid(void);
 #else
 static inline void radeon_register_atpx_handler(void) {}
 static inline void radeon_unregister_atpx_handler(void) {}
+static inline bool radeon_has_atpx_dgpu_power_cntl(void) { return false; }
+static inline bool radeon_is_atpx_hybrid(void) { return false; }
 #endif
 
 int radeon_no_wb;
@@ -308,29 +309,6 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
 
 static struct drm_driver kms_driver;
 
-/* Test that /lib/firmware/radeon is a directory (or symlink to a
- * directory).  We could try to match the udev search path, but let's
- * assume people take the easy route and install
- * firmware-linux-nonfree.
- */
-static bool radeon_firmware_installed(void)
-{
-#if IS_BUILTIN(CONFIG_DRM_RADEON)
-	/* It may be too early to tell.  Assume it's there. */
-	return true;
-#else
-	struct path path;
-
-	if (kern_path("/lib/firmware/radeon", LOOKUP_DIRECTORY | LOOKUP_FOLLOW,
-		      &path) == 0) {
-		path_put(&path);
-		return true;
-	}
-
-	return false;
-#endif
-}
-
 static int radeon_kick_out_firmware_fb(struct pci_dev *pdev)
 {
 	struct apertures_struct *ap;
@@ -365,20 +343,8 @@ static int radeon_pci_probe(struct pci_dev *pdev,
 	if (ret == -EPROBE_DEFER)
 		return ret;
 
-	/*
-	 * apple-gmux is needed on dual GPU MacBook Pro
-	 * to probe the panel if we're the inactive GPU.
-	 */
-	if (IS_ENABLED(CONFIG_VGA_ARB) && IS_ENABLED(CONFIG_VGA_SWITCHEROO) &&
-	    apple_gmux_present() && pdev != vga_default_device() &&
-	    !vga_switcheroo_handler_flags())
+	if (vga_switcheroo_client_probe_defer(pdev))
 		return -EPROBE_DEFER;
-
-	if ((ent->driver_data & RADEON_FAMILY_MASK) >= CHIP_R600 &&
-	    !radeon_firmware_installed()) {
-		DRM_ERROR("radeon kernel modesetting for R600 or later requires firmware-linux-nonfree.\n");
-		return -ENODEV;
-	}
 
 	/* Get rid of things like offb */
 	ret = radeon_kick_out_firmware_fb(pdev);
@@ -443,7 +409,10 @@ static int radeon_pmops_runtime_suspend(struct device *dev)
 	pci_save_state(pdev);
 	pci_disable_device(pdev);
 	pci_ignore_hotplug(pdev);
-	pci_set_power_state(pdev, PCI_D3cold);
+	if (radeon_is_atpx_hybrid())
+		pci_set_power_state(pdev, PCI_D3cold);
+	else if (!radeon_has_atpx_dgpu_power_cntl())
+		pci_set_power_state(pdev, PCI_D3hot);
 	drm_dev->switch_power_state = DRM_SWITCH_POWER_DYNAMIC_OFF;
 
 	return 0;
@@ -460,7 +429,9 @@ static int radeon_pmops_runtime_resume(struct device *dev)
 
 	drm_dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
 
-	pci_set_power_state(pdev, PCI_D0);
+	if (radeon_is_atpx_hybrid() ||
+	    !radeon_has_atpx_dgpu_power_cntl())
+		pci_set_power_state(pdev, PCI_D0);
 	pci_restore_state(pdev);
 	ret = pci_enable_device(pdev);
 	if (ret)

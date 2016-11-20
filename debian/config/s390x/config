@@ -17,7 +17,6 @@ CONFIG_PACK_STACK=y
 CONFIG_QDIO=y
 CONFIG_PCI=y
 CONFIG_PCI_NR_FUNCTIONS=64
-CONFIG_PCI_NR_MSI=256
 CONFIG_CHSC_SCH=m
 CONFIG_SCM_BUS=y
 CONFIG_EADM_SCH=m
@@ -170,11 +169,6 @@ CONFIG_DIAG288_WATCHDOG=m
 ## file: init/Kconfig
 ##
 # CONFIG_PCI_QUIRKS is not set
-
-##
-## file: lib/Kconfig.debug
-##
-CONFIG_STRICT_DEVMEM=y
 
 ##
 ## file: mm/Kconfig

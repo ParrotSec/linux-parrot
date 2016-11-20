@@ -662,7 +662,7 @@ static void s2255_fillbuff(struct s2255_vc *vc,
 
 static int queue_setup(struct vb2_queue *vq,
 		       unsigned int *nbuffers, unsigned int *nplanes,
-		       unsigned int sizes[], void *alloc_ctxs[])
+		       unsigned int sizes[], struct device *alloc_devs[])
 {
 	struct s2255_vc *vc = vb2_get_drv_priv(vq);
 	if (*nbuffers < S2255_MIN_BUFS)
@@ -2302,8 +2302,10 @@ static int s2255_probe(struct usb_interface *interface,
 	}
 	/* load the first chunk */
 	if (request_firmware(&dev->fw_data->fw,
-			     FIRMWARE_FILE_NAME, &dev->udev->dev))
+			     FIRMWARE_FILE_NAME, &dev->udev->dev)) {
+		dev_err(&interface->dev, "sensoray 2255 failed to get firmware\n");
 		goto errorREQFW;
+	}
 	/* check the firmware is valid */
 	fw_size = dev->fw_data->fw->size;
 	pdata = (__le32 *) &dev->fw_data->fw->data[fw_size - 8];

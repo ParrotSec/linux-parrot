@@ -1,3 +1,300 @@
+linux (4.8.5-2parrot0) testing; urgency=medium
+
+  * Import new upstream release
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sun, 20 Nov 2016 21:28:39 +0100
+
+linux (4.8.5-1) unstable; urgency=medium
+
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.8.5
+    - [x86] boot/smp: Don't try to poke disabled/non-existent APIC
+      (Closes: #841850)
+    - [x86] Input: i8042 - skip selftest on ASUS laptops
+    - [x86] Input: elantech - add Fujitsu Lifebook E556 to force crc_enabled
+      (Closes: #835160)
+
+  [ Ben Hutchings ]
+  * cpufreq: Re-enable CPU_FREQ_STAT, which can no longer be modular
+  * [armhf] dts: imx53: add support for USB armory board (Closes: #840137)
+  * kconfig: Renumber SYMBOL_NEW, fixing regression of allnoconfig
+    (Closes: #841357)
+  * netfilter: xt_NFLOG: fix unexpected truncated packet (Closes: #841261)
+  * Set ABI to 1
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Fri, 28 Oct 2016 20:34:09 +0100
+
+linux (4.8.4-1~exp1) experimental; urgency=medium
+
+  * New upstream release: https://kernelnewbies.org/Linux_4.8
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.8.1
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.8.2
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.8.3
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.8.4
+
+  [ Ben Hutchings ]
+  * [amd64] Enable LEGACY_VSYSCALL_NONE instead of LEGACY_VSYSCALL_EMULATE.
+    This breaks (e)glibc 2.13 and earlier, and can be reverted using the kernel
+    parameter: vsyscall=emulate
+  * [arm*] Enable STRICT_DEVMEM
+  * [arm*,powerpc*,s390x,x86] Enable IO_STRICT_DEVMEM.  This breaks dosemu and
+    some old graphics drivers, and can be reverted using the kernel parameter:
+    iomem=relaxed
+  * [mips*] Enable RANDOMIZE_BASE and RELOCATABLE.
+  * Enable SLAB_FREELIST_RANDOM
+  * [arm*,powerpc*,s390x,sparc64,x86] Enable HARDENED_USERCOPY
+  * security,perf: Replace GRKERNSEC_PERF_HARDEN patch with the version
+    submitted upstream
+  * [amd64] Enable RANDOMIZE_MEMORY
+  * [powerpc*/*64*] Enable OPAL_PRD, MTD, MTD_POWERNV_FLASH as modules
+    (Closes: #838604, #838605)
+  * security,printk: Enable SECURITY_DMESG_RESTRICT, preventing non-root users
+    reading the kernel log by default (sysctl: kernel.dmesg_restrict)
+  * bug script: Optionally use sudo to read a restricted kernel log, and fall
+    back to writing a placeholder
+  * [rt] Update to 4.8.2-rt2 and re-enable
+  * aufs: Update support patchest to aufs4.8-20161010 (no functional change)
+
+  [ Aurelien Jarno ]
+  * [arm64] Enable SERIAL_8250_EXTENDED, SERIAL_8250_SHARE_IRQ and
+    SERIAL_8250_BCM2835AUX, needed for Raspberry Pi 3.
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 23 Oct 2016 17:21:13 +0100
+
+linux (4.8~rc8-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Héctor Orón ]
+  * [arm64] Enable ACPI, ARM64_VA_BITS_48 (Closes: #834505)
+
+  [ Ben Hutchings ]
+  * Fix some new reproducibility issues:
+    - linux-source: Exclude Python bytecode generated when running Sphinx
+    - Set -fdebug-prefix-map=... in compiler options for kernel and userland
+    - linux-headers: Stop including unused arch/*/kernel/asm-offsets.s files
+  * linux-doc: Exclude Sphinx support code and Makefiles
+  * [arm64] mm: Limit TASK_SIZE_64 for compatibility
+  * [armhf] udeb: Replace dwmac-socfpga with dwmac-altr-socfpga in
+    nic-modules (Closes: #837110, thanks to Vagrant Cascadian)
+  * [armhf] Enable drivers for ASUS Chromebook C201 (veyron-speedy):
+    MFD_RK808, POWER_AVS, POWER_RESET_GPIO_RESTART, RTC_DRV_RK808,
+    ROCKCHIP_PM_DOMAINS as built-in; DRM_PANEL_SIMPLE, ROCKCHIP_ANALOGIX_DP,
+    ROCKCHIP_DW_MIPI_DSI, I2C_CROS_EC_TUNNEL, KEYBOARD_CROS_EC, OUSE_ELAN_I2C,
+    MFD_CROS_EC, MFD_CROS_EC_SPI, MFD_RK808, PHY_ROCKCHIP_EMMC, PHY_ROCKCHIP_DP,
+    BATTERY_SBS, CHARGER_GPIO, REGULATOR_RK808, BACKLIGHT_PWM as modules
+    (Closes: #836251, thanks to Vagrant Cascadian)
+  * [armhf] dsa: Enable drivers for Lamobo R1 (aka BPi-R1): B53,
+    B53_MDIO_DRIVER as modules (Closes: #836231, thanks to Vagrant Cascadian)
+  * [armhf] media: Enable VIDEO_V4L2_SUBDEV_API and VIDEO_OMAP3 as module
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Mon, 26 Sep 2016 04:27:06 +0100
+
+linux (4.8~rc5-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Martin Michlmayr ]
+  * [arm64] Enable more Tegra options: TEGRA_ACONNECT.
+  * [arm64] Enable more QCOM options: MSM_GCC_8996, MSM_MMCC_8996, QCOM_HIDMA,
+    QCOM_HIDMA_MGMT, PCIE_QCOM, PINCTRL_MSM8996, QCOM_Q6V5_PIL.
+  * [arm64] Enable support for BCM2837 (Raspberry Pi 3):
+    - Enable ARCH_BCM2835, DMA_BCM2835, BCM2835_MBOX, RASPBERRYPI_FIRMWARE,
+      RASPBERRYPI_POWER
+    - Enable DRM_VC4, I2C_BCM2835, PWM_BCM2835, SPI_BCM2835, SPI_BCM2835AUX,
+      BCM2835_WDT, SND_BCM2835_SOC_I2S, MMC_SDHCI_IPROC, HW_RANDOM_BCM2835
+      as modules
+  * [arm64] Enable USB_DWC2 and USB_DWC3.
+  * [arm64] Enable more HISI options: MFD_HI655X_PMIC, REGULATOR_HI655X,
+    STUB_CLK_HI6220, HI6220_MBOX, COMMON_RESET_HI6220, PHY_HI6220_USB,
+    HW_RANDOM_HISI, DRM_HISI_KIRIN, INPUT_HISI_POWERKEY, PCI_HISI,
+    SPI_HISI_SFC, SCSI_HISI_SAS (Closes: #821027).
+  * [arm64] Enable TI WLAN (WLAN_VENDOR_TI): WL1251, WL12XX, WL18XX
+  * [arm64] Enable Hisilicon Ethernet devices: HIX5HD2_GMAC, HISI_FEMAC,
+    HIP04_ETH, HNS_MDIO, HNS, HNS_DSAF, HNS_ENET, MDIO_HISI_FEMAC
+
+  [ Ben Hutchings ]
+  * Update config for 4.8:
+    - Enable HID_LED as module instead of USB_LED
+    - Enable BH1780 as module instead of SENSORS_BH1780
+    - [alpha] Enable RTC_CLASS and RTC_DRV_ALPHA instead of GEN_RTC
+    - [armhf] Rename omapdrm display config symbols
+    - [armhf] Enable IIO_ST_ACCEL_3AXIS as module instead of LIS3L02DQ
+    - [hppa] Enable RTC_CLASS and RTC_DRV_GENERIC instead of GEN_RTC
+  * liblockdep: Stop trying to build packages, as it failed to build again
+  * linux-doc: Build and install HTML pages from reStructuredText sources
+    - Add python-sphinx and python-sphinx-rtd-theme to Build-Depends-Indep
+    - Install files from both HTML output directories into the package
+    - Exclude RST sources from the package
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Wed, 07 Sep 2016 21:52:47 +0100
+
+linux (4.7.8-1) unstable; urgency=high
+
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.7.7
+    - cpuset: handle race between CPU hotplug and cpuset_hotplug_work
+    - cgroup: fix invalid controller enable rejections with cgroup namespace
+    - scripts/recordmcount.c: account for .softirqentry.text
+    - mm,ksm: fix endless looping in allocating memory when ksm enable
+    - can: dev: fix deadlock reported after bus-off
+    - [x86] init: Fix cr4_init_shadow() on CR4-less machines
+    - drm/udl: fix line iterator in damage handling
+    - drm/nouveau/fifo/nv04: avoid ramht race against cookie insertion
+    - drm/radeon/si/dpm: add workaround for for Jet parts
+    - [armel,armhf] 8616/1: dt: Respect property size when parsing CPUs
+    - [armel,armhf] 8617/1: dma: fix dma_max_pfn()
+    - mwifiex: illegal assignment
+    - i40e: avoid null pointer dereference
+    - pinctrl: Flag strict is a field in struct pinmux_ops
+    - i2c: mux: demux-pinctrl: run properly with multiple instances
+    - rcuperf: Don't treat gp_exp mis-setting as a WARN
+    - [armhf,arm64] drivers/perf: arm_pmu: Fix leak in error path
+    - perf/core: Use this_cpu_ptr() when stopping AUX events
+    - [armhf,arm64] mmc: tegra: Only advertise UHS modes if IO regulator is
+      present
+    - nvmem: Declare nvmem_cell_read() consistently
+    - hwmon: (adt7411) set bit 3 in CFG1 register
+    - sched/cputime: Fix prev steal time accouting during CPU hotplug
+    - iwlwifi: mvm: checksum IPv6 fragmented packet
+    - iwlwifi: mvm: fix txq aggregation bug
+    - iwlwifi: mvm: write the correct internal TXF index
+    - iwlwifi: mvm: unmap the paging memory before freeing it
+    - iwlwifi: pcie: fix access to scratch buffer
+    - iwlwifi: mvm: free RX reorder buffer on restart
+    - iwlwifi: mvm: avoid harmless -Wmaybe-uninialized warning
+    - iwlwifi: mvm: don't use ret when not initialised
+    - [armhf] usb: gadget: fsl_qe_udc: signedness bug in qe_get_frame()
+    - mac80211: check skb_linearize() return value
+    - i40iw: Protect req_resource_num update
+    - i40iw: Add missing check for interface already open
+    - i40iw: Change mem_resources pointer to a u8
+    - i40iw: Fix double free of allocated_buffer
+    - i40iw: Do not set self-referencing pointer to NULL after kfree
+    - i40iw: Avoid writing to freed memory
+    - i40iw: Add missing NULL check for MPA private data
+    - i40iw: Send last streaming mode message for loopback connections
+    - i40iw: Update hw_iwarp_state
+    - i40iw: Receive notification events correctly
+    - batman-adv: Add missing refcnt for last_candidate
+    - batman-adv: fix elp packet data reservation
+    - [armhf,arm64] irqchip/gicv3: Silence noisy DEBUG_PER_CPU_MAPS warning
+    - [armhf] 8618/1: decompressor: reset ttbcr fields to use TTBR0 on ARMv7
+    - [arm64] debug: avoid resetting stepping state machine when TIF_SINGLESTEP
+    - [mips*] uprobes: remove incorrect set_orig_insn
+    - [mips*] fix uretprobe implementation
+    - [mips*/*-malta] Fix IOCU disable switch read for MIPS64
+    - [mips*] uprobes: fix use of uninitialised variable
+    - printk: fix parsing of "brl=" option
+    - Bluetooth: split sk_filter in l2cap_sock_recv_cb
+    - tpm: fix byte-order for the value read by tpm2_get_tpm_pt
+    - regulator: pwm: Fix regulator ramp delay for continuous mode
+    - [arm64] regulator: qcom_spmi: Add support for S4 supply on pm8941
+    - [arm64] regulator: qcom_spmi: Add support for get_mode/set_mode on
+      switches
+    - [arm64] regulator: qcom_spmi: Update mvs1/mvs2 switches on pm8941
+    - [arm64] regulator: qcom_smd: Fix voltage ranges for pm8x41
+    - [arm64] regulator: qcom_smd: Fix voltage ranges for pma8084 ftsmps and
+      pldo
+    - [armhf] dts: imx6sx-sabreauto: Fix misspelled property
+    - [armhf] sun5i: Fix typo in trip point temperature
+    - pcmcia: ds: fix suspend/resume
+    - [armhf] hwrng: omap - Fix assumption that runtime_get_sync will always
+      succeed
+    - blk-mq: actually hook up defer list when running requests
+    - pstore: drop file opened reference count
+    - fm10k: fix incorrect index calculation in fm10k_write_reta
+    - iwlmvm: mvm: set correct state in smart-fifo configuration
+    - [armhf,arm64] em28xx-i2c: rt_mutex_trylock() returns zero on failure
+    - gspca: avoid unused variable warnings
+    - ath9k: Fix programming of minCCA power threshold
+    - qla2xxx: Fix BBCR offset
+    - fnic: pci_dma_mapping_error() doesn't return an error code
+    - tracing: Have HIST_TRIGGERS select TRACING
+    - NFS/pnfs: Do not clobber existing pgio_done_cb in nfs4_proc_read_setup
+    - svc: Avoid garbage replies when pc_func() returns rpc_drop_reply
+    - NFS: Don't drop CB requests with invalid principals
+    - pNFS/files: Fix layoutcommit after a commit to DS
+    - pNFS/flexfiles: Fix layoutcommit after a commit to DS
+    - watchdog: core: Clear WDOG_HW_RUNNING before calling the stop function
+    - xprtrdma: Remove FMRs from the unmap list after unmapping
+    - [x86] ASoC: Intel: Skylake: Fix error return code in skl_probe()
+    - brcmfmac: Fix glob_skb leak in brcmf_sdiod_recv_chain
+    - brcmsmac: Free packet if dma_mapping_error() fails in dma_rxfill
+    - brcmsmac: Initialize power in brcms_c_stf_ss_algo_channel_get()
+    - [powerpc*] prom: Fix sub-processor option passed to ibm,
+      client-architecture-support
+    - sysctl: handle error writing UINT_MAX to u32 fields
+    - IB/core: Fix possible memory leak in cma_resolve_iboe_route()
+    - kernel/fork: fix CLONE_CHILD_CLEARTID regression in nscd
+    - SUNRPC: Silence WARN_ON when NFSv4.1 over RDMA is in use
+    - pNFS/flexfiles: Fix layoutstat periodic reporting
+    - lib/test_hash.c: fix warning in preprocessor symbol evaluation
+    - [x86] KVM: nVMX: postpone VMCS changes on MSR_IA32_APICBASE write
+    - ceph: do not modify fi->frag in need_reset_readdir()
+    - IB/ipoib: Fix memory corruption in ipoib cm mode connect flow
+    - ath10k: fix get rx_status from htt context
+    - IB/core: Fix use after free in send_leave function
+    - regmap: rbtree: Avoid overlapping nodes
+    - scsi: ses: use scsi_is_sas_rphy instead of is_sas_attached
+    - IB/ipoib: Don't allow MC joins during light MC flush
+    - IB/mlx4: Fix incorrect MC join state bit-masking on SR-IOV
+    - IB/mlx4: Fix code indentation in QP1 MAD flow
+    - IB/mlx4: Use correct subnet-prefix in QP1 mads under SR-IOV
+    - IB/mlx5: Enable MAD_IFC commands for IB ports only
+    - IB/mlx5: Set source mac address in FTE
+    - batman-adv: remove unused callback from batadv_algo_ops struct
+    - aio: mark AIO pseudo-fs noexec
+    - dm log writes: fix bug with too large bios
+    - usb: misc: legousbtower: Fix NULL pointer deference
+    - [x86] usb: usbip: vudc: fix left shift overflow
+    - Revert "usbtmc: convert to devm_kzalloc"
+    - [x86] ALSA: hda - Adding one more ALC255 pin definition for headset
+      problem
+    - [x86] ALSA: hda - Fix headset mic detection problem for several Dell
+      laptops
+    - [x86] ALSA: hda - Add the top speaker pin config for HP Spectre x360
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.7.8
+    - [powerpc*] pseries: use pci_host_bridge.release_fn() to kfree(phb)
+    - [powerpc*] cxl: use pcibios_free_controller_deferred() when removing
+      vPHBs
+    - timekeeping: Fix __ktime_get_fast_ns() regression
+    - ALSA: ali5451: Fix out-of-bound position reporting
+    - ALSA: usb-audio: Extend DragonFly dB scale quirk to cover other variants
+    - mfd: rtsx_usb: Avoid setting ucr->current_sg.status
+    - [x86] xen: Update topology map for PV VCPUs
+    - [powerpc*] KVM: PPC: Book3s PR: Allow access to unprivileged MMCR2
+      register
+    - [arm64] KVM: arm64: Require in-kernel irqchip for PMU support
+    - [arm64] KVM: arm/arm64: vgic: Don't flush/sync without a working vgic
+    - [powerpc*] KVM: PPC: BookE: Fix a sanity check
+    - [arm64] fix dump_backtrace/unwind_frame with NULL tsk
+    - [x86] boot: Fix kdump, cleanup aborted E820_PRAM max_pfn manipulation
+    - [x86] irq: Prevent force migration of irqs which are not in the vector
+      domain
+    - [x86] apic: Get rid of apic_version[] array
+    - [x86] arch/x86: Handle non enumerated CPU after physical hotplug
+    - [x86] dumpstack: Fix x86_32 kernel_stack_pointer() previous stack access
+    - [armhf] dts: mvebu: armada-390: add missing compatibility string and
+      bracket
+    - [arm64] dts: MSM8064 remove flags from SPMI/MPP IRQs
+    - [arm64] cpuidle: Fix error return code
+    - [x86] tpm: fix a race condition in tpm2_unseal_trusted()
+    - [x86] tpm_crb: fix crb_req_canceled behavior
+
+  [ Ben Hutchings ]
+  * net: add recursion limit to GRO (CVE-2016-7039)
+  * posix_acl: Clear SGID bit when setting file permissions (CVE-2016-7097)
+  * scsi: arcmsr: Buffer overflow in arcmsr_iop_message_xfer() (CVE-2016-7425)
+
+  [ Salvatore Bonaccorso ]
+  * KEYS: Fix short sprintf buffer in /proc/keys show function (CVE-2016-7042)
+  * mm: remove gup_flags FOLL_WRITE games from __get_user_pages()
+    (CVE-2016-5195)
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Wed, 19 Oct 2016 17:56:57 +0200
+
 linux (4.7.6-1parrot0) testing; urgency=medium
 
   * Import new upstream release from Kali

@@ -21,7 +21,6 @@
 #include <linux/of_fdt.h>
 #include <linux/platform_device.h>
 #include <linux/screen_info.h>
-#include <linux/security.h>
 
 #include <asm/efi.h>
 
@@ -243,12 +242,6 @@ void __init efi_init(void)
 	WARN(efi.memmap.desc_version != 1,
 	     "Unexpected EFI_MEMORY_DESCRIPTOR version %ld",
 	      efi.memmap.desc_version);
-
-#ifdef CONFIG_EFI_SECURE_BOOT_SECURELEVEL
-	if (params.secure_boot > 0) {
-		set_securelevel(1);
-	}
-#endif
 
 	if (uefi_init() < 0)
 		return;

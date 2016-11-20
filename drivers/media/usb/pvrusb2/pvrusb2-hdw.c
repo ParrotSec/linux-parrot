@@ -1382,6 +1382,29 @@ static int pvr2_locate_firmware(struct pvr2_hdw *hdw,
 			   "request_firmware fatal error with code=%d",ret);
 		return ret;
 	}
+	pvr2_trace(PVR2_TRACE_ERROR_LEGS,
+		   "***WARNING***"
+		   " Device %s firmware"
+		   " seems to be missing.",
+		   fwtypename);
+	pvr2_trace(PVR2_TRACE_ERROR_LEGS,
+		   "Did you install the pvrusb2 firmware files"
+		   " in their proper location?");
+	if (fwcount == 1) {
+		pvr2_trace(PVR2_TRACE_ERROR_LEGS,
+			   "request_firmware unable to locate %s file %s",
+			   fwtypename,fwnames[0]);
+	} else {
+		pvr2_trace(PVR2_TRACE_ERROR_LEGS,
+			   "request_firmware unable to locate"
+			   " one of the following %s files:",
+			   fwtypename);
+		for (idx = 0; idx < fwcount; idx++) {
+			pvr2_trace(PVR2_TRACE_ERROR_LEGS,
+				   "request_firmware: Failed to find %s",
+				   fwnames[idx]);
+		}
+	}
 	return ret;
 }
 
@@ -2833,11 +2856,15 @@ static void pvr2_subdev_set_control(struct pvr2_hdw *hdw, int id,
 				    const char *name, int val)
 {
 	struct v4l2_control ctrl;
+	struct v4l2_subdev *sd;
+
 	pvr2_trace(PVR2_TRACE_CHIPS, "subdev v4l2 %s=%d", name, val);
 	memset(&ctrl, 0, sizeof(ctrl));
 	ctrl.id = id;
 	ctrl.value = val;
-	v4l2_device_call_all(&hdw->v4l2_dev, 0, core, s_ctrl, &ctrl);
+
+	v4l2_device_for_each_subdev(sd, &hdw->v4l2_dev)
+		v4l2_s_ctrl(NULL, sd->ctrl_handler, &ctrl);
 }
 
 #define PVR2_SUBDEV_SET_CONTROL(hdw, id, lab) \

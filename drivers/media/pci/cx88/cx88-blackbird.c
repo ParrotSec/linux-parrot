@@ -444,8 +444,12 @@ static int blackbird_load_firmware(struct cx8802_dev *dev)
 				  &dev->pci->dev);
 
 
-	if (retval != 0)
+	if (retval != 0) {
+		pr_err("Hotplug firmware request failed (%s).\n",
+			CX2341X_FIRM_ENC_FILENAME);
+		pr_err("Please fix your hotplug setup, the board will not work without firmware loaded!\n");
 		return -EIO;
+	}
 
 	if (firmware->size != BLACKBIRD_FIRM_IMAGE_SIZE) {
 		pr_err("Firmware size mismatch (have %zd, expected %d)\n",
@@ -635,7 +639,7 @@ static int blackbird_stop_codec(struct cx8802_dev *dev)
 
 static int queue_setup(struct vb2_queue *q,
 			   unsigned int *num_buffers, unsigned int *num_planes,
-			   unsigned int sizes[], void *alloc_ctxs[])
+			   unsigned int sizes[], struct device *alloc_devs[])
 {
 	struct cx8802_dev *dev = q->drv_priv;
 
@@ -643,7 +647,6 @@ static int queue_setup(struct vb2_queue *q,
 	dev->ts_packet_size  = 188 * 4;
 	dev->ts_packet_count  = 32;
 	sizes[0] = dev->ts_packet_size * dev->ts_packet_count;
-	alloc_ctxs[0] = dev->alloc_ctx;
 	return 0;
 }
 
@@ -1179,6 +1182,7 @@ static int cx8802_blackbird_probe(struct cx8802_driver *drv)
 	q->mem_ops = &vb2_dma_sg_memops;
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->lock = &core->lock;
+	q->dev = &dev->pci->dev;
 
 	err = vb2_queue_init(q);
 	if (err < 0)

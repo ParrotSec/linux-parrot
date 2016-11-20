@@ -60,7 +60,7 @@ endif
 endif
 
 # Do not include host rules unless needed
-ifneq ($(hostprogs-y)$(hostprogs-m),)
+ifneq ($(hostprogs-y)$(hostprogs-m)$(hostlibs-y)$(hostlibs-m)$(hostcxxlibs-y)$(hostcxxlibs-m),)
 include scripts/Makefile.host
 endif
 
@@ -239,11 +239,6 @@ cmd_record_mcount =						\
 	     "$(CC_FLAGS_FTRACE)" ]; then			\
 		$(sub_cmd_record_mcount)			\
 	fi;
-endif
-
-# Don't require recordmcount source for an OOT build.
-ifdef KBUILD_EXTMOD
-recordmcount_source :=
 endif
 
 ifdef CONFIG_STACK_VALIDATION

@@ -403,8 +403,11 @@ static __always_inline u64 __ktime_get_fast_ns(struct tk_fast *tkf)
 		tkr = tkf->base + (seq & 0x01);
 		now = ktime_to_ns(tkr->base);
 
-		now += clocksource_delta(tkr->read(tkr->clock),
-					 tkr->cycle_last, tkr->mask);
+		now += timekeeping_delta_to_ns(tkr,
+				clocksource_delta(
+					tkr->read(tkr->clock),
+					tkr->cycle_last,
+					tkr->mask));
 	} while (read_seqcount_retry(&tkf->seq, seq));
 
 	return now;
@@ -483,10 +486,12 @@ static inline void old_vsyscall_fixup(struct timekeeper *tk)
 	* users are removed, this can be killed.
 	*/
 	remainder = tk->tkr_mono.xtime_nsec & ((1ULL << tk->tkr_mono.shift) - 1);
-	tk->tkr_mono.xtime_nsec -= remainder;
-	tk->tkr_mono.xtime_nsec += 1ULL << tk->tkr_mono.shift;
-	tk->ntp_error += remainder << tk->ntp_error_shift;
-	tk->ntp_error -= (1ULL << tk->tkr_mono.shift) << tk->ntp_error_shift;
+	if (remainder != 0) {
+		tk->tkr_mono.xtime_nsec -= remainder;
+		tk->tkr_mono.xtime_nsec += 1ULL << tk->tkr_mono.shift;
+		tk->ntp_error += remainder << tk->ntp_error_shift;
+		tk->ntp_error -= (1ULL << tk->tkr_mono.shift) << tk->ntp_error_shift;
+	}
 }
 #else
 #define old_vsyscall_fixup(tk)
@@ -2189,6 +2194,7 @@ struct timespec64 get_monotonic_coarse64(void)
 
 	return now;
 }
+EXPORT_SYMBOL(get_monotonic_coarse64);
 
 /*
  * Must hold jiffies_lock

@@ -14,9 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/thread_info.h>
-#ifndef __GENKSYMS__
 #include <linux/string.h>
-#endif
 #include <asm/asm-eva.h>
 
 /*
@@ -91,7 +89,7 @@ extern u64 __ua_limit;
  */
 static inline bool eva_kernel_access(void)
 {
-	if (!config_enabled(CONFIG_EVA))
+	if (!IS_ENABLED(CONFIG_EVA))
 		return false;
 
 	return segment_eq(get_fs(), get_ds());

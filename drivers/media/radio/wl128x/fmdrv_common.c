@@ -1249,8 +1249,10 @@ static int fm_download_firmware(struct fmdev *fmdev, const u8 *fw_name)
 
 	ret = request_firmware(&fw_entry, fw_name,
 				&fmdev->radio_dev->dev);
-	if (ret)
+	if (ret < 0) {
+		fmerr("Unable to read firmware(%s) content\n", fw_name);
 		return ret;
+	}
 	fmdbg("Firmware(%s) length : %zu bytes\n", fw_name, fw_entry->size);
 
 	fw_data = (void *)fw_entry->data;
@@ -1470,7 +1472,7 @@ static long fm_st_receive(void *arg, struct sk_buff *skb)
  * Called by ST layer to indicate protocol registration completion
  * status.
  */
-static void fm_st_reg_comp_cb(void *arg, char data)
+static void fm_st_reg_comp_cb(void *arg, int data)
 {
 	struct fmdev *fmdev;
 

@@ -356,7 +356,7 @@ void security_inode_free(struct inode *inode)
 }
 
 int security_dentry_init_security(struct dentry *dentry, int mode,
-					struct qstr *name, void **ctx,
+					const struct qstr *name, void **ctx,
 					u32 *ctxlen)
 {
 	return call_int_hook(dentry_init_security, -EOPNOTSUPP, dentry, mode,
@@ -434,7 +434,6 @@ int security_path_rmdir(const struct path *dir, struct dentry *dentry)
 		return 0;
 	return call_int_hook(path_rmdir, 0, dir, dentry);
 }
-EXPORT_SYMBOL_GPL(security_path_rmdir);
 
 int security_path_unlink(const struct path *dir, struct dentry *dentry)
 {
@@ -451,7 +450,6 @@ int security_path_symlink(const struct path *dir, struct dentry *dentry,
 		return 0;
 	return call_int_hook(path_symlink, 0, dir, dentry, old_name);
 }
-EXPORT_SYMBOL_GPL(security_path_symlink);
 
 int security_path_link(struct dentry *old_dentry, const struct path *new_dir,
 		       struct dentry *new_dentry)
@@ -460,7 +458,6 @@ int security_path_link(struct dentry *old_dentry, const struct path *new_dir,
 		return 0;
 	return call_int_hook(path_link, 0, old_dentry, new_dir, new_dentry);
 }
-EXPORT_SYMBOL_GPL(security_path_link);
 
 int security_path_rename(const struct path *old_dir, struct dentry *old_dentry,
 			 const struct path *new_dir, struct dentry *new_dentry,
@@ -488,7 +485,6 @@ int security_path_truncate(const struct path *path)
 		return 0;
 	return call_int_hook(path_truncate, 0, path);
 }
-EXPORT_SYMBOL_GPL(security_path_truncate);
 
 int security_path_chmod(const struct path *path, umode_t mode)
 {
@@ -496,7 +492,6 @@ int security_path_chmod(const struct path *path, umode_t mode)
 		return 0;
 	return call_int_hook(path_chmod, 0, path, mode);
 }
-EXPORT_SYMBOL_GPL(security_path_chmod);
 
 int security_path_chown(const struct path *path, kuid_t uid, kgid_t gid)
 {
@@ -504,7 +499,6 @@ int security_path_chown(const struct path *path, kuid_t uid, kgid_t gid)
 		return 0;
 	return call_int_hook(path_chown, 0, path, uid, gid);
 }
-EXPORT_SYMBOL_GPL(security_path_chown);
 
 int security_path_chroot(const struct path *path)
 {
@@ -590,7 +584,6 @@ int security_inode_readlink(struct dentry *dentry)
 		return 0;
 	return call_int_hook(inode_readlink, 0, dentry);
 }
-EXPORT_SYMBOL_GPL(security_inode_readlink);
 
 int security_inode_follow_link(struct dentry *dentry, struct inode *inode,
 			       bool rcu)
@@ -606,7 +599,6 @@ int security_inode_permission(struct inode *inode, int mask)
 		return 0;
 	return call_int_hook(inode_permission, 0, inode, mask);
 }
-EXPORT_SYMBOL_GPL(security_inode_permission);
 
 int security_inode_setattr(struct dentry *dentry, struct iattr *attr)
 {
@@ -708,18 +700,39 @@ int security_inode_killpriv(struct dentry *dentry)
 
 int security_inode_getsecurity(struct inode *inode, const char *name, void **buffer, bool alloc)
 {
+	struct security_hook_list *hp;
+	int rc;
+
 	if (unlikely(IS_PRIVATE(inode)))
 		return -EOPNOTSUPP;
-	return call_int_hook(inode_getsecurity, -EOPNOTSUPP, inode, name,
-				buffer, alloc);
+	/*
+	 * Only one module will provide an attribute with a given name.
+	 */
+	list_for_each_entry(hp, &security_hook_heads.inode_getsecurity, list) {
+		rc = hp->hook.inode_getsecurity(inode, name, buffer, alloc);
+		if (rc != -EOPNOTSUPP)
+			return rc;
+	}
+	return -EOPNOTSUPP;
 }
 
 int security_inode_setsecurity(struct inode *inode, const char *name, const void *value, size_t size, int flags)
 {
+	struct security_hook_list *hp;
+	int rc;
+
 	if (unlikely(IS_PRIVATE(inode)))
 		return -EOPNOTSUPP;
-	return call_int_hook(inode_setsecurity, -EOPNOTSUPP, inode, name,
-				value, size, flags);
+	/*
+	 * Only one module will provide an attribute with a given name.
+	 */
+	list_for_each_entry(hp, &security_hook_heads.inode_setsecurity, list) {
+		rc = hp->hook.inode_setsecurity(inode, name, value, size,
+								flags);
+		if (rc != -EOPNOTSUPP)
+			return rc;
+	}
+	return -EOPNOTSUPP;
 }
 
 int security_inode_listsecurity(struct inode *inode, char *buffer, size_t buffer_size)
@@ -745,7 +758,6 @@ int security_file_permission(struct file *file, int mask)
 
 	return fsnotify_perm(file, mask);
 }
-EXPORT_SYMBOL_GPL(security_file_permission);
 
 int security_file_alloc(struct file *file)
 {
@@ -805,7 +817,6 @@ int security_mmap_file(struct file *file, unsigned long prot,
 		return ret;
 	return ima_file_mmap(file, prot);
 }
-EXPORT_SYMBOL_GPL(security_mmap_file);
 
 int security_mmap_addr(unsigned long addr)
 {

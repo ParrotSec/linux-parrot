@@ -12,7 +12,6 @@
 #include <asm/efi.h>
 #include <asm/setup.h>
 #include <asm/desc.h>
-#include <asm/bootparam_utils.h>
 
 #include "../string.h"
 #include "eboot.h"
@@ -745,71 +744,6 @@ void setup_graphics(struct boot_params *boot_params)
 	}
 }
 
-#define MEMORY_ONLY_RESET_CONTROL_GUID \
-	EFI_GUID (0xe20939be, 0x32d4, 0x41be, 0xa1, 0x50, 0x89, 0x7f, 0x85, 0xd4, 0x98, 0x29)
-
-static void enable_reset_attack_mitigation(void)
-{
-	u8 val = 1;
-	efi_guid_t var_guid = MEMORY_ONLY_RESET_CONTROL_GUID;
-
-	/* Ignore the return value here - there's not really a lot we can do */
-	efi_early->call((unsigned long)sys_table->runtime->set_variable,
-			L"MemoryOverwriteRequestControl", &var_guid,
-			EFI_VARIABLE_NON_VOLATILE |
-			EFI_VARIABLE_BOOTSERVICE_ACCESS |
-			EFI_VARIABLE_RUNTIME_ACCESS, sizeof(val), val);
-}
-
-static int get_secure_boot(void)
-{
-	u8 sb, setup, moksbstate;
-	unsigned long datasize = sizeof(sb);
-	u32 attr;
-	efi_guid_t var_guid = EFI_GLOBAL_VARIABLE_GUID;
-	efi_status_t status;
-
-	status = efi_early->call((unsigned long)sys_table->runtime->get_variable,
-				 L"SecureBoot", &var_guid, NULL, &datasize, &sb);
-
-	if (status != EFI_SUCCESS)
-		return 0;
-
-	if (sb == 0)
-		return 0;
-
-
-	status = efi_early->call((unsigned long)sys_table->runtime->get_variable,
-				L"SetupMode", &var_guid, NULL, &datasize,
-				&setup);
-
-	if (status != EFI_SUCCESS)
-		return 0;
-
-	if (setup == 1)
-		return 0;
-
-	/* See if a user has put shim into insecure_mode.  If so, and the variable
-	 * doesn't have the runtime attribute set, we might as well honor that.
-	 */
-	var_guid = EFI_SHIM_LOCK_GUID;
-	status = efi_early->call((unsigned long)sys_table->runtime->get_variable,
-				L"MokSBState", &var_guid, &attr, &datasize,
-				&moksbstate);
-
-	/* If it fails, we don't care why.  Default to secure */
-	if (status != EFI_SUCCESS)
-		return 1;
-
-	if (!(attr & EFI_VARIABLE_RUNTIME_ACCESS)) {
-		if (moksbstate == 1)
-			return 0;
-	}
-
-	return 1;
-}
-
-
 /*
  * Because the x86 boot code expects to be passed a boot_params we
  * need to create one ourselves (usually the bootloader would create
@@ -823,7 +757,6 @@ struct boot_params *make_boot_params(struct efi_config *c)
 	struct boot_params *boot_params;
 	struct apm_bios_info *bi;
 	struct setup_header *hdr;
-	struct efi_info *efi;
 	efi_loaded_image_t *image;
 	void *options, *handle;
 	efi_guid_t proto = LOADED_IMAGE_PROTOCOL_GUID;
@@ -866,7 +799,6 @@ struct boot_params *make_boot_params(struct efi_config *c)
 	memset(boot_params, 0x0, 0x4000);
 
 	hdr = &boot_params->hdr;
-	efi = &boot_params->efi_info;
 	bi = &boot_params->apm_bios_info;
 
 	/* Copy the second sector to boot_params */
@@ -1195,16 +1127,6 @@ struct boot_params *efi_main(struct efi_config *c,
 		setup_boot_services64(efi_early);
 	else
 		setup_boot_services32(efi_early);
-
-	/*
-	 * Ask the firmware to clear memory if we don't have a clean
-	 * shutdown
-	 */
-	enable_reset_attack_mitigation();
-
-	sanitize_boot_params(boot_params);
-
-	boot_params->secure_boot = get_secure_boot();
 
 	setup_graphics(boot_params);
 

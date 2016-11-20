@@ -25,7 +25,6 @@
 #include <linux/moduleparam.h>
 #include <linux/slab.h>
 #include <linux/mtd/mtd.h>
-#include <linux/security.h>
 
 struct phram_mtd_list {
 	struct mtd_info mtd;
@@ -226,9 +225,6 @@ static int phram_setup(const char *val)
 	uint64_t start;
 	uint64_t len;
 	int i, ret;
-
-	if (get_securelevel() > 0)
-		return -EPERM;
 
 	if (strnlen(val, sizeof(buf)) >= sizeof(buf))
 		parse_err("parameter too long\n");

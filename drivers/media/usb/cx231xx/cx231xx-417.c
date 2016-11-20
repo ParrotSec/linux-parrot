@@ -999,6 +999,11 @@ static int cx231xx_load_firmware(struct cx231xx *dev)
 				  dev->dev);
 
 	if (retval != 0) {
+		dev_err(dev->dev,
+			"ERROR: Hotplug firmware request failed (%s).\n",
+			CX231xx_FIRM_IMAGE_NAME);
+		dev_err(dev->dev,
+			"Please fix your hotplug setup, the board will not work without firmware loaded!\n");
 		vfree(p_current_fw);
 		vfree(p_buffer);
 		return retval;
@@ -1565,10 +1570,12 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 {
 	struct cx231xx_fh  *fh  = file->private_data;
 	struct cx231xx *dev = fh->dev;
+	struct v4l2_subdev *sd;
 
 	dprintk(3, "enter vidioc_s_ctrl()\n");
 	/* Update the A/V core */
-	call_all(dev, core, s_ctrl, ctl);
+	v4l2_device_for_each_subdev(sd, &dev->v4l2_dev)
+		v4l2_s_ctrl(NULL, sd->ctrl_handler, ctl);
 	dprintk(3, "exit vidioc_s_ctrl()\n");
 	return 0;
 }

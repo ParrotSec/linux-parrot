@@ -23,9 +23,6 @@
 #include <linux/projid.h>
 #include <linux/fs_struct.h>
 
-/* sysctl */
-int unprivileged_userns_clone;
-
 static struct kmem_cache *user_ns_cachep __read_mostly;
 static DEFINE_MUTEX(userns_state_mutex);
 
@@ -939,6 +936,20 @@ bool userns_may_setgroups(const struct user_namespace *ns)
 	mutex_unlock(&userns_state_mutex);
 
 	return allowed;
+}
+
+/*
+ * Returns true if @ns is the same namespace as or a descendant of
+ * @target_ns.
+ */
+bool current_in_userns(const struct user_namespace *target_ns)
+{
+	struct user_namespace *ns;
+	for (ns = current_user_ns(); ns; ns = ns->parent) {
+		if (ns == target_ns)
+			return true;
+	}
+	return false;
 }
 
 static inline struct user_namespace *to_user_ns(struct ns_common *ns)

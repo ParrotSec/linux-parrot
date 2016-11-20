@@ -40,7 +40,6 @@
 #include <linux/list.h>
 #include <linux/jiffies.h>
 #include <linux/semaphore.h>
-#include <linux/security.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -185,7 +184,7 @@ early_param("acpi_rsdp", setup_acpi_rsdp);
 acpi_physical_address __init acpi_os_get_root_pointer(void)
 {
 #ifdef CONFIG_KEXEC
-	if (acpi_rsdp && (get_securelevel() <= 0))
+	if (acpi_rsdp)
 		return acpi_rsdp;
 #endif
 
@@ -310,7 +309,7 @@ static void acpi_unmap(acpi_physical_address pg_off, void __iomem *vaddr)
  * During early init (when acpi_gbl_permanent_mmap has not been set yet) this
  * routine simply calls __acpi_map_table() to get the job done.
  */
-void __iomem *__init_refok
+void __iomem *__ref
 acpi_os_map_iomem(acpi_physical_address phys, acpi_size size)
 {
 	struct acpi_ioremap *map;
@@ -363,8 +362,7 @@ out:
 }
 EXPORT_SYMBOL_GPL(acpi_os_map_iomem);
 
-void *__init_refok
-acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
+void *__ref acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 {
 	return (void *)acpi_os_map_iomem(phys, size);
 }

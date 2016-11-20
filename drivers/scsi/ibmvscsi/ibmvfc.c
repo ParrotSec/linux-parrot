@@ -717,7 +717,6 @@ static int ibmvfc_reset_crq(struct ibmvfc_host *vhost)
 	spin_lock_irqsave(vhost->host->host_lock, flags);
 	vhost->state = IBMVFC_NO_CRQ;
 	vhost->logged_in = 0;
-	ibmvfc_set_host_action(vhost, IBMVFC_HOST_ACTION_NONE);
 
 	/* Clean out the queue */
 	memset(crq->msgs, 0, PAGE_SIZE);
@@ -4722,6 +4721,8 @@ static void ibmvfc_rport_add_thread(struct work_struct *work)
 					tgt_dbg(tgt, "Setting rport roles\n");
 					fc_remote_port_rolechg(rport, tgt->ids.roles);
 					put_device(&rport->dev);
+				} else {
+					spin_unlock_irqrestore(vhost->host->host_lock, flags);
 				}
 
 				kref_put(&tgt->kref, ibmvfc_release_tgt);

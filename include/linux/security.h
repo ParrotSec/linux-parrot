@@ -240,7 +240,7 @@ int security_sb_clone_mnt_opts(const struct super_block *oldsb,
 				struct super_block *newsb);
 int security_sb_parse_opts_str(char *options, struct security_mnt_opts *opts);
 int security_dentry_init_security(struct dentry *dentry, int mode,
-					struct qstr *name, void **ctx,
+					const struct qstr *name, void **ctx,
 					u32 *ctxlen);
 
 int security_inode_alloc(struct inode *inode);
@@ -591,7 +591,7 @@ static inline void security_inode_free(struct inode *inode)
 
 static inline int security_dentry_init_security(struct dentry *dentry,
 						 int mode,
-						 struct qstr *name,
+						 const struct qstr *name,
 						 void **ctx,
 						 u32 *ctxlen)
 {
@@ -1608,14 +1608,6 @@ static inline void security_audit_rule_free(void *lsmrule)
 
 #endif /* CONFIG_SECURITY */
 #endif /* CONFIG_AUDIT */
-
-#ifdef CONFIG_SECURITY_SECURELEVEL
-extern int get_securelevel(void);
-extern int set_securelevel(int new_securelevel);
-#else
-static inline int get_securelevel(void) { return 0; }
-static inline int set_securelevel(int new_securelevel) { return 0; }
-#endif /* CONFIG_SECURELEVEL */
 
 #ifdef CONFIG_SECURITYFS
 
