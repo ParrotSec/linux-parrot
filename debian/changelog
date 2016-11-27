@@ -1,3 +1,11 @@
+linux (4.8.7-1parrot0) testing; urgency=medium
+
+  * change maintainers
+  * fix watch file
+  * New upstream version 4.8.7
+
+ -- Lisetta "Sheireen" Ferrero <sheireen@frozenbox.org>  Sun, 27 Nov 2016 01:38:02 +0300
+
 linux (4.8.5-2parrot0) testing; urgency=medium
 
   * Import new upstream release
