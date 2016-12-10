@@ -71,8 +71,10 @@ int snd_vx_setup_firmware(struct vx_core *chip)
 		if (! fw_files[chip->type][i])
 			continue;
 		sprintf(path, "vx/%s", fw_files[chip->type][i]);
-		if (request_firmware(&fw, path, chip->dev))
+		if (request_firmware(&fw, path, chip->dev)) {
+			snd_printk(KERN_ERR "vx: can't load firmware %s\n", path);
 			return -ENOENT;
+		}
 		err = chip->ops->load_dsp(chip, i, fw);
 		if (err < 0) {
 			release_firmware(fw);

@@ -2888,8 +2888,11 @@ static int ace_load_firmware(struct net_device *dev)
 		fw_name = "acenic/tg1.bin";
 
 	ret = request_firmware(&fw, fw_name, &ap->pdev->dev);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "%s: Failed to load firmware \"%s\"\n",
+		       ap->name, fw_name);
 		return ret;
+	}
 
 	fw_data = (void *)fw->data;
 

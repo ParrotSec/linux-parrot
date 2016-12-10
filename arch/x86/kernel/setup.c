@@ -50,7 +50,6 @@
 #include <linux/init_ohci1394_dma.h>
 #include <linux/kvm_para.h>
 #include <linux/dma-contiguous.h>
-#include <linux/security.h>
 
 #include <linux/errno.h>
 #include <linux/kernel.h>
@@ -1152,12 +1151,6 @@ void __init setup_arch(char **cmdline_p)
 #endif
 	/* Allocate bigger log buffer */
 	setup_log_buf(1);
-
-#ifdef CONFIG_EFI_SECURE_BOOT_SECURELEVEL
-	if (boot_params.secure_boot) {
-		set_securelevel(1);
-	}
-#endif
 
 	reserve_initrd();
 

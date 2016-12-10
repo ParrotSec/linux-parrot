@@ -372,8 +372,11 @@ static unsigned char *add_mcs(unsigned char *bits, int bitrate,
 		}
 		err = request_firmware(&fw, fw_name[predef], &pdev->dev);
 		platform_device_unregister(pdev);
-		if (err)
+		if (err) {
+			printk(KERN_ERR "Failed to load firmware \"%s\"\n",
+			       fw_name[predef]);
 			return NULL;
+		}
 		if (fw->size != YAM_FPGA_SIZE) {
 			printk(KERN_ERR "Bogus length %zu in firmware \"%s\"\n",
 			       fw->size, fw_name[predef]);

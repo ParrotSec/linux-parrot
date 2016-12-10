@@ -960,7 +960,7 @@ static int shmem_setattr(struct dentry *dentry, struct iattr *attr)
 	struct shmem_sb_info *sbinfo = SHMEM_SB(inode->i_sb);
 	int error;
 
-	error = setattr_prepare(dentry, attr);
+	error = inode_change_ok(inode, attr);
 	if (error)
 		return error;
 

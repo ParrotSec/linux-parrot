@@ -299,8 +299,11 @@ static void update_edgeport_E2PROM(struct edgeport_serial *edge_serial)
 
 	response = request_ihex_firmware(&fw, fw_name,
 					 &edge_serial->serial->dev->dev);
-	if (response)
+	if (response) {
+		dev_err(dev, "Failed to load image \"%s\" err %d\n",
+		       fw_name, response);
 		return;
+	}
 
 	rec = (const struct ihex_binrec *)fw->data;
 	BootMajorVersion = rec->data[0];

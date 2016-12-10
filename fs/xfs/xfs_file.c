@@ -984,7 +984,7 @@ xfs_file_fallocate(
 
 		iattr.ia_valid = ATTR_SIZE;
 		iattr.ia_size = new_size;
-		error = xfs_vn_setattr_size(file_dentry(file), &iattr);
+		error = xfs_setattr_size(ip, &iattr);
 		if (error)
 			goto out_unlock;
 	}
