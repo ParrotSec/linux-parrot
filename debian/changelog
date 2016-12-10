@@ -2,7 +2,7 @@ linux (4.8.11-2parrot0) testing; urgency=medium
 
   * Import new upstream release
 
- -- Lorenzo "Palinuro" Faletra  Sat, 10 Dec 2016 15:47:28 +0100
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sat, 10 Dec 2016 15:47:28 +0100
 
 linux (4.8.11-1) unstable; urgency=medium
 
