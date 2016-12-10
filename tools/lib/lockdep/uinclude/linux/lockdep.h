@@ -8,7 +8,7 @@
 #include <linux/utsname.h>
 #include <linux/compiler.h>
 
-#define MAX_LOCK_DEPTH 2000UL
+#define MAX_LOCK_DEPTH 63UL
 
 #define asmlinkage
 #define __visible
@@ -29,7 +29,11 @@ extern struct task_struct *__curr(void);
 
 #define current (__curr())
 
-#define debug_locks_off() 1
+static inline int debug_locks_off(void)
+{
+	return 1;
+}
+
 #define task_pid_nr(tsk) ((tsk)->pid)
 
 #define KSYM_NAME_LEN 128
@@ -39,16 +43,6 @@ extern struct task_struct *__curr(void);
 
 #define atomic_t unsigned long
 #define atomic_inc(x) ((*(x))++)
-
-static struct new_utsname *init_utsname(void)
-{
-	static struct new_utsname n = (struct new_utsname) {
-		.release = "liblockdep",
-		.version = LIBLOCKDEP_VERSION,
-	};
-
-	return &n;
-}
 
 #define print_tainted() ""
 #define static_obj(x) 1

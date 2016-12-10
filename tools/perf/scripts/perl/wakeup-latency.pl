@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w
 # (c) 2009, Tom Zanussi <tzanussi@gmail.com>
 # Licensed under the terms of the GNU GPL License version 2
 

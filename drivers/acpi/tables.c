@@ -36,6 +36,7 @@
 #include <linux/memblock.h>
 #include <linux/initrd.h>
 #include <linux/acpi.h>
+#include <linux/security.h>
 #include "internal.h"
 
 #ifdef CONFIG_ACPI_CUSTOM_DSDT
@@ -542,6 +543,12 @@ void __init acpi_table_upgrade(void)
 	}
 	if (table_nr == 0)
 		return;
+
+	if (get_securelevel() > 0) {
+		pr_notice(PREFIX
+			"securelevel enabled, ignoring table override\n");
+		return;
+	}
 
 	acpi_tables_addr =
 		memblock_find_in_range(0, ACPI_TABLE_UPGRADE_MAX_PHYS,
