@@ -17,22 +17,19 @@
 #include <linux/ima.h>
 
 /**
- * setattr_prepare - check if attribute changes to a dentry are allowed
- * @dentry:	dentry to check
+ * inode_change_ok - check if attribute changes to an inode are allowed
+ * @inode:	inode to check
  * @attr:	attributes to change
  *
  * Check if we are allowed to change the attributes contained in @attr
- * in the given dentry.  This includes the normal unix access permission
- * checks, as well as checks for rlimits and others. The function also clears
- * SGID bit from mode if user is not allowed to set it. Also file capabilities
- * and IMA extended attributes are cleared if ATTR_KILL_PRIV is set.
+ * in the given inode.  This includes the normal unix access permission
+ * checks, as well as checks for rlimits and others.
  *
  * Should be called as the first thing in ->setattr implementations,
  * possibly after taking additional locks.
  */
-int setattr_prepare(struct dentry *dentry, struct iattr *attr)
+int inode_change_ok(const struct inode *inode, struct iattr *attr)
 {
-	struct inode *inode = d_inode(dentry);
 	unsigned int ia_valid = attr->ia_valid;
 
 	/*
@@ -47,7 +44,7 @@ int setattr_prepare(struct dentry *dentry, struct iattr *attr)
 
 	/* If force is set do it anyway. */
 	if (ia_valid & ATTR_FORCE)
-		goto kill_priv;
+		return 0;
 
 	/* Make sure a caller can chown. */
 	if ((ia_valid & ATTR_UID) &&
@@ -80,19 +77,9 @@ int setattr_prepare(struct dentry *dentry, struct iattr *attr)
 			return -EPERM;
 	}
 
-kill_priv:
-	/* User has permission for the change */
-	if (ia_valid & ATTR_KILL_PRIV) {
-		int error;
-
-		error = security_inode_killpriv(dentry);
-		if (error)
-			return error;
-	}
-
 	return 0;
 }
-EXPORT_SYMBOL(setattr_prepare);
+EXPORT_SYMBOL(inode_change_ok);
 
 /**
  * inode_newsize_ok - may this inode be truncated to a given size
@@ -245,11 +232,13 @@ int notify_change(struct dentry * dentry, struct iattr * attr, struct inode **de
 	if (!(ia_valid & ATTR_MTIME_SET))
 		attr->ia_mtime = now;
 	if (ia_valid & ATTR_KILL_PRIV) {
+		attr->ia_valid &= ~ATTR_KILL_PRIV;
+		ia_valid &= ~ATTR_KILL_PRIV;
 		error = security_inode_need_killpriv(dentry);
-		if (error < 0)
+		if (error > 0)
+			error = security_inode_killpriv(dentry);
+		if (error)
 			return error;
-		if (error == 0)
-			ia_valid = attr->ia_valid &= ~ATTR_KILL_PRIV;
 	}
 
 	/*

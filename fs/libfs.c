@@ -394,7 +394,7 @@ int simple_setattr(struct dentry *dentry, struct iattr *iattr)
 	struct inode *inode = d_inode(dentry);
 	int error;
 
-	error = setattr_prepare(dentry, iattr);
+	error = inode_change_ok(inode, iattr);
 	if (error)
 		return error;
 

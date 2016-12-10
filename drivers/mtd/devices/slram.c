@@ -42,7 +42,6 @@
 #include <linux/ioctl.h>
 #include <linux/init.h>
 #include <linux/io.h>
-#include <linux/security.h>
 
 #include <linux/mtd/mtd.h>
 
@@ -230,9 +229,6 @@ static int parse_cmdline(char *devname, char *szstart, char *szlength)
 	char *buffer;
 	unsigned long devstart;
 	unsigned long devlength;
-
-	if (get_securelevel() > 0)
-		return -EPERM;
 
 	if ((!devname) || (!szstart) || (!szlength)) {
 		unregister_devices();

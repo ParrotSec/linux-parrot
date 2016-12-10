@@ -88,17 +88,21 @@ static int emi26_load_firmware (struct usb_device *dev)
 
 	err = request_ihex_firmware(&loader_fw, "emi26/loader.fw", &dev->dev);
 	if (err)
-		goto wraperr;
+		goto nofw;
 
 	err = request_ihex_firmware(&bitstream_fw, "emi26/bitstream.fw",
 				    &dev->dev);
 	if (err)
-		goto wraperr;
+		goto nofw;
 
 	err = request_ihex_firmware(&firmware_fw, "emi26/firmware.fw",
 				    &dev->dev);
-	if (err)
+	if (err) {
+	nofw:
+		dev_err(&dev->dev, "%s - request_firmware() failed\n",
+			__func__);
 		goto wraperr;
+	}
 
 	/* Assert reset (stop the CPU in the EMI) */
 	err = emi26_set_reset(dev,1);

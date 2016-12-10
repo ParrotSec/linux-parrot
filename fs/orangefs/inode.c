@@ -219,7 +219,7 @@ int orangefs_setattr(struct dentry *dentry, struct iattr *iattr)
 		     "orangefs_setattr: called on %s\n",
 		     dentry->d_name.name);
 
-	ret = setattr_prepare(dentry, iattr);
+	ret = inode_change_ok(inode, iattr);
 	if (ret)
 		goto out;
 
