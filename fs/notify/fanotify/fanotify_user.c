@@ -859,6 +859,14 @@ SYSCALL_DEFINE5(fanotify_mark, int, fanotify_fd, unsigned int, flags,
 #endif
 		return -EINVAL;
 
+#ifdef CONFIG_FANOTIFY_ACCESS_PERMISSIONS
+	if (mask & FAN_ALL_PERM_EVENTS) {
+		pr_warn_once("%s (%d): Using fanotify permission checks may lead to deadlock; tainting kernel\n",
+			     current->comm, current->pid);
+		add_taint(TAINT_USER, LOCKDEP_STILL_OK);
+	}
+#endif
+
 	f = fdget(fanotify_fd);
 	if (unlikely(!f.file))
 		return -EBADF;

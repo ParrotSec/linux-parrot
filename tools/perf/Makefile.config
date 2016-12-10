@@ -38,7 +38,7 @@ ifeq ($(ARCH),x86)
     LIBUNWIND_LIBS = -lunwind -lunwind-x86_64
     $(call detected,CONFIG_X86_64)
   else
-    LIBUNWIND_LIBS = -lunwind-x86 -llzma -lunwind
+    LIBUNWIND_LIBS = -lunwind -lunwind-x86
   endif
   NO_PERF_REGS := 0
 endif

@@ -142,10 +142,10 @@ static int function_handler(struct trace_seq *s, struct pevent_record *record,
 
 	parent = pevent_find_function(pevent, pfunction);
 
-	if (parent && ftrace_indent->set)
+	if (parent && ftrace_indent->set) {
 		index = add_and_get_index(parent, func, record->cpu);
-
-	trace_seq_printf(s, "%*s", index*3, "");
+		trace_seq_printf(s, "%*s", index*3, "");
+	}
 
 	if (func)
 		trace_seq_printf(s, "%s", func);

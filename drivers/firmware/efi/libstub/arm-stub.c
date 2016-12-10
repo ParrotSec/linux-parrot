@@ -20,17 +20,20 @@
 
 bool __nokaslr;
 
-static int efi_get_secureboot(efi_system_table_t *sys_table_arg)
+int efi_get_secureboot(efi_system_table_t *sys_table_arg)
 {
 	static efi_char16_t const sb_var_name[] = {
 		'S', 'e', 'c', 'u', 'r', 'e', 'B', 'o', 'o', 't', 0 };
 	static efi_char16_t const sm_var_name[] = {
 		'S', 'e', 't', 'u', 'p', 'M', 'o', 'd', 'e', 0 };
+	static efi_char16_t const mk_var_name[] = {
+		'M', 'o', 'k', 'S', 'B', 'S', 't', 'a', 't', 'e', 0 };
 
 	efi_guid_t var_guid = EFI_GLOBAL_VARIABLE_GUID;
 	efi_get_variable_t *f_getvar = sys_table_arg->runtime->get_variable;
 	u8 val;
 	unsigned long size = sizeof(val);
+	u32 attr;
 	efi_status_t status;
 
 	status = f_getvar((efi_char16_t *)sb_var_name, (efi_guid_t *)&var_guid,
@@ -50,6 +53,22 @@ static int efi_get_secureboot(efi_system_table_t *sys_table_arg)
 
 	if (val == 1)
 		return 0;
+
+	/* See if a user has put shim into insecure_mode.  If so, and the variable
+	 * doesn't have the runtime attribute set, we might as well honor that.
+	 */
+	var_guid = EFI_SHIM_LOCK_GUID;
+	status = f_getvar((efi_char16_t *)mk_var_name, (efi_guid_t *)&var_guid,
+				&attr, &size, &val);
+
+	/* If it fails, we don't care why.  Default to secure */
+	if (status != EFI_SUCCESS)
+		return 1;
+
+	if (!(attr & EFI_VARIABLE_RUNTIME_ACCESS)) {
+		if (val == 1)
+			return 0;
+	}
 
 	return 1;
 

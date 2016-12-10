@@ -58,12 +58,19 @@ long long int get_time()
 
 int set_cpufreq_governor(char *governor, unsigned int cpu)
 {
+	int rc;
 
 	dprintf("set %s as cpufreq governor\n", governor);
 
-	if (cpupower_is_cpu_online(cpu) != 0) {
-		perror("cpufreq_cpu_exists");
-		fprintf(stderr, "error: cpu %u does not exist\n", cpu);
+	rc = cpupower_is_cpu_online(cpu);
+	if (rc != 1) {
+		if (rc < 0)
+			fprintf(stderr, "cpupower_is_cpu_online: %s\n",
+				strerror(-rc));
+		else
+			fprintf(stderr,
+				"error: cpu %u is offline or does not exist\n",
+				cpu);
 		return -1;
 	}
 
