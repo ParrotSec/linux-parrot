@@ -999,11 +999,6 @@ static int cx231xx_load_firmware(struct cx231xx *dev)
 				  dev->dev);
 
 	if (retval != 0) {
-		dev_err(dev->dev,
-			"ERROR: Hotplug firmware request failed (%s).\n",
-			CX231xx_FIRM_IMAGE_NAME);
-		dev_err(dev->dev,
-			"Please fix your hotplug setup, the board will not work without firmware loaded!\n");
 		vfree(p_current_fw);
 		vfree(p_buffer);
 		return retval;

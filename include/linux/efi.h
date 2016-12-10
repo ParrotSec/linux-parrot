@@ -628,6 +628,9 @@ typedef struct {
 #define EFI_1_10_SYSTEM_TABLE_REVISION  ((1 << 16) | (10))
 #define EFI_1_02_SYSTEM_TABLE_REVISION  ((1 << 16) | (02))
 
+#define EFI_SHIM_LOCK_GUID \
+    EFI_GUID(  0x605dab50, 0xe046, 0x4300, 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 )
+
 typedef struct {
 	efi_table_hdr_t hdr;
 	u64 fw_vendor;	/* physical addr of CHAR16 vendor string */
@@ -693,6 +696,7 @@ struct efi_fdt_params {
 	u32 mmap_size;
 	u32 desc_size;
 	u32 desc_ver;
+	u32 secure_boot;
 };
 
 typedef struct {

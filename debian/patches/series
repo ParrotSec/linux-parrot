@@ -18,7 +18,7 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 
-# Parrot changes
+# Wifi changes
 features/all/wifi-injection.patch
 
 # Patches from aufs4 repository, imported with
@@ -66,7 +66,6 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/kbuild-do-not-use-hyphen-in-exported-variable-name.patch
 bugfix/all/ext4-fix-bug-838544.patch
 bugfix/all/mm-memcontrol-use-special-workqueue-for-creating-per-memcg-caches.patch
-bugfix/all/netfilter-xt_nflog-fix-unexpected-truncated-packet.patch
 
 # Miscellaneous features
 
@@ -97,9 +96,14 @@ features/all/securelevel/arm64-add-kernel-config-option-to-set-securelevel-wh.pa
 # Security fixes
 bugfix/all/ptrace-being-capable-wrt-a-process-requires-mapped-uids-gids.patch
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/net-add-recursion-limit-to-gro.patch
-bugfix/all/posix_acl-clear-sgid-bit-when-setting-file-permissio.patch
-bugfix/all/KEYS-Fix-short-sprintf-buffer-in-proc-keys-show-func.patch
+bugfix/all/xfs-Propagate-dentry-down-to-inode_change_ok.patch
+bugfix/all/ceph-Propagate-dentry-down-to-inode_change_ok.patch
+bugfix/all/fuse-Propagate-dentry-down-to-inode_change_ok.patch
+bugfix/all/fs-Give-dentry-to-inode_change_ok-instead-of-inode.patch
+bugfix/all/fs-Avoid-premature-clearing-of-capabilities.patch
+bugfix/all/mpi-Fix-NULL-ptr-dereference-in-mpi_powm-ver-3.patch
+bugfix/all/vfio-pci-Fix-integer-overflows-bitmask-check.patch
+bugfix/all/mnt-Add-a-per-mount-namespace-limit-on-the-number-of.patch
 
 # ABI maintenance
 
@@ -118,6 +122,7 @@ bugfix/alpha/alpha-uapi-add-support-for-__sane_userspace_types__.patch
 bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/tools-lib-traceevent-fix-use-of-uninitialized-variables.patch
 bugfix/all/cpupower-bump-soname-version.patch
+bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/liblockdep-fix-undefined-symbol-prandom_u32.patch
 bugfix/all/liblockdep-reduce-max_lock_depth-to-avoid-overflowin.patch
 bugfix/all/liblockdep-define-the-array_size-macro.patch

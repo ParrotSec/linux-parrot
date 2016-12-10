@@ -62,4 +62,5 @@ efi_status_t efi_random_alloc(efi_system_table_t *sys_table_arg,
 
 efi_status_t check_platform_features(efi_system_table_t *sys_table_arg);
 
+int efi_get_secureboot(efi_system_table_t *sys_table_arg);
 #endif

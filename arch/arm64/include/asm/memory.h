@@ -74,7 +74,12 @@
 #define PCI_IO_END		(VMEMMAP_START - SZ_2M)
 #define PCI_IO_START		(PCI_IO_END - PCI_IO_SIZE)
 #define FIXADDR_TOP		(PCI_IO_START - SZ_2M)
+#if VA_BITS <= 47
 #define TASK_SIZE_64		(UL(1) << VA_BITS)
+#else
+/* User-space might use up to 17 tag bits in 64-bit pointers */
+#define TASK_SIZE_64		(UL(1) << 47)
+#endif
 
 #ifdef CONFIG_COMPAT
 #define TASK_SIZE_32		UL(0x100000000)

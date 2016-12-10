@@ -850,12 +850,8 @@ static int tda10071_init(struct dvb_frontend *fe)
 
 		/* request the firmware, this will block and timeout */
 		ret = request_firmware(&fw, fw_file, &client->dev);
-		if (ret) {
-			dev_err(&client->dev,
-				"did not find the firmware file. (%s) Please see linux/Documentation/dvb/ for more details on firmware-problems. (%d)\n",
-				fw_file, ret);
+		if (ret)
 			goto error;
-		}
 
 		/* init */
 		for (i = 0; i < ARRAY_SIZE(tab2); i++) {

@@ -444,12 +444,8 @@ static int blackbird_load_firmware(struct cx8802_dev *dev)
 				  &dev->pci->dev);
 
 
-	if (retval != 0) {
-		pr_err("Hotplug firmware request failed (%s).\n",
-			CX2341X_FIRM_ENC_FILENAME);
-		pr_err("Please fix your hotplug setup, the board will not work without firmware loaded!\n");
+	if (retval != 0)
 		return -EIO;
-	}
 
 	if (firmware->size != BLACKBIRD_FIRM_IMAGE_SIZE) {
 		pr_err("Firmware size mismatch (have %zd, expected %d)\n",
