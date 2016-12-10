@@ -602,14 +602,17 @@ int acpi_dev_gpio_irq_get(struct acpi_device *adev, int index)
 {
 	int idx, i;
 	unsigned int irq_flags;
+	int ret = -ENOENT;
 
 	for (i = 0, idx = 0; idx <= index; i++) {
 		struct acpi_gpio_info info;
 		struct gpio_desc *desc;
 
 		desc = acpi_get_gpiod_by_index(adev, NULL, i, &info);
-		if (IS_ERR(desc))
+		if (IS_ERR(desc)) {
+			ret = PTR_ERR(desc);
 			break;
+		}
 		if (info.gpioint && idx++ == index) {
 			int irq = gpiod_to_irq(desc);
 
@@ -628,7 +631,7 @@ int acpi_dev_gpio_irq_get(struct acpi_device *adev, int index)
 		}
 
 	}
-	return -ENOENT;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(acpi_dev_gpio_irq_get);
 
@@ -836,6 +839,7 @@ void acpi_gpiochip_add(struct gpio_chip *chip)
 	}
 
 	acpi_gpiochip_request_regions(acpi_gpio);
+	acpi_walk_dep_device_list(handle);
 }
 
 void acpi_gpiochip_remove(struct gpio_chip *chip)

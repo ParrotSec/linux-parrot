@@ -250,7 +250,7 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po);
 static int packet_direct_xmit(struct sk_buff *skb)
 {
 	struct net_device *dev = skb->dev;
-	netdev_features_t features;
+	struct sk_buff *orig_skb = skb;
 	struct netdev_queue *txq;
 	int ret = NETDEV_TX_BUSY;
 
@@ -258,9 +258,8 @@ static int packet_direct_xmit(struct sk_buff *skb)
 		     !netif_carrier_ok(dev)))
 		goto drop;
 
-	features = netif_skb_features(skb);
-	if (skb_needs_linearize(skb, features) &&
-	    __skb_linearize(skb))
+	skb = validate_xmit_skb_list(skb, dev);
+	if (skb != orig_skb)
 		goto drop;
 
 	txq = skb_get_tx_queue(dev, skb);
@@ -280,7 +279,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
 	return ret;
 drop:
 	atomic_long_inc(&dev->tx_dropped);
-	kfree_skb(skb);
+	kfree_skb_list(skb);
 	return NET_XMIT_DROP;
 }
 
@@ -1588,13 +1587,9 @@ static int fanout_set_data_ebpf(struct packet_sock *po, char __user *data,
 	if (copy_from_user(&fd, data, len))
 		return -EFAULT;
 
-	new = bpf_prog_get(fd);
+	new = bpf_prog_get_type(fd, BPF_PROG_TYPE_SOCKET_FILTER);
 	if (IS_ERR(new))
 		return PTR_ERR(new);
-	if (new->type != BPF_PROG_TYPE_SOCKET_FILTER) {
-		bpf_prog_put(new);
-		return -EINVAL;
-	}
 
 	__fanout_set_data_bpf(po->fanout, new);
 	return 0;
@@ -1977,40 +1972,8 @@ static int __packet_rcv_vnet(const struct sk_buff *skb,
 {
 	*vnet_hdr = (const struct virtio_net_hdr) { 0 };
 
-	if (skb_is_gso(skb)) {
-		struct skb_shared_info *sinfo = skb_shinfo(skb);
-
-		/* This is a hint as to how much should be linear. */
-		vnet_hdr->hdr_len =
-			__cpu_to_virtio16(vio_le(), skb_headlen(skb));
-		vnet_hdr->gso_size =
-			__cpu_to_virtio16(vio_le(), sinfo->gso_size);
-
-		if (sinfo->gso_type & SKB_GSO_TCPV4)
-			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
-		else if (sinfo->gso_type & SKB_GSO_TCPV6)
-			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-		else if (sinfo->gso_type & SKB_GSO_UDP)
-			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
-		else if (sinfo->gso_type & SKB_GSO_FCOE)
-			return -EINVAL;
-		else
-			BUG();
-
-		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
-			vnet_hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
-	} else
-		vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
-
-	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
-		vnet_hdr->csum_start = __cpu_to_virtio16(vio_le(),
-				  skb_checksum_start_offset(skb));
-		vnet_hdr->csum_offset = __cpu_to_virtio16(vio_le(),
-						 skb->csum_offset);
-	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
-	} /* else everything is zero */
+	if (virtio_net_hdr_from_skb(skb, vnet_hdr, vio_le()))
+		BUG();
 
 	return 0;
 }
@@ -3988,6 +3951,7 @@ static int packet_notifier(struct notifier_block *this,
 				}
 				if (msg == NETDEV_UNREGISTER) {
 					packet_cached_dev_reset(po);
+					fanout_release(sk);
 					po->ifindex = -1;
 					if (po->prot_hook.dev)
 						dev_put(po->prot_hook.dev);

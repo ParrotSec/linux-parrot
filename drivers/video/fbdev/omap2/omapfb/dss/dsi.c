@@ -42,7 +42,7 @@
 #include <linux/of_platform.h>
 #include <linux/component.h>
 
-#include <video/omapdss.h>
+#include <video/omapfb_dss.h>
 #include <video/mipi_display.h>
 
 #include "dss.h"
@@ -5348,7 +5348,7 @@ static int dsi_bind(struct device *dev, struct device *master, void *data)
 
 	dsi->phy_base = devm_ioremap(&dsidev->dev, res->start,
 		resource_size(res));
-	if (!dsi->proto_base) {
+	if (!dsi->phy_base) {
 		DSSERR("can't ioremap DSI PHY\n");
 		return -ENOMEM;
 	}
@@ -5368,7 +5368,7 @@ static int dsi_bind(struct device *dev, struct device *master, void *data)
 
 	dsi->pll_base = devm_ioremap(&dsidev->dev, res->start,
 		resource_size(res));
-	if (!dsi->proto_base) {
+	if (!dsi->pll_base) {
 		DSSERR("can't ioremap DSI PLL\n");
 		return -ENOMEM;
 	}

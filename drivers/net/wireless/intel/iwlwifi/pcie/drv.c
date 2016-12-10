@@ -516,6 +516,9 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 	{IWL_PCI_DEVICE(0x2526, 0x1420, iwl5165_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x9DF0, 0x0710, iwl5165_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x9DF0, 0x2A10, iwl5165_2ac_cfg)},
+
+/* a000 Series */
+	{IWL_PCI_DEVICE(0x2720, 0x0A10, iwla000_2ac_cfg)},
 #endif /* CONFIG_IWLMVM */
 
 	{0}
@@ -523,48 +526,64 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 MODULE_DEVICE_TABLE(pci, iwl_hw_card_ids);
 
 #ifdef CONFIG_ACPI
-#define SPL_METHOD		"SPLC"
-#define SPL_DOMAINTYPE_MODULE	BIT(0)
-#define SPL_DOMAINTYPE_WIFI	BIT(1)
-#define SPL_DOMAINTYPE_WIGIG	BIT(2)
-#define SPL_DOMAINTYPE_RFEM	BIT(3)
+#define ACPI_SPLC_METHOD	"SPLC"
+#define ACPI_SPLC_DOMAIN_WIFI	(0x07)
 
-static u64 splx_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splx)
+static u64 splc_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splc)
 {
-	union acpi_object *limits, *domain_type, *power_limit;
+	union acpi_object *data_pkg, *dflt_pwr_limit;
+	int i;
 
-	if (splx->type != ACPI_TYPE_PACKAGE ||
-	    splx->package.count != 2 ||
-	    splx->package.elements[0].type != ACPI_TYPE_INTEGER ||
-	    splx->package.elements[0].integer.value != 0) {
-		IWL_ERR(trans, "Unsupported splx structure\n");
+	/* We need at least two elements, one for the revision and one
+	 * for the data itself.  Also check that the revision is
+	 * supported (currently only revision 0).
+	*/
+	if (splc->type != ACPI_TYPE_PACKAGE ||
+	    splc->package.count < 2 ||
+	    splc->package.elements[0].type != ACPI_TYPE_INTEGER ||
+	    splc->package.elements[0].integer.value != 0) {
+		IWL_DEBUG_INFO(trans,
+			       "Unsupported structure returned by the SPLC method.  Ignoring.\n");
 		return 0;
 	}
 
-	limits = &splx->package.elements[1];
-	if (limits->type != ACPI_TYPE_PACKAGE ||
-	    limits->package.count < 2 ||
-	    limits->package.elements[0].type != ACPI_TYPE_INTEGER ||
-	    limits->package.elements[1].type != ACPI_TYPE_INTEGER) {
-		IWL_ERR(trans, "Invalid limits element\n");
+	/* loop through all the packages to find the one for WiFi */
+	for (i = 1; i < splc->package.count; i++) {
+		union acpi_object *domain;
+
+		data_pkg = &splc->package.elements[i];
+
+		/* Skip anything that is not a package with the right
+		 * amount of elements (i.e. at least 2 integers).
+		 */
+		if (data_pkg->type != ACPI_TYPE_PACKAGE ||
+		    data_pkg->package.count < 2 ||
+		    data_pkg->package.elements[0].type != ACPI_TYPE_INTEGER ||
+		    data_pkg->package.elements[1].type != ACPI_TYPE_INTEGER)
+			continue;
+
+		domain = &data_pkg->package.elements[0];
+		if (domain->integer.value == ACPI_SPLC_DOMAIN_WIFI)
+			break;
+
+		data_pkg = NULL;
+	}
+
+	if (!data_pkg) {
+		IWL_DEBUG_INFO(trans,
+			       "No element for the WiFi domain returned by the SPLC method.\n");
 		return 0;
 	}
 
-	domain_type = &limits->package.elements[0];
-	power_limit = &limits->package.elements[1];
-	if (!(domain_type->integer.value & SPL_DOMAINTYPE_WIFI)) {
-		IWL_DEBUG_INFO(trans, "WiFi power is not limited\n");
-		return 0;
-	}
-
-	return power_limit->integer.value;
+	dflt_pwr_limit = &data_pkg->package.elements[1];
+	return dflt_pwr_limit->integer.value;
 }
 
 static void set_dflt_pwr_limit(struct iwl_trans *trans, struct pci_dev *pdev)
 {
 	acpi_handle pxsx_handle;
 	acpi_handle handle;
-	struct acpi_buffer splx = {ACPI_ALLOCATE_BUFFER, NULL};
+	struct acpi_buffer splc = {ACPI_ALLOCATE_BUFFER, NULL};
 	acpi_status status;
 
 	pxsx_handle = ACPI_HANDLE(&pdev->dev);
@@ -575,23 +594,24 @@ static void set_dflt_pwr_limit(struct iwl_trans *trans, struct pci_dev *pdev)
 	}
 
 	/* Get the method's handle */
-	status = acpi_get_handle(pxsx_handle, (acpi_string)SPL_METHOD, &handle);
+	status = acpi_get_handle(pxsx_handle, (acpi_string)ACPI_SPLC_METHOD,
+				 &handle);
 	if (ACPI_FAILURE(status)) {
-		IWL_DEBUG_INFO(trans, "SPL method not found\n");
+		IWL_DEBUG_INFO(trans, "SPLC method not found\n");
 		return;
 	}
 
 	/* Call SPLC with no arguments */
-	status = acpi_evaluate_object(handle, NULL, NULL, &splx);
+	status = acpi_evaluate_object(handle, NULL, NULL, &splc);
 	if (ACPI_FAILURE(status)) {
 		IWL_ERR(trans, "SPLC invocation failed (0x%x)\n", status);
 		return;
 	}
 
-	trans->dflt_pwr_limit = splx_get_pwr_limit(trans, splx.pointer);
+	trans->dflt_pwr_limit = splc_get_pwr_limit(trans, splc.pointer);
 	IWL_DEBUG_INFO(trans, "Default power limit set to %lld\n",
 		       trans->dflt_pwr_limit);
-	kfree(splx.pointer);
+	kfree(splc.pointer);
 }
 
 #else /* CONFIG_ACPI */
@@ -607,7 +627,6 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	const struct iwl_cfg *cfg_7265d __maybe_unused = NULL;
 	const struct iwl_cfg *cfg_9260lc __maybe_unused = NULL;
 	struct iwl_trans *iwl_trans;
-	struct iwl_trans_pcie *trans_pcie;
 	int ret;
 
 	iwl_trans = iwl_trans_pcie_alloc(pdev, ent, cfg);
@@ -645,12 +664,10 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 #endif
 
 	pci_set_drvdata(pdev, iwl_trans);
+	iwl_trans->drv = iwl_drv_start(iwl_trans, cfg);
 
-	trans_pcie = IWL_TRANS_GET_PCIE_TRANS(iwl_trans);
-	trans_pcie->drv = iwl_drv_start(iwl_trans, cfg);
-
-	if (IS_ERR(trans_pcie->drv)) {
-		ret = PTR_ERR(trans_pcie->drv);
+	if (IS_ERR(iwl_trans->drv)) {
+		ret = PTR_ERR(iwl_trans->drv);
 		goto out_free_trans;
 	}
 
@@ -689,7 +706,7 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	return 0;
 
 out_free_drv:
-	iwl_drv_stop(trans_pcie->drv);
+	iwl_drv_stop(iwl_trans->drv);
 out_free_trans:
 	iwl_trans_pcie_free(iwl_trans);
 	return ret;
@@ -698,7 +715,6 @@ out_free_trans:
 static void iwl_pci_remove(struct pci_dev *pdev)
 {
 	struct iwl_trans *trans = pci_get_drvdata(pdev);
-	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 
 	/* if RTPM was in use, restore it to the state before probe */
 	if (trans->runtime_pm_mode != IWL_PLAT_PM_MODE_DISABLED) {
@@ -709,7 +725,7 @@ static void iwl_pci_remove(struct pci_dev *pdev)
 		pm_runtime_forbid(trans->dev);
 	}
 
-	iwl_drv_stop(trans_pcie->drv);
+	iwl_drv_stop(trans->drv);
 
 	iwl_trans_pcie_free(trans);
 }
