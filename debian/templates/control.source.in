@@ -1,7 +1,7 @@
 Section: kernel
 Priority: optional
-Maintainer: Kali Developers <devel@kali.org>
-Uploaders: Raphaël Hertzog <hertzog@debian.org>, Sophie Brun <sophie@freexian.com>
+Maintainer: Parrot Dev Team <parrot-devel@lists.parrotsec.org>
+Uploaders: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>, Lisetta "Sheireen" Ferrero <sheireen@parrotsec.org>, Irene "Tissy" Pirrotta <tissy@parrotsec.org>
 Standards-Version: 3.9.8
 Build-Depends:
  debhelper (>= 10.1~),
