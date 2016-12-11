@@ -1,3 +1,9 @@
+linux (4.8.11-2parrot1) testing; urgency=medium
+
+  * minor fixes
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sun, 11 Dec 2016 22:04:04 +0100
+
 linux (4.8.11-2parrot0) testing; urgency=medium
 
   * Import new upstream release
