@@ -829,9 +829,8 @@ static long vfio_pci_ioctl(void *device_data,
 
 	} else if (cmd == VFIO_DEVICE_SET_IRQS) {
 		struct vfio_irq_set hdr;
-		size_t size;
 		u8 *data = NULL;
-		int max, ret = 0;
+		int ret = 0;
 
 		minsz = offsetofend(struct vfio_irq_set, count);
 
@@ -839,31 +838,23 @@ static long vfio_pci_ioctl(void *device_data,
 			return -EFAULT;
 
 		if (hdr.argsz < minsz || hdr.index >= VFIO_PCI_NUM_IRQS ||
-		    hdr.count >= (U32_MAX - hdr.start) ||
 		    hdr.flags & ~(VFIO_IRQ_SET_DATA_TYPE_MASK |
 				  VFIO_IRQ_SET_ACTION_TYPE_MASK))
 			return -EINVAL;
 
-		max = vfio_pci_get_irq_count(vdev, hdr.index);
-		if (hdr.start >= max || hdr.start + hdr.count > max)
-			return -EINVAL;
+		if (!(hdr.flags & VFIO_IRQ_SET_DATA_NONE)) {
+			size_t size;
+			int max = vfio_pci_get_irq_count(vdev, hdr.index);
 
-		switch (hdr.flags & VFIO_IRQ_SET_DATA_TYPE_MASK) {
-		case VFIO_IRQ_SET_DATA_NONE:
-			size = 0;
-			break;
-		case VFIO_IRQ_SET_DATA_BOOL:
-			size = sizeof(uint8_t);
-			break;
-		case VFIO_IRQ_SET_DATA_EVENTFD:
-			size = sizeof(int32_t);
-			break;
-		default:
-			return -EINVAL;
-		}
+			if (hdr.flags & VFIO_IRQ_SET_DATA_BOOL)
+				size = sizeof(uint8_t);
+			else if (hdr.flags & VFIO_IRQ_SET_DATA_EVENTFD)
+				size = sizeof(int32_t);
+			else
+				return -EINVAL;
 
-		if (size) {
-			if (hdr.argsz - minsz < hdr.count * size)
+			if (hdr.argsz - minsz < hdr.count * size ||
+			    hdr.start >= max || hdr.start + hdr.count > max)
 				return -EINVAL;
 
 			data = memdup_user((void __user *)(arg + minsz),

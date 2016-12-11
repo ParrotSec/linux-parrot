@@ -251,8 +251,11 @@ int av7110_bootarm(struct av7110 *av7110)
 	//saa7146_setgpio(dev, 3, SAA7146_GPIO_INPUT);
 
 	ret = request_firmware(&fw, fw_name, &dev->pci->dev);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "dvb-ttpci: Failed to load firmware \"%s\"\n",
+			fw_name);
 		return ret;
+	}
 
 	mwdebi(av7110, DEBISWAB, DPRAM_BASE, fw->data, fw->size);
 	release_firmware(fw);

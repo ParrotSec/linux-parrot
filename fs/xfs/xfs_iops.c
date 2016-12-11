@@ -542,28 +542,6 @@ xfs_setattr_time(
 		inode->i_mtime = iattr->ia_mtime;
 }
 
-static int
-xfs_vn_change_ok(
-	struct dentry	*dentry,
-	struct iattr	*iattr)
-{
-	struct xfs_mount	*mp = XFS_I(d_inode(dentry))->i_mount;
-
-	if (mp->m_flags & XFS_MOUNT_RDONLY)
-		return -EROFS;
-
-	if (XFS_FORCED_SHUTDOWN(mp))
-		return -EIO;
-
-	return setattr_prepare(dentry, iattr);
-}
-
-/*
- * Set non-size attributes of an inode.
- *
- * Caution: The caller of this function is responsible for calling
- * setattr_prepare() or otherwise verifying the change is fine.
- */
 int
 xfs_setattr_nonsize(
 	struct xfs_inode	*ip,
@@ -579,6 +557,21 @@ xfs_setattr_nonsize(
 	kgid_t			gid = GLOBAL_ROOT_GID, igid = GLOBAL_ROOT_GID;
 	struct xfs_dquot	*udqp = NULL, *gdqp = NULL;
 	struct xfs_dquot	*olddquot1 = NULL, *olddquot2 = NULL;
+
+	trace_xfs_setattr(ip);
+
+	/* If acls are being inherited, we already have this checked */
+	if (!(flags & XFS_ATTR_NOACL)) {
+		if (mp->m_flags & XFS_MOUNT_RDONLY)
+			return -EROFS;
+
+		if (XFS_FORCED_SHUTDOWN(mp))
+			return -EIO;
+
+		error = inode_change_ok(inode, iattr);
+		if (error)
+			return error;
+	}
 
 	ASSERT((mask & ATTR_SIZE) == 0);
 
@@ -750,27 +743,8 @@ out_dqrele:
 	return error;
 }
 
-int
-xfs_vn_setattr_nonsize(
-	struct dentry		*dentry,
-	struct iattr		*iattr)
-{
-	struct xfs_inode	*ip = XFS_I(d_inode(dentry));
-	int error;
-
-	trace_xfs_setattr(ip);
-
-	error = xfs_vn_change_ok(dentry, iattr);
-	if (error)
-		return error;
-	return xfs_setattr_nonsize(ip, iattr, 0);
-}
-
 /*
  * Truncate file.  Must have write permission and not be a directory.
- *
- * Caution: The caller of this function is responsible for calling
- * setattr_prepare() or otherwise verifying the change is fine.
  */
 int
 xfs_setattr_size(
@@ -784,6 +758,18 @@ xfs_setattr_size(
 	int			error;
 	uint			lock_flags = 0;
 	bool			did_zeroing = false;
+
+	trace_xfs_setattr(ip);
+
+	if (mp->m_flags & XFS_MOUNT_RDONLY)
+		return -EROFS;
+
+	if (XFS_FORCED_SHUTDOWN(mp))
+		return -EIO;
+
+	error = inode_change_ok(inode, iattr);
+	if (error)
+		return error;
 
 	ASSERT(xfs_isilocked(ip, XFS_IOLOCK_EXCL));
 	ASSERT(xfs_isilocked(ip, XFS_MMAPLOCK_EXCL));
@@ -956,32 +942,16 @@ out_trans_cancel:
 	goto out_unlock;
 }
 
-int
-xfs_vn_setattr_size(
-	struct dentry		*dentry,
-	struct iattr		*iattr)
-{
-	struct xfs_inode	*ip = XFS_I(d_inode(dentry));
-	int error;
-
-	trace_xfs_setattr(ip);
-
-	error = xfs_vn_change_ok(dentry, iattr);
-	if (error)
-		return error;
-	return xfs_setattr_size(ip, iattr);
-}
-
 STATIC int
 xfs_vn_setattr(
 	struct dentry		*dentry,
 	struct iattr		*iattr)
 {
+	struct xfs_inode	*ip = XFS_I(d_inode(dentry));
 	int			error;
 
 	if (iattr->ia_valid & ATTR_SIZE) {
-		struct xfs_inode	*ip = XFS_I(d_inode(dentry));
-		uint			iolock = XFS_IOLOCK_EXCL;
+		uint		iolock = XFS_IOLOCK_EXCL;
 
 		xfs_ilock(ip, iolock);
 		error = xfs_break_layouts(d_inode(dentry), &iolock, true);
@@ -989,11 +959,11 @@ xfs_vn_setattr(
 			xfs_ilock(ip, XFS_MMAPLOCK_EXCL);
 			iolock |= XFS_MMAPLOCK_EXCL;
 
-			error = xfs_vn_setattr_size(dentry, iattr);
+			error = xfs_setattr_size(ip, iattr);
 		}
 		xfs_iunlock(ip, iolock);
 	} else {
-		error = xfs_vn_setattr_nonsize(dentry, iattr);
+		error = xfs_setattr_nonsize(ip, iattr, 0);
 	}
 
 	return error;

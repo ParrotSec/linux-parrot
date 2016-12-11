@@ -515,8 +515,11 @@ static void mwifiex_fw_dpc(const struct firmware *firmware, void *context)
 	bool init_failed = false;
 	struct wireless_dev *wdev;
 
-	if (!firmware)
+	if (!firmware) {
+		mwifiex_dbg(adapter, ERROR,
+			    "Failed to get firmware %s\n", adapter->fw_name);
 		goto err_dnld_fw;
+	}
 
 	memset(&fw, 0, sizeof(struct mwifiex_fw_image));
 	adapter->firmware = firmware;

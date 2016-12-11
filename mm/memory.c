@@ -2113,7 +2113,7 @@ static inline int wp_page_reuse(struct fault_env *fe, pte_t orig_pte,
 		}
 
 		if (!page_mkwrite)
-			vma_file_update_time(vma);
+			file_update_time(vma->vm_file);
 	}
 
 	return VM_FAULT_WRITE;
