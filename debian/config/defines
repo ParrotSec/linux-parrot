@@ -1,5 +1,8 @@
 [abi]
 abiname: parrot
+ignore-changes:
+ module:arch/x86/kvm/*
+ module:drivers/nvdimm/libnvdimm
 
 [base]
 arches:
