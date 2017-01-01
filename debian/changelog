@@ -1,3 +1,18 @@
+linux (4.9-1~exp1) UNRELEASED; urgency=medium
+
+  * New upstream release: https://kernelnewbies.org/Linux_4.9
+    - Revert "default exported asm symbols to zero"
+
+  [ Ben Hutchings ]
+  * Set ABI to trunk
+
+  [ Uwe Kleine-König ]
+  * enable `perf data' support; patch by Sebastian Andrzej Siewior
+    (Closes: #846597)
+  * [rt] Update to 4.9-rt1 and reenable
+
+ -- Uwe Kleine-Koenig <DeadSquirrel01@gmail.com>  Sun, 18 Dec 2016 17:53:39 +0100
+
 linux (4.8.15-1parrot0) testing; urgency=medium
 
   * Import new version
