@@ -197,11 +197,16 @@ int config_ep_by_speed(struct usb_gadget *g,
 
 ep_found:
 	/* commit results */
-	_ep->maxpacket = usb_endpoint_maxp(chosen_desc);
+	_ep->maxpacket = usb_endpoint_maxp(chosen_desc) & 0x7ff;
 	_ep->desc = chosen_desc;
 	_ep->comp_desc = NULL;
 	_ep->maxburst = 0;
-	_ep->mult = 0;
+	_ep->mult = 1;
+
+	if (g->speed == USB_SPEED_HIGH && (usb_endpoint_xfer_isoc(_ep->desc) ||
+				usb_endpoint_xfer_int(_ep->desc)))
+		_ep->mult = usb_endpoint_maxp(_ep->desc) & 0x7ff;
+
 	if (!want_comp_desc)
 		return 0;
 
@@ -218,7 +223,7 @@ ep_found:
 		switch (usb_endpoint_type(_ep->desc)) {
 		case USB_ENDPOINT_XFER_ISOC:
 			/* mult: bits 1:0 of bmAttributes */
-			_ep->mult = comp_desc->bmAttributes & 0x3;
+			_ep->mult = (comp_desc->bmAttributes & 0x3) + 1;
 		case USB_ENDPOINT_XFER_BULK:
 		case USB_ENDPOINT_XFER_INT:
 			_ep->maxburst = comp_desc->bMaxBurst + 1;
@@ -1893,17 +1898,21 @@ unknown:
 		/* functions always handle their interfaces and endpoints...
 		 * punt other recipients (other, WUSB, ...) to the current
 		 * configuration code.
-		 *
-		 * REVISIT it could make sense to let the composite device
-		 * take such requests too, if that's ever needed:  to work
-		 * in config 0, etc.
 		 */
 		if (cdev->config) {
 			list_for_each_entry(f, &cdev->config->functions, list)
-				if (f->req_match && f->req_match(f, ctrl))
+				if (f->req_match &&
+				    f->req_match(f, ctrl, false))
 					goto try_fun_setup;
-			f = NULL;
+		} else {
+			struct usb_configuration *c;
+			list_for_each_entry(c, &cdev->configs, list)
+				list_for_each_entry(f, &c->functions, list)
+					if (f->req_match &&
+					    f->req_match(f, ctrl, true))
+						goto try_fun_setup;
 		}
+		f = NULL;
 
 		switch (ctrl->bRequestType & USB_RECIP_MASK) {
 		case USB_RECIP_INTERFACE:
