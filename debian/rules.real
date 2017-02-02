@@ -58,7 +58,6 @@ endif
 ifneq ($(DO_LIBC),False)
   binary-arch-arch: install-libc-dev_$(ARCH)
 endif
-binary-arch-featureset: install-headers_$(ARCH)_$(FEATURESET)
 binary-arch-flavour: install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
 ifeq ($(DEBUG),True)
   binary-arch-flavour: install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
@@ -87,6 +86,8 @@ ifneq ($(DO_TOOLS),False)
   endif
 #  binary-indep: install-lockdep
 endif
+
+binary-indep-featureset: install-common-headers_$(FEATURESET)
 
 build-arch-flavour: $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
 
@@ -240,8 +241,9 @@ install-doc: $(STAMPS_DIR)/build-doc
 	find * -name '*.html' -print | \
 	cpio -pd --preserve-modification-time '$(CURDIR)/$(OUT_DIR)/html/oldstyle'
 	set -o pipefail; \
-	cd $(DIR)/Documentation/output/html; \
-	find * -name objects.inv -prune -o -print | \
+	cd $(DIR)/Documentation/output; \
+	find * -name '*.rst' -prune -o -name objects.inv -prune \
+		-o -name xml -prune -o -print | \
 	cpio -pd --preserve-modification-time '$(CURDIR)/$(OUT_DIR)/html/newstyle'
 	gzip -9nqfr $(OUT_DIR)/Documentation
 	+$(MAKE_SELF) install-base
@@ -268,13 +270,13 @@ install-headers_$(ARCH):
 	dh_testroot
 	+$(MAKE_SELF) install-base GENCONTROL_ARGS='-Vkernel:Arch=$(ARCH)'
 
-install-headers_$(ARCH)_$(FEATURESET): PACKAGE_NAME = linux-headers-$(ABINAME)-common$(LOCALVERSION_HEADERS)
-install-headers_$(ARCH)_$(FEATURESET): PACKAGE_NAME_KBUILD = linux-kbuild-$(VERSION)
-install-headers_$(ARCH)_$(FEATURESET): DH_OPTIONS = -p$(PACKAGE_NAME)
-install-headers_$(ARCH)_$(FEATURESET): BASE_DIR = /usr/src/$(PACKAGE_NAME)
-install-headers_$(ARCH)_$(FEATURESET): SOURCE_DIR = $(BUILD_DIR)/source_$(FEATURESET)
-install-headers_$(ARCH)_$(FEATURESET): DIR = debian/$(PACKAGE_NAME)/$(BASE_DIR)
-install-headers_$(ARCH)_$(FEATURESET): $(STAMPS_DIR)/source_$(FEATURESET)
+install-common-headers_$(FEATURESET): PACKAGE_NAME = linux-headers-$(ABINAME)-common$(LOCALVERSION)
+install-common-headers_$(FEATURESET): PACKAGE_NAME_KBUILD = linux-kbuild-$(VERSION)
+install-common-headers_$(FEATURESET): DH_OPTIONS = -p$(PACKAGE_NAME)
+install-common-headers_$(FEATURESET): BASE_DIR = /usr/src/$(PACKAGE_NAME)
+install-common-headers_$(FEATURESET): SOURCE_DIR = $(BUILD_DIR)/source_$(FEATURESET)
+install-common-headers_$(FEATURESET): DIR = debian/$(PACKAGE_NAME)/$(BASE_DIR)
+install-common-headers_$(FEATURESET): $(STAMPS_DIR)/source_$(FEATURESET)
 	dh_testdir
 	dh_testroot
 	dh_prep
@@ -282,11 +284,13 @@ install-headers_$(ARCH)_$(FEATURESET): $(STAMPS_DIR)/source_$(FEATURESET)
 	set -o pipefail; \
 	cd $(SOURCE_DIR); \
 	( \
-	  echo Makefile; \
-	  find arch/$(KERNEL_ARCH) -maxdepth 1 -name 'Makefile*' -print; \
-	  find arch/$(KERNEL_ARCH) \( -name 'module.lds' -o -name 'Kbuild.platforms' -o -name 'Platform' \) -print; \
-	  find $$(find arch/$(KERNEL_ARCH) \( -name include -o -name scripts \) -type d -print) -print; \
-	  find include -print; \
+		echo Makefile; \
+		for arch in $(ALL_KERNEL_ARCHES); do \
+			find arch/$$arch -maxdepth 1 -name 'Makefile*' -print; \
+			find arch/$$arch \( -name 'module.lds' -o -name 'Kbuild.platforms' -o -name 'Platform' \) -print; \
+			find $$(find arch/$$arch \( -name include -o -name scripts \) -type d -print) -print; \
+		done; \
+		find include -print; \
 	) \
 	| \
 	cpio -pd --preserve-modification-time '$(CURDIR)/$(DIR)'
@@ -560,10 +564,22 @@ install-cpupower: $(STAMPS_DIR)/build-tools
 	dh_testroot
 	dh_prep
 	$(call make-tools,tools/power/cpupower) install DESTDIR=$(DIR)
+ifneq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
+	$(call make-tools,tools/power/x86) install DESTDIR=$(DIR)
+	echo >> debian/linux-cpupower.substvars 'cpupower:Arch-Description='\
+'The turbostat command reports topology, frequency, idle power-state$${Newline}'\
+'statistics, temperature and power consumption information as provided$${Newline}'\
+'by the CPU.$${Newline}'\
+'$${Newline}'\
+'The x86_energy_perf_policy command sets a general policy on some Intel$${Newline}'\
+'CPU models for the relative importance of performance versus energy$${Newline}'\
+'savings.'
+endif
 	dh_install --sourcedir=$(DIR)
 	dh_installchangelogs
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
+	dh_installman
 endif
 	dh_strip
 	dh_compress
@@ -594,7 +610,7 @@ endif
 	dh_compress
 	dh_fixperms
 	dh_installdeb
-	dh_shlibdeps
+	dh_shlibdeps -Xperf-read-vdso
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb

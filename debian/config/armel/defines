@@ -1,7 +1,6 @@
 [base]
 flavours:
  marvell
- versatile
 kernel-arch: arm
 
 [build]
@@ -15,7 +14,7 @@ signed-modules: false
 install-stem: vmlinuz
 
 [relations]
-headers%gcc-5: linux-compiler-gcc-5-arm
+headers%gcc-6: linux-compiler-gcc-6-arm
 
 [marvell_description]
 hardware: Marvell Kirkwood/Orion
@@ -33,7 +32,3 @@ recommends: u-boot-tools
 check-size: 2097080
 check-size-with-dtb: true
 breaks: flash-kernel (<< 3.57~)
-
-[versatile_description]
-hardware: Versatile
-hardware-long: Versatile systems (PB, AB, Qemu)

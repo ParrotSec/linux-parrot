@@ -828,8 +828,10 @@ static int c4iw_rdev_open(struct c4iw_rdev *rdev)
 	}
 	rdev->status_page = (struct t4_dev_status_page *)
 			    __get_free_page(GFP_KERNEL);
-	if (!rdev->status_page)
+	if (!rdev->status_page) {
+		err = -ENOMEM;
 		goto destroy_ocqp_pool;
+	}
 	rdev->status_page->qp_start = rdev->lldi.vr->qp.start;
 	rdev->status_page->qp_size = rdev->lldi.vr->qp.size;
 	rdev->status_page->cq_start = rdev->lldi.vr->cq.start;
@@ -1480,6 +1482,10 @@ static int c4iw_uld_control(void *handle, enum cxgb4_control control, ...)
 
 static struct cxgb4_uld_info c4iw_uld_info = {
 	.name = DRV_NAME,
+	.nrxq = MAX_ULD_QSETS,
+	.rxq_size = 511,
+	.ciq = true,
+	.lro = false,
 	.add = c4iw_uld_add,
 	.rx_handler = c4iw_uld_rx_handler,
 	.state_change = c4iw_uld_state_change,

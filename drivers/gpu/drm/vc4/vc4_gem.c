@@ -419,10 +419,6 @@ again:
 
 	vc4_flush_caches(dev);
 
-	/* Disable the binner's pre-loaded overflow memory address */
-	V3D_WRITE(V3D_BPOA, 0);
-	V3D_WRITE(V3D_BPOS, 0);
-
 	/* Either put the job in the binner if it uses the binner, or
 	 * immediately move it to the to-be-rendered queue.
 	 */
@@ -548,14 +544,15 @@ vc4_cl_lookup_bos(struct drm_device *dev,
 
 	handles = drm_malloc_ab(exec->bo_count, sizeof(uint32_t));
 	if (!handles) {
+		ret = -ENOMEM;
 		DRM_ERROR("Failed to allocate incoming GEM handles\n");
 		goto fail;
 	}
 
-	ret = copy_from_user(handles,
-			     (void __user *)(uintptr_t)args->bo_handles,
-			     exec->bo_count * sizeof(uint32_t));
-	if (ret) {
+	if (copy_from_user(handles,
+			   (void __user *)(uintptr_t)args->bo_handles,
+			   exec->bo_count * sizeof(uint32_t))) {
+		ret = -EFAULT;
 		DRM_ERROR("Failed to copy in GEM handles\n");
 		goto fail;
 	}
