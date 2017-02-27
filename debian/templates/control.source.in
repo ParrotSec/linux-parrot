@@ -1,7 +1,7 @@
 Section: kernel
 Priority: optional
-Maintainer: Parrot Kernel Team <parrot-devel@lists.parrotsec.org>
-Uploaders: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>, Irene "Tissy" Pirrotta <tissy@parrotsec.org>
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Uploaders: Bastian Blank <waldi@debian.org>, maximilian attems <maks@debian.org>, Ben Hutchings <ben@decadent.org.uk>, Salvatore Bonaccorso <carnil@debian.org>
 Standards-Version: 3.9.8
 Build-Depends:
  debhelper (>= 10.1~), dh-exec,

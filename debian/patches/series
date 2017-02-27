@@ -2,7 +2,7 @@
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-#debian/gitignore.patch # Kali: we have that in the git repo already
+debian/gitignore.patch
 debian/mips-disable-werror.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/powerpcspe-omit-uimage.patch
@@ -18,9 +18,6 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 
-# Wireless patches
-features/all/wifi-injection.patch
-
 # Patches from aufs4 repository, imported with
 # debian/patches/features/all/aufs4/gen-patch.  These are only the
 # changes needed to allow aufs to be built out-of-tree.
@@ -32,6 +29,7 @@ features/all/aufs4/aufs4-standalone.patch
 debian/af_802154-Disable-auto-loading-as-mitigation-against.patch
 debian/rds-Disable-auto-loading-as-mitigation-against-local.patch
 debian/decnet-Disable-auto-loading-as-mitigation-against-lo.patch
+debian/dccp-disable-auto-loading-as-mitigation-against-local-exploits.patch
 debian/fs-enable-link-security-restrictions-by-default.patch
 
 # Set various features runtime-disabled by default
@@ -50,6 +48,9 @@ debian/fanotify-taint-on-use-of-fanotify_access_permissions.patch
 
 # Arch bug fixes
 bugfix/x86/asoc-intel-select-dw_dmac_core-since-it-s-mandatory.patch
+bugfix/x86/platform-x86-acer-wmi-setup-accelerometer-when-machi.patch
+bugfix/x86/x86-xen-fix-apic-id-mismatch-warning-on-intel.patch
+bugfix/arm/arm-dts-kirkwood-fix-sata-pinmux-ing-for-ts419.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
@@ -61,6 +62,9 @@ features/arm/arm-dts-add-support-for-turris-omnia.patch
 features/arm/arm-dts-turris-omnia-add-support-for-ethernet-switch.patch
 features/arm/ARM-dts-orion5x-convert-ls-chl-to-FDT.patch
 features/arm64/dts-meson-gx-add-firmware-reserved-memory-zone.patch
+features/arm/ARM-dts-orion5x-lschl-Fix-model-name.patch
+features/arm/ARM-dts-orion5x-lschl-More-consistent-naming-on-link.patch
+features/arm/ARM-orion5x-fix-Makefile-for-linkstation-lschl.dtb.patch
 
 # Miscellaneous bug fixes
 bugfix/all/kbuild-use-nostdinc-in-compile-tests.patch
@@ -73,6 +77,8 @@ bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/nbd-use-loff_t-for-blocksize-and-nbd_set_size-args.patch
 bugfix/all/ath9k-fix-null-pointer-dereference.patch
 bugfix/all/nbd-fix-64-bit-division.patch
+bugfix/all/net-ipv6-check-route-protocol-when-deleting-routes.patch
+bugfix/all/media-dvb-usb-dibusb-mc-common-add-module_license.patch
 
 # Miscellaneous features
 
@@ -102,9 +108,10 @@ features/all/securelevel/arm64-add-kernel-config-option-to-set-securelevel-wh.pa
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/fbdev-color-map-coying-bounds-checking.patch
-bugfix/arm/drm-vc4-fix-an-integer-overflow-in-temporary-allocation-layout.patch
-bugfix/arm/drm/vc4-return-einval-on-the-overflow-checks-failing.patch
+bugfix/x86/kvm-fix-page-struct-leak-in-handle_vmon.patch
+bugfix/all/ipc-shm-fix-shmat-mmap-nil-page-protection.patch
+debian/time-mark-timer_stats-as-broken.patch
+bugfix/all/sctp-deny-peeloff-operation-on-asocs-with-threads-sl.patch
 
 # Fix exported symbol versions
 bugfix/ia64/revert-ia64-move-exports-to-definitions.patch
@@ -117,10 +124,7 @@ bugfix/powerpc/powerpc-fix-missing-crcs-add-yet-more-asm-prototypes.patch
 bugfix/all/module-disable-matching-missing-version-crc.patch
 
 # ABI maintenance
-debian/memcg-avoid-abi-change-in-4.9.5.patch
-debian/power-avoid-abi-change-in-4.9.3.patch
-debian/cfg80211-avoid-abi-change-in-4.9.3.patch
-debian/arm64-ptrace-avoid-abi-change-in-4.9.6.patch
+debian/net-avoid-abi-change-for-min_header_len.patch
 
 # Tools bug fixes
 bugfix/all/usbip-document-tcp-wrappers.patch
