@@ -1,5 +1,5 @@
 [abi]
-abiname: 2
+abiname: parrot4
 ignore-changes:
  __cpuhp_*
  module:drivers/iio/common/st_sensors/**
@@ -56,7 +56,7 @@ featuresets:
  rt
 
 [build]
-debug-info: true
+debug-info: false
 # Enable module signing by default (implemented in the linux-signed package)
 signed-modules: true
 

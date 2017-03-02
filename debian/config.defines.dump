@@ -81,7 +81,7 @@ p42
 I01
 sVdebug-info
 p43
-I01
+I00
 ss(Vbase
 p44
 NVrt
@@ -136,7 +136,7 @@ tp73
 (dp74
 Vabiname
 p75
-V2
+Vparrot4
 p76
 sVignore-changes
 p77
@@ -2201,11 +2201,11 @@ V4.9
 p1169
 sVsource
 p1170
-V4.9.13-1
+V4.9.13-1parrot0
 p1171
 sVabiname
 p1172
-V4.9.0-2
+V4.9.0-parrot4
 p1173
 sVabiname_base
 p1174
