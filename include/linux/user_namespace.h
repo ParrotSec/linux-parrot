@@ -65,11 +65,7 @@ struct ucounts {
 	struct hlist_node node;
 	struct user_namespace *ns;
 	kuid_t uid;
-#ifdef __GENKSYMS__
-	atomic_t count;
-#else
 	int count;
-#endif
 	atomic_t ucount[UCOUNT_COUNTS];
 };
 

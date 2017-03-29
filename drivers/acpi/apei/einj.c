@@ -29,7 +29,6 @@
 #include <linux/nmi.h>
 #include <linux/delay.h>
 #include <linux/mm.h>
-#include <linux/security.h>
 #include <asm/unaligned.h>
 
 #include "apei-internal.h"
@@ -518,9 +517,6 @@ static int einj_error_inject(u32 type, u32 flags, u64 param1, u64 param2,
 {
 	int rc;
 	u64 base_addr, size;
-
-	if (get_securelevel() > 0)
-		return -EPERM;
 
 	/* If user manually set "flags", make sure it is legal */
 	if (flags && (flags &

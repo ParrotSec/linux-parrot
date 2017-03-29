@@ -37,6 +37,7 @@
  *	L	- lower subcluster; L0 - subcluster L0; L1 - subcluster L1
  */
 
+#include <asm/export.h>
 /* Allow an exception for an insn; exit if we get one.  */
 #define EXI(x,y...)			\
 	99: x,##y;			\
@@ -235,4 +236,4 @@ $exitout:			# Destination for exception recovery(?)
 	ret $31,($28),1		# L0 .. .. ..	: L U L U
 
 	.end __copy_user
-
+	EXPORT_SYMBOL(__copy_user)

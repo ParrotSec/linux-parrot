@@ -1016,8 +1016,11 @@ static int netdev_open(struct net_device *dev)
 #endif /* VLAN_SUPPORT */
 
 	retval = request_firmware(&fw_rx, FIRMWARE_RX, &np->pci_dev->dev);
-	if (retval)
+	if (retval) {
+		printk(KERN_ERR "starfire: Failed to load firmware \"%s\"\n",
+		       FIRMWARE_RX);
 		goto out_init;
+	}
 	if (fw_rx->size % 4) {
 		printk(KERN_ERR "starfire: bogus length %zu in \"%s\"\n",
 		       fw_rx->size, FIRMWARE_RX);
@@ -1025,8 +1028,11 @@ static int netdev_open(struct net_device *dev)
 		goto out_rx;
 	}
 	retval = request_firmware(&fw_tx, FIRMWARE_TX, &np->pci_dev->dev);
-	if (retval)
+	if (retval) {
+		printk(KERN_ERR "starfire: Failed to load firmware \"%s\"\n",
+		       FIRMWARE_TX);
 		goto out_rx;
+	}
 	if (fw_tx->size % 4) {
 		printk(KERN_ERR "starfire: bogus length %zu in \"%s\"\n",
 		       fw_tx->size, FIRMWARE_TX);

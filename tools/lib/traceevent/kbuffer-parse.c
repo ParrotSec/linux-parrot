@@ -314,7 +314,6 @@ static unsigned int old_update_pointers(struct kbuffer *kbuf)
 		extend <<= TS_SHIFT;
 		extend += delta;
 		delta = extend;
-		length = 0;
 		ptr += 4;
 		break;
 
@@ -614,7 +613,7 @@ unsigned long long kbuffer_timestamp(struct kbuffer *kbuf)
 void *kbuffer_read_at_offset(struct kbuffer *kbuf, int offset,
 			     unsigned long long *ts)
 {
-	void *data = NULL;
+	void *data;
 
 	if (offset < kbuf->start)
 		offset = 0;

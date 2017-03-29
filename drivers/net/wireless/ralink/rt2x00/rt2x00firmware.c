@@ -49,8 +49,10 @@ static int rt2x00lib_request_firmware(struct rt2x00_dev *rt2x00dev)
 	rt2x00_info(rt2x00dev, "Loading firmware file '%s'\n", fw_name);
 
 	retval = request_firmware(&fw, fw_name, device);
-	if (retval)
+	if (retval) {
+		rt2x00_err(rt2x00dev, "Failed to request Firmware\n");
 		return retval;
+	}
 
 	if (!fw || !fw->size || !fw->data) {
 		rt2x00_err(rt2x00dev, "Failed to read Firmware\n");

@@ -18,8 +18,6 @@
 #include <asm/checksum.h>
 #include <asm/uaccess.h>
 #include <asm/epapr_hcalls.h>
-#include <asm/dcr.h>
-#include <asm/mmu_context.h>
 
 #include <uapi/asm/ucontext.h>
 

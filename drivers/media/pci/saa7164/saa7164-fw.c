@@ -420,8 +420,11 @@ int saa7164_downloadfirmware(struct saa7164_dev *dev)
 			__func__, fwname);
 
 		ret = request_firmware(&fw, fwname, &dev->pci->dev);
-		if (ret)
+		if (ret) {
+			printk(KERN_ERR "%s() Upload failed. "
+				"(file not found?)\n", __func__);
 			return -ENOMEM;
+		}
 
 		printk(KERN_INFO "%s() firmware read %Zu bytes.\n",
 			__func__, fw->size);

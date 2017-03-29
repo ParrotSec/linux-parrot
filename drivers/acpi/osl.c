@@ -40,7 +40,6 @@
 #include <linux/list.h>
 #include <linux/jiffies.h>
 #include <linux/semaphore.h>
-#include <linux/security.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -192,7 +191,7 @@ early_param("acpi_rsdp", setup_acpi_rsdp);
 acpi_physical_address __init acpi_os_get_root_pointer(void)
 {
 #ifdef CONFIG_KEXEC
-	if (acpi_rsdp && (get_securelevel() <= 0))
+	if (acpi_rsdp)
 		return acpi_rsdp;
 #endif
 
