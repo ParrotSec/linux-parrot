@@ -28,6 +28,7 @@ static const char *system_types[] = {
 	[MACH_LEMOTE_NAS]	= "lemote-nas-2f",
 	[MACH_LEMOTE_LL2F]	= "lemote-lynloong-2f",
 	[MACH_LOONGSON_GENERIC]	= "generic-loongson-machine",
+	[MACH_LOONGSON_3A780E1W] = "loongson-ls3a-rs780e-1w",
 	[MACH_LOONGSON_END]	= NULL,
 };
 

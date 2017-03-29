@@ -5,7 +5,6 @@
  */
 
 #include <linux/linkage.h>
-#include <asm/export.h>
 
 /*
  * memset implementation
@@ -61,7 +60,6 @@ ENTRY(memset)
 	xc	0(1,%r1),0(%r1)
 .Lmemset_mvc:
 	mvc	1(1,%r1),0(%r1)
-EXPORT_SYMBOL(memset)
 
 /*
  * memcpy implementation
@@ -88,4 +86,3 @@ ENTRY(memcpy)
 	j	.Lmemcpy_rest
 .Lmemcpy_mvc:
 	mvc	0(1,%r1),0(%r3)
-EXPORT_SYMBOL(memcpy)

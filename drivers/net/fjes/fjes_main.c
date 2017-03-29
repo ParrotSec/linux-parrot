@@ -81,7 +81,7 @@ static const struct acpi_device_id fjes_acpi_ids[] = {
 	{"PNP0C02", 0},
 	{"", 0},
 };
-MODULE_DEVICE_TABLE(acpi, fjes_acpi_ids);
+/* MODULE_DEVICE_TABLE(acpi, fjes_acpi_ids); */
 
 static struct acpi_driver fjes_acpi_driver = {
 	.name = DRV_NAME,

@@ -1,10 +1,15 @@
 [abi]
-abiname: parrot13
+abiname: parrot16
 ignore-changes:
  __cpuhp_*
+ module:drivers/hv/*
  module:drivers/iio/common/st_sensors/**
  module:drivers/net/wireless/**
+ module:drivers/nvdimm/*
  module:drivers/power/supply/bq27xxx_battery
+ module:drivers/scsi/qla2xxx/qla2xxx
+ module:drivers/scsi/ufs/*
+ module:drivers/target/**
  module:drivers/usb/host/**
  module:drivers/usb/musb/**
  module:net/ceph/libceph
@@ -14,6 +19,19 @@ ignore-changes:
 # Exported for related protocols only
  can_rx_register
  ip6_xmit
+ module:net/rds/rds
+# devfreq is unlikely to be useful for OOT modules
+ devfreq_*
+ devm_devfreq_*
+ update_devfreq
+# Assume IB drivers are added/updated through OFED, which also updates IB core
+ module:drivers/infiniband/**
+# Declared in private header, not usable OOT
+ acpi_ec_add_query_handler
+ acpi_ec_remove_query_handler
+ first_ec
+# Exported for tracefs only
+ debugfs_create_automount
 
 [base]
 arches:

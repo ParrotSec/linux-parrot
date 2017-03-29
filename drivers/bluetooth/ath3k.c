@@ -94,6 +94,7 @@ static const struct usb_device_id ath3k_table[] = {
 	{ USB_DEVICE(0x04CA, 0x300f) },
 	{ USB_DEVICE(0x04CA, 0x3010) },
 	{ USB_DEVICE(0x04CA, 0x3014) },
+	{ USB_DEVICE(0x04CA, 0x3018) },
 	{ USB_DEVICE(0x0930, 0x0219) },
 	{ USB_DEVICE(0x0930, 0x021c) },
 	{ USB_DEVICE(0x0930, 0x0220) },
@@ -162,6 +163,7 @@ static const struct usb_device_id ath3k_blist_tbl[] = {
 	{ USB_DEVICE(0x04ca, 0x300f), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x3010), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x3014), .driver_info = BTUSB_ATH3012 },
+	{ USB_DEVICE(0x04ca, 0x3018), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0930, 0x0219), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0930, 0x021c), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0930, 0x0220), .driver_info = BTUSB_ATH3012 },
@@ -422,10 +424,8 @@ static int ath3k_load_patch(struct usb_device *udev)
 		 le32_to_cpu(fw_version.rom_version));
 
 	ret = request_firmware(&firmware, filename, &udev->dev);
-	if (ret < 0) {
-		BT_ERR("Patch file not found %s", filename);
+	if (ret)
 		return ret;
-	}
 
 	pt_rom_version = get_unaligned_le32(firmware->data +
 					    firmware->size - 8);
@@ -485,10 +485,8 @@ static int ath3k_load_syscfg(struct usb_device *udev)
 		le32_to_cpu(fw_version.rom_version), clk_value, ".dfu");
 
 	ret = request_firmware(&firmware, filename, &udev->dev);
-	if (ret < 0) {
-		BT_ERR("Configuration file not found %s", filename);
+	if (ret)
 		return ret;
-	}
 
 	ret = ath3k_load_fwfile(udev, firmware);
 	release_firmware(firmware);

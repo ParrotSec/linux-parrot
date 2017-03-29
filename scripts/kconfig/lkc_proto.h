@@ -7,6 +7,7 @@ int conf_read_simple(const char *name, int);
 int conf_write_defconfig(const char *name);
 int conf_write(const char *name);
 int conf_write_autoconf(void);
+void conf_write_new_symbol(FILE*, struct symbol*, bool);
 bool conf_get_changed(void);
 void conf_set_changed_callback(void (*fn)(void));
 void conf_set_message_callback(void (*fn)(const char *fmt, va_list ap));

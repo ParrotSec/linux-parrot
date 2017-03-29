@@ -1,6 +1,6 @@
 VERSION = 4
 PATCHLEVEL = 9
-SUBLEVEL = 13
+SUBLEVEL = 16
 EXTRAVERSION =
 NAME = Roaring Lionus
 
@@ -255,42 +255,6 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 ARCH		?= $(SUBARCH)
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
-# Architecture as present in compile.h
-UTS_MACHINE 	:= $(ARCH)
-SRCARCH 	:= $(ARCH)
-
-# Additional ARCH settings for x86
-ifeq ($(ARCH),i386)
-        SRCARCH := x86
-endif
-ifeq ($(ARCH),x86_64)
-        SRCARCH := x86
-endif
-
-# Additional ARCH settings for sparc
-ifeq ($(ARCH),sparc32)
-       SRCARCH := sparc
-endif
-ifeq ($(ARCH),sparc64)
-       SRCARCH := sparc
-endif
-
-# Additional ARCH settings for sh
-ifeq ($(ARCH),sh64)
-       SRCARCH := sh
-endif
-
-# Additional ARCH settings for tile
-ifeq ($(ARCH),tilepro)
-       SRCARCH := tile
-endif
-ifeq ($(ARCH),tilegx)
-       SRCARCH := tile
-endif
-
-# Where to locate arch specific headers
-hdr-arch  := $(SRCARCH)
-
 KCONFIG_CONFIG	?= .config
 export KCONFIG_CONFIG
 
@@ -373,6 +337,44 @@ LDFLAGS_vmlinux =
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage -fno-tree-loop-im -Wno-maybe-uninitialized
 CFLAGS_KCOV	:= $(call cc-option,-fsanitize-coverage=trace-pc,)
 
+-include $(obj)/.kernelvariables
+
+# Architecture as present in compile.h
+UTS_MACHINE 	:= $(ARCH)
+SRCARCH 	:= $(ARCH)
+
+# Additional ARCH settings for x86
+ifeq ($(ARCH),i386)
+        SRCARCH := x86
+endif
+ifeq ($(ARCH),x86_64)
+        SRCARCH := x86
+endif
+
+# Additional ARCH settings for sparc
+ifeq ($(ARCH),sparc64)
+       SRCARCH := sparc
+endif
+
+# Additional ARCH settings for sh
+ifeq ($(ARCH),sh64)
+       SRCARCH := sh
+endif
+
+# Additional ARCH settings for tile
+ifeq ($(ARCH),tilepro)
+       SRCARCH := tile
+endif
+ifeq ($(ARCH),tilegx)
+       SRCARCH := tile
+endif
+
+# Where to locate arch specific headers
+hdr-arch  := $(SRCARCH)
+
+ifeq ($(ARCH),m68knommu)
+       hdr-arch  := m68k
+endif
 
 # Use USERINCLUDE when you must reference the UAPI directories only.
 USERINCLUDE    := \
@@ -648,6 +650,8 @@ endif
 KBUILD_CFLAGS += $(call cc-ifversion, -lt, 0409, \
 			$(call cc-disable-warning,maybe-uninitialized,))
 
+NOSTDINC_FLAGS += -nostdinc
+
 # Tell gcc to never replace conditional load with a non-conditional one
 KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 
@@ -766,7 +770,7 @@ KBUILD_CFLAGS += $(call cc-option, -fno-inline-functions-called-once)
 endif
 
 # arch Makefile may override CC so keep this after arch Makefile is included
-NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
+NOSTDINC_FLAGS += -isystem $(shell $(CC) -print-file-name=include)
 CHECKFLAGS     += $(NOSTDINC_FLAGS)
 
 # warn about C99 declaration after statement
@@ -1024,7 +1028,7 @@ endif
 prepare2: prepare3 prepare-compiler-check outputmakefile asm-generic
 
 prepare1: prepare2 $(version_h) include/generated/utsrelease.h \
-                   include/config/auto.conf
+                   include/config/auto.conf include/generated/package.h
 	$(cmd_crmodverdir)
 
 archprepare: archheaders archscripts prepare1 scripts_basic
@@ -1097,12 +1101,25 @@ define filechk_version.h
 	echo '#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))';)
 endef
 
+ifneq ($(DISTRIBUTION_OFFICIAL_BUILD),)
+define filechk_package.h
+	echo \#define LINUX_PACKAGE_ID \" $(DISTRIBUTOR) $(DISTRIBUTION_VERSION)\"
+endef
+else
+define filechk_package.h
+	echo \#define LINUX_PACKAGE_ID \"\"
+endef
+endif
+
 $(version_h): $(srctree)/Makefile FORCE
 	$(call filechk,version.h)
 	$(Q)rm -f $(old_version_h)
 
 include/generated/utsrelease.h: include/config/kernel.release FORCE
 	$(call filechk,utsrelease.h)
+
+include/generated/package.h: $(srctree)/Makefile FORCE
+	$(call filechk,package.h)
 
 PHONY += headerdep
 headerdep:

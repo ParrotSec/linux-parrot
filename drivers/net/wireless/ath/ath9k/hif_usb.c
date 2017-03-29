@@ -1160,9 +1160,6 @@ static void ath9k_hif_usb_firmware_cb(const struct firmware *fw, void *context)
 		if (!ret)
 			return;
 
-		dev_err(&hif_dev->udev->dev,
-			"ath9k_htc: Failed to get firmware %s\n",
-			hif_dev->fw_name);
 		goto err_fw;
 	}
 

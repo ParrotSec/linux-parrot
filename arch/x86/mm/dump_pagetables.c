@@ -17,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
+#include <xen/xen.h>
 
 #include <asm/pgtable.h>
 
@@ -220,7 +221,7 @@ static void note_page(struct seq_file *m, struct pg_state *st,
 		pgprotval_t pr = pgprot_val(st->current_prot);
 
 		if (st->check_wx && (pr & _PAGE_RW) && !(pr & _PAGE_NX)) {
-			WARN_ONCE(1,
+			WARN_ONCE(!(IS_ENABLED(CONFIG_X86_64) && xen_pv_domain()),
 				  "x86/mm: Found insecure W+X mapping at address %p/%pS\n",
 				  (void *)st->start_address,
 				  (void *)st->start_address);

@@ -2673,6 +2673,7 @@ static void __exit journal_exit(void)
 }
 
 MODULE_LICENSE("GPL");
+MODULE_SOFTDEP("pre: crypto-crc32c");
 module_init(journal_init);
 module_exit(journal_exit);
 

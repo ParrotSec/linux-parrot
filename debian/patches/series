@@ -21,6 +21,9 @@ bugfix/all/radeon-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 # Wifi injection
 features/all/wifi-injection.patch
 
+# Misc
+bugfix/all/allocate-physically-contiguous-params.patch
+
 # Patches from aufs4 repository, imported with
 # debian/patches/features/all/aufs4/gen-patch.  These are only the
 # changes needed to allow aufs to be built out-of-tree.
@@ -45,9 +48,13 @@ features/all/security-perf-allow-further-restriction-of-perf_event_open.patch
 debian/cdc_ncm-cdc_mbim-use-ncm-by-default.patch
 debian/snd-pcsp-disable-autoload.patch
 bugfix/x86/viafb-autoload-on-olpc-xo1.5-only.patch
+debian/fjes-disable-autoload.patch
 
 # Taint if dangerous features are used
 debian/fanotify-taint-on-use-of-fanotify_access_permissions.patch
+
+# Reduce noise for bug #852324
+debian/amd64-don-t-warn-about-expected-w+x-pages-on-xen.patch
 
 # Arch bug fixes
 bugfix/x86/asoc-intel-select-dw_dmac_core-since-it-s-mandatory.patch
@@ -82,6 +89,10 @@ bugfix/all/ath9k-fix-null-pointer-dereference.patch
 bugfix/all/nbd-fix-64-bit-division.patch
 bugfix/all/net-ipv6-check-route-protocol-when-deleting-routes.patch
 bugfix/all/media-dvb-usb-dibusb-mc-common-add-module_license.patch
+bugfix/all/media-dvb-usb-don-t-use-stack-for-firmware-load.patch
+bugfix/all/media-dvb-usb-don-t-use-stack-for-reset-either.patch
+bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
+bugfix/all/ACPI-EC-Use-busy-polling-mode-when-GPE-is-not-enable.patch
 
 # Miscellaneous features
 
@@ -112,7 +123,6 @@ features/all/securelevel/arm64-add-kernel-config-option-to-set-securelevel-wh.pa
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 bugfix/x86/kvm-fix-page-struct-leak-in-handle_vmon.patch
-bugfix/all/ipc-shm-fix-shmat-mmap-nil-page-protection.patch
 debian/time-mark-timer_stats-as-broken.patch
 bugfix/all/sctp-deny-peeloff-operation-on-asocs-with-threads-sl.patch
 
@@ -128,6 +138,7 @@ bugfix/all/module-disable-matching-missing-version-crc.patch
 
 # ABI maintenance
 debian/net-avoid-abi-change-for-min_header_len.patch
+debian/userns-avoid-abi-change-for-cve-2017-6874-fix.patch
 
 # Tools bug fixes
 bugfix/all/usbip-document-tcp-wrappers.patch

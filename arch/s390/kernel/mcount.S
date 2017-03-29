@@ -9,7 +9,6 @@
 #include <asm/asm-offsets.h>
 #include <asm/ftrace.h>
 #include <asm/ptrace.h>
-#include <asm/export.h>
 
 	.section .kprobes.text, "ax"
 
@@ -23,8 +22,6 @@ ENTRY(ftrace_stub)
 
 ENTRY(_mcount)
 	br	%r14
-
-EXPORT_SYMBOL(_mcount)
 
 ENTRY(ftrace_caller)
 	.globl	ftrace_regs_caller

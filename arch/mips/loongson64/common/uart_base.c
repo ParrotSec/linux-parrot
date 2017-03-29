@@ -25,6 +25,7 @@ void prom_init_loongson_uart_base(void)
 {
 	switch (mips_machtype) {
 	case MACH_LOONGSON_GENERIC:
+	case MACH_LOONGSON_3A780E1W:
 		/* The CPU provided serial port (CPU) */
 		loongson_uart_base[0] = LOONGSON_REG_BASE + 0x1e0;
 		break;
