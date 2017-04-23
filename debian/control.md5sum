@@ -1,5 +1,5 @@
 ac2a35d9d932aa7c28663b354a8f8397  debian/bin/gencontrol.py
-205e319b9c46cd06f12643be1fababe7  debian/changelog
+4ec6a2df7a31c42adc4def08c305c221  debian/changelog
 e492c730e8bc71cc52aa5315391e587e  debian/templates/control.main.in
 8ff553ff7232b003c35bdd074913bc8a  debian/templates/control.image-unsigned.in
 38004750aa03cea41d5d3aeafff16fcc  debian/templates/image.preinst.in
@@ -20,7 +20,7 @@ aaefe1e8777c46e773f8cc2515eb8d7c  debian/templates/control.image-dbg.in
 c6cea196527a033d3d3bed7c8bc141f4  debian/templates/control.extra.in
 fc3e8629682e63a1858b15d7f3df0ef9  debian/templates/control.docs.in
 5f1df5cd150d7663b81f5c54a604a766  debian/templates/control.headers.arch.in
-d9dad4392c610382bcb8f1e670ffb705  debian/config/defines
+7afb65414cfb45fac86d318247ad5e5c  debian/config/defines
 acb7dc2ee64ed9367179fc82169efb84  debian/config/i386/defines
 6f7d102847d8168a3c71c044ea7127ac  debian/config/tilegx/defines
 6efeb6f3f8ad4ecef3fff0d012fabad0  debian/config/mips64el/defines
@@ -103,4 +103,4 @@ d243c37c6930b5d5f646e8b55b317376  debian/installer/m68k/package-list
 2cbb54dee5b4512d847c67b20bb35caa  debian/installer/armel/package-list
 0fc827f651bf58416e4e2231b01f6908  debian/installer/mips64r6/package-list
 0fc827f651bf58416e4e2231b01f6908  debian/installer/mips64r6el/package-list
-8ab47b087ace888cf6dcc7016ce66116  debian/installer/package-list
+468b1d31cbbb979a4586d7d991aafb9a  debian/installer/package-list
