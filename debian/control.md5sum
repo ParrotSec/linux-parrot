@@ -1,5 +1,5 @@
-ac2a35d9d932aa7c28663b354a8f8397  debian/bin/gencontrol.py
-4ec6a2df7a31c42adc4def08c305c221  debian/changelog
+d283c069b160f0834a069a23b9fc79a4  debian/bin/gencontrol.py
+d8248d6a6a33f174c428ad5b9283c269  debian/changelog
 e492c730e8bc71cc52aa5315391e587e  debian/templates/control.main.in
 8ff553ff7232b003c35bdd074913bc8a  debian/templates/control.image-unsigned.in
 38004750aa03cea41d5d3aeafff16fcc  debian/templates/image.preinst.in
@@ -9,10 +9,10 @@ afb508873a44a1f196c2a525fec4b415  debian/templates/image.prerm.in
 ae49ef5fe8221e8aa846a8dd8faaed0e  debian/templates/control.image.in
 a4a60fc48b3240e46bbac6a1ddcaad30  debian/templates/image.postrm.in
 0d7f6ea42f52d0a6013535a80111ee3e  debian/templates/headers.postinst.in
-aaefe1e8777c46e773f8cc2515eb8d7c  debian/templates/control.image-dbg.in
+650118d2a8d44fba12cd43586a40ec3d  debian/templates/control.image-dbg.in
 7c7c56415a4ccc8463f66a1e1dfa7a73  debian/templates/control.source.in
 51797b6c275eb14e99009e78553904cc  debian/templates/lintian-overrides.perf.in
-6bf8fd71accd1530c46f3d6887d1ad4c  debian/templates/image-dbg.lintian-override.in
+1d1f3a359852289a620e328d676aad72  debian/templates/image-dbg.lintian-override.in
 46cc93799a6214c79efea8084bc9a329  debian/templates/control.headers.featureset.in
 814dda166c7e3ef02e6e259e805ac66a  debian/templates/tests-control.main.in
 0327750d6696dee915a532aec73a0fd6  debian/templates/image.postinst.in
@@ -20,7 +20,7 @@ aaefe1e8777c46e773f8cc2515eb8d7c  debian/templates/control.image-dbg.in
 c6cea196527a033d3d3bed7c8bc141f4  debian/templates/control.extra.in
 fc3e8629682e63a1858b15d7f3df0ef9  debian/templates/control.docs.in
 5f1df5cd150d7663b81f5c54a604a766  debian/templates/control.headers.arch.in
-7afb65414cfb45fac86d318247ad5e5c  debian/config/defines
+b547c6c02d063d1594fc9f11f3025a7d  debian/config/defines
 acb7dc2ee64ed9367179fc82169efb84  debian/config/i386/defines
 6f7d102847d8168a3c71c044ea7127ac  debian/config/tilegx/defines
 6efeb6f3f8ad4ecef3fff0d012fabad0  debian/config/mips64el/defines
@@ -74,7 +74,7 @@ cc12b5c69d0930a4400e9ec072d9f915  debian/installer/arm64/kernel-versions
 61a070b81f93d4c9e955dc90587702f3  debian/installer/sparc64/kernel-versions
 0e06b9acdcb4cd8dc06985dd49bdde05  debian/installer/mipsel/kernel-versions
 49f36561dee0396410815d4e92beb01e  debian/installer/sh4/kernel-versions
-8aba4204e5bc4edcfd9790294b8808ec  debian/installer/m68k/kernel-versions
+37c326d05ccb673603146e59a23cdda9  debian/installer/m68k/kernel-versions
 f8348b90fe2b9e1e75bddda4dbb832c4  debian/installer/s390x/kernel-versions
 1306c7e5b695c185d3193774b566e9e8  debian/installer/alpha/kernel-versions
 8512485f3a856fe5225fa9c74ea32d5a  debian/installer/hppa/kernel-versions

@@ -119,6 +119,7 @@ CONFIG_SUN_PARTITION=y
 ## file: crypto/Kconfig
 ##
 # CONFIG_CRYPTO_FIPS is not set
+CONFIG_CRYPTO_SHA256=m
 
 ##
 ## file: drivers/ata/Kconfig
@@ -307,7 +308,6 @@ CONFIG_ISDN_DIVAS_MAINT=m
 ##
 ## file: drivers/leds/Kconfig
 ##
-CONFIG_LEDS_GPIO=y
 CONFIG_LEDS_NS2=m
 CONFIG_LEDS_NETXBIG=m
 
@@ -500,6 +500,7 @@ CONFIG_PCI_MVEBU=y
 ## file: drivers/pci/pcie/Kconfig
 ##
 # CONFIG_PCIE_DPC is not set
+# CONFIG_PCIE_PTM is not set
 
 ##
 ## file: drivers/pcmcia/Kconfig
@@ -760,6 +761,11 @@ CONFIG_IPV6=m
 ## file: net/mpls/Kconfig
 ##
 # CONFIG_NET_MPLS_GSO is not set
+
+##
+## file: security/integrity/ima/Kconfig
+##
+# CONFIG_IMA is not set
 
 ##
 ## file: sound/soc/Kconfig
