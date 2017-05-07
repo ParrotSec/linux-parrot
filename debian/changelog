@@ -1,3 +1,9 @@
+linux (4.9.25-1parrot25) testing; urgency=medium
+
+  * Import new upstream release.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sun, 07 May 2017 03:46:58 +0200
+
 linux (4.9.25-1) unstable; urgency=medium
 
   * New upstream stable update:
