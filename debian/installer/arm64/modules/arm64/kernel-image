@@ -1,7 +1,0 @@
-#include <kernel-image>
-
-# Regulators
-drivers/regulator/**
-
-# SoC modules
-drivers/soc/**
