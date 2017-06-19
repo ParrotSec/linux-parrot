@@ -44,7 +44,7 @@
 #include <net/ip_fib.h>
 
 #include <linux/errqueue.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 /*
  *	SOL_IP control messages.
@@ -95,6 +95,17 @@ static void ip_cmsg_recv_retopts(struct msghdr *msg, struct sk_buff *skb)
 	ip_options_undo(opt);
 
 	put_cmsg(msg, SOL_IP, IP_RETOPTS, opt->optlen, opt->__data);
+}
+
+static void ip_cmsg_recv_fragsize(struct msghdr *msg, struct sk_buff *skb)
+{
+	int val;
+
+	if (IPCB(skb)->frag_max_size == 0)
+		return;
+
+	val = IPCB(skb)->frag_max_size;
+	put_cmsg(msg, SOL_IP, IP_RECVFRAGSIZE, sizeof(val), &val);
 }
 
 static void ip_cmsg_recv_checksum(struct msghdr *msg, struct sk_buff *skb,
@@ -153,10 +164,10 @@ static void ip_cmsg_recv_dstaddr(struct msghdr *msg, struct sk_buff *skb)
 	put_cmsg(msg, SOL_IP, IP_ORIGDSTADDR, sizeof(sin), &sin);
 }
 
-void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb,
-			 int tlen, int offset)
+void ip_cmsg_recv_offset(struct msghdr *msg, struct sock *sk,
+			 struct sk_buff *skb, int tlen, int offset)
 {
-	struct inet_sock *inet = inet_sk(skb->sk);
+	struct inet_sock *inet = inet_sk(sk);
 	unsigned int flags = inet->cmsg_flags;
 
 	/* Ordered by supposed usage frequency */
@@ -218,6 +229,9 @@ void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb,
 
 	if (flags & IP_CMSG_CHECKSUM)
 		ip_cmsg_recv_checksum(msg, skb, tlen, offset);
+
+	if (flags & IP_CMSG_RECVFRAGSIZE)
+		ip_cmsg_recv_fragsize(msg, skb);
 }
 EXPORT_SYMBOL(ip_cmsg_recv_offset);
 
@@ -258,7 +272,7 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
 			continue;
 		switch (cmsg->cmsg_type) {
 		case IP_RETOPTS:
-			err = cmsg->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr));
+			err = cmsg->cmsg_len - sizeof(struct cmsghdr);
 
 			/* Our caller is responsible for freeing ipc->opt */
 			err = ip_options_get(net, &ipc->opt, CMSG_DATA(cmsg),
@@ -576,6 +590,7 @@ static bool setsockopt_needs_rtnl(int optname)
 	case MCAST_LEAVE_GROUP:
 	case MCAST_LEAVE_SOURCE_GROUP:
 	case MCAST_UNBLOCK_SOURCE:
+	case IP_ROUTER_ALERT:
 		return true;
 	}
 	return false;
@@ -613,6 +628,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
 	case IP_MULTICAST_LOOP:
 	case IP_RECVORIGDSTADDR:
 	case IP_CHECKSUM:
+	case IP_RECVFRAGSIZE:
 		if (optlen >= sizeof(int)) {
 			if (get_user(val, (int __user *) optval))
 				return -EFAULT;
@@ -725,6 +741,14 @@ static int do_ip_setsockopt(struct sock *sk, int level,
 			}
 		}
 		break;
+	case IP_RECVFRAGSIZE:
+		if (sk->sk_type != SOCK_RAW && sk->sk_type != SOCK_DGRAM)
+			goto e_inval;
+		if (val)
+			inet->cmsg_flags |= IP_CMSG_RECVFRAGSIZE;
+		else
+			inet->cmsg_flags &= ~IP_CMSG_RECVFRAGSIZE;
+		break;
 	case IP_TOS:	/* This sets both TOS and Precedence */
 		if (sk->sk_type == SOCK_STREAM) {
 			val &= ~INET_ECN_MASK;
@@ -819,6 +843,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
 	{
 		struct ip_mreqn mreq;
 		struct net_device *dev = NULL;
+		int midx;
 
 		if (sk->sk_type == SOCK_STREAM)
 			goto e_inval;
@@ -863,11 +888,15 @@ static int do_ip_setsockopt(struct sock *sk, int level,
 		err = -EADDRNOTAVAIL;
 		if (!dev)
 			break;
+
+		midx = l3mdev_master_ifindex(dev);
+
 		dev_put(dev);
 
 		err = -EINVAL;
 		if (sk->sk_bound_dev_if &&
-		    mreq.imr_ifindex != sk->sk_bound_dev_if)
+		    mreq.imr_ifindex != sk->sk_bound_dev_if &&
+		    (!midx || midx != sk->sk_bound_dev_if))
 			break;
 
 		inet->mc_index = mreq.imr_ifindex;
@@ -1368,6 +1397,9 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
 		break;
 	case IP_CHECKSUM:
 		val = (inet->cmsg_flags & IP_CMSG_CHECKSUM) != 0;
+		break;
+	case IP_RECVFRAGSIZE:
+		val = (inet->cmsg_flags & IP_CMSG_RECVFRAGSIZE) != 0;
 		break;
 	case IP_TOS:
 		val = inet->tos;

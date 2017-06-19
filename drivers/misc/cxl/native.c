@@ -9,8 +9,8 @@
 
 #include <linux/spinlock.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/slab.h>
-#include <linux/sched.h>
 #include <linux/mutex.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>
@@ -54,7 +54,7 @@ static int afu_control(struct cxl_afu *afu, u64 command, u64 clear,
 				     AFU_Cntl | command);
 		cpu_relax();
 		AFU_Cntl = cxl_p2n_read(afu, CXL_AFU_Cntl_An);
-	};
+	}
 
 	if (AFU_Cntl & CXL_AFU_Cntl_An_RA) {
 		/*
@@ -167,7 +167,7 @@ int cxl_psl_purge(struct cxl_afu *afu)
 			cpu_relax();
 		}
 		PSL_CNTL = cxl_p1n_read(afu, CXL_PSL_SCNTL_An);
-	};
+	}
 	end = local_clock();
 	pr_devel("PSL purged in %lld ns\n", end - start);
 
@@ -931,9 +931,18 @@ static irqreturn_t native_irq_multiplexed(int irq, void *data)
 	struct cxl_afu *afu = data;
 	struct cxl_context *ctx;
 	struct cxl_irq_info irq_info;
-	int ph = cxl_p2n_read(afu, CXL_PSL_PEHandle_An) & 0xffff;
-	int ret;
+	u64 phreg = cxl_p2n_read(afu, CXL_PSL_PEHandle_An);
+	int ph, ret;
 
+	/* check if eeh kicked in while the interrupt was in flight */
+	if (unlikely(phreg == ~0ULL)) {
+		dev_warn(&afu->dev,
+			 "Ignoring slice interrupt(%d) due to fenced card",
+			 irq);
+		return IRQ_HANDLED;
+	}
+	/* Mask the pe-handle from register value */
+	ph = phreg & 0xffff;
 	if ((ret = native_get_irq_info(afu, &irq_info))) {
 		WARN(1, "Unable to get CXL IRQ Info: %i\n", ret);
 		return fail_psl_irq(afu, &irq_info);
@@ -1066,13 +1075,16 @@ int cxl_native_register_psl_err_irq(struct cxl *adapter)
 
 void cxl_native_release_psl_err_irq(struct cxl *adapter)
 {
-	if (adapter->native->err_virq != irq_find_mapping(NULL, adapter->native->err_hwirq))
+	if (adapter->native->err_virq == 0 ||
+	    adapter->native->err_virq !=
+	    irq_find_mapping(NULL, adapter->native->err_hwirq))
 		return;
 
 	cxl_p1_write(adapter, CXL_PSL_ErrIVTE, 0x0000000000000000);
 	cxl_unmap_irq(adapter->native->err_virq, adapter);
 	cxl_ops->release_one_irq(adapter, adapter->native->err_hwirq);
 	kfree(adapter->irq_name);
+	adapter->native->err_virq = 0;
 }
 
 int cxl_native_register_serr_irq(struct cxl_afu *afu)
@@ -1102,13 +1114,15 @@ int cxl_native_register_serr_irq(struct cxl_afu *afu)
 
 void cxl_native_release_serr_irq(struct cxl_afu *afu)
 {
-	if (afu->serr_virq != irq_find_mapping(NULL, afu->serr_hwirq))
+	if (afu->serr_virq == 0 ||
+	    afu->serr_virq != irq_find_mapping(NULL, afu->serr_hwirq))
 		return;
 
 	cxl_p1n_write(afu, CXL_PSL_SERR_An, 0x0000000000000000);
 	cxl_unmap_irq(afu->serr_virq, afu);
 	cxl_ops->release_one_irq(afu->adapter, afu->serr_hwirq);
 	kfree(afu->err_irq_name);
+	afu->serr_virq = 0;
 }
 
 int cxl_native_register_psl_irq(struct cxl_afu *afu)
@@ -1131,12 +1145,15 @@ int cxl_native_register_psl_irq(struct cxl_afu *afu)
 
 void cxl_native_release_psl_irq(struct cxl_afu *afu)
 {
-	if (afu->native->psl_virq != irq_find_mapping(NULL, afu->native->psl_hwirq))
+	if (afu->native->psl_virq == 0 ||
+	    afu->native->psl_virq !=
+	    irq_find_mapping(NULL, afu->native->psl_hwirq))
 		return;
 
 	cxl_unmap_irq(afu->native->psl_virq, afu);
 	cxl_ops->release_one_irq(afu->adapter, afu->native->psl_hwirq);
 	kfree(afu->psl_irq_name);
+	afu->native->psl_virq = 0;
 }
 
 static void recover_psl_err(struct cxl_afu *afu, u64 errstat)

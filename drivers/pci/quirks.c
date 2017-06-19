@@ -3067,7 +3067,7 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x0e0d, quirk_intel_ntb);
 static ktime_t fixup_debug_start(struct pci_dev *dev,
 				 void (*fn)(struct pci_dev *dev))
 {
-	ktime_t calltime = ktime_set(0, 0);
+	ktime_t calltime = 0;
 
 	dev_dbg(&dev->dev, "calling %pF\n", fn);
 	if (initcall_debug) {
@@ -3631,7 +3631,7 @@ static int __init pci_apply_final_quirks(void)
 fs_initcall_sync(pci_apply_final_quirks);
 
 /*
- * Followings are device-specific reset methods which can be used to
+ * Following are device-specific reset methods which can be used to
  * reset a single function if other methods (e.g. FLR, PM D0->D3) are
  * not available.
  */

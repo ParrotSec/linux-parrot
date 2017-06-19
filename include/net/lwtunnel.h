@@ -24,18 +24,19 @@ enum {
 struct lwtunnel_state {
 	__u16		type;
 	__u16		flags;
+	__u16		headroom;
 	atomic_t	refcnt;
 	int		(*orig_output)(struct net *net, struct sock *sk, struct sk_buff *skb);
 	int		(*orig_input)(struct sk_buff *);
-	int             len;
-	__u16		headroom;
+	struct		rcu_head rcu;
 	__u8            data[0];
 };
 
 struct lwtunnel_encap_ops {
-	int (*build_state)(struct net_device *dev, struct nlattr *encap,
+	int (*build_state)(struct nlattr *encap,
 			   unsigned int family, const void *cfg,
 			   struct lwtunnel_state **ts);
+	void (*destroy_state)(struct lwtunnel_state *lws);
 	int (*output)(struct net *net, struct sock *sk, struct sk_buff *skb);
 	int (*input)(struct sk_buff *skb);
 	int (*fill_encap)(struct sk_buff *skb,
@@ -95,7 +96,8 @@ static inline bool lwtunnel_xmit_redirect(struct lwtunnel_state *lwtstate)
 static inline unsigned int lwtunnel_headroom(struct lwtunnel_state *lwtstate,
 					     unsigned int mtu)
 {
-	if (lwtunnel_xmit_redirect(lwtstate) && lwtstate->headroom < mtu)
+	if ((lwtunnel_xmit_redirect(lwtstate) ||
+	     lwtunnel_output_redirect(lwtstate)) && lwtstate->headroom < mtu)
 		return lwtstate->headroom;
 
 	return 0;
@@ -107,7 +109,7 @@ int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
 			   unsigned int num);
 int lwtunnel_valid_encap_type(u16 encap_type);
 int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len);
-int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+int lwtunnel_build_state(u16 encap_type,
 			 struct nlattr *encap,
 			 unsigned int family, const void *cfg,
 			 struct lwtunnel_state **lws);
@@ -182,7 +184,7 @@ static inline int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len)
 	return 0;
 }
 
-static inline int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+static inline int lwtunnel_build_state(u16 encap_type,
 				       struct nlattr *encap,
 				       unsigned int family, const void *cfg,
 				       struct lwtunnel_state **lws)

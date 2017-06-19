@@ -19,6 +19,7 @@ enum pnv_phb_model {
 	PNV_PHB_MODEL_P7IOC,
 	PNV_PHB_MODEL_PHB3,
 	PNV_PHB_MODEL_NPU,
+	PNV_PHB_MODEL_NPU2,
 };
 
 #define PNV_PCI_DIAG_BUF_SIZE	8192
@@ -228,7 +229,7 @@ extern void pe_level_printk(const struct pnv_ioda_pe *pe, const char *level,
 
 /* Nvlink functions */
 extern void pnv_npu_try_dma_set_bypass(struct pci_dev *gpdev, bool bypass);
-extern void pnv_pci_phb3_tce_invalidate_entire(struct pnv_phb *phb, bool rm);
+extern void pnv_pci_ioda2_tce_invalidate_entire(struct pnv_phb *phb, bool rm);
 extern struct pnv_ioda_pe *pnv_pci_npu_setup_iommu(struct pnv_ioda_pe *npe);
 extern long pnv_npu_set_window(struct pnv_ioda_pe *npe, int num,
 		struct iommu_table *tbl);

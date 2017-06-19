@@ -336,9 +336,6 @@ static int get_serial_info(struct usb_serial_port *port,
 {
 	struct serial_struct tmp;
 
-	if (!serial)
-		return -EFAULT;
-
 	memset(&tmp, 0x00, sizeof(tmp));
 
 	/* fake emulate a 16550 uart to make userspace code happy */
@@ -346,7 +343,6 @@ static int get_serial_info(struct usb_serial_port *port,
 	tmp.line		= port->minor;
 	tmp.port		= 0;
 	tmp.irq			= 0;
-	tmp.flags		= ASYNC_SKIP_TEST | ASYNC_AUTO_IRQ;
 	tmp.xmit_fifo_size	= 1024;
 	tmp.baud_base		= 9600;
 	tmp.close_delay		= 5*HZ;

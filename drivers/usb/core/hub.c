@@ -6,6 +6,8 @@
  * (C) Copyright 1999 Gregory P. Smith
  * (C) Copyright 2001 Brad Hards (bhards@bigpond.net.au)
  *
+ * Released under the GPLv2 only.
+ * SPDX-License-Identifier: GPL-2.0
  */
 
 #include <linux/kernel.h>
@@ -13,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/completion.h>
-#include <linux/sched.h>
+#include <linux/sched/mm.h>
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/ioctl.h>
@@ -27,7 +29,7 @@
 #include <linux/random.h>
 #include <linux/pm_qos.h>
 
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <asm/byteorder.h>
 
 #include "hub.h"

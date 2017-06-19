@@ -259,6 +259,8 @@ int vgic_init(struct kvm *kvm)
 	if (ret)
 		goto out;
 
+	vgic_debug_init(kvm);
+
 	dist->initialized = true;
 out:
 	return ret;
@@ -287,6 +289,8 @@ static void __kvm_vgic_destroy(struct kvm *kvm)
 {
 	struct kvm_vcpu *vcpu;
 	int i;
+
+	vgic_debug_destroy(kvm);
 
 	kvm_vgic_dist_destroy(kvm);
 
@@ -388,6 +392,25 @@ static irqreturn_t vgic_maintenance_handler(int irq, void *data)
 }
 
 /**
+ * kvm_vgic_init_cpu_hardware - initialize the GIC VE hardware
+ *
+ * For a specific CPU, initialize the GIC VE hardware.
+ */
+void kvm_vgic_init_cpu_hardware(void)
+{
+	BUG_ON(preemptible());
+
+	/*
+	 * We want to make sure the list registers start out clear so that we
+	 * only have the program the used registers.
+	 */
+	if (kvm_vgic_global_state.type == VGIC_V2)
+		vgic_v2_init_lrs();
+	else
+		kvm_call_hyp(__vgic_v3_init_lrs);
+}
+
+/**
  * kvm_vgic_hyp_init: populates the kvm_vgic_global_state variable
  * according to the host GIC model. Accordingly calls either
  * vgic_v2/v3_probe which registers the KVM_DEVICE that can be
@@ -436,7 +459,7 @@ int kvm_vgic_hyp_init(void)
 	}
 
 	ret = cpuhp_setup_state(CPUHP_AP_KVM_ARM_VGIC_INIT_STARTING,
-				"AP_KVM_ARM_VGIC_INIT_STARTING",
+				"kvm/arm/vgic:starting",
 				vgic_init_cpu_starting, vgic_init_cpu_dying);
 	if (ret) {
 		kvm_err("Cannot register vgic CPU notifier\n");

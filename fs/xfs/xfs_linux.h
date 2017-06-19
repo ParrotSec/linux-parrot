@@ -55,7 +55,7 @@ typedef __u32			xfs_nlink_t;
 #include <linux/file.h>
 #include <linux/swap.h>
 #include <linux/errno.h>
-#include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include <linux/bitops.h>
 #include <linux/major.h>
 #include <linux/pagemap.h>
@@ -78,11 +78,12 @@ typedef __u32			xfs_nlink_t;
 #include <linux/freezer.h>
 #include <linux/list_sort.h>
 #include <linux/ratelimit.h>
+#include <linux/rhashtable.h>
 
 #include <asm/page.h>
 #include <asm/div64.h>
 #include <asm/param.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
 

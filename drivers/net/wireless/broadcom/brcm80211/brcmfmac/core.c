@@ -232,14 +232,20 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
 	if (eh->h_proto == htons(ETH_P_PAE))
 		atomic_inc(&ifp->pend_8021x_cnt);
 
-	ret = brcmf_fws_process_skb(ifp, skb);
+	/* determine the priority */
+	if ((skb->priority == 0) || (skb->priority > 7))
+		skb->priority = cfg80211_classify8021d(skb, NULL);
+
+	ret = brcmf_proto_tx_queue_data(drvr, ifp->ifidx, skb);
+	if (ret < 0)
+		brcmf_txfinalize(ifp, skb, false);
 
 done:
 	if (ret) {
-		ifp->stats.tx_dropped++;
+		ndev->stats.tx_dropped++;
 	} else {
-		ifp->stats.tx_packets++;
-		ifp->stats.tx_bytes += skb->len;
+		ndev->stats.tx_packets++;
+		ndev->stats.tx_bytes += skb->len;
 	}
 
 	/* Return ok: we always eat the packet */
@@ -283,15 +289,15 @@ void brcmf_txflowblock(struct device *dev, bool state)
 void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb)
 {
 	if (skb->pkt_type == PACKET_MULTICAST)
-		ifp->stats.multicast++;
+		ifp->ndev->stats.multicast++;
 
 	if (!(ifp->ndev->flags & IFF_UP)) {
 		brcmu_pkt_buf_free_skb(skb);
 		return;
 	}
 
-	ifp->stats.rx_bytes += skb->len;
-	ifp->stats.rx_packets++;
+	ifp->ndev->stats.rx_bytes += skb->len;
+	ifp->ndev->stats.rx_packets++;
 
 	brcmf_dbg(DATA, "rx proto=0x%X\n", ntohs(skb->protocol));
 	if (in_interrupt())
@@ -314,7 +320,7 @@ static int brcmf_rx_hdrpull(struct brcmf_pub *drvr, struct sk_buff *skb,
 
 	if (ret || !(*ifp) || !(*ifp)->ndev) {
 		if (ret != -ENODATA && *ifp)
-			(*ifp)->stats.rx_errors++;
+			(*ifp)->ndev->stats.rx_errors++;
 		brcmu_pkt_buf_free_skb(skb);
 		return -ENODATA;
 	}
@@ -375,7 +381,7 @@ void brcmf_txfinalize(struct brcmf_if *ifp, struct sk_buff *txp, bool success)
 	}
 
 	if (!success)
-		ifp->stats.tx_errors++;
+		ifp->ndev->stats.tx_errors++;
 
 	brcmu_pkt_buf_free_skb(txp);
 }
@@ -396,15 +402,6 @@ void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool success)
 		else
 			brcmf_txfinalize(ifp, txp, success);
 	}
-}
-
-static struct net_device_stats *brcmf_netdev_get_stats(struct net_device *ndev)
-{
-	struct brcmf_if *ifp = netdev_priv(ndev);
-
-	brcmf_dbg(TRACE, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
-
-	return &ifp->stats;
 }
 
 static void brcmf_ethtool_get_drvinfo(struct net_device *ndev,
@@ -479,7 +476,6 @@ static int brcmf_netdev_open(struct net_device *ndev)
 static const struct net_device_ops brcmf_netdev_ops_pri = {
 	.ndo_open = brcmf_netdev_open,
 	.ndo_stop = brcmf_netdev_stop,
-	.ndo_get_stats = brcmf_netdev_get_stats,
 	.ndo_start_xmit = brcmf_netdev_start_xmit,
 	.ndo_set_mac_address = brcmf_netdev_set_mac_address,
 	.ndo_set_rx_mode = brcmf_netdev_set_multicast_list
@@ -953,7 +949,7 @@ static int brcmf_revinfo_read(struct seq_file *s, void *data)
 	return 0;
 }
 
-int brcmf_bus_start(struct device *dev)
+int brcmf_bus_started(struct device *dev)
 {
 	int ret = -1;
 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
@@ -1062,16 +1058,6 @@ void brcmf_bus_add_txhdrlen(struct device *dev, uint len)
 	}
 }
 
-static void brcmf_bus_detach(struct brcmf_pub *drvr)
-{
-	brcmf_dbg(TRACE, "Enter\n");
-
-	if (drvr) {
-		/* Stop the bus module */
-		brcmf_bus_stop(drvr->bus_if);
-	}
-}
-
 void brcmf_dev_reset(struct device *dev)
 {
 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
@@ -1118,7 +1104,7 @@ void brcmf_detach(struct device *dev)
 
 	brcmf_fws_deinit(drvr);
 
-	brcmf_bus_detach(drvr);
+	brcmf_bus_stop(drvr->bus_if);
 
 	brcmf_proto_detach(drvr);
 

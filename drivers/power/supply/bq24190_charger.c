@@ -192,7 +192,7 @@ static const int bq24190_cvc_vreg_values[] = {
 	4400000
 };
 
-/* REG06[1:0] (TREG) in tenths of degrees Celcius */
+/* REG06[1:0] (TREG) in tenths of degrees Celsius */
 static const int bq24190_ictrc_treg_values[] = {
 	600, 800, 1000, 1200
 };
@@ -1404,15 +1404,17 @@ static int bq24190_probe(struct i2c_client *client,
 
 out4:
 	bq24190_sysfs_remove_group(bdi);
+
 out3:
 	power_supply_unregister(bdi->battery);
+
 out2:
 	power_supply_unregister(bdi->charger);
+
 out1:
 	pm_runtime_disable(dev);
 	if (bdi->gpio_int)
 		gpio_free(bdi->gpio_int);
-
 	return ret;
 }
 

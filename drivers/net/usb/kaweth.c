@@ -54,7 +54,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/wait.h>
 #include <linux/firmware.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <asm/byteorder.h>
 
 #undef DEBUG
@@ -803,18 +803,12 @@ static netdev_tx_t kaweth_start_xmit(struct sk_buff *skb,
 	}
 
 	/* We now decide whether we can put our special header into the sk_buff */
-	if (skb_cloned(skb) || skb_headroom(skb) < 2) {
-		/* no such luck - we make our own */
-		struct sk_buff *copied_skb;
-		copied_skb = skb_copy_expand(skb, 2, 0, GFP_ATOMIC);
-		dev_kfree_skb_irq(skb);
-		skb = copied_skb;
-		if (!copied_skb) {
-			kaweth->stats.tx_errors++;
-			netif_start_queue(net);
-			spin_unlock_irq(&kaweth->device_lock);
-			return NETDEV_TX_OK;
-		}
+	if (skb_cow_head(skb, 2)) {
+		kaweth->stats.tx_errors++;
+		netif_start_queue(net);
+		spin_unlock_irq(&kaweth->device_lock);
+		dev_kfree_skb_any(skb);
+		return NETDEV_TX_OK;
 	}
 
 	private_header = (__le16 *)__skb_push(skb, 2);
@@ -982,7 +976,6 @@ static const struct net_device_ops kaweth_netdev_ops = {
 	.ndo_tx_timeout =		kaweth_tx_timeout,
 	.ndo_set_rx_mode =		kaweth_set_rx_mode,
 	.ndo_get_stats =		kaweth_netdev_stats,
-	.ndo_change_mtu =		eth_change_mtu,
 	.ndo_set_mac_address =		eth_mac_addr,
 	.ndo_validate_addr =		eth_validate_addr,
 };

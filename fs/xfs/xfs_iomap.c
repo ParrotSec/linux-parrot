@@ -162,7 +162,7 @@ xfs_iomap_write_direct(
 	xfs_fileoff_t	last_fsb;
 	xfs_filblks_t	count_fsb, resaligned;
 	xfs_fsblock_t	firstfsb;
-	xfs_extlen_t	extsz, temp;
+	xfs_extlen_t	extsz;
 	int		nimaps;
 	int		quota_flag;
 	int		rt;
@@ -203,14 +203,7 @@ xfs_iomap_write_direct(
 	}
 	count_fsb = last_fsb - offset_fsb;
 	ASSERT(count_fsb > 0);
-
-	resaligned = count_fsb;
-	if (unlikely(extsz)) {
-		if ((temp = do_mod(offset_fsb, extsz)))
-			resaligned += temp;
-		if ((temp = do_mod(resaligned, extsz)))
-			resaligned += extsz - temp;
-	}
+	resaligned = xfs_aligned_fsb_count(offset_fsb, count_fsb, extsz);
 
 	if (unlikely(rt)) {
 		resrtextents = qblocks = resaligned;
@@ -955,6 +948,19 @@ static inline bool imap_needs_alloc(struct inode *inode,
 		(IS_DAX(inode) && ISUNWRITTEN(imap));
 }
 
+static inline bool need_excl_ilock(struct xfs_inode *ip, unsigned flags)
+{
+	/*
+	 * COW writes will allocate delalloc space, so we need to make sure
+	 * to take the lock exclusively here.
+	 */
+	if (xfs_is_reflink_inode(ip) && (flags & (IOMAP_WRITE | IOMAP_ZERO)))
+		return true;
+	if ((flags & IOMAP_DIRECT) && (flags & IOMAP_WRITE))
+		return true;
+	return false;
+}
+
 static int
 xfs_file_iomap_begin(
 	struct inode		*inode,
@@ -974,18 +980,14 @@ xfs_file_iomap_begin(
 	if (XFS_FORCED_SHUTDOWN(mp))
 		return -EIO;
 
-	if ((flags & IOMAP_WRITE) && !IS_DAX(inode) &&
-		   !xfs_get_extsz_hint(ip)) {
+	if (((flags & (IOMAP_WRITE | IOMAP_DIRECT)) == IOMAP_WRITE) &&
+			!IS_DAX(inode) && !xfs_get_extsz_hint(ip)) {
 		/* Reserve delalloc blocks for regular writeback. */
 		return xfs_file_iomap_begin_delay(inode, offset, length, flags,
 				iomap);
 	}
 
-	/*
-	 * COW writes will allocate delalloc space, so we need to make sure
-	 * to take the lock exclusively here.
-	 */
-	if ((flags & (IOMAP_WRITE | IOMAP_ZERO)) && xfs_is_reflink_inode(ip)) {
+	if (need_excl_ilock(ip, flags)) {
 		lockmode = XFS_ILOCK_EXCL;
 		xfs_ilock(ip, XFS_ILOCK_EXCL);
 	} else {
@@ -1012,9 +1014,17 @@ xfs_file_iomap_begin(
 	}
 
 	if ((flags & (IOMAP_WRITE | IOMAP_ZERO)) && xfs_is_reflink_inode(ip)) {
-		error = xfs_reflink_reserve_cow(ip, &imap, &shared);
-		if (error)
-			goto out_unlock;
+		if (flags & IOMAP_DIRECT) {
+			/* may drop and re-acquire the ilock */
+			error = xfs_reflink_allocate_cow(ip, &imap, &shared,
+					&lockmode);
+			if (error)
+				goto out_unlock;
+		} else {
+			error = xfs_reflink_reserve_cow(ip, &imap, &shared);
+			if (error)
+				goto out_unlock;
+		}
 
 		end_fsb = imap.br_startoff + imap.br_blockcount;
 		length = XFS_FSB_TO_B(mp, end_fsb) - offset;
@@ -1075,6 +1085,15 @@ xfs_file_iomap_end_delalloc(
 	int			error = 0;
 
 	/*
+	 * Behave as if the write failed if drop writes is enabled. Set the NEW
+	 * flag to force delalloc cleanup.
+	 */
+	if (xfs_mp_drop_writes(mp)) {
+		iomap->flags |= IOMAP_F_NEW;
+		written = 0;
+	}
+
+	/*
 	 * start_fsb refers to the first unused block after a short write. If
 	 * nothing was written, round offset down to point at the first block in
 	 * the range.
@@ -1127,7 +1146,7 @@ xfs_file_iomap_end(
 	return 0;
 }
 
-struct iomap_ops xfs_iomap_ops = {
+const struct iomap_ops xfs_iomap_ops = {
 	.iomap_begin		= xfs_file_iomap_begin,
 	.iomap_end		= xfs_file_iomap_end,
 };
@@ -1151,10 +1170,10 @@ xfs_xattr_iomap_begin(
 	if (XFS_FORCED_SHUTDOWN(mp))
 		return -EIO;
 
-	lockmode = xfs_ilock_data_map_shared(ip);
+	lockmode = xfs_ilock_attr_map_shared(ip);
 
 	/* if there are no attribute fork or extents, return ENOENT */
-	if (XFS_IFORK_Q(ip) || !ip->i_d.di_anextents) {
+	if (!XFS_IFORK_Q(ip) || !ip->i_d.di_anextents) {
 		error = -ENOENT;
 		goto out_unlock;
 	}
@@ -1173,6 +1192,6 @@ out_unlock:
 	return error;
 }
 
-struct iomap_ops xfs_xattr_iomap_ops = {
+const struct iomap_ops xfs_xattr_iomap_ops = {
 	.iomap_begin		= xfs_xattr_iomap_begin,
 };

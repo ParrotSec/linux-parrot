@@ -37,7 +37,7 @@
 #include <linux/idr.h>
 #include <linux/completion.h>
 #include <linux/netdevice.h>
-#include <linux/sched.h>
+#include <linux/sched/mm.h>
 #include <linux/pci.h>
 #include <linux/dma-mapping.h>
 #include <linux/inet.h>
@@ -483,8 +483,6 @@ struct c4iw_qp {
 	wait_queue_head_t wait;
 	struct timer_list timer;
 	int sq_sig_all;
-	struct completion rq_drained;
-	struct completion sq_drained;
 	struct work_struct free_work;
 	struct c4iw_ucontext *ucontext;
 };
@@ -633,6 +631,8 @@ static inline int to_ib_qp_state(int c4iw_qp_state)
 	return IB_QPS_ERR;
 }
 
+#define C4IW_DRAIN_OPCODE FW_RI_SGE_EC_CR_RETURN
+
 static inline u32 c4iw_ib_to_tpt_access(int a)
 {
 	return (a & IB_ACCESS_REMOTE_WRITE ? FW_RI_MEM_ACCESS_REM_WRITE : 0) |
@@ -672,14 +672,14 @@ enum c4iw_mmid_state {
 
 #define c4iw_put_ep(ep) { \
 	PDBG("put_ep (via %s:%u) ep %p refcnt %d\n", __func__, __LINE__,  \
-	     ep, atomic_read(&((ep)->kref.refcount))); \
-	WARN_ON(atomic_read(&((ep)->kref.refcount)) < 1); \
+	     ep, kref_read(&((ep)->kref))); \
+	WARN_ON(kref_read(&((ep)->kref)) < 1); \
 	kref_put(&((ep)->kref), _c4iw_free_ep); \
 }
 
 #define c4iw_get_ep(ep) { \
 	PDBG("get_ep (via %s:%u) ep %p, refcnt %d\n", __func__, __LINE__, \
-	     ep, atomic_read(&((ep)->kref.refcount))); \
+	     ep, kref_read(&((ep)->kref))); \
 	kref_get(&((ep)->kref));  \
 }
 void _c4iw_free_ep(struct kref *kref);
@@ -1015,8 +1015,6 @@ extern int c4iw_wr_log;
 extern int db_fc_threshold;
 extern int db_coalescing_threshold;
 extern int use_dsgl;
-void c4iw_drain_rq(struct ib_qp *qp);
-void c4iw_drain_sq(struct ib_qp *qp);
 void c4iw_invalidate_mr(struct c4iw_dev *rhp, u32 rkey);
 
 #endif

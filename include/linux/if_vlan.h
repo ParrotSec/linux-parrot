@@ -399,22 +399,6 @@ static inline struct sk_buff *__vlan_hwaccel_push_inside(struct sk_buff *skb)
 		skb->vlan_tci = 0;
 	return skb;
 }
-/*
- * vlan_hwaccel_push_inside - pushes vlan tag to the payload
- * @skb: skbuff to tag
- *
- * Checks is tag is present in @skb->vlan_tci and if it is, it pushes the
- * VLAN tag from @skb->vlan_tci inside to the payload.
- *
- * Following the skb_unshare() example, in case of error, the calling function
- * doesn't have to worry about freeing the original skb.
- */
-static inline struct sk_buff *vlan_hwaccel_push_inside(struct sk_buff *skb)
-{
-	if (skb_vlan_tag_present(skb))
-		skb = __vlan_hwaccel_push_inside(skb);
-	return skb;
-}
 
 /**
  * __vlan_hwaccel_put_tag - hardware accelerated VLAN inserting
@@ -630,14 +614,16 @@ static inline bool skb_vlan_tagged_multi(const struct sk_buff *skb)
 static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
 						    netdev_features_t features)
 {
-	if (skb_vlan_tagged_multi(skb))
-		features = netdev_intersect_features(features,
-						     NETIF_F_SG |
-						     NETIF_F_HIGHDMA |
-						     NETIF_F_FRAGLIST |
-						     NETIF_F_HW_CSUM |
-						     NETIF_F_HW_VLAN_CTAG_TX |
-						     NETIF_F_HW_VLAN_STAG_TX);
+	if (skb_vlan_tagged_multi(skb)) {
+		/* In the case of multi-tagged packets, use a direct mask
+		 * instead of using netdev_interesect_features(), to make
+		 * sure that only devices supporting NETIF_F_HW_CSUM will
+		 * have checksum offloading support.
+		 */
+		features &= NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_HW_CSUM |
+			    NETIF_F_FRAGLIST | NETIF_F_HW_VLAN_CTAG_TX |
+			    NETIF_F_HW_VLAN_STAG_TX;
+	}
 
 	return features;
 }

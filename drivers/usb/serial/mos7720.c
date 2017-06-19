@@ -234,11 +234,16 @@ static int read_mos_reg(struct usb_serial *serial, unsigned int serial_portnum,
 
 	status = usb_control_msg(usbdev, pipe, request, requesttype, value,
 				     index, buf, 1, MOS_WDR_TIMEOUT);
-	if (status == 1)
+	if (status == 1) {
 		*data = *buf;
-	else if (status < 0)
+	} else {
 		dev_err(&usbdev->dev,
 			"mos7720: usb_control_msg() failed: %d\n", status);
+		if (status >= 0)
+			status = -EIO;
+		*data = 0;
+	}
+
 	kfree(buf);
 
 	return status;
@@ -1840,16 +1845,12 @@ static int get_serial_info(struct moschip_port *mos7720_port,
 {
 	struct serial_struct tmp;
 
-	if (!retinfo)
-		return -EFAULT;
-
 	memset(&tmp, 0, sizeof(tmp));
 
 	tmp.type		= PORT_16550A;
 	tmp.line		= mos7720_port->port->minor;
 	tmp.port		= mos7720_port->port->port_number;
 	tmp.irq			= 0;
-	tmp.flags		= ASYNC_SKIP_TEST | ASYNC_AUTO_IRQ;
 	tmp.xmit_fifo_size	= NUM_URBS * URB_TRANSFER_BUFFER_SIZE;
 	tmp.baud_base		= 9600;
 	tmp.close_delay		= 5*HZ;
@@ -2014,11 +2015,6 @@ static int mos7720_port_probe(struct usb_serial_port *port)
 	if (!mos7720_port)
 		return -ENOMEM;
 
-	/* Initialize all port interrupt end point to port 0 int endpoint.
-	 * Our device has only one interrupt endpoint common to all ports.
-	 */
-	port->interrupt_in_endpointAddress =
-		port->serial->port[0]->interrupt_in_endpointAddress;
 	mos7720_port->port = port;
 
 	usb_set_serial_port_data(port, mos7720_port);

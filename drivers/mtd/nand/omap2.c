@@ -1904,10 +1904,10 @@ static int omap_nand_probe(struct platform_device *pdev)
 
 	/* scan NAND device connected to chip controller */
 	nand_chip->options |= info->devsize & NAND_BUSWIDTH_16;
-	if (nand_scan_ident(mtd, 1, NULL)) {
+	err = nand_scan_ident(mtd, 1, NULL);
+	if (err) {
 		dev_err(&info->pdev->dev,
 			"scan failed, may be bus-width mismatch\n");
-		err = -ENXIO;
 		goto return_error;
 	}
 
@@ -2163,10 +2163,9 @@ static int omap_nand_probe(struct platform_device *pdev)
 
 scan_tail:
 	/* second phase scan */
-	if (nand_scan_tail(mtd)) {
-		err = -ENXIO;
+	err = nand_scan_tail(mtd);
+	if (err)
 		goto return_error;
-	}
 
 	if (dev->of_node)
 		mtd_device_register(mtd, NULL, 0);
@@ -2206,6 +2205,7 @@ static const struct of_device_id omap_nand_ids[] = {
 	{ .compatible = "ti,omap2-nand", },
 	{},
 };
+MODULE_DEVICE_TABLE(of, omap_nand_ids);
 
 static struct platform_driver omap_nand_driver = {
 	.probe		= omap_nand_probe,

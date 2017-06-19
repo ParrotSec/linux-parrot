@@ -33,6 +33,7 @@
 #include <linux/kthread.h>
 #include <linux/in.h>
 #include <linux/export.h>
+#include <linux/t10-pi.h>
 #include <asm/unaligned.h>
 #include <net/sock.h>
 #include <net/tcp.h>
@@ -167,7 +168,6 @@ int transport_lookup_tmr_lun(struct se_cmd *se_cmd, u64 unpacked_lun)
 	rcu_read_lock();
 	deve = target_nacl_find_deve(nacl, unpacked_lun);
 	if (deve) {
-		se_tmr->tmr_lun = rcu_dereference(deve->se_lun);
 		se_cmd->se_lun = rcu_dereference(deve->se_lun);
 		se_lun = rcu_dereference(deve->se_lun);
 		se_cmd->pr_res_key = deve->pr_res_key;
