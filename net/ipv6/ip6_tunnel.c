@@ -42,7 +42,7 @@
 #include <linux/hash.h>
 #include <linux/etherdevice.h>
 
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/atomic.h>
 
 #include <net/icmp.h>
@@ -83,7 +83,7 @@ static int ip6_tnl_dev_init(struct net_device *dev);
 static void ip6_tnl_dev_setup(struct net_device *dev);
 static struct rtnl_link_ops ip6_link_ops __read_mostly;
 
-static int ip6_tnl_net_id __read_mostly;
+static unsigned int ip6_tnl_net_id __read_mostly;
 struct ip6_tnl_net {
 	/* the IPv6 tunnel fallback device */
 	struct net_device *fb_tnl_dev;
@@ -1095,6 +1095,9 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
 
 	if (!dst) {
 route_lookup:
+		/* add dsfield to flowlabel for route lookup */
+		fl6->flowlabel = ip6_make_flowinfo(dsfield, fl6->flowlabel);
+
 		dst = ip6_route_output(net, NULL, fl6);
 
 		if (dst->error)
@@ -1178,7 +1181,7 @@ route_lookup:
 
 	if (encap_limit >= 0) {
 		init_tel_txopt(&opt, encap_limit);
-		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
+		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
 	}
 
 	/* Calculate max headroom for all the headers and adjust
@@ -1196,7 +1199,7 @@ route_lookup:
 	skb_push(skb, sizeof(struct ipv6hdr));
 	skb_reset_network_header(skb);
 	ipv6h = ipv6_hdr(skb);
-	ip6_flow_hdr(ipv6h, INET_ECN_encapsulate(0, dsfield),
+	ip6_flow_hdr(ipv6h, dsfield,
 		     ip6_make_flowlabel(net, skb, fl6->flowlabel, true, fl6));
 	ipv6h->hop_limit = hop_limit;
 	ipv6h->nexthdr = proto;
@@ -1231,8 +1234,6 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (tproto != IPPROTO_IPIP && tproto != 0)
 		return -1;
 
-	dsfield = ipv4_get_dsfield(iph);
-
 	if (t->parms.collect_md) {
 		struct ip_tunnel_info *tun_info;
 		const struct ip_tunnel_key *key;
@@ -1246,6 +1247,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 		fl6.flowi6_proto = IPPROTO_IPIP;
 		fl6.daddr = key->u.ipv6.dst;
 		fl6.flowlabel = key->label;
+		dsfield = ip6_tclass(key->label);
 	} else {
 		if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
 			encap_limit = t->parms.encap_limit;
@@ -1254,14 +1256,19 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 		fl6.flowi6_proto = IPPROTO_IPIP;
 
 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
-			fl6.flowlabel |= htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
-					 & IPV6_TCLASS_MASK;
+			dsfield = ipv4_get_dsfield(iph);
+		else
+			dsfield = ip6_tclass(t->parms.flowinfo);
 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
 			fl6.flowi6_mark = skb->mark;
 	}
 
+	fl6.flowi6_uid = sock_net_uid(dev_net(dev), NULL);
+
 	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
 		return -1;
+
+	dsfield = INET_ECN_encapsulate(dsfield, ipv4_get_dsfield(iph));
 
 	skb_set_inner_ipproto(skb, IPPROTO_IPIP);
 
@@ -1296,8 +1303,6 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 	    ip6_tnl_addr_conflict(t, ipv6h))
 		return -1;
 
-	dsfield = ipv6_get_dsfield(ipv6h);
-
 	if (t->parms.collect_md) {
 		struct ip_tunnel_info *tun_info;
 		const struct ip_tunnel_key *key;
@@ -1311,8 +1316,11 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 		fl6.flowi6_proto = IPPROTO_IPV6;
 		fl6.daddr = key->u.ipv6.dst;
 		fl6.flowlabel = key->label;
+		dsfield = ip6_tclass(key->label);
 	} else {
 		offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
+		/* ip6_tnl_parse_tlv_enc_lim() might have reallocated skb->head */
+		ipv6h = ipv6_hdr(skb);
 		if (offset > 0) {
 			struct ipv6_tlv_tnl_enc_lim *tel;
 
@@ -1331,15 +1339,21 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 		fl6.flowi6_proto = IPPROTO_IPV6;
 
 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
-			fl6.flowlabel |= (*(__be32 *)ipv6h & IPV6_TCLASS_MASK);
+			dsfield = ipv6_get_dsfield(ipv6h);
+		else
+			dsfield = ip6_tclass(t->parms.flowinfo);
 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
 			fl6.flowlabel |= ip6_flowlabel(ipv6h);
 		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
 			fl6.flowi6_mark = skb->mark;
 	}
 
+	fl6.flowi6_uid = sock_net_uid(dev_net(dev), NULL);
+
 	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
 		return -1;
+
+	dsfield = INET_ECN_encapsulate(dsfield, ipv6_get_dsfield(ipv6h));
 
 	skb_set_inner_ipproto(skb, IPPROTO_IPV6);
 
@@ -1657,7 +1671,7 @@ int ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
 	struct ip6_tnl *tnl = netdev_priv(dev);
 
 	if (tnl->parms.proto == IPPROTO_IPIP) {
-		if (new_mtu < 68)
+		if (new_mtu < ETH_MIN_MTU)
 			return -EINVAL;
 	} else {
 		if (new_mtu < IPV6_MIN_MTU)
@@ -1810,6 +1824,8 @@ ip6_tnl_dev_init_gen(struct net_device *dev)
 	dev->mtu = ETH_DATA_LEN - t_hlen;
 	if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
 		dev->mtu -= 8;
+	dev->min_mtu = ETH_MIN_MTU;
+	dev->max_mtu = 0xFFF8 - dev->hard_header_len;
 
 	return 0;
 

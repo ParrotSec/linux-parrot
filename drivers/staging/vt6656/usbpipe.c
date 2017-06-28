@@ -44,7 +44,7 @@
 #define USB_CTL_WAIT	500 /* ms */
 
 int vnt_control_out(struct vnt_private *priv, u8 request, u16 value,
-		u16 index, u16 length, u8 *buffer)
+		     u16 index, u16 length, u8 *buffer)
 {
 	int status = 0;
 	u8 *usb_buffer;
@@ -78,11 +78,11 @@ int vnt_control_out(struct vnt_private *priv, u8 request, u16 value,
 void vnt_control_out_u8(struct vnt_private *priv, u8 reg, u8 reg_off, u8 data)
 {
 	vnt_control_out(priv, MESSAGE_TYPE_WRITE,
-					reg_off, reg, sizeof(u8), &data);
+			reg_off, reg, sizeof(u8), &data);
 }
 
 int vnt_control_in(struct vnt_private *priv, u8 request, u16 value,
-		u16 index, u16 length, u8 *buffer)
+		    u16 index, u16 length, u8 *buffer)
 {
 	int status;
 	u8 *usb_buffer;
@@ -119,7 +119,7 @@ int vnt_control_in(struct vnt_private *priv, u8 request, u16 value,
 void vnt_control_in_u8(struct vnt_private *priv, u8 reg, u8 reg_off, u8 *data)
 {
 	vnt_control_in(priv, MESSAGE_TYPE_READ,
-			reg_off, reg, sizeof(u8), data);
+		       reg_off, reg, sizeof(u8), data);
 }
 
 static void vnt_start_interrupt_urb_complete(struct urb *urb)

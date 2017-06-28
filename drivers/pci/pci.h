@@ -1,9 +1,6 @@
 #ifndef DRIVERS_PCI_H
 #define DRIVERS_PCI_H
 
-#define PCI_CFG_SPACE_SIZE	256
-#define PCI_CFG_SPACE_EXP_SIZE	4096
-
 #define PCI_FIND_CAP_TTL	48
 
 extern const unsigned char pcie_link_speed[];
@@ -85,8 +82,8 @@ void pci_pm_init(struct pci_dev *dev);
 void pci_ea_init(struct pci_dev *dev);
 void pci_allocate_cap_save_buffers(struct pci_dev *dev);
 void pci_free_cap_save_buffers(struct pci_dev *dev);
-void pci_bridge_d3_device_changed(struct pci_dev *dev);
-void pci_bridge_d3_device_removed(struct pci_dev *dev);
+bool pci_bridge_d3_possible(struct pci_dev *dev);
+void pci_bridge_d3_update(struct pci_dev *dev);
 
 static inline void pci_wakeup_event(struct pci_dev *dev)
 {
@@ -273,7 +270,7 @@ struct pci_sriov {
 	u16 driver_max_VFs;	/* max num VFs driver supports */
 	struct pci_dev *dev;	/* lowest numbered PF */
 	struct pci_dev *self;	/* this PF */
-	struct mutex lock;	/* lock for VF bus */
+	struct mutex lock;	/* lock for setting sriov_numvfs in sysfs */
 	resource_size_t barsz[PCI_SRIOV_NUM_BARS];	/* VF BAR size */
 };
 
@@ -349,6 +346,11 @@ static inline int pci_dev_specific_reset(struct pci_dev *dev, int probe)
 {
 	return -ENOTTY;
 }
+#endif
+
+#if defined(CONFIG_PCI_QUIRKS) && defined(CONFIG_ARM64)
+int acpi_get_rc_resources(struct device *dev, const char *hid, u16 segment,
+			  struct resource *res);
 #endif
 
 #endif /* DRIVERS_PCI_H */

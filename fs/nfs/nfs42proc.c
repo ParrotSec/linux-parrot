@@ -12,6 +12,7 @@
 #include "nfs42.h"
 #include "iostat.h"
 #include "pnfs.h"
+#include "nfs4session.h"
 #include "internal.h"
 
 #define NFSDBG_FACILITY NFSDBG_PROC
@@ -342,9 +343,8 @@ nfs42_layoutstat_prepare(struct rpc_task *task, void *calldata)
 	}
 	nfs4_stateid_copy(&data->args.stateid, &lo->plh_stateid);
 	spin_unlock(&inode->i_lock);
-	nfs41_setup_sequence(nfs4_get_session(server), &data->args.seq_args,
-			     &data->res.seq_res, task);
-
+	nfs4_setup_sequence(server->nfs_client, &data->args.seq_args,
+			    &data->res.seq_res, task);
 }
 
 static void
@@ -408,10 +408,13 @@ static void
 nfs42_layoutstat_release(void *calldata)
 {
 	struct nfs42_layoutstat_data *data = calldata;
-	struct nfs_server *nfss = NFS_SERVER(data->args.inode);
+	struct nfs42_layoutstat_devinfo *devinfo = data->args.devinfo;
+	int i;
 
-	if (nfss->pnfs_curr_ld->cleanup_layoutstats)
-		nfss->pnfs_curr_ld->cleanup_layoutstats(data);
+	for (i = 0; i < data->args.num_dev; i++) {
+		if (devinfo[i].ld_private.ops && devinfo[i].ld_private.ops->free)
+			devinfo[i].ld_private.ops->free(&devinfo[i].ld_private);
+	}
 
 	pnfs_put_layout_hdr(NFS_I(data->args.inode)->layout);
 	smp_mb__before_atomic();

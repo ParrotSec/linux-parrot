@@ -25,7 +25,7 @@
  *        David S. Miller (davem@caip.rutgers.edu), 1995
  */
 
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include <linux/errno.h>
 #include <linux/fs.h>
@@ -235,7 +235,8 @@ ufs_extend_tail(struct inode *inode, u64 writes_to,
 
 	p = ufs_get_direct_data_ptr(uspi, ufsi, block);
 	tmp = ufs_new_fragments(inode, p, lastfrag, ufs_data_ptr_to_cpu(sb, p),
-				new_size, err, locked_page);
+				new_size - (lastfrag & uspi->s_fpbmask), err,
+				locked_page);
 	return tmp != 0;
 }
 
@@ -284,7 +285,7 @@ ufs_inode_getfrag(struct inode *inode, unsigned index,
 			goal += uspi->s_fpb;
 	}
 	tmp = ufs_new_fragments(inode, p, ufs_blknum(new_fragment),
-				goal, uspi->s_fpb, err, locked_page);
+				goal, nfrags, err, locked_page);
 
 	if (!tmp) {
 		*err = -ENOSPC;
@@ -402,7 +403,9 @@ static int ufs_getfrag_block(struct inode *inode, sector_t fragment, struct buff
 
 	if (!create) {
 		phys64 = ufs_frag_map(inode, offsets, depth);
-		goto out;
+		if (phys64)
+			map_bh(bh_result, sb, phys64 + frag);
+		return 0;
 	}
 
         /* This code entered only while writing ....? */
@@ -841,7 +844,9 @@ void ufs_evict_inode(struct inode * inode)
 	truncate_inode_pages_final(&inode->i_data);
 	if (want_delete) {
 		inode->i_size = 0;
-		if (inode->i_blocks)
+		if (inode->i_blocks &&
+		    (S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) ||
+		     S_ISLNK(inode->i_mode)))
 			ufs_truncate_blocks(inode);
 	}
 
@@ -1070,8 +1075,7 @@ static int ufs_alloc_lastblock(struct inode *inode, loff_t size)
 
        if (buffer_new(bh)) {
 	       clear_buffer_new(bh);
-	       unmap_underlying_metadata(bh->b_bdev,
-					 bh->b_blocknr);
+	       clean_bdev_bh_alias(bh);
 	       /*
 		* we do not zeroize fragment, because of
 		* if it maped to hole, it already contains zeroes
@@ -1101,7 +1105,7 @@ out:
        return err;
 }
 
-static void __ufs_truncate_blocks(struct inode *inode)
+static void ufs_truncate_blocks(struct inode *inode)
 {
 	struct ufs_inode_info *ufsi = UFS_I(inode);
 	struct super_block *sb = inode->i_sb;
@@ -1184,22 +1188,12 @@ static int ufs_truncate(struct inode *inode, loff_t size)
 
 	truncate_setsize(inode, size);
 
-	__ufs_truncate_blocks(inode);
+	ufs_truncate_blocks(inode);
 	inode->i_mtime = inode->i_ctime = current_time(inode);
 	mark_inode_dirty(inode);
 out:
 	UFSD("EXIT: err %d\n", err);
 	return err;
-}
-
-void ufs_truncate_blocks(struct inode *inode)
-{
-	if (!(S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) ||
-	      S_ISLNK(inode->i_mode)))
-		return;
-	if (IS_APPEND(inode) || IS_IMMUTABLE(inode))
-		return;
-	__ufs_truncate_blocks(inode);
 }
 
 int ufs_setattr(struct dentry *dentry, struct iattr *attr)

@@ -172,6 +172,7 @@ struct musb_io;
  */
 struct musb_platform_ops {
 
+#define MUSB_PRESERVE_SESSION	BIT(7)
 #define MUSB_DMA_UX500		BIT(6)
 #define MUSB_DMA_CPPI41		BIT(5)
 #define MUSB_DMA_CPPI		BIT(4)
@@ -631,5 +632,11 @@ static inline void musb_platform_clear_ep_rxintr(struct musb *musb, int epnum)
 	if (musb->ops->clear_ep_rxintr)
 		musb->ops->clear_ep_rxintr(musb, epnum);
 }
+
+/*
+ * gets the "dr_mode" property from DT and converts it into musb_mode
+ * if the property is not found or not recognized returns MUSB_OTG
+ */
+extern enum musb_mode musb_get_mode(struct device *dev);
 
 #endif	/* __MUSB_CORE_H__ */

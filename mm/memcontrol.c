@@ -35,6 +35,8 @@
 #include <linux/memcontrol.h>
 #include <linux/cgroup.h>
 #include <linux/mm.h>
+#include <linux/sched/mm.h>
+#include <linux/shmem_fs.h>
 #include <linux/hugetlb.h>
 #include <linux/pagemap.h>
 #include <linux/smp.h>
@@ -68,7 +70,7 @@
 #include <net/ip.h>
 #include "slab.h"
 
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include <trace/events/vmscan.h>
 
@@ -317,6 +319,8 @@ void memcg_put_cache_ids(void)
 DEFINE_STATIC_KEY_FALSE(memcg_kmem_enabled_key);
 EXPORT_SYMBOL(memcg_kmem_enabled_key);
 
+struct workqueue_struct *memcg_kmem_cache_wq;
+
 #endif /* !CONFIG_SLOB */
 
 /**
@@ -462,6 +466,8 @@ static void mem_cgroup_update_tree(struct mem_cgroup *memcg, struct page *page)
 	struct mem_cgroup_tree_per_node *mctz;
 
 	mctz = soft_limit_tree_from_page(page);
+	if (!mctz)
+		return;
 	/*
 	 * Necessary to update all ancestors when hierarchy is used.
 	 * because their event counter is not touched.
@@ -499,7 +505,8 @@ static void mem_cgroup_remove_from_trees(struct mem_cgroup *memcg)
 	for_each_node(nid) {
 		mz = mem_cgroup_nodeinfo(memcg, nid);
 		mctz = soft_limit_tree_node(nid);
-		mem_cgroup_remove_exceeded(mz, mctz);
+		if (mctz)
+			mem_cgroup_remove_exceeded(mz, mctz);
 	}
 }
 
@@ -561,23 +568,6 @@ mem_cgroup_largest_soft_limit_node(struct mem_cgroup_tree_per_node *mctz)
  * common workload, threshold and synchronization as vmstat[] should be
  * implemented.
  */
-static unsigned long
-mem_cgroup_read_stat(struct mem_cgroup *memcg, enum mem_cgroup_stat_index idx)
-{
-	long val = 0;
-	int cpu;
-
-	/* Per-cpu values can be negative, use a signed accumulator */
-	for_each_possible_cpu(cpu)
-		val += per_cpu(memcg->stat->count[idx], cpu);
-	/*
-	 * Summing races with updates, so val may be negative.  Avoid exposing
-	 * transient negative values.
-	 */
-	if (val < 0)
-		val = 0;
-	return val;
-}
 
 static unsigned long mem_cgroup_read_events(struct mem_cgroup *memcg,
 					    enum mem_cgroup_events_index idx)
@@ -1814,22 +1804,13 @@ static void drain_all_stock(struct mem_cgroup *root_memcg)
 	mutex_unlock(&percpu_charge_mutex);
 }
 
-static int memcg_cpu_hotplug_callback(struct notifier_block *nb,
-					unsigned long action,
-					void *hcpu)
+static int memcg_hotplug_cpu_dead(unsigned int cpu)
 {
-	int cpu = (unsigned long)hcpu;
 	struct memcg_stock_pcp *stock;
-
-	if (action == CPU_ONLINE)
-		return NOTIFY_OK;
-
-	if (action != CPU_DEAD && action != CPU_DEAD_FROZEN)
-		return NOTIFY_OK;
 
 	stock = &per_cpu(memcg_stock, cpu);
 	drain_stock(stock);
-	return NOTIFY_OK;
+	return 0;
 }
 
 static void reclaim_high(struct mem_cgroup *memcg,
@@ -2152,8 +2133,6 @@ struct memcg_kmem_cache_create_work {
 	struct work_struct work;
 };
 
-static struct workqueue_struct *memcg_kmem_cache_create_wq;
-
 static void memcg_kmem_cache_create_func(struct work_struct *w)
 {
 	struct memcg_kmem_cache_create_work *cw =
@@ -2185,7 +2164,7 @@ static void __memcg_schedule_kmem_cache_create(struct mem_cgroup *memcg,
 	cw->cachep = cachep;
 	INIT_WORK(&cw->work, memcg_kmem_cache_create_func);
 
-	queue_work(memcg_kmem_cache_create_wq, &cw->work);
+	queue_work(memcg_kmem_cache_wq, &cw->work);
 }
 
 static void memcg_schedule_kmem_cache_create(struct mem_cgroup *memcg,
@@ -2565,7 +2544,7 @@ unsigned long mem_cgroup_soft_limit_reclaim(pg_data_t *pgdat, int order,
 	 * is empty. Do it lockless to prevent lock bouncing. Races
 	 * are acceptable as soft limit is best effort anyway.
 	 */
-	if (RB_EMPTY_ROOT(&mctz->rb_root))
+	if (!mctz || RB_EMPTY_ROOT(&mctz->rb_root))
 		return 0;
 
 	/*
@@ -2846,6 +2825,7 @@ static int memcg_online_kmem(struct mem_cgroup *memcg)
 	 */
 	memcg->kmemcg_id = memcg_id;
 	memcg->kmem_state = KMEM_ONLINE;
+	INIT_LIST_HEAD(&memcg->kmem_caches);
 
 	return 0;
 }
@@ -4011,9 +3991,9 @@ static struct cftype mem_cgroup_legacy_files[] = {
 #ifdef CONFIG_SLABINFO
 	{
 		.name = "kmem.slabinfo",
-		.seq_start = slab_start,
-		.seq_next = slab_next,
-		.seq_stop = slab_stop,
+		.seq_start = memcg_slab_start,
+		.seq_next = memcg_slab_next,
+		.seq_stop = memcg_slab_stop,
 		.seq_show = memcg_slab_show,
 	},
 #endif
@@ -5240,6 +5220,13 @@ static int memory_stat_show(struct seq_file *m, void *v)
 	seq_printf(m, "pgmajfault %lu\n",
 		   events[MEM_CGROUP_EVENTS_PGMAJFAULT]);
 
+	seq_printf(m, "workingset_refault %lu\n",
+		   stat[MEMCG_WORKINGSET_REFAULT]);
+	seq_printf(m, "workingset_activate %lu\n",
+		   stat[MEMCG_WORKINGSET_ACTIVATE]);
+	seq_printf(m, "workingset_nodereclaim %lu\n",
+		   stat[MEMCG_WORKINGSET_NODERECLAIM]);
+
 	return 0;
 }
 
@@ -5779,10 +5766,10 @@ __setup("cgroup.memory=", cgroup_memory);
 /*
  * subsys_initcall() for memory controller.
  *
- * Some parts like hotcpu_notifier() have to be initialized from this context
- * because of lock dependencies (cgroup_lock -> cpu hotplug) but basically
- * everything that doesn't depend on a specific mem_cgroup structure should
- * be initialized from here.
+ * Some parts like memcg_hotplug_cpu_dead() have to be initialized from this
+ * context because of lock dependencies (cgroup_lock -> cpu hotplug) but
+ * basically everything that doesn't depend on a specific mem_cgroup structure
+ * should be initialized from here.
  */
 static int __init mem_cgroup_init(void)
 {
@@ -5791,15 +5778,16 @@ static int __init mem_cgroup_init(void)
 #ifndef CONFIG_SLOB
 	/*
 	 * Kmem cache creation is mostly done with the slab_mutex held,
-	 * so use a special workqueue to avoid stalling all worker
-	 * threads in case lots of cgroups are created simultaneously.
+	 * so use a workqueue with limited concurrency to avoid stalling
+	 * all worker threads in case lots of cgroups are created and
+	 * destroyed simultaneously.
 	 */
-	memcg_kmem_cache_create_wq =
-		alloc_ordered_workqueue("memcg_kmem_cache_create", 0);
-	BUG_ON(!memcg_kmem_cache_create_wq);
+	memcg_kmem_cache_wq = alloc_workqueue("memcg_kmem_cache", 0, 1);
+	BUG_ON(!memcg_kmem_cache_wq);
 #endif
 
-	hotcpu_notifier(memcg_cpu_hotplug_callback, 0);
+	cpuhp_setup_state_nocalls(CPUHP_MM_MEMCQ_DEAD, "mm/memctrl:dead", NULL,
+				  memcg_hotplug_cpu_dead);
 
 	for_each_possible_cpu(cpu)
 		INIT_WORK(&per_cpu_ptr(&memcg_stock, cpu)->work,

@@ -50,7 +50,7 @@
 #include <linux/workqueue.h>
 #include <linux/sunrpc/rpc_pipe_fs.h>
 #include <linux/sunrpc/gss_api.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/hashtable.h>
 
 #include "../netns.h"
@@ -763,7 +763,7 @@ err_put_ctx:
 err:
 	kfree(buf);
 out:
-	dprintk("RPC:       %s returning %Zd\n", __func__, err);
+	dprintk("RPC:       %s returning %zd\n", __func__, err);
 	return err;
 }
 

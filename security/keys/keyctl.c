@@ -12,18 +12,20 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/sched.h>
+#include <linux/sched/task.h>
 #include <linux/slab.h>
 #include <linux/syscalls.h>
 #include <linux/key.h>
 #include <linux/keyctl.h>
 #include <linux/fs.h>
 #include <linux/capability.h>
+#include <linux/cred.h>
 #include <linux/string.h>
 #include <linux/err.h>
 #include <linux/vmalloc.h>
 #include <linux/security.h>
 #include <linux/uio.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include "internal.h"
 
 #define KEY_MAX_DESC_SIZE 4096
@@ -97,7 +99,7 @@ SYSCALL_DEFINE5(add_key, const char __user *, _type,
 	/* pull the payload in if one was supplied */
 	payload = NULL;
 
-	if (_payload) {
+	if (plen) {
 		ret = -ENOMEM;
 		payload = kmalloc(plen, GFP_KERNEL | __GFP_NOWARN);
 		if (!payload) {
@@ -327,7 +329,7 @@ long keyctl_update_key(key_serial_t id,
 
 	/* pull the payload in if one was supplied */
 	payload = NULL;
-	if (_payload) {
+	if (plen) {
 		ret = -ENOMEM;
 		payload = kmalloc(plen, GFP_KERNEL);
 		if (!payload)
@@ -1079,7 +1081,7 @@ long keyctl_instantiate_key_common(key_serial_t id,
 		}
 
 		ret = -EFAULT;
-		if (copy_from_iter(payload, plen, from) != plen)
+		if (!copy_from_iter_full(payload, plen, from))
 			goto error2;
 	}
 

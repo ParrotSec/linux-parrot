@@ -15,6 +15,7 @@
 #include <linux/user_namespace.h>
 #include <linux/namei.h>
 #include <linux/security.h>
+#include <linux/cred.h>
 #include <linux/idr.h>
 #include <linux/init.h>		/* init_rootfs */
 #include <linux/fs_struct.h>	/* get_fs_root et.al. */
@@ -24,6 +25,8 @@
 #include <linux/magic.h>
 #include <linux/bootmem.h>
 #include <linux/task_work.h>
+#include <linux/sched/task.h>
+
 #include "pnode.h"
 #include "internal.h"
 
@@ -96,10 +99,6 @@ static inline struct hlist_head *mp_hash(struct dentry *dentry)
 	return &mountpoint_hashtable[tmp & mp_hash_mask];
 }
 
-/*
- * allocation is serialized by namespace_sem, but we need the spinlock to
- * serialize with freeing.
- */
 static int mnt_alloc_id(struct mount *mnt)
 {
 	int res;
@@ -656,7 +655,7 @@ struct mount *__lookup_mnt(struct vfsmount *mnt, struct dentry *dentry)
  *
  * lookup_mnt takes a reference to the found vfsmount.
  */
-struct vfsmount *lookup_mnt(struct path *path)
+struct vfsmount *lookup_mnt(const struct path *path)
 {
 	struct mount *child_mnt;
 	struct vfsmount *m;
@@ -1075,6 +1074,8 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 		if (IS_MNT_SLAVE(old))
 			list_add(&mnt->mnt_slave, &old->mnt_slave);
 		mnt->mnt_master = old->mnt_master;
+	} else {
+		CLEAR_MNT_SHARED(mnt);
 	}
 	if (flag & CL_MAKE_SHARED)
 		set_mnt_shared(mnt);
@@ -1200,7 +1201,36 @@ struct vfsmount *mntget(struct vfsmount *mnt)
 }
 EXPORT_SYMBOL(mntget);
 
-struct vfsmount *mnt_clone_internal(struct path *path)
+/* path_is_mountpoint() - Check if path is a mount in the current
+ *                          namespace.
+ *
+ *  d_mountpoint() can only be used reliably to establish if a dentry is
+ *  not mounted in any namespace and that common case is handled inline.
+ *  d_mountpoint() isn't aware of the possibility there may be multiple
+ *  mounts using a given dentry in a different namespace. This function
+ *  checks if the passed in path is a mountpoint rather than the dentry
+ *  alone.
+ */
+bool path_is_mountpoint(const struct path *path)
+{
+	unsigned seq;
+	bool res;
+
+	if (!d_mountpoint(path->dentry))
+		return false;
+
+	rcu_read_lock();
+	do {
+		seq = read_seqbegin(&mount_lock);
+		res = __path_is_mountpoint(path);
+	} while (read_seqretry(&mount_lock, seq));
+	rcu_read_unlock();
+
+	return res;
+}
+EXPORT_SYMBOL(path_is_mountpoint);
+
+struct vfsmount *mnt_clone_internal(const struct path *path)
 {
 	struct mount *p;
 	p = clone_mnt(real_mount(path->mnt), path->dentry, CL_PRIVATE);
@@ -1791,7 +1821,7 @@ out:
 
 /* Caller should check returned pointer for errors */
 
-struct vfsmount *collect_mounts(struct path *path)
+struct vfsmount *collect_mounts(const struct path *path)
 {
 	struct mount *tree;
 	namespace_lock();
@@ -1824,7 +1854,7 @@ void drop_collected_mounts(struct vfsmount *mnt)
  *
  * Release with mntput().
  */
-struct vfsmount *clone_private_mount(struct path *path)
+struct vfsmount *clone_private_mount(const struct path *path)
 {
 	struct mount *old_mnt = real_mount(path->mnt);
 	struct mount *new_mnt;
@@ -1832,9 +1862,7 @@ struct vfsmount *clone_private_mount(struct path *path)
 	if (IS_MNT_UNBINDABLE(old_mnt))
 		return ERR_PTR(-EINVAL);
 
-	down_read(&namespace_sem);
 	new_mnt = clone_mnt(old_mnt, path->dentry, CL_PRIVATE);
-	up_read(&namespace_sem);
 	if (IS_ERR(new_mnt))
 		return ERR_CAST(new_mnt);
 
@@ -3048,7 +3076,7 @@ bool is_path_reachable(struct mount *mnt, struct dentry *dentry,
 	return &mnt->mnt == root->mnt && is_subdir(dentry, root->dentry);
 }
 
-bool path_is_under(struct path *path1, struct path *path2)
+bool path_is_under(const struct path *path1, const struct path *path2)
 {
 	bool res;
 	read_seqlock_excl(&mount_lock);

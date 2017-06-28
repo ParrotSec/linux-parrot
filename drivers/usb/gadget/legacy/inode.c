@@ -20,7 +20,7 @@
 #include <linux/uts.h>
 #include <linux/wait.h>
 #include <linux/compiler.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
@@ -84,8 +84,7 @@ static int ep_open(struct inode *, struct file *);
 
 /* /dev/gadget/$CHIP represents ep0 and the whole device */
 enum ep0_state {
-	/* DISBLED is the initial state.
-	 */
+	/* DISABLED is the initial state. */
 	STATE_DEV_DISABLED = 0,
 
 	/* Only one open() of /dev/gadget/$CHIP; only one file tracks
@@ -667,7 +666,7 @@ ep_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		return -ENOMEM;
 	}
 
-	if (unlikely(copy_from_iter(buf, len, from) != len)) {
+	if (unlikely(!copy_from_iter_full(buf, len, from))) {
 		value = -EFAULT;
 		goto out;
 	}
@@ -1782,8 +1781,10 @@ dev_config (struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 
 	spin_lock_irq (&dev->lock);
 	value = -EINVAL;
-	if (dev->buf)
+	if (dev->buf) {
+		kfree(kbuf);
 		goto fail;
+	}
 	dev->buf = kbuf;
 
 	/* full or low speed config */
@@ -1818,7 +1819,6 @@ dev_config (struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 			|| dev->dev->bDescriptorType != USB_DT_DEVICE
 			|| dev->dev->bNumConfigurations != 1)
 		goto fail;
-	dev->dev->bNumConfigurations = 1;
 	dev->dev->bcdUSB = cpu_to_le16 (0x0200);
 
 	/* triggers gadgetfs_bind(); then we can enumerate. */
@@ -1849,7 +1849,7 @@ dev_config (struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 
 fail:
 	spin_unlock_irq (&dev->lock);
-	pr_debug ("%s: %s fail %Zd, %p\n", shortname, __func__, value, dev);
+	pr_debug ("%s: %s fail %zd, %p\n", shortname, __func__, value, dev);
 	kfree (dev->buf);
 	dev->buf = NULL;
 	return value;

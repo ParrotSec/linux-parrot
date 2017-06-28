@@ -729,20 +729,26 @@ static int ibmveth_close(struct net_device *netdev)
 	return 0;
 }
 
-static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+static int netdev_get_link_ksettings(struct net_device *dev,
+				     struct ethtool_link_ksettings *cmd)
 {
-	cmd->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
+	u32 supported, advertising;
+
+	supported = (SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
 				SUPPORTED_FIBRE);
-	cmd->advertising = (ADVERTISED_1000baseT_Full | ADVERTISED_Autoneg |
+	advertising = (ADVERTISED_1000baseT_Full | ADVERTISED_Autoneg |
 				ADVERTISED_FIBRE);
-	ethtool_cmd_speed_set(cmd, SPEED_1000);
-	cmd->duplex = DUPLEX_FULL;
-	cmd->port = PORT_FIBRE;
-	cmd->phy_address = 0;
-	cmd->transceiver = XCVR_INTERNAL;
-	cmd->autoneg = AUTONEG_ENABLE;
-	cmd->maxtxpkt = 0;
-	cmd->maxrxpkt = 1;
+	cmd->base.speed = SPEED_1000;
+	cmd->base.duplex = DUPLEX_FULL;
+	cmd->base.port = PORT_FIBRE;
+	cmd->base.phy_address = 0;
+	cmd->base.autoneg = AUTONEG_ENABLE;
+
+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
+						supported);
+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
+						advertising);
+
 	return 0;
 }
 
@@ -978,11 +984,11 @@ static void ibmveth_get_ethtool_stats(struct net_device *dev,
 
 static const struct ethtool_ops netdev_ethtool_ops = {
 	.get_drvinfo		= netdev_get_drvinfo,
-	.get_settings		= netdev_get_settings,
 	.get_link		= ethtool_op_get_link,
 	.get_strings		= ibmveth_get_strings,
 	.get_sset_count		= ibmveth_get_sset_count,
 	.get_ethtool_stats	= ibmveth_get_ethtool_stats,
+	.get_link_ksettings	= netdev_get_link_ksettings,
 };
 
 static int ibmveth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
@@ -1320,7 +1326,7 @@ restart_poll:
 	ibmveth_replenish_task(adapter);
 
 	if (frames_processed < budget) {
-		napi_complete(napi);
+		napi_complete_done(napi, frames_processed);
 
 		/* We think we are done - reenable interrupts,
 		 * then check once more to make sure we are done.
@@ -1417,9 +1423,6 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
 	int new_mtu_oh = new_mtu + IBMVETH_BUFF_OH;
 	int i, rc;
 	int need_restart = 0;
-
-	if (new_mtu < IBMVETH_MIN_MTU)
-		return -EINVAL;
 
 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++)
 		if (new_mtu_oh <= adapter->rx_buff_pool[i].buff_size)
@@ -1604,8 +1607,11 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
 	netdev->netdev_ops = &ibmveth_netdev_ops;
 	netdev->ethtool_ops = &netdev_ethtool_ops;
 	SET_NETDEV_DEV(netdev, &dev->dev);
-	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
-		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+	netdev->hw_features = NETIF_F_SG;
+	if (vio_get_attribute(dev, "ibm,illan-options", NULL) != NULL) {
+		netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+				       NETIF_F_RXCSUM;
+	}
 
 	netdev->features |= netdev->hw_features;
 
@@ -1619,6 +1625,9 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
 	} else {
 		netdev->hw_features |= NETIF_F_TSO;
 	}
+
+	netdev->min_mtu = IBMVETH_MIN_MTU;
+	netdev->max_mtu = ETH_MAX_MTU;
 
 	memcpy(netdev->dev_addr, mac_addr_p, ETH_ALEN);
 

@@ -7,7 +7,9 @@
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/delay.h>
-#include <linux/sched.h>
+#include <linux/sched/mm.h>
+#include <linux/sched/clock.h>
+#include <linux/sched/task.h>
 #include <linux/init.h>
 #include <linux/kprobes.h>
 #include <linux/kgdb.h>
@@ -35,6 +37,7 @@
 #include <asm/desc.h>
 #include <asm/fpu/internal.h>
 #include <asm/mtrr.h>
+#include <asm/hwcap2.h>
 #include <linux/numa.h>
 #include <asm/asm.h>
 #include <asm/bugs.h>
@@ -50,6 +53,8 @@
 #endif
 
 #include "cpu.h"
+
+u32 elf_hwcap2 __read_mostly;
 
 /* all of these masks are initialized in setup_cpu_local_masks() */
 cpumask_var_t cpu_initialized_mask;
@@ -655,6 +660,16 @@ void cpu_detect(struct cpuinfo_x86 *c)
 	}
 }
 
+static void apply_forced_caps(struct cpuinfo_x86 *c)
+{
+	int i;
+
+	for (i = 0; i < NCAPINTS; i++) {
+		c->x86_capability[i] &= ~cpu_caps_cleared[i];
+		c->x86_capability[i] |= cpu_caps_set[i];
+	}
+}
+
 void get_cpu_cap(struct cpuinfo_x86 *c)
 {
 	u32 eax, ebx, ecx, edx;
@@ -748,6 +763,13 @@ void get_cpu_cap(struct cpuinfo_x86 *c)
 		c->x86_capability[CPUID_8000_000A_EDX] = cpuid_edx(0x8000000a);
 
 	init_scattered_cpuid_features(c);
+
+	/*
+	 * Clear/Set all flags overridden by options, after probe.
+	 * This needs to happen each time we re-probe, which may happen
+	 * several times during CPU initialization.
+	 */
+	apply_forced_caps(c);
 }
 
 static void identify_cpu_without_cpuid(struct cpuinfo_x86 *c)
@@ -801,14 +823,12 @@ static void __init early_identify_cpu(struct cpuinfo_x86 *c)
 	memset(&c->x86_capability, 0, sizeof c->x86_capability);
 	c->extended_cpuid_level = 0;
 
-	if (!have_cpuid_p())
-		identify_cpu_without_cpuid(c);
-
 	/* cyrix could have cpuid enabled via c_identify()*/
 	if (have_cpuid_p()) {
 		cpu_detect(c);
 		get_cpu_vendor(c);
 		get_cpu_cap(c);
+		setup_force_cpu_cap(X86_FEATURE_CPUID);
 
 		if (this_cpu->c_early_init)
 			this_cpu->c_early_init(c);
@@ -818,6 +838,9 @@ static void __init early_identify_cpu(struct cpuinfo_x86 *c)
 
 		if (this_cpu->c_bsp_init)
 			this_cpu->c_bsp_init(c);
+	} else {
+		identify_cpu_without_cpuid(c);
+		setup_clear_cpu_cap(X86_FEATURE_CPUID);
 	}
 
 	setup_force_cpu_cap(X86_FEATURE_ALWAYS);
@@ -1035,10 +1058,7 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 		this_cpu->c_identify(c);
 
 	/* Clear/Set all flags overridden by options, after probe */
-	for (i = 0; i < NCAPINTS; i++) {
-		c->x86_capability[i] &= ~cpu_caps_cleared[i];
-		c->x86_capability[i] |= cpu_caps_set[i];
-	}
+	apply_forced_caps(c);
 
 #ifdef CONFIG_X86_64
 	c->apicid = apic->phys_pkg_id(c->initial_apicid, 0);
@@ -1097,10 +1117,7 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 	 * Clear/Set all flags overridden by options, need do it
 	 * before following smp all cpus cap AND.
 	 */
-	for (i = 0; i < NCAPINTS; i++) {
-		c->x86_capability[i] &= ~cpu_caps_cleared[i];
-		c->x86_capability[i] |= cpu_caps_set[i];
-	}
+	apply_forced_caps(c);
 
 	/*
 	 * On SMP, boot_cpu_data holds the common feature set between
@@ -1165,7 +1182,6 @@ void enable_sep_cpu(void)
 void __init identify_boot_cpu(void)
 {
 	identify_cpu(&boot_cpu_data);
-	init_amd_e400_c1e_mask();
 #ifdef CONFIG_X86_32
 	sysenter_setup();
 	enable_sep_cpu();
@@ -1183,51 +1199,6 @@ void identify_secondary_cpu(struct cpuinfo_x86 *c)
 	mtrr_ap_init();
 	validate_apic_and_package_id(c);
 }
-
-struct msr_range {
-	unsigned	min;
-	unsigned	max;
-};
-
-static const struct msr_range msr_range_array[] = {
-	{ 0x00000000, 0x00000418},
-	{ 0xc0000000, 0xc000040b},
-	{ 0xc0010000, 0xc0010142},
-	{ 0xc0011000, 0xc001103b},
-};
-
-static void __print_cpu_msr(void)
-{
-	unsigned index_min, index_max;
-	unsigned index;
-	u64 val;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(msr_range_array); i++) {
-		index_min = msr_range_array[i].min;
-		index_max = msr_range_array[i].max;
-
-		for (index = index_min; index < index_max; index++) {
-			if (rdmsrl_safe(index, &val))
-				continue;
-			pr_info(" MSR%08x: %016llx\n", index, val);
-		}
-	}
-}
-
-static int show_msr;
-
-static __init int setup_show_msr(char *arg)
-{
-	int num;
-
-	get_option(&arg, &num);
-
-	if (num > 0)
-		show_msr = num;
-	return 1;
-}
-__setup("show_msr=", setup_show_msr);
 
 static __init int setup_noclflush(char *arg)
 {
@@ -1262,14 +1233,6 @@ void print_cpu_info(struct cpuinfo_x86 *c)
 		pr_cont(", stepping: 0x%x)\n", c->x86_mask);
 	else
 		pr_cont(")\n");
-
-	print_cpu_msr(c);
-}
-
-void print_cpu_msr(struct cpuinfo_x86 *c)
-{
-	if (c->cpu_index < show_msr)
-		__print_cpu_msr();
 }
 
 static __init int setup_disablecpuid(char *arg)
@@ -1484,11 +1447,8 @@ void cpu_init(void)
 	 */
 	cr4_init_shadow();
 
-	/*
-	 * Load microcode on this cpu if a valid microcode is available.
-	 * This is early microcode loading procedure.
-	 */
-	load_ucode_ap();
+	if (cpu)
+		load_ucode_ap();
 
 	t = &per_cpu(cpu_tss, cpu);
 	oist = &per_cpu(orig_ist, cpu);
@@ -1549,7 +1509,7 @@ void cpu_init(void)
 	for (i = 0; i <= IO_BITMAP_LONGS; i++)
 		t->io_bitmap[i] = ~0UL;
 
-	atomic_inc(&init_mm.mm_count);
+	mmgrab(&init_mm);
 	me->active_mm = &init_mm;
 	BUG_ON(me->mm);
 	enter_lazy_tlb(&init_mm, me);
@@ -1600,7 +1560,7 @@ void cpu_init(void)
 	/*
 	 * Set up and load the per-CPU TSS and LDT
 	 */
-	atomic_inc(&init_mm.mm_count);
+	mmgrab(&init_mm);
 	curr->active_mm = &init_mm;
 	BUG_ON(curr->mm);
 	enter_lazy_tlb(&init_mm, curr);

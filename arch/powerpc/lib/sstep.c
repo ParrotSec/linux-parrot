@@ -14,7 +14,8 @@
 #include <linux/prefetch.h>
 #include <asm/sstep.h>
 #include <asm/processor.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
+#include <asm/cpu_has_feature.h>
 #include <asm/cputable.h>
 
 extern char system_call_common[];
@@ -493,10 +494,7 @@ static int __kprobes do_vsx_store(int rn, int (*func)(int, unsigned long),
 		"3:	li	%0,%4\n"		\
 		"	b	2b\n"			\
 		".previous\n"				\
-		".section __ex_table,\"a\"\n"		\
-			PPC_LONG_ALIGN "\n"		\
-			PPC_LONG "1b,3b\n"		\
-		".previous"				\
+		EX_TABLE(1b, 3b)			\
 		: "=r" (err), "=r" (cr)			\
 		: "r" (x), "r" (addr), "i" (-EFAULT), "0" (err))
 
@@ -508,10 +506,7 @@ static int __kprobes do_vsx_store(int rn, int (*func)(int, unsigned long),
 		"3:	li	%0,%3\n"		\
 		"	b	2b\n"			\
 		".previous\n"				\
-		".section __ex_table,\"a\"\n"		\
-			PPC_LONG_ALIGN "\n"		\
-			PPC_LONG "1b,3b\n"		\
-		".previous"				\
+		EX_TABLE(1b, 3b)			\
 		: "=r" (err), "=r" (x)			\
 		: "r" (addr), "i" (-EFAULT), "0" (err))
 
@@ -523,10 +518,7 @@ static int __kprobes do_vsx_store(int rn, int (*func)(int, unsigned long),
 		"3:	li	%0,%3\n"		\
 		"	b	2b\n"			\
 		".previous\n"				\
-		".section __ex_table,\"a\"\n"		\
-			PPC_LONG_ALIGN "\n"		\
-			PPC_LONG "1b,3b\n"		\
-		".previous"				\
+		EX_TABLE(1b, 3b)			\
 		: "=r" (err)				\
 		: "r" (addr), "i" (-EFAULT), "0" (err))
 
@@ -1809,9 +1801,8 @@ int __kprobes emulate_step(struct pt_regs *regs, unsigned int instr)
 	case LARX:
 		if (op.ea & (size - 1))
 			break;		/* can't handle misaligned */
-		err = -EFAULT;
 		if (!address_ok(regs, op.ea, size))
-			goto ldst_done;
+			return 0;
 		err = 0;
 		switch (size) {
 		case 4:
@@ -1832,9 +1823,8 @@ int __kprobes emulate_step(struct pt_regs *regs, unsigned int instr)
 	case STCX:
 		if (op.ea & (size - 1))
 			break;		/* can't handle misaligned */
-		err = -EFAULT;
 		if (!address_ok(regs, op.ea, size))
-			goto ldst_done;
+			return 0;
 		err = 0;
 		switch (size) {
 		case 4:

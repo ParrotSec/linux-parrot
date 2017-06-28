@@ -189,8 +189,4 @@ static struct pci_driver platform_driver = {
 #endif
 };
 
-static int __init platform_pci_init(void)
-{
-	return pci_register_driver(&platform_driver);
-}
-device_initcall(platform_pci_init);
+builtin_pci_driver(platform_driver);

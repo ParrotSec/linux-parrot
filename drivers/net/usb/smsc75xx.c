@@ -925,9 +925,6 @@ static int smsc75xx_change_mtu(struct net_device *netdev, int new_mtu)
 	struct usbnet *dev = netdev_priv(netdev);
 	int ret;
 
-	if (new_mtu > MAX_SINGLE_PACKET_SIZE)
-		return -EINVAL;
-
 	ret = smsc75xx_set_rx_max_frame_length(dev, new_mtu + ETH_HLEN);
 	if (ret < 0) {
 		netdev_warn(dev->net, "Failed to set mac rx frame length\n");
@@ -1448,6 +1445,7 @@ static int smsc75xx_bind(struct usbnet *dev, struct usb_interface *intf)
 	dev->net->flags |= IFF_MULTICAST;
 	dev->net->hard_header_len += SMSC75XX_TX_OVERHEAD;
 	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
+	dev->net->max_mtu = MAX_SINGLE_PACKET_SIZE;
 	return 0;
 }
 
@@ -2205,13 +2203,9 @@ static struct sk_buff *smsc75xx_tx_fixup(struct usbnet *dev,
 {
 	u32 tx_cmd_a, tx_cmd_b;
 
-	if (skb_headroom(skb) < SMSC75XX_TX_OVERHEAD) {
-		struct sk_buff *skb2 =
-			skb_copy_expand(skb, SMSC75XX_TX_OVERHEAD, 0, flags);
+	if (skb_cow_head(skb, SMSC75XX_TX_OVERHEAD)) {
 		dev_kfree_skb_any(skb);
-		skb = skb2;
-		if (!skb)
-			return NULL;
+		return NULL;
 	}
 
 	tx_cmd_a = (u32)(skb->len & TX_CMD_A_LEN) | TX_CMD_A_FCS;

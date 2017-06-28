@@ -214,7 +214,6 @@ MODULE_DEVICE_TABLE(usb, id_table);
 
 struct moschip_port {
 	int port_num;		/*Actual port number in the device(1,2,etc) */
-	struct urb *write_urb;	/* write URB for this port */
 	struct urb *read_urb;	/* read URB for this port */
 	__u8 shadowLCR;		/* last LCR value received */
 	__u8 shadowMCR;		/* last MCR value received */
@@ -285,9 +284,15 @@ static int mos7840_get_reg_sync(struct usb_serial_port *port, __u16 reg,
 	ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), MCS_RDREQ,
 			      MCS_RD_RTYPE, 0, reg, buf, VENDOR_READ_LENGTH,
 			      MOS_WDR_TIMEOUT);
+	if (ret < VENDOR_READ_LENGTH) {
+		if (ret >= 0)
+			ret = -EIO;
+		goto out;
+	}
+
 	*val = buf[0];
 	dev_dbg(&port->dev, "%s offset is %x, return val %x\n", __func__, reg, *val);
-
+out:
 	kfree(buf);
 	return ret;
 }
@@ -353,8 +358,13 @@ static int mos7840_get_uart_reg(struct usb_serial_port *port, __u16 reg,
 	ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), MCS_RDREQ,
 			      MCS_RD_RTYPE, Wval, reg, buf, VENDOR_READ_LENGTH,
 			      MOS_WDR_TIMEOUT);
+	if (ret < VENDOR_READ_LENGTH) {
+		if (ret >= 0)
+			ret = -EIO;
+		goto out;
+	}
 	*val = buf[0];
-
+out:
 	kfree(buf);
 	return ret;
 }
@@ -1038,9 +1048,7 @@ static int mos7840_open(struct tty_struct *tty, struct usb_serial_port *port)
 				serial,
 				serial->port[0]->interrupt_in_urb->interval);
 
-			/* start interrupt read for mos7840               *
-			 * will continue as long as mos7840 is connected  */
-
+			/* start interrupt read for mos7840 */
 			response =
 			    usb_submit_urb(serial->port[0]->interrupt_in_urb,
 					   GFP_KERNEL);
@@ -1187,7 +1195,6 @@ static void mos7840_close(struct usb_serial_port *port)
 		}
 	}
 
-	usb_kill_urb(mos7840_port->write_urb);
 	usb_kill_urb(mos7840_port->read_urb);
 	mos7840_port->read_urb_busy = false;
 
@@ -1198,12 +1205,6 @@ static void mos7840_close(struct usb_serial_port *port)
 			dev_dbg(&port->dev, "Shutdown interrupt_in_urb\n");
 			usb_kill_urb(serial->port[0]->interrupt_in_urb);
 		}
-	}
-
-	if (mos7840_port->write_urb) {
-		/* if this urb had a transfer buffer already (old tx) free it */
-		kfree(mos7840_port->write_urb->transfer_buffer);
-		usb_free_urb(mos7840_port->write_urb);
 	}
 
 	Data = 0x0;
@@ -1490,10 +1491,10 @@ static int mos7840_tiocmget(struct tty_struct *tty)
 		return -ENODEV;
 
 	status = mos7840_get_uart_reg(port, MODEM_STATUS_REGISTER, &msr);
-	if (status != 1)
+	if (status < 0)
 		return -EIO;
 	status = mos7840_get_uart_reg(port, MODEM_CONTROL_REGISTER, &mcr);
-	if (status != 1)
+	if (status < 0)
 		return -EIO;
 	result = ((mcr & MCR_DTR) ? TIOCM_DTR : 0)
 	    | ((mcr & MCR_RTS) ? TIOCM_RTS : 0)
@@ -1957,16 +1958,12 @@ static int mos7840_get_serial_info(struct moschip_port *mos7840_port,
 	if (mos7840_port == NULL)
 		return -1;
 
-	if (!retinfo)
-		return -EFAULT;
-
 	memset(&tmp, 0, sizeof(tmp));
 
 	tmp.type = PORT_16550A;
 	tmp.line = mos7840_port->port->minor;
 	tmp.port = mos7840_port->port->port_number;
 	tmp.irq = 0;
-	tmp.flags = ASYNC_SKIP_TEST | ASYNC_AUTO_IRQ;
 	tmp.xmit_fifo_size = NUM_URBS * URB_TRANSFER_BUFFER_SIZE;
 	tmp.baud_base = 9600;
 	tmp.close_delay = 5 * HZ;

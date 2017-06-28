@@ -322,7 +322,7 @@ rpcrdma_encode_read_list(struct rpcrdma_xprt *r_xprt,
 						 false, &mw);
 		if (n < 0)
 			return ERR_PTR(n);
-		list_add(&mw->mw_list, &req->rl_registered);
+		rpcrdma_push_mw(mw, &req->rl_registered);
 
 		*iptr++ = xdr_one;	/* item present */
 
@@ -390,7 +390,7 @@ rpcrdma_encode_write_list(struct rpcrdma_xprt *r_xprt, struct rpcrdma_req *req,
 						 true, &mw);
 		if (n < 0)
 			return ERR_PTR(n);
-		list_add(&mw->mw_list, &req->rl_registered);
+		rpcrdma_push_mw(mw, &req->rl_registered);
 
 		iptr = xdr_encode_rdma_segment(iptr, mw);
 
@@ -455,7 +455,7 @@ rpcrdma_encode_reply_chunk(struct rpcrdma_xprt *r_xprt,
 						 true, &mw);
 		if (n < 0)
 			return ERR_PTR(n);
-		list_add(&mw->mw_list, &req->rl_registered);
+		rpcrdma_push_mw(mw, &req->rl_registered);
 
 		iptr = xdr_encode_rdma_segment(iptr, mw);
 
@@ -759,13 +759,13 @@ rpcrdma_marshal_req(struct rpc_rqst *rqst)
 	iptr = headerp->rm_body.rm_chunks;
 	iptr = rpcrdma_encode_read_list(r_xprt, req, rqst, iptr, rtype);
 	if (IS_ERR(iptr))
-		goto out_unmap;
+		goto out_err;
 	iptr = rpcrdma_encode_write_list(r_xprt, req, rqst, iptr, wtype);
 	if (IS_ERR(iptr))
-		goto out_unmap;
+		goto out_err;
 	iptr = rpcrdma_encode_reply_chunk(r_xprt, req, rqst, iptr, wtype);
 	if (IS_ERR(iptr))
-		goto out_unmap;
+		goto out_err;
 	hdrlen = (unsigned char *)iptr - (unsigned char *)headerp;
 
 	dprintk("RPC: %5u %s: %s/%s: hdrlen %zd rpclen %zd\n",
@@ -776,12 +776,14 @@ rpcrdma_marshal_req(struct rpc_rqst *rqst)
 	if (!rpcrdma_prepare_send_sges(&r_xprt->rx_ia, req, hdrlen,
 				       &rqst->rq_snd_buf, rtype)) {
 		iptr = ERR_PTR(-EIO);
-		goto out_unmap;
+		goto out_err;
 	}
 	return 0;
 
-out_unmap:
-	r_xprt->rx_ia.ri_ops->ro_unmap_safe(r_xprt, req, false);
+out_err:
+	pr_err("rpcrdma: rpcrdma_marshal_req failed, status %ld\n",
+	       PTR_ERR(iptr));
+	r_xprt->rx_stats.failed_marshal_count++;
 	return PTR_ERR(iptr);
 }
 
@@ -804,7 +806,7 @@ rpcrdma_count_chunks(struct rpcrdma_rep *rep, int wrchunk, __be32 **iptrp)
 		ifdebug(FACILITY) {
 			u64 off;
 			xdr_decode_hyper((__be32 *)&seg->rs_offset, &off);
-			dprintk("RPC:       %s: chunk %d@0x%llx:0x%x\n",
+			dprintk("RPC:       %s: chunk %d@0x%016llx:0x%08x\n",
 				__func__,
 				be32_to_cpu(seg->rs_length),
 				(unsigned long long)off,
@@ -924,28 +926,6 @@ rpcrdma_inline_fixup(struct rpc_rqst *rqst, char *srcp, int copy_len, int pad)
 	return fixup_copy_count;
 }
 
-void
-rpcrdma_connect_worker(struct work_struct *work)
-{
-	struct rpcrdma_ep *ep =
-		container_of(work, struct rpcrdma_ep, rep_connect_worker.work);
-	struct rpcrdma_xprt *r_xprt =
-		container_of(ep, struct rpcrdma_xprt, rx_ep);
-	struct rpc_xprt *xprt = &r_xprt->rx_xprt;
-
-	spin_lock_bh(&xprt->transport_lock);
-	if (++xprt->connect_cookie == 0)	/* maintain a reserved value */
-		++xprt->connect_cookie;
-	if (ep->rep_connected > 0) {
-		if (!xprt_test_and_set_connected(xprt))
-			xprt_wake_pending_tasks(xprt, 0);
-	} else {
-		if (xprt_test_and_clear_connected(xprt))
-			xprt_wake_pending_tasks(xprt, -ENOTCONN);
-	}
-	spin_unlock_bh(&xprt->transport_lock);
-}
-
 #if defined(CONFIG_SUNRPC_BACKCHANNEL)
 /* By convention, backchannel calls arrive via rdma_msg type
  * messages, and never populate the chunk lists. This makes
@@ -976,18 +956,6 @@ rpcrdma_is_bcall(struct rpcrdma_msg *headerp)
 	return true;
 }
 #endif	/* CONFIG_SUNRPC_BACKCHANNEL */
-
-/*
- * This function is called when an async event is posted to
- * the connection which changes the connection state. All it
- * does at this point is mark the connection up/down, the rpc
- * timers do the rest.
- */
-void
-rpcrdma_conn_func(struct rpcrdma_ep *ep)
-{
-	schedule_delayed_work(&ep->rep_connect_worker, 0);
-}
 
 /* Process received RPC/RDMA messages.
  *
