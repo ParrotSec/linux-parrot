@@ -1,7 +1,7 @@
 Subject: sched: Move mmdrop to RCU on RT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 06 Jun 2011 12:20:33 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.11/older/patches-4.11.5-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.11/older/patches-4.11.9-rt7.tar.xz
 
 Takes sleeping locks and calls into the memory allocator, so nothing
 we want to do in task switch and oder atomic contexts.
@@ -102,7 +102,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
   * Ensure that the idle task is using init_mm right before its CPU goes
   * offline.
 @@ -5626,7 +5632,12 @@ void idle_task_exit(void)
- 		switch_mm_irqs_off(mm, &init_mm, current);
+ 		switch_mm(mm, &init_mm, current);
  		finish_arch_post_lock_switch();
  	}
 -	mmdrop(mm);

@@ -761,6 +761,11 @@ static void msg_done_handler(struct ssif_info *ssif_info, int result,
 			       result, len, data[2]);
 		} else if (data[0] != (IPMI_NETFN_APP_REQUEST | 1) << 2
 			   || data[1] != IPMI_GET_MSG_FLAGS_CMD) {
+			/*
+			 * Don't abort here, maybe it was a queued
+			 * response to a previous command.
+			 */
+			ipmi_ssif_unlock_cond(ssif_info, flags);
 			pr_warn(PFX "Invalid response getting flags: %x %x\n",
 				data[0], data[1]);
 		} else {
@@ -1644,9 +1649,8 @@ static int ssif_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	spin_lock_init(&ssif_info->lock);
 	ssif_info->ssif_state = SSIF_NORMAL;
-	init_timer(&ssif_info->retry_timer);
-	ssif_info->retry_timer.data = (unsigned long) ssif_info;
-	ssif_info->retry_timer.function = retry_timeout;
+	setup_timer(&ssif_info->retry_timer, retry_timeout,
+		    (unsigned long)ssif_info);
 
 	for (i = 0; i < SSIF_NUM_STATS; i++)
 		atomic_set(&ssif_info->stats[i], 0);

@@ -323,7 +323,8 @@ static void __br_mdb_notify(struct net_device *dev, struct net_bridge_port *p,
 			__mdb_entry_to_br_ip(entry, &complete_info->ip);
 			mdb.obj.complete_priv = complete_info;
 			mdb.obj.complete = br_mdb_complete;
-			switchdev_port_obj_add(port_dev, &mdb.obj);
+			if (switchdev_port_obj_add(port_dev, &mdb.obj))
+				kfree(complete_info);
 		}
 	} else if (port_dev && type == RTM_DELMDB) {
 		switchdev_port_obj_del(port_dev, &mdb.obj);
@@ -464,7 +465,8 @@ static int br_mdb_parse(struct sk_buff *skb, struct nlmsghdr *nlh,
 	struct net_device *dev;
 	int err;
 
-	err = nlmsg_parse(nlh, sizeof(*bpm), tb, MDBA_SET_ENTRY_MAX, NULL);
+	err = nlmsg_parse(nlh, sizeof(*bpm), tb, MDBA_SET_ENTRY_MAX, NULL,
+			  NULL);
 	if (err < 0)
 		return err;
 
@@ -568,7 +570,8 @@ static int __br_mdb_add(struct net *net, struct net_bridge *br,
 	return ret;
 }
 
-static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
+		      struct netlink_ext_ack *extack)
 {
 	struct net *net = sock_net(skb->sk);
 	struct net_bridge_vlan_group *vg;
@@ -662,7 +665,8 @@ unlock:
 	return err;
 }
 
-static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
+		      struct netlink_ext_ack *extack)
 {
 	struct net *net = sock_net(skb->sk);
 	struct net_bridge_vlan_group *vg;

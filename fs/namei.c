@@ -340,22 +340,14 @@ int generic_permission(struct inode *inode, int mask)
 
 	if (S_ISDIR(inode->i_mode)) {
 		/* DACs are overridable for directories */
-		if (capable_wrt_inode_uidgid(inode, CAP_DAC_OVERRIDE))
-			return 0;
 		if (!(mask & MAY_WRITE))
 			if (capable_wrt_inode_uidgid(inode,
 						     CAP_DAC_READ_SEARCH))
 				return 0;
-		return -EACCES;
-	}
-	/*
-	 * Read/write DACs are always overridable.
-	 * Executable DACs are overridable when there is
-	 * at least one exec bit set.
-	 */
-	if (!(mask & MAY_EXEC) || (inode->i_mode & S_IXUGO))
 		if (capable_wrt_inode_uidgid(inode, CAP_DAC_OVERRIDE))
 			return 0;
+		return -EACCES;
+	}
 
 	/*
 	 * Searching includes executable on directories, else just read.
@@ -363,6 +355,14 @@ int generic_permission(struct inode *inode, int mask)
 	mask &= MAY_READ | MAY_WRITE | MAY_EXEC;
 	if (mask == MAY_READ)
 		if (capable_wrt_inode_uidgid(inode, CAP_DAC_READ_SEARCH))
+			return 0;
+	/*
+	 * Read/write DACs are always overridable.
+	 * Executable DACs are overridable when there is
+	 * at least one exec bit set.
+	 */
+	if (!(mask & MAY_EXEC) || (inode->i_mode & S_IXUGO))
+		if (capable_wrt_inode_uidgid(inode, CAP_DAC_OVERRIDE))
 			return 0;
 
 	return -EACCES;
@@ -2142,7 +2142,6 @@ OK:
 
 static const char *path_init(struct nameidata *nd, unsigned flags)
 {
-	int retval = 0;
 	const char *s = nd->name->name;
 
 	if (!*s)
@@ -2154,13 +2153,8 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
 	if (flags & LOOKUP_ROOT) {
 		struct dentry *root = nd->root.dentry;
 		struct inode *inode = root->d_inode;
-		if (*s) {
-			if (!d_can_lookup(root))
-				return ERR_PTR(-ENOTDIR);
-			retval = inode_permission(inode, MAY_EXEC);
-			if (retval)
-				return ERR_PTR(retval);
-		}
+		if (*s && unlikely(!d_can_lookup(root)))
+			return ERR_PTR(-ENOTDIR);
 		nd->path = nd->root;
 		nd->inode = inode;
 		if (flags & LOOKUP_RCU) {
@@ -2258,6 +2252,35 @@ static inline int lookup_last(struct nameidata *nd)
 	return walk_component(nd, 0);
 }
 
+static int handle_lookup_down(struct nameidata *nd)
+{
+	struct path path = nd->path;
+	struct inode *inode = nd->inode;
+	unsigned seq = nd->seq;
+	int err;
+
+	if (nd->flags & LOOKUP_RCU) {
+		/*
+		 * don't bother with unlazy_walk on failure - we are
+		 * at the very beginning of walk, so we lose nothing
+		 * if we simply redo everything in non-RCU mode
+		 */
+		if (unlikely(!__follow_mount_rcu(nd, &path, &inode, &seq)))
+			return -ECHILD;
+	} else {
+		dget(path.dentry);
+		err = follow_managed(&path, nd);
+		if (unlikely(err < 0))
+			return err;
+		inode = d_backing_inode(path.dentry);
+		seq = 0;
+	}
+	path_to_nameidata(&path, nd);
+	nd->inode = inode;
+	nd->seq = seq;
+	return 0;
+}
+
 /* Returns 0 and nd will be valid on success; Retuns error, otherwise. */
 static int path_lookupat(struct nameidata *nd, unsigned flags, struct path *path)
 {
@@ -2266,6 +2289,15 @@ static int path_lookupat(struct nameidata *nd, unsigned flags, struct path *path
 
 	if (IS_ERR(s))
 		return PTR_ERR(s);
+
+	if (unlikely(flags & LOOKUP_DOWN)) {
+		err = handle_lookup_down(nd);
+		if (unlikely(err < 0)) {
+			terminate_walk(nd);
+			return err;
+		}
+	}
+
 	while (!(err = link_path_walk(s, nd))
 		&& ((err = lookup_last(nd)) > 0)) {
 		s = trailing_symlink(nd);
@@ -4330,11 +4362,11 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 {
 	int error;
 	bool is_dir = d_is_dir(old_dentry);
-	const unsigned char *old_name;
 	struct inode *source = old_dentry->d_inode;
 	struct inode *target = new_dentry->d_inode;
 	bool new_is_dir = false;
 	unsigned max_links = new_dir->i_sb->s_max_links;
+	struct name_snapshot old_name;
 
 	if (source == target)
 		return 0;
@@ -4381,7 +4413,7 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if (error)
 		return error;
 
-	old_name = fsnotify_oldname_init(old_dentry->d_name.name);
+	take_dentry_name_snapshot(&old_name, old_dentry);
 	dget(new_dentry);
 	if (!is_dir || (flags & RENAME_EXCHANGE))
 		lock_two_nondirectories(source, target);
@@ -4436,14 +4468,14 @@ out:
 		inode_unlock(target);
 	dput(new_dentry);
 	if (!error) {
-		fsnotify_move(old_dir, new_dir, old_name, is_dir,
+		fsnotify_move(old_dir, new_dir, old_name.name, is_dir,
 			      !(flags & RENAME_EXCHANGE) ? target : NULL, old_dentry);
 		if (flags & RENAME_EXCHANGE) {
 			fsnotify_move(new_dir, old_dir, old_dentry->d_name.name,
 				      new_is_dir, NULL, new_dentry);
 		}
 	}
-	fsnotify_oldname_free(old_name);
+	release_dentry_name_snapshot(&old_name);
 
 	return error;
 }
@@ -4766,7 +4798,7 @@ int __page_symlink(struct inode *inode, const char *symname, int len, int nofs)
 	struct page *page;
 	void *fsdata;
 	int err;
-	unsigned int flags = AOP_FLAG_UNINTERRUPTIBLE;
+	unsigned int flags = 0;
 	if (nofs)
 		flags |= AOP_FLAG_NOFS;
 

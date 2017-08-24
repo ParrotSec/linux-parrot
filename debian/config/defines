@@ -46,6 +46,8 @@ ignore-changes:
  first_ec
 # Exported for tracefs only
  debugfs_create_automount
+# ignore changes to inv_mpu6050/*
+ module:drivers/iio/imu/inv_mpu6050/*
 
 [base]
 arches:
@@ -93,7 +95,7 @@ debug-info: true
 signed-modules: false
 
 [featureset-rt_base]
-enabled: true
+enabled: false
 
 [description]
 part-long-up: This kernel is not suitable for SMP (multi-processor,

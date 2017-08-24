@@ -181,7 +181,7 @@ int console_blanked;
 
 static int vesa_blank_mode; /* 0:none 1:suspendV 2:suspendH 3:powerdown */
 static int vesa_off_interval;
-static int blankinterval = 10*60;
+static int blankinterval;
 core_param(consoleblank, blankinterval, int, 0444);
 
 static DECLARE_WORK(console_work, console_callback);
@@ -2709,13 +2709,13 @@ int tioclinux(struct tty_struct *tty, unsigned long arg)
 	 * related to the kernel should not use this.
 	 */
 			data = vt_get_shift_state();
-			ret = __put_user(data, p);
+			ret = put_user(data, p);
 			break;
 		case TIOCL_GETMOUSEREPORTING:
 			console_lock();	/* May be overkill */
 			data = mouse_reporting();
 			console_unlock();
-			ret = __put_user(data, p);
+			ret = put_user(data, p);
 			break;
 		case TIOCL_SETVESABLANK:
 			console_lock();
@@ -2724,7 +2724,7 @@ int tioclinux(struct tty_struct *tty, unsigned long arg)
 			break;
 		case TIOCL_GETKMSGREDIRECT:
 			data = vt_get_kmsg_redirect();
-			ret = __put_user(data, p);
+			ret = put_user(data, p);
 			break;
 		case TIOCL_SETKMSGREDIRECT:
 			if (!capable(CAP_SYS_ADMIN)) {

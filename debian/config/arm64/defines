@@ -7,6 +7,8 @@ featuresets:
 debug-info: true
 image-file: arch/arm64/boot/Image
 vdso: true
+# We don't want signed modules in Kali
+signed-modules: false
 
 [image]
 install-stem: vmlinuz

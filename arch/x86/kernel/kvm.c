@@ -151,6 +151,8 @@ void kvm_async_pf_task_wait(u32 token)
 		if (hlist_unhashed(&n.link))
 			break;
 
+		rcu_irq_exit();
+
 		if (!n.halted) {
 			local_irq_enable();
 			schedule();
@@ -159,11 +161,11 @@ void kvm_async_pf_task_wait(u32 token)
 			/*
 			 * We cannot reschedule. So halt.
 			 */
-			rcu_irq_exit();
 			native_safe_halt();
 			local_irq_disable();
-			rcu_irq_enter();
 		}
+
+		rcu_irq_enter();
 	}
 	if (!n.halted)
 		finish_swait(&n.wq, &wait);
@@ -396,9 +398,9 @@ static u64 kvm_steal_clock(int cpu)
 	src = &per_cpu(steal_time, cpu);
 	do {
 		version = src->version;
-		rmb();
+		virt_rmb();
 		steal = src->steal;
-		rmb();
+		virt_rmb();
 	} while ((version & 1) || (version != src->version));
 
 	return steal;
