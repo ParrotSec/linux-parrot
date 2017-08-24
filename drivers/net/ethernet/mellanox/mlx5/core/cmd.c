@@ -279,6 +279,8 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_DESTROY_XRC_SRQ:
 	case MLX5_CMD_OP_DESTROY_DCT:
 	case MLX5_CMD_OP_DEALLOC_Q_COUNTER:
+	case MLX5_CMD_OP_DESTROY_SCHEDULING_ELEMENT:
+	case MLX5_CMD_OP_DESTROY_QOS_PARA_VPORT:
 	case MLX5_CMD_OP_DEALLOC_PD:
 	case MLX5_CMD_OP_DEALLOC_UAR:
 	case MLX5_CMD_OP_DETACH_FROM_MCG:
@@ -305,8 +307,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
 	case MLX5_CMD_OP_SET_FLOW_TABLE_ROOT:
 	case MLX5_CMD_OP_DEALLOC_ENCAP_HEADER:
-	case MLX5_CMD_OP_DESTROY_SCHEDULING_ELEMENT:
-	case MLX5_CMD_OP_DESTROY_QOS_PARA_VPORT:
+	case MLX5_CMD_OP_DEALLOC_MODIFY_HEADER_CONTEXT:
 		return MLX5_CMD_STAT_OK;
 
 	case MLX5_CMD_OP_QUERY_HCA_CAP:
@@ -363,6 +364,10 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_QUERY_Q_COUNTER:
 	case MLX5_CMD_OP_SET_RATE_LIMIT:
 	case MLX5_CMD_OP_QUERY_RATE_LIMIT:
+	case MLX5_CMD_OP_CREATE_SCHEDULING_ELEMENT:
+	case MLX5_CMD_OP_QUERY_SCHEDULING_ELEMENT:
+	case MLX5_CMD_OP_MODIFY_SCHEDULING_ELEMENT:
+	case MLX5_CMD_OP_CREATE_QOS_PARA_VPORT:
 	case MLX5_CMD_OP_ALLOC_PD:
 	case MLX5_CMD_OP_ALLOC_UAR:
 	case MLX5_CMD_OP_CONFIG_INT_MODERATION:
@@ -414,10 +419,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_ALLOC_FLOW_COUNTER:
 	case MLX5_CMD_OP_QUERY_FLOW_COUNTER:
 	case MLX5_CMD_OP_ALLOC_ENCAP_HEADER:
-	case MLX5_CMD_OP_CREATE_SCHEDULING_ELEMENT:
-	case MLX5_CMD_OP_QUERY_SCHEDULING_ELEMENT:
-	case MLX5_CMD_OP_MODIFY_SCHEDULING_ELEMENT:
-	case MLX5_CMD_OP_CREATE_QOS_PARA_VPORT:
+	case MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT:
 		*status = MLX5_DRIVER_STATUS_ABORTED;
 		*synd = MLX5_DRIVER_SYND;
 		return -EIO;
@@ -501,6 +503,12 @@ const char *mlx5_command_str(int command)
 	MLX5_COMMAND_STR_CASE(QUERY_Q_COUNTER);
 	MLX5_COMMAND_STR_CASE(SET_RATE_LIMIT);
 	MLX5_COMMAND_STR_CASE(QUERY_RATE_LIMIT);
+	MLX5_COMMAND_STR_CASE(CREATE_SCHEDULING_ELEMENT);
+	MLX5_COMMAND_STR_CASE(DESTROY_SCHEDULING_ELEMENT);
+	MLX5_COMMAND_STR_CASE(QUERY_SCHEDULING_ELEMENT);
+	MLX5_COMMAND_STR_CASE(MODIFY_SCHEDULING_ELEMENT);
+	MLX5_COMMAND_STR_CASE(CREATE_QOS_PARA_VPORT);
+	MLX5_COMMAND_STR_CASE(DESTROY_QOS_PARA_VPORT);
 	MLX5_COMMAND_STR_CASE(ALLOC_PD);
 	MLX5_COMMAND_STR_CASE(DEALLOC_PD);
 	MLX5_COMMAND_STR_CASE(ALLOC_UAR);
@@ -576,12 +584,8 @@ const char *mlx5_command_str(int command)
 	MLX5_COMMAND_STR_CASE(MODIFY_FLOW_TABLE);
 	MLX5_COMMAND_STR_CASE(ALLOC_ENCAP_HEADER);
 	MLX5_COMMAND_STR_CASE(DEALLOC_ENCAP_HEADER);
-	MLX5_COMMAND_STR_CASE(CREATE_SCHEDULING_ELEMENT);
-	MLX5_COMMAND_STR_CASE(DESTROY_SCHEDULING_ELEMENT);
-	MLX5_COMMAND_STR_CASE(QUERY_SCHEDULING_ELEMENT);
-	MLX5_COMMAND_STR_CASE(MODIFY_SCHEDULING_ELEMENT);
-	MLX5_COMMAND_STR_CASE(CREATE_QOS_PARA_VPORT);
-	MLX5_COMMAND_STR_CASE(DESTROY_QOS_PARA_VPORT);
+	MLX5_COMMAND_STR_CASE(ALLOC_MODIFY_HEADER_CONTEXT);
+	MLX5_COMMAND_STR_CASE(DEALLOC_MODIFY_HEADER_CONTEXT);
 	default: return "unknown command opcode";
 	}
 }
@@ -773,6 +777,10 @@ static void cb_timeout_handler(struct work_struct *work)
 	mlx5_cmd_comp_handler(dev, 1UL << ent->idx, true);
 }
 
+static void free_msg(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *msg);
+static void mlx5_free_cmd_msg(struct mlx5_core_dev *dev,
+			      struct mlx5_cmd_msg *msg);
+
 static void cmd_work_handler(struct work_struct *work)
 {
 	struct mlx5_cmd_work_ent *ent = container_of(work, struct mlx5_cmd_work_ent, work);
@@ -782,16 +790,27 @@ static void cmd_work_handler(struct work_struct *work)
 	struct mlx5_cmd_layout *lay;
 	struct semaphore *sem;
 	unsigned long flags;
+	int alloc_ret;
 
 	sem = ent->page_queue ? &cmd->pages_sem : &cmd->sem;
 	down(sem);
 	if (!ent->page_queue) {
-		ent->idx = alloc_ent(cmd);
-		if (ent->idx < 0) {
+		alloc_ret = alloc_ent(cmd);
+		if (alloc_ret < 0) {
 			mlx5_core_err(dev, "failed to allocate command entry\n");
+			if (ent->callback) {
+				ent->callback(-EAGAIN, ent->context);
+				mlx5_free_cmd_msg(dev, ent->out);
+				free_msg(dev, ent->in);
+				free_cmd(ent);
+			} else {
+				ent->ret = -EAGAIN;
+				complete(&ent->done);
+			}
 			up(sem);
 			return;
 		}
+		ent->idx = alloc_ret;
 	} else {
 		ent->idx = cmd->max_reg_cmds;
 		spin_lock_irqsave(&cmd->alloc_lock, flags);
@@ -951,7 +970,7 @@ static int mlx5_cmd_invoke(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *in,
 
 	err = wait_func(dev, ent);
 	if (err == -ETIMEDOUT)
-		goto out_free;
+		goto out;
 
 	ds = ent->ts2 - ent->ts1;
 	op = MLX5_GET(mbox_in, in->first.data, opcode);
@@ -1415,6 +1434,7 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
 					mlx5_core_err(dev, "Command completion arrived after timeout (entry idx = %d).\n",
 						      ent->idx);
 					free_ent(cmd, ent->idx);
+					free_cmd(ent);
 				}
 				continue;
 			}
@@ -1473,7 +1493,8 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
 				free_msg(dev, ent->in);
 
 				err = err ? err : ent->status;
-				free_cmd(ent);
+				if (!forced)
+					free_cmd(ent);
 				callback(err, context);
 			} else {
 				complete(&ent->done);

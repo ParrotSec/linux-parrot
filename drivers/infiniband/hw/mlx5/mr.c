@@ -1009,7 +1009,7 @@ int mlx5_ib_update_xlt(struct mlx5_ib_mr *mr, u64 idx, int npages,
 	}
 
 	if (!xlt) {
-		uctx = to_mucontext(mr->ibmr.uobject->context);
+		uctx = to_mucontext(mr->ibmr.pd->uobject->context);
 		mlx5_ib_warn(dev, "Using XLT emergency buffer\n");
 		size = PAGE_SIZE;
 		xlt = (void *)uctx->upd_xlt_page;
@@ -1045,8 +1045,9 @@ int mlx5_ib_update_xlt(struct mlx5_ib_mr *mr, u64 idx, int npages,
 	for (pages_mapped = 0;
 	     pages_mapped < pages_to_map && !err;
 	     pages_mapped += pages_iter, idx += pages_iter) {
+		npages = min_t(int, pages_iter, pages_to_map - pages_mapped);
 		dma_sync_single_for_cpu(ddev, dma, size, DMA_TO_DEVICE);
-		npages = populate_xlt(mr, idx, pages_iter, xlt,
+		npages = populate_xlt(mr, idx, npages, xlt,
 				      page_shift, size, flags);
 
 		dma_sync_single_for_device(ddev, dma, size, DMA_TO_DEVICE);
@@ -1687,6 +1688,7 @@ struct ib_mw *mlx5_ib_alloc_mw(struct ib_pd *pd, enum ib_mw_type type,
 
 	mw->mmkey.type = MLX5_MKEY_MW;
 	mw->ibmw.rkey = mw->mmkey.key;
+	mw->ndescs = ndescs;
 
 	resp.response_length = min(offsetof(typeof(resp), response_length) +
 				   sizeof(resp.response_length), udata->outlen);
@@ -1777,7 +1779,7 @@ mlx5_ib_sg_to_klms(struct mlx5_ib_mr *mr,
 	mr->ndescs = sg_nents;
 
 	for_each_sg(sgl, sg, sg_nents, i) {
-		if (unlikely(i > mr->max_descs))
+		if (unlikely(i >= mr->max_descs))
 			break;
 		klms[i].va = cpu_to_be64(sg_dma_address(sg) + sg_offset);
 		klms[i].bcount = cpu_to_be32(sg_dma_len(sg) - sg_offset);

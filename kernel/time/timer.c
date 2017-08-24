@@ -241,7 +241,7 @@ int timer_migration_handler(struct ctl_table *table, int write,
 	int ret;
 
 	mutex_lock(&mutex);
-	ret = proc_dointvec(table, write, buffer, lenp, ppos);
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (!ret && write)
 		timers_update_migration(false);
 	mutex_unlock(&mutex);
@@ -1120,7 +1120,7 @@ void add_timer_on(struct timer_list *timer, int cpu)
 EXPORT_SYMBOL_GPL(add_timer_on);
 
 /**
- * del_timer - deactive a timer.
+ * del_timer - deactivate a timer.
  * @timer: the timer to be deactivated
  *
  * del_timer() deactivates a timer - this works on both active and inactive
@@ -1495,7 +1495,7 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 		base->is_idle = false;
 	} else {
 		if (!is_max_delta)
-			expires = basem + (nextevt - basej) * TICK_NSEC;
+			expires = basem + (u64)(nextevt - basej) * TICK_NSEC;
 		/*
 		 * If we expect to sleep more than a tick, mark the base idle:
 		 */

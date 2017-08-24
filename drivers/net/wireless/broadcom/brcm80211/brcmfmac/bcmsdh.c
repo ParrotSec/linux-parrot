@@ -21,6 +21,7 @@
 #include <linux/pci_ids.h>
 #include <linux/sched.h>
 #include <linux/completion.h>
+#include <linux/interrupt.h>
 #include <linux/scatterlist.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/core.h>
@@ -705,7 +706,7 @@ done:
 int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev *sdiodev,
 			   struct sk_buff_head *pktq, uint totlen)
 {
-	struct sk_buff *glom_skb;
+	struct sk_buff *glom_skb = NULL;
 	struct sk_buff *skb;
 	u32 addr = sdiodev->sbwad;
 	int err = 0;
@@ -726,10 +727,8 @@ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev *sdiodev,
 			return -ENOMEM;
 		err = brcmf_sdiod_buffrw(sdiodev, SDIO_FUNC_2, false, addr,
 					 glom_skb);
-		if (err) {
-			brcmu_pkt_buf_free_skb(glom_skb);
+		if (err)
 			goto done;
-		}
 
 		skb_queue_walk(pktq, skb) {
 			memcpy(skb->data, glom_skb->data, skb->len);
@@ -740,6 +739,7 @@ int brcmf_sdiod_recv_chain(struct brcmf_sdio_dev *sdiodev,
 					    pktq);
 
 done:
+	brcmu_pkt_buf_free_skb(glom_skb);
 	return err;
 }
 

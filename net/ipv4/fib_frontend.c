@@ -632,7 +632,8 @@ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
 	int err, remaining;
 	struct rtmsg *rtm;
 
-	err = nlmsg_validate(nlh, sizeof(*rtm), RTA_MAX, rtm_ipv4_policy);
+	err = nlmsg_validate(nlh, sizeof(*rtm), RTA_MAX, rtm_ipv4_policy,
+			     NULL);
 	if (err < 0)
 		goto errout;
 
@@ -709,7 +710,8 @@ errout:
 	return err;
 }
 
-static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh)
+static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh,
+			     struct netlink_ext_ack *extack)
 {
 	struct net *net = sock_net(skb->sk);
 	struct fib_config cfg;
@@ -731,7 +733,8 @@ errout:
 	return err;
 }
 
-static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh)
+static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh,
+			     struct netlink_ext_ack *extack)
 {
 	struct net *net = sock_net(skb->sk);
 	struct fib_config cfg;
@@ -1134,7 +1137,8 @@ static void fib_disable_ip(struct net_device *dev, unsigned long event,
 {
 	if (fib_sync_down_dev(dev, event, force))
 		fib_flush(dev_net(dev));
-	rt_cache_flush(dev_net(dev));
+	else
+		rt_cache_flush(dev_net(dev));
 	arp_ifdown(dev);
 }
 
@@ -1323,13 +1327,14 @@ static struct pernet_operations fib_net_ops = {
 
 void __init ip_fib_init(void)
 {
-	rtnl_register(PF_INET, RTM_NEWROUTE, inet_rtm_newroute, NULL, NULL);
-	rtnl_register(PF_INET, RTM_DELROUTE, inet_rtm_delroute, NULL, NULL);
-	rtnl_register(PF_INET, RTM_GETROUTE, NULL, inet_dump_fib, NULL);
+	fib_trie_init();
 
 	register_pernet_subsys(&fib_net_ops);
+
 	register_netdevice_notifier(&fib_netdev_notifier);
 	register_inetaddr_notifier(&fib_inetaddr_notifier);
 
-	fib_trie_init();
+	rtnl_register(PF_INET, RTM_NEWROUTE, inet_rtm_newroute, NULL, NULL);
+	rtnl_register(PF_INET, RTM_DELROUTE, inet_rtm_delroute, NULL, NULL);
+	rtnl_register(PF_INET, RTM_GETROUTE, NULL, inet_dump_fib, NULL);
 }

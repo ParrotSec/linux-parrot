@@ -172,6 +172,7 @@ static int filelayout_async_handle_error(struct rpc_task *task,
 	case -NFS4ERR_RETRY_UNCACHED_REP:
 		break;
 	/* Invalidate Layout errors */
+	case -NFS4ERR_ACCESS:
 	case -NFS4ERR_PNFS_NO_LAYOUT:
 	case -ESTALE:           /* mapped NFS4ERR_STALE */
 	case -EBADHANDLE:       /* mapped NFS4ERR_BADHANDLE */
@@ -202,10 +203,10 @@ static int filelayout_async_handle_error(struct rpc_task *task,
 			task->tk_status);
 		nfs4_mark_deviceid_unavailable(devid);
 		pnfs_error_mark_layout_for_return(inode, lseg);
+		pnfs_set_lo_fail(lseg);
 		rpc_wake_up(&tbl->slot_tbl_waitq);
 		/* fall through */
 	default:
-		pnfs_set_lo_fail(lseg);
 reset:
 		dprintk("%s Retry through MDS. Error %d\n", __func__,
 			task->tk_status);
@@ -921,11 +922,11 @@ fl_pnfs_update_layout(struct inode *ino,
 	fl = FILELAYOUT_LSEG(lseg);
 
 	status = filelayout_check_deviceid(lo, fl, gfp_flags);
-	if (status)
-		lseg = ERR_PTR(status);
-out:
-	if (IS_ERR(lseg))
+	if (status) {
 		pnfs_put_lseg(lseg);
+		lseg = ERR_PTR(status);
+	}
+out:
 	return lseg;
 }
 
@@ -933,6 +934,7 @@ static void
 filelayout_pg_init_read(struct nfs_pageio_descriptor *pgio,
 			struct nfs_page *req)
 {
+	pnfs_generic_pg_check_layout(pgio);
 	if (!pgio->pg_lseg) {
 		pgio->pg_lseg = fl_pnfs_update_layout(pgio->pg_inode,
 						      req->wb_context,
@@ -959,6 +961,7 @@ filelayout_pg_init_write(struct nfs_pageio_descriptor *pgio,
 	struct nfs_commit_info cinfo;
 	int status;
 
+	pnfs_generic_pg_check_layout(pgio);
 	if (!pgio->pg_lseg) {
 		pgio->pg_lseg = fl_pnfs_update_layout(pgio->pg_inode,
 						      req->wb_context,

@@ -265,6 +265,7 @@ static inline struct sk_buff *skb_recv_udp(struct sock *sk, unsigned int flags,
 }
 
 void udp_v4_early_demux(struct sk_buff *skb);
+void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst);
 int udp_get_port(struct sock *sk, unsigned short snum,
 		 int (*saddr_cmp)(const struct sock *,
 				  const struct sock *));
@@ -372,4 +373,5 @@ void udp_encap_enable(void);
 #if IS_ENABLED(CONFIG_IPV6)
 void udpv6_encap_enable(void);
 #endif
+
 #endif	/* _UDP_H */

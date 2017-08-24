@@ -17,7 +17,7 @@
  */
 
 #include <linux/module.h>
-#include <linux/unaligned/access_ok.h>
+#include <asm/unaligned.h>
 #include <linux/firmware.h>
 #include <linux/nfc.h>
 #include <net/nfc/nci.h>
@@ -281,12 +281,11 @@ static int process_state_fw_dnld(struct nfcmrvl_private *priv,
 			return -EINVAL;
 		}
 		skb_pull(skb, 1);
-		memcpy(&len, skb->data, 2);
+		len = get_unaligned_le16(skb->data);
 		skb_pull(skb, 2);
+		comp_len = get_unaligned_le16(skb->data);
 		memcpy(&comp_len, skb->data, 2);
 		skb_pull(skb, 2);
-		len = get_unaligned_le16(&len);
-		comp_len = get_unaligned_le16(&comp_len);
 		if (((~len) & 0xFFFF) != comp_len) {
 			nfc_err(priv->dev, "bad len complement: %x %x %x",
 				len, comp_len, (~len & 0xFFFF));
@@ -459,7 +458,7 @@ int	nfcmrvl_fw_dnld_init(struct nfcmrvl_private *priv)
 
 	INIT_WORK(&priv->fw_dnld.rx_work, fw_dnld_rx_work);
 	snprintf(name, sizeof(name), "%s_nfcmrvl_fw_dnld_rx_wq",
-		 dev_name(priv->dev));
+		 dev_name(&priv->ndev->nfc_dev->dev));
 	priv->fw_dnld.rx_wq = create_singlethread_workqueue(name);
 	if (!priv->fw_dnld.rx_wq)
 		return -ENOMEM;
@@ -496,6 +495,7 @@ int nfcmrvl_fw_dnld_start(struct nci_dev *ndev, const char *firmware_name)
 {
 	struct nfcmrvl_private *priv = nci_get_drvdata(ndev);
 	struct nfcmrvl_fw_dnld *fw_dnld = &priv->fw_dnld;
+	int res;
 
 	if (!priv->support_fw_dnld)
 		return -ENOTSUPP;
@@ -511,7 +511,9 @@ int nfcmrvl_fw_dnld_start(struct nci_dev *ndev, const char *firmware_name)
 	 */
 
 	/* Retrieve FW binary */
-	if (request_firmware(&fw_dnld->fw, firmware_name, priv->dev) < 0) {
+	res = request_firmware(&fw_dnld->fw, firmware_name,
+			       &ndev->nfc_dev->dev);
+	if (res < 0) {
 		nfc_err(priv->dev, "failed to retrieve FW %s", firmware_name);
 		return -ENOENT;
 	}

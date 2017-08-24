@@ -880,27 +880,6 @@ freeout:
 	return err;
 }
 
-/*
- * Allocate a chunk of memory using kmalloc or, if that fails, vmalloc.
- * The allocated memory is cleared.
- */
-void *t4_alloc_mem(size_t size)
-{
-	void *p = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
-
-	if (!p)
-		p = vzalloc(size);
-	return p;
-}
-
-/*
- * Free memory allocated through alloc_mem().
- */
-void t4_free_mem(void *addr)
-{
-	kvfree(addr);
-}
-
 static u16 cxgb_select_queue(struct net_device *dev, struct sk_buff *skb,
 			     void *accel_priv, select_queue_fallback_t fallback)
 {
@@ -1299,7 +1278,7 @@ static int tid_init(struct tid_info *t)
 	       max_ftids * sizeof(*t->ftid_tab) +
 	       ftid_bmap_size * sizeof(long);
 
-	t->tid_tab = t4_alloc_mem(size);
+	t->tid_tab = kvzalloc(size, GFP_KERNEL);
 	if (!t->tid_tab)
 		return -ENOMEM;
 
@@ -2076,12 +2055,12 @@ static void detach_ulds(struct adapter *adap)
 
 	mutex_lock(&uld_mutex);
 	list_del(&adap->list_node);
+
 	for (i = 0; i < CXGB4_ULD_MAX; i++)
-		if (adap->uld && adap->uld[i].handle) {
+		if (adap->uld && adap->uld[i].handle)
 			adap->uld[i].state_change(adap->uld[i].handle,
 					     CXGB4_STATE_DETACH);
-			adap->uld[i].handle = NULL;
-		}
+
 	if (netevent_registered && list_empty(&adapter_list)) {
 		unregister_netevent_notifier(&cxgb4_netevent_nb);
 		netevent_registered = false;
@@ -2192,9 +2171,10 @@ static int cxgb_up(struct adapter *adap)
 {
 	int err;
 
+	mutex_lock(&uld_mutex);
 	err = setup_sge_queues(adap);
 	if (err)
-		goto out;
+		goto rel_lock;
 	err = setup_rss(adap);
 	if (err)
 		goto freeq;
@@ -2218,7 +2198,6 @@ static int cxgb_up(struct adapter *adap)
 			goto irq_err;
 	}
 
-	mutex_lock(&uld_mutex);
 	enable_rx(adap);
 	t4_sge_start(adap);
 	t4_intr_enable(adap);
@@ -2231,13 +2210,15 @@ static int cxgb_up(struct adapter *adap)
 #endif
 	/* Initialize hash mac addr list*/
 	INIT_LIST_HEAD(&adap->mac_hlist);
- out:
 	return err;
+
  irq_err:
 	dev_err(adap->pdev_dev, "request_irq failed, err %d\n", err);
  freeq:
 	t4_free_sge_resources(adap);
-	goto out;
+ rel_lock:
+	mutex_unlock(&uld_mutex);
+	return err;
 }
 
 static void cxgb_down(struct adapter *adapter)
@@ -2342,6 +2323,10 @@ int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
 	f->locked = 1;
 	f->fs.rpttid = 1;
 
+	/* Save the actual tid. We need this to get the corresponding
+	 * filter entry structure in filter_rpl.
+	 */
+	f->tid = stid + adap->tids.ftid_base;
 	ret = set_filter_wr(adap, stid);
 	if (ret) {
 		clear_filter(adap, f);
@@ -2791,6 +2776,9 @@ static const struct ethtool_ops cxgb4_mgmt_ethtool_ops = {
 void t4_fatal_err(struct adapter *adap)
 {
 	int port;
+
+	if (pci_channel_offline(adap->pdev))
+		return;
 
 	/* Disable the SGE since ULDs are going to free resources that
 	 * could be exposed to the adapter.  RDMA MWs for example...
@@ -3445,7 +3433,7 @@ static int adap_init0(struct adapter *adap)
 		/* allocate memory to read the header of the firmware on the
 		 * card
 		 */
-		card_fw = t4_alloc_mem(sizeof(*card_fw));
+		card_fw = kvzalloc(sizeof(*card_fw), GFP_KERNEL);
 
 		/* Get FW from from /lib/firmware/ */
 		ret = request_firmware(&fw, fw_info->fw_mod_name,
@@ -3465,7 +3453,7 @@ static int adap_init0(struct adapter *adap)
 
 		/* Cleaning up */
 		release_firmware(fw);
-		t4_free_mem(card_fw);
+		kvfree(card_fw);
 
 		if (ret < 0)
 			goto bye;
@@ -3813,6 +3801,15 @@ static int adap_init0(struct adapter *adap)
 	}
 	if (caps_cmd.cryptocaps) {
 		/* Should query params here...TODO */
+		params[0] = FW_PARAM_PFVF(NCRYPTO_LOOKASIDE);
+		ret = t4_query_params(adap, adap->mbox, adap->pf, 0, 2,
+				      params, val);
+		if (ret < 0) {
+			if (ret != -EINVAL)
+				goto bye;
+		} else {
+			adap->vres.ncrypto_fc = val[0];
+		}
 		adap->params.crypto |= ULP_CRYPTO_LOOKASIDE;
 		adap->num_uld += 1;
 	}
@@ -3894,9 +3891,10 @@ static pci_ers_result_t eeh_err_detected(struct pci_dev *pdev,
 	spin_lock(&adap->stats_lock);
 	for_each_port(adap, i) {
 		struct net_device *dev = adap->port[i];
-
-		netif_device_detach(dev);
-		netif_carrier_off(dev);
+		if (dev) {
+			netif_device_detach(dev);
+			netif_carrier_off(dev);
+		}
 	}
 	spin_unlock(&adap->stats_lock);
 	disable_interrupts(adap);
@@ -3975,12 +3973,13 @@ static void eeh_resume(struct pci_dev *pdev)
 	rtnl_lock();
 	for_each_port(adap, i) {
 		struct net_device *dev = adap->port[i];
-
-		if (netif_running(dev)) {
-			link_start(dev);
-			cxgb_set_rxmode(dev);
+		if (dev) {
+			if (netif_running(dev)) {
+				link_start(dev);
+				cxgb_set_rxmode(dev);
+			}
+			netif_device_attach(dev);
 		}
-		netif_device_attach(dev);
 	}
 	rtnl_unlock();
 }
@@ -4461,9 +4460,9 @@ static void free_some_resources(struct adapter *adapter)
 {
 	unsigned int i;
 
-	t4_free_mem(adapter->l2t);
+	kvfree(adapter->l2t);
 	t4_cleanup_sched(adapter);
-	t4_free_mem(adapter->tids.tid_tab);
+	kvfree(adapter->tids.tid_tab);
 	cxgb4_cleanup_tc_u32(adapter);
 	kfree(adapter->sge.egr_map);
 	kfree(adapter->sge.ingr_map);
@@ -4528,7 +4527,7 @@ static void dummy_setup(struct net_device *dev)
 	/* Initialize the device structure. */
 	dev->netdev_ops = &cxgb4_mgmt_netdev_ops;
 	dev->ethtool_ops = &cxgb4_mgmt_ethtool_ops;
-	dev->destructor = free_netdev;
+	dev->needs_free_netdev = true;
 }
 
 static int config_mgmt_dev(struct pci_dev *pdev)
@@ -5087,8 +5086,10 @@ static void remove_one(struct pci_dev *pdev)
 		 */
 		destroy_workqueue(adapter->workq);
 
-		if (is_uld(adapter))
+		if (is_uld(adapter)) {
 			detach_ulds(adapter);
+			t4_uld_clean_up(adapter);
+		}
 
 		disable_interrupts(adapter);
 
@@ -5165,7 +5166,11 @@ static void shutdown_one(struct pci_dev *pdev)
 			if (adapter->port[i]->reg_state == NETREG_REGISTERED)
 				cxgb_close(adapter->port[i]);
 
-		t4_uld_clean_up(adapter);
+		if (is_uld(adapter)) {
+			detach_ulds(adapter);
+			t4_uld_clean_up(adapter);
+		}
+
 		disable_interrupts(adapter);
 		disable_msi(adapter);
 

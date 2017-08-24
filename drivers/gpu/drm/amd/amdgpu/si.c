@@ -45,6 +45,7 @@
 #include "gmc/gmc_6_0_d.h"
 #include "dce/dce_6_0_d.h"
 #include "uvd/uvd_4_0_d.h"
+#include "bif/bif_3_0_d.h"
 
 static const u32 tahiti_golden_registers[] =
 {
@@ -1155,6 +1156,11 @@ static int si_asic_reset(struct amdgpu_device *adev)
 	return 0;
 }
 
+static u32 si_get_config_memsize(struct amdgpu_device *adev)
+{
+	return RREG32(mmCONFIG_MEMSIZE);
+}
+
 static void si_vga_set_state(struct amdgpu_device *adev, bool state)
 {
 	uint32_t temp;
@@ -1206,6 +1212,7 @@ static const struct amdgpu_asic_funcs si_asic_funcs =
 	.get_xclk = &si_get_xclk,
 	.set_uvd_clocks = &si_set_uvd_clocks,
 	.set_vce_clocks = NULL,
+	.get_config_memsize = &si_get_config_memsize,
 };
 
 static uint32_t si_get_rev_id(struct amdgpu_device *adev)
@@ -1378,6 +1385,7 @@ static void si_init_golden_registers(struct amdgpu_device *adev)
 		amdgpu_program_register_sequence(adev,
 						 pitcairn_mgcg_cgcg_init,
 						 (const u32)ARRAY_SIZE(pitcairn_mgcg_cgcg_init));
+		break;
 	case CHIP_VERDE:
 		amdgpu_program_register_sequence(adev,
 						 verde_golden_registers,
@@ -1402,6 +1410,7 @@ static void si_init_golden_registers(struct amdgpu_device *adev)
 		amdgpu_program_register_sequence(adev,
 						 oland_mgcg_cgcg_init,
 						 (const u32)ARRAY_SIZE(oland_mgcg_cgcg_init));
+		break;
 	case CHIP_HAINAN:
 		amdgpu_program_register_sequence(adev,
 						 hainan_golden_registers,

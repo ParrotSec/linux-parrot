@@ -367,6 +367,11 @@ struct mm_struct {
 #endif
 	unsigned long mmap_base;		/* base of mmap area */
 	unsigned long mmap_legacy_base;         /* base of mmap area in bottom-up allocations */
+#ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
+	/* Base adresses for compatible mmap() */
+	unsigned long mmap_compat_base;
+	unsigned long mmap_compat_legacy_base;
+#endif
 	unsigned long task_size;		/* size of task vm space */
 	unsigned long highest_vm_end;		/* highest vma end address */
 	pgd_t * pgd;
@@ -489,6 +494,10 @@ struct mm_struct {
 	 * PROT_NONE or PROT_NUMA mapped page.
 	 */
 	bool tlb_flush_pending;
+#endif
+#ifdef CONFIG_ARCH_WANT_BATCHED_UNMAP_TLB_FLUSH
+	/* See flush_tlb_batched_pending() */
+	bool tlb_flush_batched;
 #endif
 	struct uprobes_state uprobes_state;
 #ifdef CONFIG_HUGETLB_PAGE

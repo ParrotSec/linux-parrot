@@ -152,7 +152,7 @@ static int create_xattr(struct ubifs_info *c, struct inode *host,
 	ui->data_len = size;
 
 	mutex_lock(&host_ui->ui_mutex);
-	host->i_ctime = ubifs_current_time(host);
+	host->i_ctime = current_time(host);
 	host_ui->xattr_cnt += 1;
 	host_ui->xattr_size += CALC_DENT_SIZE(fname_len(nm));
 	host_ui->xattr_size += CALC_XATTR_BYTES(size);
@@ -234,7 +234,7 @@ static int change_xattr(struct ubifs_info *c, struct inode *host,
 	mutex_unlock(&ui->ui_mutex);
 
 	mutex_lock(&host_ui->ui_mutex);
-	host->i_ctime = ubifs_current_time(host);
+	host->i_ctime = current_time(host);
 	host_ui->xattr_size -= CALC_XATTR_BYTES(old_size);
 	host_ui->xattr_size += CALC_XATTR_BYTES(size);
 
@@ -488,7 +488,7 @@ static int remove_xattr(struct ubifs_info *c, struct inode *host,
 		return err;
 
 	mutex_lock(&host_ui->ui_mutex);
-	host->i_ctime = ubifs_current_time(host);
+	host->i_ctime = current_time(host);
 	host_ui->xattr_cnt -= 1;
 	host_ui->xattr_size -= CALC_DENT_SIZE(fname_len(nm));
 	host_ui->xattr_size -= CALC_XATTR_BYTES(ui->data_len);
@@ -511,6 +511,28 @@ out_cancel:
 	ubifs_release_budget(c, &req);
 	make_bad_inode(inode);
 	return err;
+}
+
+/**
+ * ubifs_evict_xattr_inode - Evict an xattr inode.
+ * @c: UBIFS file-system description object
+ * @xattr_inum: xattr inode number
+ *
+ * When an inode that hosts xattrs is being removed we have to make sure
+ * that cached inodes of the xattrs also get removed from the inode cache
+ * otherwise we'd waste memory. This function looks up an inode from the
+ * inode cache and clears the link counter such that iput() will evict
+ * the inode.
+ */
+void ubifs_evict_xattr_inode(struct ubifs_info *c, ino_t xattr_inum)
+{
+	struct inode *inode;
+
+	inode = ilookup(c->vfs_sb, xattr_inum);
+	if (inode) {
+		clear_nlink(inode);
+		iput(inode);
+	}
 }
 
 static int ubifs_xattr_remove(struct inode *host, const char *name)
@@ -559,6 +581,7 @@ out_free:
 	return err;
 }
 
+#ifdef CONFIG_UBIFS_FS_SECURITY
 static int init_xattrs(struct inode *inode, const struct xattr *xattr_array,
 		      void *fs_info)
 {
@@ -599,6 +622,7 @@ int ubifs_init_security(struct inode *dentry, struct inode *inode,
 	}
 	return err;
 }
+#endif
 
 static int xattr_get(const struct xattr_handler *handler,
 			   struct dentry *dentry, struct inode *inode,
@@ -639,15 +663,19 @@ static const struct xattr_handler ubifs_trusted_xattr_handler = {
 	.set = xattr_set,
 };
 
+#ifdef CONFIG_UBIFS_FS_SECURITY
 static const struct xattr_handler ubifs_security_xattr_handler = {
 	.prefix = XATTR_SECURITY_PREFIX,
 	.get = xattr_get,
 	.set = xattr_set,
 };
+#endif
 
 const struct xattr_handler *ubifs_xattr_handlers[] = {
 	&ubifs_user_xattr_handler,
 	&ubifs_trusted_xattr_handler,
+#ifdef CONFIG_UBIFS_FS_SECURITY
 	&ubifs_security_xattr_handler,
+#endif
 	NULL
 };
