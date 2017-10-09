@@ -18,12 +18,13 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 
-# Parrot patches
+# Parrot changes
 features/all/wifi-injection.patch
 
 # Patches from aufs4 repository, imported with
 # debian/patches/features/all/aufs4/gen-patch.  These are only the
 # changes needed to allow aufs to be built out-of-tree.
+features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 features/all/aufs4/aufs4-base.patch
 features/all/aufs4/aufs4-mmap.patch
 features/all/aufs4/aufs4-standalone.patch
@@ -62,10 +63,8 @@ bugfix/x86/platform-x86-ideapad-laptop-add-y520-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-y720-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-ideapad-v510-15ikb-t.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-several-models-to-no.patch
-bugfix/mips/mips-octeon-fix-broken-edac-driver.patch
 debian/revert-gpu-host1x-add-iommu-support.patch
 bugfix/x86/perf-tools-fix-unwind-build-on-i386.patch
-bugfix/all/mm-revert-x86_64-and-arm64-elf_et_dyn_base-base.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
@@ -87,9 +86,8 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/kbuild-do-not-use-hyphen-in-exported-variable-name.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
-bugfix/all/rtlwifi-fix-memory-leak-when-firmware-request-fails.patch
-bugfix/all/rtlwifi-fix-fallback-firmware-loading.patch
 bugfix/all/bfq-re-enable-auto-loading-when-built-as-a-module.patch
+bugfix/all/mtd-nandsim-remove-debugfs-entries-in-error-path.patch
 
 # Miscellaneous features
 
@@ -126,9 +124,14 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/packet-fix-tp_reserve-race-in-packet_set_ring.patch
-bugfix/all/udp-consistently-apply-ufo-or-fragmentation.patch
-bugfix/all/xfrm-policy-check-policy-direction-value.patch
+bugfix/all/sctp-Avoid-out-of-bounds-reads-from-address-storage.patch
+bugfix/all/scsi-qla2xxx-Fix-an-integer-overflow-in-sysfs-code.patch
+bugfix/all/nl80211-check-for-the-required-netlink-attributes-presence.patch
+bugfix/x86/kvm-nvmx-don-t-allow-l2-to-access-the-hardware-cr8.patch
+bugfix/all/video-fbdev-aty-do-not-leak-uninitialized-padding-in.patch
+bugfix/all/scsi-fix-the-issue-that-iscsi_if_rx-doesn-t-parse-nlmsg-properly.patch
+bugfix/all/packet-don-t-write-vnet-header-beyond-end-of-buffer.patch
+bugfix/x86/kvm-vmx-do-not-bug-on-out-of-bounds-guest-irq.patch
 
 # Fix exported symbol versions
 bugfix/alpha/alpha-restore-symbol-versions-for-symbols-exported-f.patch
@@ -143,7 +146,6 @@ bugfix/all/tools-perf-man-date.patch
 bugfix/all/tools-perf-remove-shebangs.patch
 bugfix/all/tools-lib-traceevent-use-ldflags.patch
 bugfix/x86/revert-perf-build-fix-libunwind-feature-detection-on.patch
-bugfix/alpha/alpha-uapi-add-support-for-__sane_userspace_types__.patch
 bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch

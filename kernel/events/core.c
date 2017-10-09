@@ -5084,7 +5084,7 @@ static void perf_mmap_open(struct vm_area_struct *vma)
 		atomic_inc(&event->rb->aux_mmap_count);
 
 	if (event->pmu->event_mapped)
-		event->pmu->event_mapped(event);
+		event->pmu->event_mapped(event, vma->vm_mm);
 }
 
 static void perf_pmu_output_stop(struct perf_event *event);
@@ -5107,7 +5107,7 @@ static void perf_mmap_close(struct vm_area_struct *vma)
 	unsigned long size = perf_data_size(rb);
 
 	if (event->pmu->event_unmapped)
-		event->pmu->event_unmapped(event);
+		event->pmu->event_unmapped(event, vma->vm_mm);
 
 	/*
 	 * rb->aux_mmap_count will always drop before rb->mmap_count and
@@ -5405,7 +5405,7 @@ aux_unlock:
 	vma->vm_ops = &perf_mmap_vmops;
 
 	if (event->pmu->event_mapped)
-		event->pmu->event_mapped(event);
+		event->pmu->event_mapped(event, vma->vm_mm);
 
 	return ret;
 }
@@ -9996,28 +9996,27 @@ SYSCALL_DEFINE5(perf_event_open,
 			goto err_context;
 
 		/*
-		 * Do not allow to attach to a group in a different
-		 * task or CPU context:
+		 * Make sure we're both events for the same CPU;
+		 * grouping events for different CPUs is broken; since
+		 * you can never concurrently schedule them anyhow.
 		 */
-		if (move_group) {
-			/*
-			 * Make sure we're both on the same task, or both
-			 * per-cpu events.
-			 */
-			if (group_leader->ctx->task != ctx->task)
-				goto err_context;
+		if (group_leader->cpu != event->cpu)
+			goto err_context;
 
-			/*
-			 * Make sure we're both events for the same CPU;
-			 * grouping events for different CPUs is broken; since
-			 * you can never concurrently schedule them anyhow.
-			 */
-			if (group_leader->cpu != event->cpu)
-				goto err_context;
-		} else {
-			if (group_leader->ctx != ctx)
-				goto err_context;
-		}
+		/*
+		 * Make sure we're both on the same task, or both
+		 * per-CPU events.
+		 */
+		if (group_leader->ctx->task != ctx->task)
+			goto err_context;
+
+		/*
+		 * Do not allow to attach to a group in a different task
+		 * or CPU context. If we're moving SW events, we'll fix
+		 * this up later, so allow that.
+		 */
+		if (!move_group && group_leader->ctx != ctx)
+			goto err_context;
 
 		/*
 		 * Only a group leader can be exclusive or pinned
