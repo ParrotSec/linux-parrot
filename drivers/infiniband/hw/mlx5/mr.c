@@ -48,6 +48,7 @@ enum {
 #define MLX5_UMR_ALIGN 2048
 
 static int clean_mr(struct mlx5_ib_mr *mr);
+static int max_umr_order(struct mlx5_ib_dev *dev);
 static int use_umr(struct mlx5_ib_dev *dev, int order);
 static int unreg_umr(struct mlx5_ib_dev *dev, struct mlx5_ib_mr *mr);
 
@@ -491,16 +492,18 @@ static struct mlx5_ib_mr *alloc_cached_mr(struct mlx5_ib_dev *dev, int order)
 	struct mlx5_mr_cache *cache = &dev->cache;
 	struct mlx5_ib_mr *mr = NULL;
 	struct mlx5_cache_ent *ent;
+	int last_umr_cache_entry;
 	int c;
 	int i;
 
 	c = order2idx(dev, order);
-	if (c < 0 || c > MAX_UMR_CACHE_ENTRY) {
+	last_umr_cache_entry = order2idx(dev, max_umr_order(dev));
+	if (c < 0 || c > last_umr_cache_entry) {
 		mlx5_ib_warn(dev, "order %d, cache index %d\n", order, c);
 		return NULL;
 	}
 
-	for (i = c; i < MAX_UMR_CACHE_ENTRY; i++) {
+	for (i = c; i <= last_umr_cache_entry; i++) {
 		ent = &cache->ent[i];
 
 		mlx5_ib_dbg(dev, "order %d, cache index %d\n", ent->order, i);
@@ -582,6 +585,15 @@ static void clean_keys(struct mlx5_ib_dev *dev, int c)
 	}
 }
 
+static void mlx5_mr_cache_debugfs_cleanup(struct mlx5_ib_dev *dev)
+{
+	if (!mlx5_debugfs_root)
+		return;
+
+	debugfs_remove_recursive(dev->cache.root);
+	dev->cache.root = NULL;
+}
+
 static int mlx5_mr_cache_debugfs_init(struct mlx5_ib_dev *dev)
 {
 	struct mlx5_mr_cache *cache = &dev->cache;
@@ -600,38 +612,34 @@ static int mlx5_mr_cache_debugfs_init(struct mlx5_ib_dev *dev)
 		sprintf(ent->name, "%d", ent->order);
 		ent->dir = debugfs_create_dir(ent->name,  cache->root);
 		if (!ent->dir)
-			return -ENOMEM;
+			goto err;
 
 		ent->fsize = debugfs_create_file("size", 0600, ent->dir, ent,
 						 &size_fops);
 		if (!ent->fsize)
-			return -ENOMEM;
+			goto err;
 
 		ent->flimit = debugfs_create_file("limit", 0600, ent->dir, ent,
 						  &limit_fops);
 		if (!ent->flimit)
-			return -ENOMEM;
+			goto err;
 
 		ent->fcur = debugfs_create_u32("cur", 0400, ent->dir,
 					       &ent->cur);
 		if (!ent->fcur)
-			return -ENOMEM;
+			goto err;
 
 		ent->fmiss = debugfs_create_u32("miss", 0600, ent->dir,
 						&ent->miss);
 		if (!ent->fmiss)
-			return -ENOMEM;
+			goto err;
 	}
 
 	return 0;
-}
+err:
+	mlx5_mr_cache_debugfs_cleanup(dev);
 
-static void mlx5_mr_cache_debugfs_cleanup(struct mlx5_ib_dev *dev)
-{
-	if (!mlx5_debugfs_root)
-		return;
-
-	debugfs_remove_recursive(dev->cache.root);
+	return -ENOMEM;
 }
 
 static void delay_time_func(unsigned long ctx)
@@ -691,6 +699,11 @@ int mlx5_mr_cache_init(struct mlx5_ib_dev *dev)
 	err = mlx5_mr_cache_debugfs_init(dev);
 	if (err)
 		mlx5_ib_warn(dev, "cache debugfs failure\n");
+
+	/*
+	 * We don't want to fail driver if debugfs failed to initialize,
+	 * so we are not forwarding error to the user.
+	 */
 
 	return 0;
 }
@@ -806,11 +819,16 @@ static int get_octo_len(u64 addr, u64 len, int page_size)
 	return (npages + 1) / 2;
 }
 
-static int use_umr(struct mlx5_ib_dev *dev, int order)
+static int max_umr_order(struct mlx5_ib_dev *dev)
 {
 	if (MLX5_CAP_GEN(dev->mdev, umr_extended_translation_offset))
-		return order <= MAX_UMR_CACHE_ENTRY + 2;
-	return order <= MLX5_MAX_UMR_SHIFT;
+		return MAX_UMR_CACHE_ENTRY + 2;
+	return MLX5_MAX_UMR_SHIFT;
+}
+
+static int use_umr(struct mlx5_ib_dev *dev, int order)
+{
+	return order <= max_umr_order(dev);
 }
 
 static int mr_umem_get(struct ib_pd *pd, u64 start, u64 length,
@@ -825,7 +843,7 @@ static int mr_umem_get(struct ib_pd *pd, u64 start, u64 length,
 			    access_flags, 0);
 	err = PTR_ERR_OR_ZERO(*umem);
 	if (err < 0) {
-		mlx5_ib_err(dev, "umem get failed (%ld)\n", PTR_ERR(umem));
+		mlx5_ib_err(dev, "umem get failed (%d)\n", err);
 		return err;
 	}
 
@@ -1110,7 +1128,7 @@ static struct mlx5_ib_mr *reg_create(struct ib_mr *ibmr, struct ib_pd *pd,
 
 	inlen = MLX5_ST_SZ_BYTES(create_mkey_in) +
 		sizeof(*pas) * ((npages + 1) / 2) * 2;
-	in = mlx5_vzalloc(inlen);
+	in = kvzalloc(inlen, GFP_KERNEL);
 	if (!in) {
 		err = -ENOMEM;
 		goto err_1;

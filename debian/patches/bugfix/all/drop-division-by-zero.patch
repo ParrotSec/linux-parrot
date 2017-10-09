@@ -1,0 +1,20 @@
+Description: sched/sysctl: Check user input value of sysctl_sched_time_avg
+ System will hang if user set sysctl_sched_time_avg to 0.
+Author: Ethan Zhao <ethan.zhao@oracle.com>
+Origin: upstream, https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5ccba44ba118a5000cccc50076b0344632459779
+Bug-Kali: https://bugs.kali.org/view.php?id=4288
+Last-Update: 2017-10-05
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -367,7 +367,8 @@ static struct ctl_table kern_table[] = {
+ 		.data		= &sysctl_sched_time_avg,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &one,
+ 	},
+ #ifdef CONFIG_SCHEDSTATS
+ 	{

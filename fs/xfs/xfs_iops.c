@@ -460,7 +460,7 @@ xfs_vn_get_link(
 	if (!dentry)
 		return ERR_PTR(-ECHILD);
 
-	link = kmalloc(MAXPATHLEN+1, GFP_KERNEL);
+	link = kmalloc(XFS_SYMLINK_MAXLEN+1, GFP_KERNEL);
 	if (!link)
 		goto out_err;
 
@@ -817,7 +817,7 @@ xfs_vn_setattr_nonsize(
  * Caution: The caller of this function is responsible for calling
  * setattr_prepare() or otherwise verifying the change is fine.
  */
-int
+STATIC int
 xfs_setattr_size(
 	struct xfs_inode	*ip,
 	struct iattr		*iattr)

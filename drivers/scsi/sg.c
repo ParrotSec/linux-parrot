@@ -177,7 +177,7 @@ typedef struct sg_device { /* holds the state of each scsi generic device */
 } Sg_device;
 
 /* tasklet or soft irq callback */
-static void sg_rq_end_io(struct request *rq, int uptodate);
+static void sg_rq_end_io(struct request *rq, blk_status_t status);
 static int sg_start_req(Sg_request *srp, unsigned char *cmd);
 static int sg_finish_rem_req(Sg_request * srp);
 static int sg_build_indirect(Sg_scatter_hold * schp, Sg_fd * sfp, int buff_size);
@@ -785,7 +785,7 @@ sg_common_write(Sg_fd * sfp, Sg_request * srp,
 	if (atomic_read(&sdp->detaching)) {
 		if (srp->bio) {
 			scsi_req_free_cmd(scsi_req(srp->rq));
-			blk_end_request_all(srp->rq, -EIO);
+			blk_end_request_all(srp->rq, BLK_STS_IOERR);
 			srp->rq = NULL;
 		}
 
@@ -826,6 +826,39 @@ static int max_sectors_bytes(struct request_queue *q)
 	max_sectors = min_t(unsigned int, max_sectors, INT_MAX >> 9);
 
 	return max_sectors << 9;
+}
+
+static void
+sg_fill_request_table(Sg_fd *sfp, sg_req_info_t *rinfo)
+{
+	Sg_request *srp;
+	int val;
+	unsigned int ms;
+
+	val = 0;
+	list_for_each_entry(srp, &sfp->rq_list, entry) {
+		if (val > SG_MAX_QUEUE)
+			break;
+		rinfo[val].req_state = srp->done + 1;
+		rinfo[val].problem =
+			srp->header.masked_status &
+			srp->header.host_status &
+			srp->header.driver_status;
+		if (srp->done)
+			rinfo[val].duration =
+				srp->header.duration;
+		else {
+			ms = jiffies_to_msecs(jiffies);
+			rinfo[val].duration =
+				(ms > srp->header.duration) ?
+				(ms - srp->header.duration) : 0;
+		}
+		rinfo[val].orphan = srp->orphan;
+		rinfo[val].sg_io_owned = srp->sg_io_owned;
+		rinfo[val].pack_id = srp->header.pack_id;
+		rinfo[val].usr_ptr = srp->header.usr_ptr;
+		val++;
+	}
 }
 
 static long
@@ -1012,38 +1045,13 @@ sg_ioctl(struct file *filp, unsigned int cmd_in, unsigned long arg)
 			return -EFAULT;
 		else {
 			sg_req_info_t *rinfo;
-			unsigned int ms;
 
-			rinfo = kmalloc(SZ_SG_REQ_INFO * SG_MAX_QUEUE,
-								GFP_KERNEL);
+			rinfo = kzalloc(SZ_SG_REQ_INFO * SG_MAX_QUEUE,
+					GFP_KERNEL);
 			if (!rinfo)
 				return -ENOMEM;
 			read_lock_irqsave(&sfp->rq_list_lock, iflags);
-			val = 0;
-			list_for_each_entry(srp, &sfp->rq_list, entry) {
-				if (val > SG_MAX_QUEUE)
-					break;
-				memset(&rinfo[val], 0, SZ_SG_REQ_INFO);
-				rinfo[val].req_state = srp->done + 1;
-				rinfo[val].problem =
-					srp->header.masked_status &
-					srp->header.host_status &
-					srp->header.driver_status;
-				if (srp->done)
-					rinfo[val].duration =
-						srp->header.duration;
-				else {
-					ms = jiffies_to_msecs(jiffies);
-					rinfo[val].duration =
-						(ms > srp->header.duration) ?
-						(ms - srp->header.duration) : 0;
-				}
-				rinfo[val].orphan = srp->orphan;
-				rinfo[val].sg_io_owned = srp->sg_io_owned;
-				rinfo[val].pack_id = srp->header.pack_id;
-				rinfo[val].usr_ptr = srp->header.usr_ptr;
-				val++;
-			}
+			sg_fill_request_table(sfp, rinfo);
 			read_unlock_irqrestore(&sfp->rq_list_lock, iflags);
 			result = __copy_to_user(p, rinfo,
 						SZ_SG_REQ_INFO * SG_MAX_QUEUE);
@@ -1283,7 +1291,7 @@ sg_rq_end_io_usercontext(struct work_struct *work)
  * level when a command is completed (or has failed).
  */
 static void
-sg_rq_end_io(struct request *rq, int uptodate)
+sg_rq_end_io(struct request *rq, blk_status_t status)
 {
 	struct sg_request *srp = rq->end_io_data;
 	struct scsi_request *req = scsi_req(rq);
@@ -1714,8 +1722,6 @@ sg_start_req(Sg_request *srp, unsigned char *cmd)
 		return PTR_ERR(rq);
 	}
 	req = scsi_req(rq);
-
-	scsi_req_init(rq);
 
 	if (hp->cmd_len > BLK_MAX_CDB)
 		req->cmd = long_cmdp;

@@ -22,6 +22,7 @@
 #include <asm/machdep.h>
 #include <asm/prom.h>
 #include <asm/sparsemem.h>
+#include <asm/fadump.h>
 #include "pseries.h"
 
 static bool rtas_hp_event;
@@ -407,6 +408,12 @@ static bool lmb_is_removable(struct of_drconf_cell *lmb)
 	block_sz = memory_block_size_bytes();
 	scns_per_block = block_sz / MIN_MEMORY_BLOCK_SIZE;
 	phys_addr = lmb->base_addr;
+
+#ifdef CONFIG_FA_DUMP
+	/* Don't hot-remove memory that falls in fadump boot memory area */
+	if (is_fadump_boot_memory_area(phys_addr, block_sz))
+		return false;
+#endif
 
 	for (i = 0; i < scns_per_block; i++) {
 		pfn = PFN_DOWN(phys_addr);
@@ -810,6 +817,9 @@ static int dlpar_memory_add_by_count(u32 lmbs_to_add, struct property *prop)
 		return -EINVAL;
 
 	for (i = 0; i < num_lmbs && lmbs_to_add != lmbs_added; i++) {
+		if (lmbs[i].flags & DRCONF_MEM_ASSIGNED)
+			continue;
+
 		rc = dlpar_acquire_drc(lmbs[i].drc_index);
 		if (rc)
 			continue;
@@ -852,6 +862,7 @@ static int dlpar_memory_add_by_count(u32 lmbs_to_add, struct property *prop)
 				lmbs[i].base_addr, lmbs[i].drc_index);
 			lmbs[i].reserved = 0;
 		}
+		rc = 0;
 	}
 
 	return rc;

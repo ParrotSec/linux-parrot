@@ -85,11 +85,11 @@ xfs_find_bdev_for_inode(
  * associated buffer_heads, paying attention to the start and end offsets that
  * we need to process on the page.
  *
- * Landmine Warning: bh->b_end_io() will call end_page_writeback() on the last
- * buffer in the IO. Once it does this, it is unsafe to access the bufferhead or
- * the page at all, as we may be racing with memory reclaim and it can free both
- * the bufferhead chain and the page as it will see the page as clean and
- * unused.
+ * Note that we open code the action in end_buffer_async_write here so that we
+ * only have to iterate over the buffers attached to the page once.  This is not
+ * only more efficient, but also ensures that we only calls end_page_writeback
+ * at the end of the iteration, and thus avoids the pitfall of having the page
+ * and buffers potentially freed after every call to end_buffer_async_write.
  */
 static void
 xfs_finish_page_writeback(
@@ -97,29 +97,44 @@ xfs_finish_page_writeback(
 	struct bio_vec		*bvec,
 	int			error)
 {
-	unsigned int		end = bvec->bv_offset + bvec->bv_len - 1;
-	struct buffer_head	*head, *bh, *next;
+	struct buffer_head	*head = page_buffers(bvec->bv_page), *bh = head;
+	bool			busy = false;
 	unsigned int		off = 0;
-	unsigned int		bsize;
+	unsigned long		flags;
 
 	ASSERT(bvec->bv_offset < PAGE_SIZE);
 	ASSERT((bvec->bv_offset & (i_blocksize(inode) - 1)) == 0);
-	ASSERT(end < PAGE_SIZE);
+	ASSERT(bvec->bv_offset + bvec->bv_len <= PAGE_SIZE);
 	ASSERT((bvec->bv_len & (i_blocksize(inode) - 1)) == 0);
 
-	bh = head = page_buffers(bvec->bv_page);
-
-	bsize = bh->b_size;
+	local_irq_save(flags);
+	bit_spin_lock(BH_Uptodate_Lock, &head->b_state);
 	do {
-		if (off > end)
-			break;
-		next = bh->b_this_page;
-		if (off < bvec->bv_offset)
-			goto next_bh;
-		bh->b_end_io(bh, !error);
-next_bh:
-		off += bsize;
-	} while ((bh = next) != head);
+		if (off >= bvec->bv_offset &&
+		    off < bvec->bv_offset + bvec->bv_len) {
+			ASSERT(buffer_async_write(bh));
+			ASSERT(bh->b_end_io == NULL);
+
+			if (error) {
+				mark_buffer_write_io_error(bh);
+				clear_buffer_uptodate(bh);
+				SetPageError(bvec->bv_page);
+			} else {
+				set_buffer_uptodate(bh);
+			}
+			clear_buffer_async_write(bh);
+			unlock_buffer(bh);
+		} else if (buffer_async_write(bh)) {
+			ASSERT(buffer_locked(bh));
+			busy = true;
+		}
+		off += bh->b_size;
+	} while ((bh = bh->b_this_page) != head);
+	bit_spin_unlock(BH_Uptodate_Lock, &head->b_state);
+	local_irq_restore(flags);
+
+	if (!busy)
+		end_page_writeback(bvec->bv_page);
 }
 
 /*
@@ -133,8 +148,10 @@ xfs_destroy_ioend(
 	int			error)
 {
 	struct inode		*inode = ioend->io_inode;
-	struct bio		*last = ioend->io_bio;
-	struct bio		*bio, *next;
+	struct bio		*bio = &ioend->io_inline_bio;
+	struct bio		*last = ioend->io_bio, *next;
+	u64			start = bio->bi_iter.bi_sector;
+	bool			quiet = bio_flagged(bio, BIO_QUIET);
 
 	for (bio = &ioend->io_inline_bio; bio; bio = next) {
 		struct bio_vec	*bvec;
@@ -154,6 +171,11 @@ xfs_destroy_ioend(
 			xfs_finish_page_writeback(inode, bvec, error);
 
 		bio_put(bio);
+	}
+
+	if (unlikely(error && !quiet)) {
+		xfs_err_ratelimited(XFS_I(inode)->i_mount,
+			"writeback error on sector %llu", start);
 	}
 }
 
@@ -276,7 +298,7 @@ xfs_end_io(
 	struct xfs_inode	*ip = XFS_I(ioend->io_inode);
 	xfs_off_t		offset = ioend->io_offset;
 	size_t			size = ioend->io_size;
-	int			error = ioend->io_bio->bi_error;
+	int			error;
 
 	/*
 	 * Just clean up the in-memory strutures if the fs has been shut down.
@@ -289,6 +311,7 @@ xfs_end_io(
 	/*
 	 * Clean up any COW blocks on an I/O error.
 	 */
+	error = blk_status_to_errno(ioend->io_bio->bi_status);
 	if (unlikely(error)) {
 		switch (ioend->io_type) {
 		case XFS_IO_COW:
@@ -332,7 +355,7 @@ xfs_end_bio(
 	else if (ioend->io_append_trans)
 		queue_work(mp->m_data_workqueue, &ioend->io_work);
 	else
-		xfs_destroy_ioend(ioend, bio->bi_error);
+		xfs_destroy_ioend(ioend, blk_status_to_errno(bio->bi_status));
 }
 
 STATIC int
@@ -422,7 +445,8 @@ xfs_start_buffer_writeback(
 	ASSERT(!buffer_delay(bh));
 	ASSERT(!buffer_unwritten(bh));
 
-	mark_buffer_async_write(bh);
+	bh->b_end_io = NULL;
+	set_buffer_async_write(bh);
 	set_buffer_uptodate(bh);
 	clear_buffer_dirty(bh);
 }
@@ -500,11 +524,12 @@ xfs_submit_ioend(
 	 * time.
 	 */
 	if (status) {
-		ioend->io_bio->bi_error = status;
+		ioend->io_bio->bi_status = errno_to_blk_status(status);
 		bio_endio(ioend->io_bio);
 		return status;
 	}
 
+	ioend->io_bio->bi_write_hint = ioend->io_inode->i_write_hint;
 	submit_bio(ioend->io_bio);
 	return 0;
 }
@@ -564,6 +589,7 @@ xfs_chain_bio(
 	bio_chain(ioend->io_bio, new);
 	bio_get(ioend->io_bio);		/* for xfs_destroy_ioend */
 	ioend->io_bio->bi_opf = REQ_OP_WRITE | wbc_to_write_flags(wbc);
+	ioend->io_bio->bi_write_hint = ioend->io_inode->i_write_hint;
 	submit_bio(ioend->io_bio);
 	ioend->io_bio = new;
 }
@@ -836,7 +862,7 @@ xfs_writepage_map(
 	struct inode		*inode,
 	struct page		*page,
 	loff_t			offset,
-	__uint64_t              end_offset)
+	uint64_t              end_offset)
 {
 	LIST_HEAD(submit_list);
 	struct xfs_ioend	*ioend, *next;
@@ -991,7 +1017,7 @@ xfs_do_writepage(
 	struct xfs_writepage_ctx *wpc = data;
 	struct inode		*inode = page->mapping->host;
 	loff_t			offset;
-	__uint64_t              end_offset;
+	uint64_t              end_offset;
 	pgoff_t                 end_index;
 
 	trace_xfs_writepage(inode, page, 0, 0);

@@ -16,6 +16,7 @@
 static inline int init_new_context(struct task_struct *tsk,
 				   struct mm_struct *mm)
 {
+	spin_lock_init(&mm->context.lock);
 	spin_lock_init(&mm->context.pgtable_lock);
 	INIT_LIST_HEAD(&mm->context.pgtable_list);
 	spin_lock_init(&mm->context.gmap_lock);
@@ -25,7 +26,9 @@ static inline int init_new_context(struct task_struct *tsk,
 	mm->context.gmap_asce = 0;
 	mm->context.flush_mm = 0;
 #ifdef CONFIG_PGSTE
-	mm->context.alloc_pgste = page_table_allocate_pgste;
+	mm->context.alloc_pgste = page_table_allocate_pgste ||
+		test_thread_flag(TIF_PGSTE) ||
+		current->mm->context.alloc_pgste;
 	mm->context.has_pgste = 0;
 	mm->context.use_skey = 0;
 	mm->context.use_cmma = 0;
@@ -41,6 +44,11 @@ static inline int init_new_context(struct task_struct *tsk,
 		mm->context.asce_limit = STACK_TOP_MAX;
 		mm->context.asce = __pa(mm->pgd) | _ASCE_TABLE_LENGTH |
 				   _ASCE_USER_BITS | _ASCE_TYPE_REGION3;
+		break;
+	case -PAGE_SIZE:
+		/* forked 5-level task, set new asce with new_mm->pgd */
+		mm->context.asce = __pa(mm->pgd) | _ASCE_TABLE_LENGTH |
+			_ASCE_USER_BITS | _ASCE_TYPE_REGION1;
 		break;
 	case 1UL << 53:
 		/* forked 4-level task, set new asce with new mm->pgd */
@@ -95,7 +103,6 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	if (prev == next)
 		return;
 	cpumask_set_cpu(cpu, &next->context.cpu_attach_mask);
-	cpumask_set_cpu(cpu, mm_cpumask(next));
 	/* Clear old ASCE by loading the kernel ASCE. */
 	__ctl_load(S390_lowcore.kernel_asce, 1, 1);
 	__ctl_load(S390_lowcore.kernel_asce, 7, 7);
@@ -113,9 +120,8 @@ static inline void finish_arch_post_lock_switch(void)
 		preempt_disable();
 		while (atomic_read(&mm->context.flush_count))
 			cpu_relax();
-
-		if (mm->context.flush_mm)
-			__tlb_flush_mm(mm);
+		cpumask_set_cpu(smp_processor_id(), mm_cpumask(mm));
+		__tlb_flush_mm_lazy(mm);
 		preempt_enable();
 	}
 	set_fs(current->thread.mm_segment);
@@ -128,6 +134,7 @@ static inline void activate_mm(struct mm_struct *prev,
                                struct mm_struct *next)
 {
 	switch_mm(prev, next, current);
+	cpumask_set_cpu(smp_processor_id(), mm_cpumask(next));
 	set_user_asce(next);
 }
 
