@@ -70,6 +70,7 @@
 #define LSB_PUBLIC_MASK_HI_OFFSET	0x1C
 #define LSB_PRIVATE_MASK_LO_OFFSET	0x20
 #define LSB_PRIVATE_MASK_HI_OFFSET	0x24
+#define CMD5_PSP_CCP_VERSION		0x100
 
 #define CMD5_Q_CONTROL_BASE		0x0000
 #define CMD5_Q_TAIL_LO_BASE		0x0004
@@ -191,6 +192,7 @@
 #define CCP_AES_CTX_SB_COUNT		1
 
 #define CCP_XTS_AES_KEY_SB_COUNT	1
+#define CCP5_XTS_AES_KEY_SB_COUNT	2
 #define CCP_XTS_AES_CTX_SB_COUNT	1
 
 #define CCP_DES3_KEY_SB_COUNT		1
@@ -322,6 +324,16 @@ struct ccp_cmd_queue {
 	/* Interrupt wait queue */
 	wait_queue_head_t int_queue;
 	unsigned int int_rcvd;
+
+	/* Per-queue Statistics */
+	unsigned long total_ops;
+	unsigned long total_aes_ops;
+	unsigned long total_xts_aes_ops;
+	unsigned long total_3des_ops;
+	unsigned long total_sha_ops;
+	unsigned long total_rsa_ops;
+	unsigned long total_pt_ops;
+	unsigned long total_ecc_ops;
 } ____cacheline_aligned;
 
 struct ccp_device {
@@ -419,6 +431,12 @@ struct ccp_device {
 
 	/* DMA caching attribute support */
 	unsigned int axcache;
+
+	/* Device Statistics */
+	unsigned long total_interrupts;
+
+	/* DebugFS info */
+	struct dentry *debugfs_instance;
 };
 
 enum ccp_memtype {
@@ -480,6 +498,7 @@ struct ccp_aes_op {
 };
 
 struct ccp_xts_aes_op {
+	enum ccp_aes_type type;
 	enum ccp_aes_action action;
 	enum ccp_xts_aes_unit_size unit_size;
 };
@@ -631,6 +650,9 @@ int ccp_register_rng(struct ccp_device *ccp);
 void ccp_unregister_rng(struct ccp_device *ccp);
 int ccp_dmaengine_register(struct ccp_device *ccp);
 void ccp_dmaengine_unregister(struct ccp_device *ccp);
+
+void ccp5_debugfs_setup(struct ccp_device *ccp);
+void ccp5_debugfs_destroy(void);
 
 /* Structure for computation functions that are device-specific */
 struct ccp_actions {
