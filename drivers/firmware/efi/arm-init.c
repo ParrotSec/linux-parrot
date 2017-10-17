@@ -21,6 +21,7 @@
 #include <linux/of_fdt.h>
 #include <linux/platform_device.h>
 #include <linux/screen_info.h>
+#include <linux/security.h>
 
 #include <asm/efi.h>
 
@@ -243,6 +244,11 @@ void __init efi_init(void)
 	WARN(efi.memmap.desc_version != 1,
 	     "Unexpected EFI_MEMORY_DESCRIPTOR version %ld",
 	      efi.memmap.desc_version);
+
+#ifdef CONFIG_EFI_SECURE_BOOT_LOCK_DOWN
+	if (params.secure_boot > 0)
+		lock_kernel_down();
+#endif
 
 	if (uefi_init() < 0) {
 		efi_memmap_unmap();

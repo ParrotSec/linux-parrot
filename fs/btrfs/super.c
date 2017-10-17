@@ -2432,3 +2432,4 @@ late_initcall(init_btrfs_fs);
 module_exit(exit_btrfs_fs)
 
 MODULE_LICENSE("GPL");
+MODULE_SOFTDEP("pre: crypto-crc32c");

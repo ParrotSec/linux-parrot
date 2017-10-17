@@ -73,3 +73,11 @@
 		phy-handle = <&ethphy1>;
 	};
 };
+
+&pmx_sata0 {
+	marvell,pins = "mpp15";
+};
+
+&pmx_sata1 {
+	marvell,pins = "mpp16";
+};

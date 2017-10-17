@@ -1014,8 +1014,6 @@ static int download_fw(struct edgeport_serial *serial)
 
 	status = request_firmware(&fw, fw_name, dev);
 	if (status) {
-		dev_err(dev, "Failed to load image \"%s\" err %d\n",
-				fw_name, status);
 		return status;
 	}
 

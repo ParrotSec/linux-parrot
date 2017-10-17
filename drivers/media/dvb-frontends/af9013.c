@@ -1140,14 +1140,8 @@ static int af9013_download_firmware(struct af9013_state *state)
 
 	/* Request the firmware, will block and timeout */
 	ret = request_firmware(&firmware, name, &client->dev);
-	if (ret) {
-		dev_info(&client->dev, "firmware file '%s' not found %d\n",
-			 name, ret);
+	if (ret)
 		goto err;
-	}
-
-	dev_info(&client->dev, "downloading firmware from file '%s'\n",
-		 name);
 
 	/* Write firmware checksum & size */
 	for (i = 0; i < firmware->size; i++)

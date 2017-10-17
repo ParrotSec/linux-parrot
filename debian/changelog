@@ -1,6 +1,34 @@
+linux (4.13.4-2parrot0) testing; urgency=medium
+
+  * Import new Debian version.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrot>  Tue, 17 Oct 2017 15:30:27 +0200
+
+linux (4.13.4-2) unstable; urgency=medium
+
+  [ Ben Hutchings ]
+  * [armhf,arm64] thermal: Enable BCM2835_THERMAL as module (Closes: #877699)
+
+  [ Salvatore Bonaccorso ]
+  * brcmfmac: add length check in brcmf_cfg80211_escan_handler()
+    (CVE-2017-0786)
+  * [powerpc*] Use emergency stack for kernel TM Bad Thing program
+    (CVE-2017-1000255)
+  * [powerpc*] Fix illegal TM state in signal handler
+  * mac80211: fix deadlock in driver-managed RX BA session start.
+    Thanks to Eric Côté (Closes: #878092)
+  * KEYS: prevent KEYCTL_READ on negative key (CVE-2017-12192)
+  * waitid(): Add missing access_ok() checks (CVE-2017-5123)
+  * ALSA: seq: Fix use-after-free at creating a port (CVE-2017-15265)
+  * [x86] KVM: nVMX: update last_nonleaf_level when initializing nested EPT
+    (CVE-2017-12188)
+  * [x86] KVM: MMU: always terminate page walks at level 1 (CVE-2017-12188)
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Sun, 15 Oct 2017 08:57:36 +0200
+
 linux (4.13.4-1parrot4) testing; urgency=medium
 
-  * Import new Debian version
+  * Import new Debian version.
 
  -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Mon, 09 Oct 2017 23:02:40 +0200
 

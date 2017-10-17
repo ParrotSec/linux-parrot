@@ -1313,9 +1313,8 @@ static int check_version(const struct load_info *info,
 		goto bad_version;
 	}
 
-	/* Broken toolchain. Warn once, then let it go.. */
-	pr_warn_once("%s: no symbol version for %s\n", info->name, symname);
-	return 1;
+	pr_warn("%s: no symbol version for %s\n", info->name, symname);
+	return 0;
 
 bad_version:
 	pr_warn("%s: disagrees about version of symbol %s\n",
@@ -2781,7 +2780,7 @@ static int module_sig_check(struct load_info *info, int flags)
 	}
 
 	/* Not having a signature is only an error if we're strict. */
-	if (err == -ENOKEY && !sig_enforce)
+	if (err == -ENOKEY && !sig_enforce && !kernel_is_locked_down())
 		err = 0;
 
 	return err;

@@ -18,8 +18,6 @@
 #define HOST1X_DEV_H
 
 #include <linux/device.h>
-#include <linux/iommu.h>
-#include <linux/iova.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 
@@ -111,10 +109,6 @@ struct host1x {
 	struct device *dev;
 	struct clk *clk;
 	struct reset_control *rst;
-
-	struct iommu_domain *domain;
-	struct iova_domain iova;
-	dma_addr_t iova_end;
 
 	struct mutex intr_mutex;
 	int intr_syncpt_irq;

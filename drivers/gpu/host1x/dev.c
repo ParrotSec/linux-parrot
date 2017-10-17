@@ -27,7 +27,6 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/host1x.h>
-#undef CREATE_TRACE_POINTS
 
 #include "bus.h"
 #include "channel.h"
@@ -177,38 +176,11 @@ static int host1x_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	if (iommu_present(&platform_bus_type)) {
-		struct iommu_domain_geometry *geometry;
-		unsigned long order;
-
-		host->domain = iommu_domain_alloc(&platform_bus_type);
-		if (!host->domain)
-			return -ENOMEM;
-
-		err = iommu_attach_device(host->domain, &pdev->dev);
-		if (err == -ENODEV) {
-			iommu_domain_free(host->domain);
-			host->domain = NULL;
-			goto skip_iommu;
-		} else if (err) {
-			goto fail_free_domain;
-		}
-
-		geometry = &host->domain->geometry;
-
-		order = __ffs(host->domain->pgsize_bitmap);
-		init_iova_domain(&host->iova, 1UL << order,
-				 geometry->aperture_start >> order,
-				 geometry->aperture_end >> order);
-		host->iova_end = geometry->aperture_end;
-	}
-
-skip_iommu:
 	err = host1x_channel_list_init(&host->channel_list,
 				       host->info->nb_channels);
 	if (err) {
 		dev_err(&pdev->dev, "failed to initialize channel list\n");
-		goto fail_detach_device;
+		return err;
 	}
 
 	err = clk_prepare_enable(host->clk);
@@ -253,15 +225,6 @@ fail_unprepare_disable:
 	clk_disable_unprepare(host->clk);
 fail_free_channels:
 	host1x_channel_list_free(&host->channel_list);
-fail_detach_device:
-	if (host->domain) {
-		put_iova_domain(&host->iova);
-		iommu_detach_device(host->domain, &pdev->dev);
-	}
-fail_free_domain:
-	if (host->domain)
-		iommu_domain_free(host->domain);
-
 	return err;
 }
 
@@ -274,12 +237,6 @@ static int host1x_remove(struct platform_device *pdev)
 	host1x_syncpt_deinit(host);
 	reset_control_assert(host->rst);
 	clk_disable_unprepare(host->clk);
-
-	if (host->domain) {
-		put_iova_domain(&host->iova);
-		iommu_detach_device(host->domain, &pdev->dev);
-		iommu_domain_free(host->domain);
-	}
 
 	return 0;
 }

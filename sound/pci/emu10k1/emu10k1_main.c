@@ -887,10 +887,8 @@ static int snd_emu10k1_emu1010_init(struct snd_emu10k1 *emu)
 	dev_info(emu->card->dev, "emu1010: EMU_HANA_ID = 0x%x\n", reg);
 
 	err = snd_emu1010_load_firmware(emu, 0, &emu->firmware);
-	if (err < 0) {
-		dev_info(emu->card->dev, "emu1010: Loading Firmware failed\n");
+	if (err < 0)
 		return err;
-	}
 
 	/* ID, should read & 0x7f = 0x55 when FPGA programmed. */
 	snd_emu1010_fpga_read(emu, EMU_HANA_ID, &reg);
