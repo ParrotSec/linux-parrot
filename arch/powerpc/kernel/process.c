@@ -42,7 +42,6 @@
 #include <linux/hw_breakpoint.h>
 #include <linux/uaccess.h>
 #include <linux/elf-randomize.h>
-#include <generated/package.h>
 
 #include <asm/pgtable.h>
 #include <asm/io.h>
@@ -1395,9 +1394,8 @@ void show_regs(struct pt_regs * regs)
 
 	printk("NIP: "REG" LR: "REG" CTR: "REG"\n",
 	       regs->nip, regs->link, regs->ctr);
-	printk("REGS: %p TRAP: %04lx   %s  (%s%s)\n",
-	       regs, regs->trap, print_tainted(), init_utsname()->release,
-	       LINUX_PACKAGE_ID);
+	printk("REGS: %p TRAP: %04lx   %s  (%s)\n",
+	       regs, regs->trap, print_tainted(), init_utsname()->release);
 	printk("MSR: "REG" ", regs->msr);
 	print_msr_bits(regs->msr);
 	printk("  CR: %08lx  XER: %08lx\n", regs->ccr, regs->xer);

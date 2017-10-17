@@ -66,8 +66,10 @@ int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 		}
 	}
 
-	if (err != 0)
+	if (err != 0) {
+		mfc_err("Firmware is not present in the /lib/firmware directory nor compiled in kernel\n");
 		return -EINVAL;
+	}
 	if (fw_blob->size > dev->fw_buf.size) {
 		mfc_err("MFC firmware is too big to be loaded\n");
 		release_firmware(fw_blob);

@@ -60,8 +60,11 @@ static int get_firmware(const struct firmware **fw_entry,
 		"firmware requested: %s\n", card_fw[fw_index].data);
 	snprintf(name, sizeof(name), "ea/%s", card_fw[fw_index].data);
 	err = request_firmware(fw_entry, name, pci_device(chip));
+	if (err < 0)
+		dev_err(chip->card->dev,
+			"get_firmware(): Firmware not available (%d)\n", err);
 #ifdef CONFIG_PM_SLEEP
-	if (!err)
+	else
 		chip->fw_cache[fw_index] = *fw_entry;
 #endif
 	return err;

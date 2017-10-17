@@ -80,6 +80,8 @@ retry:
 		release_firmware(fw);
 		return size;
 	}
+	IVTV_ERR("Unable to open firmware %s (must be %ld bytes)\n", fn, size);
+	IVTV_ERR("Did you put the firmware in the hotplug firmware directory?\n");
 	return -ENOMEM;
 }
 

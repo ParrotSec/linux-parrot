@@ -2715,8 +2715,10 @@ static int mxt_load_fw(struct device *dev, const char *fn)
 	int ret;
 
 	ret = request_firmware(&fw, fn, dev);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "Unable to open firmware %s\n", fn);
 		return ret;
+	}
 
 	/* Check for incorrect enc file */
 	ret = mxt_check_firmware_format(dev, fw);
