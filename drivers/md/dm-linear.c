@@ -184,6 +184,15 @@ static size_t linear_dax_copy_from_iter(struct dm_target *ti, pgoff_t pgoff,
 	return dax_copy_from_iter(dax_dev, pgoff, addr, bytes, i);
 }
 
+static void linear_dax_flush(struct dm_target *ti, pgoff_t pgoff, void *addr,
+		size_t size)
+{
+#ifdef CONFIG_ARCH_HAS_PMEM_API
+	void arch_wb_cache_pmem(void *addr, size_t size);
+	arch_wb_cache_pmem(addr, size);
+#endif
+}
+
 static struct target_type linear_target = {
 	.name   = "linear",
 	.version = {1, 4, 0},
@@ -198,6 +207,7 @@ static struct target_type linear_target = {
 	.iterate_devices = linear_iterate_devices,
 	.direct_access = linear_dax_direct_access,
 	.dax_copy_from_iter = linear_dax_copy_from_iter,
+	.dax_flush = linear_dax_flush,
 };
 
 int __init dm_linear_init(void)

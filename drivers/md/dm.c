@@ -993,6 +993,15 @@ static size_t dm_dax_copy_from_iter(struct dax_device *dax_dev, pgoff_t pgoff,
 	return ret;
 }
 
+static void dm_dax_flush(struct dax_device *dax_dev, pgoff_t pgoff, void *addr,
+		size_t size)
+{
+#ifdef CONFIG_ARCH_HAS_PMEM_API
+	void arch_wb_cache_pmem(void *addr, size_t size);
+	arch_wb_cache_pmem(addr, size);
+#endif
+}
+
 /*
  * A target may call dm_accept_partial_bio only from the map routine.  It is
  * allowed for all bio types except REQ_PREFLUSH.
@@ -2980,6 +2989,7 @@ static const struct block_device_operations dm_blk_dops = {
 static const struct dax_operations dm_dax_ops = {
 	.direct_access = dm_dax_direct_access,
 	.copy_from_iter = dm_dax_copy_from_iter,
+	.flush = dm_dax_flush,
 };
 
 /*

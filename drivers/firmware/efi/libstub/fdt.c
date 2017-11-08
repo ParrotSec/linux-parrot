@@ -158,6 +158,14 @@ static efi_status_t update_fdt(efi_system_table_t *sys_table, void *orig_fdt,
 			return efi_status;
 		}
 	}
+
+	fdt_val32 = cpu_to_fdt32(efi_get_secureboot(sys_table) !=
+				 efi_secureboot_mode_disabled);
+	status = fdt_setprop(fdt, node, "linux,uefi-secure-boot",
+			     &fdt_val32, sizeof(fdt_val32));
+	if (status)
+		goto fdt_set_fail;
+
 	return EFI_SUCCESS;
 
 fdt_set_fail:

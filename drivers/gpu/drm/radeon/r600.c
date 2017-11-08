@@ -2593,9 +2593,6 @@ int r600_init_microcode(struct radeon_device *rdev)
 
 out:
 	if (err) {
-		if (err != -EINVAL)
-			pr_err("r600_cp: Failed to load firmware \"%s\"\n",
-			       fw_name);
 		release_firmware(rdev->pfp_fw);
 		rdev->pfp_fw = NULL;
 		release_firmware(rdev->me_fw);

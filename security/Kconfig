@@ -18,6 +18,15 @@ config SECURITY_DMESG_RESTRICT
 
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_PERF_EVENTS_RESTRICT
+	bool "Restrict unprivileged use of performance events"
+	depends on PERF_EVENTS
+	help
+	  If you say Y here, the kernel.perf_event_paranoid sysctl
+	  will be set to 3 by default, and no unprivileged use of the
+	  perf_event_open syscall will be permitted unless it is
+	  changed.
+
 config SECURITY
 	bool "Enable different security models"
 	depends on SYSFS
@@ -204,6 +213,21 @@ config STATIC_USERMODEHELPER_PATH
 
 	  If you wish for all usermode helper programs to be disabled,
 	  specify an empty string here (i.e. "").
+
+config LOCK_DOWN_KERNEL
+	bool "Allow the kernel to be 'locked down'"
+	help
+	  Allow the kernel to be locked down under certain circumstances, for
+	  instance if UEFI secure boot is enabled.  Locking down the kernel
+	  turns off various features that might otherwise allow access to the
+	  kernel image (eg. setting MSR registers).
+
+config ALLOW_LOCKDOWN_LIFT
+	bool
+	help
+	  Allow the lockdown on a kernel to be lifted, thereby restoring the
+	  ability of userspace to access the kernel image (eg. by SysRq+x under
+	  x86).
 
 source security/selinux/Kconfig
 source security/smack/Kconfig

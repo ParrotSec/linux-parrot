@@ -226,6 +226,9 @@ static int phram_setup(const char *val)
 	uint64_t len;
 	int i, ret;
 
+	if (kernel_is_locked_down())
+		return -EPERM;
+
 	if (strnlen(val, sizeof(buf)) >= sizeof(buf))
 		parse_err("parameter too long\n");
 

@@ -919,10 +919,19 @@ struct ieee80211_tx_info {
 				unsigned long jiffies;
 			};
 			/* NB: vif can be NULL for injected frames */
+#ifndef __GENKSYMS__
 			struct ieee80211_vif *vif;
+#else
+			union {
+				struct ieee80211_vif *vif;
+				codel_time_t enqueue_time;
+			};
+#endif
 			struct ieee80211_key_conf *hw_key;
 			u32 flags;
+#ifndef __GENKSYMS__
 			codel_time_t enqueue_time;
+#endif
 		} control;
 		struct {
 			u64 cookie;

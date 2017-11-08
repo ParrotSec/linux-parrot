@@ -43,12 +43,10 @@ struct host1x_job;
 
 struct push_buffer {
 	void *mapped;			/* mapped pushbuffer memory */
-	dma_addr_t dma;			/* device address of pushbuffer */
-	phys_addr_t phys;		/* physical address of pushbuffer */
+	dma_addr_t phys;		/* physical address of pushbuffer */
 	u32 fence;			/* index we've written */
 	u32 pos;			/* index to write to */
-	u32 size;
-	u32 alloc_size;
+	u32 size_bytes;
 };
 
 struct buffer_timeout {

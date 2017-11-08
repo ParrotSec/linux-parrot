@@ -1063,11 +1063,8 @@ static int slic_load_rcvseq_firmware(struct slic_device *sdev)
 	file = (sdev->model == SLIC_MODEL_OASIS) ?  SLIC_RCV_FIRMWARE_OASIS :
 						    SLIC_RCV_FIRMWARE_MOJAVE;
 	err = request_firmware(&fw, file, &sdev->pdev->dev);
-	if (err) {
-		dev_err(&sdev->pdev->dev,
-			"failed to load receive sequencer firmware %s\n", file);
+	if (err)
 		return err;
-	}
 	/* Do an initial sanity check concerning firmware size now. A further
 	 * check follows below.
 	 */
@@ -1138,10 +1135,8 @@ static int slic_load_firmware(struct slic_device *sdev)
 	file = (sdev->model == SLIC_MODEL_OASIS) ?  SLIC_FIRMWARE_OASIS :
 						    SLIC_FIRMWARE_MOJAVE;
 	err = request_firmware(&fw, file, &sdev->pdev->dev);
-	if (err) {
-		dev_err(&sdev->pdev->dev, "failed to load firmware %s\n", file);
+	if (err)
 		return err;
-	}
 	/* Do an initial sanity check concerning firmware size now. A further
 	 * check follows below.
 	 */

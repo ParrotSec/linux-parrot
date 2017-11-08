@@ -162,6 +162,12 @@ struct key_type {
 
 extern struct key_type key_type_keyring;
 
+/*
+ * ABI compat: Rename register function so newly built key type modules
+ * will require a new kernel and can then safely assume the existence of the
+ * key::state field.  Other keys users don't access it and are unaffected.
+ */
+#define register_key_type register_key_type_2
 extern int register_key_type(struct key_type *ktype);
 extern void unregister_key_type(struct key_type *ktype);
 

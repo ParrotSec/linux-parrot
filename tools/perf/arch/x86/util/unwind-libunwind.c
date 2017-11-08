@@ -66,7 +66,7 @@ int LIBUNWIND__ARCH_REG_ID(int regnum)
 		break;
 	default:
 		pr_err("unwind: invalid reg id %d\n", regnum);
-		return -EINVAL;
+		return -1;
 	}
 
 	return id;
@@ -106,7 +106,7 @@ int LIBUNWIND__ARCH_REG_ID(int regnum)
 		break;
 	default:
 		pr_err("unwind: invalid reg id %d\n", regnum);
-		return -EINVAL;
+		return -1;
 	}
 
 	return id;

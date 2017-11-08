@@ -1836,6 +1836,28 @@ config EFI_MIXED
 
 	   If unsure, say N.
 
+config EFI_SECURE_BOOT_LOCK_DOWN
+	def_bool n
+	depends on EFI
+	prompt "Lock down the kernel when UEFI Secure Boot is enabled"
+	---help---
+	  UEFI Secure Boot provides a mechanism for ensuring that the firmware
+	  will only load signed bootloaders and kernels.  Certain use cases may
+	  also require that all kernel modules also be signed and that
+	  userspace is prevented from directly changing the running kernel
+	  image.  Say Y here to automatically lock down the kernel when a
+	  system boots with UEFI Secure Boot enabled.
+
+config EFI_ALLOW_SECURE_BOOT_EXIT
+	def_bool n
+	depends on EFI_SECURE_BOOT_LOCK_DOWN && MAGIC_SYSRQ
+	select ALLOW_LOCKDOWN_LIFT
+	prompt "Allow secure boot mode to be exited with SysRq+x on a keyboard"
+	---help---
+	  Allow secure boot mode to be exited and the kernel lockdown lifted by
+	  typing SysRq+x on a keyboard attached to the system (not permitted
+	  through procfs).
+
 config SECCOMP
 	def_bool y
 	prompt "Enable seccomp to safely compute untrusted bytecode"
@@ -2773,6 +2795,14 @@ config COMPAT_32
 	depends on IA32_EMULATION || X86_32
 	select HAVE_UID16
 	select OLD_SIGSUSPEND3
+
+config X86_X32_DISABLED
+	bool "x32 ABI disabled by default"
+	depends on X86_X32
+	default n
+	help
+	  Disable the x32 ABI unless explicitly enabled using the
+	  kernel paramter "syscall.x32=y".
 
 config COMPAT
 	def_bool y

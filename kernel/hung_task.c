@@ -20,6 +20,7 @@
 #include <linux/sched/debug.h>
 
 #include <trace/events/sched.h>
+#include <generated/package.h>
 
 /*
  * The number of tasks checked:
@@ -114,10 +115,11 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
 			sysctl_hung_task_warnings--;
 		pr_err("INFO: task %s:%d blocked for more than %ld seconds.\n",
 			t->comm, t->pid, timeout);
-		pr_err("      %s %s %.*s\n",
+		pr_err("      %s %s %.*s%s\n",
 			print_tainted(), init_utsname()->release,
 			(int)strcspn(init_utsname()->version, " "),
-			init_utsname()->version);
+			init_utsname()->version,
+			LINUX_PACKAGE_ID);
 		pr_err("\"echo 0 > /proc/sys/kernel/hung_task_timeout_secs\""
 			" disables this message.\n");
 		sched_show_task(t);

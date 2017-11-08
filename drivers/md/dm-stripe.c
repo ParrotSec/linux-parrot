@@ -458,6 +458,15 @@ static void stripe_io_hints(struct dm_target *ti,
 	blk_limits_io_opt(limits, chunk_size * sc->stripes);
 }
 
+static void stripe_dax_flush(struct dm_target *ti, pgoff_t pgoff, void *addr,
+		size_t size)
+{
+#ifdef CONFIG_ARCH_HAS_PMEM_API
+	void arch_wb_cache_pmem(void *addr, size_t size);
+	arch_wb_cache_pmem(addr, size);
+#endif
+}
+
 static struct target_type stripe_target = {
 	.name   = "striped",
 	.version = {1, 6, 0},
@@ -472,6 +481,7 @@ static struct target_type stripe_target = {
 	.io_hints = stripe_io_hints,
 	.direct_access = stripe_dax_direct_access,
 	.dax_copy_from_iter = stripe_dax_copy_from_iter,
+	.dax_flush = stripe_dax_flush,
 };
 
 int __init dm_stripe_init(void)
