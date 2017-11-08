@@ -514,6 +514,11 @@ CONFIG_MESON_GXL_PHY=m
 CONFIG_WCN36XX=m
 
 ##
+## file: drivers/net/wireless/broadcom/brcm80211/Kconfig
+##
+CONFIG_BRCMFMAC_SDIO=y
+
+##
 ## file: drivers/net/wireless/ti/Kconfig
 ##
 CONFIG_WLAN_VENDOR_TI=y
@@ -756,6 +761,11 @@ CONFIG_THERMAL=y
 CONFIG_CPU_THERMAL=y
 CONFIG_HISI_THERMAL=m
 CONFIG_QCOM_SPMI_TEMP_ALARM=m
+
+##
+## file: drivers/thermal/broadcom/Kconfig
+##
+CONFIG_BCM2835_THERMAL=m
 
 ##
 ## file: drivers/thermal/qcom/Kconfig
