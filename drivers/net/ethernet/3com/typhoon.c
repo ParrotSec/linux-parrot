@@ -1283,8 +1283,11 @@ typhoon_request_firmware(struct typhoon *tp)
 		return 0;
 
 	err = request_firmware(&typhoon_fw, FIRMWARE_NAME, &tp->pdev->dev);
-	if (err)
+	if (err) {
+		netdev_err(tp->dev, "Failed to load firmware \"%s\"\n",
+			   FIRMWARE_NAME);
 		return err;
+	}
 
 	image_data = typhoon_fw->data;
 	remaining = typhoon_fw->size;

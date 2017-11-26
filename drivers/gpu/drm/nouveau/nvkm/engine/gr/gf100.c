@@ -1833,8 +1833,10 @@ gf100_gr_ctor_fw_legacy(struct gf100_gr *gr, const char *fwname,
 	if (ret) {
 		snprintf(f, sizeof(f), "nouveau/%s", fwname);
 		ret = request_firmware(&fw, f, device->dev);
-		if (ret)
+		if (ret) {
+			nvkm_error(subdev, "failed to load %s\n", fwname);
 			return ret;
+		}
 	}
 
 	fuc->size = fw->size;

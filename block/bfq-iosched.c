@@ -4998,7 +4998,6 @@ static struct elevator_type iosched_bfq_mq = {
 	.elevator_name =	"bfq",
 	.elevator_owner =	THIS_MODULE,
 };
-MODULE_ALIAS("bfq-iosched");
 
 static int __init bfq_init(void)
 {

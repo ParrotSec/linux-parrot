@@ -137,7 +137,9 @@ static int yuan_mpc718_mt352_reqfw(struct cx18_stream *stream,
 	int ret;
 
 	ret = request_firmware(fw, fn, &cx->pci_dev->dev);
-	if (!ret) {
+	if (ret)
+		CX18_ERR("Unable to open firmware file %s\n", fn);
+	else {
 		size_t sz = (*fw)->size;
 		if (sz < 2 || sz > 64 || (sz % 2) != 0) {
 			CX18_ERR("Firmware %s has a bad size: %lu bytes\n",

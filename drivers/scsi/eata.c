@@ -1552,13 +1552,8 @@ static int eata2x_detect(struct scsi_host_template *tpnt)
 
 	tpnt->proc_name = "eata2x";
 
-	if (strlen(boot_options)) {
-		if (kernel_is_locked_down()) {
-			pr_err("Command line-specified device addresses, irqs and dma channels are not permitted when the kernel is locked down\n");
-			return -EPERM;
-		}
+	if (strlen(boot_options))
 		option_setup(boot_options);
-	}
 
 #if defined(MODULE)
 	/* io_port could have been modified when loading as a module */

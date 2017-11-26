@@ -1344,8 +1344,11 @@ static int ttusb_dec_boot_dsp(struct ttusb_dec *dec)
 	dprintk("%s\n", __func__);
 
 	result = request_firmware(&fw_entry, dec->firmware_name, &dec->udev->dev);
-	if (result)
+	if (result) {
+		printk(KERN_ERR "%s: Firmware (%s) unavailable.\n",
+		       __func__, dec->firmware_name);
 		return result;
+	}
 
 	firmware = fw_entry->data;
 	firmware_size = fw_entry->size;

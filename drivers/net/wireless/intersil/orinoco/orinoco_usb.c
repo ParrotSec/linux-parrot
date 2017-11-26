@@ -1679,6 +1679,7 @@ static int ezusb_probe(struct usb_interface *interface,
 		if (ezusb_firmware_download(upriv, &firmware) < 0)
 			goto error;
 	} else {
+		err("No firmware to download");
 		goto error;
 	}
 
