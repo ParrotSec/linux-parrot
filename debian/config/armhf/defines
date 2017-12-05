@@ -14,7 +14,7 @@ signed-modules: false
 install-stem: vmlinuz
 
 [relations]
-headers%gcc-6: linux-compiler-gcc-6-arm
+headers%gcc-7: linux-compiler-gcc-7-arm
 
 [armmp_description]
 hardware: ARMv7 multiplatform compatible SoCs

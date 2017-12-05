@@ -34,11 +34,3 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  		struct inode *inode = file_inode(file);
  
  		realfile = lockless_dereference(od->upperfile);
-@@ -462,6 +466,7 @@ static int ovl_dir_fsync(struct file *fi
- 			}
- 			inode_unlock(inode);
- 		}
-+		od->is_upper = true;
- 	}
- 
- 	return vfs_fsync_range(realfile, start, end, datasync);
