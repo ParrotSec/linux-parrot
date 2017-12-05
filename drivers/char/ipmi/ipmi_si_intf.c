@@ -2812,7 +2812,7 @@ static struct platform_driver ipmi_driver = {
 };
 
 #ifdef CONFIG_PARISC
-static int ipmi_parisc_probe(struct parisc_device *dev)
+static int __init ipmi_parisc_probe(struct parisc_device *dev)
 {
 	struct smi_info *info;
 	int rv;
@@ -2850,22 +2850,24 @@ static int ipmi_parisc_probe(struct parisc_device *dev)
 	return 0;
 }
 
-static int ipmi_parisc_remove(struct parisc_device *dev)
+static int __exit ipmi_parisc_remove(struct parisc_device *dev)
 {
 	cleanup_one_si(dev_get_drvdata(&dev->dev));
 	return 0;
 }
 
-static const struct parisc_device_id ipmi_parisc_tbl[] = {
+static const struct parisc_device_id ipmi_parisc_tbl[] __initconst = {
 	{ HPHW_MC, HVERSION_REV_ANY_ID, 0x004, 0xC0 },
 	{ 0, }
 };
 
-static struct parisc_driver ipmi_parisc_driver = {
+MODULE_DEVICE_TABLE(parisc, ipmi_parisc_tbl);
+
+static struct parisc_driver ipmi_parisc_driver __refdata = {
 	.name =		"ipmi",
 	.id_table =	ipmi_parisc_tbl,
 	.probe =	ipmi_parisc_probe,
-	.remove =	ipmi_parisc_remove,
+	.remove =	__exit_p(ipmi_parisc_remove),
 };
 #endif /* CONFIG_PARISC */
 
@@ -3422,7 +3424,7 @@ static inline void wait_for_timer_and_thread(struct smi_info *smi_info)
 		del_timer_sync(&smi_info->si_timer);
 }
 
-static int is_new_interface(struct smi_info *info)
+static struct smi_info *find_dup_si(struct smi_info *info)
 {
 	struct smi_info *e;
 
@@ -3437,24 +3439,36 @@ static int is_new_interface(struct smi_info *info)
 			 */
 			if (info->slave_addr && !e->slave_addr)
 				e->slave_addr = info->slave_addr;
-			return 0;
+			return e;
 		}
 	}
 
-	return 1;
+	return NULL;
 }
 
 static int add_smi(struct smi_info *new_smi)
 {
 	int rv = 0;
+	struct smi_info *dup;
 
 	mutex_lock(&smi_infos_lock);
-	if (!is_new_interface(new_smi)) {
-		pr_info(PFX "%s-specified %s state machine: duplicate\n",
-			ipmi_addr_src_to_str(new_smi->addr_source),
-			si_to_str[new_smi->si_type]);
-		rv = -EBUSY;
-		goto out_err;
+	dup = find_dup_si(new_smi);
+	if (dup) {
+		if (new_smi->addr_source == SI_ACPI &&
+		    dup->addr_source == SI_SMBIOS) {
+			/* We prefer ACPI over SMBIOS. */
+			dev_info(dup->dev,
+				 "Removing SMBIOS-specified %s state machine in favor of ACPI\n",
+				 si_to_str[new_smi->si_type]);
+			cleanup_one_si(dup);
+		} else {
+			dev_info(new_smi->dev,
+				 "%s-specified %s state machine: duplicate\n",
+				 ipmi_addr_src_to_str(new_smi->addr_source),
+				 si_to_str[new_smi->si_type]);
+			rv = -EBUSY;
+			goto out_err;
+		}
 	}
 
 	pr_info(PFX "Adding %s-specified %s state machine\n",
@@ -3863,7 +3877,8 @@ static void cleanup_one_si(struct smi_info *to_clean)
 		poll(to_clean);
 		schedule_timeout_uninterruptible(1);
 	}
-	disable_si_irq(to_clean, false);
+	if (to_clean->handlers)
+		disable_si_irq(to_clean, false);
 	while (to_clean->curr_msg || (to_clean->si_state != SI_NORMAL)) {
 		poll(to_clean);
 		schedule_timeout_uninterruptible(1);

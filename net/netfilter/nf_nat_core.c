@@ -30,7 +30,7 @@
 #include <net/netfilter/nf_conntrack_zones.h>
 #include <linux/netfilter/nf_nat.h>
 
-static DEFINE_SPINLOCK(nf_nat_lock);
+static spinlock_t nf_nat_locks[CONNTRACK_LOCKS];
 
 static DEFINE_MUTEX(nf_nat_proto_mutex);
 static const struct nf_nat_l3proto __rcu *nf_nat_l3protos[NFPROTO_NUMPROTO]
@@ -389,9 +389,11 @@ nf_nat_setup_info(struct nf_conn *ct,
 	if (nf_ct_is_confirmed(ct))
 		return NF_ACCEPT;
 
-	NF_CT_ASSERT(maniptype == NF_NAT_MANIP_SRC ||
-		     maniptype == NF_NAT_MANIP_DST);
-	BUG_ON(nf_nat_initialized(ct, maniptype));
+	WARN_ON(maniptype != NF_NAT_MANIP_SRC &&
+		maniptype != NF_NAT_MANIP_DST);
+
+	if (WARN_ON(nf_nat_initialized(ct, maniptype)))
+		return NF_DROP;
 
 	/* What we've got will look like inverse of reply. Normally
 	 * this is what is in the conntrack, except for prior
@@ -423,13 +425,15 @@ nf_nat_setup_info(struct nf_conn *ct,
 
 	if (maniptype == NF_NAT_MANIP_SRC) {
 		unsigned int srchash;
+		spinlock_t *lock;
 
 		srchash = hash_by_src(net,
 				      &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
-		spin_lock_bh(&nf_nat_lock);
+		lock = &nf_nat_locks[srchash % CONNTRACK_LOCKS];
+		spin_lock_bh(lock);
 		hlist_add_head_rcu(&ct->nat_bysource,
 				   &nf_nat_bysource[srchash]);
-		spin_unlock_bh(&nf_nat_lock);
+		spin_unlock_bh(lock);
 	}
 
 	/* It's done. */
@@ -523,6 +527,16 @@ static int nf_nat_proto_remove(struct nf_conn *i, void *data)
 	return i->status & IPS_NAT_MASK ? 1 : 0;
 }
 
+static void __nf_nat_cleanup_conntrack(struct nf_conn *ct)
+{
+	unsigned int h;
+
+	h = hash_by_src(nf_ct_net(ct), &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+	spin_lock_bh(&nf_nat_locks[h % CONNTRACK_LOCKS]);
+	hlist_del_rcu(&ct->nat_bysource);
+	spin_unlock_bh(&nf_nat_locks[h % CONNTRACK_LOCKS]);
+}
+
 static int nf_nat_proto_clean(struct nf_conn *ct, void *data)
 {
 	if (nf_nat_proto_remove(ct, data))
@@ -538,9 +552,7 @@ static int nf_nat_proto_clean(struct nf_conn *ct, void *data)
 	 * will delete entry from already-freed table.
 	 */
 	clear_bit(IPS_SRC_NAT_DONE_BIT, &ct->status);
-	spin_lock_bh(&nf_nat_lock);
-	hlist_del_rcu(&ct->nat_bysource);
-	spin_unlock_bh(&nf_nat_lock);
+	__nf_nat_cleanup_conntrack(ct);
 
 	/* don't delete conntrack.  Although that would make things a lot
 	 * simpler, we'd end up flushing all conntracks on nat rmmod.
@@ -668,11 +680,8 @@ EXPORT_SYMBOL_GPL(nf_nat_l3proto_unregister);
 /* No one using conntrack by the time this called. */
 static void nf_nat_cleanup_conntrack(struct nf_conn *ct)
 {
-	if (ct->status & IPS_SRC_NAT_DONE) {
-		spin_lock_bh(&nf_nat_lock);
-		hlist_del_rcu(&ct->nat_bysource);
-		spin_unlock_bh(&nf_nat_lock);
-	}
+	if (ct->status & IPS_SRC_NAT_DONE)
+		__nf_nat_cleanup_conntrack(ct);
 }
 
 static struct nf_ct_ext_type nat_extend __read_mostly = {
@@ -794,10 +803,12 @@ static struct nf_ct_helper_expectfn follow_master_nat = {
 
 static int __init nf_nat_init(void)
 {
-	int ret;
+	int ret, i;
 
 	/* Leave them the same for the moment. */
 	nf_nat_htable_size = nf_conntrack_htable_size;
+	if (nf_nat_htable_size < CONNTRACK_LOCKS)
+		nf_nat_htable_size = CONNTRACK_LOCKS;
 
 	nf_nat_bysource = nf_ct_alloc_hashtable(&nf_nat_htable_size, 0);
 	if (!nf_nat_bysource)
@@ -809,6 +820,9 @@ static int __init nf_nat_init(void)
 		printk(KERN_ERR "nf_nat_core: Unable to register extension\n");
 		return ret;
 	}
+
+	for (i = 0; i < CONNTRACK_LOCKS; i++)
+		spin_lock_init(&nf_nat_locks[i]);
 
 	nf_ct_helper_expectfn_register(&follow_master_nat);
 

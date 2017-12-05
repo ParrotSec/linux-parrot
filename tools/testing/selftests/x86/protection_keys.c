@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Tests x86 Memory Protection Keys (see Documentation/x86/protection-keys.txt)
  *
@@ -188,17 +189,29 @@ void lots_o_noops_around_write(int *write_to_me)
 #define u64 uint64_t
 
 #ifdef __i386__
-#define SYS_mprotect_key 380
-#define SYS_pkey_alloc	 381
-#define SYS_pkey_free	 382
+
+#ifndef SYS_mprotect_key
+# define SYS_mprotect_key 380
+#endif
+#ifndef SYS_pkey_alloc
+# define SYS_pkey_alloc	 381
+# define SYS_pkey_free	 382
+#endif
 #define REG_IP_IDX REG_EIP
 #define si_pkey_offset 0x14
+
 #else
-#define SYS_mprotect_key 329
-#define SYS_pkey_alloc	 330
-#define SYS_pkey_free	 331
+
+#ifndef SYS_mprotect_key
+# define SYS_mprotect_key 329
+#endif
+#ifndef SYS_pkey_alloc
+# define SYS_pkey_alloc	 330
+# define SYS_pkey_free	 331
+#endif
 #define REG_IP_IDX REG_RIP
 #define si_pkey_offset 0x20
+
 #endif
 
 void dump_mem(void *dumpme, int len_bytes)
@@ -212,19 +225,18 @@ void dump_mem(void *dumpme, int len_bytes)
 	}
 }
 
-#define __SI_FAULT      (3 << 16)
-#define SEGV_BNDERR     (__SI_FAULT|3)  /* failed address bound checks */
-#define SEGV_PKUERR     (__SI_FAULT|4)
+#define SEGV_BNDERR     3  /* failed address bound checks */
+#define SEGV_PKUERR     4
 
 static char *si_code_str(int si_code)
 {
-	if (si_code & SEGV_MAPERR)
+	if (si_code == SEGV_MAPERR)
 		return "SEGV_MAPERR";
-	if (si_code & SEGV_ACCERR)
+	if (si_code == SEGV_ACCERR)
 		return "SEGV_ACCERR";
-	if (si_code & SEGV_BNDERR)
+	if (si_code == SEGV_BNDERR)
 		return "SEGV_BNDERR";
-	if (si_code & SEGV_PKUERR)
+	if (si_code == SEGV_PKUERR)
 		return "SEGV_PKUERR";
 	return "UNKNOWN";
 }
