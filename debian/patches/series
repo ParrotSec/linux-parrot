@@ -2,7 +2,7 @@
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-#debian/gitignore.patch # Kali: we have that in the git repo already
+debian/gitignore.patch
 debian/mips-disable-werror.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/powerpcspe-omit-uimage.patch
@@ -18,10 +18,9 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 
-# Parrot changes
+# Parrot patches
 features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
-bugfix/all/failure_to_fsync.patch
+#features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Patches from aufs4 repository, imported with
 # debian/patches/features/all/aufs4/gen-patch.  These are only the
@@ -85,7 +84,7 @@ bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 bugfix/all/i40e-i40evf-organize-and-re-number-feature-flags.patch
 bugfix/all/i40e-fix-flags-declaration.patch
-bugfix/all/apparmor-fix-oops-in-audit_signal_cb-hook.patch
+bugfix/all/xen-time-do-not-decrease-steal-time-after-live-migra.patch
 
 # Miscellaneous features
 
@@ -121,10 +120,30 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/media-cx231xx-cards-fix-null-deref-on-missing-associ.patch
-bugfix/all/media-dvb-core-always-call-invoke_release-in-fe_free.patch
-bugfix/all/dvb_frontend-don-t-use-after-free-the-frontend-struc.patch
-bugfix/all/mm-thp-Do-not-make-page-table-dirty-unconditionally-.patch
+bugfix/all/dccp-cve-2017-8824-use-after-free-in-dccp-code.patch
+bugfix/all/netfilter-nfnetlink_cthelper-add-missing-permission-.patch
+bugfix/all/netlink-add-netns-check-on-taps.patch
+bugfix/all/netfilter-xt_osf-add-missing-permission-checks.patch
+bugfix/all/usb-core-prevent-malicious-bnuminterfaces-overflow.patch
+bugfix/all/net-ipv4-fix-for-a-race-condition-in-raw_sendmsg.patch
+bugfix/all/media-dvb-usb-v2-lmedm04-Improve-logic-checking-of-w.patch
+bugfix/all/media-dvb-usb-v2-lmedm04-move-ts2020-attach-to-dm04_.patch
+bugfix/all/media-hdpvr-fix-an-error-handling-path-in-hdpvr_prob.patch
+bugfix/all/kvm-fix-stack-out-of-bounds-read-in-write_mmio.patch
+bugfix/all/bluetooth-prevent-stack-info-leak-from-the-efs-element.patch
+bugfix/all/crypto-salsa20-fix-blkcipher_walk-API-usage.patch
+bugfix/all/crypto-hmac-require-that-the-underlying-hash-algorit.patch
+bugfix/all/bpf-encapsulate-verifier-log-state-into-a-structure.patch
+bugfix/all/bpf-move-global-verifier-log-into-verifier-environme.patch
+bugfix/all/bpf-fix-branch-pruning-logic.patch
+bugfix/all/bpf-verifier-fix-bounds-calculation-on-bpf_rsh.patch
+bugfix/all/bpf-fix-incorrect-sign-extension-in-check_alu_op.patch
+bugfix/all/bpf-fix-incorrect-tracking-of-register-size-truncati.patch
+bugfix/all/bpf-fix-32-bit-alu-op-verification.patch
+bugfix/all/bpf-fix-missing-error-return-in-check_stack_boundary.patch
+bugfix/all/bpf-force-strict-alignment-checks-for-stack-pointers.patch
+bugfix/all/bpf-don-t-prune-branches-when-a-scalar-is-replaced-w.patch
+bugfix/all/bpf-fix-integer-overflows.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -140,5 +159,15 @@ bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/tools-lib-lockdep-define-pr_cont.patch
+
+# Backport patches from 4.15.x to support dwmac-sun8i
+features/arm/dwmac-sun8i/0001-net-stmmac-dwmac-sun8i-Handle-integrated-external-MD.patch
+features/arm/dwmac-sun8i/0002-net-stmmac-sun8i-Restore-the-compatibles.patch
+features/arm/dwmac-sun8i/0003-arm64-dts-allwinner-A64-Restore-EMAC-changes.patch
+features/arm/dwmac-sun8i/0004-arm64-dts-allwinner-add-snps-dwmac-mdio-compatible-t.patch
+features/arm/dwmac-sun8i/0005-arm64-dts-allwinner-H5-Restore-EMAC-changes.patch
+features/arm/dwmac-sun8i/0006-ARM-dts-sunxi-Restore-EMAC-changes-boards.patch
+features/arm/dwmac-sun8i/0007-arm-dts-sunxi-h3-h5-Restore-EMAC-changes.patch
+features/arm/dwmac-sun8i/0008-ARM-dts-sunxi-h3-h5-represent-the-mdio-switch-used-b.patch
 
 # ABI maintenance
