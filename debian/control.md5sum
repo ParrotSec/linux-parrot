@@ -1,5 +1,5 @@
 48e48b23af97cce8069f0eaed1bfa016  debian/bin/gencontrol.py
-4c411da1772cabe7ff02155d44deee8e  debian/changelog
+fb9b317c40a879305609cb6fe926a4d0  debian/changelog
 e492c730e8bc71cc52aa5315391e587e  debian/templates/control.main.in
 8ff553ff7232b003c35bdd074913bc8a  debian/templates/control.image-unsigned.in
 38004750aa03cea41d5d3aeafff16fcc  debian/templates/image.preinst.in
@@ -20,7 +20,7 @@ ace097cb8de5c9e3bdd84e6d5d503298  debian/templates/control.headers.in
 7d3be7fb5e09c81c5fdf25f458544604  debian/templates/control.extra.in
 3ad9d915221b575d758fc3acfd3f89c2  debian/templates/control.docs.in
 5f1df5cd150d7663b81f5c54a604a766  debian/templates/control.headers.arch.in
-61027f8d6be690eb39272e3d8117e2ba  debian/config/defines
+c385b397e6107d38e649d0972da045db  debian/config/defines
 a000f404eaf61a0ee8cd29c388ee7b70  debian/config/i386/defines
 6f7d102847d8168a3c71c044ea7127ac  debian/config/tilegx/defines
 6efeb6f3f8ad4ecef3fff0d012fabad0  debian/config/mips64el/defines

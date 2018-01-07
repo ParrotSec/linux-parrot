@@ -1,0 +1,44 @@
+Description: ovl: fix failure to fsync lower dir
+ As a writable mount, it is not expected for overlayfs to return
+ EINVAL/EROFS for fsync, even if dir/file is not changed.
+ .
+ This commit fixes the case of fsync of directory, which is easier to
+ address, because overlayfs already implements fsync file operation for
+ directories.
+ .  
+ The problem reported by Raphael is that new PostgreSQL 10.0 with a
+ database in overlayfs where lower layer in squashfs fails to start.
+ The failure is due to fsync error, when PostgreSQL does fsync on all
+ existing db directories on startup and a specific directory exists
+ dlower layer with no changes.
+Author: Amir Goldstein <amir73il@gmail.com>
+Bug-Kali: https://bugs.kali.org/view.php?id=4332
+Last-Update: 2017-11-08
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/fs/overlayfs/readdir.c
++++ b/fs/overlayfs/readdir.c
+@@ -434,10 +434,14 @@ static int ovl_dir_fsync(struct file *fi
+ 	struct dentry *dentry = file->f_path.dentry;
+ 	struct file *realfile = od->realfile;
+ 
++	/* Nothing to sync for lower */
++	if (!OVL_TYPE_UPPER(ovl_path_type(dentry)))
++		return 0;
++
+ 	/*
+ 	 * Need to check if we started out being a lower dir, but got copied up
+ 	 */
+-	if (!od->is_upper && OVL_TYPE_UPPER(ovl_path_type(dentry))) {
++	if (!od->is_upper) {
+ 		struct inode *inode = file_inode(file);
+ 
+ 		realfile = lockless_dereference(od->upperfile);
+@@ -462,6 +466,7 @@ static int ovl_dir_fsync(struct file *fi
+ 			}
+ 			inode_unlock(inode);
+ 		}
++		od->is_upper = true;
+ 	}
+ 
+ 	return vfs_fsync_range(realfile, start, end, datasync);
