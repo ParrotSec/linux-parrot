@@ -2,7 +2,7 @@
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-#debian/gitignore.patch
+debian/gitignore.patch
 debian/mips-disable-werror.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/powerpcspe-omit-uimage.patch
@@ -17,11 +17,6 @@ debian/iwlwifi-do-not-request-unreleased-firmware.patch
 bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
-
-# Parrot changes
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
-#bugfix/all/failure_to_fsync.patch
 
 # Patches from aufs4 repository, imported with
 # debian/patches/features/all/aufs4/gen-patch.  These are only the
@@ -87,8 +82,9 @@ bugfix/all/i40e-i40evf-organize-and-re-number-feature-flags.patch
 bugfix/all/i40e-fix-flags-declaration.patch
 bugfix/all/xen-time-do-not-decrease-steal-time-after-live-migra.patch
 bugfix/all/e1000e-fix-e1000_check_for_copper_link_ich8lan-return-value.patch
-debian/revert-scsi-libsas-allow-async-aborts.patch
-bugfix/all/x86-tlb-Drop-the-_GPL-from-the-cpu_tlbstate-export.patch
+bugfix/all/libsas-Disable-asynchronous-aborts-for-SATA-devices.patch
+bugfix/all/drm-nouveau-disp-gf119-add-missing-drive-vfunc-ptr.patch
+debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 
 # Miscellaneous features
 

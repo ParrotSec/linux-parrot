@@ -1,0 +1,15 @@
+#!/usr/bin/dh-exec
+
+# Kernel dbg packages contain a full image with debug data
+linux-image-4.14.0-3-powerpcspe-dbg: dbg-package-missing-depends
+
+# glibc doesn't seem to check for a PT_GNU_STACK section in vDSOs, so
+# it's OK that they don't have it
+[arm64 armhf] linux-image-4.14.0-3-powerpcspe-dbg: shlib-without-PT_GNU_STACK-section usr/lib/debug/lib/modules/4.14.0-3-powerpcspe/vdso/vdso.so
+[amd64 i386 ppc64el s390x] linux-image-4.14.0-3-powerpcspe-dbg: shlib-without-PT_GNU_STACK-section usr/lib/debug/lib/modules/4.14.0-3-powerpcspe/vdso/vdso32.so
+[amd64 ppc64el s390x] linux-image-4.14.0-3-powerpcspe-dbg: shlib-without-PT_GNU_STACK-section usr/lib/debug/lib/modules/4.14.0-3-powerpcspe/vdso/vdso64.so
+[amd64] linux-image-4.14.0-3-powerpcspe-dbg: shlib-without-PT_GNU_STACK-section usr/lib/debug/lib/modules/4.14.0-3-powerpcspe/vdso/vdsox32.so
+
+# It is intended that 64-bit kernels provide vDSOs for 32-bit executables
+[amd64 ppc64el s390x] linux-image-4.14.0-3-powerpcspe-dbg: binary-from-other-architecture usr/lib/debug/lib/modules/4.14.0-3-powerpcspe/vdso/vdso32.so
+[amd64] linux-image-4.14.0-3-powerpcspe-dbg: binary-from-other-architecture usr/lib/debug/lib/modules/4.14.0-3-powerpcspe/vdso/vdsox32.so
