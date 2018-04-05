@@ -183,6 +183,12 @@ static int xgpu_ai_send_access_requests(struct amdgpu_device *adev,
 			pr_err("Doesn't get READY_TO_ACCESS_GPU from pf, give up\n");
 			return r;
 		}
+		/* Retrieve checksum from mailbox2 */
+		if (req == IDH_REQ_GPU_INIT_ACCESS) {
+			adev->virt.fw_reserve.checksum_key =
+				RREG32_NO_KIQ(SOC15_REG_OFFSET(NBIO, 0,
+					mmBIF_BX_PF0_MAILBOX_MSGBUF_RCV_DW2));
+		}
 	}
 
 	return 0;
@@ -276,9 +282,17 @@ static int xgpu_ai_mailbox_rcv_irq(struct amdgpu_device *adev,
 		/* see what event we get */
 		r = xgpu_ai_mailbox_rcv_msg(adev, IDH_FLR_NOTIFICATION);
 
-		/* only handle FLR_NOTIFY now */
-		if (!r)
-			schedule_work(&adev->virt.flr_work);
+		/* sometimes the interrupt is delayed to inject to VM, so under such case
+		 * the IDH_FLR_NOTIFICATION is overwritten by VF FLR from GIM side, thus
+		 * above recieve message could be failed, we should schedule the flr_work
+		 * anyway
+		 */
+		if (r) {
+			DRM_ERROR("FLR_NOTIFICATION is missed\n");
+			xgpu_ai_mailbox_send_ack(adev);
+		}
+
+		schedule_work(&adev->virt.flr_work);
 	}
 
 	return 0;

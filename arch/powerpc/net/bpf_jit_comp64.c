@@ -69,7 +69,7 @@ static inline bool bpf_has_stack_frame(struct codegen_context *ctx)
 static int bpf_jit_stack_local(struct codegen_context *ctx)
 {
 	if (bpf_has_stack_frame(ctx))
-		return STACK_FRAME_MIN_SIZE + MAX_BPF_STACK;
+		return STACK_FRAME_MIN_SIZE + ctx->stack_size;
 	else
 		return -(BPF_PPC_STACK_SAVE + 16);
 }
@@ -82,8 +82,9 @@ static int bpf_jit_stack_tailcallcnt(struct codegen_context *ctx)
 static int bpf_jit_stack_offsetof(struct codegen_context *ctx, int reg)
 {
 	if (reg >= BPF_PPC_NVR_MIN && reg < 32)
-		return (bpf_has_stack_frame(ctx) ? BPF_PPC_STACKFRAME : 0)
-							- (8 * (32 - reg));
+		return (bpf_has_stack_frame(ctx) ?
+			(BPF_PPC_STACKFRAME + ctx->stack_size) : 0)
+				- (8 * (32 - reg));
 
 	pr_err("BPF JIT is asking about unknown registers");
 	BUG();
@@ -134,7 +135,7 @@ static void bpf_jit_build_prologue(u32 *image, struct codegen_context *ctx)
 			PPC_BPF_STL(0, 1, PPC_LR_STKOFF);
 		}
 
-		PPC_BPF_STLU(1, 1, -BPF_PPC_STACKFRAME);
+		PPC_BPF_STLU(1, 1, -(BPF_PPC_STACKFRAME + ctx->stack_size));
 	}
 
 	/*
@@ -161,7 +162,7 @@ static void bpf_jit_build_prologue(u32 *image, struct codegen_context *ctx)
 	/* Setup frame pointer to point to the bpf stack area */
 	if (bpf_is_seen_register(ctx, BPF_REG_FP))
 		PPC_ADDI(b2p[BPF_REG_FP], 1,
-				STACK_FRAME_MIN_SIZE + MAX_BPF_STACK);
+				STACK_FRAME_MIN_SIZE + ctx->stack_size);
 }
 
 static void bpf_jit_emit_common_epilogue(u32 *image, struct codegen_context *ctx)
@@ -183,7 +184,7 @@ static void bpf_jit_emit_common_epilogue(u32 *image, struct codegen_context *ctx
 
 	/* Tear down our stack frame */
 	if (bpf_has_stack_frame(ctx)) {
-		PPC_ADDI(1, 1, BPF_PPC_STACKFRAME);
+		PPC_ADDI(1, 1, BPF_PPC_STACKFRAME + ctx->stack_size);
 		if (ctx->seen & SEEN_FUNC) {
 			PPC_BPF_LL(0, 1, PPC_LR_STKOFF);
 			PPC_MTLR(0);
@@ -241,6 +242,7 @@ static void bpf_jit_emit_tail_call(u32 *image, struct codegen_context *ctx, u32 
 	 *   goto out;
 	 */
 	PPC_LWZ(b2p[TMP_REG_1], b2p_bpf_array, offsetof(struct bpf_array, map.max_entries));
+	PPC_RLWINM(b2p_index, b2p_index, 0, 0, 31);
 	PPC_CMPLW(b2p_index, b2p[TMP_REG_1]);
 	PPC_BCC(COND_GE, out);
 
@@ -1014,6 +1016,9 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 	}
 
 	memset(&cgctx, 0, sizeof(struct codegen_context));
+
+	/* Make sure that the stack is quadword aligned. */
+	cgctx.stack_size = round_up(fp->aux->stack_depth, 16);
 
 	/* Scouting faux-generate pass 0 */
 	if (bpf_jit_build_body(fp, 0, &cgctx, addrs)) {

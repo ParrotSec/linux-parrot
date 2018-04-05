@@ -190,6 +190,16 @@ static void stmpe_gpio_irq_sync_unlock(struct irq_data *d)
 	};
 	int i, j;
 
+	/*
+	 * STMPE1600: to be able to get IRQ from pins,
+	 * a read must be done on GPMR register, or a write in
+	 * GPSR or GPCR registers
+	 */
+	if (stmpe->partnum == STMPE1600) {
+		stmpe_reg_read(stmpe, stmpe->regs[STMPE_IDX_GPMR_LSB]);
+		stmpe_reg_read(stmpe, stmpe->regs[STMPE_IDX_GPMR_CSB]);
+	}
+
 	for (i = 0; i < CACHE_NR_REGS; i++) {
 		/* STMPE801 and STMPE1600 don't have RE and FE registers */
 		if ((stmpe->partnum == STMPE801 ||
@@ -227,21 +237,11 @@ static void stmpe_gpio_irq_unmask(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct stmpe_gpio *stmpe_gpio = gpiochip_get_data(gc);
-	struct stmpe *stmpe = stmpe_gpio->stmpe;
 	int offset = d->hwirq;
 	int regoffset = offset / 8;
 	int mask = BIT(offset % 8);
 
 	stmpe_gpio->regs[REG_IE][regoffset] |= mask;
-
-	/*
-	 * STMPE1600 workaround: to be able to get IRQ from pins,
-	 * a read must be done on GPMR register, or a write in
-	 * GPSR or GPCR registers
-	 */
-	if (stmpe->partnum == STMPE1600)
-		stmpe_reg_read(stmpe,
-			       stmpe->regs[STMPE_IDX_GPMR_LSB + regoffset]);
 }
 
 static void stmpe_dbg_show_one(struct seq_file *s,
@@ -299,7 +299,7 @@ static void stmpe_dbg_show_one(struct seq_file *s,
 			if (ret < 0)
 				return;
 			edge_det = !!(ret & mask);
-
+			/* fall through */
 		case STMPE1801:
 			rise_reg = stmpe->regs[STMPE_IDX_GPRER_LSB + bank];
 			fall_reg = stmpe->regs[STMPE_IDX_GPFER_LSB + bank];
@@ -312,7 +312,7 @@ static void stmpe_dbg_show_one(struct seq_file *s,
 			if (ret < 0)
 				return;
 			fall = !!(ret & mask);
-
+			/* fall through */
 		case STMPE801:
 		case STMPE1600:
 			irqen_reg = stmpe->regs[STMPE_IDX_IEGPIOR_LSB + bank];
@@ -397,7 +397,7 @@ static irqreturn_t stmpe_gpio_irq(int irq, void *dev)
 		while (stat) {
 			int bit = __ffs(stat);
 			int line = bank * 8 + bit;
-			int child_irq = irq_find_mapping(stmpe_gpio->chip.irqdomain,
+			int child_irq = irq_find_mapping(stmpe_gpio->chip.irq.domain,
 							 line);
 
 			handle_nested_irq(child_irq);
@@ -451,7 +451,7 @@ static int stmpe_gpio_probe(struct platform_device *pdev)
 	of_property_read_u32(np, "st,norequest-mask",
 			&stmpe_gpio->norequest_mask);
 	if (stmpe_gpio->norequest_mask)
-		stmpe_gpio->chip.irq_need_valid_mask = true;
+		stmpe_gpio->chip.irq.need_valid_mask = true;
 
 	if (irq < 0)
 		dev_info(&pdev->dev,
@@ -482,7 +482,7 @@ static int stmpe_gpio_probe(struct platform_device *pdev)
 			/* Forbid unused lines to be mapped as IRQs */
 			for (i = 0; i < sizeof(u32); i++)
 				if (stmpe_gpio->norequest_mask & BIT(i))
-					clear_bit(i, stmpe_gpio->chip.irq_valid_mask);
+					clear_bit(i, stmpe_gpio->chip.irq.valid_mask);
 		}
 		ret =  gpiochip_irqchip_add_nested(&stmpe_gpio->chip,
 						   &stmpe_gpio_irq_chip,

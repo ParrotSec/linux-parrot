@@ -44,7 +44,6 @@
 
 #define INA226_MASK_ENABLE		0x06
 #define INA226_CVRF			BIT(3)
-#define INA219_CNVR			BIT(1)
 
 #define INA2XX_MAX_REGISTERS            8
 
@@ -79,6 +78,11 @@
 #define INA226_ITS_MASK		GENMASK(5, 3)
 #define INA226_SHIFT_ITS(val)	((val) << 3)
 
+/* INA219 Bus voltage register, low bits are flags */
+#define INA219_OVF		BIT(0)
+#define INA219_CNVR		BIT(1)
+#define INA219_BUS_VOLTAGE_SHIFT	3
+
 /* Cosmetic macro giving the sampling period for a full P=UxI cycle */
 #define SAMPLING_PERIOD(c)	((c->int_time_vbus + c->int_time_vshunt) \
 				 * c->avg)
@@ -112,7 +116,7 @@ struct ina2xx_config {
 	u16 config_default;
 	int calibration_factor;
 	int shunt_div;
-	int bus_voltage_shift;
+	int bus_voltage_shift;	/* position of lsb */
 	int bus_voltage_lsb;	/* uV */
 	int power_lsb;		/* uW */
 	enum ina2xx_ids chip_id;
@@ -123,7 +127,7 @@ struct ina2xx_chip_info {
 	struct task_struct *task;
 	const struct ina2xx_config *config;
 	struct mutex state_lock;
-	unsigned int shunt_resistor;
+	unsigned int shunt_resistor_uohm;
 	int avg;
 	int int_time_vbus; /* Bus voltage integration time uS */
 	int int_time_vshunt; /* Shunt voltage integration time uS */
@@ -135,7 +139,7 @@ static const struct ina2xx_config ina2xx_config[] = {
 		.config_default = INA219_CONFIG_DEFAULT,
 		.calibration_factor = 40960000,
 		.shunt_div = 100,
-		.bus_voltage_shift = 3,
+		.bus_voltage_shift = INA219_BUS_VOLTAGE_SHIFT,
 		.bus_voltage_lsb = 4000,
 		.power_lsb = 20000,
 		.chip_id = ina219,
@@ -170,6 +174,9 @@ static int ina2xx_read_raw(struct iio_dev *indio_dev,
 		else
 			*val  = regval;
 
+		if (chan->address == INA2XX_BUS_VOLTAGE)
+			*val >>= chip->config->bus_voltage_shift;
+
 		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
@@ -203,9 +210,9 @@ static int ina2xx_read_raw(struct iio_dev *indio_dev,
 			return IIO_VAL_FRACTIONAL;
 
 		case INA2XX_BUS_VOLTAGE:
-			/* processed (mV) = raw*lsb (uV) / (1000 << shift) */
+			/* processed (mV) = raw * lsb (uV) / 1000 */
 			*val = chip->config->bus_voltage_lsb;
-			*val2 = 1000 << chip->config->bus_voltage_shift;
+			*val2 = 1000;
 			return IIO_VAL_FRACTIONAL;
 
 		case INA2XX_POWER:
@@ -436,7 +443,7 @@ static ssize_t ina2xx_allow_async_readout_store(struct device *dev,
 /*
  * Set current LSB to 1mA, shunt is in uOhms
  * (equation 13 in datasheet). We hardcode a Current_LSB
- * of 1.0 x10-6. The only remaining parameter is RShunt.
+ * of 1.0 x10-3. The only remaining parameter is RShunt.
  * There is no need to expose the CALIBRATION register
  * to the user for now. But we need to reset this register
  * if the user updates RShunt after driver init, e.g upon
@@ -445,7 +452,7 @@ static ssize_t ina2xx_allow_async_readout_store(struct device *dev,
 static int ina2xx_set_calibration(struct ina2xx_chip_info *chip)
 {
 	u16 regval = DIV_ROUND_CLOSEST(chip->config->calibration_factor,
-				   chip->shunt_resistor);
+				   chip->shunt_resistor_uohm);
 
 	return regmap_write(chip->regmap, INA2XX_CALIBRATION, regval);
 }
@@ -455,7 +462,7 @@ static int set_shunt_resistor(struct ina2xx_chip_info *chip, unsigned int val)
 	if (val <= 0 || val > chip->config->calibration_factor)
 		return -EINVAL;
 
-	chip->shunt_resistor = val;
+	chip->shunt_resistor_uohm = val;
 
 	return 0;
 }
@@ -465,8 +472,9 @@ static ssize_t ina2xx_shunt_resistor_show(struct device *dev,
 					  char *buf)
 {
 	struct ina2xx_chip_info *chip = iio_priv(dev_to_iio_dev(dev));
+	int vals[2] = { chip->shunt_resistor_uohm, 1000000 };
 
-	return sprintf(buf, "%d\n", chip->shunt_resistor);
+	return iio_format_value(buf, IIO_VAL_FRACTIONAL, 1, vals);
 }
 
 static ssize_t ina2xx_shunt_resistor_store(struct device *dev,
@@ -474,14 +482,13 @@ static ssize_t ina2xx_shunt_resistor_store(struct device *dev,
 					   const char *buf, size_t len)
 {
 	struct ina2xx_chip_info *chip = iio_priv(dev_to_iio_dev(dev));
-	unsigned long val;
-	int ret;
+	int val, val_fract, ret;
 
-	ret = kstrtoul((const char *) buf, 10, &val);
+	ret = iio_str_to_fixpoint(buf, 100000, &val, &val_fract);
 	if (ret)
 		return ret;
 
-	ret = set_shunt_resistor(chip, val);
+	ret = set_shunt_resistor(chip, val * 1000000 + val_fract);
 	if (ret)
 		return ret;
 
@@ -532,7 +539,7 @@ static ssize_t ina2xx_shunt_resistor_store(struct device *dev,
  * Sampling Freq is a consequence of the integration times of
  * the Voltage channels.
  */
-#define INA219_CHAN_VOLTAGE(_index, _address) { \
+#define INA219_CHAN_VOLTAGE(_index, _address, _shift) { \
 	.type = IIO_VOLTAGE, \
 	.address = (_address), \
 	.indexed = 1, \
@@ -544,7 +551,8 @@ static ssize_t ina2xx_shunt_resistor_store(struct device *dev,
 	.scan_index = (_index), \
 	.scan_type = { \
 		.sign = 'u', \
-		.realbits = 16, \
+		.shift = _shift, \
+		.realbits = 16 - _shift, \
 		.storagebits = 16, \
 		.endianness = IIO_LE, \
 	} \
@@ -579,8 +587,8 @@ static const struct iio_chan_spec ina226_channels[] = {
 };
 
 static const struct iio_chan_spec ina219_channels[] = {
-	INA219_CHAN_VOLTAGE(0, INA2XX_SHUNT_VOLTAGE),
-	INA219_CHAN_VOLTAGE(1, INA2XX_BUS_VOLTAGE),
+	INA219_CHAN_VOLTAGE(0, INA2XX_SHUNT_VOLTAGE, 0),
+	INA219_CHAN_VOLTAGE(1, INA2XX_BUS_VOLTAGE, INA219_BUS_VOLTAGE_SHIFT),
 	INA219_CHAN(IIO_POWER, 2, INA2XX_POWER),
 	INA219_CHAN(IIO_CURRENT, 3, INA2XX_CURRENT),
 	IIO_CHAN_SOFT_TIMESTAMP(4),
@@ -778,7 +786,6 @@ static const struct attribute_group ina226_attribute_group = {
 };
 
 static const struct iio_info ina219_info = {
-	.driver_module = THIS_MODULE,
 	.attrs = &ina219_attribute_group,
 	.read_raw = ina2xx_read_raw,
 	.write_raw = ina2xx_write_raw,
@@ -786,7 +793,6 @@ static const struct iio_info ina219_info = {
 };
 
 static const struct iio_info ina226_info = {
-	.driver_module = THIS_MODULE,
 	.attrs = &ina226_attribute_group,
 	.read_raw = ina2xx_read_raw,
 	.write_raw = ina2xx_write_raw,

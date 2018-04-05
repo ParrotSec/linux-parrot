@@ -99,6 +99,10 @@ static bool nf_nat_ipv6_manip_pkt(struct sk_buff *skb,
 	    !l4proto->manip_pkt(skb, &nf_nat_l3proto_ipv6, iphdroff, hdroff,
 				target, maniptype))
 		return false;
+
+	/* must reload, offset might have changed */
+	ipv6h = (void *)skb->data + iphdroff;
+
 manip_addr:
 	if (maniptype == NF_NAT_MANIP_SRC)
 		ipv6h->saddr = target->src.u3.in6;
@@ -290,7 +294,8 @@ nf_nat_ipv6_fn(void *priv, struct sk_buff *skb,
 			else
 				return NF_ACCEPT;
 		}
-		/* Fall thru... (Only ICMPs can be IP_CT_IS_REPLY) */
+		/* Only ICMPs can be IP_CT_IS_REPLY: */
+		/* fall through */
 	case IP_CT_NEW:
 		/* Seen it before?  This can happen for loopback, retrans,
 		 * or local packets.

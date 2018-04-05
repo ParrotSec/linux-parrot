@@ -129,8 +129,6 @@ struct l2tp_session {
 	int (*build_header)(struct l2tp_session *session, void *buf);
 	void (*recv_skb)(struct l2tp_session *session, struct sk_buff *skb, int data_len);
 	void (*session_close)(struct l2tp_session *session);
-	void (*ref)(struct l2tp_session *session);
-	void (*deref)(struct l2tp_session *session);
 #if IS_ENABLED(CONFIG_L2TP_DEBUGFS)
 	void (*show)(struct seq_file *m, void *priv);
 #endif
@@ -221,36 +219,15 @@ static inline void *l2tp_session_priv(struct l2tp_session *session)
 	return &session->priv[0];
 }
 
-static inline struct l2tp_tunnel *l2tp_sock_to_tunnel(struct sock *sk)
-{
-	struct l2tp_tunnel *tunnel;
-
-	if (sk == NULL)
-		return NULL;
-
-	sock_hold(sk);
-	tunnel = (struct l2tp_tunnel *)(sk->sk_user_data);
-	if (tunnel == NULL) {
-		sock_put(sk);
-		goto out;
-	}
-
-	BUG_ON(tunnel->magic != L2TP_TUNNEL_MAGIC);
-
-out:
-	return tunnel;
-}
-
 struct l2tp_tunnel *l2tp_tunnel_get(const struct net *net, u32 tunnel_id);
+void l2tp_tunnel_free(struct l2tp_tunnel *tunnel);
 
 struct l2tp_session *l2tp_session_get(const struct net *net,
 				      struct l2tp_tunnel *tunnel,
-				      u32 session_id, bool do_ref);
-struct l2tp_session *l2tp_session_get_nth(struct l2tp_tunnel *tunnel, int nth,
-					  bool do_ref);
+				      u32 session_id);
+struct l2tp_session *l2tp_session_get_nth(struct l2tp_tunnel *tunnel, int nth);
 struct l2tp_session *l2tp_session_get_by_ifname(const struct net *net,
-						const char *ifname,
-						bool do_ref);
+						const char *ifname);
 struct l2tp_tunnel *l2tp_tunnel_find(const struct net *net, u32 tunnel_id);
 struct l2tp_tunnel *l2tp_tunnel_find_nth(const struct net *net, int nth);
 
@@ -263,6 +240,9 @@ struct l2tp_session *l2tp_session_create(int priv_size,
 					 struct l2tp_tunnel *tunnel,
 					 u32 session_id, u32 peer_session_id,
 					 struct l2tp_session_cfg *cfg);
+int l2tp_session_register(struct l2tp_session *session,
+			  struct l2tp_tunnel *tunnel);
+
 void __l2tp_session_unhash(struct l2tp_session *session);
 int l2tp_session_delete(struct l2tp_session *session);
 void l2tp_session_free(struct l2tp_session *session);
@@ -289,42 +269,22 @@ static inline void l2tp_tunnel_inc_refcount(struct l2tp_tunnel *tunnel)
 static inline void l2tp_tunnel_dec_refcount(struct l2tp_tunnel *tunnel)
 {
 	if (refcount_dec_and_test(&tunnel->ref_count))
-		kfree_rcu(tunnel, rcu);
+		l2tp_tunnel_free(tunnel);
 }
 
 /* Session reference counts. Incremented when code obtains a reference
  * to a session.
  */
-static inline void l2tp_session_inc_refcount_1(struct l2tp_session *session)
+static inline void l2tp_session_inc_refcount(struct l2tp_session *session)
 {
 	refcount_inc(&session->ref_count);
 }
 
-static inline void l2tp_session_dec_refcount_1(struct l2tp_session *session)
+static inline void l2tp_session_dec_refcount(struct l2tp_session *session)
 {
 	if (refcount_dec_and_test(&session->ref_count))
 		l2tp_session_free(session);
 }
-
-#ifdef L2TP_REFCNT_DEBUG
-#define l2tp_session_inc_refcount(_s)					\
-do {									\
-	pr_debug("l2tp_session_inc_refcount: %s:%d %s: cnt=%d\n",	\
-		 __func__, __LINE__, (_s)->name,			\
-		 refcount_read(&_s->ref_count));			\
-	l2tp_session_inc_refcount_1(_s);				\
-} while (0)
-#define l2tp_session_dec_refcount(_s)					\
-do {									\
-	pr_debug("l2tp_session_dec_refcount: %s:%d %s: cnt=%d\n",	\
-		 __func__, __LINE__, (_s)->name,			\
-		 refcount_read(&_s->ref_count));			\
-	l2tp_session_dec_refcount_1(_s);				\
-} while (0)
-#else
-#define l2tp_session_inc_refcount(s) l2tp_session_inc_refcount_1(s)
-#define l2tp_session_dec_refcount(s) l2tp_session_dec_refcount_1(s)
-#endif
 
 #define l2tp_printk(ptr, type, func, fmt, ...)				\
 do {									\

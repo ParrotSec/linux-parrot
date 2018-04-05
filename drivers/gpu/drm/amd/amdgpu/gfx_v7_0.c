@@ -1819,6 +1819,22 @@ static void gfx_v7_0_setup_rb(struct amdgpu_device *adev)
 							adev->gfx.config.backend_enable_mask,
 							num_rb_pipes);
 	}
+
+	/* cache the values for userspace */
+	for (i = 0; i < adev->gfx.config.max_shader_engines; i++) {
+		for (j = 0; j < adev->gfx.config.max_sh_per_se; j++) {
+			gfx_v7_0_select_se_sh(adev, i, j, 0xffffffff);
+			adev->gfx.config.rb_config[i][j].rb_backend_disable =
+				RREG32(mmCC_RB_BACKEND_DISABLE);
+			adev->gfx.config.rb_config[i][j].user_rb_backend_disable =
+				RREG32(mmGC_USER_RB_BACKEND_DISABLE);
+			adev->gfx.config.rb_config[i][j].raster_config =
+				RREG32(mmPA_SC_RASTER_CONFIG);
+			adev->gfx.config.rb_config[i][j].raster_config_1 =
+				RREG32(mmPA_SC_RASTER_CONFIG_1);
+		}
+	}
+	gfx_v7_0_select_se_sh(adev, 0xffffffff, 0xffffffff, 0xffffffff);
 	mutex_unlock(&adev->grbm_idx_mutex);
 }
 
@@ -4387,34 +4403,8 @@ static void gfx_v7_0_gpu_early_init(struct amdgpu_device *adev)
 	case CHIP_KAVERI:
 		adev->gfx.config.max_shader_engines = 1;
 		adev->gfx.config.max_tile_pipes = 4;
-		if ((adev->pdev->device == 0x1304) ||
-		    (adev->pdev->device == 0x1305) ||
-		    (adev->pdev->device == 0x130C) ||
-		    (adev->pdev->device == 0x130F) ||
-		    (adev->pdev->device == 0x1310) ||
-		    (adev->pdev->device == 0x1311) ||
-		    (adev->pdev->device == 0x131C)) {
-			adev->gfx.config.max_cu_per_sh = 8;
-			adev->gfx.config.max_backends_per_se = 2;
-		} else if ((adev->pdev->device == 0x1309) ||
-			   (adev->pdev->device == 0x130A) ||
-			   (adev->pdev->device == 0x130D) ||
-			   (adev->pdev->device == 0x1313) ||
-			   (adev->pdev->device == 0x131D)) {
-			adev->gfx.config.max_cu_per_sh = 6;
-			adev->gfx.config.max_backends_per_se = 2;
-		} else if ((adev->pdev->device == 0x1306) ||
-			   (adev->pdev->device == 0x1307) ||
-			   (adev->pdev->device == 0x130B) ||
-			   (adev->pdev->device == 0x130E) ||
-			   (adev->pdev->device == 0x1315) ||
-			   (adev->pdev->device == 0x131B)) {
-			adev->gfx.config.max_cu_per_sh = 4;
-			adev->gfx.config.max_backends_per_se = 1;
-		} else {
-			adev->gfx.config.max_cu_per_sh = 3;
-			adev->gfx.config.max_backends_per_se = 1;
-		}
+		adev->gfx.config.max_cu_per_sh = 8;
+		adev->gfx.config.max_backends_per_se = 2;
 		adev->gfx.config.max_sh_per_se = 1;
 		adev->gfx.config.max_texture_channel_caches = 4;
 		adev->gfx.config.max_gprs = 256;
@@ -4670,6 +4660,14 @@ static int gfx_v7_0_sw_fini(void *handle)
 	gfx_v7_0_cp_compute_fini(adev);
 	gfx_v7_0_rlc_fini(adev);
 	gfx_v7_0_mec_fini(adev);
+	amdgpu_bo_free_kernel(&adev->gfx.rlc.clear_state_obj,
+				&adev->gfx.rlc.clear_state_gpu_addr,
+				(void **)&adev->gfx.rlc.cs_ptr);
+	if (adev->gfx.rlc.cp_table_size) {
+		amdgpu_bo_free_kernel(&adev->gfx.rlc.cp_table_obj,
+				&adev->gfx.rlc.cp_table_gpu_addr,
+				(void **)&adev->gfx.rlc.cp_table_ptr);
+	}
 	gfx_v7_0_free_microcode(adev);
 
 	return 0;
