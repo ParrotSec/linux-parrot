@@ -67,12 +67,8 @@ static u8 rs_ht_to_legacy[] = {
 static const u8 ant_toggle_lookup[] = {
 	[ANT_NONE] = ANT_NONE,
 	[ANT_A] = ANT_B,
-	[ANT_B] = ANT_C,
-	[ANT_AB] = ANT_BC,
-	[ANT_C] = ANT_A,
-	[ANT_AC] = ANT_AB,
-	[ANT_BC] = ANT_AC,
-	[ANT_ABC] = ANT_ABC,
+	[ANT_B] = ANT_A,
+	[ANT_AB] = ANT_AB,
 };
 
 #define IWL_DECLARE_RATE_INFO(r, s, rp, rn)			      \
@@ -975,7 +971,7 @@ static int rs_toggle_antenna(u32 valid_ant, struct rs_rate *rate)
 {
 	u8 new_ant_type;
 
-	if (!rate->ant || rate->ant > ANT_ABC)
+	if (!rate->ant || WARN_ON_ONCE(rate->ant & ANT_C))
 		return 0;
 
 	if (!rs_is_valid_ant(valid_ant, rate->ant))
@@ -1881,12 +1877,10 @@ static int rs_switch_to_column(struct iwl_mvm *mvm,
 	struct rs_rate *rate = &search_tbl->rate;
 	const struct rs_tx_column *column = &rs_tx_columns[col_id];
 	const struct rs_tx_column *curr_column = &rs_tx_columns[tbl->column];
-	u32 sz = (sizeof(struct iwl_scale_tbl_info) -
-		  (sizeof(struct iwl_rate_scale_data) * IWL_RATE_COUNT));
 	unsigned long rate_mask = 0;
 	u32 rate_idx = 0;
 
-	memcpy(search_tbl, tbl, sz);
+	memcpy(search_tbl, tbl, offsetof(struct iwl_scale_tbl_info, win));
 
 	rate->sgi = column->sgi;
 	rate->ant = column->ant;

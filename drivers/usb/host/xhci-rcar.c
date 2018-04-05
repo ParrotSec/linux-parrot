@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * xHCI host controller driver for R-Car SoCs
  *
  * Copyright (C) 2014 Renesas Electronics Corporation
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
  */
 
 #include <linux/firmware.h>
@@ -84,6 +81,10 @@ static const struct soc_device_attribute rcar_quirks_match[]  = {
 	},
 	{
 		.soc_id = "r8a7796",
+		.data = (void *)RCAR_XHCI_FIRMWARE_V3,
+	},
+	{
+		.soc_id = "r8a77965",
 		.data = (void *)RCAR_XHCI_FIRMWARE_V3,
 	},
 	{ /* sentinel */ },

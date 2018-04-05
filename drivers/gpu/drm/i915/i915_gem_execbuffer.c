@@ -58,6 +58,7 @@ enum {
 
 #define __EXEC_HAS_RELOC	BIT(31)
 #define __EXEC_VALIDATED	BIT(30)
+#define __EXEC_INTERNAL_FLAGS	(~0u << 30)
 #define UPDATE			PIN_OFFSET_FIXED
 
 #define BATCH_OFFSET_BIAS (256*1024)
@@ -268,6 +269,11 @@ static inline u64 gen8_noncanonical_addr(u64 address)
 	return address & GENMASK_ULL(GEN8_HIGH_ADDRESS_BIT, 0);
 }
 
+static inline bool eb_use_cmdparser(const struct i915_execbuffer *eb)
+{
+	return eb->engine->needs_cmd_parser && eb->batch_len;
+}
+
 static int eb_create(struct i915_execbuffer *eb)
 {
 	if (!(eb->args->flags & I915_EXEC_HANDLE_LUT)) {
@@ -365,12 +371,12 @@ eb_pin_vma(struct i915_execbuffer *eb,
 		return false;
 
 	if (unlikely(exec_flags & EXEC_OBJECT_NEEDS_FENCE)) {
-		if (unlikely(i915_vma_get_fence(vma))) {
+		if (unlikely(i915_vma_pin_fence(vma))) {
 			i915_vma_unpin(vma);
 			return false;
 		}
 
-		if (i915_vma_pin_fence(vma))
+		if (vma->fence)
 			exec_flags |= __EXEC_OBJECT_HAS_FENCE;
 	}
 
@@ -383,7 +389,7 @@ static inline void __eb_unreserve_vma(struct i915_vma *vma, unsigned int flags)
 	GEM_BUG_ON(!(flags & __EXEC_OBJECT_HAS_PIN));
 
 	if (unlikely(flags & __EXEC_OBJECT_HAS_FENCE))
-		i915_vma_unpin_fence(vma);
+		__i915_vma_unpin_fence(vma);
 
 	__i915_vma_unpin(vma);
 }
@@ -499,6 +505,8 @@ eb_add_vma(struct i915_execbuffer *eb, unsigned int i, struct i915_vma *vma)
 		list_add_tail(&vma->exec_link, &eb->unbound);
 		if (drm_mm_node_allocated(&vma->node))
 			err = i915_vma_unbind(vma);
+		if (unlikely(err))
+			vma->exec_flags = NULL;
 	}
 	return err;
 }
@@ -561,13 +569,13 @@ static int eb_reserve_vma(const struct i915_execbuffer *eb,
 	}
 
 	if (unlikely(exec_flags & EXEC_OBJECT_NEEDS_FENCE)) {
-		err = i915_vma_get_fence(vma);
+		err = i915_vma_pin_fence(vma);
 		if (unlikely(err)) {
 			i915_vma_unpin(vma);
 			return err;
 		}
 
-		if (i915_vma_pin_fence(vma))
+		if (vma->fence)
 			exec_flags |= __EXEC_OBJECT_HAS_FENCE;
 	}
 
@@ -678,7 +686,7 @@ static int eb_select_context(struct i915_execbuffer *eb)
 static int eb_lookup_vmas(struct i915_execbuffer *eb)
 {
 	struct radix_tree_root *handles_vma = &eb->ctx->handles_vma;
-	struct drm_i915_gem_object *uninitialized_var(obj);
+	struct drm_i915_gem_object *obj;
 	unsigned int i;
 	int err;
 
@@ -724,19 +732,17 @@ static int eb_lookup_vmas(struct i915_execbuffer *eb)
 			goto err_obj;
 		}
 
+		/* transfer ref to ctx */
 		vma->open_count++;
 		list_add(&lut->obj_link, &obj->lut_list);
 		list_add(&lut->ctx_link, &eb->ctx->handles_list);
 		lut->ctx = eb->ctx;
 		lut->handle = handle;
 
-		/* transfer ref to ctx */
-		obj = NULL;
-
 add_vma:
 		err = eb_add_vma(eb, i, vma);
 		if (unlikely(err))
-			goto err_obj;
+			goto err_vma;
 
 		GEM_BUG_ON(vma != eb->vma[i]);
 		GEM_BUG_ON(vma->exec_flags != &eb->flags[i]);
@@ -765,8 +771,7 @@ add_vma:
 	return eb_reserve(eb);
 
 err_obj:
-	if (obj)
-		i915_gem_object_put(obj);
+	i915_gem_object_put(obj);
 err_vma:
 	eb->vma[i] = NULL;
 	return err;
@@ -975,7 +980,9 @@ static void *reloc_iomap(struct drm_i915_gem_object *obj,
 			return ERR_PTR(err);
 
 		vma = i915_gem_object_ggtt_pin(obj, NULL, 0, 0,
-					       PIN_MAPPABLE | PIN_NONBLOCK);
+					       PIN_MAPPABLE |
+					       PIN_NONBLOCK |
+					       PIN_NONFAULT);
 		if (IS_ERR(vma)) {
 			memset(&cache->node, 0, sizeof(cache->node));
 			err = drm_mm_insert_node_in_range
@@ -1163,6 +1170,13 @@ static u32 *reloc_gpu(struct i915_execbuffer *eb,
 	if (unlikely(!cache->rq)) {
 		int err;
 
+		/* If we need to copy for the cmdparser, we will stall anyway */
+		if (eb_use_cmdparser(eb))
+			return ERR_PTR(-EWOULDBLOCK);
+
+		if (!intel_engine_can_store_dword(eb->engine))
+			return ERR_PTR(-ENODEV);
+
 		err = __reloc_gpu_alloc(eb, vma, len);
 		if (unlikely(err))
 			return ERR_PTR(err);
@@ -1187,9 +1201,7 @@ relocate_entry(struct i915_vma *vma,
 
 	if (!eb->reloc_cache.vaddr &&
 	    (DBG_FORCE_RELOC == FORCE_GPU_RELOC ||
-	     !reservation_object_test_signaled_rcu(vma->resv, true)) &&
-	    __intel_engine_can_store_dword(eb->reloc_cache.gen,
-					   eb->engine->class)) {
+	     !reservation_object_test_signaled_rcu(vma->resv, true))) {
 		const unsigned int gen = eb->reloc_cache.gen;
 		unsigned int len;
 		u32 *batch;
@@ -1581,7 +1593,7 @@ static int eb_prefault_relocations(const struct i915_execbuffer *eb)
 	const unsigned int count = eb->buffer_count;
 	unsigned int i;
 
-	if (unlikely(i915.prefault_disable))
+	if (unlikely(i915_modparams.prefault_disable))
 		return 0;
 
 	for (i = 0; i < count; i++) {
@@ -2190,6 +2202,7 @@ i915_gem_do_execbuffer(struct drm_device *dev,
 	int out_fence_fd = -1;
 	int err;
 
+	BUILD_BUG_ON(__EXEC_INTERNAL_FLAGS & ~__I915_EXEC_ILLEGAL_FLAGS);
 	BUILD_BUG_ON(__EXEC_OBJECT_INTERNAL_FLAGS &
 		     ~__EXEC_OBJECT_UNKNOWN_FLAGS);
 
@@ -2303,7 +2316,7 @@ i915_gem_do_execbuffer(struct drm_device *dev,
 		goto err_vma;
 	}
 
-	if (eb.engine->needs_cmd_parser && eb.batch_len) {
+	if (eb_use_cmdparser(&eb)) {
 		struct i915_vma *vma;
 
 		vma = eb_parse(&eb, drm_is_current_master(file));
@@ -2408,7 +2421,7 @@ err_request:
 	if (out_fence) {
 		if (err == 0) {
 			fd_install(out_fence_fd, out_fence->file);
-			args->rsvd2 &= GENMASK_ULL(0, 31); /* keep in-fence */
+			args->rsvd2 &= GENMASK_ULL(31, 0); /* keep in-fence */
 			args->rsvd2 |= (u64)out_fence_fd << 32;
 			out_fence_fd = -1;
 		} else {

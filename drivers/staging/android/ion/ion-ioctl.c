@@ -27,19 +27,18 @@ union ion_ioctl_arg {
 
 static int validate_ioctl_arg(unsigned int cmd, union ion_ioctl_arg *arg)
 {
-	int ret = 0;
-
 	switch (cmd) {
 	case ION_IOC_HEAP_QUERY:
-		ret = arg->query.reserved0 != 0;
-		ret |= arg->query.reserved1 != 0;
-		ret |= arg->query.reserved2 != 0;
+		if (arg->query.reserved0 ||
+		    arg->query.reserved1 ||
+		    arg->query.reserved2)
+			return -EINVAL;
 		break;
 	default:
 		break;
 	}
 
-	return ret ? -EINVAL : 0;
+	return 0;
 }
 
 /* fix up the cases where the ioctl direction bits are incorrect */
@@ -71,8 +70,10 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return -EFAULT;
 
 	ret = validate_ioctl_arg(cmd, &data);
-	if (WARN_ON_ONCE(ret))
+	if (ret) {
+		pr_warn_once("%s: ioctl validate failed\n", __func__);
 		return ret;
+	}
 
 	if (!(dir & _IOC_WRITE))
 		memset(&data, 0, sizeof(data));
