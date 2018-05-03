@@ -9,3 +9,6 @@ Provides_versatile: rtc-modules
 
 Package: fb-modules
 Depends: kernel-image, usb-modules
+
+Package: jffs2-modules
+Depends: kernel-image, zlib-modules, compress-modules, mtd-modules

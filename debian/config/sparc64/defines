@@ -6,8 +6,6 @@ kernel-arch: sparc
 
 [build]
 image-file: arch/sparc/boot/zImage
-# linux-signed only works for architectures in the main archive
-signed-modules: false
 
 [image]
 configs:

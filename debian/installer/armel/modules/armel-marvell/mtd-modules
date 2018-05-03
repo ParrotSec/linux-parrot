@@ -8,3 +8,4 @@ orion_nand
 ofpart
 mtdblock
 physmap_of
+cmdlinepart

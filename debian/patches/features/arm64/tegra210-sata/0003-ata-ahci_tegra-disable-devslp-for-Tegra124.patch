@@ -1,0 +1,88 @@
+From 502717ccf7720e785fdc1c9202d1b3930fd08038 Mon Sep 17 00:00:00 2001
+From: Preetham Ramchandra <pchandru@nvidia.com>
+Date: Mon, 12 Mar 2018 17:10:35 +0530
+Subject: [PATCH 3/7] ata: ahci_tegra: disable devslp for Tegra124
+
+Tegra124 does not support devslp and it should be disabled.
+
+Signed-off-by: Preetham Chandru R <pchandru@nvidia.com>
+Acked-by: Thierry Reding <treding@nvidia.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+---
+ drivers/ata/ahci_tegra.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/drivers/ata/ahci_tegra.c b/drivers/ata/ahci_tegra.c
+index 547a6f93922c..620cdd16ef2f 100644
+--- a/drivers/ata/ahci_tegra.c
++++ b/drivers/ata/ahci_tegra.c
+@@ -166,12 +166,14 @@ struct tegra_ahci_ops {
+ struct tegra_ahci_soc {
+ 	const char *const		*supply_names;
+ 	u32				num_supplies;
++	bool				supports_devslp;
+ 	const struct tegra_ahci_ops	*ops;
+ };
+ 
+ struct tegra_ahci_priv {
+ 	struct platform_device	   *pdev;
+ 	void __iomem		   *sata_regs;
++	void __iomem		   *sata_aux_regs;
+ 	struct reset_control	   *sata_rst;
+ 	struct reset_control	   *sata_oob_rst;
+ 	struct reset_control	   *sata_cold_rst;
+@@ -181,6 +183,18 @@ struct tegra_ahci_priv {
+ 	const struct tegra_ahci_soc *soc;
+ };
+ 
++static void tegra_ahci_handle_quirks(struct ahci_host_priv *hpriv)
++{
++	struct tegra_ahci_priv *tegra = hpriv->plat_data;
++	u32 val;
++
++	if (tegra->sata_aux_regs && !tegra->soc->supports_devslp) {
++		val = readl(tegra->sata_aux_regs + SATA_AUX_MISC_CNTL_1_0);
++		val &= ~SATA_AUX_MISC_CNTL_1_0_SDS_SUPPORT;
++		writel(val, tegra->sata_aux_regs + SATA_AUX_MISC_CNTL_1_0);
++	}
++}
++
+ static int tegra124_ahci_init(struct ahci_host_priv *hpriv)
+ {
+ 	struct tegra_ahci_priv *tegra = hpriv->plat_data;
+@@ -401,6 +415,7 @@ static int tegra_ahci_controller_init(struct ahci_host_priv *hpriv)
+ 	val &= ~SATA_CONFIGURATION_0_CLK_OVERRIDE;
+ 	writel(val, tegra->sata_regs + SATA_CONFIGURATION_0);
+ 
++	tegra_ahci_handle_quirks(hpriv);
+ 
+ 	/* Unmask SATA interrupts */
+ 
+@@ -446,6 +461,7 @@ static const struct tegra_ahci_ops tegra124_ahci_ops = {
+ static const struct tegra_ahci_soc tegra124_ahci_soc = {
+ 	.supply_names = tegra124_supply_names,
+ 	.num_supplies = ARRAY_SIZE(tegra124_supply_names),
++	.supports_devslp = false,
+ 	.ops = &tegra124_ahci_ops,
+ };
+ 
+@@ -488,6 +504,16 @@ static int tegra_ahci_probe(struct platform_device *pdev)
+ 	if (IS_ERR(tegra->sata_regs))
+ 		return PTR_ERR(tegra->sata_regs);
+ 
++	/*
++	 * AUX registers is optional.
++	 */
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
++	if (res) {
++		tegra->sata_aux_regs = devm_ioremap_resource(&pdev->dev, res);
++		if (IS_ERR(tegra->sata_aux_regs))
++			return PTR_ERR(tegra->sata_aux_regs);
++	}
++
+ 	tegra->sata_rst = devm_reset_control_get(&pdev->dev, "sata");
+ 	if (IS_ERR(tegra->sata_rst)) {
+ 		dev_err(&pdev->dev, "Failed to get sata reset\n");
+-- 
+2.11.0
+

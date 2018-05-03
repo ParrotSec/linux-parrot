@@ -25,7 +25,7 @@ class Gencontrol(Base):
         },
         'build': {
             'debug-info': config.SchemaItemBoolean(),
-            'signed-modules': config.SchemaItemBoolean(),
+            'signed-code': config.SchemaItemBoolean(),
             'vdso': config.SchemaItemBoolean(),
         },
         'description': {
@@ -177,6 +177,8 @@ class Gencontrol(Base):
             makeflags['ABINAME'] = vars['abiname'] = \
                 self.abiname_version + abiname_part
 
+        build_signed = self.config.merge('build', arch).get('signed-code', False)
+
         # Some userland architectures require kernels from another
         # (Debian) architecture, e.g. x32/amd64.
         # And some derivatives don't need the headers-all packages
@@ -226,11 +228,6 @@ class Gencontrol(Base):
             installer_def_dir = 'debian/installer'
             installer_arch_dir = os.path.join(installer_def_dir, arch)
             if os.path.isdir(installer_arch_dir):
-                # If we're going to build signed udebs later, don't actually
-                # generate udebs.  Just test that we *can* build, so we find
-                # configuration errors before building linux-signed.
-                test_build = self.config.merge('build', arch).get('signed-modules', False)
-
                 kw_env = os.environ.copy()
                 kw_env['KW_DEFCONFIG_DIR'] = installer_def_dir
                 kw_env['KW_CONFIG_DIR'] = installer_arch_dir
@@ -247,12 +244,22 @@ class Gencontrol(Base):
                     raise RuntimeError('kernel-wedge exited with code %d' %
                                        kw_proc.returncode)
 
+                # If we're going to build signed udebs later, don't actually
+                # generate udebs.  Just test that we *can* build, so we find
+                # configuration errors before building linux-signed.
+
                 # kernel-wedge currently chokes on Build-Profiles so add it now
                 for package in udeb_packages:
-                    package['Build-Profiles'] = '<!stage1>'
+                    if build_signed:
+                        # XXX This is a hack to exclude the udebs from
+                        # the package list while still being able to
+                        # convince debhelper and kernel-wedge to go
+                        # part way to building them.
+                        package['Build-Profiles'] = '<pkg.linux.udeb-unsigned-test-build>'
+                    else:
+                        package['Build-Profiles'] = '<!stage1>'
 
-                if not test_build:
-                    merge_packages(packages, udeb_packages, arch)
+                merge_packages(packages, udeb_packages, arch)
 
                 # These packages must be built after the per-flavour/
                 # per-featureset packages.  Also, this won't work
@@ -264,7 +271,19 @@ class Gencontrol(Base):
                               "PACKAGE_NAMES='%s' UDEB_UNSIGNED_TEST_BUILD=%s" %
                               (arch, makeflags,
                                ' '.join(p['Package'] for p in udeb_packages),
-                               test_build)])
+                               build_signed)])
+
+        # This also needs to be built after the per-flavour/per-featureset
+        # packages.
+        if build_signed:
+            merge_packages(packages,
+                           self.process_packages(
+                               self.templates['control.signed-template'], vars),
+                           arch)
+            makefile.add(
+                'binary-arch_%s' % arch,
+                cmds=["$(MAKE) -f debian/rules.real install-signed-template_%s %s" %
+                      (arch, makeflags)])
 
     def do_featureset_setup(self, vars, makeflags, arch, featureset, extra):
         config_base = self.config.merge('base', arch, featureset)
@@ -272,6 +291,7 @@ class Gencontrol(Base):
 
     flavour_makeflags_base = (
         ('compiler', 'COMPILER', False),
+        ('compiler-filename', 'COMPILER', True),
         ('kernel-arch', 'KERNEL_ARCH', False),
         ('cflags', 'CFLAGS_KERNEL', True),
         ('override-host-type', 'OVERRIDE_HOST_TYPE', True),
@@ -386,7 +406,7 @@ class Gencontrol(Base):
         packages_dummy = []
         packages_own = []
 
-        build_signed = config_entry_build.get('signed-modules')
+        build_signed = config_entry_build.get('signed-code')
 
         image = self.templates[build_signed and "control.image-unsigned"
                                or "control.image"]
@@ -547,8 +567,7 @@ class Gencontrol(Base):
             if not version.linux_revision_experimental:
                 raise RuntimeError("Can't upload to %s with a version of %s" % (distribution, version))
         if distribution.endswith('-security') or distribution.endswith('-lts'):
-            if (not version.linux_revision_security or
-                version.linux_revision_backports):
+            if version.linux_revision_backports or version.linux_revision_other:
                 raise RuntimeError("Can't upload to %s with a version of %s" % (distribution, version))
         if distribution.endswith('-backports'):
             if not version.linux_revision_backports:

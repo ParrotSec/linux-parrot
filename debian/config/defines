@@ -1,5 +1,5 @@
 [abi]
-abiname: parrot11
+abiname: parrot5
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*
@@ -76,6 +76,7 @@ arches:
  armhf
  hppa
  i386
+ ia64
  m68k
  mips
  mips64
@@ -108,8 +109,8 @@ featuresets:
 
 [build]
 debug-info: true
-# Disable module signing for now
-signed-modules: false
+# Disable code signing by default; this can be overridden per-architecture
+signed-code: false
 
 [featureset-rt_base]
 enabled: false

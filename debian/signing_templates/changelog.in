@@ -1,0 +1,6 @@
+linux-signed-@arch@ (1) unstable; urgency=medium
+
+  * Add template source package for signing
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Fri, 06 Apr 2018 10:36:20 +0100
+

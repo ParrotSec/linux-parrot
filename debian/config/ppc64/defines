@@ -5,8 +5,6 @@ kernel-arch: powerpc
 
 [build]
 image-file: vmlinux
-# linux-signed only works for architectures in the main archive
-signed-modules: false
 vdso: true
 
 [image]

@@ -24,6 +24,7 @@ CONFIG_BLK_DEV_THROTTLING=y
 # CONFIG_BLK_CMDLINE_PARSER is not set
 CONFIG_BLK_WBT=y
 CONFIG_BLK_WBT_MQ=y
+CONFIG_BLK_SED_OPAL=y
 
 ##
 ## file: block/Kconfig.iosched
@@ -70,8 +71,8 @@ CONFIG_EFI_PARTITION=y
 ##
 #. Signatures are added in linux-signed
 CONFIG_MODULE_SIG_KEY=""
-#. Actually a list of X.509 certificates, not keys
-CONFIG_SYSTEM_TRUSTED_KEYS="debian/certs/benh@debian.org.cert.pem"
+#. Actually a file containing X.509 certificates, not keys
+CONFIG_SYSTEM_TRUSTED_KEYS="debian/certs/test-signing-certs.pem"
 
 ##
 ## file: crypto/Kconfig
@@ -299,7 +300,6 @@ CONFIG_DEVTMPFS=y
 CONFIG_STANDALONE=y
 CONFIG_PREVENT_FIRMWARE_BUILD=y
 CONFIG_FW_LOADER=y
-# CONFIG_FIRMWARE_IN_KERNEL is not set
 CONFIG_EXTRA_FIRMWARE=""
 # CONFIG_FW_LOADER_USER_HELPER_FALLBACK is not set
 CONFIG_ALLOW_DEV_COREDUMP=y
@@ -403,7 +403,6 @@ CONFIG_DEVPORT=y
 CONFIG_HW_RANDOM=m
 # CONFIG_HW_RANDOM_TIMERIOMEM is not set
 CONFIG_HW_RANDOM_VIRTIO=m
-CONFIG_HW_RANDOM_TPM=m
 
 ##
 ## file: drivers/char/pcmcia/Kconfig
@@ -412,6 +411,11 @@ CONFIG_SYNCLINK_CS=m
 CONFIG_CARDMAN_4000=m
 CONFIG_CARDMAN_4040=m
 CONFIG_IPWIRELESS=m
+
+##
+## file: drivers/char/tpm/Kconfig
+##
+CONFIG_HW_RANDOM_TPM=y
 
 ##
 ## file: drivers/char/tpm/st33zp24/Kconfig
@@ -601,7 +605,7 @@ CONFIG_GPIO_VIPERBOARD=m
 ##
 ## file: drivers/gpu/drm/Kconfig
 ##
-# CONFIG_DRM_DP_AUX_CHARDEV is not set
+CONFIG_DRM_DP_AUX_CHARDEV=y
 CONFIG_DRM_FBDEV_EMULATION=y
 CONFIG_DRM_LOAD_EDID_FIRMWARE=y
 CONFIG_DRM_VGEM=m
@@ -985,7 +989,7 @@ CONFIG_I2C_VIPERBOARD=m
 ## file: drivers/ide/Kconfig
 ##
 # CONFIG_IDE is not set
-#. But for m68k flavours that need it
+#. But for ia64 and m68k flavours that need it
 CONFIG_IDE_GD=m
 CONFIG_IDE_GD_ATA=y
 CONFIG_IDE_GD_ATAPI=y
@@ -1464,7 +1468,6 @@ CONFIG_KEYBOARD_STOWAWAY=m
 # CONFIG_INPUT_MMA8450 is not set
 # CONFIG_INPUT_GP2A is not set
 # CONFIG_INPUT_GPIO_BEEPER is not set
-# CONFIG_INPUT_GPIO_TILT_POLLED is not set
 # CONFIG_INPUT_GPIO_DECODER is not set
 CONFIG_INPUT_ATI_REMOTE2=m
 CONFIG_INPUT_KEYSPAN_REMOTE=m
@@ -2149,9 +2152,8 @@ CONFIG_USB_SI470X=m
 ## file: drivers/media/rc/Kconfig
 ##
 CONFIG_RC_CORE=m
+CONFIG_LIRC=y
 CONFIG_RC_DECODERS=y
-CONFIG_LIRC=m
-CONFIG_IR_LIRC_CODEC=m
 CONFIG_IR_NEC_DECODER=m
 CONFIG_IR_RC5_DECODER=m
 CONFIG_IR_RC6_DECODER=m
@@ -2558,9 +2560,7 @@ CONFIG_PCF50633_ADC=m
 CONFIG_PCF50633_GPIO=m
 # CONFIG_UCB1400_CORE is not set
 # CONFIG_MFD_RDC321X is not set
-CONFIG_MFD_RTSX_PCI=m
 # CONFIG_MFD_RT5033 is not set
-CONFIG_MFD_RTSX_USB=m
 # CONFIG_MFD_RC5T583 is not set
 # CONFIG_MFD_RK808 is not set
 # CONFIG_MFD_RN5T618 is not set
@@ -2646,6 +2646,12 @@ CONFIG_DS1682=m
 ##
 CONFIG_C2PORT=m
 CONFIG_C2PORT_DURAMAR_2150=m
+
+##
+## file: drivers/misc/cardreader/Kconfig
+##
+CONFIG_MISC_RTSX_PCI=m
+CONFIG_MISC_RTSX_USB=m
 
 ##
 ## file: drivers/misc/cb710/Kconfig
@@ -2957,6 +2963,12 @@ CONFIG_PCNET32=m
 ## file: drivers/net/ethernet/apm/xgene/Kconfig
 ##
 # CONFIG_NET_XGENE is not set
+
+##
+## file: drivers/net/ethernet/aquantia/Kconfig
+##
+CONFIG_NET_VENDOR_AQUANTIA=y
+CONFIG_AQTION=m
 
 ##
 ## file: drivers/net/ethernet/arc/Kconfig
@@ -4251,6 +4263,7 @@ CONFIG_SCSI_SNIC=m
 # CONFIG_SCSI_IZIP_EPP16 is not set
 # CONFIG_SCSI_IZIP_SLOW_CTR is not set
 CONFIG_SCSI_STEX=m
+CONFIG_SCSI_SYM53C8XX_2=m
 CONFIG_SCSI_SYM53C8XX_MMIO=y
 # CONFIG_SCSI_IPR is not set
 CONFIG_SCSI_LPFC=m
@@ -4571,11 +4584,6 @@ CONFIG_STAGING=y
 # CONFIG_STAGING_MEDIA is not set
 
 ##
-## file: drivers/staging/media/lirc/Kconfig
-##
-# CONFIG_LIRC_STAGING is not set
-
-##
 ## file: drivers/staging/most/Kconfig
 ##
 # CONFIG_MOST is not set
@@ -4584,6 +4592,19 @@ CONFIG_STAGING=y
 ## file: drivers/staging/mt29f_spinand/Kconfig
 ##
 # CONFIG_MTD_SPINAND_MT29F is not set
+
+##
+## file: drivers/staging/ncpfs/Kconfig
+##
+CONFIG_NCP_FS=m
+CONFIG_NCPFS_PACKET_SIGNING=y
+CONFIG_NCPFS_IOCTL_LOCKING=y
+CONFIG_NCPFS_STRONG=y
+CONFIG_NCPFS_NFS_NS=y
+CONFIG_NCPFS_OS2_NS=y
+# CONFIG_NCPFS_SMALLDOS is not set
+CONFIG_NCPFS_NLS=y
+CONFIG_NCPFS_EXTRAS=y
 
 ##
 ## file: drivers/staging/rtl8188eu/Kconfig
@@ -5237,17 +5258,22 @@ CONFIG_W1_MASTER_GPIO=m
 ##
 CONFIG_W1_SLAVE_THERM=m
 CONFIG_W1_SLAVE_SMEM=m
-# CONFIG_W1_SLAVE_DS2408 is not set
-# CONFIG_W1_SLAVE_DS2413 is not set
-# CONFIG_W1_SLAVE_DS2406 is not set
-# CONFIG_W1_SLAVE_DS2423 is not set
+CONFIG_W1_SLAVE_DS2405=m
+CONFIG_W1_SLAVE_DS2408=m
+CONFIG_W1_SLAVE_DS2408_READBACK=y
+CONFIG_W1_SLAVE_DS2413=m
+CONFIG_W1_SLAVE_DS2406=m
+CONFIG_W1_SLAVE_DS2423=m
+CONFIG_W1_SLAVE_DS2805=m
 CONFIG_W1_SLAVE_DS2431=m
 CONFIG_W1_SLAVE_DS2433=m
 # CONFIG_W1_SLAVE_DS2433_CRC is not set
-# CONFIG_W1_SLAVE_DS2760 is not set
-# CONFIG_W1_SLAVE_DS2780 is not set
-# CONFIG_W1_SLAVE_DS2781 is not set
-# CONFIG_W1_SLAVE_DS28E04 is not set
+CONFIG_W1_SLAVE_DS2438=m
+CONFIG_W1_SLAVE_DS2760=m
+CONFIG_W1_SLAVE_DS2780=m
+CONFIG_W1_SLAVE_DS2781=m
+CONFIG_W1_SLAVE_DS28E04=m
+CONFIG_W1_SLAVE_DS28E17=m
 
 ##
 ## file: drivers/watchdog/Kconfig
@@ -5576,19 +5602,6 @@ CONFIG_JFS_SECURITY=y
 CONFIG_MINIX_FS=m
 
 ##
-## file: fs/ncpfs/Kconfig
-##
-CONFIG_NCP_FS=m
-CONFIG_NCPFS_PACKET_SIGNING=y
-CONFIG_NCPFS_IOCTL_LOCKING=y
-CONFIG_NCPFS_STRONG=y
-CONFIG_NCPFS_NFS_NS=y
-CONFIG_NCPFS_OS2_NS=y
-# CONFIG_NCPFS_SMALLDOS is not set
-CONFIG_NCPFS_NLS=y
-CONFIG_NCPFS_EXTRAS=y
-
-##
 ## file: fs/nfs/Kconfig
 ##
 CONFIG_NFS_FS=m
@@ -5789,6 +5802,7 @@ CONFIG_SQUASHFS_ZLIB=y
 CONFIG_SQUASHFS_LZ4=y
 CONFIG_SQUASHFS_LZO=y
 CONFIG_SQUASHFS_XZ=y
+CONFIG_SQUASHFS_ZSTD=y
 # CONFIG_SQUASHFS_4K_DEVBLK_SIZE is not set
 # CONFIG_SQUASHFS_EMBEDDED is not set
 
@@ -5942,7 +5956,7 @@ CONFIG_MODULE_UNLOAD=y
 CONFIG_MODULE_FORCE_UNLOAD=y
 CONFIG_MODVERSIONS=y
 # CONFIG_MODULE_SRCVERSION_ALL is not set
-#. This is overridden if the [build]signed-modules setting is enabled
+#. This is overridden if the [build]signed-code setting is enabled
 # CONFIG_MODULE_SIG is not set
 #. Signature validation is a run-time option
 # CONFIG_MODULE_SIG_FORCE is not set
@@ -5968,11 +5982,6 @@ CONFIG_HZ_300=y
 # CONFIG_HZ_250 is not set
 # CONFIG_HZ_1000 is not set
 ## end choice
-
-##
-## file: kernel/irq/Kconfig
-##
-# CONFIG_IRQ_DOMAIN_DEBUG is not set
 
 ##
 ## file: kernel/power/Kconfig
@@ -6262,7 +6271,6 @@ CONFIG_BRIDGE_NETFILTER=y
 CONFIG_CGROUP_NET_PRIO=y
 CONFIG_BPF_JIT=y
 CONFIG_NET_PKTGEN=m
-# CONFIG_NET_TCPPROBE is not set
 CONFIG_NET_DROP_MONITOR=m
 CONFIG_WIRELESS=y
 CONFIG_LWTUNNEL=y
@@ -6427,7 +6435,6 @@ CONFIG_DCB=y
 ##
 CONFIG_IP_DCCP=m
 # CONFIG_IP_DCCP_DEBUG is not set
-CONFIG_NET_DCCPPROBE=m
 
 ##
 ## file: net/dccp/ccids/Kconfig
@@ -7020,7 +7027,6 @@ CONFIG_NET_CLS_IND=y
 ## file: net/sctp/Kconfig
 ##
 CONFIG_IP_SCTP=m
-CONFIG_NET_SCTPPROBE=m
 # CONFIG_SCTP_DBG_OBJCNT is not set
 ## choice: Default SCTP cookie HMAC encoding
 CONFIG_SCTP_DEFAULT_COOKIE_HMAC_MD5=y
@@ -7143,7 +7149,8 @@ CONFIG_INTEGRITY_AUDIT=y
 ##
 ## file: security/integrity/ima/Kconfig
 ##
-CONFIG_IMA=y
+#. IMA + MODULE_SIG currently breaks module loading with finit_module()
+# CONFIG_IMA is not set
 ## choice: Default integrity hash algorithm
 # CONFIG_IMA_DEFAULT_HASH_SHA1 is not set
 CONFIG_IMA_DEFAULT_HASH_SHA256=y

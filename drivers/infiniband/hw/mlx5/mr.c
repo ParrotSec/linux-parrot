@@ -739,6 +739,9 @@ int mlx5_mr_cache_cleanup(struct mlx5_ib_dev *dev)
 {
 	int i;
 
+	if (!dev->cache.wq)
+		return 0;
+
 	dev->cache.stopped = 1;
 	flush_workqueue(dev->cache.wq);
 
@@ -838,7 +841,8 @@ static int mr_umem_get(struct ib_pd *pd, u64 start, u64 length,
 	*umem = ib_umem_get(pd->uobject->context, start, length,
 			    access_flags, 0);
 	err = PTR_ERR_OR_ZERO(*umem);
-	if (err < 0) {
+	if (err) {
+		*umem = NULL;
 		mlx5_ib_err(dev, "umem get failed (%d)\n", err);
 		return err;
 	}
@@ -1219,6 +1223,8 @@ struct ib_mr *mlx5_ib_reg_user_mr(struct ib_pd *pd, u64 start, u64 length,
 			return ERR_PTR(-EINVAL);
 
 		mr = mlx5_ib_alloc_implicit_mr(to_mpd(pd), access_flags);
+		if (IS_ERR(mr))
+			return ERR_CAST(mr);
 		return &mr->ibmr;
 	}
 #endif
@@ -1415,6 +1421,7 @@ int mlx5_ib_rereg_user_mr(struct ib_mr *ib_mr, int flags, u64 start,
 		if (err) {
 			mlx5_ib_warn(dev, "Failed to rereg UMR\n");
 			ib_umem_release(mr->umem);
+			mr->umem = NULL;
 			clean_mr(dev, mr);
 			return err;
 		}
@@ -1498,14 +1505,11 @@ static int clean_mr(struct mlx5_ib_dev *dev, struct mlx5_ib_mr *mr)
 		u32 key = mr->mmkey.key;
 
 		err = destroy_mkey(dev, mr);
-		kfree(mr);
 		if (err) {
 			mlx5_ib_warn(dev, "failed to destroy mkey 0x%x (%d)\n",
 				     key, err);
 			return err;
 		}
-	} else {
-		mlx5_mr_cache_free(dev, mr);
 	}
 
 	return 0;
@@ -1547,6 +1551,11 @@ static int dereg_mr(struct mlx5_ib_dev *dev, struct mlx5_ib_mr *mr)
 		ib_umem_release(umem);
 		atomic_sub(npages, &dev->mdev->priv.reg_pages);
 	}
+
+	if (!mr->allocated_from_cache)
+		kfree(mr);
+	else
+		mlx5_mr_cache_free(dev, mr);
 
 	return 0;
 }

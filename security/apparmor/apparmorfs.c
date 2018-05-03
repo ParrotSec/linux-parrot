@@ -571,16 +571,16 @@ static int ns_revision_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static unsigned int ns_revision_poll(struct file *file, poll_table *pt)
+static __poll_t ns_revision_poll(struct file *file, poll_table *pt)
 {
 	struct aa_revision *rev = file->private_data;
-	unsigned int mask = 0;
+	__poll_t mask = 0;
 
 	if (rev) {
 		mutex_lock_nested(&rev->ns->lock, rev->ns->level);
 		poll_wait(file, &rev->ns->wait, pt);
 		if (rev->last_read < rev->ns->revision)
-			mask |= POLLIN | POLLRDNORM;
+			mask |= EPOLLIN | EPOLLRDNORM;
 		mutex_unlock(&rev->ns->lock);
 	}
 
@@ -1189,9 +1189,7 @@ static int seq_ns_level_show(struct seq_file *seq, void *v)
 static int seq_ns_name_show(struct seq_file *seq, void *v)
 {
 	struct aa_label *label = begin_current_label_crit_section();
-
-	seq_printf(seq, "%s\n", aa_ns_name(labels_ns(label),
-					   labels_ns(label), true));
+	seq_printf(seq, "%s\n", labels_ns(label)->base.name);
 	end_current_label_crit_section(label);
 
 	return 0;

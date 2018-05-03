@@ -6,7 +6,7 @@ from . import utils
 
 
 class Changelog(list):
-    _rules = r"""
+    _top_rules = r"""
 ^
 (?P<source>
     \w[-+0-9a-z.]+
@@ -25,37 +25,71 @@ class Changelog(list):
 (?P<urgency>
     \w+
 )
+(?:,|\n)
 """
-    _re = re.compile(_rules, re.X)
+    _top_re = re.compile(_top_rules, re.X)
+    _bottom_rules = r"""
+^
+\ --\ 
+(?P<maintainer>
+    \S(?:\ ?\S)*
+)
+\ \ 
+(?P<date>
+    (.*)
+)
+\n
+"""
+    _bottom_re = re.compile(_bottom_rules, re.X)
+    _ignore_re = re.compile(r'^(?:  |\s*\n)')
 
     class Entry(object):
-        __slot__ = 'distribution', 'source', 'version', 'urgency'
+        __slot__ = 'distribution', 'source', 'version', 'urgency', 'maintainer', 'date'
 
-        def __init__(self, distribution, source, version, urgency):
-            self.distribution, self.source, self.version, self.urgency = \
-                distribution, source, version, urgency
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
 
-    def __init__(self, dir='', version=None):
+    def __init__(self, dir='', version=None, file=None):
         if version is None:
             version = Version
-        f = open(os.path.join(dir, "debian/changelog"), encoding="UTF-8")
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            match = self._re.match(line)
-            if not match:
-                continue
-            try:
-                v = version(match.group('version'))
-            except Exception:
-                if not len(self):
-                    raise
-                v = Version(match.group('version'))
-            self.append(self.Entry(match.group('distribution'),
-                                   match.group('source'), v,
-                                   match.group('urgency')))
+        if file:
+            self._parse(version, file)
+        else:
+            with open(os.path.join(dir, "debian/changelog"), encoding="UTF-8") as f:
+                self._parse(version, f)
 
+    def _parse(self, version, f):
+        top_match = None
+        line_no = 0
+
+        for line in f:
+            line_no += 1
+
+            if self._ignore_re.match(line):
+                pass
+            elif top_match is None:
+                top_match = self._top_re.match(line)
+                if not top_match:
+                    raise Exception('invalid top line %d in changelog' % line_no)
+                try:
+                    v = version(top_match.group('version'))
+                except Exception:
+                    if not len(self):
+                        raise
+                    v = Version(top_match.group('version'))
+            else:
+                bottom_match = self._bottom_re.match(line)
+                if not bottom_match:
+                    raise Exception('invalid bottom line %d in changelog' % line_no)
+
+                self.append(self.Entry(distribution=top_match.group('distribution'),
+                                       source=top_match.group('source'),
+                                       version=v,
+                                       urgency=top_match.group('urgency'),
+                                       maintainer=bottom_match.group('maintainer'),
+                                       date=bottom_match.group('date')))
+                top_match = bottom_match = None
 
 class Version(object):
     _version_rules = r"""
@@ -147,9 +181,10 @@ class VersionLinux(Version):
     )?
     |
     (?P<revision_other>
-        [^-]+
+        [^-+]+
     )
 )
+(?:\+b\d+)?
 $
 """
     _version_linux_re = re.compile(_version_linux_rules, re.X)

@@ -3,6 +3,7 @@ debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
 debian/gitignore.patch
+debian/ia64-hardcode-arch-script-output.patch
 debian/mips-disable-werror.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/powerpcspe-omit-uimage.patch
@@ -10,6 +11,8 @@ features/all/Kbuild-kconfig-Verbose-version-of-listnewconfig.patch
 debian/modpost-symbol-prefix.patch
 debian/tools-perf-version.patch
 debian/tools-perf-install.patch
+debian/wireless-add-debian-wireless-regdb-certificates.patch
+debian/parisc-fix-make-target.patch
 
 # Fixes/improvements to firmware loading
 features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
@@ -75,6 +78,22 @@ features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
+# meson8b device-tree updates from next-20180316 to enable USB and Ethernet.
+features/armhf/meson8/0001-ARM-dts-meson8b-grow-the-reset-controller-memory-zon.patch
+features/armhf/meson8/0002-ARM-dts-meson8-add-the-reset-controller.patch
+features/armhf/meson8/0003-ARM-dts-meson8-add-the-USB-reset-line.patch
+features/armhf/meson8/0004-ARM-dts-meson8b-extend-ethernet-controller-descripti.patch
+features/armhf/meson8/0005-ARM-dts-meson8b-odroidc1-ethernet-support.patch
+features/armhf/meson8/0006-ARM-dts-meson8b-add-the-I2C-clocks.patch
+# Add sata support for Tegra210/Jetson-TX1 from mainline.
+features/arm64/tegra210-sata/0001-ata-ahci_tegra-Update-initialization-sequence.patch
+features/arm64/tegra210-sata/0002-ata-ahci_tegra-initialize-regulators-from-soc-struct.patch
+features/arm64/tegra210-sata/0003-ata-ahci_tegra-disable-devslp-for-Tegra124.patch
+features/arm64/tegra210-sata/0004-ata-ahci_tegra-disable-DIPM.patch
+features/arm64/tegra210-sata/0005-ata-ahci_tegra-Add-AHCI-support-for-Tegra210.patch
+features/arm64/tegra210-sata/0006-arm64-tegra-Add-SATA-node-for-Tegra210.patch
+features/arm64/tegra210-sata/0007-arm64-tegra-Enable-AHCI-on-Jetson-TX1.patch
+features/arm64/arm64-dts-allwinner-a64-add-simplefb-for-A64-SoC.patch
 
 # Miscellaneous bug fixes
 bugfix/all/kbuild-use-nostdinc-in-compile-tests.patch
@@ -83,6 +102,7 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
+bugfix/all/i40e-build-for-64-bit-targets-only.patch
 
 # Miscellaneous features
 
@@ -123,7 +143,10 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/mac80211_hwsim-fix-possible-memory-leak-in-hwsim_new.patch
+bugfix/all/xfs-enhance-dinode-verifier.patch
+bugfix/all/xfs-set-format-back-to-extents-if-xfs_bmap_extents_t.patch
+bugfix/all/ext4-add-validity-checks-for-bitmap-block-numbers.patch
+bugfix/all/ext4-fix-bitmap-position-validation.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -139,9 +162,8 @@ bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/lockdep-stub-nmi-watchdog-reset.patch
-bugfix/arm64/ARM64-dts-meson-reduce-odroid-c2-eMMC-maximum-rate.patch
 
-# Backport patches from linux-next (next-20180103) to support SMP on tegra210 systems
-features/arm64/tegra210-smp/0001-arm64-tegra-Add-CPU-and-PSCI-nodes-for-NVIDIA-Tegra2.patch
+# wireless: Disable regulatory.db direct loading (until we sort out signing)
+debian/wireless-disable-regulatory.db-direct-loading.patch
 
 # ABI maintenance

@@ -1,19 +1,19 @@
 From: J. R. Okajima <hooanon05@yahoo.co.jp>
-Date: Sun Feb 18 15:24:12 2018 +0900
-Subject: aufs4.15 standalone patch
-Origin: https://github.com/sfjro/aufs4-standalone/tree/caea84a33dce187ad77f9ee524d7ec46acc69c63
+Date: Tue Apr 3 14:43:11 2018 +0900
+Subject: aufs4.16 standalone patch
+Origin: https://github.com/sfjro/aufs4-standalone/tree/8ed212d3987b8aed42d89dd0137bd44bad4a0a6c
 Bug-Debian: https://bugs.debian.org/541828
 
 Patch headers added by debian/patches/features/all/aufs4/gen-patch
 
 SPDX-License-Identifier: GPL-2.0
-aufs4.15 standalone patch
+aufs4.16 standalone patch
 
 diff --git a/fs/dcache.c b/fs/dcache.c
-index 019f14b..10c1a6d 100644
+index 87c19c0..b66fb04 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -1305,6 +1305,7 @@ void d_walk(struct dentry *parent, void *data,
+@@ -1313,6 +1313,7 @@ void d_walk(struct dentry *parent, void *data,
  	seq = 1;
  	goto again;
  }
@@ -21,7 +21,7 @@ index 019f14b..10c1a6d 100644
  
  struct check_mount {
  	struct vfsmount *mnt;
-@@ -2892,6 +2893,7 @@ void d_exchange(struct dentry *dentry1, struct dentry *dentry2)
+@@ -2931,6 +2932,7 @@ void d_exchange(struct dentry *dentry1, struct dentry *dentry2)
  
  	write_sequnlock(&rename_lock);
  }
@@ -42,7 +42,7 @@ index 7eb8d21..56d7985 100644
  #ifdef CONFIG_USELIB
  /*
 diff --git a/fs/fcntl.c b/fs/fcntl.c
-index 74c255d..ec53ee1 100644
+index 8cd01f7..bdd1c6c 100644
 --- a/fs/fcntl.c
 +++ b/fs/fcntl.c
 @@ -85,6 +85,7 @@ int setfl(int fd, struct file * filp, unsigned long arg)
@@ -54,10 +54,10 @@ index 74c255d..ec53ee1 100644
  static void f_modown(struct file *filp, struct pid *pid, enum pid_type type,
                       int force)
 diff --git a/fs/file_table.c b/fs/file_table.c
-index 2dc9f38..7bf57df 100644
+index 7ec0b3e..819ee07 100644
 --- a/fs/file_table.c
 +++ b/fs/file_table.c
-@@ -148,6 +148,7 @@ struct file *get_empty_filp(void)
+@@ -147,6 +147,7 @@ struct file *get_empty_filp(void)
  	}
  	return ERR_PTR(-ENFILE);
  }
@@ -65,7 +65,7 @@ index 2dc9f38..7bf57df 100644
  
  /**
   * alloc_file - allocate and initialize a 'struct file'
-@@ -258,6 +259,7 @@ void flush_delayed_fput(void)
+@@ -257,6 +258,7 @@ void flush_delayed_fput(void)
  {
  	delayed_fput(NULL);
  }
@@ -73,7 +73,7 @@ index 2dc9f38..7bf57df 100644
  
  static DECLARE_DELAYED_WORK(delayed_fput_work, delayed_fput);
  
-@@ -300,6 +302,7 @@ void __fput_sync(struct file *file)
+@@ -299,6 +301,7 @@ void __fput_sync(struct file *file)
  }
  
  EXPORT_SYMBOL(fput);
@@ -81,7 +81,7 @@ index 2dc9f38..7bf57df 100644
  
  void put_filp(struct file *file)
  {
-@@ -308,6 +311,7 @@ void put_filp(struct file *file)
+@@ -307,6 +310,7 @@ void put_filp(struct file *file)
  		file_free(file);
  	}
  }
@@ -90,10 +90,10 @@ index 2dc9f38..7bf57df 100644
  void __init files_init(void)
  {
 diff --git a/fs/inode.c b/fs/inode.c
-index 517883c..5cece5e 100644
+index 929a5a3..d93653e 100644
 --- a/fs/inode.c
 +++ b/fs/inode.c
-@@ -1664,6 +1664,7 @@ int update_time(struct inode *inode, struct timespec *time, int flags)
+@@ -1668,6 +1668,7 @@ int update_time(struct inode *inode, struct timespec *time, int flags)
  
  	return update_time(inode, time, flags);
  }
@@ -302,7 +302,7 @@ index 61cd28b..35570cd 100644
  ssize_t
  __vfs_getxattr(struct dentry *dentry, struct inode *inode, const char *name,
 diff --git a/kernel/locking/lockdep.c b/kernel/locking/lockdep.c
-index 8b5f44d..979db63 100644
+index 0dca42f..7bb20c5 100644
 --- a/kernel/locking/lockdep.c
 +++ b/kernel/locking/lockdep.c
 @@ -151,6 +151,7 @@ inline struct lock_class *lockdep_hlock_class(struct held_lock *hlock)

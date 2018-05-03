@@ -1,0 +1,32 @@
+From 0f2754cee38fd2bc42f446d299ff0c53815dc5bd Mon Sep 17 00:00:00 2001
+From: Preetham Ramchandra <pchandru@nvidia.com>
+Date: Mon, 12 Mar 2018 17:10:32 +0530
+Subject: [PATCH 7/7] arm64: tegra: Enable AHCI on Jetson TX1
+
+Enable AHCI on Jetson TX1 and add sata phy node.
+
+Signed-off-by: Preetham Chandru R <pchandru@nvidia.com>
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+---
+ arch/arm64/boot/dts/nvidia/tegra210-p2597.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/nvidia/tegra210-p2597.dtsi b/arch/arm64/boot/dts/nvidia/tegra210-p2597.dtsi
+index d67ef4319f3b..9d5a0e6b2ca4 100644
+--- a/arch/arm64/boot/dts/nvidia/tegra210-p2597.dtsi
++++ b/arch/arm64/boot/dts/nvidia/tegra210-p2597.dtsi
+@@ -1325,6 +1325,11 @@
+ 		status = "okay";
+ 	};
+ 
++	sata@70020000 {
++		status = "okay";
++		phys = <&{/padctl@7009f000/pads/sata/lanes/sata-0}>;
++	};
++
+ 	padctl@7009f000 {
+ 		status = "okay";
+ 
+-- 
+2.11.0
+

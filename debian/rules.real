@@ -166,7 +166,18 @@ $(STAMPS_DIR)/setup_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/source_$(FEA
 	echo 'override ARCH = $(KERNEL_ARCH)' >> '$(DIR)/.kernelvariables'
 	echo 'override KERNELRELEASE = $(ABINAME)$(LOCALVERSION_IMAGE)' >> '$(DIR)/.kernelvariables'
 	echo 'CCACHE = ccache' >> '$(DIR)/.kernelvariables'
+ifeq (./,$(dir $(COMPILER)))
 	echo 'CC = $$(if $$(DEBIAN_KERNEL_USE_CCACHE),$$(CCACHE)) $$(CROSS_COMPILE)$(COMPILER)' >> '$(DIR)/.kernelvariables'
+else
+# To allow for cross-compiles, we want to split up the configured
+# compiler filename and prepend the directory to $PATH.  For a native
+# compile, so long as the configured compiler is installed it should
+# always be found first.
+# However, $PATH changes don't work consistently in make (bug #895835).
+# Instead we do the path lookup here and generate a new absolute
+# filename.
+	echo 'CC = $$(if $$(DEBIAN_KERNEL_USE_CCACHE),$$(CCACHE)) $$(word 1,$$(foreach dir,$(dir $(COMPILER)) $$(subst :, ,$$(PATH)),$$(wildcard $$(dir)/$$(CROSS_COMPILE)$(notdir $(COMPILER)))))' >> '$(DIR)/.kernelvariables'
+endif
 # TODO: Should we set CROSS_COMPILE always?
 ifdef OVERRIDE_HOST_TYPE
 	echo 'override CROSS_COMPILE = $(OVERRIDE_HOST_TYPE)-' >> '$(DIR)/.kernelvariables'
@@ -493,9 +504,34 @@ endif
 	ln -s ../../../boot/vmlinux-$(REAL_VERSION) $(DEBUG_DIR)/lib/modules/$(REAL_VERSION)/vmlinux
 	+$(MAKE_SELF) install-base
 
+install-signed-template_$(ARCH): PACKAGE_NAME = linux-image-$(ARCH)-signed-template
+install-signed-template_$(ARCH): DH_OPTIONS = -p$(PACKAGE_NAME)
+install-signed-template_$(ARCH): PACKAGE_DIR = debian/$(PACKAGE_NAME)
+install-signed-template_$(ARCH): CODE_SIGNING_DIR = $(PACKAGE_DIR)/usr/share/code-signing/$(PACKAGE_NAME)
+install-signed-template_$(ARCH):
+	dh_testdir
+	dh_testroot
+	dh_prep
+	rm -rf $(CODE_SIGNING_DIR)
+	mkdir -p $(CODE_SIGNING_DIR)
+	PYTHONHASHSEED=0 debian/bin/gencontrol_signed.py $(ARCH)
+	cp -R	debian/compat \
+		debian/signing_templates/copyright \
+		debian/signing_templates/README.source \
+		debian/signing_templates/rules \
+		debian/signing_templates/rules.real \
+		debian/signing_templates/source \
+		$(CODE_SIGNING_DIR)/source-template/debian/
+	dh_fixperms
+	dh_gencontrol
+	dh_builddeb
+
 install-udeb_$(ARCH): export KW_DEFCONFIG_DIR=debian/installer
 install-udeb_$(ARCH): export KW_CONFIG_DIR=debian/installer/$(ARCH)
 install-udeb_$(ARCH): DH_OPTIONS=$(PACKAGE_NAMES:%=-p%)
+ifeq ($(UDEB_UNSIGNED_TEST_BUILD),True)
+install-udeb_$(ARCH): export DEB_BUILD_PROFILES=pkg.linux.udeb-unsigned-test-build
+endif
 install-udeb_$(ARCH):
 	dh_testdir
 	dh_prep

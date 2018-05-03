@@ -47,7 +47,6 @@ CONFIG_SCx200HR_TIMER=m
 ## file: arch/x86/Kconfig.cpu
 ##
 CONFIG_X86_GENERIC=y
-# CONFIG_X86_PPRO_FENCE is not set
 
 ##
 ## file: crypto/Kconfig

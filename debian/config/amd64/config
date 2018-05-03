@@ -21,7 +21,6 @@ CONFIG_KEXEC_VERIFY_SIG=y
 CONFIG_KEXEC_BZIMAGE_VERIFY_SIG=y
 CONFIG_RANDOMIZE_MEMORY=y
 ## choice: vsyscall table for legacy applications
-# CONFIG_LEGACY_VSYSCALL_NATIVE is not set
 # CONFIG_LEGACY_VSYSCALL_EMULATE is not set
 CONFIG_LEGACY_VSYSCALL_NONE=y
 ## end choice
@@ -146,6 +145,11 @@ CONFIG_VOP=m
 ## file: drivers/net/Kconfig
 ##
 CONFIG_FUJITSU_ES=m
+
+##
+## file: drivers/net/ethernet/amd/Kconfig
+##
+CONFIG_AMD_XGBE=m
 
 ##
 ## file: drivers/net/wireless/intel/ipw2x00/Kconfig

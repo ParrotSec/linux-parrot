@@ -1,0 +1,49 @@
+From 294840feefb7fefb49a276544cbd29aac28e5e7d Mon Sep 17 00:00:00 2001
+From: Preetham Ramchandra <pchandru@nvidia.com>
+Date: Mon, 12 Mar 2018 17:10:37 +0530
+Subject: [PATCH 5/7] ata: ahci_tegra: Add AHCI support for Tegra210
+
+Add support for the AHCI-compliant Serial ATA host controller on the
+Tegra210 system-on-chip.
+
+Signed-off-by: Preetham Chandru R <pchandru@nvidia.com>
+Acked-by: Thierry Reding <treding@nvidia.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+---
+ drivers/ata/ahci_tegra.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ata/ahci_tegra.c b/drivers/ata/ahci_tegra.c
+index 20c1fccbc669..64d848409fe2 100644
+--- a/drivers/ata/ahci_tegra.c
++++ b/drivers/ata/ahci_tegra.c
+@@ -465,11 +465,19 @@ static const struct tegra_ahci_soc tegra124_ahci_soc = {
+ 	.ops = &tegra124_ahci_ops,
+ };
+ 
++static const struct tegra_ahci_soc tegra210_ahci_soc = {
++	.supports_devslp = false,
++};
++
+ static const struct of_device_id tegra_ahci_of_match[] = {
+ 	{
+ 		.compatible = "nvidia,tegra124-ahci",
+ 		.data = &tegra124_ahci_soc
+ 	},
++	{
++		.compatible = "nvidia,tegra210-ahci",
++		.data = &tegra210_ahci_soc
++	},
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, tegra_ahci_of_match);
+@@ -584,5 +592,5 @@ static struct platform_driver tegra_ahci_driver = {
+ module_platform_driver(tegra_ahci_driver);
+ 
+ MODULE_AUTHOR("Mikko Perttunen <mperttunen@nvidia.com>");
+-MODULE_DESCRIPTION("Tegra124 AHCI SATA driver");
++MODULE_DESCRIPTION("Tegra AHCI SATA driver");
+ MODULE_LICENSE("GPL v2");
+-- 
+2.11.0
+

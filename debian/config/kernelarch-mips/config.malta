@@ -330,7 +330,6 @@ CONFIG_SCSI_FUTURE_DOMAIN=m
 CONFIG_SCSI_IPS=m
 CONFIG_SCSI_INITIO=m
 CONFIG_SCSI_INIA100=m
-CONFIG_SCSI_SYM53C8XX_2=m
 CONFIG_SCSI_QLOGIC_1280=m
 CONFIG_SCSI_DC395x=m
 CONFIG_SCSI_AM53C974=m
@@ -343,6 +342,11 @@ CONFIG_MEGARAID_NEWGEN=y
 CONFIG_MEGARAID_MM=m
 CONFIG_MEGARAID_MAILBOX=m
 CONFIG_MEGARAID_LEGACY=m
+
+##
+## file: drivers/staging/ipx/Kconfig
+##
+CONFIG_IPX=m
 
 ##
 ## file: drivers/tty/serial/Kconfig
@@ -435,11 +439,6 @@ CONFIG_DECNET=m
 ## file: net/decnet/netfilter/Kconfig
 ##
 CONFIG_DECNET_NF_GRABULATOR=m
-
-##
-## file: net/ipx/Kconfig
-##
-CONFIG_IPX=m
 
 ##
 ## file: net/lapb/Kconfig

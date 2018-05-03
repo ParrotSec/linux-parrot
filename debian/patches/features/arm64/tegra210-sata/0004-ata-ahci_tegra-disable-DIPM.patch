@@ -1,0 +1,30 @@
+From 01fbf60b0e6fb9932a26959bbf338b9b5b193592 Mon Sep 17 00:00:00 2001
+From: Preetham Ramchandra <pchandru@nvidia.com>
+Date: Mon, 12 Mar 2018 17:10:36 +0530
+Subject: [PATCH 4/7] ata: ahci_tegra: disable DIPM
+
+Tegra does not support DIPM and it should be disabled.
+
+Signed-off-by: Preetham Chandru R <pchandru@nvidia.com>
+Acked-by: Thierry Reding <treding@nvidia.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+---
+ drivers/ata/ahci_tegra.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/ata/ahci_tegra.c b/drivers/ata/ahci_tegra.c
+index 620cdd16ef2f..20c1fccbc669 100644
+--- a/drivers/ata/ahci_tegra.c
++++ b/drivers/ata/ahci_tegra.c
+@@ -444,7 +444,7 @@ static struct ata_port_operations ahci_tegra_port_ops = {
+ };
+ 
+ static const struct ata_port_info ahci_tegra_port_info = {
+-	.flags		= AHCI_FLAG_COMMON,
++	.flags		= AHCI_FLAG_COMMON | ATA_FLAG_NO_DIPM,
+ 	.pio_mask	= ATA_PIO4,
+ 	.udma_mask	= ATA_UDMA6,
+ 	.port_ops	= &ahci_tegra_port_ops,
+-- 
+2.11.0
+

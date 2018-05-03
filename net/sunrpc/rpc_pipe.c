@@ -340,20 +340,20 @@ rpc_pipe_write(struct file *filp, const char __user *buf, size_t len, loff_t *of
 	return res;
 }
 
-static unsigned int
+static __poll_t
 rpc_pipe_poll(struct file *filp, struct poll_table_struct *wait)
 {
 	struct inode *inode = file_inode(filp);
 	struct rpc_inode *rpci = RPC_I(inode);
-	unsigned int mask = POLLOUT | POLLWRNORM;
+	__poll_t mask = EPOLLOUT | EPOLLWRNORM;
 
 	poll_wait(filp, &rpci->waitq, wait);
 
 	inode_lock(inode);
 	if (rpci->pipe == NULL)
-		mask |= POLLERR | POLLHUP;
+		mask |= EPOLLERR | EPOLLHUP;
 	else if (filp->private_data || !list_empty(&rpci->pipe->pipe))
-		mask |= POLLIN | POLLRDNORM;
+		mask |= EPOLLIN | EPOLLRDNORM;
 	inode_unlock(inode);
 	return mask;
 }
@@ -1375,6 +1375,7 @@ rpc_gssd_dummy_depopulate(struct dentry *pipe_dentry)
 	struct dentry *clnt_dir = pipe_dentry->d_parent;
 	struct dentry *gssd_dir = clnt_dir->d_parent;
 
+	dget(pipe_dentry);
 	__rpc_rmpipe(d_inode(clnt_dir), pipe_dentry);
 	__rpc_depopulate(clnt_dir, gssd_dummy_info_file, 0, 1);
 	__rpc_depopulate(gssd_dir, gssd_dummy_clnt_dir, 0, 1);

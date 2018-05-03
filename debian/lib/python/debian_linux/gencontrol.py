@@ -95,7 +95,8 @@ class Gencontrol(object):
 
     def do_source(self, packages):
         source = self.templates["control.source"][0]
-        source['Source'] = self.changelog[0].source
+        if not source.get('Source'):
+            source['Source'] = self.changelog[0].source
         packages['source'] = self.process_package(source, self.vars)
 
     def do_main(self, packages, makefile):
@@ -321,11 +322,11 @@ class Gencontrol(object):
         self.config.write(f)
         f.close()
 
-    def write_control(self, list):
-        self.write_rfc822(codecs.open("debian/control", 'w', 'utf-8'), list)
+    def write_control(self, list, name='debian/control'):
+        self.write_rfc822(codecs.open(name, 'w', 'utf-8'), list)
 
-    def write_makefile(self, makefile):
-        f = open("debian/rules.gen", 'w')
+    def write_makefile(self, makefile, name='debian/rules.gen'):
+        f = open(name, 'w')
         makefile.write(f)
         f.close()
 

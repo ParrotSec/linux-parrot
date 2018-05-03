@@ -1,17 +1,13 @@
-/*
- * Copyright (c) 2011-2014 Samsung Electronics Co., Ltd.
- *		http://www.samsung.com
- *
- * EXYNOS - Power Management support
- *
- * Based on arch/arm/mach-s3c2410/pm.c
- * Copyright (c) 2006 Simtec Electronics
- *	Ben Dooks <ben@simtec.co.uk>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
-*/
+// SPDX-License-Identifier: GPL-2.0
+//
+// Copyright (c) 2011-2014 Samsung Electronics Co., Ltd.
+//		http://www.samsung.com
+//
+// EXYNOS - Power Management support
+//
+// Based on arch/arm/mach-s3c2410/pm.c
+// Copyright (c) 2006 Simtec Electronics
+//	Ben Dooks <ben@simtec.co.uk>
 
 #include <linux/init.h>
 #include <linux/suspend.h>
@@ -275,11 +271,7 @@ abort:
 				goto fail;
 
 			call_firmware_op(cpu_boot, 1);
-
-			if (soc_is_exynos3250())
-				dsb_sev();
-			else
-				arch_send_wakeup_ipi_mask(cpumask_of(1));
+			dsb_sev();
 		}
 	}
 fail:

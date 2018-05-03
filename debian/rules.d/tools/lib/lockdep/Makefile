@@ -19,5 +19,5 @@ install:
 	$(MAKE_LOCKDEP) install
 	mkdir -p $(DESTDIR)/usr/include
 	cp -R $(top_srcdir)/$(OUTDIR)/include/liblockdep $(DESTDIR)/usr/include/
-	ln -s liblockdep.so.$(VERSION) \
+	ln -sf liblockdep.so.$(VERSION) \
 		$(DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/liblockdep.so

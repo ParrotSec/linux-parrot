@@ -1,0 +1,25 @@
+Subject: parisc: Make bzImage default build target
+From: Helge Deller <deller@gmx.de>
+Date: Wed, 18 Apr 2018 07:49:19 +0200
+Forwarded: https://patchwork.kernel.org/patch/10347405/
+
+Debian uses "make all" to build the Linux kernel, thus to be able to use
+the self-decompressing kernel as default debian kernel we need to make
+bzImage the default build target.
+
+Signed-off-by: Helge Deller <deller@gmx.de>
+
+diff --git a/arch/parisc/Makefile b/arch/parisc/Makefile
+index e2364ff59180..34ac503e28ad 100644
+--- a/arch/parisc/Makefile
++++ b/arch/parisc/Makefile
+@@ -123,6 +123,9 @@ INSTALL_TARGETS = zinstall install
+ 
+ PHONY += bzImage $(BOOT_TARGETS) $(INSTALL_TARGETS)
+ 
++# Default kernel to build
++all: bzImage
++
+ zImage: vmlinuz
+ Image: vmlinux
+ 

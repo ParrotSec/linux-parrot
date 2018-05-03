@@ -25,7 +25,3 @@ mac80211_hwsim -
 lib80211_crypt_wep ?
 lib80211_crypt_ccmp ?
 lib80211_crypt_tkip ?
-
-# Crypto modules needed for ieee80211 WEP support
-ecb ?
-arc4 ?

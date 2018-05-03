@@ -1,18 +1,10 @@
 [base]
 flavours:
- #marvell
+ marvell
 kernel-arch: arm
-featuresets:
-# empty; not building images right now
-# cf.: https://lists.debian.org/debian-release/2018/02/msg00239.html
-# none
 
 [build]
 image-file: arch/arm/boot/zImage
-# Signature verification disabled to save on code size.  This should
-# apply only to marvell, but we would then need to build udebs only for
-# marvell and we don't have a way to do that.
-signed-modules: false
 # uncompressed-image is just for size checking
 uncompressed-image-file: arch/arm/boot/Image
 
@@ -24,8 +16,7 @@ headers%gcc-7: linux-compiler-gcc-7-arm
 
 [marvell_description]
 hardware: Marvell Kirkwood/Orion
-hardware-long: Marvell Kirkwood based systems (SheevaPlug, QNAP TS-119/TS-219, etc)
- and Orion 5181, 5182 and 5281 based systems (QNAP TS-109/TS-209, etc)
+hardware-long: Marvell Kirkwood and Orion based systems (https://wiki.debian.org/ArmEabiPort#Supported_hardware)
 
 [marvell_image]
 recommends: u-boot-tools

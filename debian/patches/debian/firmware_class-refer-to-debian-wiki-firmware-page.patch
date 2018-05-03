@@ -16,14 +16,14 @@ anything.
 ---
 --- a/drivers/base/firmware_class.c
 +++ b/drivers/base/firmware_class.c
-@@ -430,9 +430,12 @@ fw_get_filesystem_firmware(struct device
+@@ -455,9 +455,12 @@ fw_get_filesystem_firmware(struct device
  	}
  	__putname(path);
  
 -	if (rc)
 +	if (rc) {
  		dev_err(device, "firmware: failed to load %s (%d)\n",
- 			buf->fw_id, rc);
+ 			fw_priv->fw_name, rc);
 +		if (rc == -ENOENT)
 +			pr_err_once("See https://wiki.debian.org/Firmware for information about missing firmware\n");
 +	}
@@ -42,7 +42,7 @@ anything.
  
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-@@ -605,6 +605,7 @@ static int amdgpu_pci_probe(struct pci_d
+@@ -609,6 +609,7 @@ static int amdgpu_pci_probe(struct pci_d
  
  	if (!amdgpu_firmware_installed()) {
  		DRM_ERROR("amdgpu requires firmware installed\n");
