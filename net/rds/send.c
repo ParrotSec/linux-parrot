@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Oracle.  All rights reserved.
+ * Copyright (c) 2006, 2018 Oracle and/or its affiliates. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -159,6 +159,12 @@ restart:
 	if (!acquire_in_xmit(cp)) {
 		rds_stats_inc(s_send_lock_contention);
 		ret = -ENOMEM;
+		goto out;
+	}
+
+	if (rds_destroy_pending(cp->cp_conn)) {
+		release_in_xmit(cp);
+		ret = -ENETUNREACH; /* dont requeue send work */
 		goto out;
 	}
 
@@ -437,7 +443,12 @@ over_batch:
 		    !list_empty(&cp->cp_send_queue)) && !raced) {
 			if (batch_count < send_batch_count)
 				goto restart;
-			queue_delayed_work(rds_wq, &cp->cp_send_w, 1);
+			rcu_read_lock();
+			if (rds_destroy_pending(cp->cp_conn))
+				ret = -ENETUNREACH;
+			else
+				queue_delayed_work(rds_wq, &cp->cp_send_w, 1);
+			rcu_read_unlock();
 		} else if (raced) {
 			rds_stats_inc(s_send_lock_queue_raced);
 		}
@@ -986,10 +997,15 @@ static int rds_send_mprds_hash(struct rds_sock *rs, struct rds_connection *conn)
 	if (conn->c_npaths == 0 && hash != 0) {
 		rds_send_ping(conn, 0);
 
-		if (conn->c_npaths == 0) {
-			wait_event_interruptible(conn->c_hs_waitq,
-						 (conn->c_npaths != 0));
-		}
+		/* The underlying connection is not up yet.  Need to wait
+		 * until it is up to be sure that the non-zero c_path can be
+		 * used.  But if we are interrupted, we have to use the zero
+		 * c_path in case the connection ends up being non-MP capable.
+		 */
+		if (conn->c_npaths == 0)
+			if (wait_event_interruptible(conn->c_hs_waitq,
+						     conn->c_npaths != 0))
+				hash = 0;
 		if (conn->c_npaths == 1)
 			hash = 0;
 	}
@@ -1151,6 +1167,11 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
 	else
 		cpath = &conn->c_path[0];
 
+	if (rds_destroy_pending(conn)) {
+		ret = -EAGAIN;
+		goto out;
+	}
+
 	rds_conn_path_connect_if_down(cpath);
 
 	ret = rds_cong_wait(conn->c_fcong, dport, nonblock, rs);
@@ -1190,9 +1211,17 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
 	rds_stats_inc(s_send_queued);
 
 	ret = rds_send_xmit(cpath);
-	if (ret == -ENOMEM || ret == -EAGAIN)
-		queue_delayed_work(rds_wq, &cpath->cp_send_w, 1);
-
+	if (ret == -ENOMEM || ret == -EAGAIN) {
+		ret = 0;
+		rcu_read_lock();
+		if (rds_destroy_pending(cpath->cp_conn))
+			ret = -ENETUNREACH;
+		else
+			queue_delayed_work(rds_wq, &cpath->cp_send_w, 1);
+		rcu_read_unlock();
+	}
+	if (ret)
+		goto out;
 	rds_message_put(rm);
 	return payload_len;
 
@@ -1270,7 +1299,10 @@ rds_send_probe(struct rds_conn_path *cp, __be16 sport,
 	rds_stats_inc(s_send_pong);
 
 	/* schedule the send work on rds_wq */
-	queue_delayed_work(rds_wq, &cp->cp_send_w, 1);
+	rcu_read_lock();
+	if (!rds_destroy_pending(cp->cp_conn))
+		queue_delayed_work(rds_wq, &cp->cp_send_w, 1);
+	rcu_read_unlock();
 
 	rds_message_put(rm);
 	return 0;

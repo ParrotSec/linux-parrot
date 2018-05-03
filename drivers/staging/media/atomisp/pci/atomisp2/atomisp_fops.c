@@ -1255,7 +1255,7 @@ static int atomisp_file_mmap(struct file *file, struct vm_area_struct *vma)
 	return videobuf_mmap_mapper(&pipe->outq, vma);
 }
 
-static unsigned int atomisp_poll(struct file *file,
+static __poll_t atomisp_poll(struct file *file,
 				 struct poll_table_struct *pt)
 {
 	struct video_device *vdev = video_devdata(file);
@@ -1265,7 +1265,7 @@ static unsigned int atomisp_poll(struct file *file,
 	rt_mutex_lock(&isp->mutex);
 	if (pipe->capq.streaming != 1) {
 		rt_mutex_unlock(&isp->mutex);
-		return POLLERR;
+		return EPOLLERR;
 	}
 	rt_mutex_unlock(&isp->mutex);
 
@@ -1279,7 +1279,10 @@ const struct v4l2_file_operations atomisp_fops = {
 	.mmap = atomisp_mmap,
 	.unlocked_ioctl = video_ioctl2,
 #ifdef CONFIG_COMPAT
+	/*
+	 * There are problems with this code. Disable this for now.
 	.compat_ioctl32 = atomisp_compat_ioctl32,
+	 */
 #endif
 	.poll = atomisp_poll,
 };
@@ -1291,7 +1294,10 @@ const struct v4l2_file_operations atomisp_file_fops = {
 	.mmap = atomisp_file_mmap,
 	.unlocked_ioctl = video_ioctl2,
 #ifdef CONFIG_COMPAT
+	/*
+	 * There are problems with this code. Disable this for now.
 	.compat_ioctl32 = atomisp_compat_ioctl32,
+	 */
 #endif
 	.poll = atomisp_poll,
 };
