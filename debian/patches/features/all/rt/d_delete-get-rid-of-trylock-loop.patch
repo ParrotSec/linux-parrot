@@ -1,0 +1,60 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Fri, 23 Feb 2018 21:02:31 -0500
+Subject: [PATCH] d_delete(): get rid of trylock loop
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit c19457f0aed7fae73bb40e68ffcc72f36e3966a5
+
+just grab ->i_lock first; we have a positive dentry, nothing's going
+to happen to inode
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |   28 +++++++++-------------------
+ 1 file changed, 9 insertions(+), 19 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -2377,32 +2377,22 @@ EXPORT_SYMBOL(d_hash_and_lookup);
+  
+ void d_delete(struct dentry * dentry)
+ {
+-	struct inode *inode;
+-	int isdir = 0;
++	struct inode *inode = dentry->d_inode;
++	int isdir = d_is_dir(dentry);
++
++	spin_lock(&inode->i_lock);
++	spin_lock(&dentry->d_lock);
+ 	/*
+ 	 * Are we the only user?
+ 	 */
+-again:
+-	spin_lock(&dentry->d_lock);
+-	inode = dentry->d_inode;
+-	isdir = S_ISDIR(inode->i_mode);
+ 	if (dentry->d_lockref.count == 1) {
+-		if (!spin_trylock(&inode->i_lock)) {
+-			spin_unlock(&dentry->d_lock);
+-			cpu_relax();
+-			goto again;
+-		}
+ 		dentry->d_flags &= ~DCACHE_CANT_MOUNT;
+ 		dentry_unlink_inode(dentry);
+-		fsnotify_nameremove(dentry, isdir);
+-		return;
+-	}
+-
+-	if (!d_unhashed(dentry))
++	} else {
+ 		__d_drop(dentry);
+-
+-	spin_unlock(&dentry->d_lock);
+-
++		spin_unlock(&dentry->d_lock);
++		spin_unlock(&inode->i_lock);
++	}
+ 	fsnotify_nameremove(dentry, isdir);
+ }
+ EXPORT_SYMBOL(d_delete);

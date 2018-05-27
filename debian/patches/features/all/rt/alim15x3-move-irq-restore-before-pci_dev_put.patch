@@ -1,0 +1,34 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 3 Apr 2018 15:13:20 +0200
+Subject: [PATCH] alim15x3: move irq-restore before pci_dev_put()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+init_chipset_ali15x3() initializes the chipset during init with disabled
+interrupts. There is no need to keep the interrupts disabled during
+pci_dev_put().
+Move the irq-restore before pci_dev_put() is invoked.
+
+Side note: The same init is performed in
+drivers/ata/pata_ali.c::ali_init_chipset() without disabled interrupts.
+It looks that the same hardware is supported in the ATA land. Would it
+make sense to remove this driver since it is supported in the other
+subsystem?
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/ide/alim15x3.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/ide/alim15x3.c
++++ b/drivers/ide/alim15x3.c
+@@ -323,9 +323,9 @@ static int init_chipset_ali15x3(struct p
+ 
+ 		pci_write_config_byte(dev, 0x53, tmpbyte);
+ 	}
++	local_irq_restore(flags);
+ 	pci_dev_put(north);
+ 	pci_dev_put(isa_dev);
+-	local_irq_restore(flags);
+ 	return 0;
+ }
+ 

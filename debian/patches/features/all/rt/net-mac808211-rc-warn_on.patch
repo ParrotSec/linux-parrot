@@ -1,0 +1,54 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Tue, 10 Apr 2018 11:37:12 +0200
+Subject: [PATCH] net: mac808211: mac802154: use lockdep_assert_in_softirq() instead own warning
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+The warning in ieee802154_rx() and ieee80211_rx_napi() is there to ensure
+the softirq context for the subsequent netif_receive_skb() call. The check
+could be moved into the netif_receive_skb() function to prevent all calling
+functions implement the checks on their own. Use the lockdep variant for
+softirq context check. While at it, add a lockdep based check for irq
+enabled as mentioned in the comment above netif_receive_skb().
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ net/core/dev.c     |    3 +++
+ net/mac80211/rx.c  |    2 --
+ net/mac802154/rx.c |    2 --
+ 3 files changed, 3 insertions(+), 4 deletions(-)
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4720,6 +4720,9 @@ static int netif_receive_skb_internal(st
+  */
+ int netif_receive_skb(struct sk_buff *skb)
+ {
++	lockdep_assert_irqs_enabled();
++	lockdep_assert_in_softirq();
++
+ 	trace_netif_receive_skb_entry(skb);
+ 
+ 	return netif_receive_skb_internal(skb);
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -4245,8 +4245,6 @@ void ieee80211_rx_napi(struct ieee80211_
+ 	struct ieee80211_supported_band *sband;
+ 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
+ 
+-	WARN_ON_ONCE(softirq_count() == 0);
+-
+ 	if (WARN_ON(status->band >= NUM_NL80211_BANDS))
+ 		goto drop;
+ 
+--- a/net/mac802154/rx.c
++++ b/net/mac802154/rx.c
+@@ -258,8 +258,6 @@ void ieee802154_rx(struct ieee802154_loc
+ {
+ 	u16 crc;
+ 
+-	WARN_ON_ONCE(softirq_count() == 0);
+-
+ 	if (local->suspended)
+ 		goto drop;
+ 

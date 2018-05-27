@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 21 Nov 2016 19:31:08 +0100
 Subject: [PATCH] kernel/sched: move stack + kprobe clean up to
  __put_task_struct()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 There is no need to free the stack before the task struct. This also
 comes handy on -RT because we can't free memory in preempt disabled
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include <linux/vmacache.h>
  #include <linux/nsproxy.h>
  #include <linux/capability.h>
-@@ -417,6 +418,15 @@ void __put_task_struct(struct task_struc
+@@ -661,6 +662,15 @@ void __put_task_struct(struct task_struc
  	WARN_ON(atomic_read(&tsk->usage));
  	WARN_ON(tsk == current);
  
@@ -43,7 +43,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	security_task_free(tsk);
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -2705,15 +2705,6 @@ static struct rq *finish_task_switch(str
+@@ -2778,15 +2778,6 @@ static struct rq *finish_task_switch(str
  		if (prev->sched_class->task_dead)
  			prev->sched_class->task_dead(prev);
  

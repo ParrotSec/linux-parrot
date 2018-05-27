@@ -8,7 +8,7 @@ tp3
 (dp4
 Vabiname
 p5
-Vparrot5
+V2
 p6
 sVignore-changes
 p7
@@ -231,7 +231,7 @@ tp118
 (dp119
 Venabled
 p120
-I00
+I01
 ss(Vdescription
 p121
 tp122
@@ -2759,7 +2759,7 @@ tp1467
 (dp1468
 Vsource
 p1469
-V4.16.5-1parrot5
+V4.16.12-1
 p1470
 sVupstream
 p1471
@@ -2771,6 +2771,6 @@ V4.16.0
 p1474
 sVabiname
 p1475
-V4.16.0-parrot5
+V4.16.0-2
 p1476
 ss.

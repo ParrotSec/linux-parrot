@@ -1,0 +1,169 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Mon, 16 Apr 2018 16:15:24 +0200
+Subject: [PATCH] iommu/amd: Cleanup locking in __attach/detach_device()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Since introduction of the pd_bitmap_lock in commit 2bc001808904
+("iommu/amd: Split domain id out of amd_iommu_devtable_lock")
+amd_iommu_devtable_lock is only taken around __detach_device() and
+__attach_device() calls.
+
+The lock is not protecting anything as all operations are domain specific
+and protected by domain->lock in __detach_device() and __attach_device(),
+so amd_iommu_devtable_lock has no real purpose anymore.
+
+Lock domain->lock before calling into __detach_device() and
+__attach_device() and simplify the implementation of those functions. Add
+lockdep checks where appropriate.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/iommu/amd_iommu.c |   70 +++++++++-------------------------------------
+ 1 file changed, 15 insertions(+), 55 deletions(-)
+
+--- a/drivers/iommu/amd_iommu.c
++++ b/drivers/iommu/amd_iommu.c
+@@ -80,7 +80,6 @@
+  */
+ #define AMD_IOMMU_PGSIZES	((~0xFFFUL) & ~(2ULL << 38))
+ 
+-static DEFINE_SPINLOCK(amd_iommu_devtable_lock);
+ static DEFINE_SPINLOCK(pd_bitmap_lock);
+ 
+ /* List of all available dev_data structures */
+@@ -1884,6 +1883,8 @@ static void do_attach(struct iommu_dev_d
+ 	u16 alias;
+ 	bool ats;
+ 
++	lockdep_assert_held(&domain->lock);
++
+ 	iommu = amd_iommu_rlookup_table[dev_data->devid];
+ 	alias = dev_data->alias;
+ 	ats   = dev_data->ats.enabled;
+@@ -1904,11 +1905,13 @@ static void do_attach(struct iommu_dev_d
+ 	device_flush_dte(dev_data);
+ }
+ 
+-static void do_detach(struct iommu_dev_data *dev_data)
++static void __detach_device(struct iommu_dev_data *dev_data)
+ {
+ 	struct amd_iommu *iommu;
+ 	u16 alias;
+ 
++	lockdep_assert_held(&dev_data->domain->lock);
++
+ 	iommu = amd_iommu_rlookup_table[dev_data->devid];
+ 	alias = dev_data->alias;
+ 
+@@ -1934,32 +1937,13 @@ static void do_detach(struct iommu_dev_d
+ static int __attach_device(struct iommu_dev_data *dev_data,
+ 			   struct protection_domain *domain)
+ {
+-	int ret;
+-
+-	/*
+-	 * Must be called with IRQs disabled. Warn here to detect early
+-	 * when its not.
+-	 */
+-	WARN_ON(!irqs_disabled());
+-
+-	/* lock domain */
+-	spin_lock(&domain->lock);
+-
+-	ret = -EBUSY;
+ 	if (dev_data->domain != NULL)
+-		goto out_unlock;
++		return -EBUSY;
+ 
+ 	/* Attach alias group root */
+ 	do_attach(dev_data, domain);
+ 
+-	ret = 0;
+-
+-out_unlock:
+-
+-	/* ready */
+-	spin_unlock(&domain->lock);
+-
+-	return ret;
++	return 0;
+ }
+ 
+ 
+@@ -2086,9 +2070,10 @@ static int attach_device(struct device *
+ 	}
+ 
+ skip_ats_check:
+-	spin_lock_irqsave(&amd_iommu_devtable_lock, flags);
++
++	spin_lock_irqsave(&domain->lock, flags);
+ 	ret = __attach_device(dev_data, domain);
+-	spin_unlock_irqrestore(&amd_iommu_devtable_lock, flags);
++	spin_unlock_irqrestore(&domain->lock, flags);
+ 
+ 	/*
+ 	 * We might boot into a crash-kernel here. The crashed kernel
+@@ -2101,29 +2086,7 @@ static int attach_device(struct device *
+ }
+ 
+ /*
+- * Removes a device from a protection domain (unlocked)
+- */
+-static void __detach_device(struct iommu_dev_data *dev_data)
+-{
+-	struct protection_domain *domain;
+-
+-	/*
+-	 * Must be called with IRQs disabled. Warn here to detect early
+-	 * when its not.
+-	 */
+-	WARN_ON(!irqs_disabled());
+-
+-	domain = dev_data->domain;
+-
+-	spin_lock(&domain->lock);
+-
+-	do_detach(dev_data);
+-
+-	spin_unlock(&domain->lock);
+-}
+-
+-/*
+- * Removes a device from a protection domain (with devtable_lock held)
++ * Removes a device from a protection domain
+  */
+ static void detach_device(struct device *dev)
+ {
+@@ -2143,10 +2106,9 @@ static void detach_device(struct device
+ 	if (WARN_ON(!dev_data->domain))
+ 		return;
+ 
+-	/* lock device table */
+-	spin_lock_irqsave(&amd_iommu_devtable_lock, flags);
++	spin_lock_irqsave(&domain->lock, flags);
+ 	__detach_device(dev_data);
+-	spin_unlock_irqrestore(&amd_iommu_devtable_lock, flags);
++	spin_unlock_irqrestore(&domain->lock, flags);
+ 
+ 	if (!dev_is_pci(dev))
+ 		return;
+@@ -2809,16 +2771,14 @@ static void cleanup_domain(struct protec
+ 	struct iommu_dev_data *entry;
+ 	unsigned long flags;
+ 
+-	spin_lock_irqsave(&amd_iommu_devtable_lock, flags);
+-
++	spin_lock_irqsave(&domain->lock, flags);
+ 	while (!list_empty(&domain->dev_list)) {
+ 		entry = list_first_entry(&domain->dev_list,
+ 					 struct iommu_dev_data, list);
+ 		BUG_ON(!entry->domain);
+ 		__detach_device(entry);
+ 	}
+-
+-	spin_unlock_irqrestore(&amd_iommu_devtable_lock, flags);
++	spin_unlock_irqrestore(&domain->lock, flags);
+ }
+ 
+ static void protection_domain_free(struct protection_domain *domain)

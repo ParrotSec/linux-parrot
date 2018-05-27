@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 4 Sep 2017 18:31:50 +0200
 Subject: [PATCH] hrtimer: consolidate hrtimer_init() + hrtimer_init_sleeper()
  calls
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 hrtimer_init_sleeper() calls require a prior initialisation of the
 hrtimer object with hrtimer_init(). Lets make the initialisation of the
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
-@@ -2800,10 +2800,9 @@ static bool blk_mq_poll_hybrid_sleep(str
+@@ -3114,10 +3114,9 @@ static bool blk_mq_poll_hybrid_sleep(str
  	kt = nsecs;
  
  	mode = HRTIMER_MODE_REL;
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 -	hrtimer_init_sleeper(&hs, current);
  	do {
- 		if (test_bit(REQ_ATOM_COMPLETE, &rq->atomic_flags))
+ 		if (blk_mq_rq_state(rq) == MQ_RQ_COMPLETE)
  			break;
 --- a/include/linux/hrtimer.h
 +++ b/include/linux/hrtimer.h
@@ -80,7 +80,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  extern int schedule_hrtimeout_range_clock(ktime_t *expires,
 --- a/include/linux/wait.h
 +++ b/include/linux/wait.h
-@@ -487,8 +487,8 @@ do {										\
+@@ -489,8 +489,8 @@ do {										\
  	int __ret = 0;								\
  	struct hrtimer_sleeper __t;						\
  										\
@@ -93,7 +93,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				       current->timer_slack_ns,			\
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -2642,10 +2642,9 @@ static int futex_wait(u32 __user *uaddr,
+@@ -2624,10 +2624,9 @@ static int futex_wait(u32 __user *uaddr,
  	if (abs_time) {
  		to = &timeout;
  
@@ -107,7 +107,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		hrtimer_set_expires_range_ns(&to->timer, *abs_time,
  					     current->timer_slack_ns);
  	}
-@@ -2744,9 +2743,8 @@ static int futex_lock_pi(u32 __user *uad
+@@ -2726,9 +2725,8 @@ static int futex_lock_pi(u32 __user *uad
  
  	if (time) {
  		to = &timeout;
@@ -119,7 +119,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		hrtimer_set_expires(&to->timer, *time);
  	}
  
-@@ -3162,10 +3160,9 @@ static int futex_wait_requeue_pi(u32 __u
+@@ -3144,10 +3142,9 @@ static int futex_wait_requeue_pi(u32 __u
  
  	if (abs_time) {
  		to = &timeout;
@@ -135,7 +135,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
 --- a/kernel/time/hrtimer.c
 +++ b/kernel/time/hrtimer.c
-@@ -1603,13 +1603,44 @@ static enum hrtimer_restart hrtimer_wake
+@@ -1600,13 +1600,44 @@ static enum hrtimer_restart hrtimer_wake
  	return HRTIMER_NORESTART;
  }
  
@@ -181,7 +181,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  int nanosleep_copyout(struct restart_block *restart, struct timespec64 *ts)
  {
  	switch(restart->nanosleep.type) {
-@@ -1633,8 +1664,6 @@ static int __sched do_nanosleep(struct h
+@@ -1630,8 +1661,6 @@ static int __sched do_nanosleep(struct h
  {
  	struct restart_block *restart;
  
@@ -190,7 +190,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	do {
  		set_current_state(TASK_INTERRUPTIBLE);
  		hrtimer_start_expires(&t->timer, mode);
-@@ -1671,10 +1700,9 @@ static long __sched hrtimer_nanosleep_re
+@@ -1668,10 +1697,9 @@ static long __sched hrtimer_nanosleep_re
  	struct hrtimer_sleeper t;
  	int ret;
  
@@ -203,7 +203,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	ret = do_nanosleep(&t, HRTIMER_MODE_ABS);
  	destroy_hrtimer_on_stack(&t.timer);
  	return ret;
-@@ -1692,7 +1720,7 @@ long hrtimer_nanosleep(const struct time
+@@ -1689,7 +1717,7 @@ long hrtimer_nanosleep(const struct time
  	if (dl_task(current) || rt_task(current))
  		slack = 0;
  
@@ -212,7 +212,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	hrtimer_set_expires_range_ns(&t.timer, timespec64_to_ktime(*rqtp), slack);
  	ret = do_nanosleep(&t, mode);
  	if (ret != -ERESTART_RESTARTBLOCK)
-@@ -1883,11 +1911,9 @@ schedule_hrtimeout_range_clock(ktime_t *
+@@ -1884,11 +1912,9 @@ schedule_hrtimeout_range_clock(ktime_t *
  		return -EINTR;
  	}
  
@@ -227,7 +227,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (likely(t.task))
 --- a/net/core/pktgen.c
 +++ b/net/core/pktgen.c
-@@ -2252,7 +2252,8 @@ static void spin(struct pktgen_dev *pkt_
+@@ -2161,7 +2161,8 @@ static void spin(struct pktgen_dev *pkt_
  	s64 remaining;
  	struct hrtimer_sleeper t;
  
@@ -237,7 +237,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	hrtimer_set_expires(&t.timer, spin_until);
  
  	remaining = ktime_to_ns(hrtimer_expires_remaining(&t.timer));
-@@ -2267,7 +2268,6 @@ static void spin(struct pktgen_dev *pkt_
+@@ -2176,7 +2177,6 @@ static void spin(struct pktgen_dev *pkt_
  		} while (ktime_compare(end_time, spin_until) < 0);
  	} else {
  		/* see do_nanosleep */

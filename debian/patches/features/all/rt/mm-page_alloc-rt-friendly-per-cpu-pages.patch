@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:29:37 -0500
 Subject: mm: page_alloc: rt-friendly per-cpu pages
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 rt-friendly per-cpu pages: convert the irqs-off per-cpu locking
 method into a preemptible, explicit-per-cpu-locks method.
@@ -13,8 +13,8 @@ Contains fixes from:
 Signed-off-by: Ingo Molnar <mingo@elte.hu>
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- mm/page_alloc.c |   55 +++++++++++++++++++++++++++++++++++++++----------------
- 1 file changed, 39 insertions(+), 16 deletions(-)
+ mm/page_alloc.c |   63 ++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 43 insertions(+), 20 deletions(-)
 
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
@@ -26,7 +26,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #include <linux/page_owner.h>
  #include <linux/kthread.h>
  #include <linux/memcontrol.h>
-@@ -287,6 +288,18 @@ EXPORT_SYMBOL(nr_node_ids);
+@@ -289,6 +290,18 @@ EXPORT_SYMBOL(nr_node_ids);
  EXPORT_SYMBOL(nr_online_nodes);
  #endif
  
@@ -45,7 +45,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  int page_group_by_mobility_disabled __read_mostly;
  
  #ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT
-@@ -1259,10 +1272,10 @@ static void __free_pages_ok(struct page
+@@ -1265,10 +1278,10 @@ static void __free_pages_ok(struct page
  		return;
  
  	migratetype = get_pfnblock_migratetype(page, pfn);
@@ -58,7 +58,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  static void __init __free_pages_boot_core(struct page *page, unsigned int order)
-@@ -2382,14 +2395,14 @@ void drain_zone_pages(struct zone *zone,
+@@ -2415,14 +2428,14 @@ void drain_zone_pages(struct zone *zone,
  	unsigned long flags;
  	int to_drain, batch;
  
@@ -75,7 +75,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  #endif
  
-@@ -2406,7 +2419,7 @@ static void drain_pages_zone(unsigned in
+@@ -2439,7 +2452,7 @@ static void drain_pages_zone(unsigned in
  	struct per_cpu_pageset *pset;
  	struct per_cpu_pages *pcp;
  
@@ -84,7 +84,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	pset = per_cpu_ptr(zone->pageset, cpu);
  
  	pcp = &pset->pcp;
-@@ -2414,7 +2427,7 @@ static void drain_pages_zone(unsigned in
+@@ -2447,7 +2460,7 @@ static void drain_pages_zone(unsigned in
  		free_pcppages_bulk(zone, pcp->count, pcp);
  		pcp->count = 0;
  	}
@@ -93,7 +93,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /*
-@@ -2449,6 +2462,7 @@ void drain_local_pages(struct zone *zone
+@@ -2482,6 +2495,7 @@ void drain_local_pages(struct zone *zone
  		drain_pages(cpu);
  }
  
@@ -101,7 +101,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  static void drain_local_pages_wq(struct work_struct *work)
  {
  	/*
-@@ -2462,6 +2476,7 @@ static void drain_local_pages_wq(struct
+@@ -2495,6 +2509,7 @@ static void drain_local_pages_wq(struct
  	drain_local_pages(NULL);
  	preempt_enable();
  }
@@ -109,7 +109,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  /*
   * Spill all the per-cpu pages from all CPUs back into the buddy allocator.
-@@ -2528,7 +2543,14 @@ void drain_all_pages(struct zone *zone)
+@@ -2561,7 +2576,14 @@ void drain_all_pages(struct zone *zone)
  		else
  			cpumask_clear_cpu(cpu, &cpus_with_pcps);
  	}
@@ -125,7 +125,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	for_each_cpu(cpu, &cpus_with_pcps) {
  		struct work_struct *work = per_cpu_ptr(&pcpu_drain, cpu);
  		INIT_WORK(work, drain_local_pages_wq);
-@@ -2536,6 +2558,7 @@ void drain_all_pages(struct zone *zone)
+@@ -2569,6 +2591,7 @@ void drain_all_pages(struct zone *zone)
  	}
  	for_each_cpu(cpu, &cpus_with_pcps)
  		flush_work(per_cpu_ptr(&pcpu_drain, cpu));
@@ -133,25 +133,44 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	mutex_unlock(&pcpu_drain_mutex);
  }
-@@ -2612,7 +2635,7 @@ void free_hot_cold_page(struct page *pag
+@@ -2685,9 +2708,9 @@ void free_unref_page(struct page *page)
+ 	if (!free_unref_page_prepare(page, pfn))
+ 		return;
  
- 	migratetype = get_pfnblock_migratetype(page, pfn);
- 	set_pcppage_migratetype(page, migratetype);
 -	local_irq_save(flags);
 +	local_lock_irqsave(pa_lock, flags);
- 	__count_vm_event(PGFREE);
- 
- 	/*
-@@ -2643,7 +2666,7 @@ void free_hot_cold_page(struct page *pag
- 	}
- 
- out:
+ 	free_unref_page_commit(page, pfn);
 -	local_irq_restore(flags);
 +	local_unlock_irqrestore(pa_lock, flags);
  }
  
  /*
-@@ -2800,7 +2823,7 @@ static struct page *rmqueue_pcplist(stru
+@@ -2707,7 +2730,7 @@ void free_unref_page_list(struct list_he
+ 		set_page_private(page, pfn);
+ 	}
+ 
+-	local_irq_save(flags);
++	local_lock_irqsave(pa_lock, flags);
+ 	list_for_each_entry_safe(page, next, list, lru) {
+ 		unsigned long pfn = page_private(page);
+ 
+@@ -2720,12 +2743,12 @@ void free_unref_page_list(struct list_he
+ 		 * a large list of pages to free.
+ 		 */
+ 		if (++batch_count == SWAP_CLUSTER_MAX) {
+-			local_irq_restore(flags);
++			local_unlock_irqrestore(pa_lock, flags);
+ 			batch_count = 0;
+-			local_irq_save(flags);
++			local_lock_irqsave(pa_lock, flags);
+ 		}
+ 	}
+-	local_irq_restore(flags);
++	local_unlock_irqrestore(pa_lock, flags);
+ }
+ 
+ /*
+@@ -2859,7 +2882,7 @@ static struct page *rmqueue_pcplist(stru
  	struct page *page;
  	unsigned long flags;
  
@@ -159,8 +178,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +	local_lock_irqsave(pa_lock, flags);
  	pcp = &this_cpu_ptr(zone->pageset)->pcp;
  	list = &pcp->lists[migratetype];
- 	page = __rmqueue_pcplist(zone,  migratetype, cold, pcp, list);
-@@ -2808,7 +2831,7 @@ static struct page *rmqueue_pcplist(stru
+ 	page = __rmqueue_pcplist(zone,  migratetype, pcp, list);
+@@ -2867,7 +2890,7 @@ static struct page *rmqueue_pcplist(stru
  		__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
  		zone_statistics(preferred_zone, zone);
  	}
@@ -169,7 +188,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return page;
  }
  
-@@ -2835,7 +2858,7 @@ struct page *rmqueue(struct zone *prefer
+@@ -2894,7 +2917,7 @@ struct page *rmqueue(struct zone *prefer
  	 * allocate greater than order-1 page units with __GFP_NOFAIL.
  	 */
  	WARN_ON_ONCE((gfp_flags & __GFP_NOFAIL) && (order > 1));
@@ -178,7 +197,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	do {
  		page = NULL;
-@@ -2855,14 +2878,14 @@ struct page *rmqueue(struct zone *prefer
+@@ -2914,14 +2937,14 @@ struct page *rmqueue(struct zone *prefer
  
  	__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
  	zone_statistics(preferred_zone, zone);
@@ -195,7 +214,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return NULL;
  }
  
-@@ -7707,7 +7730,7 @@ void zone_pcp_reset(struct zone *zone)
+@@ -7794,7 +7817,7 @@ void zone_pcp_reset(struct zone *zone)
  	struct per_cpu_pageset *pset;
  
  	/* avoid races with drain_pages()  */
@@ -204,7 +223,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	if (zone->pageset != &boot_pageset) {
  		for_each_online_cpu(cpu) {
  			pset = per_cpu_ptr(zone->pageset, cpu);
-@@ -7716,7 +7739,7 @@ void zone_pcp_reset(struct zone *zone)
+@@ -7803,7 +7826,7 @@ void zone_pcp_reset(struct zone *zone)
  		free_percpu(zone->pageset);
  		zone->pageset = &boot_pageset;
  	}

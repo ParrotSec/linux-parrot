@@ -1,0 +1,69 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Thu, 12 Apr 2018 18:36:16 +0200
+Subject: [PATCH] net: 3com: 3c59x: irq save variant of ISR
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+When vortex_boomerang_interrupt() is invoked from vortex_tx_timeout() or
+poll_vortex() interrupts must be disabled. This detaches the interrupt
+disable logic from locking which requires patching for PREEMPT_RT.
+
+The advantage of avoiding spin_lock_irqsave() in the interrupt handler is
+minimal, but converting it removes all the extra code for callers which
+come not from interrupt context.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/net/ethernet/3com/3c59x.c |   18 ++++--------------
+ 1 file changed, 4 insertions(+), 14 deletions(-)
+
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -839,10 +839,7 @@ MODULE_PARM_DESC(use_mmio, "3c59x: use m
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void poll_vortex(struct net_device *dev)
+ {
+-	unsigned long flags;
+-	local_irq_save(flags);
+ 	vortex_boomerang_interrupt(dev->irq, dev);
+-	local_irq_restore(flags);
+ }
+ #endif
+ 
+@@ -1904,15 +1901,7 @@ static void vortex_tx_timeout(struct net
+ 		pr_err("%s: Interrupt posted but not delivered --"
+ 			   " IRQ blocked by another device?\n", dev->name);
+ 		/* Bad idea here.. but we might as well handle a few events. */
+-		{
+-			/*
+-			 * Block interrupts because vortex_interrupt does a bare spin_lock()
+-			 */
+-			unsigned long flags;
+-			local_irq_save(flags);
+-			vortex_boomerang_interrupt(dev->irq, dev);
+-			local_irq_restore(flags);
+-		}
++		vortex_boomerang_interrupt(dev->irq, dev);
+ 	}
+ 
+ 	if (vortex_debug > 0)
+@@ -2516,16 +2505,17 @@ vortex_boomerang_interrupt(int irq, void
+ {
+ 	struct net_device *dev = dev_id;
+ 	struct vortex_private *vp = netdev_priv(dev);
++	unsigned long flags;
+ 	irqreturn_t ret;
+ 
+-	spin_lock(&vp->lock);
++	spin_lock_irqsave(&vp->lock, flags);
+ 
+ 	if (vp->full_bus_master_rx)
+ 		ret = _boomerang_interrupt(dev->irq, dev);
+ 	else
+ 		ret = _vortex_interrupt(dev->irq, dev);
+ 
+-	spin_unlock(&vp->lock);
++	spin_unlock_irqrestore(&vp->lock, flags);
+ 
+ 	return ret;
+ }

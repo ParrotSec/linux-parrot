@@ -1,0 +1,25 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Wed, 7 Mar 2018 12:47:04 -0500
+Subject: [PATCH 10/17] take out orphan externs (empty_string/slash_string)
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit 903ddaf49329076862d65f7284d825759ff67bd6
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/dcache.h |    2 --
+ 1 file changed, 2 deletions(-)
+
+--- a/include/linux/dcache.h
++++ b/include/linux/dcache.h
+@@ -56,9 +56,7 @@ struct qstr {
+ 
+ #define QSTR_INIT(n,l) { { { .len = l } }, .name = n }
+ 
+-extern const char empty_string[];
+ extern const struct qstr empty_name;
+-extern const char slash_string[];
+ extern const struct qstr slash_name;
+ 
+ struct dentry_stat_t {

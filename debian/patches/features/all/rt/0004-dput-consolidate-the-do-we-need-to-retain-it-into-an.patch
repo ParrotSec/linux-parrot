@@ -1,0 +1,74 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Fri, 23 Feb 2018 21:07:24 -0500
+Subject: [PATCH 04/17] dput(): consolidate the "do we need to retain it?" into
+ an inlined helper
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit a338579f2f3d6a15c78f1dc7de4c248b4183fcea
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |   42 +++++++++++++++++++++++-------------------
+ 1 file changed, 23 insertions(+), 19 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -626,6 +626,24 @@ static inline struct dentry *lock_parent
+ 	return __lock_parent(dentry);
+ }
+ 
++static inline bool retain_dentry(struct dentry *dentry)
++{
++	WARN_ON(d_in_lookup(dentry));
++
++	/* Unreachable? Get rid of it */
++	if (unlikely(d_unhashed(dentry)))
++		return false;
++
++	if (unlikely(dentry->d_flags & DCACHE_DISCONNECTED))
++		return false;
++
++	if (unlikely(dentry->d_flags & DCACHE_OP_DELETE)) {
++		if (dentry->d_op->d_delete(dentry))
++			return false;
++	}
++	return true;
++}
++
+ /*
+  * Finish off a dentry we've decided to kill.
+  * dentry->d_lock must be held, returns with it unlocked.
+@@ -804,27 +822,13 @@ void dput(struct dentry *dentry)
+ 	/* Slow case: now with the dentry lock held */
+ 	rcu_read_unlock();
+ 
+-	WARN_ON(d_in_lookup(dentry));
+-
+-	/* Unreachable? Get rid of it */
+-	if (unlikely(d_unhashed(dentry)))
+-		goto kill_it;
+-
+-	if (unlikely(dentry->d_flags & DCACHE_DISCONNECTED))
+-		goto kill_it;
+-
+-	if (unlikely(dentry->d_flags & DCACHE_OP_DELETE)) {
+-		if (dentry->d_op->d_delete(dentry))
+-			goto kill_it;
++	if (likely(retain_dentry(dentry))) {
++		dentry_lru_add(dentry);
++		dentry->d_lockref.count--;
++		spin_unlock(&dentry->d_lock);
++		return;
+ 	}
+ 
+-	dentry_lru_add(dentry);
+-
+-	dentry->d_lockref.count--;
+-	spin_unlock(&dentry->d_lock);
+-	return;
+-
+-kill_it:
+ 	dentry = dentry_kill(dentry);
+ 	if (dentry) {
+ 		cond_resched();

@@ -1,7 +1,7 @@
 Subject: hotplug: Lightweight get online cpus
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 15 Jun 2011 12:36:06 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 get_online_cpus() is a heavy weight function which involves a global
 mutex. migrate_disable() wants a simpler construct which prevents only
@@ -20,7 +20,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/cpu.h
 +++ b/include/linux/cpu.h
-@@ -116,6 +116,8 @@ extern void cpu_hotplug_disable(void);
+@@ -106,6 +106,8 @@ extern void cpu_hotplug_disable(void);
  extern void cpu_hotplug_enable(void);
  void clear_tasks_mm_cpumask(int cpu);
  int cpu_down(unsigned int cpu);
@@ -29,7 +29,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  #else /* CONFIG_HOTPLUG_CPU */
  
-@@ -126,6 +128,9 @@ static inline void cpus_read_unlock(void
+@@ -116,6 +118,9 @@ static inline void cpus_read_unlock(void
  static inline void lockdep_assert_cpus_held(void) { }
  static inline void cpu_hotplug_disable(void) { }
  static inline void cpu_hotplug_enable(void) { }
@@ -65,7 +65,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void cpus_read_lock(void)
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -6914,6 +6914,7 @@ void migrate_disable(void)
+@@ -7173,6 +7173,7 @@ void migrate_disable(void)
  	}
  
  	preempt_disable();
@@ -73,7 +73,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	migrate_disable_update_cpus_allowed(p);
  	p->migrate_disable = 1;
-@@ -6979,12 +6980,15 @@ void migrate_enable(void)
+@@ -7238,12 +7239,15 @@ void migrate_enable(void)
  			arg.task = p;
  			arg.dest_cpu = dest_cpu;
  

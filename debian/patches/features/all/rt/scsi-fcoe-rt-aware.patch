@@ -1,7 +1,7 @@
 Subject: scsi/fcoe: Make RT aware.
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sat, 12 Nov 2011 14:00:48 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Do not disable preemption while taking sleeping locks. All user look safe
 for migrate_diable() only.
@@ -15,7 +15,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/drivers/scsi/fcoe/fcoe.c
 +++ b/drivers/scsi/fcoe/fcoe.c
-@@ -1464,11 +1464,11 @@ static int fcoe_rcv(struct sk_buff *skb,
+@@ -1459,11 +1459,11 @@ static int fcoe_rcv(struct sk_buff *skb,
  static int fcoe_alloc_paged_crc_eof(struct sk_buff *skb, int tlen)
  {
  	struct fcoe_percpu_s *fps;
@@ -30,7 +30,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return rc;
  }
-@@ -1655,11 +1655,11 @@ static inline int fcoe_filter_frames(str
+@@ -1650,11 +1650,11 @@ static inline int fcoe_filter_frames(str
  		return 0;
  	}
  
@@ -44,7 +44,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return -EINVAL;
  }
  
-@@ -1702,7 +1702,7 @@ static void fcoe_recv_frame(struct sk_bu
+@@ -1697,7 +1697,7 @@ static void fcoe_recv_frame(struct sk_bu
  	 */
  	hp = (struct fcoe_hdr *) skb_network_header(skb);
  
@@ -53,7 +53,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	if (unlikely(FC_FCOE_DECAPS_VER(hp) != FC_FCOE_VER)) {
  		if (stats->ErrorFrames < 5)
  			printk(KERN_WARNING "fcoe: FCoE version "
-@@ -1734,13 +1734,13 @@ static void fcoe_recv_frame(struct sk_bu
+@@ -1729,13 +1729,13 @@ static void fcoe_recv_frame(struct sk_bu
  		goto drop;
  
  	if (!fcoe_filter_frames(lport, fp)) {

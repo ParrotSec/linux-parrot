@@ -1,0 +1,97 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Fri, 23 Feb 2018 00:50:21 +0100
+Subject: [PATCH] fs/dcache: Move dentry_kill() below lock_parent()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit c1d0c1a2b51e86124b7ba8ff9054698e2036d8e7
+
+A subsequent patch will modify dentry_kill() to call lock_parent().
+Move the dentry_kill() implementation "as is" below lock_parent()
+first. This will help simplify the review of the subsequent patch
+with dentry_kill() changes.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |   62 ++++++++++++++++++++++++++++++------------------------------
+ 1 file changed, 31 insertions(+), 31 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -588,37 +588,6 @@ static void __dentry_kill(struct dentry
+ 		dentry_free(dentry);
+ }
+ 
+-/*
+- * Finish off a dentry we've decided to kill.
+- * dentry->d_lock must be held, returns with it unlocked.
+- * Returns dentry requiring refcount drop, or NULL if we're done.
+- */
+-static struct dentry *dentry_kill(struct dentry *dentry)
+-	__releases(dentry->d_lock)
+-{
+-	struct inode *inode = dentry->d_inode;
+-	struct dentry *parent = NULL;
+-
+-	if (inode && unlikely(!spin_trylock(&inode->i_lock)))
+-		goto failed;
+-
+-	if (!IS_ROOT(dentry)) {
+-		parent = dentry->d_parent;
+-		if (unlikely(!spin_trylock(&parent->d_lock))) {
+-			if (inode)
+-				spin_unlock(&inode->i_lock);
+-			goto failed;
+-		}
+-	}
+-
+-	__dentry_kill(dentry);
+-	return parent;
+-
+-failed:
+-	spin_unlock(&dentry->d_lock);
+-	return dentry; /* try again with same dentry */
+-}
+-
+ static inline struct dentry *lock_parent(struct dentry *dentry)
+ {
+ 	struct dentry *parent = dentry->d_parent;
+@@ -659,6 +628,37 @@ static inline struct dentry *lock_parent
+ }
+ 
+ /*
++ * Finish off a dentry we've decided to kill.
++ * dentry->d_lock must be held, returns with it unlocked.
++ * Returns dentry requiring refcount drop, or NULL if we're done.
++ */
++static struct dentry *dentry_kill(struct dentry *dentry)
++	__releases(dentry->d_lock)
++{
++	struct inode *inode = dentry->d_inode;
++	struct dentry *parent = NULL;
++
++	if (inode && unlikely(!spin_trylock(&inode->i_lock)))
++		goto failed;
++
++	if (!IS_ROOT(dentry)) {
++		parent = dentry->d_parent;
++		if (unlikely(!spin_trylock(&parent->d_lock))) {
++			if (inode)
++				spin_unlock(&inode->i_lock);
++			goto failed;
++		}
++	}
++
++	__dentry_kill(dentry);
++	return parent;
++
++failed:
++	spin_unlock(&dentry->d_lock);
++	return dentry; /* try again with same dentry */
++}
++
++/*
+  * Try to do a lockless dput(), and return whether that was successful.
+  *
+  * If unsuccessful, we return false, having already taken the dentry lock.

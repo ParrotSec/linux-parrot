@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:28:34 +0200
 Subject: rtmutex: add rwsem implementation based on rtmutex
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The RT specific R/W semaphore implementation restricts the number of readers
 to one because a writer cannot block on multiple readers and inherit its
@@ -42,15 +42,15 @@ the approach.
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/rwsem_rt.h  |   67 +++++++++++
- kernel/locking/rwsem-rt.c |  269 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 336 insertions(+)
+ include/linux/rwsem_rt.h  |   68 ++++++++++
+ kernel/locking/rwsem-rt.c |  293 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 361 insertions(+)
  create mode 100644 include/linux/rwsem_rt.h
  create mode 100644 kernel/locking/rwsem-rt.c
 
 --- /dev/null
 +++ b/include/linux/rwsem_rt.h
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,68 @@
 +#ifndef _LINUX_RWSEM_RT_H
 +#define _LINUX_RWSEM_RT_H
 +
@@ -109,6 +109,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +}
 +
 +extern void __down_read(struct rw_semaphore *sem);
++extern int __down_read_killable(struct rw_semaphore *sem);
 +extern int __down_read_trylock(struct rw_semaphore *sem);
 +extern void __down_write(struct rw_semaphore *sem);
 +extern int __must_check __down_write_killable(struct rw_semaphore *sem);
@@ -120,7 +121,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#endif
 --- /dev/null
 +++ b/kernel/locking/rwsem-rt.c
-@@ -0,0 +1,269 @@
+@@ -0,0 +1,293 @@
 +/*
 + */
 +#include <linux/rwsem.h>
@@ -202,13 +203,14 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	return 0;
 +}
 +
-+void __sched __down_read(struct rw_semaphore *sem)
++static int __sched __down_read_common(struct rw_semaphore *sem, int state)
 +{
 +	struct rt_mutex *m = &sem->rtmutex;
 +	struct rt_mutex_waiter waiter;
++	int ret;
 +
 +	if (__down_read_trylock(sem))
-+		return;
++		return 0;
 +
 +	might_sleep();
 +	raw_spin_lock_irq(&m->wait_lock);
@@ -219,7 +221,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	if (atomic_read(&sem->readers) != WRITER_BIAS) {
 +		atomic_inc(&sem->readers);
 +		raw_spin_unlock_irq(&m->wait_lock);
-+		return;
++		return 0;
 +	}
 +
 +	/*
@@ -252,19 +254,42 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	 * Reader2 to call up_read() which might be unbound.
 +	 */
 +	rt_mutex_init_waiter(&waiter, false);
-+	rt_mutex_slowlock_locked(m, TASK_UNINTERRUPTIBLE, NULL,
-+				 RT_MUTEX_MIN_CHAINWALK,
-+				 &waiter);
++	ret = rt_mutex_slowlock_locked(m, state, NULL, RT_MUTEX_MIN_CHAINWALK,
++				       &waiter);
 +	/*
-+	 * The slowlock() above is guaranteed to return with the rtmutex is
-+	 * now held, so there can't be a writer active. Increment the reader
-+	 * count and immediately drop the rtmutex again.
++	 * The slowlock() above is guaranteed to return with the rtmutex (for
++	 * ret = 0) is now held, so there can't be a writer active. Increment
++	 * the reader count and immediately drop the rtmutex again.
++	 * For ret != 0 we don't hold the rtmutex and need unlock the wait_lock.
++	 * We don't own the lock then.
 +	 */
-+	atomic_inc(&sem->readers);
++	if (!ret)
++		atomic_inc(&sem->readers);
 +	raw_spin_unlock_irq(&m->wait_lock);
-+	__rt_mutex_unlock(m);
++	if (!ret)
++		__rt_mutex_unlock(m);
 +
 +	debug_rt_mutex_free_waiter(&waiter);
++	return ret;
++}
++
++void __down_read(struct rw_semaphore *sem)
++{
++	int ret;
++
++	ret = __down_read_common(sem, TASK_UNINTERRUPTIBLE);
++	WARN_ON_ONCE(ret);
++}
++
++int __down_read_killable(struct rw_semaphore *sem)
++{
++	int ret;
++
++	ret = __down_read_common(sem, TASK_KILLABLE);
++	if (likely(!ret))
++		return ret;
++	WARN_ONCE(ret != -EINTR, "Unexpected state: %d\n", ret);
++	return -EINTR;
 +}
 +
 +void __up_read(struct rw_semaphore *sem)

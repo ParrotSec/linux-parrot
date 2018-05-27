@@ -1,7 +1,7 @@
 Subject: drm,i915: Use local_lock/unlock_irq() in intel_pipe_update_start/end()
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Sat, 27 Feb 2016 09:01:42 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 
 [    8.014039] BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:918
@@ -57,8 +57,8 @@ Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Cc: linux-rt-users <linux-rt-users@vger.kernel.org>
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- drivers/gpu/drm/i915/intel_sprite.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/gpu/drm/i915/intel_sprite.c |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
 --- a/drivers/gpu/drm/i915/intel_sprite.c
 +++ b/drivers/gpu/drm/i915/intel_sprite.c
@@ -70,16 +70,16 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #include "intel_drv.h"
  #include "intel_frontbuffer.h"
  #include <drm/i915_drm.h>
-@@ -67,7 +68,7 @@ int intel_usecs_to_scanlines(const struc
- }
- 
+@@ -74,6 +75,8 @@ int intel_usecs_to_scanlines(const struc
  #define VBLANK_EVASION_TIME_US 100
--
+ #endif
+ 
 +static DEFINE_LOCAL_IRQ_LOCK(pipe_update_lock);
++
  /**
   * intel_pipe_update_start() - start update of a set of display registers
-  * @crtc: the crtc of which the registers are going to be updated
-@@ -102,7 +103,7 @@ void intel_pipe_update_start(struct inte
+  * @new_crtc_state: the new crtc state
+@@ -107,7 +110,7 @@ void intel_pipe_update_start(const struc
  						      VBLANK_EVASION_TIME_US);
  	max = vblank_start - 1;
  
@@ -88,7 +88,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	if (min <= 0 || max <= 0)
  		return;
-@@ -132,11 +133,11 @@ void intel_pipe_update_start(struct inte
+@@ -137,11 +140,11 @@ void intel_pipe_update_start(const struc
  			break;
  		}
  
@@ -102,8 +102,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	}
  
  	finish_wait(wq, &wait);
-@@ -201,7 +202,7 @@ void intel_pipe_update_end(struct intel_
- 		crtc->base.state->event = NULL;
+@@ -206,7 +209,7 @@ void intel_pipe_update_end(struct intel_
+ 		new_crtc_state->base.event = NULL;
  	}
  
 -	local_irq_enable();

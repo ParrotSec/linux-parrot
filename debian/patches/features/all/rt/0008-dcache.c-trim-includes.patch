@@ -1,0 +1,33 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Sun, 25 Feb 2018 02:47:29 -0500
+Subject: [PATCH 08/17] dcache.c: trim includes
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit 43986d63b60fd0152d9038ee3f0f9294efa8c983
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |    3 ---
+ 1 file changed, 3 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -25,17 +25,14 @@
+ #include <linux/cache.h>
+ #include <linux/export.h>
+ #include <linux/mount.h>
+-#include <linux/file.h>
+ #include <linux/uaccess.h>
+ #include <linux/security.h>
+ #include <linux/seqlock.h>
+-#include <linux/swap.h>
+ #include <linux/bootmem.h>
+ #include <linux/fs_struct.h>
+ #include <linux/bit_spinlock.h>
+ #include <linux/rculist_bl.h>
+ #include <linux/prefetch.h>
+-#include <linux/ratelimit.h>
+ #include <linux/list_lru.h>
+ #include "internal.h"
+ #include "mount.h"

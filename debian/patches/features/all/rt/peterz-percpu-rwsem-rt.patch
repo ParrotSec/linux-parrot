@@ -1,7 +1,7 @@
 Subject: locking/percpu-rwsem: Remove preempt_disable variants
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Wed Nov 23 16:29:32 CET 2016
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Effective revert commit:
 
@@ -89,7 +89,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	locks_dispose_list(&dispose);
  	locks_free_lock(new_fl);
  	return error;
-@@ -1619,7 +1619,7 @@ int fcntl_getlease(struct file *filp)
+@@ -1617,7 +1617,7 @@ int fcntl_getlease(struct file *filp)
  
  	ctx = smp_load_acquire(&inode->i_flctx);
  	if (ctx && !list_empty_careful(&ctx->flc_lease)) {
@@ -98,7 +98,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  		spin_lock(&ctx->flc_lock);
  		time_out_leases(inode, &dispose);
  		list_for_each_entry(fl, &ctx->flc_lease, fl_list) {
-@@ -1629,7 +1629,7 @@ int fcntl_getlease(struct file *filp)
+@@ -1627,7 +1627,7 @@ int fcntl_getlease(struct file *filp)
  			break;
  		}
  		spin_unlock(&ctx->flc_lock);
@@ -107,7 +107,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  
  		locks_dispose_list(&dispose);
  	}
-@@ -1704,7 +1704,7 @@ generic_add_lease(struct file *filp, lon
+@@ -1702,7 +1702,7 @@ generic_add_lease(struct file *filp, lon
  		return -EINVAL;
  	}
  
@@ -116,7 +116,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	spin_lock(&ctx->flc_lock);
  	time_out_leases(inode, &dispose);
  	error = check_conflicting_open(dentry, arg, lease->fl_flags);
-@@ -1775,7 +1775,7 @@ generic_add_lease(struct file *filp, lon
+@@ -1773,7 +1773,7 @@ generic_add_lease(struct file *filp, lon
  		lease->fl_lmops->lm_setup(lease, priv);
  out:
  	spin_unlock(&ctx->flc_lock);
@@ -125,7 +125,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	locks_dispose_list(&dispose);
  	if (is_deleg)
  		inode_unlock(inode);
-@@ -1798,7 +1798,7 @@ static int generic_delete_lease(struct f
+@@ -1796,7 +1796,7 @@ static int generic_delete_lease(struct f
  		return error;
  	}
  
@@ -134,7 +134,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	spin_lock(&ctx->flc_lock);
  	list_for_each_entry(fl, &ctx->flc_lease, fl_list) {
  		if (fl->fl_file == filp &&
-@@ -1811,7 +1811,7 @@ static int generic_delete_lease(struct f
+@@ -1809,7 +1809,7 @@ static int generic_delete_lease(struct f
  	if (victim)
  		error = fl->fl_lmops->lm_change(victim, F_UNLCK, &dispose);
  	spin_unlock(&ctx->flc_lock);
@@ -143,7 +143,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	locks_dispose_list(&dispose);
  	return error;
  }
-@@ -2535,13 +2535,13 @@ locks_remove_lease(struct file *filp, st
+@@ -2533,13 +2533,13 @@ locks_remove_lease(struct file *filp, st
  	if (list_empty(&ctx->flc_lease))
  		return;
  

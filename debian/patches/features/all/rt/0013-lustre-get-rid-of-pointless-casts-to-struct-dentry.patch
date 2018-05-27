@@ -1,0 +1,45 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Fri, 9 Mar 2018 18:06:03 -0500
+Subject: [PATCH 13/17] lustre: get rid of pointless casts to struct dentry *
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit 5bf1ddf7ee0e23598a620ef9ea2b0f00e804859d
+
+... when feeding const struct dentry * to primitives taking
+exactly that.
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/staging/lustre/lustre/llite/dcache.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+--- a/drivers/staging/lustre/lustre/llite/dcache.c
++++ b/drivers/staging/lustre/lustre/llite/dcache.c
+@@ -90,7 +90,7 @@ static int ll_dcompare(const struct dent
+ 	       d_count(dentry));
+ 
+ 	/* mountpoint is always valid */
+-	if (d_mountpoint((struct dentry *)dentry))
++	if (d_mountpoint(dentry))
+ 		return 0;
+ 
+ 	if (d_lustre_invalid(dentry))
+@@ -111,7 +111,7 @@ static int ll_ddelete(const struct dentr
+ 	LASSERT(de);
+ 
+ 	CDEBUG(D_DENTRY, "%s dentry %pd (%p, parent %p, inode %p) %s%s\n",
+-	       d_lustre_invalid((struct dentry *)de) ? "deleting" : "keeping",
++	       d_lustre_invalid(de) ? "deleting" : "keeping",
+ 	       de, de, de->d_parent, d_inode(de),
+ 	       d_unhashed(de) ? "" : "hashed,",
+ 	       list_empty(&de->d_subdirs) ? "" : "subdirs");
+@@ -119,7 +119,7 @@ static int ll_ddelete(const struct dentr
+ 	/* kernel >= 2.6.38 last refcount is decreased after this function. */
+ 	LASSERT(d_count(de) == 1);
+ 
+-	if (d_lustre_invalid((struct dentry *)de))
++	if (d_lustre_invalid(de))
+ 		return 1;
+ 	return 0;
+ }

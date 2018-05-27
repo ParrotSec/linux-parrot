@@ -1,0 +1,53 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 10 Apr 2018 17:15:40 +0200
+Subject: [PATCH] ide: don't disable interrupts during kmap_atomic()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+ide_pio_bytes() disables interrupts around kmap_atomic(). This is a
+leftover from the old kmap_atomic() implementation which relied on fixed
+mapping slots, so the caller had to make sure that the same slot could not
+be reused from an interrupting context.
+
+kmap_atomic() was changed to dynamic slots long ago and commit 1ec9c5ddc17a
+("include/linux/highmem.h: remove the second argument of k[un]map_atomic()")
+removed the slot assignements, but the callers were not checked for now  
+redundant interrupt disabling.
+
+Remove the conditional interrupt disable.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/ide/ide-taskfile.c |    8 --------
+ 1 file changed, 8 deletions(-)
+
+--- a/drivers/ide/ide-taskfile.c
++++ b/drivers/ide/ide-taskfile.c
+@@ -237,7 +237,6 @@ void ide_pio_bytes(ide_drive_t *drive, s
+ 
+ 	while (len) {
+ 		unsigned nr_bytes = min(len, cursg->length - cmd->cursg_ofs);
+-		int page_is_high;
+ 
+ 		page = sg_page(cursg);
+ 		offset = cursg->offset + cmd->cursg_ofs;
+@@ -248,10 +247,6 @@ void ide_pio_bytes(ide_drive_t *drive, s
+ 
+ 		nr_bytes = min_t(unsigned, nr_bytes, (PAGE_SIZE - offset));
+ 
+-		page_is_high = PageHighMem(page);
+-		if (page_is_high)
+-			local_irq_save(flags);
+-
+ 		buf = kmap_atomic(page) + offset;
+ 
+ 		cmd->nleft -= nr_bytes;
+@@ -270,9 +265,6 @@ void ide_pio_bytes(ide_drive_t *drive, s
+ 
+ 		kunmap_atomic(buf);
+ 
+-		if (page_is_high)
+-			local_irq_restore(flags);
+-
+ 		len -= nr_bytes;
+ 	}
+ }

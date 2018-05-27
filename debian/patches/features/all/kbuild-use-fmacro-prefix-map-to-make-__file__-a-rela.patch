@@ -1,0 +1,45 @@
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Fri, 30 Mar 2018 13:15:26 +0900
+Subject: kbuild: use -fmacro-prefix-map to make __FILE__ a relative path
+Origin: https://git.kernel.org/linus/a73619a845d5625079cc1b3b820f44c899618388
+
+The __FILE__ macro is used everywhere in the kernel to locate the file
+printing the log message, such as WARN_ON(), etc.  If the kernel is
+built out of tree, this can be a long absolute path, like this:
+
+  WARNING: CPU: 1 PID: 1 at /path/to/build/directory/arch/arm64/kernel/foo.c:...
+
+This is because Kbuild runs in the objtree instead of the srctree,
+then __FILE__ is expanded to a file path prefixed with $(srctree)/.
+
+Commit 9da0763bdd82 ("kbuild: Use relative path when building in a
+subdir of the source tree") improved this to some extent; $(srctree)
+becomes ".." if the objtree is a child of the srctree.
+
+For other cases of out-of-tree build, __FILE__ is still the absolute
+path.  It also means the kernel image depends on where it was built.
+
+A brand-new option from GCC, -fmacro-prefix-map, solves this problem.
+If your compiler supports it, __FILE__ is the relative path from the
+srctree regardless of O= option.  This provides more readable log and
+more reproducible builds.
+
+Please note __FILE__ is always an absolute path for external modules.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+---
+ Makefile | 3 +++
+ 1 file changed, 3 insertions(+)
+
+--- a/Makefile
++++ b/Makefile
+@@ -857,6 +857,9 @@ KBUILD_CFLAGS   += $(call cc-option,-Wer
+ # Require designated initializers for all marked structures
+ KBUILD_CFLAGS   += $(call cc-option,-Werror=designated-init)
+ 
++# change __FILE__ to the relative path from the srctree
++KBUILD_CFLAGS	+= $(call cc-option,-fmacro-prefix-map=$(srctree)/=)
++
+ # use the deterministic mode of AR if available
+ KBUILD_ARFLAGS := $(call ar-option,D)
+ 

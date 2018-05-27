@@ -1,7 +1,7 @@
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Sun, 2 Nov 2014 08:31:37 +0100
 Subject: x86: UV: raw_spinlock conversion
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Shrug.  Lots of hobbyists have a beast in their basement, right?
 
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/arch/x86/include/asm/uv/uv_bau.h
 +++ b/arch/x86/include/asm/uv/uv_bau.h
-@@ -643,9 +643,9 @@ struct bau_control {
+@@ -642,9 +642,9 @@ struct bau_control {
  	cycles_t		send_message;
  	cycles_t		period_end;
  	cycles_t		period_time;
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* tunables */
  	int			max_concurr;
  	int			max_concurr_const;
-@@ -847,15 +847,15 @@ static inline int atom_asr(short i, stru
+@@ -846,15 +846,15 @@ static inline int atom_asr(short i, stru
   * to be lowered below the current 'v'.  atomic_add_unless can only stop
   * on equal.
   */
@@ -124,7 +124,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return -1;
  }
  
-@@ -1941,9 +1941,9 @@ static void __init init_per_cpu_tunables
+@@ -1942,9 +1942,9 @@ static void __init init_per_cpu_tunables
  		bcp->cong_reps			= congested_reps;
  		bcp->disabled_period		= sec_2_cycles(disabled_period);
  		bcp->giveup_limit		= giveup_limit;

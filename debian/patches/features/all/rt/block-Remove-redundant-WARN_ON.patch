@@ -1,0 +1,28 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Wed, 11 Apr 2018 15:05:43 +0200
+Subject: [PATCH] block: Remove redundant WARN_ON()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Commit 2fff8a924d4c ("block: Check locking assumptions at runtime") added a
+lockdep_assert_held(q->queue_lock) which makes the WARN_ON() redundant
+because lockdep will detect and warn about context violations.
+
+The unconditional WARN_ON() does not provide real additional value, so it
+can be removed.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ block/blk-core.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- a/block/blk-core.c
++++ b/block/blk-core.c
+@@ -288,7 +288,6 @@ EXPORT_SYMBOL(blk_start_queue_async);
+ void blk_start_queue(struct request_queue *q)
+ {
+ 	lockdep_assert_held(q->queue_lock);
+-	WARN_ON(!in_interrupt() && !irqs_disabled());
+ 	WARN_ON_ONCE(q->mq_ops);
+ 
+ 	queue_flag_clear(QUEUE_FLAG_STOPPED, q);

@@ -1,7 +1,7 @@
 Subject: completion: Use simple wait queues
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 11 Jan 2013 11:23:51 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Completions have no long lasting callbacks and therefor do not need
 the complex waitqueue variant. Use simple waitqueues which reduces the
@@ -12,7 +12,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  drivers/net/wireless/intersil/orinoco/orinoco_usb.c |    2 -
  drivers/usb/gadget/function/f_fs.c                  |    2 -
  drivers/usb/gadget/legacy/inode.c                   |    4 +-
- include/linux/completion.h                          |   10 ++---
+ include/linux/completion.h                          |    8 ++--
  include/linux/suspend.h                             |    6 +++
  include/linux/swait.h                               |    1 
  kernel/power/hibernate.c                            |    7 ++++
@@ -20,7 +20,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  kernel/sched/completion.c                           |   34 ++++++++++----------
  kernel/sched/core.c                                 |   10 ++++-
  kernel/sched/swait.c                                |   20 +++++++++++
- 11 files changed, 72 insertions(+), 28 deletions(-)
+ 11 files changed, 71 insertions(+), 27 deletions(-)
 
 --- a/drivers/net/wireless/intersil/orinoco/orinoco_usb.c
 +++ b/drivers/net/wireless/intersil/orinoco/orinoco_usb.c
@@ -35,7 +35,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		break;
 --- a/drivers/usb/gadget/function/f_fs.c
 +++ b/drivers/usb/gadget/function/f_fs.c
-@@ -1610,7 +1610,7 @@ static void ffs_data_put(struct ffs_data
+@@ -1608,7 +1608,7 @@ static void ffs_data_put(struct ffs_data
  		pr_info("%s(): freeing\n", __func__);
  		ffs_data_clear(ffs);
  		BUG_ON(waitqueue_active(&ffs->ev.waitq) ||
@@ -46,7 +46,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		kfree(ffs->dev_name);
 --- a/drivers/usb/gadget/legacy/inode.c
 +++ b/drivers/usb/gadget/legacy/inode.c
-@@ -347,7 +347,7 @@ ep_io (struct ep_data *epdata, void *buf
+@@ -343,7 +343,7 @@ ep_io (struct ep_data *epdata, void *buf
  	spin_unlock_irq (&epdata->dev->lock);
  
  	if (likely (value == 0)) {
@@ -55,7 +55,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		if (value != 0) {
  			spin_lock_irq (&epdata->dev->lock);
  			if (likely (epdata->ep != NULL)) {
-@@ -356,7 +356,7 @@ ep_io (struct ep_data *epdata, void *buf
+@@ -352,7 +352,7 @@ ep_io (struct ep_data *epdata, void *buf
  				usb_ep_dequeue (epdata->ep, epdata->req);
  				spin_unlock_irq (&epdata->dev->lock);
  
@@ -72,33 +72,28 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
 -#include <linux/wait.h>
 +#include <linux/swait.h>
- #ifdef CONFIG_LOCKDEP_COMPLETIONS
- #include <linux/lockdep.h>
- #endif
-@@ -28,7 +28,7 @@
+ 
+ /*
+  * struct completion - structure used to maintain state for a "completion"
+@@ -25,7 +25,7 @@
   */
  struct completion {
  	unsigned int done;
 -	wait_queue_head_t wait;
 +	struct swait_queue_head wait;
- #ifdef CONFIG_LOCKDEP_COMPLETIONS
- 	struct lockdep_map_cross map;
- #endif
-@@ -67,11 +67,11 @@ static inline void complete_release_comm
+ };
  
- #ifdef CONFIG_LOCKDEP_COMPLETIONS
- #define COMPLETION_INITIALIZER(work) \
--	{ 0, __WAIT_QUEUE_HEAD_INITIALIZER((work).wait), \
-+	{ 0, __SWAIT_QUEUE_HEAD_INITIALIZER((work).wait), \
- 	STATIC_CROSS_LOCKDEP_MAP_INIT("(complete)" #work, &(work)) }
- #else
+ #define init_completion_map(x, m) __init_completion(x)
+@@ -34,7 +34,7 @@ static inline void complete_acquire(stru
+ static inline void complete_release(struct completion *x) {}
+ 
  #define COMPLETION_INITIALIZER(work) \
 -	{ 0, __WAIT_QUEUE_HEAD_INITIALIZER((work).wait) }
 +	{ 0, __SWAIT_QUEUE_HEAD_INITIALIZER((work).wait) }
- #endif
  
- #define COMPLETION_INITIALIZER_ONSTACK(work) \
-@@ -117,7 +117,7 @@ static inline void complete_release_comm
+ #define COMPLETION_INITIALIZER_ONSTACK_MAP(work, map) \
+ 	(*({ init_completion_map(&(work), &(map)); &(work); }))
+@@ -85,7 +85,7 @@ static inline void complete_release(stru
  static inline void __init_completion(struct completion *x)
  {
  	x->done = 0;
@@ -191,16 +186,12 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  EXPORT_SYMBOL(pm_suspend);
 --- a/kernel/sched/completion.c
 +++ b/kernel/sched/completion.c
-@@ -32,7 +32,7 @@ void complete(struct completion *x)
+@@ -32,12 +32,12 @@ void complete(struct completion *x)
  {
  	unsigned long flags;
  
 -	spin_lock_irqsave(&x->wait.lock, flags);
 +	raw_spin_lock_irqsave(&x->wait.lock, flags);
- 
- 	/*
- 	 * Perform commit of crossrelease here.
-@@ -41,8 +41,8 @@ void complete(struct completion *x)
  
  	if (x->done != UINT_MAX)
  		x->done++;
@@ -211,7 +202,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  EXPORT_SYMBOL(complete);
  
-@@ -66,10 +66,10 @@ void complete_all(struct completion *x)
+@@ -61,10 +61,10 @@ void complete_all(struct completion *x)
  {
  	unsigned long flags;
  
@@ -225,7 +216,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  EXPORT_SYMBOL(complete_all);
  
-@@ -78,20 +78,20 @@ do_wait_for_common(struct completion *x,
+@@ -73,20 +73,20 @@ do_wait_for_common(struct completion *x,
  		   long (*action)(long), long timeout, int state)
  {
  	if (!x->done) {
@@ -251,7 +242,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		if (!x->done)
  			return timeout;
  	}
-@@ -108,9 +108,9 @@ static inline long __sched
+@@ -103,9 +103,9 @@ static inline long __sched
  
  	complete_acquire(x);
  
@@ -263,7 +254,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	complete_release(x);
  
-@@ -299,12 +299,12 @@ bool try_wait_for_completion(struct comp
+@@ -294,12 +294,12 @@ bool try_wait_for_completion(struct comp
  	if (!READ_ONCE(x->done))
  		return 0;
  
@@ -278,7 +269,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return ret;
  }
  EXPORT_SYMBOL(try_wait_for_completion);
-@@ -330,8 +330,8 @@ bool completion_done(struct completion *
+@@ -325,8 +325,8 @@ bool completion_done(struct completion *
  	 * otherwise we can end up freeing the completion before complete()
  	 * is done referencing it.
  	 */
@@ -291,7 +282,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  EXPORT_SYMBOL(completion_done);
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -6816,7 +6816,10 @@ void migrate_disable(void)
+@@ -7075,7 +7075,10 @@ void migrate_disable(void)
  		return;
  	}
  #ifdef CONFIG_SCHED_DEBUG
@@ -303,7 +294,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  
  	if (p->migrate_disable) {
-@@ -6846,7 +6849,10 @@ void migrate_enable(void)
+@@ -7105,7 +7108,10 @@ void migrate_enable(void)
  	}
  
  #ifdef CONFIG_SCHED_DEBUG

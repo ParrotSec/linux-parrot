@@ -1,7 +1,7 @@
 Subject: irqwork: push most work into softirq context
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 23 Jun 2015 15:32:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Initially we defered all irqwork into softirq because we didn't want the
 latency spikes if perf or another user was busy and delayed the RT task.
@@ -20,23 +20,24 @@ Mike Galbraith,
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/irq_work.h |    1 +
- kernel/irq_work.c        |   47 ++++++++++++++++++++++++++++++++++-------------
- kernel/sched/topology.c  |    1 +
- kernel/time/tick-sched.c |    1 +
- kernel/time/timer.c      |    5 ++++-
- 5 files changed, 41 insertions(+), 14 deletions(-)
+ include/linux/irq_work.h |    2 +
+ kernel/irq_work.c        |   51 +++++++++++++++++++++++++++++++++++------------
+ kernel/sched/topology.c  |    1 
+ kernel/time/tick-sched.c |    1 
+ kernel/time/timer.c      |    5 +++-
+ 5 files changed, 46 insertions(+), 14 deletions(-)
 
 --- a/include/linux/irq_work.h
 +++ b/include/linux/irq_work.h
-@@ -17,6 +17,7 @@
- #define IRQ_WORK_BUSY		2UL
- #define IRQ_WORK_FLAGS		3UL
- #define IRQ_WORK_LAZY		4UL /* Doesn't want IPI, wait for tick */
-+#define IRQ_WORK_HARD_IRQ	8UL /* Run hard IRQ context, even on RT */
+@@ -18,6 +18,8 @@
  
- struct irq_work {
- 	unsigned long flags;
+ /* Doesn't want IPI, wait for tick: */
+ #define IRQ_WORK_LAZY		BIT(2)
++/* Run hard IRQ context, even on RT */
++#define IRQ_WORK_HARD_IRQ	BIT(3)
+ 
+ #define IRQ_WORK_CLAIMED	(IRQ_WORK_PENDING | IRQ_WORK_BUSY)
+ 
 --- a/kernel/irq_work.c
 +++ b/kernel/irq_work.c
 @@ -17,6 +17,7 @@
@@ -47,7 +48,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include <asm/processor.h>
  
  
-@@ -65,6 +66,8 @@ void __weak arch_irq_work_raise(void)
+@@ -64,6 +65,8 @@ void __weak arch_irq_work_raise(void)
   */
  bool irq_work_queue_on(struct irq_work *work, int cpu)
  {
@@ -56,7 +57,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* All work should have been flushed before going offline */
  	WARN_ON_ONCE(cpu_is_offline(cpu));
  
-@@ -75,7 +78,12 @@ bool irq_work_queue_on(struct irq_work *
+@@ -76,7 +79,12 @@ bool irq_work_queue_on(struct irq_work *
  	if (!irq_work_claim(work))
  		return false;
  
@@ -69,8 +70,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	if (llist_add(&work->llnode, list))
  		arch_send_call_function_single_ipi(cpu);
  
- 	return true;
-@@ -86,6 +94,9 @@ EXPORT_SYMBOL_GPL(irq_work_queue_on);
+ #else /* #ifdef CONFIG_SMP */
+@@ -89,6 +97,9 @@ bool irq_work_queue_on(struct irq_work *
  /* Enqueue the irq work @work on the current CPU */
  bool irq_work_queue(struct irq_work *work)
  {
@@ -80,7 +81,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* Only queue if not already pending */
  	if (!irq_work_claim(work))
  		return false;
-@@ -93,13 +104,15 @@ bool irq_work_queue(struct irq_work *wor
+@@ -96,13 +107,15 @@ bool irq_work_queue(struct irq_work *wor
  	/* Queue the entry and raise the IPI if needed. */
  	preempt_disable();
  
@@ -103,7 +104,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			arch_irq_work_raise();
  	}
  
-@@ -116,9 +129,8 @@ bool irq_work_needs_cpu(void)
+@@ -119,9 +132,8 @@ bool irq_work_needs_cpu(void)
  	raised = this_cpu_ptr(&raised_list);
  	lazy = this_cpu_ptr(&lazy_list);
  
@@ -115,16 +116,21 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* All work should have been flushed before going offline */
  	WARN_ON_ONCE(cpu_is_offline(smp_processor_id()));
-@@ -132,7 +144,7 @@ static void irq_work_run_list(struct lli
- 	struct irq_work *work;
+@@ -135,8 +147,12 @@ static void irq_work_run_list(struct lli
  	struct llist_node *llnode;
+ 	unsigned long flags;
  
--	BUG_ON(!irqs_disabled());
-+	BUG_ON_NONRT(!irqs_disabled());
- 
++#ifndef CONFIG_PREEMPT_RT_FULL
++	/*
++	 * nort: On RT IRQ-work may run in SOFTIRQ context.
++	 */
+ 	BUG_ON(!irqs_disabled());
+-
++#endif
  	if (llist_empty(list))
  		return;
-@@ -169,7 +181,16 @@ static void irq_work_run_list(struct lli
+ 
+@@ -168,7 +184,16 @@ static void irq_work_run_list(struct lli
  void irq_work_run(void)
  {
  	irq_work_run_list(this_cpu_ptr(&raised_list));
@@ -144,7 +150,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/kernel/sched/topology.c
 +++ b/kernel/sched/topology.c
-@@ -273,6 +273,7 @@ static int init_rootdomain(struct root_d
+@@ -287,6 +287,7 @@ static int init_rootdomain(struct root_d
  	rd->rto_cpu = -1;
  	raw_spin_lock_init(&rd->rto_lock);
  	init_irq_work(&rd->rto_push_work, rto_push_irq_work_func);
@@ -164,7 +170,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
 --- a/kernel/time/timer.c
 +++ b/kernel/time/timer.c
-@@ -1638,7 +1638,7 @@ void update_process_times(int user_tick)
+@@ -1676,7 +1676,7 @@ void update_process_times(int user_tick)
  	scheduler_tick();
  	run_local_timers();
  	rcu_check_callbacks(user_tick);
@@ -173,7 +179,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (in_irq())
  		irq_work_tick();
  #endif
-@@ -1679,6 +1679,9 @@ static __latent_entropy void run_timer_s
+@@ -1717,6 +1717,9 @@ static __latent_entropy void run_timer_s
  {
  	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
  

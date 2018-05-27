@@ -1,7 +1,7 @@
 Subject: rt: Improve the serial console PASS_LIMIT
 From: Ingo Molnar <mingo@elte.hu>
 Date: Wed Dec 14 13:05:54 CET 2011
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Beyond the warning:
 
@@ -18,7 +18,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/drivers/tty/serial/8250/8250_core.c
 +++ b/drivers/tty/serial/8250/8250_core.c
-@@ -58,7 +58,16 @@ static struct uart_driver serial8250_reg
+@@ -54,7 +54,16 @@ static struct uart_driver serial8250_reg
  
  static unsigned int skip_txen_test; /* force skip of txen test at init time */
  

@@ -1,7 +1,7 @@
 Subject: rt: Introduce cpu_chill()
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 07 Mar 2012 20:51:03 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Retry loops on RT might loop forever when the modifying side was
 preempted. Add cpu_chill() to replace cpu_relax(). cpu_chill()
@@ -14,40 +14,14 @@ Steven Rostedt changed it to use a hrtimer instead of msleep():
 |up by the ksoftirqd running the TIMER softirq. But as the cpu_chill() is
 |called from softirq context, it may block the ksoftirqd() from running, in
 |which case, it may never wake up the msleep() causing the deadlock.
-|
-|I checked the vmcore, and irq/74-qla2xxx is stuck in the msleep() call,
-|running on CPU 8. The one ksoftirqd that is stuck, happens to be the one that
-|runs on CPU 8, and it is blocked on a lock held by irq/74-qla2xxx. As that
-|ksoftirqd is the one that will wake up irq/74-qla2xxx, and it happens to be
-|blocked on a lock that irq/74-qla2xxx holds, we have our deadlock.
-|
-|The solution is not to convert the cpu_chill() back to a cpu_relax() as that
-|will re-create a possible live lock that the cpu_chill() fixed earlier, and may
-|also leave this bug open on other softirqs. The fix is to remove the
-|dependency on ksoftirqd from cpu_chill(). That is, instead of calling
-|msleep() that requires ksoftirqd to wake it up, use the
-|hrtimer_nanosleep() code that does the wakeup from hard irq context.
-|
-||Looks to be the lock of the block softirq. I don't have the core dump
-||anymore, but from what I could tell the ksoftirqd was blocked on the
-||block softirq lock, where the block softirq handler did a msleep
-||(called by the qla2xxx interrupt handler).
-||
-||Looking at trigger_softirq() in block/blk-softirq.c, it can do a
-||smp_callfunction() to another cpu to run the block softirq. If that
-||happens to be the cpu where the qla2xx irq handler is doing the block
-||softirq and is in a middle of a msleep(), I believe the ksoftirqd will
-||try to run the softirq. If it does that, then BOOM, it's deadlocked
-||because the ksoftirqd will never run the timer softirq either.
-|
-||I should have also stated that it was only one lock that was involved.
-||But the lock owner was doing a msleep() that requires a wakeup by
-||ksoftirqd to continue. If ksoftirqd happens to be blocked on a lock
-||held by the msleep() caller, then you have your deadlock.
-||
-||It's best not to have any softirqs going to sleep requiring another
-||softirq to wake it up. Note, if we ever require a timer softirq to do a
-||cpu_chill() it will most definitely hit this deadlock.
+
++ bigeasy later changed to schedule_hrtimeout()
+|If a task calls cpu_chill() and gets woken up by a regular or spurious
+|wakeup and has a signal pending, then it exits the sleep loop in
+|do_nanosleep() and sets up the restart block. If restart->nanosleep.type is
+|not TI_NONE then this results in accessing a stale user pointer from a
+|previously interrupted syscall and a copy to user based on the stale
+|pointer or a BUG() when 'type' is not supported in nanosleep_copyout().
 
 + bigeasy: add PF_NOFREEZE:
 | [....] Waiting for /dev to be fully populated...
@@ -83,8 +57,8 @@ Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  include/linux/delay.h |    6 ++++++
- kernel/time/hrtimer.c |   19 +++++++++++++++++++
- 2 files changed, 25 insertions(+)
+ kernel/time/hrtimer.c |   21 +++++++++++++++++++++
+ 2 files changed, 27 insertions(+)
 
 --- a/include/linux/delay.h
 +++ b/include/linux/delay.h
@@ -101,7 +75,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif /* defined(_LINUX_DELAY_H) */
 --- a/kernel/time/hrtimer.c
 +++ b/kernel/time/hrtimer.c
-@@ -1858,6 +1858,25 @@ COMPAT_SYSCALL_DEFINE2(nanosleep, struct
+@@ -1842,6 +1842,27 @@ COMPAT_SYSCALL_DEFINE2(nanosleep, struct
  }
  #endif
  
@@ -111,13 +85,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 + */
 +void cpu_chill(void)
 +{
-+	struct timespec64 tu = {
-+		.tv_nsec = NSEC_PER_MSEC,
-+	};
++	ktime_t chill_time;
 +	unsigned int freeze_flag = current->flags & PF_NOFREEZE;
 +
++	chill_time = ktime_set(0, NSEC_PER_MSEC);
++	set_current_state(TASK_UNINTERRUPTIBLE);
 +	current->flags |= PF_NOFREEZE;
-+	hrtimer_nanosleep(&tu, HRTIMER_MODE_REL_HARD, CLOCK_MONOTONIC);
++	sleeping_lock_inc();
++	schedule_hrtimeout(&chill_time, HRTIMER_MODE_REL_HARD);
++	sleeping_lock_dec();
 +	if (!freeze_flag)
 +		current->flags &= ~PF_NOFREEZE;
 +}

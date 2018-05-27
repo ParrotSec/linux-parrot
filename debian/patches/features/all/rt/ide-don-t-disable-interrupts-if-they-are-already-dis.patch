@@ -1,0 +1,43 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 4 Apr 2018 21:42:28 +0200
+Subject: [PATCH] ide: Handle irq disabling consistently
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+ide_timer_expiry() disables interrupt at function entry when acquiring
+hwif->lock. Before disabling the device interrupt it unlocks hwif->lock,
+but interrupts stay disabled. After the call to disable_irq() interrupts
+are disabled again, which is a pointless exercise.
+
+After the device irq handler has been invoked with interrupts disabled,
+hwif->lock is acquired again with spin_lock_irq() because the device irq
+handler might have reenabled interrupts. This is not documented and
+confusing for the casual reader.
+
+Remove the redundant local_irq_disable() and add a comment which explains
+why hwif->lock has to be reacquired with spin_lock_irq().
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/ide/ide-io.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/drivers/ide/ide-io.c
++++ b/drivers/ide/ide-io.c
+@@ -659,8 +659,7 @@ void ide_timer_expiry (struct timer_list
+ 		spin_unlock(&hwif->lock);
+ 		/* disable_irq_nosync ?? */
+ 		disable_irq(hwif->irq);
+-		/* local CPU only, as if we were handling an interrupt */
+-		local_irq_disable();
++
+ 		if (hwif->polling) {
+ 			startstop = handler(drive);
+ 		} else if (drive_is_ready(drive)) {
+@@ -679,6 +678,7 @@ void ide_timer_expiry (struct timer_list
+ 				startstop = ide_error(drive, "irq timeout",
+ 					hwif->tp_ops->read_status(hwif));
+ 		}
++		/* Disable interrupts again, `handler' might have enabled it */
+ 		spin_lock_irq(&hwif->lock);
+ 		enable_irq(hwif->irq);
+ 		if (startstop == ide_stopped && hwif->polling == 0) {

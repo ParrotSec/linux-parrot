@@ -1,0 +1,55 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Tue, 6 Mar 2018 21:37:31 -0500
+Subject: [PATCH 05/17] handle move to LRU in retain_dentry()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit 62d9956cefe6ecc4b43a7fae37af78ba7adaceaa
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |   19 ++++++-------------
+ 1 file changed, 6 insertions(+), 13 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -440,17 +440,6 @@ static void d_lru_shrink_move(struct lis
+ 	list_lru_isolate_move(lru, &dentry->d_lru, list);
+ }
+ 
+-/*
+- * dentry_lru_(add|del)_list) must be called with d_lock held.
+- */
+-static void dentry_lru_add(struct dentry *dentry)
+-{
+-	if (unlikely(!(dentry->d_flags & DCACHE_LRU_LIST)))
+-		d_lru_add(dentry);
+-	else if (unlikely(!(dentry->d_flags & DCACHE_REFERENCED)))
+-		dentry->d_flags |= DCACHE_REFERENCED;
+-}
+-
+ /**
+  * d_drop - drop a dentry
+  * @dentry: dentry to drop
+@@ -641,6 +630,12 @@ static inline bool retain_dentry(struct
+ 		if (dentry->d_op->d_delete(dentry))
+ 			return false;
+ 	}
++	/* retain; LRU fodder */
++	dentry->d_lockref.count--;
++	if (unlikely(!(dentry->d_flags & DCACHE_LRU_LIST)))
++		d_lru_add(dentry);
++	else if (unlikely(!(dentry->d_flags & DCACHE_REFERENCED)))
++		dentry->d_flags |= DCACHE_REFERENCED;
+ 	return true;
+ }
+ 
+@@ -823,8 +818,6 @@ void dput(struct dentry *dentry)
+ 	rcu_read_unlock();
+ 
+ 	if (likely(retain_dentry(dentry))) {
+-		dentry_lru_add(dentry);
+-		dentry->d_lockref.count--;
+ 		spin_unlock(&dentry->d_lock);
+ 		return;
+ 	}

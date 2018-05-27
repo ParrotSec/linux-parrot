@@ -1,7 +1,9 @@
 Subject: mmci: Remove bogus local_irq_save()
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 09 Jan 2013 12:11:12 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+upstream commit 99d02d6cd5610711d91f286bb67a57142028e9e6
 
 On !RT interrupt runs with interrupts disabled. On RT it's in a
 thread, so no need to disable interrupts at all.
@@ -13,7 +15,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/drivers/mmc/host/mmci.c
 +++ b/drivers/mmc/host/mmci.c
-@@ -1200,15 +1200,12 @@ static irqreturn_t mmci_pio_irq(int irq,
+@@ -1253,15 +1253,12 @@ static irqreturn_t mmci_pio_irq(int irq,
  	struct sg_mapping_iter *sg_miter = &host->sg_miter;
  	struct variant_data *variant = host->variant;
  	void __iomem *base = host->base;
@@ -29,7 +31,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	do {
  		unsigned int remain, len;
  		char *buffer;
-@@ -1248,8 +1245,6 @@ static irqreturn_t mmci_pio_irq(int irq,
+@@ -1301,8 +1298,6 @@ static irqreturn_t mmci_pio_irq(int irq,
  
  	sg_miter_stop(sg_miter);
  

@@ -1,7 +1,7 @@
 Subject: sched: Move mmdrop to RCU on RT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 06 Jun 2011 12:20:33 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Takes sleeping locks and calls into the memory allocator, so nothing
 we want to do in task switch and oder atomic contexts.
@@ -24,7 +24,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #include <linux/page-flags-layout.h>
  #include <linux/workqueue.h>
  
-@@ -504,6 +505,9 @@ struct mm_struct {
+@@ -491,6 +492,9 @@ struct mm_struct {
  	bool tlb_flush_batched;
  #endif
  	struct uprobes_state uprobes_state;
@@ -36,7 +36,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
 --- a/include/linux/sched/mm.h
 +++ b/include/linux/sched/mm.h
-@@ -43,6 +43,17 @@ static inline void mmdrop(struct mm_stru
+@@ -49,6 +49,17 @@ static inline void mmdrop(struct mm_stru
  		__mmdrop(mm);
  }
  
@@ -51,12 +51,12 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +# define mmdrop_delayed(mm)	mmdrop(mm)
 +#endif
 +
- static inline void mmdrop_async_fn(struct work_struct *work)
- {
- 	struct mm_struct *mm = container_of(work, struct mm_struct, async_put_work);
+ /**
+  * mmget() - Pin the address space associated with a &struct mm_struct.
+  * @mm: The address space to pin.
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -930,6 +930,19 @@ void __mmdrop(struct mm_struct *mm)
+@@ -605,6 +605,19 @@ void __mmdrop(struct mm_struct *mm)
  }
  EXPORT_SYMBOL_GPL(__mmdrop);
  
@@ -73,26 +73,27 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +}
 +#endif
 +
- static inline void __mmput(struct mm_struct *mm)
+ static void mmdrop_async_fn(struct work_struct *work)
  {
- 	VM_BUG_ON(atomic_read(&mm->mm_users));
+ 	struct mm_struct *mm;
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -2695,8 +2695,12 @@ static struct rq *finish_task_switch(str
- 	finish_arch_post_lock_switch();
- 
- 	fire_sched_in_preempt_notifiers(current);
+@@ -2766,9 +2766,13 @@ static struct rq *finish_task_switch(str
+ 	 *   provided by mmdrop(),
+ 	 * - a sync_core for SYNC_CORE.
+ 	 */
 +	/*
 +	 * We use mmdrop_delayed() here so we don't have to do the
 +	 * full __mmdrop() when we are the last user.
 +	 */
- 	if (mm)
+ 	if (mm) {
+ 		membarrier_mm_sync_core_before_usermode(mm);
 -		mmdrop(mm);
 +		mmdrop_delayed(mm);
+ 	}
  	if (unlikely(prev_state == TASK_DEAD)) {
  		if (prev->sched_class->task_dead)
- 			prev->sched_class->task_dead(prev);
-@@ -5433,6 +5437,8 @@ void sched_setnuma(struct task_struct *p
+@@ -5532,6 +5536,8 @@ void sched_setnuma(struct task_struct *p
  #endif /* CONFIG_NUMA_BALANCING */
  
  #ifdef CONFIG_HOTPLUG_CPU
@@ -101,7 +102,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * Ensure that the idle task is using init_mm right before its CPU goes
   * offline.
-@@ -5447,7 +5453,12 @@ void idle_task_exit(void)
+@@ -5546,7 +5552,12 @@ void idle_task_exit(void)
  		switch_mm(mm, &init_mm, current);
  		finish_arch_post_lock_switch();
  	}
@@ -115,7 +116,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /*
-@@ -5750,6 +5761,10 @@ int sched_cpu_dying(unsigned int cpu)
+@@ -5849,6 +5860,10 @@ int sched_cpu_dying(unsigned int cpu)
  	update_max_interval();
  	nohz_balance_exit_idle(cpu);
  	hrtick_clear(rq);

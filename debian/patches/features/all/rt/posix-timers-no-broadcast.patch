@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 3 Jul 2009 08:29:20 -0500
 Subject: posix-timers: Prevent broadcast signals
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Posix timers should not send broadcast signals and kernel only
 signals. Prevent it.
@@ -14,7 +14,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/kernel/time/posix-timers.c
 +++ b/kernel/time/posix-timers.c
-@@ -433,6 +433,7 @@ static enum hrtimer_restart posix_timer_
+@@ -434,6 +434,7 @@ static enum hrtimer_restart posix_timer_
  static struct pid *good_sigevent(sigevent_t * event)
  {
  	struct task_struct *rtn = current->group_leader;
@@ -22,7 +22,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	switch (event->sigev_notify) {
  	case SIGEV_SIGNAL | SIGEV_THREAD_ID:
-@@ -442,7 +443,8 @@ static struct pid *good_sigevent(sigeven
+@@ -443,7 +444,8 @@ static struct pid *good_sigevent(sigeven
  		/* FALLTHRU */
  	case SIGEV_SIGNAL:
  	case SIGEV_THREAD:

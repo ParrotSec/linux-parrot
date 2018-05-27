@@ -1,0 +1,77 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Thu, 12 Apr 2018 18:36:15 +0200
+Subject: [PATCH] net: 3com: 3c59x: Pull locking out of ISR
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Locking is done in the same way in _vortex_interrupt() and
+_boomerang_interrupt(). To prevent duplication, move the locking into the
+calling vortex_boomerang_interrupt() function.
+
+No functional change.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/net/ethernet/3com/3c59x.c |   20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
+
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -2273,7 +2273,6 @@ static irqreturn_t
+ 	unsigned int bytes_compl = 0, pkts_compl = 0;
+ 
+ 	ioaddr = vp->ioaddr;
+-	spin_lock(&vp->lock);
+ 
+ 	status = ioread16(ioaddr + EL3_STATUS);
+ 
+@@ -2371,7 +2370,6 @@ static irqreturn_t
+ 		pr_debug("%s: exiting interrupt, status %4.4x.\n",
+ 			   dev->name, status);
+ handler_exit:
+-	spin_unlock(&vp->lock);
+ 	return IRQ_RETVAL(handled);
+ }
+ 
+@@ -2392,12 +2390,6 @@ static irqreturn_t
+ 
+ 	ioaddr = vp->ioaddr;
+ 
+-
+-	/*
+-	 * It seems dopey to put the spinlock this early, but we could race against vortex_tx_timeout
+-	 * and boomerang_start_xmit
+-	 */
+-	spin_lock(&vp->lock);
+ 	vp->handling_irq = 1;
+ 
+ 	status = ioread16(ioaddr + EL3_STATUS);
+@@ -2516,7 +2508,6 @@ static irqreturn_t
+ 			   dev->name, status);
+ handler_exit:
+ 	vp->handling_irq = 0;
+-	spin_unlock(&vp->lock);
+ 	return IRQ_RETVAL(handled);
+ }
+ 
+@@ -2525,11 +2516,18 @@ vortex_boomerang_interrupt(int irq, void
+ {
+ 	struct net_device *dev = dev_id;
+ 	struct vortex_private *vp = netdev_priv(dev);
++	irqreturn_t ret;
++
++	spin_lock(&vp->lock);
+ 
+ 	if (vp->full_bus_master_rx)
+-		return _boomerang_interrupt(dev->irq, dev);
++		ret = _boomerang_interrupt(dev->irq, dev);
+ 	else
+-		return _vortex_interrupt(dev->irq, dev);
++		ret = _vortex_interrupt(dev->irq, dev);
++
++	spin_unlock(&vp->lock);
++
++	return ret;
+ }
+ 
+ static int vortex_rx(struct net_device *dev)

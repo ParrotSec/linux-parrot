@@ -1,7 +1,7 @@
 Subject: mm, rt: kmap_atomic scheduling
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Thu, 28 Jul 2011 10:43:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 In fact, with migrate_disable() existing one could play games with
 kmap_atomic. You could save/restore the kmap_atomic slots on context
@@ -230,7 +230,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
-@@ -1104,6 +1105,12 @@ struct task_struct {
+@@ -1113,6 +1114,12 @@ struct task_struct {
  	int				softirq_nestcnt;
  	unsigned int			softirqs_raised;
  #endif

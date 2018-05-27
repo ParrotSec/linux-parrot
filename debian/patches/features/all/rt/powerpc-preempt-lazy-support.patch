@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 1 Nov 2012 10:14:11 +0100
 Subject: powerpc: Add support for lazy preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Implement the powerpc pieces for lazy preempt.
 
@@ -16,7 +16,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/powerpc/Kconfig
 +++ b/arch/powerpc/Kconfig
-@@ -215,6 +215,7 @@ config PPC
+@@ -219,6 +219,7 @@ config PPC
  	select HAVE_HARDLOCKUP_DETECTOR_PERF	if PERF_EVENTS && HAVE_PERF_EVENTS_NMI && !HAVE_HARDLOCKUP_DETECTOR_ARCH
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
@@ -35,7 +35,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	unsigned long	local_flags;		/* private flags for thread */
  #ifdef CONFIG_LIVEPATCH
  	unsigned long *livepatch_sp;
-@@ -81,8 +83,7 @@ static inline struct thread_info *curren
+@@ -78,8 +80,7 @@ static inline struct thread_info *curren
  #define TIF_SYSCALL_TRACE	0	/* syscall trace active */
  #define TIF_SIGPENDING		1	/* signal pending */
  #define TIF_NEED_RESCHED	2	/* rescheduling necessary */
@@ -45,7 +45,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define TIF_32BIT		4	/* 32 bit binary */
  #define TIF_RESTORE_TM		5	/* need to restore TM FP/VEC/VSX */
  #define TIF_PATCH_PENDING	6	/* pending live patching update */
-@@ -101,6 +102,8 @@ static inline struct thread_info *curren
+@@ -98,6 +99,8 @@ static inline struct thread_info *curren
  #if defined(CONFIG_PPC64)
  #define TIF_ELF2ABI		18	/* function descriptors must die! */
  #endif
@@ -54,7 +54,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  /* as above, but as bit values */
  #define _TIF_SYSCALL_TRACE	(1<<TIF_SYSCALL_TRACE)
-@@ -120,14 +123,16 @@ static inline struct thread_info *curren
+@@ -117,14 +120,16 @@ static inline struct thread_info *curren
  #define _TIF_SYSCALL_TRACEPOINT	(1<<TIF_SYSCALL_TRACEPOINT)
  #define _TIF_EMULATE_STACK_STORE	(1<<TIF_EMULATE_STACK_STORE)
  #define _TIF_NOHZ		(1<<TIF_NOHZ)
@@ -134,7 +134,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	restore_user
 --- a/arch/powerpc/kernel/entry_64.S
 +++ b/arch/powerpc/kernel/entry_64.S
-@@ -689,7 +689,7 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
+@@ -688,7 +688,7 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
  	bl	restore_math
  	b	restore
  #endif
@@ -143,7 +143,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	2f
  	bl	restore_interrupts
  	SCHEDULE_USER
-@@ -751,10 +751,18 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
+@@ -750,10 +750,18 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
  
  #ifdef CONFIG_PREEMPT
  	/* Check if we need to preempt */
@@ -160,10 +160,10 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/* Check that preempt_count() == 0 and interrupts are enabled */
 -	lwz	r8,TI_PREEMPT(r9)
 +check_count:
- 	cmpwi	cr1,r8,0
+ 	cmpwi	cr0,r8,0
+ 	bne	restore
  	ld	r0,SOFTE(r1)
- 	cmpdi	r0,0
-@@ -771,7 +779,7 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
+@@ -770,7 +778,7 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
  	/* Re-test flags and eventually loop */
  	CURRENT_THREAD_INFO(r9, r1)
  	ld	r4,TI_FLAGS(r9)

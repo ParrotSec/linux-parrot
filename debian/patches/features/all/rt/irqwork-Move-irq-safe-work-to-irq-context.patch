@@ -1,7 +1,7 @@
 Subject: irqwork: Move irq safe work to irq context
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 15 Nov 2015 18:40:17 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 On architectures where arch_irq_work_has_interrupt() returns false, we
 end up running the irq safe work from the softirq context. That
@@ -23,7 +23,7 @@ Cc: stable-rt@vger.kernel.org
 
 --- a/include/linux/irq_work.h
 +++ b/include/linux/irq_work.h
-@@ -53,4 +53,10 @@ static inline bool irq_work_needs_cpu(vo
+@@ -54,4 +54,10 @@ static inline bool irq_work_needs_cpu(vo
  static inline void irq_work_run(void) { }
  #endif
  
@@ -36,7 +36,7 @@ Cc: stable-rt@vger.kernel.org
  #endif /* _LINUX_IRQ_WORK_H */
 --- a/kernel/irq_work.c
 +++ b/kernel/irq_work.c
-@@ -200,8 +200,17 @@ void irq_work_tick(void)
+@@ -203,8 +203,17 @@ void irq_work_tick(void)
  
  	if (!llist_empty(raised) && !arch_irq_work_has_interrupt())
  		irq_work_run_list(raised);
@@ -56,7 +56,7 @@ Cc: stable-rt@vger.kernel.org
   * Synchronize against the irq_work @entry, ensures the entry is not
 --- a/kernel/time/timer.c
 +++ b/kernel/time/timer.c
-@@ -1638,7 +1638,7 @@ void update_process_times(int user_tick)
+@@ -1676,7 +1676,7 @@ void update_process_times(int user_tick)
  	scheduler_tick();
  	run_local_timers();
  	rcu_check_callbacks(user_tick);
@@ -65,7 +65,7 @@ Cc: stable-rt@vger.kernel.org
  	if (in_irq())
  		irq_work_tick();
  #endif
-@@ -1679,9 +1679,7 @@ static __latent_entropy void run_timer_s
+@@ -1717,9 +1717,7 @@ static __latent_entropy void run_timer_s
  {
  	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
  

@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:31:14 +0200
 Subject: rtmutex: wire up RT's locking
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -36,7 +36,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Simple, straightforward mutexes with strict semantics:
   *
-@@ -114,13 +125,6 @@ do {									\
+@@ -119,13 +130,6 @@ do {									\
  	__mutex_init((mutex), #mutex, &__key);				\
  } while (0)
  
@@ -50,7 +50,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #define __MUTEX_INITIALIZER(lockname) \
  		{ .owner = ATOMIC_LONG_INIT(0) \
  		, .wait_lock = __SPIN_LOCK_UNLOCKED(lockname.wait_lock) \
-@@ -228,4 +232,6 @@ mutex_trylock_recursive(struct mutex *lo
+@@ -233,4 +237,6 @@ mutex_trylock_recursive(struct mutex *lo
  	return mutex_trylock(lock);
  }
  
@@ -86,8 +86,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
 --- a/include/linux/spinlock.h
 +++ b/include/linux/spinlock.h
-@@ -286,7 +286,11 @@ static inline void do_raw_spin_unlock(ra
- #define raw_spin_can_lock(lock)	(!raw_spin_is_locked(lock))
+@@ -279,7 +279,11 @@ static inline void do_raw_spin_unlock(ra
+ })
  
  /* Include rwlock functions */
 -#include <linux/rwlock.h>
@@ -99,7 +99,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  /*
   * Pull the _spin_*()/_read_*()/_write_*() functions/declarations:
-@@ -297,6 +301,10 @@ static inline void do_raw_spin_unlock(ra
+@@ -290,6 +294,10 @@ static inline void do_raw_spin_unlock(ra
  # include <linux/spinlock_api_up.h>
  #endif
  
@@ -110,13 +110,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Map the spin_lock functions to the raw variants for PREEMPT_RT=n
   */
-@@ -421,4 +429,6 @@ extern int _atomic_dec_and_lock(atomic_t
- #define atomic_dec_and_lock(atomic, lock) \
- 		__cond_lock(lock, _atomic_dec_and_lock(atomic, lock))
+@@ -392,6 +400,8 @@ static __always_inline int spin_is_conte
+ 
+ #define assert_spin_locked(lock)	assert_raw_spin_locked(&(lock)->rlock)
  
 +#endif /* !PREEMPT_RT_FULL */
 +
- #endif /* __LINUX_SPINLOCK_H */
+ /*
+  * Pull the atomic_t declaration:
+  * (asm-mips/atomic.h needs above definitions)
 --- a/include/linux/spinlock_api_smp.h
 +++ b/include/linux/spinlock_api_smp.h
 @@ -187,6 +187,8 @@ static inline int __raw_spin_trylock_bh(
@@ -185,7 +187,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  obj-$(CONFIG_WW_MUTEX_SELFTEST) += test-ww_mutex.o
 --- a/kernel/locking/spinlock.c
 +++ b/kernel/locking/spinlock.c
-@@ -125,8 +125,11 @@ void __lockfunc __raw_##op##_lock_bh(loc
+@@ -117,8 +117,11 @@ void __lockfunc __raw_##op##_lock_bh(loc
   *         __[spin|read|write]_lock_bh()
   */
  BUILD_LOCK_OPS(spin, raw_spinlock);
@@ -197,7 +199,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #endif
  
-@@ -210,6 +213,8 @@ void __lockfunc _raw_spin_unlock_bh(raw_
+@@ -202,6 +205,8 @@ void __lockfunc _raw_spin_unlock_bh(raw_
  EXPORT_SYMBOL(_raw_spin_unlock_bh);
  #endif
  
@@ -206,7 +208,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #ifndef CONFIG_INLINE_READ_TRYLOCK
  int __lockfunc _raw_read_trylock(rwlock_t *lock)
  {
-@@ -354,6 +359,8 @@ void __lockfunc _raw_write_unlock_bh(rwl
+@@ -346,6 +351,8 @@ void __lockfunc _raw_write_unlock_bh(rwl
  EXPORT_SYMBOL(_raw_write_unlock_bh);
  #endif
  

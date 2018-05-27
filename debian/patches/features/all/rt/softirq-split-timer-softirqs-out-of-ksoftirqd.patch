@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 20 Jan 2016 16:34:17 +0100
 Subject: softirq: split timer softirqs out of ksoftirqd
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The softirqd runs in -RT with SCHED_FIFO (prio 1) and deals mostly with
 timer wakeup which can not happen in hardirq context. The prio has been
@@ -57,7 +57,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static void handle_softirq(unsigned int vec_nr)
  {
  	struct softirq_action *h = softirq_vec + vec_nr;
-@@ -484,7 +499,6 @@ void __raise_softirq_irqoff(unsigned int
+@@ -485,7 +500,6 @@ void __raise_softirq_irqoff(unsigned int
  static inline void local_bh_disable_nort(void) { local_bh_disable(); }
  static inline void _local_bh_enable_nort(void) { _local_bh_enable(); }
  static void ksoftirqd_set_sched_params(unsigned int cpu) { }
@@ -65,7 +65,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #else /* !PREEMPT_RT_FULL */
  
-@@ -631,8 +645,12 @@ void thread_do_softirq(void)
+@@ -632,8 +646,12 @@ void thread_do_softirq(void)
  
  static void do_raise_softirq_irqoff(unsigned int nr)
  {
@@ -79,7 +79,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * If we are not in a hard interrupt and inside a bh disabled
-@@ -641,16 +659,29 @@ static void do_raise_softirq_irqoff(unsi
+@@ -642,16 +660,29 @@ static void do_raise_softirq_irqoff(unsi
  	 * delegate it to ksoftirqd.
  	 */
  	if (!in_irq() && current->softirq_nestcnt)
@@ -113,7 +113,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /*
-@@ -676,7 +707,7 @@ void raise_softirq_irqoff(unsigned int n
+@@ -677,7 +708,7 @@ void raise_softirq_irqoff(unsigned int n
  	 * raise a WARN() if the condition is met.
  	 */
  	if (!current->softirq_nestcnt)
@@ -122,7 +122,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static inline int ksoftirqd_softirq_pending(void)
-@@ -689,22 +720,37 @@ static inline void _local_bh_enable_nort
+@@ -690,22 +721,37 @@ static inline void _local_bh_enable_nort
  
  static inline void ksoftirqd_set_sched_params(unsigned int cpu)
  {
@@ -163,7 +163,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif /* PREEMPT_RT_FULL */
  /*
   * Enter an interrupt context.
-@@ -759,6 +805,9 @@ static inline void invoke_softirq(void)
+@@ -760,6 +806,9 @@ static inline void invoke_softirq(void)
  	if (__this_cpu_read(ksoftirqd) &&
  			__this_cpu_read(ksoftirqd)->softirqs_raised)
  		wakeup_softirqd();
@@ -173,7 +173,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	local_irq_restore(flags);
  #endif
  }
-@@ -1131,18 +1180,30 @@ static int takeover_tasklets(unsigned in
+@@ -1170,18 +1219,30 @@ static int takeover_tasklets(unsigned in
  static struct smp_hotplug_thread softirq_threads = {
  	.store			= &ksoftirqd,
  	.setup			= ksoftirqd_set_sched_params,

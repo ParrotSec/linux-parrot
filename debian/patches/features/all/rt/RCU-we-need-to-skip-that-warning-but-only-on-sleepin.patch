@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 21 Sep 2017 14:25:13 +0200
 Subject: [PATCH] RCU: we need to skip that warning but only on sleeping
  locks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 This check is okay for upstream. On RT we trigger this while blocking on
 sleeping lock. In this case, it is okay to schedule() within a RCU
@@ -19,13 +19,13 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/rcu/tree_plugin.h
 +++ b/kernel/rcu/tree_plugin.h
-@@ -323,9 +323,13 @@ static void rcu_preempt_note_context_swi
+@@ -325,9 +325,13 @@ static void rcu_preempt_note_context_swi
  	struct task_struct *t = current;
  	struct rcu_data *rdp;
  	struct rcu_node *rnp;
 +	int mg_counter = 0;
  
- 	RCU_LOCKDEP_WARN(!irqs_disabled(), "rcu_preempt_note_context_switch() invoked with interrupts enabled!!!\n");
+ 	lockdep_assert_irqs_disabled();
 -	WARN_ON_ONCE(!preempt && t->rcu_read_lock_nesting > 0);
 +#if defined(CONFIG_PREEMPT_COUNT) && defined(CONFIG_SMP)
 +	mg_counter = t->migrate_disable;

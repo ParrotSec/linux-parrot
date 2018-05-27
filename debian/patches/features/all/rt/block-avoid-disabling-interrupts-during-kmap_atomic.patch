@@ -1,0 +1,39 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 10 Apr 2018 17:32:57 +0200
+Subject: [PATCH] block: don't disable interrupts during kmap_atomic()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+bounce_copy_vec() disables interrupts around kmap_atomic(). This is a
+leftover from the old kmap_atomic() implementation which relied on fixed
+mapping slots, so the caller had to make sure that the same slot could not
+be reused from an interrupting context.
+
+kmap_atomic() was changed to dynamic slots long ago and commit 1ec9c5ddc17a
+("include/linux/highmem.h: remove the second argument of k[un]map_atomic()")
+removed the slot assignements, but the callers were not checked for now
+redundant interrupt disabling.
+
+Remove the conditional interrupt disable.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ block/bounce.c |    3 ---
+ 1 file changed, 3 deletions(-)
+
+--- a/block/bounce.c
++++ b/block/bounce.c
+@@ -63,14 +63,11 @@ static __init int init_emergency_pool(vo
+  */
+ static void bounce_copy_vec(struct bio_vec *to, unsigned char *vfrom)
+ {
+-	unsigned long flags;
+ 	unsigned char *vto;
+ 
+-	local_irq_save(flags);
+ 	vto = kmap_atomic(to->bv_page);
+ 	memcpy(vto + to->bv_offset, vfrom, to->bv_len);
+ 	kunmap_atomic(vto);
+-	local_irq_restore(flags);
+ }
+ 
+ #else /* CONFIG_HIGHMEM */

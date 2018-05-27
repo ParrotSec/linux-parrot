@@ -4,7 +4,7 @@ Subject: [PATCH] lockdep: disable self-test
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The self-test wasn't always 100% accurate for RT. We disabled a few
 tests which failed because they had a different semantic for RT. Some
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -1199,7 +1199,7 @@ config DEBUG_ATOMIC_SLEEP
+@@ -1187,7 +1187,7 @@ config DEBUG_ATOMIC_SLEEP
  
  config DEBUG_LOCKING_API_SELFTESTS
  	bool "Locking API boot-time self-tests"

@@ -1,0 +1,33 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Thu, 29 Mar 2018 15:08:21 -0400
+Subject: [PATCH 17/17] d_genocide: move export to definition
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit cbd4a5bcb25b5ed0c1c64bc969b893cad9b78acc
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -3095,6 +3095,8 @@ void d_genocide(struct dentry *parent)
+ 	d_walk(parent, parent, d_genocide_kill, NULL);
+ }
+ 
++EXPORT_SYMBOL(d_genocide);
++
+ void d_tmpfile(struct dentry *dentry, struct inode *inode)
+ {
+ 	inode_dec_link_count(inode);
+@@ -3174,8 +3176,6 @@ static void __init dcache_init(void)
+ struct kmem_cache *names_cachep __read_mostly;
+ EXPORT_SYMBOL(names_cachep);
+ 
+-EXPORT_SYMBOL(d_genocide);
+-
+ void __init vfs_caches_init_early(void)
+ {
+ 	int i;

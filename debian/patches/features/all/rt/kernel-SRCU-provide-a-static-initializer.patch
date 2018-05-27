@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 19 Mar 2013 14:44:30 +0100
 Subject: kernel/SRCU: provide a static initializer
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 There are macros for static initializer for the three out of four
 possible notifier types, that are:
@@ -142,7 +142,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	{								\
 -		.sda = &name##_srcu_data,				\
 +		.sda = &pcpu_name,					\
- 		.lock = __RAW_SPIN_LOCK_UNLOCKED(name.lock),		\
+ 		.lock = __SPIN_LOCK_UNLOCKED(name.lock),		\
  		.srcu_gp_seq_needed = 0 - 1,				\
  		__SRCU_DEP_MAP_INIT(name)				\
 @@ -133,7 +133,7 @@ struct srcu_struct {

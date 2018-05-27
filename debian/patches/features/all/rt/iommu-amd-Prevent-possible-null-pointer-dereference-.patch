@@ -1,0 +1,79 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Mon, 16 Apr 2018 16:15:23 +0200
+Subject: [PATCH] iommu/amd: Prevent possible null pointer dereference and
+ infinite loop
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+The check for !dev_data->domain in __detach_device() emits a warning and
+returns. The calling code in detach_device() dereferences dev_data->domain
+afterwards unconditionally, so in case that dev_data->domain is NULL the
+warning will be immediately followed by a NULL pointer dereference.
+
+The calling code in cleanup_domain() loops infinite when !dev_data->domain
+and the check in __detach_device() returns immediately because dev_list is
+not changed.
+
+do_detach() duplicates this check without throwing a warning.
+
+Move the check with the explanation of the do_detach() code into the caller
+detach_device() and return immediately. Throw an error, when hitting the
+condition in cleanup_domain().
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/iommu/amd_iommu.c |   22 ++++++++++------------
+ 1 file changed, 10 insertions(+), 12 deletions(-)
+
+--- a/drivers/iommu/amd_iommu.c
++++ b/drivers/iommu/amd_iommu.c
+@@ -1909,15 +1909,6 @@ static void do_detach(struct iommu_dev_d
+ 	struct amd_iommu *iommu;
+ 	u16 alias;
+ 
+-	/*
+-	 * First check if the device is still attached. It might already
+-	 * be detached from its domain because the generic
+-	 * iommu_detach_group code detached it and we try again here in
+-	 * our alias handling.
+-	 */
+-	if (!dev_data->domain)
+-		return;
+-
+ 	iommu = amd_iommu_rlookup_table[dev_data->devid];
+ 	alias = dev_data->alias;
+ 
+@@ -2122,9 +2113,6 @@ static void __detach_device(struct iommu
+ 	 */
+ 	WARN_ON(!irqs_disabled());
+ 
+-	if (WARN_ON(!dev_data->domain))
+-		return;
+-
+ 	domain = dev_data->domain;
+ 
+ 	spin_lock(&domain->lock);
+@@ -2146,6 +2134,15 @@ static void detach_device(struct device
+ 	dev_data = get_dev_data(dev);
+ 	domain   = dev_data->domain;
+ 
++	/*
++	 * First check if the device is still attached. It might already
++	 * be detached from its domain because the generic
++	 * iommu_detach_group code detached it and we try again here in
++	 * our alias handling.
++	 */
++	if (WARN_ON(!dev_data->domain))
++		return;
++
+ 	/* lock device table */
+ 	spin_lock_irqsave(&amd_iommu_devtable_lock, flags);
+ 	__detach_device(dev_data);
+@@ -2817,6 +2814,7 @@ static void cleanup_domain(struct protec
+ 	while (!list_empty(&domain->dev_list)) {
+ 		entry = list_first_entry(&domain->dev_list,
+ 					 struct iommu_dev_data, list);
++		BUG_ON(!entry->domain);
+ 		__detach_device(entry);
+ 	}
+ 

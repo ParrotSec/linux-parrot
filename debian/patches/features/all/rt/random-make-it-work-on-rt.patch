@@ -1,7 +1,7 @@
 Subject: random: Make it work on rt
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 21 Aug 2012 20:38:50 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Delegate the random insertion to the forced threaded interrupt
 handler. Store the return IP of the hard interrupt handler in the irq
@@ -21,7 +21,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/drivers/char/random.c
 +++ b/drivers/char/random.c
-@@ -1113,28 +1113,27 @@ static __u32 get_reg(struct fast_pool *f
+@@ -1218,28 +1218,27 @@ static __u32 get_reg(struct fast_pool *f
  	return *ptr;
  }
  
@@ -57,7 +57,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	add_interrupt_bench(cycles);
 --- a/drivers/hv/vmbus_drv.c
 +++ b/drivers/hv/vmbus_drv.c
-@@ -966,6 +966,8 @@ static void vmbus_isr(void)
+@@ -973,6 +973,8 @@ static void vmbus_isr(void)
  	void *page_addr = hv_cpu->synic_event_page;
  	struct hv_message *msg;
  	union hv_synic_event_flags *event;
@@ -66,7 +66,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	bool handled = false;
  
  	if (unlikely(page_addr == NULL))
-@@ -1009,7 +1011,7 @@ static void vmbus_isr(void)
+@@ -1016,7 +1018,7 @@ static void vmbus_isr(void)
  			tasklet_schedule(&hv_cpu->msg_dpc);
  	}
  
@@ -118,7 +118,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		note_interrupt(desc, retval);
 --- a/kernel/irq/manage.c
 +++ b/kernel/irq/manage.c
-@@ -1027,6 +1027,12 @@ static int irq_thread(void *data)
+@@ -1029,6 +1029,12 @@ static int irq_thread(void *data)
  		if (action_ret == IRQ_WAKE_THREAD)
  			irq_wake_secondary(desc, action);
  

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 15 Nov 2017 17:29:51 +0100
 Subject: [PATCH] time/hrtimer: avoid schedule_work() with interrupts disabled
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The NOHZ code tries to schedule a workqueue with interrupts disabled.
 Since this does not work -RT I am switching it to swork instead.
@@ -23,7 +23,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #ifdef CONFIG_SMP
  unsigned int sysctl_timer_migration = 1;
-@@ -238,7 +237,7 @@ static void timers_update_migration(void
+@@ -236,7 +235,7 @@ static void timers_update_migration(void
  static inline void timers_update_migration(void) { }
  #endif /* !CONFIG_SMP */
  
@@ -32,7 +32,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	mutex_lock(&timer_keys_mutex);
  	timers_update_migration();
-@@ -248,9 +247,17 @@ static void timer_update_keys(struct wor
+@@ -246,9 +245,17 @@ static void timer_update_keys(struct wor
  
  void timers_update_nohz(void)
  {

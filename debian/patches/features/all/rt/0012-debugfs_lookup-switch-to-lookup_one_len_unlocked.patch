@@ -1,0 +1,27 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Thu, 8 Mar 2018 11:01:22 -0500
+Subject: [PATCH 12/17] debugfs_lookup(): switch to lookup_one_len_unlocked()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit cd1c0c9321999737073dcfc3364e194e02604bce
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/debugfs/inode.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+--- a/fs/debugfs/inode.c
++++ b/fs/debugfs/inode.c
+@@ -270,10 +270,7 @@ struct dentry *debugfs_lookup(const char
+ 	if (!parent)
+ 		parent = debugfs_mount->mnt_root;
+ 
+-	inode_lock(d_inode(parent));
+-	dentry = lookup_one_len(name, parent, strlen(name));
+-	inode_unlock(d_inode(parent));
+-
++	dentry = lookup_one_len_unlocked(name, parent, strlen(name));
+ 	if (IS_ERR(dentry))
+ 		return NULL;
+ 	if (!d_really_is_positive(dentry)) {

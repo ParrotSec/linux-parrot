@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 15 Jul 2010 10:29:00 +0200
 Subject: suspend: Prevent might sleep splats
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 timekeeping suspend/resume calls read_persistant_clock() which takes
 rtc_lock. That results in might sleep warnings because at that point
@@ -26,7 +26,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
-@@ -531,6 +531,7 @@ extern enum system_states {
+@@ -532,6 +532,7 @@ extern enum system_states {
  	SYSTEM_HALT,
  	SYSTEM_POWER_OFF,
  	SYSTEM_RESTART,

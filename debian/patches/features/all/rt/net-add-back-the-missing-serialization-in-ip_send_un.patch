@@ -5,7 +5,7 @@ Subject: [PATCH] net: add back the missing serialization in
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Some time ago Sami Pietikäinen reported a crash on -RT in
 ip_send_unicast_reply() which was later fixed by Nicholas Mc Guire
@@ -51,7 +51,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #include <net/net_namespace.h>
  #include <net/icmp.h>
-@@ -580,6 +581,7 @@ void tcp_v4_send_check(struct sock *sk,
+@@ -582,6 +583,7 @@ void tcp_v4_send_check(struct sock *sk,
  }
  EXPORT_SYMBOL(tcp_v4_send_check);
  
@@ -59,7 +59,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   *	This routine will send an RST to the other tcp.
   *
-@@ -709,6 +711,7 @@ static void tcp_v4_send_reset(const stru
+@@ -714,6 +716,7 @@ static void tcp_v4_send_reset(const stru
  
  	arg.tos = ip_hdr(skb)->tos;
  	arg.uid = sock_net_uid(net, sk && sk_fullsock(sk) ? sk : NULL);
@@ -67,7 +67,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	local_bh_disable();
  	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
  			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
-@@ -718,6 +721,7 @@ static void tcp_v4_send_reset(const stru
+@@ -723,6 +726,7 @@ static void tcp_v4_send_reset(const stru
  	__TCP_INC_STATS(net, TCP_MIB_OUTSEGS);
  	__TCP_INC_STATS(net, TCP_MIB_OUTRSTS);
  	local_bh_enable();
@@ -75,7 +75,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #ifdef CONFIG_TCP_MD5SIG
  out:
-@@ -795,6 +799,7 @@ static void tcp_v4_send_ack(const struct
+@@ -800,6 +804,7 @@ static void tcp_v4_send_ack(const struct
  		arg.bound_dev_if = oif;
  	arg.tos = tos;
  	arg.uid = sock_net_uid(net, sk_fullsock(sk) ? sk : NULL);
@@ -83,7 +83,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	local_bh_disable();
  	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
  			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
-@@ -803,6 +808,7 @@ static void tcp_v4_send_ack(const struct
+@@ -808,6 +813,7 @@ static void tcp_v4_send_ack(const struct
  
  	__TCP_INC_STATS(net, TCP_MIB_OUTSEGS);
  	local_bh_enable();

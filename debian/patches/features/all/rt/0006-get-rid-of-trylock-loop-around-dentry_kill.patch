@@ -1,0 +1,73 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Fri, 23 Feb 2018 21:25:42 -0500
+Subject: [PATCH 06/17] get rid of trylock loop around dentry_kill()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit f657a666fd1b1b9fe59963943c74c245ae66f4cc
+
+In case when trylock in there fails, deal with it directly in
+dentry_kill().  Note that in cases when we drop and retake
+->d_lock, we need to recheck whether to retain the dentry.
+Another thing is that dropping/retaking ->d_lock might have
+ended up with negative dentry turning into positive; that,
+of course, can happen only once...
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |   34 +++++++++++++++++++++++++++-------
+ 1 file changed, 27 insertions(+), 7 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -651,23 +651,43 @@ static struct dentry *dentry_kill(struct
+ 	struct dentry *parent = NULL;
+ 
+ 	if (inode && unlikely(!spin_trylock(&inode->i_lock)))
+-		goto failed;
++		goto slow_positive;
+ 
+ 	if (!IS_ROOT(dentry)) {
+ 		parent = dentry->d_parent;
+ 		if (unlikely(!spin_trylock(&parent->d_lock))) {
+-			if (inode)
+-				spin_unlock(&inode->i_lock);
+-			goto failed;
++			parent = __lock_parent(dentry);
++			if (likely(inode || !dentry->d_inode))
++				goto got_locks;
++			/* negative that became positive */
++			if (parent)
++				spin_unlock(&parent->d_lock);
++			inode = dentry->d_inode;
++			goto slow_positive;
+ 		}
+ 	}
+-
+ 	__dentry_kill(dentry);
+ 	return parent;
+ 
+-failed:
++slow_positive:
++	spin_unlock(&dentry->d_lock);
++	spin_lock(&inode->i_lock);
++	spin_lock(&dentry->d_lock);
++	parent = lock_parent(dentry);
++got_locks:
++	if (unlikely(dentry->d_lockref.count != 1)) {
++		dentry->d_lockref.count--;
++	} else if (likely(!retain_dentry(dentry))) {
++		__dentry_kill(dentry);
++		return parent;
++	}
++	/* we are keeping it, after all */
++	if (inode)
++		spin_unlock(&inode->i_lock);
++	if (parent)
++		spin_unlock(&parent->d_lock);
+ 	spin_unlock(&dentry->d_lock);
+-	return dentry; /* try again with same dentry */
++	return NULL;
+ }
+ 
+ /*

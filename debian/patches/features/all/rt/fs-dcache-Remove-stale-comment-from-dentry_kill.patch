@@ -1,0 +1,28 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Fri, 23 Feb 2018 00:50:20 +0100
+Subject: [PATCH] fs/dcache: Remove stale comment from dentry_kill()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit 06080d100d921848b35196850ec17310469e06ba
+
+Commit 0d98439ea3c6 ("vfs: use lockred "dead" flag to mark unrecoverably
+dead dentries") removed the `ref' parameter in dentry_kill() but its
+documentation remained. Remove it.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -591,7 +591,6 @@ static void __dentry_kill(struct dentry
+ /*
+  * Finish off a dentry we've decided to kill.
+  * dentry->d_lock must be held, returns with it unlocked.
+- * If ref is non-zero, then decrement the refcount too.
+  * Returns dentry requiring refcount drop, or NULL if we're done.
+  */
+ static struct dentry *dentry_kill(struct dentry *dentry)

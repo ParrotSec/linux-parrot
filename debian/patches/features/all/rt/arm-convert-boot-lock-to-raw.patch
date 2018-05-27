@@ -1,7 +1,7 @@
 From: Frank Rowand <frank.rowand@am.sony.com>
 Date: Mon, 19 Sep 2011 14:51:14 -0700
 Subject: arm: Convert arm boot_lock to raw
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The arm boot_lock is used by the secondary processor startup code.  The locking
 task is the idle thread, which has idle->sched_class == &idle_sched_class.
@@ -32,7 +32,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/arm/mach-exynos/platsmp.c
 +++ b/arch/arm/mach-exynos/platsmp.c
-@@ -229,7 +229,7 @@ static void __iomem *scu_base_addr(void)
+@@ -224,7 +224,7 @@ static void __iomem *scu_base_addr(void)
  	return (void __iomem *)(S5P_VA_SCU);
  }
  
@@ -41,7 +41,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  static void exynos_secondary_init(unsigned int cpu)
  {
-@@ -242,8 +242,8 @@ static void exynos_secondary_init(unsign
+@@ -237,8 +237,8 @@ static void exynos_secondary_init(unsign
  	/*
  	 * Synchronise with the boot thread.
  	 */
@@ -52,7 +52,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  int exynos_set_boot_addr(u32 core_id, unsigned long boot_addr)
-@@ -307,7 +307,7 @@ static int exynos_boot_secondary(unsigne
+@@ -302,7 +302,7 @@ static int exynos_boot_secondary(unsigne
  	 * Set synchronisation state between this boot processor
  	 * and the secondary one
  	 */
@@ -61,7 +61,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	/*
  	 * The secondary processor is waiting to be released from
-@@ -334,7 +334,7 @@ static int exynos_boot_secondary(unsigne
+@@ -329,7 +329,7 @@ static int exynos_boot_secondary(unsigne
  
  		if (timeout == 0) {
  			printk(KERN_ERR "cpu1 power enable failed");
@@ -70,7 +70,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  			return -ETIMEDOUT;
  		}
  	}
-@@ -380,7 +380,7 @@ static int exynos_boot_secondary(unsigne
+@@ -375,7 +375,7 @@ static int exynos_boot_secondary(unsigne
  	 * calibrations, then wait for it to finish
  	 */
  fail:

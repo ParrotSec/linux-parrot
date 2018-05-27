@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 13 Sep 2017 14:43:41 +0200
 Subject: [PATCH] srcu: use cpu_online() instead custom check
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The current check via srcu_online is slightly racy because after looking
 at srcu_online there could be an interrupt that interrupted us long
@@ -18,8 +18,8 @@ SRCU won't enqueue a work item before SRCU is up and ready.
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  kernel/rcu/srcutree.c |   22 ++++------------------
- kernel/rcu/tree.c     |    6 ------
- 2 files changed, 4 insertions(+), 24 deletions(-)
+ kernel/rcu/tree.c     |    4 ----
+ 2 files changed, 4 insertions(+), 22 deletions(-)
 
 --- a/kernel/rcu/srcutree.c
 +++ b/kernel/rcu/srcutree.c
@@ -31,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #include "rcu.h"
  #include "rcu_segcblist.h"
-@@ -425,21 +426,6 @@ static void srcu_gp_start(struct srcu_st
+@@ -452,21 +453,6 @@ static void srcu_gp_start(struct srcu_st
  }
  
  /*
@@ -53,7 +53,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * Place the workqueue handler on the specified CPU if online, otherwise
   * just run it whereever.  This is useful for placing workqueue handlers
   * that are to invoke the specified CPU's callbacks.
-@@ -450,12 +436,12 @@ static bool srcu_queue_delayed_work_on(i
+@@ -477,12 +463,12 @@ static bool srcu_queue_delayed_work_on(i
  {
  	bool ret;
  
@@ -72,29 +72,20 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 --- a/kernel/rcu/tree.c
 +++ b/kernel/rcu/tree.c
 @@ -3775,8 +3775,6 @@ int rcutree_online_cpu(unsigned int cpu)
- {
- 	sync_sched_exp_online_cleanup(cpu);
- 	rcutree_affinity_setting(cpu, -1);
+ 		rnp->ffmask |= rdp->grpmask;
+ 		raw_spin_unlock_irqrestore_rcu_node(rnp, flags);
+ 	}
 -	if (IS_ENABLED(CONFIG_TREE_SRCU))
 -		srcu_online_cpu(cpu);
- 	return 0;
- }
+ 	if (rcu_scheduler_active == RCU_SCHEDULER_INACTIVE)
+ 		return 0; /* Too early in boot for scheduler work. */
+ 	sync_sched_exp_online_cleanup(cpu);
+@@ -3804,8 +3802,6 @@ int rcutree_offline_cpu(unsigned int cpu
+ 	}
  
-@@ -3787,8 +3785,6 @@ int rcutree_online_cpu(unsigned int cpu)
- int rcutree_offline_cpu(unsigned int cpu)
- {
  	rcutree_affinity_setting(cpu, cpu);
 -	if (IS_ENABLED(CONFIG_TREE_SRCU))
 -		srcu_offline_cpu(cpu);
  	return 0;
- }
- 
-@@ -4236,8 +4232,6 @@ void __init rcu_init(void)
- 	for_each_online_cpu(cpu) {
- 		rcutree_prepare_cpu(cpu);
- 		rcu_cpu_starting(cpu);
--		if (IS_ENABLED(CONFIG_TREE_SRCU))
--			srcu_online_cpu(cpu);
- 	}
  }
  

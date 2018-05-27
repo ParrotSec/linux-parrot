@@ -1,0 +1,46 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Fri, 23 Feb 2018 22:07:35 -0500
+Subject: [PATCH 02/17] now lock_parent() can't run into killed dentry
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit 65d8eb5a8f5480756105173de147ef5d60163e2f
+
+all remaining callers hold either a reference or ->i_lock
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |   13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -593,8 +593,6 @@ static inline struct dentry *lock_parent
+ 	struct dentry *parent = dentry->d_parent;
+ 	if (IS_ROOT(dentry))
+ 		return NULL;
+-	if (unlikely(dentry->d_lockref.count < 0))
+-		return NULL;
+ 	if (likely(spin_trylock(&parent->d_lock)))
+ 		return parent;
+ 	rcu_read_lock();
+@@ -614,16 +612,11 @@ static inline struct dentry *lock_parent
+ 		spin_unlock(&parent->d_lock);
+ 		goto again;
+ 	}
+-	if (parent != dentry) {
++	rcu_read_unlock();
++	if (parent != dentry)
+ 		spin_lock_nested(&dentry->d_lock, DENTRY_D_LOCK_NESTED);
+-		if (unlikely(dentry->d_lockref.count < 0)) {
+-			spin_unlock(&parent->d_lock);
+-			parent = NULL;
+-		}
+-	} else {
++	else
+ 		parent = NULL;
+-	}
+-	rcu_read_unlock();
+ 	return parent;
+ }
+ 

@@ -1,7 +1,7 @@
 Subject: x86: Support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 01 Nov 2012 11:03:47 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Implement the x86 pieces for lazy preempt.
 
@@ -18,7 +18,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -170,6 +170,7 @@ config X86
+@@ -174,6 +174,7 @@ config X86
  	select HAVE_HARDLOCKUP_DETECTOR_PERF	if PERF_EVENTS && HAVE_PERF_EVENTS_NMI
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
@@ -28,7 +28,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	select HAVE_RELIABLE_STACKTRACE		if X86_64 && UNWINDER_FRAME_POINTER && STACK_VALIDATION
 --- a/arch/x86/entry/common.c
 +++ b/arch/x86/entry/common.c
-@@ -132,7 +132,7 @@ static long syscall_trace_enter(struct p
+@@ -133,7 +133,7 @@ static long syscall_trace_enter(struct p
  
  #define EXIT_TO_USERMODE_LOOP_FLAGS				\
  	(_TIF_SIGPENDING | _TIF_NOTIFY_RESUME | _TIF_UPROBE |	\
@@ -37,7 +37,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  static void exit_to_usermode_loop(struct pt_regs *regs, u32 cached_flags)
  {
-@@ -147,7 +147,7 @@ static void exit_to_usermode_loop(struct
+@@ -148,7 +148,7 @@ static void exit_to_usermode_loop(struct
  		/* We have work to do. */
  		local_irq_enable();
  
@@ -76,7 +76,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	call	preempt_schedule_irq
 --- a/arch/x86/entry/entry_64.S
 +++ b/arch/x86/entry/entry_64.S
-@@ -778,7 +778,23 @@ GLOBAL(swapgs_restore_regs_and_return_to
+@@ -698,7 +698,23 @@ GLOBAL(swapgs_restore_regs_and_return_to
  	bt	$9, EFLAGS(%rsp)		/* were interrupts off? */
  	jnc	1f
  0:	cmpl	$0, PER_CPU_VAR(__preempt_count)
@@ -152,12 +152,12 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_PREEMPT
 --- a/arch/x86/include/asm/thread_info.h
 +++ b/arch/x86/include/asm/thread_info.h
-@@ -55,11 +55,14 @@ struct task_struct;
- 
+@@ -56,17 +56,24 @@ struct task_struct;
  struct thread_info {
  	unsigned long		flags;		/* low level flags */
-+	int                     preempt_lazy_count;     /* 0 => lazy preemptable
-+							   <0 => BUG */
+ 	u32			status;		/* thread synchronous flags */
++	int			preempt_lazy_count;	/* 0 => lazy preemptable
++							  <0 => BUG */
  };
  
  #define INIT_THREAD_INFO(tsk)			\
@@ -166,8 +166,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +	.preempt_lazy_count = 0,		\
  }
  
- #define init_stack		(init_thread_union.stack)
-@@ -68,6 +71,10 @@ struct thread_info {
+ #else /* !__ASSEMBLY__ */
  
  #include <asm/asm-offsets.h>
  
@@ -178,7 +177,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  
  /*
-@@ -83,6 +90,7 @@ struct thread_info {
+@@ -82,6 +89,7 @@ struct thread_info {
  #define TIF_SYSCALL_EMU		6	/* syscall emulation active */
  #define TIF_SYSCALL_AUDIT	7	/* syscall auditing active */
  #define TIF_SECCOMP		8	/* secure computing */
@@ -186,7 +185,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define TIF_USER_RETURN_NOTIFY	11	/* notify kernel of userspace return */
  #define TIF_UPROBE		12	/* breakpointed or singlestepping */
  #define TIF_PATCH_PENDING	13	/* pending live patching update */
-@@ -109,6 +117,7 @@ struct thread_info {
+@@ -108,6 +116,7 @@ struct thread_info {
  #define _TIF_SYSCALL_EMU	(1 << TIF_SYSCALL_EMU)
  #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
  #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
@@ -194,7 +193,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define _TIF_USER_RETURN_NOTIFY	(1 << TIF_USER_RETURN_NOTIFY)
  #define _TIF_UPROBE		(1 << TIF_UPROBE)
  #define _TIF_PATCH_PENDING	(1 << TIF_PATCH_PENDING)
-@@ -150,6 +159,8 @@ struct thread_info {
+@@ -149,6 +158,8 @@ struct thread_info {
  #define _TIF_WORK_CTXSW_PREV (_TIF_WORK_CTXSW|_TIF_USER_RETURN_NOTIFY)
  #define _TIF_WORK_CTXSW_NEXT (_TIF_WORK_CTXSW)
  

@@ -2,7 +2,7 @@ From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Thu, 31 Mar 2016 04:08:28 +0200
 Subject: [PATCH] drivers/block/zram: Replace bit spinlocks with rtmutex
  for -rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 They're nondeterministic, and lead to ___might_sleep() splats in -rt.
 OTOH, they're a lot less wasteful than an rtmutex per page.
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/block/zram/zram_drv.c
 +++ b/drivers/block/zram/zram_drv.c
-@@ -756,6 +756,30 @@ static DEVICE_ATTR_RO(io_stat);
+@@ -748,6 +748,30 @@ static DEVICE_ATTR_RO(io_stat);
  static DEVICE_ATTR_RO(mm_stat);
  static DEVICE_ATTR_RO(debug_stat);
  
@@ -47,7 +47,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static void zram_slot_lock(struct zram *zram, u32 index)
  {
  	bit_spin_lock(ZRAM_ACCESS, &zram->table[index].value);
-@@ -765,6 +789,7 @@ static void zram_slot_unlock(struct zram
+@@ -757,6 +781,7 @@ static void zram_slot_unlock(struct zram
  {
  	bit_spin_unlock(ZRAM_ACCESS, &zram->table[index].value);
  }
@@ -55,7 +55,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static void zram_meta_free(struct zram *zram, u64 disksize)
  {
-@@ -794,6 +819,7 @@ static bool zram_meta_alloc(struct zram
+@@ -786,6 +811,7 @@ static bool zram_meta_alloc(struct zram
  		return false;
  	}
  

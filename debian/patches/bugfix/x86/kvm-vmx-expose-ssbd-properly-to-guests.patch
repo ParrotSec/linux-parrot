@@ -1,0 +1,35 @@
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Date: Mon, 21 May 2018 17:54:49 -0400
+Subject: KVM: VMX: Expose SSBD properly to guests.
+Origin: https://www.spinics.net/lists/kvm/msg169259.html
+
+The X86_FEATURE_SSBD is an synthetic CPU feature - that is
+it bit location has no relevance to the real CPUID 0x7.EBX[31]
+bit position. For that we need the new CPU feature name.
+
+Fixes: 52817587e706 ("x86/cpufeatures: Disentangle SSBD enumeration")
+
+CC: Paolo Bonzini <pbonzini@redhat.com>
+Cc: "Radim Krčmář" <rkrcmar@redhat.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+---
+ arch/x86/kvm/cpuid.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/arch/x86/kvm/cpuid.c
++++ b/arch/x86/kvm/cpuid.c
+@@ -402,8 +402,8 @@ static inline int __do_cpuid_ent(struct
+ 
+ 	/* cpuid 7.0.edx*/
+ 	const u32 kvm_cpuid_7_0_edx_x86_features =
+-		F(AVX512_4VNNIW) | F(AVX512_4FMAPS) | F(SPEC_CTRL) | F(SSBD) |
+-		F(ARCH_CAPABILITIES);
++		F(AVX512_4VNNIW) | F(AVX512_4FMAPS) | F(SPEC_CTRL) |
++		F(SPEC_CTRL_SSBD) | F(ARCH_CAPABILITIES);
+ 
+ 	/* all calls to cpuid_count() should be made on the same cpu */
+ 	get_cpu();

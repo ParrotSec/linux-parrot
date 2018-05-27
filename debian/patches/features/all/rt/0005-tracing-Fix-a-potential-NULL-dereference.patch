@@ -1,0 +1,30 @@
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 23 Mar 2018 14:37:36 +0300
+Subject: [PATCH 5/5] tracing: Fix a potential NULL dereference
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+We forgot to set the error code on this path so we return ERR_PTR(0)
+which is NULL.  It results in a NULL dereference in the caller.
+
+Link: http://lkml.kernel.org/r/20180323113735.GC28518@mwanda
+
+Fixes: 100719dcef44 ("tracing: Add simple expression support to hist triggers")
+Acked-by: Tom Zanussi <tom.zanussi@linux.intel.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+(cherry picked from commit 5e4cf2bf6d1c198a90ccc0df5ffd8e0d4ea36b48)
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/trace/trace_events_hist.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/kernel/trace/trace_events_hist.c
++++ b/kernel/trace/trace_events_hist.c
+@@ -2777,6 +2777,7 @@ static struct hist_field *parse_expr(str
+ 		expr->fn = hist_field_plus;
+ 		break;
+ 	default:
++		ret = -EINVAL;
+ 		goto free;
+ 	}
+ 

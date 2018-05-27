@@ -1,0 +1,34 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Tue, 10 Apr 2018 11:37:11 +0200
+Subject: [PATCH] lockdep: Add a assert_in_softirq()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Instead of directly warn on wrong context, check if softirq context is
+set. This check could be a nop on RT.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/lockdep.h |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+--- a/include/linux/lockdep.h
++++ b/include/linux/lockdep.h
+@@ -608,11 +608,17 @@ do {									\
+ 			  "IRQs not disabled as expected\n");		\
+ 	} while (0)
+ 
++#define lockdep_assert_in_softirq()	do {				\
++		WARN_ONCE(debug_locks && !current->lockdep_recursion &&	\
++			  !current->softirq_context,			\
++			  "Not in softirq context as expected\n");	\
++	} while (0)
+ #else
+ # define might_lock(lock) do { } while (0)
+ # define might_lock_read(lock) do { } while (0)
+ # define lockdep_assert_irqs_enabled() do { } while (0)
+ # define lockdep_assert_irqs_disabled() do { } while (0)
++# define lockdep_assert_in_softirq() do { } while (0)
+ #endif
+ 
+ #ifdef CONFIG_LOCKDEP

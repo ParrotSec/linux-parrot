@@ -1,7 +1,7 @@
 Subject: printk: Add a printk kill switch
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 22 Jul 2011 17:58:40 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Add a prinkt-kill-switch. This is used from (NMI) watchdog to ensure that
 it does not dead-lock with the early printk code.
@@ -15,7 +15,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/printk.h
 +++ b/include/linux/printk.h
-@@ -142,9 +142,11 @@ struct va_format {
+@@ -140,9 +140,11 @@ struct va_format {
  #ifdef CONFIG_EARLY_PRINTK
  extern asmlinkage __printf(1, 2)
  void early_printk(const char *fmt, ...);
@@ -29,7 +29,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_PRINTK_NMI
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -400,6 +400,58 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
+@@ -404,6 +404,58 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
  		printk_safe_exit_irqrestore(flags);	\
  	} while (0)
  
@@ -88,7 +88,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_PRINTK
  DECLARE_WAIT_QUEUE_HEAD(log_wait);
  /* the next printk record to read by syslog(READ) or /proc/kmsg */
-@@ -1692,6 +1744,13 @@ asmlinkage int vprintk_emit(int facility
+@@ -1836,6 +1888,13 @@ asmlinkage int vprintk_emit(int facility
  	int printed_len;
  	bool in_sched = false;
  
@@ -102,7 +102,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	if (level == LOGLEVEL_SCHED) {
  		level = LOGLEVEL_DEFAULT;
  		in_sched = true;
-@@ -1863,26 +1922,6 @@ static bool suppress_message_printing(in
+@@ -2016,26 +2075,6 @@ static bool suppress_message_printing(in
  
  #endif /* CONFIG_PRINTK */
  

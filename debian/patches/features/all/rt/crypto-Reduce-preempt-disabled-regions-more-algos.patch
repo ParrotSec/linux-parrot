@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 21 Feb 2014 17:24:04 +0100
 Subject: crypto: Reduce preempt disabled regions, more algos
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Don Estabrook reported
 | kernel: WARNING: CPU: 2 PID: 858 at kernel/sched/core.c:2428 migrate_disable+0xed/0x100()
@@ -53,7 +53,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct cast5_ctx *ctx = crypto_blkcipher_ctx(desc->tfm);
  	const unsigned int bsize = CAST5_BLOCK_SIZE;
  	unsigned int nbytes;
-@@ -75,7 +75,7 @@ static int ecb_crypt(struct blkcipher_de
+@@ -73,7 +73,7 @@ static int ecb_crypt(struct blkcipher_de
  		u8 *wsrc = walk->src.virt.addr;
  		u8 *wdst = walk->dst.virt.addr;
  
@@ -62,7 +62,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/* Process multi-block batch */
  		if (nbytes >= bsize * CAST5_PARALLEL_BLOCKS) {
-@@ -103,10 +103,9 @@ static int ecb_crypt(struct blkcipher_de
+@@ -102,10 +102,9 @@ static int ecb_crypt(struct blkcipher_de
  		} while (nbytes >= bsize);
  
  done:
@@ -74,7 +74,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return err;
  }
  
-@@ -227,7 +226,7 @@ static unsigned int __cbc_decrypt(struct
+@@ -226,7 +225,7 @@ static unsigned int __cbc_decrypt(struct
  static int cbc_decrypt(struct blkcipher_desc *desc, struct scatterlist *dst,
  		       struct scatterlist *src, unsigned int nbytes)
  {
@@ -83,7 +83,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct blkcipher_walk walk;
  	int err;
  
-@@ -236,12 +235,11 @@ static int cbc_decrypt(struct blkcipher_
+@@ -235,12 +234,11 @@ static int cbc_decrypt(struct blkcipher_
  	desc->flags &= ~CRYPTO_TFM_REQ_MAY_SLEEP;
  
  	while ((nbytes = walk.nbytes)) {
@@ -98,7 +98,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return err;
  }
  
-@@ -310,7 +308,7 @@ static unsigned int __ctr_crypt(struct b
+@@ -309,7 +307,7 @@ static unsigned int __ctr_crypt(struct b
  static int ctr_crypt(struct blkcipher_desc *desc, struct scatterlist *dst,
  		     struct scatterlist *src, unsigned int nbytes)
  {
@@ -107,7 +107,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct blkcipher_walk walk;
  	int err;
  
-@@ -319,13 +317,12 @@ static int ctr_crypt(struct blkcipher_de
+@@ -318,13 +316,12 @@ static int ctr_crypt(struct blkcipher_de
  	desc->flags &= ~CRYPTO_TFM_REQ_MAY_SLEEP;
  
  	while ((nbytes = walk.nbytes) >= CAST5_BLOCK_SIZE) {

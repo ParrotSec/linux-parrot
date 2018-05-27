@@ -1,0 +1,121 @@
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Wed, 25 Apr 2018 16:01:37 +0200
+Subject: [PATCH] ACPICA: Convert acpi_gbl_hardware lock back to an
+ acpi_raw_spinlock
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+We hit the following bug with -RT:
+
+|BUG: scheduling while atomic: swapper/7/0/0x00000002
+|Pid: 0, comm: swapper/7 Not tainted 3.6.11-rt28.19.el6rt.x86_64.debug #1
+|Call Trace:
+|  rt_spin_lock+0x16/0x40
+|  __schedule_bug+0x67/0x90
+|  __schedule+0x793/0x7a0
+|  acpi_os_acquire_lock+0x1f/0x23
+|  acpi_write_bit_register+0x33/0xb0
+|  rt_spin_lock_slowlock+0xe5/0x2f0
+|  acpi_idle_enter_bm+0x8a/0x28e
+…
+As the acpi code disables interrupts in acpi_idle_enter_bm, and calls
+code that grabs the acpi lock, it causes issues as the lock is currently
+in RT a sleeping lock.
+
+The lock was converted from a raw to a sleeping lock due to some
+previous issues, and tests that showed it didn't seem to matter.
+Unfortunately, it did matter for one of our boxes.
+
+This patch converts the lock back to a raw lock. I've run this code on a
+few of my own machines, one being my laptop that uses the acpi quite
+extensively. I've been able to suspend and resume without issues.
+
+[ tglx: Made the change exclusive for acpi_gbl_hardware_lock ]
+
+Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+Cc: John Kacur <jkacur@gmail.com>
+Cc: Clark Williams <clark@redhat.com>
+Link: http://lkml.kernel.org/r/1360765565.23152.5.camel@gandalf.local.home
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+[bigeasy: shorten the backtrace, use the type acpi_raw_spinlock incl.
+ accessor]
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/acpi/acpica/acglobal.h |    2 +-
+ drivers/acpi/acpica/hwregs.c   |    4 ++--
+ drivers/acpi/acpica/hwxface.c  |    4 ++--
+ drivers/acpi/acpica/utmutex.c  |    4 ++--
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+--- a/drivers/acpi/acpica/acglobal.h
++++ b/drivers/acpi/acpica/acglobal.h
+@@ -116,7 +116,7 @@ ACPI_GLOBAL(u8, acpi_gbl_global_lock_pen
+  * interrupt level
+  */
+ ACPI_GLOBAL(acpi_spinlock, acpi_gbl_gpe_lock);	/* For GPE data structs and registers */
+-ACPI_GLOBAL(acpi_spinlock, acpi_gbl_hardware_lock);	/* For ACPI H/W except GPE registers */
++ACPI_GLOBAL(acpi_raw_spinlock, acpi_gbl_hardware_lock);	/* For ACPI H/W except GPE registers */
+ ACPI_GLOBAL(acpi_spinlock, acpi_gbl_reference_count_lock);
+ 
+ /* Mutex for _OSI support */
+--- a/drivers/acpi/acpica/hwregs.c
++++ b/drivers/acpi/acpica/hwregs.c
+@@ -426,14 +426,14 @@ acpi_status acpi_hw_clear_acpi_status(vo
+ 			  ACPI_BITMASK_ALL_FIXED_STATUS,
+ 			  ACPI_FORMAT_UINT64(acpi_gbl_xpm1a_status.address)));
+ 
+-	lock_flags = acpi_os_acquire_lock(acpi_gbl_hardware_lock);
++	lock_flags = acpi_os_acquire_raw_lock(acpi_gbl_hardware_lock);
+ 
+ 	/* Clear the fixed events in PM1 A/B */
+ 
+ 	status = acpi_hw_register_write(ACPI_REGISTER_PM1_STATUS,
+ 					ACPI_BITMASK_ALL_FIXED_STATUS);
+ 
+-	acpi_os_release_lock(acpi_gbl_hardware_lock, lock_flags);
++	acpi_os_release_raw_lock(acpi_gbl_hardware_lock, lock_flags);
+ 
+ 	if (ACPI_FAILURE(status)) {
+ 		goto exit;
+--- a/drivers/acpi/acpica/hwxface.c
++++ b/drivers/acpi/acpica/hwxface.c
+@@ -261,7 +261,7 @@ acpi_status acpi_write_bit_register(u32
+ 		return_ACPI_STATUS(AE_BAD_PARAMETER);
+ 	}
+ 
+-	lock_flags = acpi_os_acquire_lock(acpi_gbl_hardware_lock);
++	lock_flags = acpi_os_acquire_raw_lock(acpi_gbl_hardware_lock);
+ 
+ 	/*
+ 	 * At this point, we know that the parent register is one of the
+@@ -322,7 +322,7 @@ acpi_status acpi_write_bit_register(u32
+ 
+ unlock_and_exit:
+ 
+-	acpi_os_release_lock(acpi_gbl_hardware_lock, lock_flags);
++	acpi_os_release_raw_lock(acpi_gbl_hardware_lock, lock_flags);
+ 	return_ACPI_STATUS(status);
+ }
+ 
+--- a/drivers/acpi/acpica/utmutex.c
++++ b/drivers/acpi/acpica/utmutex.c
+@@ -88,7 +88,7 @@ acpi_status acpi_ut_mutex_initialize(voi
+ 		return_ACPI_STATUS (status);
+ 	}
+ 
+-	status = acpi_os_create_lock (&acpi_gbl_hardware_lock);
++	status = acpi_os_create_raw_lock(&acpi_gbl_hardware_lock);
+ 	if (ACPI_FAILURE (status)) {
+ 		return_ACPI_STATUS (status);
+ 	}
+@@ -145,7 +145,7 @@ void acpi_ut_mutex_terminate(void)
+ 	/* Delete the spinlocks */
+ 
+ 	acpi_os_delete_lock(acpi_gbl_gpe_lock);
+-	acpi_os_delete_lock(acpi_gbl_hardware_lock);
++	acpi_os_delete_raw_lock(acpi_gbl_hardware_lock);
+ 	acpi_os_delete_lock(acpi_gbl_reference_count_lock);
+ 
+ 	/* Delete the reader/writer lock */

@@ -1,0 +1,30 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 17 May 2018 11:47:24 +0200
+Subject: [PATCH] sched: let softirq_count() return !0 if inside
+ local_bh_disable()ed section
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+I don't see a reason why softirq_count() shouldn't reflect the fact that
+we are within a local_bh_disable() section. I *think* it was done
+primary because in RT the softirq is slightly different (and
+preemptible) and it broke some of RCU's assumptions.
+I don't see any fallout with this change. Furthermore, all checks like
+"WARN_ON(!softirq_count())" will work and we can drop the workaround we
+currently have in the queue.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/preempt.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/include/linux/preempt.h
++++ b/include/linux/preempt.h
+@@ -91,7 +91,7 @@
+ # define softirq_count()	(preempt_count() & SOFTIRQ_MASK)
+ # define in_serving_softirq()	(softirq_count() & SOFTIRQ_OFFSET)
+ #else
+-# define softirq_count()	(0UL)
++# define softirq_count()	((unsigned long)current->softirq_nestcnt)
+ extern int in_serving_softirq(void);
+ #endif
+ 

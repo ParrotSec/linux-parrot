@@ -1,0 +1,40 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Wed, 4 Apr 2018 11:44:00 +0200
+Subject: [PATCH] net: u64_stats_sync: Remove functions without user
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Commit 67db3e4bfbc9 ("tcp: no longer hold ehash lock while calling
+tcp_get_info()") removes the only users of u64_stats_update_end/begin_raw()
+without removing the function in header file.
+
+Remove no longer used functions.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/u64_stats_sync.h |   14 --------------
+ 1 file changed, 14 deletions(-)
+
+--- a/include/linux/u64_stats_sync.h
++++ b/include/linux/u64_stats_sync.h
+@@ -112,20 +112,6 @@ u64_stats_update_end_irqrestore(struct u
+ #endif
+ }
+ 
+-static inline void u64_stats_update_begin_raw(struct u64_stats_sync *syncp)
+-{
+-#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+-	raw_write_seqcount_begin(&syncp->seq);
+-#endif
+-}
+-
+-static inline void u64_stats_update_end_raw(struct u64_stats_sync *syncp)
+-{
+-#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+-	raw_write_seqcount_end(&syncp->seq);
+-#endif
+-}
+-
+ static inline unsigned int __u64_stats_fetch_begin(const struct u64_stats_sync *syncp)
+ {
+ #if BITS_PER_LONG==32 && defined(CONFIG_SMP)

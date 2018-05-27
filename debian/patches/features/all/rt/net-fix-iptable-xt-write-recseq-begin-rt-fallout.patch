@@ -1,7 +1,7 @@
 Subject: net: netfilter: Serialize xt_write_recseq sections on RT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 28 Oct 2012 11:18:08 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The netfilter code relies only on the implicit semantics of
 local_bh_disable() for serializing wt_write_recseq sections. RT breaks
@@ -25,7 +25,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #include <uapi/linux/netfilter/x_tables.h>
  
  /* Test a struct->invflags and a boolean for inequality */
-@@ -338,6 +339,8 @@ void xt_free_table_info(struct xt_table_
+@@ -343,6 +344,8 @@ void xt_free_table_info(struct xt_table_
   */
  DECLARE_PER_CPU(seqcount_t, xt_recseq);
  
@@ -34,7 +34,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /* xt_tee_enabled - true if x_tables needs to handle reentrancy
   *
   * Enabled if current ip(6)tables ruleset has at least one -j TEE rule.
-@@ -358,6 +361,9 @@ static inline unsigned int xt_write_recs
+@@ -363,6 +366,9 @@ static inline unsigned int xt_write_recs
  {
  	unsigned int addend;
  
@@ -44,7 +44,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/*
  	 * Low order bit of sequence is set if we already
  	 * called xt_write_recseq_begin().
-@@ -388,6 +394,7 @@ static inline void xt_write_recseq_end(u
+@@ -393,6 +399,7 @@ static inline void xt_write_recseq_end(u
  	/* this is kind of a write_seqcount_end(), but addend is 0 or 1 */
  	smp_wmb();
  	__this_cpu_add(xt_recseq.sequence, addend);
@@ -54,7 +54,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
-@@ -21,6 +21,7 @@
+@@ -20,6 +20,7 @@
  #include <linux/inetdevice.h>
  #include <linux/proc_fs.h>
  #include <linux/mutex.h>
@@ -62,7 +62,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #include <linux/mm.h>
  #include <linux/rcupdate.h>
  #include <net/net_namespace.h>
-@@ -28,6 +29,11 @@
+@@ -27,6 +28,11 @@
  
  #include "nf_internals.h"
  
@@ -71,6 +71,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +EXPORT_PER_CPU_SYMBOL(xt_write_lock);
 +#endif
 +
- static DEFINE_MUTEX(afinfo_mutex);
+ const struct nf_ipv6_ops __rcu *nf_ipv6_ops __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_ipv6_ops);
  
- const struct nf_afinfo __rcu *nf_afinfo[NFPROTO_NUMPROTO] __read_mostly;

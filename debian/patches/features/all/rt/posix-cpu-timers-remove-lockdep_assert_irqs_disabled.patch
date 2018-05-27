@@ -1,0 +1,36 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 12 Apr 2018 17:37:17 +0200
+Subject: [PATCH] posix-cpu-timers: remove lockdep_assert_irqs_disabled()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+The lockdep_assert_irqs_disabled() was a BUG_ON() statement in the
+beginning and it was added just before the "spin_lock(siglock)"
+statement to ensure this lock was taken with disabled interrupts.
+This is no longer the case: the siglock is acquired via
+lock_task_sighand() and this function already disables the interrupts.
+The lock is also acquired before this "lockdep_assert_irqs_disabled" so
+it is beset to remove it.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/time/posix-cpu-timers.c |    2 --
+ 1 file changed, 2 deletions(-)
+
+--- a/kernel/time/posix-cpu-timers.c
++++ b/kernel/time/posix-cpu-timers.c
+@@ -604,7 +604,6 @@ static int posix_cpu_timer_set(struct k_
+ 	/*
+ 	 * Disarm any old timer after extracting its expiry time.
+ 	 */
+-	lockdep_assert_irqs_disabled();
+ 
+ 	ret = 0;
+ 	old_incr = timer->it.cpu.incr;
+@@ -1049,7 +1048,6 @@ static void posix_cpu_timer_rearm(struct
+ 	/*
+ 	 * Now re-arm for the new expiry time.
+ 	 */
+-	lockdep_assert_irqs_disabled();
+ 	arm_timer(timer);
+ unlock:
+ 	unlock_task_sighand(p, &flags);

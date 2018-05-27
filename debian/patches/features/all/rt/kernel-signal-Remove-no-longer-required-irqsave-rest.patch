@@ -1,0 +1,69 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Wed, 4 Apr 2018 11:44:01 +0200
+Subject: [PATCH] kernel/signal: Remove no longer required irqsave/restore
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Commit a841796f11c9 ("signal: align __lock_task_sighand() irq disabling and
+RCU") introduced a rcu read side critical section with interrupts
+disabled. The changelog suggested that a better long-term fix would be "to
+make rt_mutex_unlock() disable irqs when acquiring the rt_mutex structure's
+->wait_lock".
+
+This long-term fix has been made in commit 4abf91047cf ("rtmutex: Make >
+wait_lock irq safe") for different reason.
+
+Therefore revert commit a841796f11c9 ("signal: align >
+__lock_task_sighand() irq disabling and RCU") as the interrupt disable
+dance is not longer required.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/signal.c |   24 +++++++-----------------
+ 1 file changed, 7 insertions(+), 17 deletions(-)
+
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -1244,19 +1244,12 @@ struct sighand_struct *__lock_task_sigha
+ {
+ 	struct sighand_struct *sighand;
+ 
++	rcu_read_lock();
+ 	for (;;) {
+-		/*
+-		 * Disable interrupts early to avoid deadlocks.
+-		 * See rcu_read_unlock() comment header for details.
+-		 */
+-		local_irq_save(*flags);
+-		rcu_read_lock();
+ 		sighand = rcu_dereference(tsk->sighand);
+-		if (unlikely(sighand == NULL)) {
+-			rcu_read_unlock();
+-			local_irq_restore(*flags);
++		if (unlikely(sighand == NULL))
+ 			break;
+-		}
++
+ 		/*
+ 		 * This sighand can be already freed and even reused, but
+ 		 * we rely on SLAB_TYPESAFE_BY_RCU and sighand_ctor() which
+@@ -1268,15 +1261,12 @@ struct sighand_struct *__lock_task_sigha
+ 		 * __exit_signal(). In the latter case the next iteration
+ 		 * must see ->sighand == NULL.
+ 		 */
+-		spin_lock(&sighand->siglock);
+-		if (likely(sighand == tsk->sighand)) {
+-			rcu_read_unlock();
++		spin_lock_irqsave(&sighand->siglock, *flags);
++		if (likely(sighand == tsk->sighand))
+ 			break;
+-		}
+-		spin_unlock(&sighand->siglock);
+-		rcu_read_unlock();
+-		local_irq_restore(*flags);
++		spin_unlock_irqrestore(&sighand->siglock, *flags);
+ 	}
++	rcu_read_unlock();
+ 
+ 	return sighand;
+ }

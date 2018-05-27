@@ -2,7 +2,7 @@
 ## file: certs/Kconfig
 ##
 #. Certificate paths are resolved relative to debian/build/source_rt
-CONFIG_SYSTEM_TRUSTED_KEYS="../../certs/benh@debian.org.cert.pem"
+CONFIG_SYSTEM_TRUSTED_KEYS="../../certs/test-signing-certs.pem"
 
 ##
 ## file: kernel/Kconfig.preempt

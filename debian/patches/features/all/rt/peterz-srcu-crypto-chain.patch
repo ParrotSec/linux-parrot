@@ -1,7 +1,7 @@
 Subject: crypto: Convert crypto notifier chain to SRCU
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 05 Oct 2012 09:03:24 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The crypto notifier deadlocks on RT. Though this can be a real deadlock
 on mainline as well due to fifo fair rwsems.
@@ -121,7 +121,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/crypto/algapi.c
 +++ b/crypto/algapi.c
-@@ -731,13 +731,13 @@ EXPORT_SYMBOL_GPL(crypto_spawn_tfm2);
+@@ -726,13 +726,13 @@ EXPORT_SYMBOL_GPL(crypto_spawn_tfm2);
  
  int crypto_register_notifier(struct notifier_block *nb)
  {
@@ -139,7 +139,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
 --- a/crypto/api.c
 +++ b/crypto/api.c
-@@ -31,7 +31,7 @@ EXPORT_SYMBOL_GPL(crypto_alg_list);
+@@ -32,7 +32,7 @@ EXPORT_SYMBOL_GPL(crypto_alg_list);
  DECLARE_RWSEM(crypto_alg_sem);
  EXPORT_SYMBOL_GPL(crypto_alg_sem);
  
@@ -148,7 +148,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  EXPORT_SYMBOL_GPL(crypto_chain);
  
  static struct crypto_alg *crypto_larval_wait(struct crypto_alg *alg);
-@@ -236,10 +236,10 @@ int crypto_probing_notify(unsigned long
+@@ -237,10 +237,10 @@ int crypto_probing_notify(unsigned long
  {
  	int ok;
  
@@ -163,7 +163,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return ok;
 --- a/crypto/internal.h
 +++ b/crypto/internal.h
-@@ -47,7 +47,7 @@ struct crypto_larval {
+@@ -44,7 +44,7 @@ struct crypto_larval {
  
  extern struct list_head crypto_alg_list;
  extern struct rw_semaphore crypto_alg_sem;
@@ -172,7 +172,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  #ifdef CONFIG_PROC_FS
  void __init crypto_init_proc(void);
-@@ -143,7 +143,7 @@ static inline int crypto_is_moribund(str
+@@ -139,7 +139,7 @@ static inline int crypto_is_moribund(str
  
  static inline void crypto_notify(unsigned long val, void *v)
  {

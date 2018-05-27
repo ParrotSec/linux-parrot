@@ -1,0 +1,80 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 19 Apr 2018 11:22:55 +0200
+Subject: [PATCH] ide: don't enable/disable interrupts in force threaded-IRQ
+ mode
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+The interrupts are enabled/disabled so the interrupt handler can run
+with enabled interrupts while serving the interrupt and not lose other
+interrupts especially the timer tick.
+If the system runs with force-threaded interrupts then there is no need
+to enable the interrupts.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/ide/ide-iops.c     |   13 +++++++++----
+ drivers/ide/ide-taskfile.c |    2 +-
+ kernel/irq/manage.c        |    1 +
+ 3 files changed, 11 insertions(+), 5 deletions(-)
+
+--- a/drivers/ide/ide-iops.c
++++ b/drivers/ide/ide-iops.c
+@@ -108,6 +108,7 @@ int __ide_wait_stat(ide_drive_t *drive,
+ 	ide_hwif_t *hwif = drive->hwif;
+ 	const struct ide_tp_ops *tp_ops = hwif->tp_ops;
+ 	unsigned long flags;
++	bool irqs_threaded = force_irqthreads;
+ 	int i;
+ 	u8 stat;
+ 
+@@ -115,8 +116,10 @@ int __ide_wait_stat(ide_drive_t *drive,
+ 	stat = tp_ops->read_status(hwif);
+ 
+ 	if (stat & ATA_BUSY) {
+-		local_save_flags(flags);
+-		local_irq_enable_in_hardirq();
++		if (!irqs_threaded) {
++			local_save_flags(flags);
++			local_irq_enable_in_hardirq();
++		}
+ 		timeout += jiffies;
+ 		while ((stat = tp_ops->read_status(hwif)) & ATA_BUSY) {
+ 			if (time_after(jiffies, timeout)) {
+@@ -129,12 +132,14 @@ int __ide_wait_stat(ide_drive_t *drive,
+ 				if ((stat & ATA_BUSY) == 0)
+ 					break;
+ 
+-				local_irq_restore(flags);
++				if (!irqs_threaded)
++					local_irq_restore(flags);
+ 				*rstat = stat;
+ 				return -EBUSY;
+ 			}
+ 		}
+-		local_irq_restore(flags);
++		if (!irqs_threaded)
++			local_irq_restore(flags);
+ 	}
+ 	/*
+ 	 * Allow status to settle, then read it again.
+--- a/drivers/ide/ide-taskfile.c
++++ b/drivers/ide/ide-taskfile.c
+@@ -405,7 +405,7 @@ static ide_startstop_t pre_task_out_intr
+ 		return startstop;
+ 	}
+ 
+-	if ((drive->dev_flags & IDE_DFLAG_UNMASK) == 0)
++	if (!force_irqthreads && (drive->dev_flags & IDE_DFLAG_UNMASK) == 0)
+ 		local_irq_disable();
+ 
+ 	ide_set_handler(drive, &task_pio_intr, WAIT_WORSTCASE);
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -25,6 +25,7 @@
+ 
+ #ifdef CONFIG_IRQ_FORCED_THREADING
+ __read_mostly bool force_irqthreads;
++EXPORT_SYMBOL_GPL(force_irqthreads);
+ 
+ static int __init setup_forced_irqthreads(char *arg)
+ {

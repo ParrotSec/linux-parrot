@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 21 Aug 2017 15:09:13 +0200
 Subject: [PATCH] net: take the tcp_sk_lock lock with BH disabled
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Lockdep may complain about an unsafe locking scenario:
 |      CPU0                    CPU1
@@ -27,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -711,8 +711,8 @@ static void tcp_v4_send_reset(const stru
+@@ -716,8 +716,8 @@ static void tcp_v4_send_reset(const stru
  
  	arg.tos = ip_hdr(skb)->tos;
  	arg.uid = sock_net_uid(net, sk && sk_fullsock(sk) ? sk : NULL);
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
  			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
  			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
-@@ -720,8 +720,8 @@ static void tcp_v4_send_reset(const stru
+@@ -725,8 +725,8 @@ static void tcp_v4_send_reset(const stru
  
  	__TCP_INC_STATS(net, TCP_MIB_OUTSEGS);
  	__TCP_INC_STATS(net, TCP_MIB_OUTRSTS);
@@ -47,7 +47,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #ifdef CONFIG_TCP_MD5SIG
  out:
-@@ -799,16 +799,16 @@ static void tcp_v4_send_ack(const struct
+@@ -804,16 +804,16 @@ static void tcp_v4_send_ack(const struct
  		arg.bound_dev_if = oif;
  	arg.tos = tos;
  	arg.uid = sock_net_uid(net, sk_fullsock(sk) ? sk : NULL);

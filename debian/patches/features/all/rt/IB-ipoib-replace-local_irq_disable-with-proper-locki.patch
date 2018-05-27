@@ -1,0 +1,74 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 11 Apr 2018 13:34:26 +0200
+Subject: [PATCH] IB/ipoib: replace local_irq_disable() with proper locking
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Commit 78bfe0b5b67f ("IPoIB: Take dev->xmit_lock around mc_list accesses")
+introduced xmit_lock lock in ipoib_mcast_restart_task() and commit
+932ff279a43a ("[NET]: Add netif_tx_lock") preserved the locking order while
+dev->xmit_lock has been replaced with a helper. The netif_tx_lock should
+not be acquired with disabled interrupts because it is meant to be a BH
+disabling lock.
+
+The priv->lock is always acquired with interrupts disabled. The only
+place where netif_addr_lock() and priv->lock nest ist
+ipoib_mcast_restart_task(). By reversing the lock order and taking
+netif_addr lock with bottom halfs disabled it is possible to get rid of
+the local_irq_save() completely.
+
+This requires to take priv->lock with spin_lock_irq() inside the netif_addr
+locked section. It's safe to do so because the caller is either a worker
+function or __ipoib_ib_dev_flush() which are both calling with interrupts
+enabled.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/infiniband/ulp/ipoib/ipoib_multicast.c |   15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
+
+--- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+@@ -886,7 +886,6 @@ void ipoib_mcast_restart_task(struct wor
+ 	struct netdev_hw_addr *ha;
+ 	struct ipoib_mcast *mcast, *tmcast;
+ 	LIST_HEAD(remove_list);
+-	unsigned long flags;
+ 	struct ib_sa_mcmember_rec rec;
+ 
+ 	if (!test_bit(IPOIB_FLAG_OPER_UP, &priv->flags))
+@@ -898,9 +897,8 @@ void ipoib_mcast_restart_task(struct wor
+ 
+ 	ipoib_dbg_mcast(priv, "restarting multicast task\n");
+ 
+-	local_irq_save(flags);
+-	netif_addr_lock(dev);
+-	spin_lock(&priv->lock);
++	netif_addr_lock_bh(dev);
++	spin_lock_irq(&priv->lock);
+ 
+ 	/*
+ 	 * Unfortunately, the networking core only gives us a list of all of
+@@ -978,9 +976,8 @@ void ipoib_mcast_restart_task(struct wor
+ 		}
+ 	}
+ 
+-	spin_unlock(&priv->lock);
+-	netif_addr_unlock(dev);
+-	local_irq_restore(flags);
++	spin_unlock_irq(&priv->lock);
++	netif_addr_unlock_bh(dev);
+ 
+ 	ipoib_mcast_remove_list(&remove_list);
+ 
+@@ -988,9 +985,9 @@ void ipoib_mcast_restart_task(struct wor
+ 	 * Double check that we are still up
+ 	 */
+ 	if (test_bit(IPOIB_FLAG_OPER_UP, &priv->flags)) {
+-		spin_lock_irqsave(&priv->lock, flags);
++		spin_lock_irq(&priv->lock);
+ 		__ipoib_mcast_schedule_join_thread(priv, NULL, 0);
+-		spin_unlock_irqrestore(&priv->lock, flags);
++		spin_unlock_irq(&priv->lock);
+ 	}
+ }
+ 

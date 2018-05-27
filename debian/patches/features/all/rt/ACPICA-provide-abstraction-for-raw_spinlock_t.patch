@@ -1,0 +1,123 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 25 Apr 2018 15:19:42 +0200
+Subject: [PATCH] ACPICA: provide abstraction for raw_spinlock_t
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Provide a new lock type acpi_raw_spinlock which is implemented as
+raw_spinlock_t on Linux. This type should be used in code which covers
+small areas of code and disables interrupts only for short time even on
+a realtime OS.
+There is a fallback to spinlock_t if an OS does not provide an
+implementation for acpi_raw_spinlock.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/acpi/acpiosxf.h           |   21 +++++++++++++++++++++
+ include/acpi/actypes.h            |    4 ++++
+ include/acpi/platform/aclinux.h   |    5 +++++
+ include/acpi/platform/aclinuxex.h |   30 ++++++++++++++++++++++++++++++
+ 4 files changed, 60 insertions(+)
+
+--- a/include/acpi/acpiosxf.h
++++ b/include/acpi/acpiosxf.h
+@@ -132,6 +132,27 @@ void acpi_os_release_lock(acpi_spinlock
+ #endif
+ 
+ /*
++ * RAW spinlock primitives. If the OS does not provide them, fallback to
++ * spinlock primitives
++ */
++#ifndef ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_create_raw_lock
++# define acpi_os_create_raw_lock(out_handle)	acpi_os_create_lock(out_handle)
++#endif
++
++#ifndef ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_delete_raw_lock
++# define acpi_os_delete_raw_lock(handle)	acpi_os_delete_lock(handle)
++#endif
++
++#ifndef ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_acquire_raw_lock
++# define acpi_os_acquire_raw_lock(handle)	acpi_os_acquire_lock(handle)
++#endif
++
++#ifndef ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_release_raw_lock
++# define acpi_os_release_raw_lock(handle, flags)	\
++	acpi_os_release_lock(handle, flags)
++#endif
++
++/*
+  * Semaphore primitives
+  */
+ #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_create_semaphore
+--- a/include/acpi/actypes.h
++++ b/include/acpi/actypes.h
+@@ -279,6 +279,10 @@ typedef u64 acpi_physical_address;
+ #define acpi_spinlock                   void *
+ #endif
+ 
++#ifndef acpi_raw_spinlock
++#define acpi_raw_spinlock		acpi_spinlock
++#endif
++
+ #ifndef acpi_semaphore
+ #define acpi_semaphore                  void *
+ #endif
+--- a/include/acpi/platform/aclinux.h
++++ b/include/acpi/platform/aclinux.h
+@@ -134,6 +134,7 @@
+ 
+ #define acpi_cache_t                        struct kmem_cache
+ #define acpi_spinlock                       spinlock_t *
++#define acpi_raw_spinlock                   raw_spinlock_t *
+ #define acpi_cpu_flags                      unsigned long
+ 
+ /* Use native linux version of acpi_os_allocate_zeroed */
+@@ -151,6 +152,10 @@
+ #define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_acquire_object
+ #define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_get_thread_id
+ #define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_create_lock
++#define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_create_raw_lock
++#define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_delete_raw_lock
++#define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_acquire_raw_lock
++#define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_release_raw_lock
+ 
+ /*
+  * OSL interfaces used by debugger/disassembler
+--- a/include/acpi/platform/aclinuxex.h
++++ b/include/acpi/platform/aclinuxex.h
+@@ -124,6 +124,36 @@ static inline acpi_thread_id acpi_os_get
+ 		lock ? AE_OK : AE_NO_MEMORY; \
+ 	})
+ 
++
++#define acpi_os_create_raw_lock(__handle) \
++	({ \
++		raw_spinlock_t *lock = ACPI_ALLOCATE(sizeof(*lock)); \
++		if (lock) { \
++			*(__handle) = lock; \
++			raw_spin_lock_init(*(__handle)); \
++		} \
++		lock ? AE_OK : AE_NO_MEMORY; \
++	})
++
++static inline acpi_cpu_flags acpi_os_acquire_raw_lock(acpi_raw_spinlock lockp)
++{
++	acpi_cpu_flags flags;
++
++	raw_spin_lock_irqsave(lockp, flags);
++	return flags;
++}
++
++static inline void acpi_os_release_raw_lock(acpi_raw_spinlock lockp,
++					    acpi_cpu_flags flags)
++{
++	raw_spin_unlock_irqrestore(lockp, flags);
++}
++
++static inline void acpi_os_delete_raw_lock(acpi_raw_spinlock handle)
++{
++	ACPI_FREE(handle);
++}
++
+ static inline u8 acpi_os_readable(void *pointer, acpi_size length)
+ {
+ 	return TRUE;

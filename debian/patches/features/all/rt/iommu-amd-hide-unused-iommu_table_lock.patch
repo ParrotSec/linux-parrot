@@ -1,0 +1,38 @@
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 4 Apr 2018 12:56:59 +0200
+Subject: [PATCH] iommu: amd: hide unused iommu_table_lock
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+The newly introduced lock is only used when CONFIG_IRQ_REMAP is enabled:
+
+drivers/iommu/amd_iommu.c:86:24: error: 'iommu_table_lock' defined but not used [-Werror=unused-variable]
+ static DEFINE_SPINLOCK(iommu_table_lock);
+
+This moves the definition next to the user, within the #ifdef protected
+section of the file.
+
+Fixes: ea6166f4b83e ("iommu/amd: Split irq_lookup_table out of the amd_iommu_devtable_lock")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/iommu/amd_iommu.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/iommu/amd_iommu.c
++++ b/drivers/iommu/amd_iommu.c
+@@ -82,7 +82,6 @@
+ 
+ static DEFINE_SPINLOCK(amd_iommu_devtable_lock);
+ static DEFINE_SPINLOCK(pd_bitmap_lock);
+-static DEFINE_SPINLOCK(iommu_table_lock);
+ 
+ /* List of all available dev_data structures */
+ static LLIST_HEAD(dev_data_list);
+@@ -3573,6 +3572,7 @@ EXPORT_SYMBOL(amd_iommu_device_info);
+  *****************************************************************************/
+ 
+ static struct irq_chip amd_ir_chip;
++static DEFINE_SPINLOCK(iommu_table_lock);
+ 
+ static void set_dte_irq_entry(u16 devid, struct irq_remap_table *table)
+ {

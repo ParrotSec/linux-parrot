@@ -1,7 +1,7 @@
 Subject: spinlock: Split the lock types header
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 29 Jun 2011 19:34:01 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Split raw_spinlock into its own file and the remaining spinlock_t into
 its own non-RT header. The non-RT header will be replaced later by sleeping
@@ -9,11 +9,11 @@ spinlocks.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- include/linux/rwlock_types.h        |    4 +
- include/linux/spinlock_types.h      |   74 ------------------------------------
+ include/linux/rwlock_types.h        |    4 ++
+ include/linux/spinlock_types.h      |   71 +-----------------------------------
  include/linux/spinlock_types_nort.h |   33 ++++++++++++++++
- include/linux/spinlock_types_raw.h  |   58 ++++++++++++++++++++++++++++
- 4 files changed, 97 insertions(+), 72 deletions(-)
+ include/linux/spinlock_types_raw.h  |   55 +++++++++++++++++++++++++++
+ 4 files changed, 94 insertions(+), 69 deletions(-)
 
 --- a/include/linux/rwlock_types.h
 +++ b/include/linux/rwlock_types.h
@@ -30,7 +30,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
   *				  and initializers
 --- a/include/linux/spinlock_types.h
 +++ b/include/linux/spinlock_types.h
-@@ -9,79 +9,9 @@
+@@ -9,76 +9,9 @@
   * Released under the General Public License (GPL).
   */
  
@@ -45,9 +45,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 -
 -typedef struct raw_spinlock {
 -	arch_spinlock_t raw_lock;
--#ifdef CONFIG_GENERIC_LOCKBREAK
--	unsigned int break_lock;
--#endif
 -#ifdef CONFIG_DEBUG_SPINLOCK
 -	unsigned int magic, owner_cpu;
 -	void *owner;
@@ -150,7 +147,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +#endif
 --- /dev/null
 +++ b/include/linux/spinlock_types_raw.h
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,55 @@
 +#ifndef __LINUX_SPINLOCK_TYPES_RAW_H
 +#define __LINUX_SPINLOCK_TYPES_RAW_H
 +
@@ -166,9 +163,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +
 +typedef struct raw_spinlock {
 +	arch_spinlock_t raw_lock;
-+#ifdef CONFIG_GENERIC_LOCKBREAK
-+	unsigned int break_lock;
-+#endif
 +#ifdef CONFIG_DEBUG_SPINLOCK
 +	unsigned int magic, owner_cpu;
 +	void *owner;

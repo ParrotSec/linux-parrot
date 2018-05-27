@@ -1,21 +1,21 @@
 Subject: workqueue: Use local irq lock instead of irq disable regions
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 21:42:26 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Use a local_irq_lock as a replacement for irq off regions. We keep the
 semantic of irq-off in regard to the pool->lock and remain preemptible.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- kernel/workqueue.c |   36 ++++++++++++++++++++++--------------
- 1 file changed, 22 insertions(+), 14 deletions(-)
+ kernel/workqueue.c |   40 +++++++++++++++++++++++++++-------------
+ 1 file changed, 27 insertions(+), 13 deletions(-)
 
 --- a/kernel/workqueue.c
 +++ b/kernel/workqueue.c
 @@ -49,6 +49,7 @@
- #include <linux/moduleparam.h>
  #include <linux/uaccess.h>
+ #include <linux/sched/isolation.h>
  #include <linux/nmi.h>
 +#include <linux/locallock.h>
  
@@ -62,16 +62,21 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	if (work_is_canceling(work))
  		return -ENOENT;
  	cpu_relax();
-@@ -1380,7 +1385,7 @@ static void __queue_work(int cpu, struct
+@@ -1380,7 +1385,13 @@ static void __queue_work(int cpu, struct
  	 * queued or lose PENDING.  Grabbing PENDING and queueing should
  	 * happen with IRQ disabled.
  	 */
--	WARN_ON_ONCE(!irqs_disabled());
-+	WARN_ON_ONCE_NONRT(!irqs_disabled());
++#ifndef CONFIG_PREEMPT_RT_FULL
++	/*
++	 * nort: On RT the "interrupts-disabled" rule has been replaced with
++	 * pendingb_lock.
++	 */
+ 	lockdep_assert_irqs_disabled();
++#endif
  
  	debug_work_activate(work);
  
-@@ -1486,14 +1491,14 @@ bool queue_work_on(int cpu, struct workq
+@@ -1486,14 +1497,14 @@ bool queue_work_on(int cpu, struct workq
  	bool ret = false;
  	unsigned long flags;
  
@@ -88,9 +93,9 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return ret;
  }
  EXPORT_SYMBOL(queue_work_on);
-@@ -1502,8 +1507,11 @@ void delayed_work_timer_fn(unsigned long
+@@ -1502,8 +1513,11 @@ void delayed_work_timer_fn(struct timer_
  {
- 	struct delayed_work *dwork = (struct delayed_work *)__data;
+ 	struct delayed_work *dwork = from_timer(dwork, t, timer);
  
 +	/* XXX */
 +	/* local_lock(pendingb_lock); */
@@ -100,7 +105,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  EXPORT_SYMBOL(delayed_work_timer_fn);
  
-@@ -1559,14 +1567,14 @@ bool queue_delayed_work_on(int cpu, stru
+@@ -1558,14 +1572,14 @@ bool queue_delayed_work_on(int cpu, stru
  	unsigned long flags;
  
  	/* read the comment in __queue_work() */
@@ -117,7 +122,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return ret;
  }
  EXPORT_SYMBOL(queue_delayed_work_on);
-@@ -1601,7 +1609,7 @@ bool mod_delayed_work_on(int cpu, struct
+@@ -1600,7 +1614,7 @@ bool mod_delayed_work_on(int cpu, struct
  
  	if (likely(ret >= 0)) {
  		__queue_delayed_work(cpu, wq, dwork, delay);
@@ -126,7 +131,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	}
  
  	/* -ENOENT from try_to_grab_pending() becomes %true */
-@@ -2951,7 +2959,7 @@ static bool __cancel_work_timer(struct w
+@@ -2937,7 +2951,7 @@ static bool __cancel_work_timer(struct w
  
  	/* tell other tasks trying to grab @work to back off */
  	mark_work_canceling(work);
@@ -135,7 +140,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	/*
  	 * This allows canceling during early boot.  We know that @work
-@@ -3012,10 +3020,10 @@ EXPORT_SYMBOL_GPL(cancel_work_sync);
+@@ -2998,10 +3012,10 @@ EXPORT_SYMBOL_GPL(cancel_work_sync);
   */
  bool flush_delayed_work(struct delayed_work *dwork)
  {
@@ -148,7 +153,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return flush_work(&dwork->work);
  }
  EXPORT_SYMBOL(flush_delayed_work);
-@@ -3033,7 +3041,7 @@ static bool __cancel_work(struct work_st
+@@ -3019,7 +3033,7 @@ static bool __cancel_work(struct work_st
  		return false;
  
  	set_work_pool_and_clear_pending(work, get_work_pool_id(work));

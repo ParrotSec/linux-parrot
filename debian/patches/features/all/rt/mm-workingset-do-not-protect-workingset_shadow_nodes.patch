@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Jan 2015 17:19:44 +0100
 Subject: mm/workingset: Do not protect workingset_shadow_nodes with irq off
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 workingset_shadow_nodes is protected by local_irq_disable(). Some users
 use spin_lock_irq().
@@ -10,11 +10,11 @@ so I catch users of it which will be introduced later.
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/swap.h |    4 +++-
- mm/filemap.c         |    9 +++++++--
+ include/linux/swap.h |    8 +++++---
+ mm/filemap.c         |   13 ++++++++++---
  mm/truncate.c        |    4 +++-
  mm/workingset.c      |   31 ++++++++++++++++---------------
- 4 files changed, 29 insertions(+), 19 deletions(-)
+ 4 files changed, 34 insertions(+), 22 deletions(-)
 
 --- a/include/linux/swap.h
 +++ b/include/linux/swap.h
@@ -26,16 +26,23 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include <asm/page.h>
  
  struct notifier_block;
-@@ -297,7 +298,8 @@ struct vma_swap_readahead {
- void *workingset_eviction(struct address_space *mapping, struct page *page);
- bool workingset_refault(void *shadow);
+@@ -300,12 +301,13 @@ bool workingset_refault(void *shadow);
  void workingset_activation(struct page *page);
--void workingset_update_node(struct radix_tree_node *node, void *private);
-+void __workingset_update_node(struct radix_tree_node *node, void *private);
+ 
+ /* Do not use directly, use workingset_lookup_update */
+-void workingset_update_node(struct radix_tree_node *node);
++void __workingset_update_node(struct radix_tree_node *node);
 +DECLARE_LOCAL_IRQ_LOCK(shadow_nodes_lock);
  
- /* linux/mm/page_alloc.c */
- extern unsigned long totalram_pages;
+ /* Returns workingset_update_node() if the mapping has shadow entries. */
+-#define workingset_lookup_update(mapping)				\
++#define __workingset_lookup_update(mapping)				\
+ ({									\
+-	radix_tree_update_node_t __helper = workingset_update_node;	\
++	radix_tree_update_node_t __helper = __workingset_update_node;	\
+ 	if (dax_mapping(mapping) || shmem_mapping(mapping))		\
+ 		__helper = NULL;					\
+ 	__helper;							\
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
 @@ -110,6 +110,7 @@
@@ -52,8 +59,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
 +	local_lock(shadow_nodes_lock);
  	__radix_tree_replace(&mapping->page_tree, node, slot, page,
--			     workingset_update_node, mapping);
-+			     __workingset_update_node, mapping);
+-			     workingset_lookup_update(mapping));
++			     __workingset_lookup_update(mapping));
 +	local_unlock(shadow_nodes_lock);
  	mapping->nrpages++;
  	return 0;
@@ -70,27 +77,48 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		radix_tree_clear_tags(&mapping->page_tree, node, slot);
  		__radix_tree_replace(&mapping->page_tree, node, slot, shadow,
--				     workingset_update_node, mapping);
-+				     __workingset_update_node, mapping);
+-				workingset_lookup_update(mapping));
++				__workingset_lookup_update(mapping));
  	}
 +	local_unlock(shadow_nodes_lock);
  
- 	if (shadow) {
- 		mapping->nrexceptional += nr;
+ 	page->mapping = NULL;
+ 	/* Leave page->index set: truncation lookup relies upon it */
+@@ -329,6 +334,7 @@ page_cache_tree_delete_batch(struct addr
+ 	struct page *page;
+ 	pgoff_t start;
+ 
++	local_lock(shadow_nodes_lock);
+ 	start = pvec->pages[0]->index;
+ 	radix_tree_for_each_slot(slot, &mapping->page_tree, &iter, start) {
+ 		if (i >= pagevec_count(pvec) && !tail_pages)
+@@ -359,10 +365,11 @@ page_cache_tree_delete_batch(struct addr
+ 		}
+ 		radix_tree_clear_tags(&mapping->page_tree, iter.node, slot);
+ 		__radix_tree_replace(&mapping->page_tree, iter.node, slot, NULL,
+-				workingset_lookup_update(mapping));
++				__workingset_lookup_update(mapping));
+ 		total_pages++;
+ 	}
+ 	mapping->nrpages -= total_pages;
++	local_unlock(shadow_nodes_lock);
+ }
+ 
+ void delete_from_page_cache_batch(struct address_space *mapping,
 --- a/mm/truncate.c
 +++ b/mm/truncate.c
-@@ -41,8 +41,10 @@ static void clear_shadow_entry(struct ad
- 		goto unlock;
+@@ -40,8 +40,10 @@ static inline void __clear_shadow_entry(
+ 		return;
  	if (*slot != entry)
- 		goto unlock;
+ 		return;
 +	local_lock(shadow_nodes_lock);
  	__radix_tree_replace(&mapping->page_tree, node, slot, NULL,
--			     workingset_update_node, mapping);
-+			     __workingset_update_node, mapping);
+-			     workingset_update_node);
++			     __workingset_update_node);
 +	local_unlock(shadow_nodes_lock);
  	mapping->nrexceptional--;
- unlock:
- 	spin_unlock_irq(&mapping->tree_lock);
+ }
+ 
 --- a/mm/workingset.c
 +++ b/mm/workingset.c
 @@ -338,9 +338,10 @@ void workingset_activation(struct page *
@@ -101,12 +129,12 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +static struct list_lru __shadow_nodes;
 +DEFINE_LOCAL_IRQ_LOCK(shadow_nodes_lock);
  
--void workingset_update_node(struct radix_tree_node *node, void *private)
-+void __workingset_update_node(struct radix_tree_node *node, void *private)
+-void workingset_update_node(struct radix_tree_node *node)
++void __workingset_update_node(struct radix_tree_node *node)
  {
- 	struct address_space *mapping = private;
- 
-@@ -358,10 +359,10 @@ void workingset_update_node(struct radix
+ 	/*
+ 	 * Track non-empty nodes that contain only shadow entries;
+@@ -352,10 +353,10 @@ void workingset_update_node(struct radix
  	 */
  	if (node->count && node->count == node->exceptional) {
  		if (list_empty(&node->private_list))
@@ -119,7 +147,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  }
  
-@@ -373,9 +374,9 @@ static unsigned long count_shadow_nodes(
+@@ -367,9 +368,9 @@ static unsigned long count_shadow_nodes(
  	unsigned long cache;
  
  	/* list_lru lock nests inside IRQ-safe mapping->tree_lock */
@@ -132,12 +160,12 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * Approximate a reasonable limit for the radix tree nodes
-@@ -475,15 +476,15 @@ static enum lru_status shadow_lru_isolat
+@@ -469,15 +470,15 @@ static enum lru_status shadow_lru_isolat
  		goto out_invalid;
  	inc_lruvec_page_state(virt_to_page(node), WORKINGSET_NODERECLAIM);
  	__radix_tree_delete_node(&mapping->page_tree, node,
--				 workingset_update_node, mapping);
-+				 __workingset_update_node, mapping);
+-				 workingset_lookup_update(mapping));
++				 __workingset_lookup_update(mapping));
  
  out_invalid:
  	spin_unlock(&mapping->tree_lock);
@@ -151,7 +179,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	spin_lock(lru_lock);
  	return ret;
  }
-@@ -494,9 +495,9 @@ static unsigned long scan_shadow_nodes(s
+@@ -488,9 +489,9 @@ static unsigned long scan_shadow_nodes(s
  	unsigned long ret;
  
  	/* list_lru lock nests inside IRQ-safe mapping->tree_lock */
@@ -164,7 +192,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return ret;
  }
  
-@@ -534,7 +535,7 @@ static int __init workingset_init(void)
+@@ -528,7 +529,7 @@ static int __init workingset_init(void)
  	pr_info("workingset: timestamp_bits=%d max_order=%d bucket_order=%u\n",
  	       timestamp_bits, max_order, bucket_order);
  
@@ -173,7 +201,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (ret)
  		goto err;
  	ret = register_shrinker(&workingset_shadow_shrinker);
-@@ -542,7 +543,7 @@ static int __init workingset_init(void)
+@@ -536,7 +537,7 @@ static int __init workingset_init(void)
  		goto err_list_lru;
  	return 0;
  err_list_lru:

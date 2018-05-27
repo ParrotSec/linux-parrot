@@ -1,0 +1,49 @@
+From: Mike Galbraith <efault@gmx.de>
+Date: Fri, 4 May 2018 08:14:38 +0200
+Subject: [PATCH] sched/fair: Fix CFS bandwidth control lockdep DEADLOCK report
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+CFS bandwidth control yields the inversion gripe below, moving
+handling quells it.
+
+|========================================================
+|WARNING: possible irq lock inversion dependency detected
+|4.16.7-rt1-rt #2 Tainted: G            E
+|--------------------------------------------------------
+|sirq-hrtimer/0/15 just changed the state of lock:
+| (&cfs_b->lock){+...}, at: [<000000009adb5cf7>] sched_cfs_period_timer+0x28/0x140
+|but this lock was taken by another, HARDIRQ-safe lock in the past: (&rq->lock){-...}
+|and interrupts could create inverse lock ordering between them.
+|other info that might help us debug this:
+| Possible interrupt unsafe locking scenario:
+|       CPU0                    CPU1
+|       ----                    ----
+|  lock(&cfs_b->lock);
+|                               local_irq_disable();
+|                               lock(&rq->lock);
+|                               lock(&cfs_b->lock);
+|  <Interrupt>
+|    lock(&rq->lock);
+
+Cc: stable-rt@vger.kernel.org
+Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+Signed-off-by: Mike Galbraith <efault@gmx.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/sched/fair.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -5007,9 +5007,9 @@ void init_cfs_bandwidth(struct cfs_bandw
+ 	cfs_b->period = ns_to_ktime(default_cfs_period());
+ 
+ 	INIT_LIST_HEAD(&cfs_b->throttled_cfs_rq);
+-	hrtimer_init(&cfs_b->period_timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS_PINNED);
++	hrtimer_init(&cfs_b->period_timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS_PINNED_HARD);
+ 	cfs_b->period_timer.function = sched_cfs_period_timer;
+-	hrtimer_init(&cfs_b->slack_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
++	hrtimer_init(&cfs_b->slack_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);
+ 	cfs_b->slack_timer.function = sched_cfs_slack_timer;
+ }
+ 

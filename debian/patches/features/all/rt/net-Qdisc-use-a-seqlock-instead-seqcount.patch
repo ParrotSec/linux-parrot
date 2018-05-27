@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 17:36:35 +0200
 Subject: [PATCH] net/Qdisc: use a seqlock instead seqcount
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The seqcount disables preemption on -RT while it is held which can't
 remove. Also we don't want the reader to spin for ages if the writer is
@@ -23,7 +23,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/seqlock.h
 +++ b/include/linux/seqlock.h
-@@ -482,6 +482,15 @@ static inline void write_seqlock(seqlock
+@@ -481,6 +481,15 @@ static inline void write_seqlock(seqlock
  	__raw_write_seqcount_begin(&sl->seqcount);
  }
  
@@ -63,7 +63,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			     struct gnet_stats_basic_packed *bstats,
  			     struct gnet_stats_basic_cpu __percpu *cpu,
  			     struct gnet_stats_basic_packed *b);
-@@ -57,13 +58,13 @@ int gen_new_estimator(struct gnet_stats_
+@@ -60,13 +61,13 @@ int gen_new_estimator(struct gnet_stats_
  		      struct gnet_stats_basic_cpu __percpu *cpu_bstats,
  		      struct net_rate_estimator __rcu **rate_est,
  		      spinlock_t *stats_lock,
@@ -107,8 +107,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include <linux/refcount.h>
  #include <linux/workqueue.h>
  #include <net/gen_stats.h>
-@@ -90,7 +91,7 @@ struct Qdisc {
- 	struct sk_buff		*gso_skb ____cacheline_aligned_in_smp;
+@@ -93,7 +94,7 @@ struct Qdisc {
+ 	struct sk_buff_head	gso_skb ____cacheline_aligned_in_smp;
  	struct qdisc_skb_head	q;
  	struct gnet_stats_basic_packed bstats;
 -	seqcount_t		running;
@@ -116,7 +116,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct gnet_stats_queue	qstats;
  	unsigned long		state;
  	struct Qdisc            *next_sched;
-@@ -109,13 +110,22 @@ static inline void qdisc_refcount_inc(st
+@@ -111,13 +112,22 @@ static inline void qdisc_refcount_inc(st
  	refcount_inc(&qdisc->refcnt);
  }
  
@@ -140,7 +140,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (qdisc_is_running(qdisc))
  		return false;
  	/* Variant of write_seqcount_begin() telling lockdep a trylock
-@@ -124,11 +134,16 @@ static inline bool qdisc_run_begin(struc
+@@ -126,11 +136,16 @@ static inline bool qdisc_run_begin(struc
  	raw_write_seqcount_begin(&qdisc->running);
  	seqcount_acquire(&qdisc->running.dep_map, 0, 1, _RET_IP_);
  	return true;
@@ -157,7 +157,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static inline bool qdisc_may_bulk(const struct Qdisc *qdisc)
-@@ -338,7 +353,7 @@ static inline spinlock_t *qdisc_root_sle
+@@ -404,7 +419,7 @@ static inline spinlock_t *qdisc_root_sle
  	return qdisc_lock(root);
  }
  
@@ -177,7 +177,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
  	u8			ewma_log;
  	u8			intvl_log; /* period : (250ms << intvl_log) */
-@@ -128,7 +128,7 @@ int gen_new_estimator(struct gnet_stats_
+@@ -129,7 +129,7 @@ int gen_new_estimator(struct gnet_stats_
  		      struct gnet_stats_basic_cpu __percpu *cpu_bstats,
  		      struct net_rate_estimator __rcu **rate_est,
  		      spinlock_t *stats_lock,
@@ -186,7 +186,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		      struct nlattr *opt)
  {
  	struct gnet_estimator *parm = nla_data(opt);
-@@ -217,7 +217,7 @@ int gen_replace_estimator(struct gnet_st
+@@ -222,7 +222,7 @@ int gen_replace_estimator(struct gnet_st
  			  struct gnet_stats_basic_cpu __percpu *cpu_bstats,
  			  struct net_rate_estimator __rcu **rate_est,
  			  spinlock_t *stats_lock,
@@ -230,18 +230,18 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		      struct gnet_stats_basic_packed *b)
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -1081,7 +1081,7 @@ static struct Qdisc *qdisc_create(struct
- 			rcu_assign_pointer(sch->stab, stab);
- 		}
- 		if (tca[TCA_RATE]) {
--			seqcount_t *running;
-+			net_seqlock_t *running;
+@@ -1154,7 +1154,7 @@ static struct Qdisc *qdisc_create(struct
+ 		rcu_assign_pointer(sch->stab, stab);
+ 	}
+ 	if (tca[TCA_RATE]) {
+-		seqcount_t *running;
++		net_seqlock_t *running;
  
- 			err = -EOPNOTSUPP;
- 			if (sch->flags & TCQ_F_MQROOT)
+ 		err = -EOPNOTSUPP;
+ 		if (sch->flags & TCQ_F_MQROOT) {
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -429,7 +429,11 @@ struct Qdisc noop_qdisc = {
+@@ -582,7 +582,11 @@ struct Qdisc noop_qdisc = {
  	.ops		=	&noop_qdisc_ops,
  	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
  	.dev_queue	=	&noop_netdev_queue,
@@ -253,7 +253,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	.busylock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.busylock),
  };
  EXPORT_SYMBOL(noop_qdisc);
-@@ -628,9 +632,17 @@ struct Qdisc *qdisc_alloc(struct netdev_
+@@ -867,9 +871,17 @@ struct Qdisc *qdisc_alloc(struct netdev_
  	lockdep_set_class(&sch->busylock,
  			  dev->qdisc_tx_busylock ?: &qdisc_tx_busylock);
  
@@ -270,4 +270,4 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#endif
  
  	sch->ops = ops;
- 	sch->enqueue = ops->enqueue;
+ 	sch->flags = ops->static_flags;

@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 21:56:42 +0200
 Subject: trace: Add migrate-disabled counter to tracing output
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
@@ -33,7 +33,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  EXPORT_SYMBOL_GPL(tracing_generic_entry_update);
  
-@@ -3344,9 +3346,10 @@ static void print_lat_help_header(struct
+@@ -3339,9 +3341,10 @@ static void print_lat_help_header(struct
  		    "#                | / _----=> need-resched    \n"
  		    "#                || / _---=> hardirq/softirq \n"
  		    "#                ||| / _--=> preempt-depth   \n"

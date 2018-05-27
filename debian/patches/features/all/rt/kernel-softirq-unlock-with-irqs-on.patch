@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Feb 2016 18:17:18 +0100
 Subject: kernel: softirq: unlock with irqs on
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 We unlock the lock while the interrupts are off. This isn't a problem
 now but will get because the migrate_disable() + enable are not
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
-@@ -560,8 +560,10 @@ static void do_current_softirqs(void)
+@@ -561,8 +561,10 @@ static void do_current_softirqs(void)
  			do_single_softirq(i);
  		}
  		softirq_clr_runner(i);

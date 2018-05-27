@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 20 Oct 2017 11:29:53 +0200
 Subject: [PATCH] fs/dcache: disable preemption on i_dir_seq's write side
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 i_dir_seq is an opencoded seqcounter. Based on the code it looks like we
 could have two writers in parallel despite the fact that the d_lock is
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2405,9 +2405,10 @@ EXPORT_SYMBOL(d_rehash);
+@@ -2440,9 +2440,10 @@ EXPORT_SYMBOL(d_rehash);
  static inline unsigned start_dir_add(struct inode *dir)
  {
  
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			return n;
  		cpu_relax();
  	}
-@@ -2415,7 +2416,8 @@ static inline unsigned start_dir_add(str
+@@ -2450,7 +2451,8 @@ static inline unsigned start_dir_add(str
  
  static inline void end_dir_add(struct inode *dir, unsigned n)
  {
@@ -47,27 +47,27 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static void d_wait_lookup(struct dentry *dentry)
-@@ -2448,7 +2450,7 @@ struct dentry *d_alloc_parallel(struct d
+@@ -2483,7 +2485,7 @@ struct dentry *d_alloc_parallel(struct d
  
  retry:
  	rcu_read_lock();
--	seq = smp_load_acquire(&parent->d_inode->i_dir_seq) & ~1;
-+	seq = smp_load_acquire(&parent->d_inode->__i_dir_seq) & ~1;
+-	seq = smp_load_acquire(&parent->d_inode->i_dir_seq);
++	seq = smp_load_acquire(&parent->d_inode->__i_dir_seq);
  	r_seq = read_seqbegin(&rename_lock);
  	dentry = __d_lookup_rcu(parent, name, &d_seq);
  	if (unlikely(dentry)) {
-@@ -2470,7 +2472,7 @@ struct dentry *d_alloc_parallel(struct d
- 		goto retry;
+@@ -2511,7 +2513,7 @@ struct dentry *d_alloc_parallel(struct d
  	}
+ 
  	hlist_bl_lock(b);
--	if (unlikely(parent->d_inode->i_dir_seq != seq)) {
-+	if (unlikely(parent->d_inode->__i_dir_seq != seq)) {
+-	if (unlikely(READ_ONCE(parent->d_inode->i_dir_seq) != seq)) {
++	if (unlikely(READ_ONCE(parent->d_inode->__i_dir_seq) != seq)) {
  		hlist_bl_unlock(b);
  		rcu_read_unlock();
  		goto retry;
 --- a/fs/inode.c
 +++ b/fs/inode.c
-@@ -154,7 +154,7 @@ int inode_init_always(struct super_block
+@@ -155,7 +155,7 @@ int inode_init_always(struct super_block
  	inode->i_bdev = NULL;
  	inode->i_cdev = NULL;
  	inode->i_link = NULL;

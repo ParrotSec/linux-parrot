@@ -1,63 +1,79 @@
 Subject: lockdep: Make it RT aware
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 18:51:23 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 teach lockdep that we don't really do softirqs on -RT.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- include/linux/irqflags.h |   26 +++++++++++++++-----------
+ include/linux/irqflags.h |   23 +++++++++++++++--------
+ include/linux/lockdep.h  |    7 ++++++-
  kernel/locking/lockdep.c |    2 ++
- 2 files changed, 17 insertions(+), 11 deletions(-)
+ 3 files changed, 23 insertions(+), 9 deletions(-)
 
 --- a/include/linux/irqflags.h
 +++ b/include/linux/irqflags.h
-@@ -34,16 +34,6 @@ do {						\
+@@ -32,14 +32,6 @@ do {						\
+ do {						\
  	current->hardirq_context--;		\
- 	crossrelease_hist_end(XHLOCK_HARD);	\
  } while (0)
 -# define lockdep_softirq_enter()		\
 -do {						\
 -	current->softirq_context++;		\
--	crossrelease_hist_start(XHLOCK_SOFT);	\
 -} while (0)
 -# define lockdep_softirq_exit()			\
 -do {						\
 -	current->softirq_context--;		\
--	crossrelease_hist_end(XHLOCK_SOFT);	\
 -} while (0)
- # define INIT_TRACE_IRQFLAGS	.softirqs_enabled = 1,
  #else
  # define trace_hardirqs_on()		do { } while (0)
-@@ -56,9 +46,23 @@ do {						\
- # define trace_softirqs_enabled(p)	0
- # define trace_hardirq_enter()		do { } while (0)
- # define trace_hardirq_exit()		do { } while (0)
-+# define INIT_TRACE_IRQFLAGS
-+#endif
+ # define trace_hardirqs_off()		do { } while (0)
+@@ -54,6 +46,21 @@ do {						\
+ # define lockdep_softirq_enter()	do { } while (0)
+ # define lockdep_softirq_exit()		do { } while (0)
+ #endif
 +
 +#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_PREEMPT_RT_FULL)
 +# define lockdep_softirq_enter()		\
 +do {						\
 +	current->softirq_context++;		\
-+	crossrelease_hist_start(XHLOCK_SOFT);	\
 +} while (0)
 +# define lockdep_softirq_exit()			\
 +do {						\
 +	current->softirq_context--;		\
-+	crossrelease_hist_end(XHLOCK_SOFT);	\
 +} while (0)
++
 +#else
- # define lockdep_softirq_enter()	do { } while (0)
- # define lockdep_softirq_exit()		do { } while (0)
--# define INIT_TRACE_IRQFLAGS
- #endif
++# define lockdep_softirq_enter()	do { } while (0)
++# define lockdep_softirq_exit()		do { } while (0)
++#endif
  
  #if defined(CONFIG_IRQSOFF_TRACER) || \
+ 	defined(CONFIG_PREEMPT_TRACER)
+--- a/include/linux/lockdep.h
++++ b/include/linux/lockdep.h
+@@ -608,11 +608,16 @@ do {									\
+ 			  "IRQs not disabled as expected\n");		\
+ 	} while (0)
+ 
+-#define lockdep_assert_in_softirq()	do {				\
++#ifdef CONFIG_PREEMPT_RT_FULL
++# define lockdep_assert_in_softirq() do { } while (0)
++#else
++# define lockdep_assert_in_softirq()	do {				\
+ 		WARN_ONCE(debug_locks && !current->lockdep_recursion &&	\
+ 			  !current->softirq_context,			\
+ 			  "Not in softirq context as expected\n");	\
+ 	} while (0)
++#endif
++
+ #else
+ # define might_lock(lock) do { } while (0)
+ # define might_lock_read(lock) do { } while (0)
 --- a/kernel/locking/lockdep.c
 +++ b/kernel/locking/lockdep.c
-@@ -3917,6 +3917,7 @@ static void check_flags(unsigned long fl
+@@ -3843,6 +3843,7 @@ static void check_flags(unsigned long fl
  		}
  	}
  
@@ -65,7 +81,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/*
  	 * We dont accurately track softirq state in e.g.
  	 * hardirq contexts (such as on 4KSTACKS), so only
-@@ -3931,6 +3932,7 @@ static void check_flags(unsigned long fl
+@@ -3857,6 +3858,7 @@ static void check_flags(unsigned long fl
  			DEBUG_LOCKS_WARN_ON(!current->softirqs_enabled);
  		}
  	}

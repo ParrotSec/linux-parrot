@@ -2,7 +2,7 @@ From: Steven Rostedt <rostedt@goodmis.org>
 Date: Tue, 6 Dec 2016 17:50:30 -0500
 Subject: [PATCH] net: Have __napi_schedule_irqoff() disable interrupts on
  RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 A customer hit a crash where the napi sd->poll_list became corrupted.
 The customer had the bnx2x driver, which does a
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -409,7 +409,19 @@ typedef enum rx_handler_result rx_handle
+@@ -410,7 +410,19 @@ typedef enum rx_handler_result rx_handle
  typedef rx_handler_result_t rx_handler_func_t(struct sk_buff **pskb);
  
  void __napi_schedule(struct napi_struct *n);
@@ -51,7 +51,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5238,6 +5238,7 @@ bool napi_schedule_prep(struct napi_stru
+@@ -5407,6 +5407,7 @@ bool napi_schedule_prep(struct napi_stru
  }
  EXPORT_SYMBOL(napi_schedule_prep);
  
@@ -59,7 +59,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /**
   * __napi_schedule_irqoff - schedule for receive
   * @n: entry to schedule
-@@ -5249,6 +5250,7 @@ void __napi_schedule_irqoff(struct napi_
+@@ -5418,6 +5419,7 @@ void __napi_schedule_irqoff(struct napi_
  	____napi_schedule(this_cpu_ptr(&softnet_data), n);
  }
  EXPORT_SYMBOL(__napi_schedule_irqoff);

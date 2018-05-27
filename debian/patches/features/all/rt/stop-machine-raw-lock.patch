@@ -1,14 +1,16 @@
 Subject: stop_machine: Use raw spinlocks
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 29 Jun 2011 11:01:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+upstream commit de5b55c1d4e30740009864eb35ce4ed856aac01d
 
 Use raw-locks in stomp_machine() to allow locking in irq-off regions.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- kernel/stop_machine.c |   34 +++++++++++++---------------------
- 1 file changed, 13 insertions(+), 21 deletions(-)
+ kernel/stop_machine.c |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
 --- a/kernel/stop_machine.c
 +++ b/kernel/stop_machine.c
@@ -88,24 +90,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	if (work) {
  		cpu_stop_fn_t fn = work->fn;
-@@ -475,15 +475,7 @@ static void cpu_stopper_thread(unsigned
- 		struct cpu_stop_done *done = work->done;
- 		int ret;
- 
--		/*
--		 * Wait until the stopper finished scheduling on all
--		 * cpus
--		 */
--		lg_global_lock(&stop_cpus_lock);
--		/*
--		 * Let other cpu threads continue as well
--		 */
--		lg_global_unlock(&stop_cpus_lock);
-+		/* XXX */
- 
- 		/* cpu stop callbacks must not sleep, make in_atomic() == T */
- 		preempt_count_inc();
-@@ -551,7 +543,7 @@ static int __init cpu_stop_init(void)
+@@ -541,7 +541,7 @@ static int __init cpu_stop_init(void)
  	for_each_possible_cpu(cpu) {
  		struct cpu_stopper *stopper = &per_cpu(cpu_stopper, cpu);
  

@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:29:34 -0500
 Subject: hrtimers: Prepare full preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Make cancellation of a running callback in softirq context safe
 against preemption.
@@ -11,10 +11,11 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 ---
  include/linux/hrtimer.h    |   13 ++++++++++++-
+ kernel/time/alarmtimer.c   |    2 +-
  kernel/time/hrtimer.c      |   33 ++++++++++++++++++++++++++++++++-
  kernel/time/itimer.c       |    1 +
- kernel/time/posix-timers.c |   33 +++++++++++++++++++++++++++++++++
- 4 files changed, 78 insertions(+), 2 deletions(-)
+ kernel/time/posix-timers.c |   35 +++++++++++++++++++++++++++++++++++
+ 5 files changed, 81 insertions(+), 3 deletions(-)
 
 --- a/include/linux/hrtimer.h
 +++ b/include/linux/hrtimer.h
@@ -59,9 +60,20 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  {
  	return timer->base->running == timer;
  }
+--- a/kernel/time/alarmtimer.c
++++ b/kernel/time/alarmtimer.c
+@@ -436,7 +436,7 @@ int alarm_cancel(struct alarm *alarm)
+ 		int ret = alarm_try_to_cancel(alarm);
+ 		if (ret >= 0)
+ 			return ret;
+-		cpu_relax();
++		hrtimer_wait_for_timer(&alarm->timer);
+ 	}
+ }
+ EXPORT_SYMBOL_GPL(alarm_cancel);
 --- a/kernel/time/hrtimer.c
 +++ b/kernel/time/hrtimer.c
-@@ -926,6 +926,33 @@ u64 hrtimer_forward(struct hrtimer *time
+@@ -923,6 +923,33 @@ u64 hrtimer_forward(struct hrtimer *time
  }
  EXPORT_SYMBOL_GPL(hrtimer_forward);
  
@@ -95,7 +107,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * enqueue_hrtimer - internal function to (re)start a timer
   *
-@@ -1158,7 +1185,7 @@ int hrtimer_cancel(struct hrtimer *timer
+@@ -1155,7 +1182,7 @@ int hrtimer_cancel(struct hrtimer *timer
  
  		if (ret >= 0)
  			return ret;
@@ -104,7 +116,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	}
  }
  EXPORT_SYMBOL_GPL(hrtimer_cancel);
-@@ -1431,6 +1458,7 @@ static __latent_entropy void hrtimer_run
+@@ -1428,6 +1455,7 @@ static __latent_entropy void hrtimer_run
  	hrtimer_update_softirq_timer(cpu_base, true);
  
  	raw_spin_unlock_irqrestore(&cpu_base->lock, flags);
@@ -112,8 +124,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  #ifdef CONFIG_HIGH_RES_TIMERS
-@@ -1793,6 +1821,9 @@ int hrtimers_prepare_cpu(unsigned int cp
- 	cpu_base->hres_active = 0;
+@@ -1794,6 +1822,9 @@ int hrtimers_prepare_cpu(unsigned int cp
+ 	cpu_base->softirq_next_timer = NULL;
  	cpu_base->expires_next = KTIME_MAX;
  	cpu_base->softirq_expires_next = KTIME_MAX;
 +#ifdef CONFIG_PREEMPT_RT_BASE
@@ -134,8 +146,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		expires = timeval_to_ktime(value->it_value);
 --- a/kernel/time/posix-timers.c
 +++ b/kernel/time/posix-timers.c
-@@ -796,6 +796,20 @@ SYSCALL_DEFINE1(timer_getoverrun, timer_
- 	return overrun;
+@@ -827,6 +827,22 @@ static void common_hrtimer_arm(struct k_
+ 		hrtimer_start_expires(timer, HRTIMER_MODE_ABS);
  }
  
 +/*
@@ -144,18 +156,20 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +static void timer_wait_for_callback(const struct k_clock *kc, struct k_itimer *timr)
 +{
 +#ifdef CONFIG_PREEMPT_RT_FULL
-+	if (kc->timer_set == common_timer_set)
++	if (kc->timer_arm == common_hrtimer_arm)
 +		hrtimer_wait_for_timer(&timr->it.real.timer);
++	else if (kc == &alarm_clock)
++		hrtimer_wait_for_timer(&timr->it.alarm.alarmtimer.timer);
 +	else
 +		/* FIXME: Whacky hack for posix-cpu-timers */
 +		schedule_timeout(1);
 +#endif
 +}
 +
- static void common_hrtimer_arm(struct k_itimer *timr, ktime_t expires,
- 			       bool absolute, bool sigev_none)
+ static int common_hrtimer_try_to_cancel(struct k_itimer *timr)
  {
-@@ -890,6 +904,7 @@ static int do_timer_settime(timer_t time
+ 	return hrtimer_try_to_cancel(&timr->it.real.timer);
+@@ -891,6 +907,7 @@ static int do_timer_settime(timer_t time
  	if (!timr)
  		return -EINVAL;
  
@@ -163,7 +177,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	kc = timr->kclock;
  	if (WARN_ON_ONCE(!kc || !kc->timer_set))
  		error = -EINVAL;
-@@ -898,9 +913,12 @@ static int do_timer_settime(timer_t time
+@@ -899,9 +916,12 @@ static int do_timer_settime(timer_t time
  
  	unlock_timer(timr, flag);
  	if (error == TIMER_RETRY) {
@@ -176,7 +190,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return error;
  }
-@@ -982,10 +1000,15 @@ SYSCALL_DEFINE1(timer_delete, timer_t, t
+@@ -983,10 +1003,15 @@ SYSCALL_DEFINE1(timer_delete, timer_t, t
  	if (!timer)
  		return -EINVAL;
  
@@ -192,7 +206,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	spin_lock(&current->sighand->siglock);
  	list_del(&timer->list);
-@@ -1011,8 +1034,18 @@ static void itimer_delete(struct k_itime
+@@ -1012,8 +1037,18 @@ static void itimer_delete(struct k_itime
  retry_delete:
  	spin_lock_irqsave(&timer->it_lock, flags);
  

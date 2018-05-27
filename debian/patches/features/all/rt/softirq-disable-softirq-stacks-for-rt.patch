@@ -1,7 +1,7 @@
 Subject: softirq: Disable softirq stacks for RT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 18 Jul 2011 13:59:17 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Disable extra stacks for softirqs. We want to preempt softirqs and
 having them on special IRQ-stack does not make this easier.
@@ -20,7 +20,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/powerpc/kernel/irq.c
 +++ b/arch/powerpc/kernel/irq.c
-@@ -685,6 +685,7 @@ void irq_ctx_init(void)
+@@ -739,6 +739,7 @@ void irq_ctx_init(void)
  	}
  }
  
@@ -28,7 +28,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void do_softirq_own_stack(void)
  {
  	struct thread_info *curtp, *irqtp;
-@@ -702,6 +703,7 @@ void do_softirq_own_stack(void)
+@@ -756,6 +757,7 @@ void do_softirq_own_stack(void)
  	if (irqtp->flags)
  		set_bits(irqtp->flags, &curtp->flags);
  }
@@ -110,7 +110,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void fixup_irqs(void)
 --- a/arch/x86/entry/entry_64.S
 +++ b/arch/x86/entry/entry_64.S
-@@ -1136,6 +1136,7 @@ EXPORT_SYMBOL(native_load_gs_index)
+@@ -1032,6 +1032,7 @@ EXPORT_SYMBOL(native_load_gs_index)
  	jmp	2b
  	.previous
  
@@ -118,7 +118,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /* Call softirq on interrupt stack. Interrupts are off. */
  ENTRY(do_softirq_own_stack)
  	pushq	%rbp
-@@ -1146,6 +1147,7 @@ ENTRY(do_softirq_own_stack)
+@@ -1042,6 +1043,7 @@ ENTRY(do_softirq_own_stack)
  	leaveq
  	ret
  ENDPROC(do_softirq_own_stack)

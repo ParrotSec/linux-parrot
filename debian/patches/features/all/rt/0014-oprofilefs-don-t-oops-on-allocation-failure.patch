@@ -1,0 +1,27 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Sat, 10 Mar 2018 16:40:33 -0500
+Subject: [PATCH 14/17] oprofilefs: don't oops on allocation failure
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit a7498968338da9b928f5d8054acc8be6ed2bc14c
+
+... just short-circuit the creation of potential children
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/oprofile/oprofilefs.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+--- a/drivers/oprofile/oprofilefs.c
++++ b/drivers/oprofile/oprofilefs.c
+@@ -138,6 +138,9 @@ static int __oprofilefs_create_file(stru
+ 	struct dentry *dentry;
+ 	struct inode *inode;
+ 
++	if (!root)
++		return -ENOMEM;
++
+ 	inode_lock(d_inode(root));
+ 	dentry = d_alloc_name(root, name);
+ 	if (!dentry) {

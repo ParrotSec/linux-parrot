@@ -1,7 +1,7 @@
 Subject: rcu: Frob softirq test
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Date: Sat Aug 13 00:23:17 CEST 2011
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 With RT_FULL we get the below wreckage:
 
@@ -156,7 +156,7 @@ Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 
 --- a/kernel/rcu/tree_plugin.h
 +++ b/kernel/rcu/tree_plugin.h
-@@ -466,7 +466,7 @@ void rcu_read_unlock_special(struct task
+@@ -468,7 +468,7 @@ void rcu_read_unlock_special(struct task
  	}
  
  	/* Hardware IRQ handlers cannot block, complain if they get here. */

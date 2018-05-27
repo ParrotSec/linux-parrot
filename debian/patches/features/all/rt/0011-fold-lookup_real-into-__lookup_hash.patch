@@ -1,0 +1,76 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Thu, 8 Mar 2018 11:00:45 -0500
+Subject: [PATCH 11/17] fold lookup_real() into __lookup_hash()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit a03ece5ff2bd7a9abaa0e8ddfe5f79d79e5984c8
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/namei.c |   41 +++++++++++++++++------------------------
+ 1 file changed, 17 insertions(+), 24 deletions(-)
+
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -1475,43 +1475,36 @@ static struct dentry *lookup_dcache(cons
+ }
+ 
+ /*
+- * Call i_op->lookup on the dentry.  The dentry must be negative and
+- * unhashed.
+- *
+- * dir->d_inode->i_mutex must be held
++ * Parent directory has inode locked exclusive.  This is one
++ * and only case when ->lookup() gets called on non in-lookup
++ * dentries - as the matter of fact, this only gets called
++ * when directory is guaranteed to have no in-lookup children
++ * at all.
+  */
+-static struct dentry *lookup_real(struct inode *dir, struct dentry *dentry,
+-				  unsigned int flags)
+-{
+-	struct dentry *old;
+-
+-	/* Don't create child dentry for a dead directory. */
+-	if (unlikely(IS_DEADDIR(dir))) {
+-		dput(dentry);
+-		return ERR_PTR(-ENOENT);
+-	}
+-
+-	old = dir->i_op->lookup(dir, dentry, flags);
+-	if (unlikely(old)) {
+-		dput(dentry);
+-		dentry = old;
+-	}
+-	return dentry;
+-}
+-
+ static struct dentry *__lookup_hash(const struct qstr *name,
+ 		struct dentry *base, unsigned int flags)
+ {
+ 	struct dentry *dentry = lookup_dcache(name, base, flags);
++	struct dentry *old;
++	struct inode *dir = base->d_inode;
+ 
+ 	if (dentry)
+ 		return dentry;
+ 
++	/* Don't create child dentry for a dead directory. */
++	if (unlikely(IS_DEADDIR(dir)))
++		return ERR_PTR(-ENOENT);
++
+ 	dentry = d_alloc(base, name);
+ 	if (unlikely(!dentry))
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	return lookup_real(base->d_inode, dentry, flags);
++	old = dir->i_op->lookup(dir, dentry, flags);
++	if (unlikely(old)) {
++		dput(dentry);
++		dentry = old;
++	}
++	return dentry;
+ }
+ 
+ static int lookup_fast(struct nameidata *nd,

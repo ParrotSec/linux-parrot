@@ -1,7 +1,7 @@
 Subject: rcu: Make ksoftirqd do RCU quiescent states
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Date: Wed, 5 Oct 2011 11:45:18 -0700
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Implementing RCU-bh in terms of RCU-preempt makes the system vulnerable
 to network-based denial-of-service attacks.  This patch therefore
@@ -68,9 +68,9 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #include <linux/sched/debug.h>
  #include <linux/smpboot.h>
 +#include <linux/jiffies.h>
+ #include <linux/sched/isolation.h>
  #include <uapi/linux/sched/types.h>
  #include "../time/tick-internal.h"
- #include "../locking/rtmutex_common.h"
 @@ -1299,7 +1300,7 @@ static void rcu_prepare_kthreads(int cpu
  
  #endif /* #else #ifdef CONFIG_RCU_BOOST */

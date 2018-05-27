@@ -1,7 +1,7 @@
 From: Mike Galbraith <efault@gmx.de>
 Date: Fri, 20 Jan 2017 18:10:20 +0100
 Subject: [PATCH] softirq: wake the timer softirq if needed
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The irq-exit path only checks the "normal"-softirq thread if it is
 running and ignores the state of the "timer"-softirq thread. It is possible
@@ -54,7 +54,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static inline int ksoftirqd_softirq_pending(void)
  {
  	return local_softirq_pending();
-@@ -773,13 +774,10 @@ void irq_enter(void)
+@@ -774,13 +775,10 @@ void irq_enter(void)
  
  static inline void invoke_softirq(void)
  {
@@ -70,7 +70,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!force_irqthreads) {
  #ifdef CONFIG_HAVE_IRQ_EXIT_ON_IRQ_STACK
  		/*
-@@ -800,6 +798,7 @@ static inline void invoke_softirq(void)
+@@ -801,6 +799,7 @@ static inline void invoke_softirq(void)
  		wakeup_softirqd();
  	}
  #else /* PREEMPT_RT_FULL */

@@ -1,0 +1,65 @@
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Tue, 27 Mar 2018 14:14:38 +0200
+Subject: [PATCH] locking/rtmutex: Handle non enqueued waiters gracefully in
+ remove_waiter()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit c28d62cf52d791ba5f6db7ce525ed06b86291c82
+
+In -RT task_blocks_on_rt_mutex() may return with -EAGAIN due to
+(->pi_blocked_on == PI_WAKEUP_INPROGRESS) before it added itself as a
+waiter. In such a case remove_waiter() must not be called because without a
+waiter it will trigger the BUG_ON() statement.
+
+This was initially reported by Yimin Deng. Thomas Gleixner fixed it then
+with an explicit check for waiters before calling remove_waiter().
+
+Instead of an explicit NULL check before calling rt_mutex_top_waiter() make
+the function return NULL if there are no waiters. With that fixed the now
+pointless NULL check is removed from rt_mutex_slowlock().
+
+Reported-and-debugged-by: Yimin Deng <yimin11.deng@gmail.com>
+Suggested-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Link: https://lkml.kernel.org/r/CAAh1qt=DCL9aUXNxanP5BKtiPp3m+qj4yB+gDohhXPVFCxWwzg@mail.gmail.com
+Link: https://lkml.kernel.org/r/20180327121438.sss7hxg3crqy4ecd@linutronix.de
+---
+ kernel/locking/rtmutex.c        |    3 +--
+ kernel/locking/rtmutex_common.h |   11 ++++++-----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+--- a/kernel/locking/rtmutex.c
++++ b/kernel/locking/rtmutex.c
+@@ -1268,8 +1268,7 @@ rt_mutex_slowlock(struct rt_mutex *lock,
+ 
+ 	if (unlikely(ret)) {
+ 		__set_current_state(TASK_RUNNING);
+-		if (rt_mutex_has_waiters(lock))
+-			remove_waiter(lock, &waiter);
++		remove_waiter(lock, &waiter);
+ 		rt_mutex_handle_deadlock(ret, chwalk, &waiter);
+ 	}
+ 
+--- a/kernel/locking/rtmutex_common.h
++++ b/kernel/locking/rtmutex_common.h
+@@ -52,12 +52,13 @@ static inline int rt_mutex_has_waiters(s
+ static inline struct rt_mutex_waiter *
+ rt_mutex_top_waiter(struct rt_mutex *lock)
+ {
+-	struct rt_mutex_waiter *w;
+-
+-	w = rb_entry(lock->waiters.rb_leftmost,
+-		     struct rt_mutex_waiter, tree_entry);
+-	BUG_ON(w->lock != lock);
++	struct rb_node *leftmost = rb_first_cached(&lock->waiters);
++	struct rt_mutex_waiter *w = NULL;
+ 
++	if (leftmost) {
++		w = rb_entry(leftmost, struct rt_mutex_waiter, tree_entry);
++		BUG_ON(w->lock != lock);
++	}
+ 	return w;
+ }
+ 

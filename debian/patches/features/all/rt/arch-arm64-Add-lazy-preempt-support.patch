@@ -1,7 +1,7 @@
 From: Anders Roxell <anders.roxell@linaro.org>
 Date: Thu, 14 May 2015 17:52:17 +0200
 Subject: arch/arm64: Add lazy preempt support
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 arm64 is missing support for PREEMPT_RT. The main feature which is
 lacking is support for lazy preemption. The arch-specific entry code,
@@ -21,7 +21,7 @@ Signed-off-by: Anders Roxell <anders.roxell@linaro.org>
 
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
-@@ -103,6 +103,7 @@ config ARM64
+@@ -123,6 +123,7 @@ config ARM64
  	select HAVE_PERF_EVENTS
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
@@ -39,7 +39,7 @@ Signed-off-by: Anders Roxell <anders.roxell@linaro.org>
  };
  
  #define INIT_THREAD_INFO(tsk)						\
-@@ -82,6 +83,7 @@ void arch_setup_new_exec(void);
+@@ -82,6 +83,7 @@ void arch_release_task_struct(struct tas
  #define TIF_FOREIGN_FPSTATE	3	/* CPU's FP state is not current's */
  #define TIF_UPROBE		4	/* uprobe breakpoint or singlestep */
  #define TIF_FSCHECK		5	/* Check FS is USER_DS on return */
@@ -47,7 +47,7 @@ Signed-off-by: Anders Roxell <anders.roxell@linaro.org>
  #define TIF_NOHZ		7
  #define TIF_SYSCALL_TRACE	8
  #define TIF_SYSCALL_AUDIT	9
-@@ -97,6 +99,7 @@ void arch_setup_new_exec(void);
+@@ -99,6 +101,7 @@ void arch_release_task_struct(struct tas
  #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
  #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
  #define _TIF_FOREIGN_FPSTATE	(1 << TIF_FOREIGN_FPSTATE)
@@ -55,7 +55,7 @@ Signed-off-by: Anders Roxell <anders.roxell@linaro.org>
  #define _TIF_NOHZ		(1 << TIF_NOHZ)
  #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
  #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
-@@ -108,8 +111,9 @@ void arch_setup_new_exec(void);
+@@ -111,8 +114,9 @@ void arch_release_task_struct(struct tas
  
  #define _TIF_WORK_MASK		(_TIF_NEED_RESCHED | _TIF_SIGPENDING | \
  				 _TIF_NOTIFY_RESUME | _TIF_FOREIGN_FPSTATE | \
@@ -68,7 +68,7 @@ Signed-off-by: Anders Roxell <anders.roxell@linaro.org>
  				 _TIF_NOHZ)
 --- a/arch/arm64/kernel/asm-offsets.c
 +++ b/arch/arm64/kernel/asm-offsets.c
-@@ -38,6 +38,7 @@ int main(void)
+@@ -40,6 +40,7 @@ int main(void)
    BLANK();
    DEFINE(TSK_TI_FLAGS,		offsetof(struct task_struct, thread_info.flags));
    DEFINE(TSK_TI_PREEMPT,	offsetof(struct task_struct, thread_info.preempt_count));
@@ -78,7 +78,7 @@ Signed-off-by: Anders Roxell <anders.roxell@linaro.org>
    DEFINE(TSK_TI_TTBR0,		offsetof(struct task_struct, thread_info.ttbr0));
 --- a/arch/arm64/kernel/entry.S
 +++ b/arch/arm64/kernel/entry.S
-@@ -570,11 +570,16 @@ ENDPROC(el1_sync)
+@@ -603,11 +603,16 @@ ENDPROC(el1_sync)
  
  #ifdef CONFIG_PREEMPT
  	ldr	w24, [tsk, #TSK_TI_PREEMPT]	// get preempt count
@@ -98,7 +98,7 @@ Signed-off-by: Anders Roxell <anders.roxell@linaro.org>
  #endif
  #ifdef CONFIG_TRACE_IRQFLAGS
  	bl	trace_hardirqs_on
-@@ -588,6 +593,7 @@ ENDPROC(el1_irq)
+@@ -621,6 +626,7 @@ ENDPROC(el1_irq)
  1:	bl	preempt_schedule_irq		// irq en/disable is done inside
  	ldr	x0, [tsk, #TSK_TI_FLAGS]	// get new tasks TI_FLAGS
  	tbnz	x0, #TIF_NEED_RESCHED, 1b	// needs rescheduling?
@@ -108,12 +108,12 @@ Signed-off-by: Anders Roxell <anders.roxell@linaro.org>
  
 --- a/arch/arm64/kernel/signal.c
 +++ b/arch/arm64/kernel/signal.c
-@@ -755,7 +755,7 @@ asmlinkage void do_notify_resume(struct
+@@ -912,7 +912,7 @@ asmlinkage void do_notify_resume(struct
  		/* Check valid user FS if needed */
  		addr_limit_user_check();
  
 -		if (thread_flags & _TIF_NEED_RESCHED) {
 +		if (thread_flags & _TIF_NEED_RESCHED_MASK) {
- 			schedule();
- 		} else {
- 			local_irq_enable();
+ 			/* Unmask Debug and SError for the next task */
+ 			local_daif_restore(DAIF_PROCCTX_NOIRQ);
+ 

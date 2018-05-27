@@ -1,7 +1,7 @@
 Subject: timekeeping: Split jiffies seqlock
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 14 Feb 2013 22:36:59 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.14/older/patches-4.14.15-rt13.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Replace jiffies_lock seqlock with a simple seqcounter and a rawlock so
 it can be taken in atomic context on RT.
@@ -73,7 +73,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
 --- a/kernel/time/tick-sched.c
 +++ b/kernel/time/tick-sched.c
-@@ -66,7 +66,8 @@ static void tick_do_update_jiffies64(kti
+@@ -67,7 +67,8 @@ static void tick_do_update_jiffies64(kti
  		return;
  
  	/* Reevaluate with jiffies_lock held */
@@ -83,7 +83,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	delta = ktime_sub(now, last_jiffies_update);
  	if (delta >= tick_period) {
-@@ -89,10 +90,12 @@ static void tick_do_update_jiffies64(kti
+@@ -90,10 +91,12 @@ static void tick_do_update_jiffies64(kti
  		/* Keep the tick_next_period variable up to date */
  		tick_next_period = ktime_add(last_jiffies_update, tick_period);
  	} else {
@@ -98,7 +98,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	update_wall_time();
  }
  
-@@ -103,12 +106,14 @@ static ktime_t tick_init_jiffy_update(vo
+@@ -104,12 +107,14 @@ static ktime_t tick_init_jiffy_update(vo
  {
  	ktime_t period;
  
@@ -115,7 +115,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return period;
  }
  
-@@ -689,10 +694,10 @@ static ktime_t tick_nohz_stop_sched_tick
+@@ -665,10 +670,10 @@ static ktime_t tick_nohz_stop_sched_tick
  
  	/* Read jiffies and the time when jiffies were updated last */
  	do {
@@ -130,7 +130,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/*
 --- a/kernel/time/timekeeping.c
 +++ b/kernel/time/timekeeping.c
-@@ -2326,8 +2326,10 @@ EXPORT_SYMBOL(hardpps);
+@@ -2421,8 +2421,10 @@ EXPORT_SYMBOL(hardpps);
   */
  void xtime_update(unsigned long ticks)
  {

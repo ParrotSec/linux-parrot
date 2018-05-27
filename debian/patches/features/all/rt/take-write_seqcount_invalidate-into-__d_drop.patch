@@ -1,0 +1,80 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Wed, 7 Mar 2018 00:49:10 -0500
+Subject: [PATCH] take write_seqcount_invalidate() into __d_drop()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
+
+Upstream commit 0632a9ac7bc0a32f8251a53b3925775f0a7c4da6
+
+... and reorder it with making d_unhashed() true.
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |   44 ++++++++++++++++++++++----------------------
+ 1 file changed, 22 insertions(+), 22 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -470,30 +470,29 @@ static void dentry_lru_add(struct dentry
+  */
+ static void ___d_drop(struct dentry *dentry)
+ {
+-	if (!d_unhashed(dentry)) {
+-		struct hlist_bl_head *b;
+-		/*
+-		 * Hashed dentries are normally on the dentry hashtable,
+-		 * with the exception of those newly allocated by
+-		 * d_obtain_root, which are always IS_ROOT:
+-		 */
+-		if (unlikely(IS_ROOT(dentry)))
+-			b = &dentry->d_sb->s_roots;
+-		else
+-			b = d_hash(dentry->d_name.hash);
++	struct hlist_bl_head *b;
++	/*
++	 * Hashed dentries are normally on the dentry hashtable,
++	 * with the exception of those newly allocated by
++	 * d_obtain_root, which are always IS_ROOT:
++	 */
++	if (unlikely(IS_ROOT(dentry)))
++		b = &dentry->d_sb->s_roots;
++	else
++		b = d_hash(dentry->d_name.hash);
+ 
+-		hlist_bl_lock(b);
+-		__hlist_bl_del(&dentry->d_hash);
+-		hlist_bl_unlock(b);
+-		/* After this call, in-progress rcu-walk path lookup will fail. */
+-		write_seqcount_invalidate(&dentry->d_seq);
+-	}
++	hlist_bl_lock(b);
++	__hlist_bl_del(&dentry->d_hash);
++	hlist_bl_unlock(b);
+ }
+ 
+ void __d_drop(struct dentry *dentry)
+ {
+-	___d_drop(dentry);
+-	dentry->d_hash.pprev = NULL;
++	if (!d_unhashed(dentry)) {
++		___d_drop(dentry);
++		dentry->d_hash.pprev = NULL;
++		write_seqcount_invalidate(&dentry->d_seq);
++	}
+ }
+ EXPORT_SYMBOL(__d_drop);
+ 
+@@ -2853,9 +2852,10 @@ static void __d_move(struct dentry *dent
+ 	write_seqcount_begin_nested(&target->d_seq, DENTRY_D_LOCK_NESTED);
+ 
+ 	/* unhash both */
+-	/* ___d_drop does write_seqcount_barrier, but they're OK to nest. */
+-	___d_drop(dentry);
+-	___d_drop(target);
++	if (!d_unhashed(dentry))
++		___d_drop(dentry);
++	if (!d_unhashed(target))
++		___d_drop(target);
+ 
+ 	/* Switch the names.. */
+ 	if (exchange)
