@@ -2,7 +2,6 @@ From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:52:02 -0600
 Subject: [PATCH 36/48] tracing: Allow whitespace to surround hist trigger
  filter
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The existing code only allows for one space before and after the 'if'
 specifying the filter for a hist trigger.  Add code to make that more

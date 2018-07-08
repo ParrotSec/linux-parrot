@@ -1,7 +1,6 @@
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Date: Wed, 18 Apr 2018 12:51:43 +0200
 Subject: [PATCH 6/6] ARM: configs: at91: unselect PIT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The PIT is not required anymore to successfully boot and may actually harm
 in case preempt-rt is used because the PIT interrupt is shared.

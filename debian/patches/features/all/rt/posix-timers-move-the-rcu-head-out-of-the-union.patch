@@ -1,7 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 28 Mar 2018 11:15:19 +0200
 Subject: [PATCH 3/3] posix-timers: move the rcu head out of the union
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 On RT the timer can be preempted while running and therefore we wait
 with timer_wait_for_callback() for the timer to complete (instead of

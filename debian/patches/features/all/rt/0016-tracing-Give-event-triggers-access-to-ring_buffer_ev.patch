@@ -2,7 +2,6 @@ From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:42 -0600
 Subject: [PATCH 16/48] tracing: Give event triggers access to
  ring_buffer_event
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The ring_buffer event can provide a timestamp that may be useful to
 various triggers - pass it into the handlers for that purpose.
@@ -178,7 +177,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  }
  EXPORT_SYMBOL_GPL(event_triggers_post_call);
-@@ -909,7 +910,8 @@ void set_named_trigger_data(struct event
+@@ -911,7 +912,8 @@ void set_named_trigger_data(struct event
  }
  
  static void
@@ -188,7 +187,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	if (tracing_is_on())
  		return;
-@@ -918,7 +920,8 @@ traceon_trigger(struct event_trigger_dat
+@@ -920,7 +922,8 @@ traceon_trigger(struct event_trigger_dat
  }
  
  static void
@@ -198,7 +197,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	if (tracing_is_on())
  		return;
-@@ -933,7 +936,8 @@ traceon_count_trigger(struct event_trigg
+@@ -935,7 +938,8 @@ traceon_count_trigger(struct event_trigg
  }
  
  static void
@@ -208,7 +207,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	if (!tracing_is_on())
  		return;
-@@ -942,7 +946,8 @@ traceoff_trigger(struct event_trigger_da
+@@ -944,7 +948,8 @@ traceoff_trigger(struct event_trigger_da
  }
  
  static void
@@ -218,7 +217,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	if (!tracing_is_on())
  		return;
-@@ -1039,13 +1044,15 @@ static struct event_command trigger_trac
+@@ -1041,7 +1046,8 @@ static struct event_command trigger_trac
  
  #ifdef CONFIG_TRACER_SNAPSHOT
  static void
@@ -226,7 +225,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +snapshot_trigger(struct event_trigger_data *data, void *rec,
 +		 struct ring_buffer_event *event)
  {
- 	tracing_snapshot();
+ 	struct trace_event_file *file = data->private_data;
+ 
+@@ -1052,7 +1058,8 @@ snapshot_trigger(struct event_trigger_da
  }
  
  static void
@@ -236,7 +237,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	if (!data->count)
  		return;
-@@ -1053,7 +1060,7 @@ snapshot_count_trigger(struct event_trig
+@@ -1060,7 +1067,7 @@ snapshot_count_trigger(struct event_trig
  	if (data->count != -1)
  		(data->count)--;
  
@@ -245,7 +246,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static int
-@@ -1141,13 +1148,15 @@ static __init int register_trigger_snaps
+@@ -1148,13 +1155,15 @@ static __init int register_trigger_snaps
  #endif
  
  static void
@@ -263,7 +264,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	if (!data->count)
  		return;
-@@ -1155,7 +1164,7 @@ stacktrace_count_trigger(struct event_tr
+@@ -1162,7 +1171,7 @@ stacktrace_count_trigger(struct event_tr
  	if (data->count != -1)
  		(data->count)--;
  
@@ -272,7 +273,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static int
-@@ -1217,7 +1226,8 @@ static __init void unregister_trigger_tr
+@@ -1224,7 +1233,8 @@ static __init void unregister_trigger_tr
  }
  
  static void
@@ -282,7 +283,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct enable_trigger_data *enable_data = data->private_data;
  
-@@ -1228,7 +1238,8 @@ event_enable_trigger(struct event_trigge
+@@ -1235,7 +1245,8 @@ event_enable_trigger(struct event_trigge
  }
  
  static void
@@ -292,7 +293,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct enable_trigger_data *enable_data = data->private_data;
  
-@@ -1242,7 +1253,7 @@ event_enable_count_trigger(struct event_
+@@ -1249,7 +1260,7 @@ event_enable_count_trigger(struct event_
  	if (data->count != -1)
  		(data->count)--;
  

@@ -9,7 +9,6 @@
 features/all/rt/0001-iommu-amd-Use-raw-locks-on-atomic-context-paths.patch
 features/all/rt/0002-iommu-amd-Don-t-use-dev_data-in-irte_ga_set_affinity.patch
 features/all/rt/0003-iommu-amd-Avoid-locking-get_irq_table-from-atomic-co.patch
-features/all/rt/0001-iommu-amd-Take-into-account-that-alloc_dev_data-may-.patch
 features/all/rt/0002-iommu-amd-Turn-dev_data_list-into-a-lock-less-list.patch
 features/all/rt/0003-iommu-amd-Split-domain-id-out-of-amd_iommu_devtable_.patch
 features/all/rt/0004-iommu-amd-Split-irq_lookup_table-out-of-the-amd_iomm.patch
@@ -97,7 +96,7 @@ features/all/rt/rxrpc-remove-unused-static-variables.patch
 features/all/rt/delayacct-use-raw_spinlocks.patch
 features/all/rt/stop-machine-raw-lock.patch
 features/all/rt/mmci-remove-bogus-irq-save.patch
-features/all/rt/tty-serial-atmel-use-port-name-as-name-in-request_ir.patch
+#features/all/rt/tty-serial-atmel-use-port-name-as-name-in-request_ir.patch
 features/all/rt/rbtree-include-rcu.h-because-we-use-it.patch
 features/all/rt/sched-swait-include-wait.h.patch
 features/all/rt/block-avoid-disabling-interrupts-during-kmap_atomic.patch
@@ -109,9 +108,25 @@ features/all/rt/net-3com-3c59x-Pull-locking-out-of-ISR.patch
 features/all/rt/net-3com-3c59x-irq-save-variant-of-ISR.patch
 features/all/rt/ALSA-pcm-Hide-local_irq_disable-enable-and-local_irq.patch
 features/all/rt/percpu_ida-Use-_irqsave-instead-of-local_irq_save-sp.patch
+features/all/rt/lib-percpu_ida.c-don-t-do-alloc-from-per-CPU-list-if.patch
 features/all/rt/xen-9pfs-don-t-inclide-rwlock.h-directly.patch
 features/all/rt/ACPICA-provide-abstraction-for-raw_spinlock_t.patch
 features/all/rt/ACPICA-Convert-acpi_gbl_hardware-lock-back-to-an-acp.patch
+features/all/rt/mfd-syscon-atmel-smc-include-string.h.patch
+features/all/rt/sched-tracing-Fix-trace_sched_pi_setprio-for-deboost.patch
+features/all/rt/0001-PM-suspend-Prevent-might-sleep-splats.patch
+features/all/rt/0002-PM-wakeup-Make-events_lock-a-RAW_SPINLOCK.patch
+features/all/rt/0003-PM-s2idle-Make-s2idle_wait_head-swait-based.patch
+features/all/rt/0004-PM-wakeup-Make-s2idle_lock-a-RAW_SPINLOCK.patch
+features/all/rt/rfc-arm-smp-__cpu_disable-fix-sleeping-function-called-from-invalid-context.patch
+features/all/rt/alim15x3-move-irq-restore-before-pci_dev_put.patch
+features/all/rt/ide-don-t-disable-interrupts-if-they-are-already-dis.patch
+features/all/rt/ide-don-t-disable-interrupts-during-kmap_atomic.patch
+features/all/rt/ide-don-t-enable-disable-interrupts-in-force-threade.patch
+features/all/rt/kernel-signal-Remove-no-longer-required-irqsave-rest.patch
+features/all/rt/IB-ipoib-replace-local_irq_disable-with-proper-locki.patch
+features/all/rt/SCSI-libsas-remove-irq-save-in-sas_ata_qc_issue.patch
+features/all/rt/posix-cpu-timers-remove-lockdep_assert_irqs_disabled.patch
 
 ############################################################
 # POSTED by others
@@ -129,17 +144,15 @@ features/all/rt/0006-ARM-configs-at91-unselect-PIT.patch
 ############################################################
 # POSTED
 ############################################################
-features/all/rt/mfd-syscon-atmel-smc-include-string.h.patch
 features/all/rt/Revert-mm-vmstat.c-fix-vmstat_update-preemption-BUG.patch
 features/all/rt/arm-convert-boot-lock-to-raw.patch
 features/all/rt/x86-io-apic-migra-no-unmask.patch
+features/all/rt/arm-kprobe-replace-patch_lock-to-raw-lock.patch
+features/all/rt/arm-unwind-use_raw_lock.patch
 
 ############################################################
 # Ready for posting
 ############################################################
-features/all/rt/arm-kprobe-replace-patch_lock-to-raw-lock.patch
-features/all/rt/x86-UV-raw_spinlock-conversion.patch
-features/all/rt/arm-unwind-use_raw_lock.patch
 
 ############################################################
 # Needs to address review feedback
@@ -149,7 +162,6 @@ features/all/rt/posix-timers-no-broadcast.patch
 ############################################################
 # Almost ready, needs final polishing
 ############################################################
-features/all/rt/rfc-arm-smp-__cpu_disable-fix-sleeping-function-called-from-invalid-context.patch
 features/all/rt/drivers-random-reduce-preempt-disabled-region.patch
 features/all/rt/mm-page_alloc-rt-friendly-per-cpu-pages.patch
 features/all/rt/mm-page_alloc-reduce-lock-sections-further.patch
@@ -172,44 +184,30 @@ features/all/rt/timekeeping-split-jiffies-lock.patch
 # PTRACE/SIGNAL crap
 features/all/rt/signal-revert-ptrace-preempt-magic.patch
 
-# PM
-features/all/rt/suspend-prevernt-might-sleep-splats.patch
-
 # NETWORKING
 features/all/rt/net-sched-dev_deactivate_many-use-msleep-1-instead-o.patch
 
 # The removal of NONRT helpers
-features/all/rt/alim15x3-move-irq-restore-before-pci_dev_put.patch
-features/all/rt/ide-don-t-disable-interrupts-if-they-are-already-dis.patch
-features/all/rt/ide-don-t-disable-interrupts-during-kmap_atomic.patch
-features/all/rt/ide-don-t-enable-disable-interrupts-in-force-threade.patch
 features/all/rt/dm-rq-remove-BUG_ON-irqs_disabled-check.patch
-features/all/rt/kernel-signal-Remove-no-longer-required-irqsave-rest.patch
 features/all/rt/ntfs-avoid-disabling-interrupts-during-kmap_atomic.patch
-features/all/rt/IB-ipoib-replace-local_irq_disable-with-proper-locki.patch
-features/all/rt/SCSI-libsas-remove-irq-save-in-sas_ata_qc_issue.patch
 features/all/rt/SCSI-qla2xxx-remove-irq-save-in-qla2x00_poll.patch
 features/all/rt/libata-remove-ata_sff_data_xfer_noirq.patch
-features/all/rt/posix-cpu-timers-remove-lockdep_assert_irqs_disabled.patch
 features/all/rt/usb-do-not-disable-interrupts-in-giveback.patch
-# refcount_dec_and_lock_irqsave
+# atomic_dec_and_lock_irqsave / refcount_dec_and_lock_irqsave
+features/all/rt/0001-spinlock-atomic_dec_and_lock-Add-an-irqsave-variant.patch
+features/all/rt/0002-drivers-md-raid5-Use-irqsave-variant-of-atomic_dec_a.patch
+features/all/rt/0003-drivers-md-raid5-Do-not-disable-irq-on-release_inact.patch
 features/all/rt/0001-bdi-use-refcount_t-for-reference-counting-instead-at.patch
 features/all/rt/0002-userns-use-refcount_t-for-reference-counting-instead.patch
-features/all/rt/0003-md-raid5-use-refcount_t-for-reference-counting-inste.patch
 features/all/rt/0004-locking-refcount-implement-refcount_dec_and_lock_irq.patch
 features/all/rt/0005-bdi-Use-irqsave-variant-of-refcount_dec_and_lock.patch
 features/all/rt/0006-userns-Use-irqsave-variant-of-refcount_dec_and_lock.patch
-features/all/rt/0007-md-raid5-Use-irqsave-variant-of-refcount_dec_and_loc.patch
-features/all/rt/0008-md-raid5-Do-not-disable-irq-on-release_inactive_stri.patch
 
 #iommu
 features/all/rt/iommu-amd-hide-unused-iommu_table_lock.patch
 features/all/rt/iommu-amd-Prevent-possible-null-pointer-dereference-.patch
 features/all/rt/iommu-amd-Cleanup-locking-in-__attach-detach_device.patch
 features/all/rt/iommu-amd-Do-not-flush-when-device-is-busy.patch
-#net
-features/all/rt/lockdep-Add-a-assert_in_softirq.patch
-features/all/rt/net-mac808211-rc-warn_on.patch
 
 ##################################################
 # REAL RT STUFF starts here
@@ -286,6 +284,7 @@ features/all/rt/slub-disable-SLUB_CPU_PARTIAL.patch
 
 # MM
 features/all/rt/mm-page-alloc-use-local-lock-on-target-cpu.patch
+features/all/rt/mm-memcontrol-Don-t-call-schedule_work_on-in-preempt.patch
 features/all/rt/mm-memcontrol-do_not_disable_irq.patch
 features/all/rt/mm_zsmalloc_copy_with_get_cpu_var_and_locking.patch
 
@@ -445,6 +444,7 @@ features/all/rt/debugobjects-rt.patch
 
 # SEQLOCKS
 features/all/rt/seqlock-prevent-rt-starvation.patch
+features/all/rt/seqlock-provide-the-same-ordering-semantics-as-mainl.patch
 
 # NETWORKING
 features/all/rt/sunrpc-make-svc_xprt_do_enqueue-use-get_cpu_light.patch

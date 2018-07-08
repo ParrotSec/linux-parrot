@@ -1,7 +1,6 @@
 From: Al Viro <viro@zeniv.linux.org.uk>
 Date: Fri, 9 Mar 2018 18:06:03 -0500
 Subject: [PATCH 13/17] lustre: get rid of pointless casts to struct dentry *
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 5bf1ddf7ee0e23598a620ef9ea2b0f00e804859d
 

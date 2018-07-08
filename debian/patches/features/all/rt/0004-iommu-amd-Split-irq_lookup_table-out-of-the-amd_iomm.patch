@@ -2,7 +2,6 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 22 Mar 2018 16:22:36 +0100
 Subject: [PATCH 04/10] iommu/amd: Split irq_lookup_table out of the
  amd_iommu_devtable_lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit ea6166f4b83e9cfba1c18f46a764d50045682fe5
 

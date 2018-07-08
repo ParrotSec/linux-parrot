@@ -1,7 +1,6 @@
 From: Al Viro <viro@zeniv.linux.org.uk>
 Date: Wed, 7 Mar 2018 00:49:10 -0500
 Subject: [PATCH] take write_seqcount_invalidate() into __d_drop()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 0632a9ac7bc0a32f8251a53b3925775f0a7c4da6
 

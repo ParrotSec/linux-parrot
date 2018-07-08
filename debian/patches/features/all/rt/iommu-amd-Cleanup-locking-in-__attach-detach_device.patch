@@ -1,7 +1,6 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Mon, 16 Apr 2018 16:15:24 +0200
 Subject: [PATCH] iommu/amd: Cleanup locking in __attach/detach_device()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Since introduction of the pd_bitmap_lock in commit 2bc001808904
 ("iommu/amd: Split domain id out of amd_iommu_devtable_lock")

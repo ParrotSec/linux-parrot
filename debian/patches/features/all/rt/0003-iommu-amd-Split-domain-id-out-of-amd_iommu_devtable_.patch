@@ -2,7 +2,6 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 22 Mar 2018 16:22:35 +0100
 Subject: [PATCH 03/10] iommu/amd: Split domain id out of
  amd_iommu_devtable_lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 2bc00180890427dcc092b2f2b0d03c904bcade29
 

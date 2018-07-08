@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:49 -0600
 Subject: [PATCH 23/48] tracing: Add variable support to hist triggers
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Add support for saving the value of a current event's event field by
 assigning it to a variable that can be read by a subsequent event.

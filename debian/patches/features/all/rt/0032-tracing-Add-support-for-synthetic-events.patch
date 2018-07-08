@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:58 -0600
 Subject: [PATCH 32/48] tracing: Add support for 'synthetic' events
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Synthetic events are user-defined events generated from hist trigger
 variables saved from one or more other events.

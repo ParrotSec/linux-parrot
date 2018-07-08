@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:52 -0600
 Subject: [PATCH 26/48] tracing: Add simple expression support to hist triggers
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Add support for simple addition, subtraction, and unary expressions
 (-(expr) and expr, where expr = b-a, a+b, a+b+c) to hist triggers, in

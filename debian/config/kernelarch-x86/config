@@ -2,6 +2,7 @@
 ## file: arch/Kconfig
 ##
 # CONFIG_OPROFILE_EVENT_MULTIPLEX is not set
+CONFIG_REFCOUNT_FULL=y
 
 ##
 ## file: arch/x86/Kconfig

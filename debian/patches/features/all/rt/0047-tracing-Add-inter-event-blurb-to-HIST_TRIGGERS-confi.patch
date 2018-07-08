@@ -2,7 +2,6 @@ From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:52:10 -0600
 Subject: [PATCH 47/48] tracing: Add inter-event blurb to HIST_TRIGGERS config
  option
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 So that users know that inter-event tracing is supported as part of
 the HIST_TRIGGERS option, include text to that effect in the help

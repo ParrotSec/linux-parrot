@@ -1,5 +1,5 @@
 [abi]
-abiname: parrot12
+abiname: parrot16
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*
@@ -22,8 +22,8 @@ ignore-changes:
  module:arch/x86/kvm/*
  module:drivers/crypto/ccp/*
  module:drivers/hv/*
- module:drivers/iio/common/hid-sensors/*
- module:drivers/iio/common/st_sensors/**
+ module:drivers/iio/**
+ module:drivers/misc/cxl/*
  module:drivers/mtd/nand/*
  module:drivers/net/wireless/**
  module:drivers/nvdimm/*
@@ -65,6 +65,7 @@ ignore-changes:
  debugfs_create_automount
 # ignore changes to inv_mpu6050/*
  module:drivers/iio/imu/inv_mpu6050/*
+ drm_crtc_accurate_vblank_count
 
 [base]
 arches:

@@ -2,7 +2,6 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 23 Apr 2018 16:42:39 +0200
 Subject: [PATCH] percpu_ida: Use _irqsave() instead of local_irq_save() +
  spin_lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 percpu_ida() decouples disabling interrupts from the locking operations.
 This breaks some assumptions if the locking operations are replaced like

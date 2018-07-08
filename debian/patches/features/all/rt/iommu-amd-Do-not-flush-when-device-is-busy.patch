@@ -1,7 +1,6 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Mon, 16 Apr 2018 16:15:25 +0200
 Subject: [PATCH] iommu/amd: Do not flush when device is busy
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 When device is already attached to a domain, there is no need to execute
 the domain_flush_tlb_pde(). Therefore move the check if the domain is set

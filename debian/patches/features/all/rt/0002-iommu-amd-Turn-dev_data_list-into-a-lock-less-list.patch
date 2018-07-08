@@ -1,7 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 22 Mar 2018 16:22:34 +0100
 Subject: [PATCH 02/10] iommu/amd: Turn dev_data_list into a lock less list
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 779da73273fc4c4c6f41579a95e4fb7880a1720e
 

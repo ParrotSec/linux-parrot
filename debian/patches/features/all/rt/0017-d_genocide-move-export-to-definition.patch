@@ -1,7 +1,6 @@
 From: Al Viro <viro@zeniv.linux.org.uk>
 Date: Thu, 29 Mar 2018 15:08:21 -0400
 Subject: [PATCH 17/17] d_genocide: move export to definition
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit cbd4a5bcb25b5ed0c1c64bc969b893cad9b78acc
 

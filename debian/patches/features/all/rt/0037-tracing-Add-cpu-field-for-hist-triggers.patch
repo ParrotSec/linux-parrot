@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:52:03 -0600
 Subject: [PATCH 37/48] tracing: Add cpu field for hist triggers
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 A common key to use in a histogram is the cpuid - add a new cpu
 'synthetic' field named 'cpu' for that purpose.

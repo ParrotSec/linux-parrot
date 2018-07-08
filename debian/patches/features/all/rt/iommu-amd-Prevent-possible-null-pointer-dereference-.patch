@@ -2,7 +2,6 @@ From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Mon, 16 Apr 2018 16:15:23 +0200
 Subject: [PATCH] iommu/amd: Prevent possible null pointer dereference and
  infinite loop
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The check for !dev_data->domain in __detach_device() emits a warning and
 returns. The calling code in detach_device() dereferences dev_data->domain

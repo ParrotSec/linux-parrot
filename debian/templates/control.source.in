@@ -1,7 +1,7 @@
 Section: kernel
 Priority: optional
 Maintainer: Parrot Dev Team <team@parrotsec.org>
-Uploaders: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>
+Uploaders: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org
 Standards-Version: 4.1.1
 Build-Depends:
  debhelper (>= 10.1~), dh-exec,

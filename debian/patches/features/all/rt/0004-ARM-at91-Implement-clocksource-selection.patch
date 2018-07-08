@@ -1,7 +1,6 @@
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Date: Wed, 18 Apr 2018 12:51:41 +0200
 Subject: [PATCH 4/6] ARM: at91: Implement clocksource selection
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Allow selecting and unselecting the PIT clocksource driver so it doesn't
 have to be compile when unused.

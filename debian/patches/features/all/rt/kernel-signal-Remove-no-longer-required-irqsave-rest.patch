@@ -1,7 +1,6 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Wed, 4 Apr 2018 11:44:01 +0200
 Subject: [PATCH] kernel/signal: Remove no longer required irqsave/restore
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Commit a841796f11c9 ("signal: align __lock_task_sighand() irq disabling and
 RCU") introduced a rcu read side critical section with interrupts

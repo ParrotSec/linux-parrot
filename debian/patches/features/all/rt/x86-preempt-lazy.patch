@@ -1,7 +1,6 @@
 Subject: x86: Support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 01 Nov 2012 11:03:47 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Implement the x86 pieces for lazy preempt.
 
@@ -177,7 +176,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  
  /*
-@@ -82,6 +89,7 @@ struct thread_info {
+@@ -83,6 +90,7 @@ struct thread_info {
  #define TIF_SYSCALL_EMU		6	/* syscall emulation active */
  #define TIF_SYSCALL_AUDIT	7	/* syscall auditing active */
  #define TIF_SECCOMP		8	/* secure computing */
@@ -185,7 +184,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define TIF_USER_RETURN_NOTIFY	11	/* notify kernel of userspace return */
  #define TIF_UPROBE		12	/* breakpointed or singlestepping */
  #define TIF_PATCH_PENDING	13	/* pending live patching update */
-@@ -108,6 +116,7 @@ struct thread_info {
+@@ -110,6 +118,7 @@ struct thread_info {
  #define _TIF_SYSCALL_EMU	(1 << TIF_SYSCALL_EMU)
  #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
  #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
@@ -193,7 +192,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define _TIF_USER_RETURN_NOTIFY	(1 << TIF_USER_RETURN_NOTIFY)
  #define _TIF_UPROBE		(1 << TIF_UPROBE)
  #define _TIF_PATCH_PENDING	(1 << TIF_PATCH_PENDING)
-@@ -149,6 +158,8 @@ struct thread_info {
+@@ -151,6 +160,8 @@ struct thread_info {
  #define _TIF_WORK_CTXSW_PREV (_TIF_WORK_CTXSW|_TIF_USER_RETURN_NOTIFY)
  #define _TIF_WORK_CTXSW_NEXT (_TIF_WORK_CTXSW)
  

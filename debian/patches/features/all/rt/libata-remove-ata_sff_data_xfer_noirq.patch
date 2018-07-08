@@ -1,7 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 19 Apr 2018 12:55:14 +0200
 Subject: [PATCH] libata: remove ata_sff_data_xfer_noirq()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 ata_sff_data_xfer_noirq() is invoked via the ->sff_data_xfer hook. The
 latter is invoked by ata_pio_sector(), atapi_send_cdb() and

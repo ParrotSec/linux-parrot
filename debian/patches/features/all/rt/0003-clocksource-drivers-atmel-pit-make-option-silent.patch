@@ -1,7 +1,6 @@
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Date: Wed, 18 Apr 2018 12:51:40 +0200
 Subject: [PATCH 3/6] clocksource/drivers: atmel-pit: make option silent
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 To conform with the other option, make the ATMEL_PIT option silent so it
 can be selected from the platform

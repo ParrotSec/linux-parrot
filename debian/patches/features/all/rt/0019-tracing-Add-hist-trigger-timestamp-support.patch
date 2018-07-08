@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:45 -0600
 Subject: [PATCH 19/48] tracing: Add hist trigger timestamp support
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Add support for a timestamp event field.  This is actually a 'pseudo-'
 event field in that it behaves like it's part of the event record, but

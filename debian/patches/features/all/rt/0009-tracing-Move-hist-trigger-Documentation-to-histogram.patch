@@ -2,7 +2,6 @@ From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:35 -0600
 Subject: [PATCH 09/48] tracing: Move hist trigger Documentation to
  histogram.txt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The hist trigger Documentation takes up a large part of events.txt -
 since it will be getting even larger, move it to a separate file.

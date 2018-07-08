@@ -2,7 +2,6 @@ From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Thu, 12 Apr 2018 18:36:14 +0200
 Subject: [PATCH] net: 3com: 3c59x: Move boomerang/vortex conditional into
  function
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 If vp->full_bus_master_tx is set, vp->full_bus_master_rx is set as well
 (see vortex_probe1()). Therefore the conditionals for the decision if
@@ -44,7 +43,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	local_irq_restore(flags);
  }
  #endif
-@@ -1729,8 +1729,7 @@ vortex_open(struct net_device *dev)
+@@ -1728,8 +1728,7 @@ vortex_open(struct net_device *dev)
  	dma_addr_t dma;
  
  	/* Use the now-standard shared IRQ implementation. */
@@ -54,7 +53,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		pr_err("%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
  		goto err;
  	}
-@@ -1911,10 +1910,7 @@ static void vortex_tx_timeout(struct net
+@@ -1910,10 +1909,7 @@ static void vortex_tx_timeout(struct net
  			 */
  			unsigned long flags;
  			local_irq_save(flags);
@@ -66,7 +65,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			local_irq_restore(flags);
  		}
  	}
-@@ -2267,9 +2263,8 @@ boomerang_start_xmit(struct sk_buff *skb
+@@ -2266,9 +2262,8 @@ boomerang_start_xmit(struct sk_buff *skb
   */
  
  static irqreturn_t
@@ -77,7 +76,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct vortex_private *vp = netdev_priv(dev);
  	void __iomem *ioaddr;
  	int status;
-@@ -2386,9 +2381,8 @@ vortex_interrupt(int irq, void *dev_id)
+@@ -2385,9 +2380,8 @@ vortex_interrupt(int irq, void *dev_id)
   */
  
  static irqreturn_t
@@ -88,7 +87,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct vortex_private *vp = netdev_priv(dev);
  	void __iomem *ioaddr;
  	int status;
-@@ -2526,6 +2520,18 @@ boomerang_interrupt(int irq, void *dev_i
+@@ -2525,6 +2519,18 @@ boomerang_interrupt(int irq, void *dev_i
  	return IRQ_RETVAL(handled);
  }
  

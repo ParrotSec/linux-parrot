@@ -2,7 +2,6 @@ From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:56 -0600
 Subject: [PATCH 30/48] tracing: Add variable reference handling to hist
  triggers
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Add the necessary infrastructure to allow the variables defined on one
 event to be referenced in another.  This allows variables set by a

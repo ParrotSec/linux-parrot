@@ -1,7 +1,6 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Wed, 4 Apr 2018 11:44:00 +0200
 Subject: [PATCH] net: u64_stats_sync: Remove functions without user
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Commit 67db3e4bfbc9 ("tcp: no longer hold ehash lock while calling
 tcp_get_info()") removes the only users of u64_stats_update_end/begin_raw()

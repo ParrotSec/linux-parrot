@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:52:06 -0600
 Subject: [PATCH 40/48] tracing: Add inter-event hist trigger Documentation
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Add background and details on inter-event hist triggers, including
 hist variables, synthetic events, and actions.

@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:36 -0600
 Subject: [PATCH 10/48] tracing: Add Documentation for log2 modifier
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Add a line for the log2 modifier, to keep it aligned with
 tracing/README.

@@ -2,7 +2,6 @@ From: Al Viro <viro@zeniv.linux.org.uk>
 Date: Sat, 10 Mar 2018 23:15:52 -0500
 Subject: [PATCH 15/17] make non-exchanging __d_move() copy ->d_parent rather
  than swap them
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 076515fc926793e162fc6525bed1679ef2bbf269
 

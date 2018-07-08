@@ -2,7 +2,6 @@ From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 23 Feb 2018 00:50:24 +0100
 Subject: [PATCH 07/17] fs/dcache: Avoid a try_lock loop in
  shrink_dentry_list()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 8f04da2adbdffed8dc4b2feb00ec3b3d84683885
 

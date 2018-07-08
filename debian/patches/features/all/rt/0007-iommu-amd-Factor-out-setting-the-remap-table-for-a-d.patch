@@ -2,7 +2,6 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 22 Mar 2018 16:22:39 +0100
 Subject: [PATCH 07/10] iommu/amd: Factor out setting the remap table for a
  devid
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 2fcc1e8ac4a8514c64f946178fc36c2e30e56a41
 

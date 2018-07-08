@@ -2,7 +2,6 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 19 Apr 2018 11:22:55 +0200
 Subject: [PATCH] ide: don't enable/disable interrupts in force threaded-IRQ
  mode
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The interrupts are enabled/disabled so the interrupt handler can run
 with enabled interrupts while serving the interrupt and not lose other

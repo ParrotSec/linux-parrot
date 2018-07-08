@@ -1,7 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 25 Jan 2017 16:34:27 +0100
 Subject: [PATCH] radix-tree: use local locks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The preload functionality uses per-CPU variables and preempt-disable to
 ensure that it does not switch CPUs during its usage. This patch adds
@@ -137,7 +136,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static unsigned radix_tree_load_root(const struct radix_tree_root *root,
  		struct radix_tree_node **nodep, unsigned long *maxindex)
  {
-@@ -2102,10 +2110,16 @@ EXPORT_SYMBOL(radix_tree_tagged);
+@@ -2100,10 +2108,16 @@ EXPORT_SYMBOL(radix_tree_tagged);
  void idr_preload(gfp_t gfp_mask)
  {
  	if (__radix_tree_preload(gfp_mask, IDR_PRELOAD_SIZE))
@@ -155,7 +154,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /**
   * ida_pre_get - reserve resources for ida allocation
   * @ida: ida handle
-@@ -2122,7 +2136,7 @@ int ida_pre_get(struct ida *ida, gfp_t g
+@@ -2120,7 +2134,7 @@ int ida_pre_get(struct ida *ida, gfp_t g
  	 * to return to the ida_pre_get() step.
  	 */
  	if (!__radix_tree_preload(gfp, IDA_PRELOAD_SIZE))

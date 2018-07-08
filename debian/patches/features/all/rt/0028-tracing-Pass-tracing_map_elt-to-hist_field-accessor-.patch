@@ -2,7 +2,6 @@ From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:54 -0600
 Subject: [PATCH 28/48] tracing: Pass tracing_map_elt to hist_field accessor
  functions
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Some accessor functions, such as for variable references, require
 access to a corrsponding tracing_map_elt.

@@ -1,7 +1,6 @@
 Subject: completion: Use simple wait queues
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 11 Jan 2013 11:23:51 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Completions have no long lasting callbacks and therefor do not need
 the complex waitqueue variant. Use simple waitqueues which reduces the
@@ -35,7 +34,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		break;
 --- a/drivers/usb/gadget/function/f_fs.c
 +++ b/drivers/usb/gadget/function/f_fs.c
-@@ -1608,7 +1608,7 @@ static void ffs_data_put(struct ffs_data
+@@ -1612,7 +1612,7 @@ static void ffs_data_put(struct ffs_data
  		pr_info("%s(): freeing\n", __func__);
  		ffs_data_clear(ffs);
  		BUG_ON(waitqueue_active(&ffs->ev.waitq) ||
@@ -159,7 +158,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return error;
 --- a/kernel/power/suspend.c
 +++ b/kernel/power/suspend.c
-@@ -593,6 +593,8 @@ static int enter_state(suspend_state_t s
+@@ -594,6 +594,8 @@ static int enter_state(suspend_state_t s
  	return error;
  }
  
@@ -168,7 +167,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /**
   * pm_suspend - Externally visible function for suspending the system.
   * @state: System sleep state to enter.
-@@ -607,6 +609,7 @@ int pm_suspend(suspend_state_t state)
+@@ -608,6 +610,7 @@ int pm_suspend(suspend_state_t state)
  	if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX)
  		return -EINVAL;
  
@@ -176,7 +175,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	pr_info("suspend entry (%s)\n", mem_sleep_labels[state]);
  	error = enter_state(state);
  	if (error) {
-@@ -616,6 +619,7 @@ int pm_suspend(suspend_state_t state)
+@@ -617,6 +620,7 @@ int pm_suspend(suspend_state_t state)
  		suspend_stats.success++;
  	}
  	pr_info("suspend exit\n");
@@ -282,7 +281,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  EXPORT_SYMBOL(completion_done);
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -7075,7 +7075,10 @@ void migrate_disable(void)
+@@ -7080,7 +7080,10 @@ void migrate_disable(void)
  		return;
  	}
  #ifdef CONFIG_SCHED_DEBUG
@@ -294,7 +293,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  
  	if (p->migrate_disable) {
-@@ -7105,7 +7108,10 @@ void migrate_enable(void)
+@@ -7110,7 +7113,10 @@ void migrate_enable(void)
  	}
  
  #ifdef CONFIG_SCHED_DEBUG

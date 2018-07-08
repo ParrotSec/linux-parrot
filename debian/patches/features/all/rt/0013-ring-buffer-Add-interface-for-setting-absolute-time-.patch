@@ -2,7 +2,6 @@ From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:39 -0600
 Subject: [PATCH 13/48] ring-buffer: Add interface for setting absolute time
  stamps
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Define a new function, tracing_set_time_stamp_abs(), which can be used
 to enable or disable the use of absolute timestamps rather than time

@@ -1,7 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 11 Apr 2018 13:34:26 +0200
 Subject: [PATCH] IB/ipoib: replace local_irq_disable() with proper locking
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Commit 78bfe0b5b67f ("IPoIB: Take dev->xmit_lock around mc_list accesses")
 introduced xmit_lock lock in ipoib_mcast_restart_task() and commit

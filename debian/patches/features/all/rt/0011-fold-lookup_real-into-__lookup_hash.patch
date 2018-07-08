@@ -1,7 +1,6 @@
 From: Al Viro <viro@zeniv.linux.org.uk>
 Date: Thu, 8 Mar 2018 11:00:45 -0500
 Subject: [PATCH 11/17] fold lookup_real() into __lookup_hash()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit a03ece5ff2bd7a9abaa0e8ddfe5f79d79e5984c8
 

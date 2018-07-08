@@ -1,7 +1,6 @@
 From: Vedang Patel <vedang.patel@intel.com>
 Date: Mon, 15 Jan 2018 20:51:38 -0600
 Subject: [PATCH 12/48] tracing: Remove code which merges duplicates
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 We now have the logic to detect and remove duplicates in the
 tracing_map hash table. The code which merges duplicates in the

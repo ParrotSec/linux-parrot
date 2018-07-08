@@ -1,7 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 3 Apr 2018 15:13:20 +0200
 Subject: [PATCH] alim15x3: move irq-restore before pci_dev_put()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 init_chipset_ali15x3() initializes the chipset during init with disabled
 interrupts. There is no need to keep the interrupts disabled during

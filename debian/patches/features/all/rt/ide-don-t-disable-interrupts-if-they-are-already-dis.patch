@@ -1,7 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 4 Apr 2018 21:42:28 +0200
 Subject: [PATCH] ide: Handle irq disabling consistently
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 ide_timer_expiry() disables interrupt at function entry when acquiring
 hwif->lock. Before disabling the device interrupt it unlocks hwif->lock,

@@ -2,7 +2,7 @@
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-debian/gitignore.patch
+#debian/gitignore.patch # Kali: we have that in the git repo already
 debian/ia64-hardcode-arch-script-output.patch
 debian/mips-disable-werror.patch
 debian/arch-sh4-fix-uimage-build.patch
@@ -22,16 +22,16 @@ bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
 
+# Parrot patches
+features/all/wifi-injection.patch
+features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
+
 # Patches from aufs4 repository, imported with
 # debian/patches/features/all/aufs4/gen-patch.  These are only the
 # changes needed to allow aufs to be built out-of-tree.
 features/all/aufs4/aufs4-base.patch
 features/all/aufs4/aufs4-mmap.patch
 features/all/aufs4/aufs4-standalone.patch
-
-# Parrot changes
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Change some defaults for security reasons
 debian/af_802154-Disable-auto-loading-as-mitigation-against.patch
@@ -94,6 +94,9 @@ features/arm64/tegra210-sata/0005-ata-ahci_tegra-Add-AHCI-support-for-Tegra210.p
 features/arm64/tegra210-sata/0006-arm64-tegra-Add-SATA-node-for-Tegra210.patch
 features/arm64/tegra210-sata/0007-arm64-tegra-Enable-AHCI-on-Jetson-TX1.patch
 features/arm64/arm64-dts-allwinner-a64-add-simplefb-for-A64-SoC.patch
+# Add support for Raspberry PI 3b+
+features/armhf/ARM-dts-bcm2837-Add-Raspberry-Pi-3-B.patch
+features/arm64/arm64-dts-broadcom-Add-reference-to-Raspberry-Pi-3-B.patch
 
 # Miscellaneous bug fixes
 bugfix/all/kbuild-use-nostdinc-in-compile-tests.patch
@@ -103,6 +106,7 @@ bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/i40e-build-for-64-bit-targets-only.patch
+bugfix/all/hv_netvsc-Fix-a-network-regression-after-ifdown-ifup.patch
 
 # Miscellaneous features
 features/all/kbuild-use-fmacro-prefix-map-to-make-__file__-a-rela.patch
@@ -146,7 +150,6 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 bugfix/all/xfs-enhance-dinode-verifier.patch
 bugfix/all/xfs-set-format-back-to-extents-if-xfs_bmap_extents_t.patch
-bugfix/x86/kvm-vmx-expose-ssbd-properly-to-guests.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch

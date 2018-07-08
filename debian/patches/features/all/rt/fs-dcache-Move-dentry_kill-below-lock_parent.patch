@@ -1,7 +1,6 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 23 Feb 2018 00:50:21 +0100
 Subject: [PATCH] fs/dcache: Move dentry_kill() below lock_parent()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit c1d0c1a2b51e86124b7ba8ff9054698e2036d8e7
 

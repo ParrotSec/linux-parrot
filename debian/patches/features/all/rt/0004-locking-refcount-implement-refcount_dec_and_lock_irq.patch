@@ -2,7 +2,6 @@ From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Mon, 7 May 2018 16:44:57 +0200
 Subject: [PATCH] locking/refcount: implement
  refcount_dec_and_lock_irqsave()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 There are in-tree users of refcount_dec_and_lock() which must acquire the
 spin lock with interrupts disabled. To workaround the lack of an irqsave

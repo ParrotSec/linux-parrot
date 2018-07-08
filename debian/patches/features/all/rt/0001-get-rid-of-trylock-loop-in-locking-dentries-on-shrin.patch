@@ -2,7 +2,6 @@ From: Al Viro <viro@zeniv.linux.org.uk>
 Date: Fri, 23 Feb 2018 21:54:18 -0500
 Subject: [PATCH 01/17] get rid of trylock loop in locking dentries on shrink
  list
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 3b3f09f48ba78c0634e929849860a6447d057eed
 

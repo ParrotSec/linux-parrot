@@ -2,7 +2,6 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 22 Mar 2018 16:22:42 +0100
 Subject: [PATCH 10/10] iommu/amd: Return proper error code in
  irq_remapping_alloc()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 29d049be9438278c47253a74cf8d0ddf36bd5d68
 

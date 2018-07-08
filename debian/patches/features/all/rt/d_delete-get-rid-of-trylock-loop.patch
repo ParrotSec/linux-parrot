@@ -1,7 +1,6 @@
 From: Al Viro <viro@zeniv.linux.org.uk>
 Date: Fri, 23 Feb 2018 21:02:31 -0500
 Subject: [PATCH] d_delete(): get rid of trylock loop
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit c19457f0aed7fae73bb40e68ffcc72f36e3966a5
 

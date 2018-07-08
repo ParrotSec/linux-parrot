@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:51 -0600
 Subject: [PATCH 25/48] tracing: Move get_hist_field_flags()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Move get_hist_field_flags() to make it more easily accessible for new
 code (and keep the move separate from new functionality).

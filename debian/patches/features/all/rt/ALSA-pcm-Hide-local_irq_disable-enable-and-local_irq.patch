@@ -2,7 +2,6 @@ From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Thu, 29 Mar 2018 17:09:27 +0200
 Subject: [PATCH] ALSA: pcm: Hide local_irq_disable/enable() and
  local_irqsave/restore()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 The snd_pcm_stream_lock_irq*() functions decouple disabling interrupts
 from the actual locking process. This does not work as expected if the

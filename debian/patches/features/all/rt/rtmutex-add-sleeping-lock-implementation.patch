@@ -1,7 +1,6 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:11:19 +0200
 Subject: rtmutex: add sleeping lock implementation
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -1124,7 +1123,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  # include "rtmutex-debug.h"
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -429,9 +429,15 @@ static bool set_nr_if_polling(struct tas
+@@ -430,9 +430,15 @@ static bool set_nr_if_polling(struct tas
  #endif
  #endif
  
@@ -1142,7 +1141,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * Atomically grab the task, if ->wake_q is !nil already it means
-@@ -453,24 +459,32 @@ void wake_q_add(struct wake_q_head *head
+@@ -454,24 +460,32 @@ void wake_q_add(struct wake_q_head *head
  	head->lastp = &node->next;
  }
  

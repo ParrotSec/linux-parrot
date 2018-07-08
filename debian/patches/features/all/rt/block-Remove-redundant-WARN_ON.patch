@@ -1,7 +1,6 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Wed, 11 Apr 2018 15:05:43 +0200
 Subject: [PATCH] block: Remove redundant WARN_ON()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Commit 2fff8a924d4c ("block: Check locking assumptions at runtime") added a
 lockdep_assert_held(q->queue_lock) which makes the WARN_ON() redundant

@@ -1,7 +1,6 @@
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 Date: Mon, 15 Jan 2018 20:51:47 -0600
 Subject: [PATCH 21/48] tracing: Add hist_data member to hist_field
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Allow hist_data access via hist_field.  Some users of hist_fields
 require or will require more access to the associated hist_data.

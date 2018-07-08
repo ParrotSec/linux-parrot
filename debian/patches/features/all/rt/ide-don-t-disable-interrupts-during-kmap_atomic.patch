@@ -1,7 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 10 Apr 2018 17:15:40 +0200
 Subject: [PATCH] ide: don't disable interrupts during kmap_atomic()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 ide_pio_bytes() disables interrupts around kmap_atomic(). This is a
 leftover from the old kmap_atomic() implementation which relied on fixed

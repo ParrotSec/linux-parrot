@@ -2,7 +2,6 @@ From: Steven Rostedt <rostedt@goodmis.org>
 Date: Wed, 16 May 2018 09:36:45 -0400
 Subject: [PATCH 3/5] tracing: Restore proper field flag printing when
  displaying triggers
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 From: Tom Zanussi <tom.zanussi@linux.intel.com>
 

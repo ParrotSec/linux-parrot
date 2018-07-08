@@ -1,7 +1,6 @@
 From: Al Viro <viro@zeniv.linux.org.uk>
 Date: Mon, 5 Mar 2018 19:15:50 -0500
 Subject: [PATCH 09/17] split d_path() and friends into a separate file
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.16/older/patches-4.16.8-rt3.tar.xz
 
 Upstream commit 7a5cf791a747640adb2a1b5e3838321b26953a23
 
