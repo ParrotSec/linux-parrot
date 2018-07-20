@@ -82,6 +82,11 @@ CONFIG_SIGNED_PE_FILE_VERIFICATION=y
 CONFIG_ACPI_BGRT=y
 
 ##
+## file: drivers/android/Kconfig
+##
+CONFIG_ANDROID=y
+
+##
 ## file: drivers/block/Kconfig
 ##
 CONFIG_BLK_DEV_RSXX=m

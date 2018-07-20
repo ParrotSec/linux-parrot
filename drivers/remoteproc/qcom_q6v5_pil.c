@@ -168,6 +168,7 @@ struct q6v5 {
 
 	struct qcom_rproc_subdev smd_subdev;
 	struct qcom_rproc_ssr ssr_subdev;
+	struct qcom_sysmon *sysmon;
 	bool need_mem_protection;
 	int mpss_perm;
 	int mba_perm;
@@ -760,13 +761,11 @@ static int q6v5_start(struct rproc *rproc)
 	}
 
 	/* Assign MBA image access in DDR to q6 */
-	xfermemop_ret = q6v5_xfer_mem_ownership(qproc, &qproc->mba_perm, true,
-						qproc->mba_phys,
-						qproc->mba_size);
-	if (xfermemop_ret) {
+	ret = q6v5_xfer_mem_ownership(qproc, &qproc->mba_perm, true,
+				      qproc->mba_phys, qproc->mba_size);
+	if (ret) {
 		dev_err(qproc->dev,
-			"assigning Q6 access to mba memory failed: %d\n",
-			xfermemop_ret);
+			"assigning Q6 access to mba memory failed: %d\n", ret);
 		goto disable_active_clks;
 	}
 
@@ -939,9 +938,6 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *dev)
 
 	rproc_report_crash(qproc->rproc, RPROC_WATCHDOG);
 
-	if (!IS_ERR(msg))
-		msg[0] = '\0';
-
 	return IRQ_HANDLED;
 }
 
@@ -958,9 +954,6 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *dev)
 		dev_err(qproc->dev, "fatal error without message\n");
 
 	rproc_report_crash(qproc->rproc, RPROC_FATAL_ERROR);
-
-	if (!IS_ERR(msg))
-		msg[0] = '\0';
 
 	return IRQ_HANDLED;
 }
@@ -1088,6 +1081,7 @@ static int q6v5_alloc_memory_region(struct q6v5 *qproc)
 		dev_err(qproc->dev, "unable to resolve mba region\n");
 		return ret;
 	}
+	of_node_put(node);
 
 	qproc->mba_phys = r.start;
 	qproc->mba_size = resource_size(&r);
@@ -1105,6 +1099,7 @@ static int q6v5_alloc_memory_region(struct q6v5 *qproc)
 		dev_err(qproc->dev, "unable to resolve mpss region\n");
 		return ret;
 	}
+	of_node_put(node);
 
 	qproc->mpss_phys = qproc->mpss_reloc = r.start;
 	qproc->mpss_size = resource_size(&r);
@@ -1215,6 +1210,7 @@ static int q6v5_probe(struct platform_device *pdev)
 	qproc->mba_perm = BIT(QCOM_SCM_VMID_HLOS);
 	qcom_add_smd_subdev(rproc, &qproc->smd_subdev);
 	qcom_add_ssr_subdev(rproc, &qproc->ssr_subdev, "mpss");
+	qproc->sysmon = qcom_add_sysmon_subdev(rproc, "modem", 0x12);
 
 	ret = rproc_add(rproc);
 	if (ret)
@@ -1234,6 +1230,7 @@ static int q6v5_remove(struct platform_device *pdev)
 
 	rproc_del(qproc->rproc);
 
+	qcom_remove_sysmon_subdev(qproc->sysmon);
 	qcom_remove_smd_subdev(qproc->rproc, &qproc->smd_subdev);
 	qcom_remove_ssr_subdev(qproc->rproc, &qproc->ssr_subdev);
 	rproc_free(qproc->rproc);

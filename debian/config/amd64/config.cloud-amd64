@@ -27,11 +27,6 @@
 # CONFIG_EARLY_PRINTK_EFI is not set
 
 ##
-## file: arch/x86/kvm/Kconfig
-##
-# CONFIG_VIRTUALIZATION is not set
-
-##
 ## file: arch/x86/xen/Kconfig
 ##
 # CONFIG_XEN_DOM0 is not set
@@ -41,6 +36,7 @@
 ##
 CONFIG_IOSCHED_CFQ=m
 ## choice: Default I/O scheduler
+# CONFIG_DEFAULT_CFQ is not set
 CONFIG_DEFAULT_NOOP=y
 ## end choice
 CONFIG_MQ_IOSCHED_DEADLINE=m
@@ -961,7 +957,6 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_LIBFC is not set
 # CONFIG_SCSI_SNIC is not set
 # CONFIG_SCSI_DMX3191D is not set
-# CONFIG_SCSI_FUTURE_DOMAIN is not set
 # CONFIG_SCSI_ISCI is not set
 # CONFIG_SCSI_IPS is not set
 # CONFIG_SCSI_INITIO is not set
@@ -1235,6 +1230,66 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_SBC_EPX_C3_WATCHDOG is not set
 
 ##
+## file: fs/adfs/Kconfig
+##
+# CONFIG_ADFS_FS is not set
+
+##
+## file: fs/affs/Kconfig
+##
+# CONFIG_AFFS_FS is not set
+
+##
+## file: fs/afs/Kconfig
+##
+# CONFIG_AFS_FS is not set
+
+##
+## file: fs/befs/Kconfig
+##
+# CONFIG_BEFS_FS is not set
+
+##
+## file: fs/bfs/Kconfig
+##
+# CONFIG_BFS_FS is not set
+
+##
+## file: fs/efs/Kconfig
+##
+# CONFIG_EFS_FS is not set
+
+##
+## file: fs/f2fs/Kconfig
+##
+# CONFIG_F2FS_FS is not set
+
+##
+## file: fs/freevxfs/Kconfig
+##
+# CONFIG_VXFS_FS is not set
+
+##
+## file: fs/omfs/Kconfig
+##
+# CONFIG_OMFS_FS is not set
+
+##
+## file: fs/qnx4/Kconfig
+##
+# CONFIG_QNX4FS_FS is not set
+
+##
+## file: fs/qnx6/Kconfig
+##
+# CONFIG_QNX6FS_FS is not set
+
+##
+## file: fs/ufs/Kconfig
+##
+# CONFIG_UFS_FS is not set
+
+##
 ## file: kernel/power/Kconfig
 ##
 # CONFIG_SUSPEND is not set
@@ -1254,8 +1309,6 @@ CONFIG_HYPERV_STORAGE=m
 ##
 ## file: mm/Kconfig
 ##
-#. XXX
-# CONFIG_MEMORY_HOTPLUG is not set
 # CONFIG_KSM is not set
 # CONFIG_ZSWAP is not set
 

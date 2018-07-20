@@ -14,9 +14,9 @@ an early check to avoid failing at a point where we cannot display
 anything.
 
 ---
---- a/drivers/base/firmware_class.c
-+++ b/drivers/base/firmware_class.c
-@@ -455,9 +455,12 @@ fw_get_filesystem_firmware(struct device
+--- a/drivers/base/firmware_loader/main.c
++++ b/drivers/base/firmware_loader/main.c
+@@ -334,9 +334,12 @@ fw_get_filesystem_firmware(struct device
  	}
  	__putname(path);
  
@@ -42,7 +42,7 @@ anything.
  
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-@@ -609,6 +609,7 @@ static int amdgpu_pci_probe(struct pci_d
+@@ -626,6 +626,7 @@ static int amdgpu_pci_probe(struct pci_d
  
  	if (!amdgpu_firmware_installed()) {
  		DRM_ERROR("amdgpu requires firmware installed\n");

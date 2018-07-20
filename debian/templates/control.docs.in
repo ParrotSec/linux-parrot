@@ -1,5 +1,5 @@
-Package: @source_package@-doc-@version@
-Build-Profiles: <!stage1>
+Package: @source_basename@-doc-@version@
+Build-Profiles: <!stage1 !nodoc>
 Architecture: all
 Depends: ${misc:Depends}
 Section: doc
@@ -11,4 +11,3 @@ Description: Linux kernel specific documentation for version @version@
  notes and the like.  Consult the file
  /usr/share/doc/linux-doc-@version@/Documentation/00-INDEX
  for the detailed description of the contents.
-

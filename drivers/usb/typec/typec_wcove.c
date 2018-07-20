@@ -598,6 +598,7 @@ static struct tcpc_config wcove_typec_config = {
 	.operating_snk_mw = 15000,
 
 	.type = TYPEC_PORT_DRP,
+	.data = TYPEC_PORT_DRD,
 	.default_role = TYPEC_SINK,
 };
 

@@ -23,37 +23,9 @@ upstream submission.
  
  	head = (struct fw_header *)fw->data;
  	if (head->magic != 0x4e657458) {
---- a/arch/cris/arch-v32/drivers/iop_fw_load.c
-+++ b/arch/cris/arch-v32/drivers/iop_fw_load.c
-@@ -74,12 +74,7 @@ int iop_fw_load_spu(const unsigned char
- 				  fw_name,
- 				  &iop_spu_device[spu_inst]);
- 	if (retval != 0)
--	{
--		printk(KERN_ERR
--		       "iop_load_spu: Failed to load firmware \"%s\"\n",
--		       fw_name);
- 		return retval;
--	}
- 	data = (u32 *) fw_entry->data;
- 
- 	/* acquire ownership of memory controller */
-@@ -137,12 +132,7 @@ int iop_fw_load_mpu(unsigned char *fw_na
- 	/* get firmware */
- 	retval = request_firmware(&fw_entry, fw_name, &iop_mpu_device);
- 	if (retval != 0)
--	{
--		printk(KERN_ERR
--		       "iop_load_spu: Failed to load firmware \"%s\"\n",
--		       fw_name);
- 		return retval;
--	}
- 	data = (u32 *) fw_entry->data;
- 
- 	/* disable MPU */
 --- a/arch/x86/kernel/cpu/microcode/amd.c
 +++ b/arch/x86/kernel/cpu/microcode/amd.c
-@@ -739,10 +739,8 @@ static enum ucode_state request_microcod
+@@ -747,10 +747,8 @@ static enum ucode_state request_microcod
  	if (c->x86 >= 0x15)
  		snprintf(fw_name, sizeof(fw_name), "amd-ucode/microcode_amd_fam%.2xh.bin", c->x86);
  
@@ -96,7 +68,7 @@ upstream submission.
      fw_size = firmware->size / sizeof(u32);
 --- a/drivers/bluetooth/ath3k.c
 +++ b/drivers/bluetooth/ath3k.c
-@@ -425,10 +425,8 @@ static int ath3k_load_patch(struct usb_d
+@@ -430,10 +430,8 @@ static int ath3k_load_patch(struct usb_d
  		 le32_to_cpu(fw_version.rom_version));
  
  	ret = request_firmware(&firmware, filename, &udev->dev);
@@ -108,7 +80,7 @@ upstream submission.
  
  	pt_rom_version = get_unaligned_le32(firmware->data +
  					    firmware->size - 8);
-@@ -488,10 +486,8 @@ static int ath3k_load_syscfg(struct usb_
+@@ -493,10 +491,8 @@ static int ath3k_load_syscfg(struct usb_
  		le32_to_cpu(fw_version.rom_version), clk_value, ".dfu");
  
  	ret = request_firmware(&firmware, filename, &udev->dev);
@@ -203,7 +175,7 @@ upstream submission.
  		       fw->size, fw_name);
 --- a/drivers/dma/imx-sdma.c
 +++ b/drivers/dma/imx-sdma.c
-@@ -1461,11 +1461,8 @@ static void sdma_load_firmware(const str
+@@ -1482,11 +1482,8 @@ static void sdma_load_firmware(const str
  	const struct sdma_script_start_addrs *addr;
  	unsigned short *ram_code;
  
@@ -313,7 +285,7 @@ upstream submission.
  	ret = qib_ibsd_ucode_loaded(dd->pport, fw);
 --- a/drivers/input/touchscreen/atmel_mxt_ts.c
 +++ b/drivers/input/touchscreen/atmel_mxt_ts.c
-@@ -2717,10 +2717,8 @@ static int mxt_load_fw(struct device *de
+@@ -2758,10 +2758,8 @@ static int mxt_load_fw(struct device *de
  	int ret;
  
  	ret = request_firmware(&fw, fn, dev);
@@ -436,7 +408,7 @@ upstream submission.
  		p = kmalloc(fw->size, GFP_KERNEL);
 --- a/drivers/media/dvb-frontends/af9013.c
 +++ b/drivers/media/dvb-frontends/af9013.c
-@@ -1140,14 +1140,8 @@ static int af9013_download_firmware(stru
+@@ -1059,14 +1059,8 @@ static int af9013_download_firmware(stru
  
  	/* Request the firmware, will block and timeout */
  	ret = request_firmware(&firmware, name, &client->dev);
@@ -665,33 +637,30 @@ upstream submission.
  		for (i = 0; i < ARRAY_SIZE(tab2); i++) {
 --- a/drivers/media/pci/ngene/ngene-core.c
 +++ b/drivers/media/pci/ngene/ngene-core.c
-@@ -1252,13 +1252,8 @@ static int ngene_load_firm(struct ngene
+@@ -1253,19 +1253,14 @@ static int ngene_load_firm(struct ngene
  		break;
  	}
  
 -	if (request_firmware(&fw, fw_name, &dev->pci_dev->dev) < 0) {
--		printk(KERN_ERR DEVICE_NAME
--			": Could not load firmware file %s.\n", fw_name);
--		printk(KERN_INFO DEVICE_NAME
--			": Copy %s to your hotplug directory!\n", fw_name);
+-		dev_err(pdev, "Could not load firmware file %s.\n", fw_name);
+-		dev_info(pdev, "Copy %s to your hotplug directory!\n",
+-			 fw_name);
 +	if (request_firmware(&fw, fw_name, &dev->pci_dev->dev))
  		return -1;
 -	}
  	if (size == 0)
  		size = fw->size;
  	if (size != fw->size) {
-@@ -1266,8 +1261,6 @@ static int ngene_load_firm(struct ngene
- 			": Firmware %s has invalid size!", fw_name);
+ 		dev_err(pdev, "Firmware %s has invalid size!", fw_name);
  		err = -1;
  	} else {
--		printk(KERN_INFO DEVICE_NAME
--			": Loading firmware file %s.\n", fw_name);
+-		dev_info(pdev, "Loading firmware file %s.\n", fw_name);
  		ngene_fw = (u8 *) fw->data;
  		err = ngene_command_load_firmware(dev, ngene_fw, size);
  	}
 --- a/drivers/media/common/siano/smscoreapi.c
 +++ b/drivers/media/common/siano/smscoreapi.c
-@@ -1156,10 +1156,8 @@ static int smscore_load_firmware_from_fi
+@@ -1162,10 +1162,8 @@ static int smscore_load_firmware_from_fi
  		return -EINVAL;
  
  	rc = request_firmware(&fw, fw_filename, coredev->device);
@@ -906,7 +875,7 @@ upstream submission.
  		pr_err("ERROR: Firmware size mismatch (have %zu, expected %d)\n",
 --- a/drivers/media/pci/cx23885/cx23885-cards.c
 +++ b/drivers/media/pci/cx23885/cx23885-cards.c
-@@ -2345,10 +2345,7 @@ void cx23885_card_setup(struct cx23885_d
+@@ -2425,10 +2425,7 @@ void cx23885_card_setup(struct cx23885_d
  			cinfo.rev, filename);
  
  		ret = request_firmware(&fw, filename, &dev->pci->dev);
@@ -1003,7 +972,7 @@ upstream submission.
  
 --- a/drivers/media/usb/s2255/s2255drv.c
 +++ b/drivers/media/usb/s2255/s2255drv.c
-@@ -2306,10 +2306,8 @@ static int s2255_probe(struct usb_interf
+@@ -2298,10 +2298,8 @@ static int s2255_probe(struct usb_interf
  	}
  	/* load the first chunk */
  	if (request_firmware(&dev->fw_data->fw,
@@ -1242,7 +1211,7 @@ upstream submission.
  	if (ret)
 --- a/drivers/net/ethernet/intel/e100.c
 +++ b/drivers/net/ethernet/intel/e100.c
-@@ -1290,9 +1290,6 @@ static const struct firmware *e100_reque
+@@ -1291,9 +1291,6 @@ static const struct firmware *e100_reque
  
  	if (err) {
  		if (required) {
@@ -1464,7 +1433,7 @@ upstream submission.
  	}
 --- a/drivers/net/wireless/intel/ipw2x00/ipw2100.c
 +++ b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-@@ -8417,12 +8417,8 @@ static int ipw2100_get_firmware(struct i
+@@ -8416,12 +8416,8 @@ static int ipw2100_get_firmware(struct i
  
  	rc = request_firmware(&fw->fw_entry, fw_name, &priv->pci_dev->dev);
  
@@ -1480,7 +1449,7 @@ upstream submission.
  
 --- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
 +++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -3417,10 +3417,8 @@ static int ipw_get_fw(struct ipw_priv *p
+@@ -3410,10 +3410,8 @@ static int ipw_get_fw(struct ipw_priv *p
  
  	/* ask firmware_class module to get the boot firmware off disk */
  	rc = request_firmware(raw, name, &priv->pci_dev->dev);
@@ -1705,7 +1674,13 @@ upstream submission.
  	}
 --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/sw.c
 +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/sw.c
-@@ -92,7 +92,6 @@ static void rtl92se_fw_cb(const struct f
+@@ -86,13 +86,11 @@ static void rtl92se_fw_cb(const struct f
+ 	struct ieee80211_hw *hw = context;
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rt_firmware *pfirmware = NULL;
+-	char *fw_name = "rtlwifi/rtl8192sefw.bin";
+ 
+ 	RT_TRACE(rtlpriv, COMP_ERR, DBG_LOUD,
  			 "Firmware callback routine entered!\n");
  	complete(&rtlpriv->firmware_loading_complete);
  	if (!firmware) {
@@ -1860,7 +1835,7 @@ upstream submission.
  	}
 --- a/drivers/scsi/ipr.c
 +++ b/drivers/scsi/ipr.c
-@@ -4094,10 +4094,8 @@ static ssize_t ipr_store_update_fw(struc
+@@ -4061,10 +4061,8 @@ static ssize_t ipr_store_update_fw(struc
  	if (endline)
  		*endline = '\0';
  
@@ -1898,7 +1873,7 @@ upstream submission.
  	}
 --- a/drivers/scsi/qla2xxx/qla_init.c
 +++ b/drivers/scsi/qla2xxx/qla_init.c
-@@ -7238,8 +7238,6 @@ qla2x00_load_risc(scsi_qla_host_t *vha,
+@@ -7267,8 +7267,6 @@ qla2x00_load_risc(scsi_qla_host_t *vha,
  	/* Load firmware blob. */
  	blob = qla2x00_request_firmware(vha);
  	if (!blob) {
@@ -1907,7 +1882,7 @@ upstream submission.
  		ql_log(ql_log_info, vha, 0x0084,
  		    "Firmware images can be retrieved from: "QLA_FW_URL ".\n");
  		return QLA_FUNCTION_FAILED;
-@@ -7341,8 +7339,6 @@ qla24xx_load_risc_blob(scsi_qla_host_t *
+@@ -7370,8 +7368,6 @@ qla24xx_load_risc_blob(scsi_qla_host_t *
  	/* Load firmware blob. */
  	blob = qla2x00_request_firmware(vha);
  	if (!blob) {
@@ -1918,7 +1893,7 @@ upstream submission.
  		    QLA_FW_URL ".\n");
 --- a/drivers/scsi/qla2xxx/qla_nx.c
 +++ b/drivers/scsi/qla2xxx/qla_nx.c
-@@ -2465,11 +2465,8 @@ try_blob_fw:
+@@ -2464,11 +2464,8 @@ try_blob_fw:
  
  	/* Load firmware blob. */
  	blob = ha->hablob = qla2x00_request_firmware(vha);
@@ -1933,7 +1908,7 @@ upstream submission.
  	if (qla82xx_validate_firmware_blob(vha,
 --- a/drivers/scsi/qla2xxx/qla_os.c
 +++ b/drivers/scsi/qla2xxx/qla_os.c
-@@ -6496,8 +6496,6 @@ qla2x00_request_firmware(scsi_qla_host_t
+@@ -6511,8 +6511,6 @@ qla2x00_request_firmware(scsi_qla_host_t
  		goto out;
  
  	if (request_firmware(&blob->fw, blob->name, &ha->pdev->dev)) {
@@ -2465,7 +2440,7 @@ upstream submission.
  	return err;
 --- a/sound/pci/emu10k1/emu10k1_main.c
 +++ b/sound/pci/emu10k1/emu10k1_main.c
-@@ -887,10 +887,8 @@ static int snd_emu10k1_emu1010_init(stru
+@@ -888,10 +888,8 @@ static int snd_emu10k1_emu1010_init(stru
  	dev_info(emu->card->dev, "emu1010: EMU_HANA_ID = 0x%x\n", reg);
  
  	err = snd_emu1010_load_firmware(emu, 0, &emu->firmware);
@@ -2479,7 +2454,7 @@ upstream submission.
  	snd_emu1010_fpga_read(emu, EMU_HANA_ID, &reg);
 --- a/sound/pci/hda/hda_intel.c
 +++ b/sound/pci/hda/hda_intel.c
-@@ -1959,10 +1959,8 @@ static void azx_firmware_cb(const struct
+@@ -1971,10 +1971,8 @@ static void azx_firmware_cb(const struct
  	struct azx *chip = card->private_data;
  	struct pci_dev *pci = chip->pci;
  
@@ -2564,7 +2539,7 @@ upstream submission.
  			"too short firmware size %d (expected %d)\n",
 --- a/sound/soc/codecs/wm2000.c
 +++ b/sound/soc/codecs/wm2000.c
-@@ -890,10 +890,8 @@ static int wm2000_i2c_probe(struct i2c_c
+@@ -891,10 +891,8 @@ static int wm2000_i2c_probe(struct i2c_c
  	}
  
  	ret = request_firmware(&fw, filename, &i2c->dev);

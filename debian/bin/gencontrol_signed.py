@@ -176,33 +176,31 @@ class Gencontrol(Base):
         self.write_files_json()
 
     def write_changelog(self):
-        changelog_text = self.substitute(self.templates['changelog.in'],
-                                         self.vars)
-        changelog = Changelog(file=io.StringIO(changelog_text))
-
         # We need to insert a new version entry.
         # Take the distribution and urgency from the linux changelog, and
         # the base version from the changelog template.
         vars = self.vars.copy()
+        vars['source'] = self.changelog[0].source
         vars['distribution'] = self.changelog[0].distribution
         vars['urgency'] = self.changelog[0].urgency
-        vars['maintainer'] = self.changelog[0].maintainer
-        vars['date'] = self.changelog[0].date
-        vars['signedsourceversion'] = (changelog[0].version.complete + '+' +
-                                       re.sub(r'-', r'+',
-                                              vars['imagebinaryversion']))
+        vars['signedsourceversion'] = (re.sub(r'-', r'+', vars['imagebinaryversion']))
 
         with codecs.open(self.template_debian_dir + '/changelog', 'w', 'utf-8') as f:
             f.write(self.substitute('''\
 linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
 
-  * Update to linux @imagebinaryversion@
-
- -- @maintainer@  @date@
+  * Sign kernel from @source@ @imagebinaryversion@
 
 ''',
-                                    vars))
-            f.write(changelog_text)
+                vars))
+
+            with codecs.open('debian/changelog', 'r', 'utf-8') as changelog_in:
+                # Ignore first two header lines
+                changelog_in.readline()
+                changelog_in.readline()
+
+                for d in changelog_in.read():
+                    f.write(d)
 
     def write_files_json(self):
         # Can't raise from a lambda function :-(

@@ -1,0 +1,63 @@
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Thu, 12 Jul 2018 01:02:13 +0100
+Subject: dax: Avoid ABI change in 4.17.6
+Forwarded: not-needed
+
+The return type and first parameter type for bdev_dax_supported() and
+__bdev_dax_supported() were changed by commits ba23cba9b3bd "fs: allow
+per-device dax status checking for filesystems" and 80660f20252d "dax:
+change bdev_dax_supported() to support boolean returns".
+
+Avoid an ABI break by renaming the new version of
+__bdev_dax_supported() and reintroducing the old version as a wrapper
+for it.  Add a #define so that the old version is hidden from the API,
+i.e. newly built modules must use the new API.
+
+---
+--- a/drivers/dax/super.c
++++ b/drivers/dax/super.c
+@@ -72,6 +72,8 @@ struct dax_device *fs_dax_get_by_bdev(st
+ EXPORT_SYMBOL_GPL(fs_dax_get_by_bdev);
+ #endif
+ 
++#undef __bdev_dax_supported
++
+ /**
+  * __bdev_dax_supported() - Check if the device supports dax for filesystem
+  * @bdev: block device to check
+@@ -82,7 +84,7 @@ EXPORT_SYMBOL_GPL(fs_dax_get_by_bdev);
+  *
+  * Return: true if supported, false if unsupported
+  */
+-bool __bdev_dax_supported(struct block_device *bdev, int blocksize)
++bool __bdev_dax_supported_new(struct block_device *bdev, int blocksize)
+ {
+ 	struct dax_device *dax_dev;
+ 	struct request_queue *q;
+@@ -152,6 +154,13 @@ bool __bdev_dax_supported(struct block_d
+ 
+ 	return true;
+ }
++EXPORT_SYMBOL_GPL(__bdev_dax_supported_new);
++
++int __bdev_dax_supported(struct super_block *sb, int blocksize)
++{
++	return __bdev_dax_supported_new(sb->s_bdev, blocksize)
++		? 0 : -EOPNOTSUPP;
++}
+ EXPORT_SYMBOL_GPL(__bdev_dax_supported);
+ #endif
+ 
+--- a/include/linux/dax.h
++++ b/include/linux/dax.h
+@@ -64,7 +64,9 @@ static inline bool dax_write_cache_enabl
+ struct writeback_control;
+ int bdev_dax_pgoff(struct block_device *, sector_t, size_t, pgoff_t *pgoff);
+ #if IS_ENABLED(CONFIG_FS_DAX)
+-bool __bdev_dax_supported(struct block_device *bdev, int blocksize);
++int __bdev_dax_supported(struct super_block *sb, int blocksize);
++bool __bdev_dax_supported_new(struct block_device *bdev, int blocksize);
++#define __bdev_dax_supported __bdev_dax_supported_new
+ static inline bool bdev_dax_supported(struct block_device *bdev, int blocksize)
+ {
+ 	return __bdev_dax_supported(bdev, blocksize);

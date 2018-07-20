@@ -1581,7 +1581,6 @@ xfs_alloc_ag_vextent_small(
 	int		*stat)	/* status: 0-freelist, 1-normal/none */
 {
 	struct xfs_owner_info	oinfo;
-	struct xfs_perag	*pag;
 	int		error;
 	xfs_agblock_t	fbno;
 	xfs_extlen_t	flen;
@@ -1633,18 +1632,13 @@ xfs_alloc_ag_vextent_small(
 			/*
 			 * If we're feeding an AGFL block to something that
 			 * doesn't live in the free space, we need to clear
-			 * out the OWN_AG rmap and add the block back to
-			 * the AGFL per-AG reservation.
+			 * out the OWN_AG rmap.
 			 */
 			xfs_rmap_ag_owner(&oinfo, XFS_RMAP_OWN_AG);
 			error = xfs_rmap_free(args->tp, args->agbp, args->agno,
 					fbno, 1, &oinfo);
 			if (error)
 				goto error0;
-			pag = xfs_perag_get(args->mp, args->agno);
-			xfs_ag_resv_free_extent(pag, XFS_AG_RESV_AGFL,
-					args->tp, 1);
-			xfs_perag_put(pag);
 
 			*stat = 0;
 			return 0;
@@ -1928,14 +1922,12 @@ xfs_free_ag_extent(
 	XFS_STATS_INC(mp, xs_freex);
 	XFS_STATS_ADD(mp, xs_freeb, len);
 
-	trace_xfs_free_extent(mp, agno, bno, len, type == XFS_AG_RESV_AGFL,
-			haveleft, haveright);
+	trace_xfs_free_extent(mp, agno, bno, len, type, haveleft, haveright);
 
 	return 0;
 
  error0:
-	trace_xfs_free_extent(mp, agno, bno, len, type == XFS_AG_RESV_AGFL,
-			-1, -1);
+	trace_xfs_free_extent(mp, agno, bno, len, type, -1, -1);
 	if (bno_cur)
 		xfs_btree_del_cursor(bno_cur, XFS_BTREE_ERROR);
 	if (cnt_cur)
@@ -1955,7 +1947,7 @@ void
 xfs_alloc_compute_maxlevels(
 	xfs_mount_t	*mp)	/* file system mount structure */
 {
-	mp->m_ag_maxlevels = xfs_btree_compute_maxlevels(mp, mp->m_alloc_mnr,
+	mp->m_ag_maxlevels = xfs_btree_compute_maxlevels(mp->m_alloc_mnr,
 			(mp->m_sb.sb_agblocks + 1) / 2);
 }
 
@@ -1967,7 +1959,6 @@ xfs_alloc_compute_maxlevels(
  */
 xfs_extlen_t
 xfs_alloc_longest_free_extent(
-	struct xfs_mount	*mp,
 	struct xfs_perag	*pag,
 	xfs_extlen_t		need,
 	xfs_extlen_t		reserved)
@@ -2046,8 +2037,7 @@ xfs_alloc_space_available(
 
 	/* do we have enough contiguous free space for the allocation? */
 	alloc_len = args->minlen + (args->alignment - 1) + args->minalignslop;
-	longest = xfs_alloc_longest_free_extent(args->mp, pag, min_free,
-			reservation);
+	longest = xfs_alloc_longest_free_extent(pag, min_free, reservation);
 	if (longest < alloc_len)
 		return false;
 

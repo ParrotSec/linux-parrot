@@ -74,6 +74,11 @@ CONFIG_ACPI_NUMA=y
 CONFIG_ACPI_NFIT=y
 
 ##
+## file: drivers/android/Kconfig
+##
+CONFIG_ANDROID=y
+
+##
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_SATA_AHCI_PLATFORM=m

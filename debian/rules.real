@@ -7,7 +7,6 @@
 #
 SHELL  := bash -e
 MAINTAINER := $(shell sed -ne 's,^Maintainer: .[^<]*<\([^>]*\)>,\1,p' debian/control)
-SOURCE_PACKAGE_NAME := $(shell dpkg-parsechangelog -SSource)
 DISTRIBUTION := $(shell dpkg-parsechangelog -SDistribution)
 SOURCE_DATE := $(shell dpkg-parsechangelog -SDate)
 SOURCE_DATE_UTC_ISO := $(shell date -u -d '$(SOURCE_DATE)' +%Y-%m-%d)
@@ -71,17 +70,27 @@ ifneq ($(DO_DOCS),False)
     build-indep: $(STAMPS_DIR)/build-doc
   endif
 endif
-binary-indep: install-source
+ifeq (,$(filter pkg.linux.nosource,$(DEB_BUILD_PROFILES)))
+  ifneq ($(DO_SOURCE),False)
+    binary-indep: install-source
+  endif
+endif
 binary-indep: install-support
 
-ifneq ($(DO_TOOLS),False)
+ifneq ($(DO_TOOLS_VERSIONED),False)
   build-arch-arch: $(STAMPS_DIR)/build-tools
-  binary-arch-arch: install-kbuild install-usbip install-liblockdep install-cpupower
-  ifneq ($(filter alpha amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel powerpc powerpcspe ppc64 ppc64el s390 s390x sh4 sparc sparc64,$(DEB_HOST_ARCH)),)
+  binary-arch-arch: install-kbuild
+  ifneq ($(filter alpha amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel powerpc ppc64 ppc64el s390 s390x sh4 sparc sparc64,$(DEB_HOST_ARCH)),)
     ifeq ($(filter nopython,$(DEB_BUILD_PROFILES)),)
       binary-arch-arch: install-perf
     endif
   endif
+  ifneq ($(filter powerpc powerpcspe ppc64,$(DEB_HOST_ARCH)),)
+    binary-arch-arch: install-bootwrapper
+  endif
+endif
+ifneq ($(DO_TOOLS_UNVERSIONED),False)
+  binary-arch-arch: install-usbip install-cpupower install-liblockdep
   ifneq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
     binary-arch-arch: install-hyperv-daemons
   endif
@@ -105,19 +114,19 @@ mkdir -p '$(1)'
 cp -al $(filter-out debian .pc .svk .svn .git, $(wildcard * .[^.]*)) '$(1)'
 endef
 
-$(BUILD_DIR)/$(SOURCE_PACKAGE_NAME)-source-$(UPSTREAMVERSION).tar.xz: DIR = $(BUILD_DIR)/$(SOURCE_PACKAGE_NAME)-source-$(UPSTREAMVERSION)
-$(BUILD_DIR)/$(SOURCE_PACKAGE_NAME)-source-$(UPSTREAMVERSION).tar.xz: $(STAMPS_DIR)/source
+$(BUILD_DIR)/$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz: DIR = $(BUILD_DIR)/$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION)
+$(BUILD_DIR)/$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz: $(STAMPS_DIR)/source
 	rm -rf '$@' '$(DIR)'
 	$(call copy_source,$(DIR))
 	chmod -R u+rw,go=rX '$(DIR)'
 	find '$(DIR)' -depth -newermt '$(SOURCE_DATE)' -print0 | \
 		xargs -0r touch --no-dereference --date='$(SOURCE_DATE)'
 	cd '$(BUILD_DIR)'; \
-	find '$(SOURCE_PACKAGE_NAME)-source-$(UPSTREAMVERSION)' \
+	find '$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION)' \
 		-name '*.pyc' -prune -o \
 		-print0 | \
 		sort -z | \
-		tar --no-recursion --null -T - -caf '$(SOURCE_PACKAGE_NAME)-source-$(UPSTREAMVERSION).tar.xz'
+		tar --no-recursion --null -T - -caf '$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz'
 	rm -rf '$(DIR)'
 
 $(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-%.patch.xz: $(STAMPS_DIR)/source_none $(STAMPS_DIR)/source_%
@@ -163,6 +172,8 @@ $(STAMPS_DIR)/setup_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/source_$(FEA
 	rm -rf '$(DIR)'
 	mkdir '$(DIR)'
 	cp '$(CONFIG)' '$(DIR)/.config'
+# Add "salt" to fix #872263
+	echo 'CONFIG_BUILD_SALT="$(ABINAME)$(LOCALVERSION_IMAGE)"' >> '$(DIR)/.config'
 	echo 'override ARCH = $(KERNEL_ARCH)' >> '$(DIR)/.kernelvariables'
 	echo 'override KERNELRELEASE = $(ABINAME)$(LOCALVERSION_IMAGE)' >> '$(DIR)/.kernelvariables'
 	echo 'CCACHE = ccache' >> '$(DIR)/.kernelvariables'
@@ -190,7 +201,7 @@ ifdef CFLAGS_KERNEL
 	echo 'CFLAGS_KERNEL += $(CFLAGS_KERNEL)' >> '$(DIR)/.kernelvariables'
 	echo 'CFLAGS_MODULE += $(CFLAGS_KERNEL)' >> '$(DIR)/.kernelvariables'
 endif
-	+$(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' V=1 listnewconfig
+	+$(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' listnewconfig
 	+yes "" | $(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' oldconfig >/dev/null
 	@$(stamp)
 
@@ -214,7 +225,9 @@ endif
 	@$(stamp)
 
 install-base:
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs $(INSTALLDOCS_ARGS)
+endif
 	dh_installchangelogs
 	dh_compress
 	dh_fixperms
@@ -229,7 +242,7 @@ install-dummy:
 	dh_prep
 	+$(MAKE_SELF) install-base
 
-install-doc: PACKAGE_NAME = $(SOURCE_PACKAGE_NAME)-doc-$(VERSION)
+install-doc: PACKAGE_NAME = $(SOURCE_BASENAME)-doc-$(VERSION)
 install-doc: DIR = $(BUILD_DIR)/build-doc
 install-doc: PACKAGE_DIR = debian/$(PACKAGE_NAME)
 install-doc: OUT_DIR = $(PACKAGE_DIR)/usr/share/doc/$(PACKAGE_NAME)
@@ -262,21 +275,6 @@ ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 		fi; \
 	done
 endif
-	+$(MAKE_SELF) install-base
-
-install-manual: PACKAGE_NAME = $(SOURCE_PACKAGE_NAME)-manual-$(VERSION)
-install-manual: DIR=$(BUILD_DIR)/build-doc
-install-manual: DH_OPTIONS = -p$(PACKAGE_NAME)
-install-manual: $(STAMPS_DIR)/build-doc
-	dh_prep
-# Some manual pages are generated multiple times with different
-# metadata, and need to be de-duplicated.  This matches what the
-# upstream installmandocs target does, except that we use
-# dh_installman.
-	set -o pipefail; \
-	find $(DIR)/Documentation/DocBook/man/ -name '*.9.gz' -printf '%h %f\n' | \
-		sort -k 2 -k 1 | uniq -f 1 | sed -e 's: :/:' | \
-		xargs dh_installman
 	+$(MAKE_SELF) install-base
 
 install-headers_$(ARCH): PACKAGE_NAMES = linux-headers-$(ABINAME)-all linux-headers-$(ABINAME)-all-$(ARCH)
@@ -391,7 +389,7 @@ install-libc-dev_$(ARCH):
 
 	+$(MAKE_SELF) install-base
 
-install-support: PACKAGE_NAME = $(SOURCE_PACKAGE_NAME)-support-$(ABINAME)
+install-support: PACKAGE_NAME = $(SOURCE_BASENAME)-support-$(ABINAME)
 install-support: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-support: PACKAGE_DIR = debian/$(PACKAGE_NAME)
 install-support: PACKAGE_ROOT = /usr/share/$(PACKAGE_NAME)
@@ -435,6 +433,11 @@ ifeq ($(DEBUG),True)
 	find $(PACKAGE_DIR) -name '*.ko' | sed 's|$(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/kernel/||' | while read module ; do \
 	  $(CROSS_COMPILE)objcopy --add-gnu-debuglink=$(DIR)/$$module $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/kernel/$$module || exit; \
 	done
+# stripping the modules removes signatures as well - if automated signing is enabled with
+# an ephemeral key, re-do the sign step
+	+if grep -qs '^CONFIG_MODULE_SIG_ALL=y' $(DIR)/.config; then \
+		$(MAKE_CLEAN) -C $(DIR) modules_sign INSTALL_MOD_PATH='$(CURDIR)'/$(PACKAGE_DIR); \
+	fi
 endif
 	cp $(DIR)/.config $(PACKAGE_DIR)/boot/config-$(REAL_VERSION)
 	cp $(DIR)/System.map $(PACKAGE_DIR)/boot/System.map-$(REAL_VERSION)
@@ -457,10 +460,20 @@ ifneq ($(filter arm64 armel armhf,$(ARCH)),)
 	+$(MAKE_CLEAN) -C $(DIR) dtbs_install INSTALL_DTBS_PATH=$(CURDIR)/$(DT_INSTALL_DIR)
 endif
 ifneq ($(filter powerpc powerpcspe ppc64,$(ARCH)),)
+# Install wrapper code and DT source, but not the wrapper script or
+# the executables it calls.  Kbuild will always build these executable
+# as native code, which is wrong for a cross-built package.  Install
+# symlinks to the versions in the linux-bootwrapper package instead.
+	rm -rf '$(DIR)_bootwrapper'
 	+$(MAKE_CLEAN) -C '$(DIR)' bootwrapper_install \
-	  WRAPPER_OBJDIR='$(CURDIR)/$(DT_INSTALL_DIR)' \
-	  WRAPPER_DTSDIR='$(CURDIR)/$(DT_INSTALL_DIR)'/dts \
-	  WRAPPER_BINDIR='$(CURDIR)/$(DT_INSTALL_DIR)'
+		WRAPPER_OBJDIR='$(CURDIR)/$(DT_INSTALL_DIR)' \
+		WRAPPER_DTSDIR='$(CURDIR)/$(DT_INSTALL_DIR)/dts' \
+		WRAPPER_BINDIR='$(CURDIR)/$(DIR)_bootwrapper'
+	for prog in '$(DIR)_bootwrapper'/*; do \
+		prog="$$(basename $$prog)"; \
+		ln -s ../linux-bootwrapper-$(ABINAME)/$$prog \
+			'$(DT_INSTALL_DIR)'/$$prog; \
+	done
 endif
 
 install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_bug:
@@ -516,7 +529,7 @@ install-signed-template_$(ARCH):
 	mkdir -p $(CODE_SIGNING_DIR)
 	PYTHONHASHSEED=0 debian/bin/gencontrol_signed.py $(ARCH)
 	cp -R	debian/compat \
-		debian/signing_templates/copyright \
+		debian/copyright \
 		debian/signing_templates/README.source \
 		debian/signing_templates/rules \
 		debian/signing_templates/rules.real \
@@ -551,17 +564,18 @@ ifeq ($(UDEB_UNSIGNED_TEST_BUILD),False)
 	dh_builddeb
 endif
 
-install-source: PACKAGE_NAME = $(SOURCE_PACKAGE_NAME)-source-$(VERSION)
+install-source: PACKAGE_NAME = $(SOURCE_BASENAME)-source-$(VERSION)
 install-source: DH_OPTIONS = -p$(PACKAGE_NAME)
-install-source: $(BUILD_DIR)/$(SOURCE_PACKAGE_NAME)-source-$(UPSTREAMVERSION).tar.xz $(foreach FEATURESET,$(filter-out none,$(ALL_FEATURESETS)),$(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-$(FEATURESET).patch.xz)
+install-source: $(BUILD_DIR)/$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz $(foreach FEATURESET,$(filter-out none,$(ALL_FEATURESETS)),$(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-$(FEATURESET).patch.xz)
 	dh_testdir
 	dh_testroot
 	dh_installdirs /usr/src/linux-config-$(UPSTREAMVERSION)
 	dh_install $^ /usr/src
 # Include our kernel config files, but with the module signing
-# configuration fixed to work for custom kernels.
+# configuration fixed to work for custom kernels.  Also delete
+# CONFIG_BUILD_SALT which makes no sense for custom kernels.
 	for triplet in $(ALL_TRIPLETS); do \
-	  sed '/CONFIG_\(MODULE_SIG_\(ALL\|KEY\)\|SYSTEM_TRUSTED_KEYS\)[ =]/d' $(BUILD_DIR)/build_$$triplet/.config | xz -c >debian/$(PACKAGE_NAME)/usr/src/linux-config-$(UPSTREAMVERSION)/config.$$triplet.xz; \
+	  sed '/CONFIG_\(MODULE_SIG_\(ALL\|KEY\)\|SYSTEM_TRUSTED_KEYS\|BUILD_SALT\)[ =]/d' $(BUILD_DIR)/build_$$triplet/.config | xz -c >debian/$(PACKAGE_NAME)/usr/src/linux-config-$(UPSTREAMVERSION)/config.$$triplet.xz; \
 	done
 # We don't want to recompress, but -Znone is not compatible with older
 # tools and is currently rejected by dak.  -Zgzip -z0 (uncompressed
@@ -570,7 +584,7 @@ install-source: $(BUILD_DIR)/$(SOURCE_PACKAGE_NAME)-source-$(UPSTREAMVERSION).ta
 	+$(MAKE_SELF) install-base BUILDDEB_ARGS='-Zgzip -z1'
 
 define make-tools
-+mkdir -p $(BUILD_DIR)/build-tools/$(1) && $(MAKE_CLEAN) -C $(BUILD_DIR)/build-tools/$(1) -f $(CURDIR)/debian/rules.d/$(1)/Makefile top_srcdir=$(CURDIR) top_rulesdir=$(CURDIR)/debian/rules.d OUTDIR=$(1) VERSION=$(VERSION)
++mkdir -p $(BUILD_DIR)/build-tools/$(1) && $(MAKE_CLEAN) -C $(BUILD_DIR)/build-tools/$(1) -f $(CURDIR)/debian/rules.d/$(1)/Makefile top_srcdir=$(CURDIR) top_rulesdir=$(CURDIR)/debian/rules.d OUTDIR=$(1) VERSION=$(VERSION) KERNEL_ARCH=$(KERNEL_ARCH)
 endef
 
 $(STAMPS_DIR)/build-tools:
@@ -589,7 +603,9 @@ install-kbuild: $(STAMPS_DIR)/build-tools
 	$(call make-tools,tools/objtool) install DESTDIR=$(DIR) prefix=$(PREFIX_DIR)
 	dh_link $(PREFIX_DIR) /usr/src/$(PACKAGE_NAME)
 	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
+endif
 	dh_strip
 	dh_compress
 	dh_fixperms
@@ -619,8 +635,8 @@ ifneq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
 endif
 	dh_install --sourcedir=$(DIR)
 	dh_installchangelogs
-	dh_installdocs
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
+	dh_installdocs
 	dh_installman
 endif
 	dh_strip
@@ -644,7 +660,9 @@ install-perf: $(STAMPS_DIR)/build-tools
 	dh_perl /usr/share/perf_$(VERSION)-core/scripts/perl/Perf-Trace-Util/lib/
 	dh_python2 /usr/share/perf_$(VERSION)-core/scripts/python/Perf-Trace-Util/lib/
 	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
+endif
 	dh_lintian
 	dh_strip
 	dh_compress
@@ -664,8 +682,8 @@ install-usbip: $(STAMPS_DIR)/build-tools
 	$(call make-tools,tools/usb/usbip) install DESTDIR=$(DIR)
 	dh_install --sourcedir=$(DIR)
 	dh_installchangelogs
-	dh_installdocs
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
+	dh_installdocs
 	dh_installman
 endif
 	dh_lintian
@@ -695,7 +713,9 @@ install-hyperv-daemons: $(STAMPS_DIR)/build-tools
 			|| break; \
 	done
 	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
+endif
 	dh_systemd_enable
 	for service in fcopy kvp vss; do \
 		dh_installinit --name hyperv-daemons.hv-$$service-daemon \
@@ -724,7 +744,9 @@ install-liblockdep: $(STAMPS_DIR)/build-tools
 		'usr/lib/*/liblockdep.so.*'
 	dh_install --sourcedir=$(DIR)
 	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
+endif
 	dh_strip
 	dh_compress
 	dh_fixperms
@@ -749,10 +771,30 @@ install-lockdep:
 		> $(DIR)/usr/bin/lockdep
 	chmod 755 $(DIR)/usr/bin/lockdep
 	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
+endif
 	dh_compress
 	dh_fixperms
 	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+install-bootwrapper: PACKAGE_NAME = linux-bootwrapper-$(ABINAME)
+install-bootwrapper: DH_OPTIONS = -p$(PACKAGE_NAME)
+install-bootwrapper: DIR = $(CURDIR)/debian/$(PACKAGE_NAME)
+install-bootwrapper: $(STAMPS_DIR)/build-tools
+	dh_testdir
+	dh_testroot
+	dh_prep
+	$(call make-tools,arch/powerpc/boot) install DESTDIR=$(DIR) installdir=/usr/lib/$(PACKAGE_NAME)
+	dh_installchangelogs
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb

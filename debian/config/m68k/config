@@ -93,6 +93,7 @@ CONFIG_SYSV68_PARTITION=y
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_PATA_FALCON=m
+CONFIG_PATA_GAYLE=m
 
 ##
 ## file: drivers/bcma/Kconfig

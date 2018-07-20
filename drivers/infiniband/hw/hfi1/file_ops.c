@@ -505,7 +505,7 @@ static int hfi1_file_mmap(struct file *fp, struct vm_area_struct *vma)
 			ret = -EINVAL;
 			goto done;
 		}
-		if (flags & VM_WRITE) {
+		if ((flags & VM_WRITE) || !uctxt->rcvhdrtail_kvaddr) {
 			ret = -EPERM;
 			goto done;
 		}
@@ -689,8 +689,8 @@ static int hfi1_file_close(struct inode *inode, struct file *fp)
 	 * checks to default and disable the send context.
 	 */
 	if (uctxt->sc) {
-		set_pio_integrity(uctxt->sc);
 		sc_disable(uctxt->sc);
+		set_pio_integrity(uctxt->sc);
 	}
 
 	hfi1_free_ctxt_rcv_groups(uctxt);
@@ -1153,7 +1153,7 @@ static int get_ctxt_info(struct hfi1_filedata *fd, unsigned long arg, u32 len)
 	cinfo.sdma_ring_size = fd->cq->nentries;
 	cinfo.rcvegr_size = uctxt->egrbufs.rcvtid_size;
 
-	trace_hfi1_ctxt_info(uctxt->dd, uctxt->ctxt, fd->subctxt, cinfo);
+	trace_hfi1_ctxt_info(uctxt->dd, uctxt->ctxt, fd->subctxt, &cinfo);
 	if (copy_to_user((void __user *)arg, &cinfo, len))
 		return -EFAULT;
 

@@ -22,6 +22,6 @@ once it's ready to speak MBIM.
 -#else
  static bool prefer_mbim;
 -#endif
- module_param(prefer_mbim, bool, S_IRUGO | S_IWUSR);
+ module_param(prefer_mbim, bool, 0644);
  MODULE_PARM_DESC(prefer_mbim, "Prefer MBIM setting on dual NCM/MBIM functions");
  

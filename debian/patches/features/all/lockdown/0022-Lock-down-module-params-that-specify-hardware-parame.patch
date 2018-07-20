@@ -14,11 +14,9 @@ Signed-off-by: David Howells <dhowells@redhat.com>
  kernel/params.c | 26 +++++++++++++++++++++-----
  1 file changed, 21 insertions(+), 5 deletions(-)
 
-diff --git a/kernel/params.c b/kernel/params.c
-index 60b2d8101355..422979adb60a 100644
 --- a/kernel/params.c
 +++ b/kernel/params.c
-@@ -108,13 +108,19 @@ bool parameq(const char *a, const char *b)
+@@ -108,13 +108,19 @@ bool parameq(const char *a, const char *
  	return parameqn(a, b, strlen(a)+1);
  }
  
@@ -27,8 +25,8 @@ index 60b2d8101355..422979adb60a 100644
 +			       const char *doing)
  {
  	if (kp->flags & KERNEL_PARAM_FL_UNSAFE) {
- 		pr_warn("Setting dangerous option %s - tainting kernel\n",
- 			kp->name);
+ 		pr_notice("Setting dangerous option %s - tainting kernel\n",
+ 			  kp->name);
  		add_taint(TAINT_USER, LOCKDEP_STILL_OK);
  	}
 +
@@ -52,7 +50,7 @@ index 60b2d8101355..422979adb60a 100644
  			kernel_param_unlock(params[i].mod);
  			return err;
  		}
-@@ -556,6 +564,12 @@ static ssize_t param_attr_show(struct module_attribute *mattr,
+@@ -553,6 +561,12 @@ static ssize_t param_attr_show(struct mo
  	return count;
  }
  
@@ -65,7 +63,7 @@ index 60b2d8101355..422979adb60a 100644
  /* sysfs always hands a nul-terminated string in buf.  We rely on that. */
  static ssize_t param_attr_store(struct module_attribute *mattr,
  				struct module_kobject *mk,
-@@ -568,8 +582,10 @@ static ssize_t param_attr_store(struct module_attribute *mattr,
+@@ -565,8 +579,10 @@ static ssize_t param_attr_store(struct m
  		return -EPERM;
  
  	kernel_param_lock(mk->mod);

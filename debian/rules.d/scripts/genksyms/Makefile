@@ -6,8 +6,11 @@ genksyms: genksyms.o parse.tab.o lex.lex.o
 
 lex.lex.o: keywords.c parse.tab.h
 
-%.c: %.c_shipped
-	ln -s $< $@
+parse.tab.c: parse.y
+	$(YACC) -o$@ -t -l $<
 
-%.h: %.h_shipped
-	ln -s $< $@
+parse.tab.h: parse.y
+	$(YACC) -o/dev/null --defines=$@ -t -l $<
+
+lex.lex.c: lex.l
+	$(LEX) -o$@ -L $<

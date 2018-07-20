@@ -1,0 +1,54 @@
+From 1f1f5183981d70bf0950f8467772851a05eb9148 Mon Sep 17 00:00:00 2001
+From: Icenowy Zheng <icenowy@aosc.io>
+Date: Wed, 11 Apr 2018 22:16:41 +0800
+Subject: [PATCH 5/5] arm64: dts: allwinner: a64: add SRAM controller device
+ tree node
+
+Allwinner A64 has a SRAM controller, and in the device tree currently
+we have a syscon node to enable EMAC driver to access the EMAC clock
+register. As SRAM controller driver can now export regmap for this
+register, replace the syscon node to the SRAM controller device node,
+and let EMAC driver to acquire its EMAC clock regmap.
+
+Signed-off-by: Icenowy Zheng <icenowy@aosc.io>
+[wens@csie.org: Updated compatible string]
+Acked-by: Maxime Ripard <maxime.ripard@bootlin.com>
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+---
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+index 2777b2d02d77..ff2ddde1e117 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
+@@ -170,9 +170,24 @@
+ 		ranges;
+ 
+ 		syscon: syscon@1c00000 {
+-			compatible = "allwinner,sun50i-a64-system-controller",
+-				"syscon";
++			compatible = "allwinner,sun50i-a64-system-control";
+ 			reg = <0x01c00000 0x1000>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			ranges;
++
++			sram_c: sram@18000 {
++				compatible = "mmio-sram";
++				reg = <0x00018000 0x28000>;
++				#address-cells = <1>;
++				#size-cells = <1>;
++				ranges = <0 0x00018000 0x28000>;
++
++				de2_sram: sram-section@0 {
++					compatible = "allwinner,sun50i-a64-sram-c";
++					reg = <0x0000 0x28000>;
++				};
++			};
+ 		};
+ 
+ 		dma: dma-controller@1c02000 {
+-- 
+2.11.0
+

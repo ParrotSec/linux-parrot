@@ -1,0 +1,52 @@
+From: Laura Abbott <labbott@redhat.com>
+Date: Thu, 5 Jul 2018 17:49:38 -0700
+Subject: x86: Add build salt to the vDSO
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/masahiroy/linux-kbuild.git/commit?id=fdc3ae38182c7f983f4f8b97c86b753a3c16e269
+Bug-Debian: https://bugs.debian.org/872263
+
+The vDSO needs to have a unique build id in a similar manner
+to the kernel and modules. Use the build salt macro.
+
+Acked-by: Andy Lutomirski <luto@kernel.org>
+Signed-off-by: Laura Abbott <labbott@redhat.com>
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+---
+ arch/x86/entry/vdso/vdso-note.S   | 3 +++
+ arch/x86/entry/vdso/vdso32/note.S | 3 +++
+ 2 files changed, 6 insertions(+)
+
+--- a/arch/x86/entry/vdso/vdso-note.S
++++ b/arch/x86/entry/vdso/vdso-note.S
+@@ -3,6 +3,7 @@
+  * Here we can supply some information useful to userland.
+  */
+ 
++#include <linux/build-salt.h>
+ #include <linux/uts.h>
+ #include <linux/version.h>
+ #include <linux/elfnote.h>
+@@ -10,3 +11,5 @@
+ ELFNOTE_START(Linux, 0, "a")
+ 	.long LINUX_VERSION_CODE
+ ELFNOTE_END
++
++BUILD_SALT
+--- a/arch/x86/entry/vdso/vdso32/note.S
++++ b/arch/x86/entry/vdso/vdso32/note.S
+@@ -4,6 +4,7 @@
+  * Here we can supply some information useful to userland.
+  */
+ 
++#include <linux/build-salt.h>
+ #include <linux/version.h>
+ #include <linux/elfnote.h>
+ 
+@@ -14,6 +15,8 @@ ELFNOTE_START(Linux, 0, "a")
+ 	.long LINUX_VERSION_CODE
+ ELFNOTE_END
+ 
++BUILD_SALT
++
+ #ifdef CONFIG_XEN
+ /*
+  * Add a special note telling glibc's dynamic linker a fake hardware

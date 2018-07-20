@@ -4,7 +4,8 @@ kernel-arch: parisc
 
 [build]
 image-file: arch/parisc/boot/bzImage
-debug-info: true
+# temporarily disable debug info: Required disk size exceeds our hppa buildd machines.
+debug-info: false
 
 [image]
 suggests: palo

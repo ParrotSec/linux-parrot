@@ -46,7 +46,9 @@ class Gencontrol(Base):
             'headers-all': config.SchemaItemBoolean(),
             'installer': config.SchemaItemBoolean(),
             'libc-dev': config.SchemaItemBoolean(),
-            'tools': config.SchemaItemBoolean(),
+            'tools-unversioned': config.SchemaItemBoolean(),
+            'tools-versioned': config.SchemaItemBoolean(),
+            'source': config.SchemaItemBoolean(),
         }
     }
 
@@ -75,6 +77,10 @@ class Gencontrol(Base):
             'ABINAME': self.abiname_version + self.abiname_part,
             'SOURCEVERSION': self.version.complete,
         })
+        if not self.config.merge('packages').get('tools-unversioned', True):
+            makeflags['DO_TOOLS_UNVERSIONED'] = False
+        if not self.config.merge('packages').get('tools-versioned', True):
+            makeflags['DO_TOOLS_VERSIONED'] = False
 
         # Prepare to generate debian/tests/control
         self.tests_control = None
@@ -104,10 +110,11 @@ class Gencontrol(Base):
         makeflags = makeflags.copy()
         makeflags['ALL_FEATURESETS'] = ' '.join(fs_enabled)
         makeflags['ALL_TRIPLETS'] = ' '.join(triplet_enabled)
+        makeflags['SOURCE_BASENAME'] = self.vars['source_basename']
         if not self.config.merge('packages').get('docs', True):
             makeflags['DO_DOCS'] = False
-        if not self.config.merge('packages').get('tools', True):
-            makeflags['DO_TOOLS'] = False
+        if not self.config.merge('packages').get('source', True):
+            makeflags['DO_SOURCE'] = False
         super(Gencontrol, self).do_main_makefile(makefile, makeflags, extra)
 
         # linux-source-$UPSTREAMVERSION will contain all kconfig files
@@ -117,8 +124,10 @@ class Gencontrol(Base):
         packages.extend(self.process_packages(self.templates["control.main"], self.vars))
         if self.config.merge('packages').get('docs', True):
             packages.extend(self.process_packages(self.templates["control.docs"], self.vars))
-        if self.config.merge('packages').get('tools', True):
-            packages.extend(self.process_packages(self.templates["control.tools"], self.vars))
+        if self.config.merge('packages').get('tools-unversioned', True):
+            packages.extend(self.process_packages(self.templates["control.tools-unversioned"], self.vars))
+        if self.config.merge('packages').get('tools-versioned', True):
+            packages.extend(self.process_packages(self.templates["control.tools-versioned"], self.vars))
 
         self._substitute_file('perf.lintian-overrides', self.vars,
                               'debian/linux-perf-%s.lintian-overrides' %
@@ -198,10 +207,6 @@ class Gencontrol(Base):
             packages_headers_arch[0:0] = self.process_packages(libc_dev, {})
         else:
             makeflags['DO_LIBC'] = False
-
-        if not self.config.merge('packages').get('tools', True):
-            makeflags['DO_TOOLS'] = False
-
 
         merge_packages(packages, packages_headers_arch, arch)
 
@@ -547,6 +552,7 @@ class Gencontrol(Base):
         self.vars = {
             'upstreamversion': self.version.linux_upstream,
             'version': self.version.linux_version,
+            'source_basename': re.sub(r'-[\d.]+$', '', self.changelog[0].source),
             'source_upstream': self.version.upstream,
             'source_package': self.changelog[0].source,
             'abiname': self.abiname_version + self.abiname_part,

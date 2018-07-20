@@ -341,6 +341,11 @@ CONFIG_LEDS_TRIGGER_TIMER=y
 CONFIG_LEDS_TRIGGER_DEFAULT_ON=y
 
 ##
+## file: drivers/md/Kconfig
+##
+# CONFIG_DM_INTEGRITY is not set
+
+##
 ## file: drivers/mmc/Kconfig
 ##
 CONFIG_MMC=m
@@ -423,17 +428,17 @@ CONFIG_MTD_PHYSMAP_OF=m
 # CONFIG_MTD_PLATRAM is not set
 
 ##
-## file: drivers/mtd/nand/Kconfig
+## file: drivers/mtd/nand/onenand/Kconfig
+##
+# CONFIG_MTD_ONENAND is not set
+
+##
+## file: drivers/mtd/nand/raw/Kconfig
 ##
 CONFIG_MTD_NAND=m
 # CONFIG_MTD_NAND_DISKONCHIP is not set
 # CONFIG_MTD_NAND_CAFE is not set
 CONFIG_MTD_NAND_ORION=m
-
-##
-## file: drivers/mtd/onenand/Kconfig
-##
-# CONFIG_MTD_ONENAND is not set
 
 ##
 ## file: drivers/mtd/spi-nor/Kconfig
@@ -571,7 +576,6 @@ CONFIG_RTC_DRV_MV=m
 # CONFIG_SCSI_ARCMSR is not set
 # CONFIG_SCSI_HPTIOP is not set
 # CONFIG_SCSI_DMX3191D is not set
-# CONFIG_SCSI_FUTURE_DOMAIN is not set
 # CONFIG_SCSI_IPS is not set
 # CONFIG_SCSI_INITIO is not set
 # CONFIG_SCSI_INIA100 is not set

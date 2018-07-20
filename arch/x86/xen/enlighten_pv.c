@@ -421,45 +421,33 @@ static void xen_load_gdt(const struct desc_ptr *dtr)
 {
 	unsigned long va = dtr->address;
 	unsigned int size = dtr->size + 1;
-	unsigned pages = DIV_ROUND_UP(size, PAGE_SIZE);
-	unsigned long frames[pages];
-	int f;
+	unsigned long pfn, mfn;
+	int level;
+	pte_t *ptep;
+	void *virt;
 
-	/*
-	 * A GDT can be up to 64k in size, which corresponds to 8192
-	 * 8-byte entries, or 16 4k pages..
-	 */
-
-	BUG_ON(size > 65536);
+	/* @size should be at most GDT_SIZE which is smaller than PAGE_SIZE. */
+	BUG_ON(size > PAGE_SIZE);
 	BUG_ON(va & ~PAGE_MASK);
 
-	for (f = 0; va < dtr->address + size; va += PAGE_SIZE, f++) {
-		int level;
-		pte_t *ptep;
-		unsigned long pfn, mfn;
-		void *virt;
+	/*
+	 * The GDT is per-cpu and is in the percpu data area.
+	 * That can be virtually mapped, so we need to do a
+	 * page-walk to get the underlying MFN for the
+	 * hypercall.  The page can also be in the kernel's
+	 * linear range, so we need to RO that mapping too.
+	 */
+	ptep = lookup_address(va, &level);
+	BUG_ON(ptep == NULL);
 
-		/*
-		 * The GDT is per-cpu and is in the percpu data area.
-		 * That can be virtually mapped, so we need to do a
-		 * page-walk to get the underlying MFN for the
-		 * hypercall.  The page can also be in the kernel's
-		 * linear range, so we need to RO that mapping too.
-		 */
-		ptep = lookup_address(va, &level);
-		BUG_ON(ptep == NULL);
+	pfn = pte_pfn(*ptep);
+	mfn = pfn_to_mfn(pfn);
+	virt = __va(PFN_PHYS(pfn));
 
-		pfn = pte_pfn(*ptep);
-		mfn = pfn_to_mfn(pfn);
-		virt = __va(PFN_PHYS(pfn));
+	make_lowmem_page_readonly((void *)va);
+	make_lowmem_page_readonly(virt);
 
-		frames[f] = mfn;
-
-		make_lowmem_page_readonly((void *)va);
-		make_lowmem_page_readonly(virt);
-	}
-
-	if (HYPERVISOR_set_gdt(frames, size / sizeof(struct desc_struct)))
+	if (HYPERVISOR_set_gdt(&mfn, size / sizeof(struct desc_struct)))
 		BUG();
 }
 
@@ -470,34 +458,22 @@ static void __init xen_load_gdt_boot(const struct desc_ptr *dtr)
 {
 	unsigned long va = dtr->address;
 	unsigned int size = dtr->size + 1;
-	unsigned pages = DIV_ROUND_UP(size, PAGE_SIZE);
-	unsigned long frames[pages];
-	int f;
+	unsigned long pfn, mfn;
+	pte_t pte;
 
-	/*
-	 * A GDT can be up to 64k in size, which corresponds to 8192
-	 * 8-byte entries, or 16 4k pages..
-	 */
-
-	BUG_ON(size > 65536);
+	/* @size should be at most GDT_SIZE which is smaller than PAGE_SIZE. */
+	BUG_ON(size > PAGE_SIZE);
 	BUG_ON(va & ~PAGE_MASK);
 
-	for (f = 0; va < dtr->address + size; va += PAGE_SIZE, f++) {
-		pte_t pte;
-		unsigned long pfn, mfn;
+	pfn = virt_to_pfn(va);
+	mfn = pfn_to_mfn(pfn);
 
-		pfn = virt_to_pfn(va);
-		mfn = pfn_to_mfn(pfn);
+	pte = pfn_pte(pfn, PAGE_KERNEL_RO);
 
-		pte = pfn_pte(pfn, PAGE_KERNEL_RO);
+	if (HYPERVISOR_update_va_mapping((unsigned long)va, pte, 0))
+		BUG();
 
-		if (HYPERVISOR_update_va_mapping((unsigned long)va, pte, 0))
-			BUG();
-
-		frames[f] = mfn;
-	}
-
-	if (HYPERVISOR_set_gdt(frames, size / sizeof(struct desc_struct)))
+	if (HYPERVISOR_set_gdt(&mfn, size / sizeof(struct desc_struct)))
 		BUG();
 }
 
@@ -1230,12 +1206,20 @@ asmlinkage __visible void __init xen_start_kernel(void)
 
 	xen_setup_features();
 
-	xen_setup_machphys_mapping();
-
 	/* Install Xen paravirt ops */
 	pv_info = xen_info;
 	pv_init_ops.patch = paravirt_patch_default;
 	pv_cpu_ops = xen_cpu_ops;
+	xen_init_irq_ops();
+
+	/*
+	 * Setup xen_vcpu early because it is needed for
+	 * local_irq_disable(), irqs_disabled(), e.g. in printk().
+	 *
+	 * Don't do the full vcpu_info placement stuff until we have
+	 * the cpu_possible_mask and a non-dummy shared_info.
+	 */
+	xen_vcpu_info_reset(0);
 
 	x86_platform.get_nmi_reason = xen_get_nmi_reason;
 
@@ -1248,10 +1232,12 @@ asmlinkage __visible void __init xen_start_kernel(void)
 	 * Set up some pagetable state before starting to set any ptes.
 	 */
 
+	xen_setup_machphys_mapping();
 	xen_init_mmu_ops();
 
 	/* Prevent unwanted bits from being set in PTEs. */
 	__supported_pte_mask &= ~_PAGE_GLOBAL;
+	__default_kernel_pte_mask &= ~_PAGE_GLOBAL;
 
 	/*
 	 * Prevent page tables from being allocated in highmem, even
@@ -1272,19 +1258,8 @@ asmlinkage __visible void __init xen_start_kernel(void)
 	get_cpu_cap(&boot_cpu_data);
 	x86_configure_nx();
 
-	xen_init_irq_ops();
-
 	/* Let's presume PV guests always boot on vCPU with id 0. */
 	per_cpu(xen_vcpu_id, 0) = 0;
-
-	/*
-	 * Setup xen_vcpu early because idt_setup_early_handler needs it for
-	 * local_irq_disable(), irqs_disabled().
-	 *
-	 * Don't do the full vcpu_info placement stuff until we have
-	 * the cpu_possible_mask and a non-dummy shared_info.
-	 */
-	xen_vcpu_info_reset(0);
 
 	idt_setup_early_handler();
 

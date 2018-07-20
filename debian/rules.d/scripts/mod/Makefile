@@ -16,7 +16,7 @@ modpost.real-%:
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 modpost-opts.h: $(top_srcdir)/scripts/mod/modpost.c
-	python $(wrapperdir)/gendef.py $< > $@
+	$(wrapperdir)/gendef.py $< > $@
 
 modpost.o: modpost.c modpost-opts.h
 	$(CC) $(CFLAGS) -I $(CURDIR) -c -o $@ $<

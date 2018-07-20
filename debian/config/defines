@@ -1,5 +1,5 @@
 [abi]
-abiname: parrot16
+abiname: parrot8
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*
@@ -22,6 +22,7 @@ ignore-changes:
  module:arch/x86/kvm/*
  module:drivers/crypto/ccp/*
  module:drivers/hv/*
+ module:drivers/gpu/drm/sun4i/*
  module:drivers/iio/**
  module:drivers/misc/cxl/*
  module:drivers/mtd/nand/*
@@ -43,6 +44,7 @@ ignore-changes:
  module:net/rxrpc/rxrpc
  module:sound/core/seq/**
  module:sound/firewire/snd-firewire-lib
+ module:sound/pci/hda/*
 # btree library is only selected by few drivers so not useful OOT
  btree_*
  visitor*
@@ -66,6 +68,11 @@ ignore-changes:
 # ignore changes to inv_mpu6050/*
  module:drivers/iio/imu/inv_mpu6050/*
  drm_crtc_accurate_vblank_count
+# ignore acpi_nfit_init, acpi_nfit_desc_init
+ acpi_nfit_desc_init
+ acpi_nfit_init
+# ignore loop_register_transfer (used by cryptoloop, nothing OOT)
+ loop_register_transfer
 
 [base]
 arches:
@@ -95,6 +102,7 @@ arches:
  powerpcspe
  ppc64
  ppc64el
+ riscv64
  s390
  s390x
  sh3
@@ -114,7 +122,7 @@ debug-info: true
 signed-code: false
 
 [featureset-rt_base]
-enabled: true
+enabled: false
 
 [description]
 part-long-up: This kernel is not suitable for SMP (multi-processor,

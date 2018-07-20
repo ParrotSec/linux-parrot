@@ -1,0 +1,35 @@
+From: James Clarke <jrtc27@jrtc27.com>
+Date: Thu, 7 Dec 2017 20:32:44 +0000
+Subject: powerpc/lib/sstep: Fix building for powerpcspe
+Origin: https://people.debian.org/~jrtc27/linux-ppc32/0001-powerpc-lib-sstep-Fix-building-for-powerpcspe.patch
+
+On powerpcspe, ptesync is not a recognised instruction and so fails to
+assemble. We don't expect to have to emulate an lwsync or a ptesync on a
+32-bit kernel, so just ifdef them out, and catch any unexpected barrier
+types.
+
+Fixes: 3cdfcbfd32b9 ("powerpc: Change analyse_instr so it doesn't modify *regs")
+Signed-off-by: James Clarke <jrtc27@jrtc27.com>
+---
+ arch/powerpc/lib/sstep.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+--- a/arch/powerpc/lib/sstep.c
++++ b/arch/powerpc/lib/sstep.c
+@@ -2671,12 +2671,16 @@ void emulate_update_regs(struct pt_regs
+ 		case BARRIER_EIEIO:
+ 			eieio();
+ 			break;
++#ifdef __powerpc64__
+ 		case BARRIER_LWSYNC:
+ 			asm volatile("lwsync" : : : "memory");
+ 			break;
+ 		case BARRIER_PTESYNC:
+ 			asm volatile("ptesync" : : : "memory");
+ 			break;
++#endif
++		default:
++			WARN_ON_ONCE(1);
+ 		}
+ 		break;
+ 

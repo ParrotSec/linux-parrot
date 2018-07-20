@@ -296,7 +296,7 @@ int blkdev_reset_zones(struct block_device *bdev,
 }
 EXPORT_SYMBOL_GPL(blkdev_reset_zones);
 
-/**
+/*
  * BLKREPORTZONE ioctl processing.
  * Called from blkdev_ioctl.
  */
@@ -359,7 +359,7 @@ int blkdev_report_zones_ioctl(struct block_device *bdev, fmode_t mode,
 	return ret;
 }
 
-/**
+/*
  * BLKRESETZONE ioctl processing.
  * Called from blkdev_ioctl.
  */

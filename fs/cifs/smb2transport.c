@@ -548,6 +548,7 @@ smb2_mid_entry_alloc(const struct smb2_sync_hdr *shdr,
 
 	temp = mempool_alloc(cifs_mid_poolp, GFP_NOFS);
 	memset(temp, 0, sizeof(struct mid_q_entry));
+	kref_init(&temp->refcount);
 	temp->mid = le64_to_cpu(shdr->MessageId);
 	temp->pid = current->pid;
 	temp->command = shdr->Command; /* Always LE */
@@ -604,7 +605,7 @@ int
 smb2_check_receive(struct mid_q_entry *mid, struct TCP_Server_Info *server,
 		   bool log_error)
 {
-	unsigned int len = get_rfc1002_length(mid->resp_buf);
+	unsigned int len = mid->resp_buf_size;
 	struct kvec iov[2];
 	struct smb_rqst rqst = { .rq_iov = iov,
 				 .rq_nvec = 2 };

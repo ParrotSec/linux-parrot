@@ -36,7 +36,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  module_exit(ext4_exit_fs)
 --- a/fs/f2fs/super.c
 +++ b/fs/f2fs/super.c
-@@ -2990,4 +2990,5 @@ module_exit(exit_f2fs_fs)
+@@ -3134,4 +3134,5 @@ module_exit(exit_f2fs_fs)
  MODULE_AUTHOR("Samsung Electronics's Praesto Team");
  MODULE_DESCRIPTION("Flash Friendly File System");
  MODULE_LICENSE("GPL");

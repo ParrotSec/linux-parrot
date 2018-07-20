@@ -15,6 +15,6 @@ hardware-long: MIPS R6 (64 bit, big endian)
 
 [mips64r6_image]
 configs:
- kernelarch-mips/config.malta
+ kernelarch-mips/config.boston
  kernelarch-mips/config.mips64r6
 

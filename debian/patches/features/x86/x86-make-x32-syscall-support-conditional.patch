@@ -29,7 +29,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4096,6 +4096,10 @@
+@@ -4142,6 +4142,10 @@
  
  	switches=	[HW,M68k]
  
@@ -42,7 +42,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  			on older distributions. When this option is enabled
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -2863,6 +2863,14 @@ config COMPAT_32
+@@ -2910,6 +2910,14 @@ config COMPAT_32
  	select HAVE_UID16
  	select OLD_SIGSUSPEND3
  
@@ -59,24 +59,31 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	depends on IA32_EMULATION || X86_X32
 --- a/arch/x86/entry/common.c
 +++ b/arch/x86/entry/common.c
-@@ -282,8 +282,15 @@ __visible void do_syscall_64(struct pt_r
+@@ -281,12 +281,21 @@ __visible void do_syscall_64(unsigned lo
  	 * table.  The only functional difference is the x32 bit in
  	 * regs->orig_ax, which changes the behavior of some syscalls.
  	 */
--	if (likely((nr & __SYSCALL_MASK) < NR_syscalls)) {
--		nr = array_index_nospec(nr & __SYSCALL_MASK, NR_syscalls);
+-	nr &= __SYSCALL_MASK;
+-	if (likely(nr < NR_syscalls)) {
 +	if (x32_enabled) {
-+		if (likely((nr & ~__X32_SYSCALL_BIT) < NR_syscalls)) {
-+			nr = array_index_nospec(nr & ~__X32_SYSCALL_BIT,
-+						NR_syscalls);
-+			goto good;
-+		}
-+	} else if (likely((nr & ~0U) < NR_non_x32_syscalls)) {
-+		nr = array_index_nospec(nr & ~0U, NR_non_x32_syscalls);
-+	good:
- 		regs->ax = sys_call_table[nr](
- 			regs->di, regs->si, regs->dx,
- 			regs->r10, regs->r8, regs->r9);
++		nr &= ~__X32_SYSCALL_BIT;
++		if (unlikely(nr >= NR_syscalls))
++			goto bad;
+ 		nr = array_index_nospec(nr, NR_syscalls);
++		goto good;
++	} else {
++		nr &= ~0U;
++		if (unlikely(nr >= NR_non_x32_syscalls))
++			goto bad;
++		nr = array_index_nospec(nr, NR_non_x32_syscalls);
++good:
+ 		regs->ax = sys_call_table[nr](regs);
+ 	}
+-
++bad:
+ 	syscall_return_slowpath(regs);
+ }
+ #endif
 --- a/arch/x86/entry/syscall_64.c
 +++ b/arch/x86/entry/syscall_64.c
 @@ -4,6 +4,9 @@
@@ -170,7 +177,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #include <asm/asm-offsets.h>	/* For NR_syscalls */
  #include <asm/thread_info.h>	/* for TS_COMPAT */
  #include <asm/unistd.h>
-@@ -35,6 +36,18 @@ extern const sys_call_ptr_t sys_call_tab
+@@ -39,6 +40,18 @@ extern const sys_call_ptr_t sys_call_tab
  extern const sys_call_ptr_t ia32_sys_call_table[];
  #endif
  

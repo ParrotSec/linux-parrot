@@ -512,6 +512,11 @@ CONFIG_DRM_AMD_ACP=y
 CONFIG_HSA_AMD=m
 
 ##
+## file: drivers/gpu/drm/amd/display/Kconfig
+##
+CONFIG_DRM_AMD_DC_DCN1_0=y
+
+##
 ## file: drivers/gpu/drm/ast/Kconfig
 ##
 CONFIG_DRM_AST=m
@@ -1020,7 +1025,7 @@ CONFIG_MTD_NETtel=m
 CONFIG_MTD_PCI=m
 
 ##
-## file: drivers/mtd/nand/Kconfig
+## file: drivers/mtd/nand/raw/Kconfig
 ##
 CONFIG_MTD_NAND=m
 CONFIG_MTD_NAND_DISKONCHIP=m
@@ -1457,11 +1462,6 @@ CONFIG_SCSI_BUSLOGIC=m
 CONFIG_VMWARE_PVSCSI=m
 CONFIG_HYPERV_STORAGE=m
 CONFIG_SCSI_DMX3191D=m
-CONFIG_SCSI_EATA=m
-CONFIG_SCSI_EATA_TAGGED_QUEUE=y
-CONFIG_SCSI_EATA_LINKED_COMMANDS=y
-CONFIG_SCSI_EATA_MAX_TAGS=16
-CONFIG_SCSI_FUTURE_DOMAIN=m
 CONFIG_SCSI_GDTH=m
 CONFIG_SCSI_ISCI=m
 CONFIG_SCSI_IPS=m
@@ -1494,7 +1494,6 @@ CONFIG_MEGARAID_LEGACY=m
 ## file: drivers/scsi/pcmcia/Kconfig
 ##
 CONFIG_PCMCIA_AHA152X=m
-CONFIG_PCMCIA_FDOMAIN=m
 CONFIG_PCMCIA_QLOGIC=m
 CONFIG_PCMCIA_SYM53C500=m
 
@@ -1648,6 +1647,11 @@ CONFIG_RTL8723BS=m
 ## file: drivers/staging/rts5208/Kconfig
 ##
 CONFIG_RTS5208=m
+
+##
+## file: drivers/staging/vboxvideo/Kconfig
+##
+CONFIG_DRM_VBOXVIDEO=m
 
 ##
 ## file: drivers/staging/vt6656/Kconfig
@@ -1830,6 +1834,11 @@ CONFIG_FB_HYPERV=m
 ## file: drivers/video/fbdev/geode/Kconfig
 ##
 # CONFIG_FB_GEODE is not set
+
+##
+## file: drivers/virt/vboxguest/Kconfig
+##
+CONFIG_VBOXGUEST=m
 
 ##
 ## file: drivers/watchdog/Kconfig
@@ -2043,7 +2052,7 @@ CONFIG_SND_SOC_AMD_ACP=m
 CONFIG_SND_SOC_INTEL_SST_TOPLEVEL=y
 CONFIG_SND_SOC_INTEL_HASWELL=m
 CONFIG_SND_SOC_INTEL_BAYTRAIL=m
-CONFIG_SND_SST_ATOM_HIFI2_PLATFORM=m
+CONFIG_SND_SST_ATOM_HIFI2_PLATFORM_ACPI=m
 CONFIG_SND_SOC_INTEL_SKYLAKE=m
 
 ##

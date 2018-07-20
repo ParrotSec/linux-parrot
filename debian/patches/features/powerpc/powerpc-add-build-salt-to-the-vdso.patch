@@ -1,0 +1,31 @@
+From: Laura Abbott <labbott@redhat.com>
+Date: Thu, 5 Jul 2018 17:49:39 -0700
+Subject: powerpc: Add build salt to the vDSO
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/masahiroy/linux-kbuild.git/commit?id=29f07b97416a95d28ee62e70fd91b44956d3c8ce
+Bug-Debian: https://bugs.debian.org/872263
+
+The vDSO needs to have a unique build id in a similar manner
+to the kernel and modules. Use the build salt macro.
+
+Signed-off-by: Laura Abbott <labbott@redhat.com>
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+---
+ arch/powerpc/kernel/vdso32/note.S | 3 +++
+ 1 file changed, 3 insertions(+)
+
+--- a/arch/powerpc/kernel/vdso32/note.S
++++ b/arch/powerpc/kernel/vdso32/note.S
+@@ -5,6 +5,7 @@
+ 
+ #include <linux/uts.h>
+ #include <linux/version.h>
++#include <linux/build-salt.h>
+ 
+ #define ASM_ELF_NOTE_BEGIN(name, flags, vendor, type)			      \
+ 	.section name, flags;						      \
+@@ -23,3 +24,5 @@
+ 	ASM_ELF_NOTE_BEGIN(".note.kernel-version", "a", UTS_SYSNAME, 0)
+ 	.long LINUX_VERSION_CODE
+ 	ASM_ELF_NOTE_END
++
++BUILD_SALT
