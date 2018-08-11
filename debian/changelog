@@ -1,3 +1,9 @@
+linux (4.17.8-1parrot8) testing; urgency=medium
+
+  * Import new Debian release.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sat, 11 Aug 2018 13:25:21 +0200
+
 linux (4.17.8-1) unstable; urgency=medium
 
   * New upstream stable update:
