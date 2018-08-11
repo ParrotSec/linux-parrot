@@ -326,6 +326,9 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 						conn_state->scaling_mode);
 	}
 
+	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
+		return false;
+
 	/* DSI uses short packets for sync events, so clear mode flags for DSI */
 	adjusted_mode->flags = 0;
 
@@ -1266,10 +1269,8 @@ intel_dsi_mode_valid(struct drm_connector *connector,
 
 	DRM_DEBUG_KMS("\n");
 
-	if (mode->flags & DRM_MODE_FLAG_DBLSCAN) {
-		DRM_DEBUG_KMS("MODE_NO_DBLESCAN\n");
+	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return MODE_NO_DBLESCAN;
-	}
 
 	if (fixed_mode) {
 		if (mode->hdisplay > fixed_mode->hdisplay)

@@ -92,8 +92,6 @@
 			clock-latency = <300000>; /* From omap-cpufreq driver */
 
 			/* cooling options */
-			cooling-min-level = <0>;
-			cooling-max-level = <2>;
 			#cooling-cells = <2>; /* min followed by max */
 
 			vbb-supply = <&abb_mpu>;
@@ -1584,7 +1582,6 @@
 				dr_mode = "otg";
 				snps,dis_u3_susphy_quirk;
 				snps,dis_u2_susphy_quirk;
-				snps,dis_metastability_quirk;
 			};
 		};
 
@@ -1612,6 +1609,7 @@
 				dr_mode = "otg";
 				snps,dis_u3_susphy_quirk;
 				snps,dis_u2_susphy_quirk;
+				snps,dis_metastability_quirk;
 			};
 		};
 

@@ -340,6 +340,12 @@ static bool intel_crt_compute_config(struct intel_encoder *encoder,
 				     struct intel_crtc_state *pipe_config,
 				     struct drm_connector_state *conn_state)
 {
+	struct drm_display_mode *adjusted_mode =
+		&pipe_config->base.adjusted_mode;
+
+	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
+		return false;
+
 	return true;
 }
 
@@ -347,6 +353,12 @@ static bool pch_crt_compute_config(struct intel_encoder *encoder,
 				   struct intel_crtc_state *pipe_config,
 				   struct drm_connector_state *conn_state)
 {
+	struct drm_display_mode *adjusted_mode =
+		&pipe_config->base.adjusted_mode;
+
+	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
+		return false;
+
 	pipe_config->has_pch_encoder = true;
 
 	return true;
@@ -357,6 +369,11 @@ static bool hsw_crt_compute_config(struct intel_encoder *encoder,
 				   struct drm_connector_state *conn_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
+	struct drm_display_mode *adjusted_mode =
+		&pipe_config->base.adjusted_mode;
+
+	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
+		return false;
 
 	pipe_config->has_pch_encoder = true;
 
@@ -477,14 +494,6 @@ static bool valleyview_crt_detect_hotplug(struct drm_connector *connector)
 	return ret;
 }
 
-/**
- * Uses CRT_HOTPLUG_EN and CRT_HOTPLUG_STAT to detect CRT presence.
- *
- * Not for i915G/i915GM
- *
- * \return true if CRT is connected.
- * \return false if CRT is disconnected.
- */
 static bool intel_crt_detect_hotplug(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
@@ -810,10 +819,11 @@ intel_crt_detect(struct drm_connector *connector,
 		else
 			status = connector_status_unknown;
 		intel_release_load_detect_pipe(connector, &tmp, ctx);
-	} else if (ret == 0)
+	} else if (ret == 0) {
 		status = connector_status_unknown;
-	else if (ret < 0)
+	} else {
 		status = ret;
+	}
 
 out:
 	intel_display_power_put(dev_priv, intel_encoder->power_domain);
@@ -966,8 +976,10 @@ void intel_crt_init(struct drm_i915_private *dev_priv)
 	crt->base.power_domain = POWER_DOMAIN_PORT_CRT;
 
 	if (I915_HAS_HOTPLUG(dev_priv) &&
-	    !dmi_check_system(intel_spurious_crt_detect))
+	    !dmi_check_system(intel_spurious_crt_detect)) {
 		crt->base.hpd_pin = HPD_CRT;
+		crt->base.hotplug = intel_encoder_hotplug;
+	}
 
 	if (HAS_DDI(dev_priv)) {
 		crt->base.port = PORT_E;

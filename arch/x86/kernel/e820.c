@@ -924,6 +924,24 @@ static int __init parse_memmap_one(char *p)
 	} else if (*p == '!') {
 		start_at = memparse(p+1, &p);
 		e820__range_add(start_at, mem_size, E820_TYPE_PRAM);
+	} else if (*p == '%') {
+		enum e820_type from = 0, to = 0;
+
+		start_at = memparse(p + 1, &p);
+		if (*p == '-')
+			from = simple_strtoull(p + 1, &p, 0);
+		if (*p == '+')
+			to = simple_strtoull(p + 1, &p, 0);
+		if (*p != '\0')
+			return -EINVAL;
+		if (from && to)
+			e820__range_update(start_at, mem_size, from, to);
+		else if (to)
+			e820__range_add(start_at, mem_size, to);
+		else if (from)
+			e820__range_remove(start_at, mem_size, from, 1);
+		else
+			e820__range_remove(start_at, mem_size, 0, 0);
 	} else {
 		e820__range_remove(mem_size, ULLONG_MAX - mem_size, E820_TYPE_RAM, 1);
 	}
@@ -1228,6 +1246,7 @@ void __init e820__memblock_setup(void)
 {
 	int i;
 	u64 end;
+	u64 addr = 0;
 
 	/*
 	 * The bootstrap memblock region count maximum is 128 entries
@@ -1244,13 +1263,21 @@ void __init e820__memblock_setup(void)
 		struct e820_entry *entry = &e820_table->entries[i];
 
 		end = entry->addr + entry->size;
+		if (addr < entry->addr)
+			memblock_reserve(addr, entry->addr - addr);
+		addr = end;
 		if (end != (resource_size_t)end)
 			continue;
 
+		/*
+		 * all !E820_TYPE_RAM ranges (including gap ranges) are put
+		 * into memblock.reserved to make sure that struct pages in
+		 * such regions are not left uninitialized after bootup.
+		 */
 		if (entry->type != E820_TYPE_RAM && entry->type != E820_TYPE_RESERVED_KERN)
-			continue;
-
-		memblock_add(entry->addr, entry->size);
+			memblock_reserve(entry->addr, entry->size);
+		else
+			memblock_add(entry->addr, entry->size);
 	}
 
 	/* Throw away partial pages: */

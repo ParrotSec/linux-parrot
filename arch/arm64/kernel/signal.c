@@ -40,6 +40,7 @@
 #include <asm/fpsimd.h>
 #include <asm/ptrace.h>
 #include <asm/signal32.h>
+#include <asm/traps.h>
 #include <asm/vdso.h>
 
 /*
@@ -179,7 +180,7 @@ static void __user *apply_user_offset(
 static int preserve_fpsimd_context(struct fpsimd_context __user *ctx)
 {
 	struct user_fpsimd_state const *fpsimd =
-		&current->thread.fpsimd_state.user_fpsimd;
+		&current->thread.uw.fpsimd_state;
 	int err;
 
 	/* copy the FP and status/control registers */
@@ -565,11 +566,7 @@ asmlinkage long sys_rt_sigreturn(struct pt_regs *regs)
 	return regs->regs[0];
 
 badframe:
-	if (show_unhandled_signals)
-		pr_info_ratelimited("%s[%d]: bad frame in %s: pc=%08llx sp=%08llx\n",
-				    current->comm, task_pid_nr(current), __func__,
-				    regs->pc, regs->sp);
-	force_sig(SIGSEGV, current);
+	arm64_notify_segfault(regs->sp);
 	return 0;
 }
 
@@ -833,11 +830,12 @@ static void do_signal(struct pt_regs *regs)
 	unsigned long continue_addr = 0, restart_addr = 0;
 	int retval = 0;
 	struct ksignal ksig;
+	bool syscall = in_syscall(regs);
 
 	/*
 	 * If we were from a system call, check for system call restarting...
 	 */
-	if (in_syscall(regs)) {
+	if (syscall) {
 		continue_addr = regs->pc;
 		restart_addr = continue_addr - (compat_thumb_mode(regs) ? 2 : 4);
 		retval = regs->regs[0];
@@ -889,7 +887,7 @@ static void do_signal(struct pt_regs *regs)
 	 * Handle restarting a different system call. As above, if a debugger
 	 * has chosen to restart at a different PC, ignore the restart.
 	 */
-	if (in_syscall(regs) && regs->pc == restart_addr) {
+	if (syscall && regs->pc == restart_addr) {
 		if (retval == -ERESTART_RESTARTBLOCK)
 			setup_restart_syscall(regs);
 		user_rewind_single_step(current);
