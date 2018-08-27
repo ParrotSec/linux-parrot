@@ -2,6 +2,7 @@ From: Ben Hutchings <ben@decadent.org.uk>
 Date: Fri, 20 Jul 2018 01:30:24 +0100
 Subject: usbip: Fix misuse of strncpy()
 Bug-Debian: https://bugs.debian.org/897802
+Forwarded: https://marc.info/?l=linux-usb&m=153213915806258
 
 gcc 8 reports:
 

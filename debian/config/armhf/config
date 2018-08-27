@@ -1326,11 +1326,6 @@ CONFIG_NET_SWITCHDEV=y
 CONFIG_SND_HDA_TEGRA=m
 
 ##
-## file: sound/soc/davinci/Kconfig
-##
-CONFIG_SND_EDMA_SOC=m
-
-##
 ## file: sound/soc/Kconfig
 ##
 CONFIG_SND_SOC=m
@@ -1343,6 +1338,7 @@ CONFIG_SND_BCM2835_SOC_I2S=m
 ##
 ## file: sound/soc/davinci/Kconfig
 ##
+CONFIG_SND_EDMA_SOC=m
 CONFIG_SND_DAVINCI_SOC_MCASP=m
 
 ##

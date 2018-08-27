@@ -2,7 +2,7 @@
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-#debian/gitignore.patch # Kali: we have that in the git repo already
+debian/gitignore.patch
 debian/ia64-hardcode-arch-script-output.patch
 debian/mips-disable-werror.patch
 debian/mips-boston-disable-its.patch
@@ -66,7 +66,7 @@ bugfix/x86/platform-x86-ideapad-laptop-add-y520-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-y720-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-ideapad-v510-15ikb-t.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-several-models-to-no.patch
-debian/revert-gpu-host1x-add-iommu-support.patch
+bugfix/arm/gpu-host1x-fix-compiler-errors-by-converting-to-dma_.patch
 bugfix/x86/perf-tools-fix-unwind-build-on-i386.patch
 bugfix/sh/sh-boot-do-not-use-hyphen-in-exported-variable-name.patch
 bugfix/x86/mmap-remember-the-map_fixed-flag-as-vm_fixed.patch
@@ -88,6 +88,7 @@ features/arm64/pinebook/0002-arm64-dts-allwinner-a64-add-R_I2C-controller.patch
 features/arm64/pinebook/0003-arm64-dts-allwinner-a64-Add-PWM-controllers.patch
 features/arm64/pinebook/0004-arm64-dts-allwinner-add-support-for-Pinebook.patch
 features/arm64/pinebook/0005-arm64-dts-allwinner-a64-add-SRAM-controller-device-t.patch
+features/powerpc/mtd-powernv_flash-set-of_node-in-mtd-s-dev.patch
 
 # Miscellaneous bug fixes
 bugfix/all/kbuild-use-nostdinc-in-compile-tests.patch
@@ -97,7 +98,7 @@ bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/i40e-build-for-64-bit-targets-only.patch
-bugfix/all/ib-fix-rdma_rxe-and-infiniband_rdmavt-dependencies-f.patch
+bugfix/all/block-really-disable-runtime-pm-for-blk-mq.patch
 
 # Miscellaneous features
 features/all/kbuild-add-build-salt-to-the-kernel-and-modules.patch
@@ -141,8 +142,7 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/jfs-fix-inconsistency-between-memory-allocation-and-.patch
-bugfix/all/ext4-fix-false-negatives-and-false-positives-in-ext4.patch
+bugfix/all/Revert-net-increase-fragment-memory-usage-limits.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -165,6 +165,3 @@ bugfix/all/usbip-fix-misuse-of-strncpy.patch
 debian/wireless-disable-regulatory.db-direct-loading.patch
 
 # ABI maintenance
-debian/hid-avoid-abi-change-in-4.17.6.patch
-debian/dax-avoid-abi-change-in-4.17.6.patch
-debian/init-avoid-abi-change-for-build-salt.patch

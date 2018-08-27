@@ -758,6 +758,12 @@ CONFIG_FB_TRIDENT=m
 CONFIG_PSTORE=y
 
 ##
+## file: lib/Kconfig.debug
+##
+#. Broken here (#905461)
+# CONFIG_SCHED_STACK_END_CHECK is not set
+
+##
 ## file: lib/xz/Kconfig
 ##
 CONFIG_XZ_DEC_IA64=y

@@ -2,6 +2,7 @@ From: Ben Hutchings <ben@decadent.org.uk>
 Date: Thu, 19 Jul 2018 23:36:52 +0100
 Subject: tools/lib/api/fs/fs.c: Fix misuse of strncpy()
 Bug-Debian: https://bugs.debian.org/897802
+Forwarded: https://lore.kernel.org/lkml/20180721021026.GQ14131@decadent.org.uk/T/
 
 gcc 8 reports:
 

@@ -1,0 +1,31 @@
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
+Date: Fri, 13 Jul 2018 10:15:59 +0200
+Subject: mtd: powernv_flash: set of_node in mtd's dev
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Origin: http://git.infradead.org/linux-mtd-next.git/commit/9ea97a7d689c55a5528bfaad499edf1a4ca02e2a
+Bug-Debian: https://bugs.debian.org/904380
+
+This enables some features implemented in mtd subsystem like reading
+label and partitioning info from DT.
+
+Reported-by: Timothy Pearson <tpearson@raptorengineering.com>
+Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
+---
+ drivers/mtd/devices/powernv_flash.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/mtd/devices/powernv_flash.c b/drivers/mtd/devices/powernv_flash.c
+index c1312b141ae0..33593122e49b 100644
+--- a/drivers/mtd/devices/powernv_flash.c
++++ b/drivers/mtd/devices/powernv_flash.c
+@@ -223,6 +223,7 @@ static int powernv_flash_set_driver_info(struct device *dev,
+ 	mtd->_read = powernv_flash_read;
+ 	mtd->_write = powernv_flash_write;
+ 	mtd->dev.parent = dev;
++	mtd_set_of_node(mtd, dev->of_node);
+ 	return 0;
+ }
+ 
