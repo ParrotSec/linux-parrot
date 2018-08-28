@@ -2174,11 +2174,12 @@ static inline bool bio_check_ro(struct bio *bio, struct hd_struct *part)
 	if (part->policy && op_is_write(bio_op(bio))) {
 		char b[BDEVNAME_SIZE];
 
-		printk(KERN_ERR
+		WARN_ONCE(1,
 		       "generic_make_request: Trying to write "
 			"to read-only block-device %s (partno %d)\n",
 			bio_devname(bio, b), part->partno);
-		return true;
+		/* Older lvm-tools actually trigger this */
+		return false;
 	}
 
 	return false;
@@ -2392,7 +2393,9 @@ blk_qc_t generic_make_request(struct bio *bio)
 
 	if (bio->bi_opf & REQ_NOWAIT)
 		flags = BLK_MQ_REQ_NOWAIT;
-	if (blk_queue_enter(q, flags) < 0) {
+	if (bio_flagged(bio, BIO_QUEUE_ENTERED))
+		blk_queue_enter_live(q);
+	else if (blk_queue_enter(q, flags) < 0) {
 		if (!blk_queue_dying(q) && (bio->bi_opf & REQ_NOWAIT))
 			bio_wouldblock_error(bio);
 		else

@@ -2612,7 +2612,7 @@ void mlx5e_activate_priv_channels(struct mlx5e_priv *priv)
 	mlx5e_activate_channels(&priv->channels);
 	netif_tx_start_all_queues(priv->netdev);
 
-	if (MLX5_VPORT_MANAGER(priv->mdev))
+	if (MLX5_ESWITCH_MANAGER(priv->mdev))
 		mlx5e_add_sqs_fwd_rules(priv);
 
 	mlx5e_wait_channels_min_rx_wqes(&priv->channels);
@@ -2623,7 +2623,7 @@ void mlx5e_deactivate_priv_channels(struct mlx5e_priv *priv)
 {
 	mlx5e_redirect_rqts_to_drop(priv);
 
-	if (MLX5_VPORT_MANAGER(priv->mdev))
+	if (MLX5_ESWITCH_MANAGER(priv->mdev))
 		mlx5e_remove_sqs_fwd_rules(priv);
 
 	/* FIXME: This is a W/A only for tx timeout watch dog false alarm when
@@ -3093,22 +3093,23 @@ out:
 
 #ifdef CONFIG_MLX5_ESWITCH
 static int mlx5e_setup_tc_cls_flower(struct mlx5e_priv *priv,
-				     struct tc_cls_flower_offload *cls_flower)
+				     struct tc_cls_flower_offload *cls_flower,
+				     int flags)
 {
 	switch (cls_flower->command) {
 	case TC_CLSFLOWER_REPLACE:
-		return mlx5e_configure_flower(priv, cls_flower);
+		return mlx5e_configure_flower(priv, cls_flower, flags);
 	case TC_CLSFLOWER_DESTROY:
-		return mlx5e_delete_flower(priv, cls_flower);
+		return mlx5e_delete_flower(priv, cls_flower, flags);
 	case TC_CLSFLOWER_STATS:
-		return mlx5e_stats_flower(priv, cls_flower);
+		return mlx5e_stats_flower(priv, cls_flower, flags);
 	default:
 		return -EOPNOTSUPP;
 	}
 }
 
-int mlx5e_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-			    void *cb_priv)
+static int mlx5e_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
+				   void *cb_priv)
 {
 	struct mlx5e_priv *priv = cb_priv;
 
@@ -3117,7 +3118,7 @@ int mlx5e_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
 
 	switch (type) {
 	case TC_SETUP_CLSFLOWER:
-		return mlx5e_setup_tc_cls_flower(priv, type_data);
+		return mlx5e_setup_tc_cls_flower(priv, type_data, MLX5E_TC_INGRESS);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -4315,7 +4316,7 @@ static void mlx5e_build_nic_netdev(struct net_device *netdev)
 	mlx5e_set_netdev_dev_addr(netdev);
 
 #if IS_ENABLED(CONFIG_MLX5_ESWITCH)
-	if (MLX5_VPORT_MANAGER(mdev))
+	if (MLX5_ESWITCH_MANAGER(mdev))
 		netdev->switchdev_ops = &mlx5e_switchdev_ops;
 #endif
 
@@ -4465,7 +4466,7 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
 
 	mlx5e_enable_async_events(priv);
 
-	if (MLX5_VPORT_MANAGER(priv->mdev))
+	if (MLX5_ESWITCH_MANAGER(priv->mdev))
 		mlx5e_register_vport_reps(priv);
 
 	if (netdev->reg_state != NETREG_REGISTERED)
@@ -4500,7 +4501,7 @@ static void mlx5e_nic_disable(struct mlx5e_priv *priv)
 
 	queue_work(priv->wq, &priv->set_rx_mode_work);
 
-	if (MLX5_VPORT_MANAGER(priv->mdev))
+	if (MLX5_ESWITCH_MANAGER(priv->mdev))
 		mlx5e_unregister_vport_reps(priv);
 
 	mlx5e_disable_async_events(priv);
@@ -4684,7 +4685,7 @@ static void *mlx5e_add(struct mlx5_core_dev *mdev)
 		return NULL;
 
 #ifdef CONFIG_MLX5_ESWITCH
-	if (MLX5_VPORT_MANAGER(mdev)) {
+	if (MLX5_ESWITCH_MANAGER(mdev)) {
 		rpriv = mlx5e_alloc_nic_rep_priv(mdev);
 		if (!rpriv) {
 			mlx5_core_warn(mdev, "Failed to alloc NIC rep priv data\n");
