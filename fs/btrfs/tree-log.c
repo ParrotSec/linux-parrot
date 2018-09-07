@@ -222,11 +222,8 @@ int btrfs_pin_log_trans(struct btrfs_root *root)
 void btrfs_end_log_trans(struct btrfs_root *root)
 {
 	if (atomic_dec_and_test(&root->log_writers)) {
-		/*
-		 * Implicit memory barrier after atomic_dec_and_test
-		 */
-		if (waitqueue_active(&root->log_writer_wait))
-			wake_up(&root->log_writer_wait);
+		/* atomic_dec_and_test implies a barrier */
+		cond_wake_up_nomb(&root->log_writer_wait);
 	}
 }
 
@@ -1294,6 +1291,46 @@ again:
 	return ret;
 }
 
+static int btrfs_inode_ref_exists(struct inode *inode, struct inode *dir,
+				  const u8 ref_type, const char *name,
+				  const int namelen)
+{
+	struct btrfs_key key;
+	struct btrfs_path *path;
+	const u64 parent_id = btrfs_ino(BTRFS_I(dir));
+	int ret;
+
+	path = btrfs_alloc_path();
+	if (!path)
+		return -ENOMEM;
+
+	key.objectid = btrfs_ino(BTRFS_I(inode));
+	key.type = ref_type;
+	if (key.type == BTRFS_INODE_REF_KEY)
+		key.offset = parent_id;
+	else
+		key.offset = btrfs_extref_hash(parent_id, name, namelen);
+
+	ret = btrfs_search_slot(NULL, BTRFS_I(inode)->root, &key, path, 0, 0);
+	if (ret < 0)
+		goto out;
+	if (ret > 0) {
+		ret = 0;
+		goto out;
+	}
+	if (key.type == BTRFS_INODE_EXTREF_KEY)
+		ret = btrfs_find_name_in_ext_backref(path->nodes[0],
+						     path->slots[0], parent_id,
+						     name, namelen, NULL);
+	else
+		ret = btrfs_find_name_in_backref(path->nodes[0], path->slots[0],
+						 name, namelen, NULL);
+
+out:
+	btrfs_free_path(path);
+	return ret;
+}
+
 /*
  * replay one inode back reference item found in the log tree.
  * eb, slot and key refer to the buffer and key found in the log tree.
@@ -1402,6 +1439,32 @@ static noinline int add_inode_ref(struct btrfs_trans_handle *trans,
 					goto out;
 				}
 			}
+
+			/*
+			 * If a reference item already exists for this inode
+			 * with the same parent and name, but different index,
+			 * drop it and the corresponding directory index entries
+			 * from the parent before adding the new reference item
+			 * and dir index entries, otherwise we would fail with
+			 * -EEXIST returned from btrfs_add_link() below.
+			 */
+			ret = btrfs_inode_ref_exists(inode, dir, key->type,
+						     name, namelen);
+			if (ret > 0) {
+				ret = btrfs_unlink_inode(trans, root,
+							 BTRFS_I(dir),
+							 BTRFS_I(inode),
+							 name, namelen);
+				/*
+				 * If we dropped the link count to 0, bump it so
+				 * that later the iput() on the inode will not
+				 * free it. We will fixup the link count later.
+				 */
+				if (!ret && inode->i_nlink == 0)
+					inc_nlink(inode);
+			}
+			if (ret < 0)
+				goto out;
 
 			/* insert our name */
 			ret = btrfs_add_link(trans, BTRFS_I(dir),
@@ -2988,11 +3051,8 @@ int btrfs_sync_log(struct btrfs_trans_handle *trans,
 
 	mutex_lock(&log_root_tree->log_mutex);
 	if (atomic_dec_and_test(&log_root_tree->log_writers)) {
-		/*
-		 * Implicit memory barrier after atomic_dec_and_test
-		 */
-		if (waitqueue_active(&log_root_tree->log_writer_wait))
-			wake_up(&log_root_tree->log_writer_wait);
+		/* atomic_dec_and_test implies a barrier */
+		cond_wake_up_nomb(&log_root_tree->log_writer_wait);
 	}
 
 	if (ret) {
@@ -3116,13 +3176,11 @@ out_wake_log_root:
 	mutex_unlock(&log_root_tree->log_mutex);
 
 	/*
-	 * The barrier before waitqueue_active is needed so all the updates
-	 * above are seen by the woken threads. It might not be necessary, but
-	 * proving that seems to be hard.
+	 * The barrier before waitqueue_active (in cond_wake_up) is needed so
+	 * all the updates above are seen by the woken threads. It might not be
+	 * necessary, but proving that seems to be hard.
 	 */
-	smp_mb();
-	if (waitqueue_active(&log_root_tree->log_commit_wait[index2]))
-		wake_up(&log_root_tree->log_commit_wait[index2]);
+	cond_wake_up(&log_root_tree->log_commit_wait[index2]);
 out:
 	mutex_lock(&root->log_mutex);
 	btrfs_remove_all_log_ctxs(root, index1, ret);
@@ -3131,13 +3189,11 @@ out:
 	mutex_unlock(&root->log_mutex);
 
 	/*
-	 * The barrier before waitqueue_active is needed so all the updates
-	 * above are seen by the woken threads. It might not be necessary, but
-	 * proving that seems to be hard.
+	 * The barrier before waitqueue_active (in cond_wake_up) is needed so
+	 * all the updates above are seen by the woken threads. It might not be
+	 * necessary, but proving that seems to be hard.
 	 */
-	smp_mb();
-	if (waitqueue_active(&root->log_commit_wait[index1]))
-		wake_up(&root->log_commit_wait[index1]);
+	cond_wake_up(&root->log_commit_wait[index1]);
 	return ret;
 }
 

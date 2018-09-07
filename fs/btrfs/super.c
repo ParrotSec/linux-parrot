@@ -1785,10 +1785,8 @@ static int btrfs_remount(struct super_block *sb, int *flags, char *data)
 	}
 
 	ret = btrfs_parse_options(fs_info, data, *flags);
-	if (ret) {
-		ret = -EINVAL;
+	if (ret)
 		goto restore;
-	}
 
 	btrfs_remount_begin(fs_info, old_opts, *flags);
 	btrfs_resize_thread_pool(fs_info,
@@ -2333,7 +2331,6 @@ static const struct super_operations btrfs_super_ops = {
 	.sync_fs	= btrfs_sync_fs,
 	.show_options	= btrfs_show_options,
 	.show_devname	= btrfs_show_devname,
-	.write_inode	= btrfs_write_inode,
 	.alloc_inode	= btrfs_alloc_inode,
 	.destroy_inode	= btrfs_destroy_inode,
 	.statfs		= btrfs_statfs,
