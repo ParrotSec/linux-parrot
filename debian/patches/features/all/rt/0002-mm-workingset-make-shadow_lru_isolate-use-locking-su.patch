@@ -1,0 +1,45 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Fri, 22 Jun 2018 11:43:35 +0200
+Subject: [PATCH 2/3] mm: workingset: make shadow_lru_isolate() use locking
+ suffix
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+shadow_lru_isolate() disables interrupts and acquires a lock. It could
+use spin_lock_irq() instead. It also uses local_irq_enable() while it
+could use spin_unlock_irq()/xa_unlock_irq().
+
+Use proper suffix for lock/unlock in order to enable/disable interrupts
+during release/acquire of a lock.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/workingset.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+--- a/mm/workingset.c
++++ b/mm/workingset.c
+@@ -431,7 +431,7 @@ static enum lru_status shadow_lru_isolat
+ 
+ 	/* Coming from the list, invert the lock order */
+ 	if (!xa_trylock(&mapping->i_pages)) {
+-		spin_unlock(lru_lock);
++		spin_unlock_irq(lru_lock);
+ 		ret = LRU_RETRY;
+ 		goto out;
+ 	}
+@@ -469,13 +469,11 @@ static enum lru_status shadow_lru_isolat
+ 				 workingset_lookup_update(mapping));
+ 
+ out_invalid:
+-	xa_unlock(&mapping->i_pages);
++	xa_unlock_irq(&mapping->i_pages);
+ 	ret = LRU_REMOVED_RETRY;
+ out:
+-	local_irq_enable();
+ 	cond_resched();
+-	local_irq_disable();
+-	spin_lock(lru_lock);
++	spin_lock_irq(lru_lock);
+ 	return ret;
+ }
+ 

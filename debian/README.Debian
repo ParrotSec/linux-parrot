@@ -47,7 +47,7 @@ Berkeley Database (libdb-dev) installed.
 
 Non-free bits removed
 ---------------------
-See the patches under debian/patches/debian/dfsg.
+See the Files-Excluded field in debian/copyright.
 
 Further information
 -------------------

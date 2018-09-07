@@ -1,8 +1,8 @@
 Updating the upstream source
 ============================
 
-In addition to the build-dependencies, you will need the rsync and
-unifdef packages installed.
+In addition to the build-dependencies, you will need the rsync package
+installed.
 
 1) It is recommended to fetch the release tag from the relevant upstream git
    repository, one of:
@@ -43,9 +43,8 @@ unifdef packages installed.
    This will produce ../orig/linux_<version>.orig.tar.xz
    (e.g. linux_3.5~rc1.orig.tar.xz).
 
-   It involves applying several patches and file deletions for DFSG
-   compliance, as listed in debian/patches/series-orig.  Occasionally
-   you will need to refresh these.
+   It involves deleting files for DFSG compliance, as listed in the
+   Files-Excluded field in debian/copyright.
 
 3) Run: make -f debian/rules orig
 
@@ -78,9 +77,6 @@ Aside from those general rules:
   - The script debian/bin/stable-update updates the changelog
     version and inserts the list of changes.  It doesn't attempt to
     filter out irrelevant or unimportant changes.
-
-  - The script debian/bin/ckt-stable-update.sh does the same for
-    stable updates by the Canonical Kernel Team.
 
   - If you have time, please delete irrelevant changes such as:
     + Fixes for architectures not supported by the package

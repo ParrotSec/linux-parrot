@@ -13,7 +13,7 @@ a version of the script which is directly derived from the driver.
 
 --- a/drivers/media/usb/dvb-usb/Kconfig
 +++ b/drivers/media/usb/dvb-usb/Kconfig
-@@ -227,10 +227,10 @@ config DVB_USB_OPERA1
+@@ -246,10 +246,10 @@ config DVB_USB_OPERA1
  
  config DVB_USB_AF9005
  	tristate "Afatech AF9005 DVB-T USB1.1 support"
@@ -27,8 +27,8 @@ a version of the script which is directly derived from the driver.
  	  and the TerraTec Cinergy T USB XE (Rev.1)
 --- a/drivers/media/usb/dvb-usb/af9005-fe.c
 +++ b/drivers/media/usb/dvb-usb/af9005-fe.c
-@@ -22,10 +22,26 @@
-  * see Documentation/dvb/README.dvb-usb for more information
+@@ -18,10 +18,26 @@
+  * see Documentation/media/dvb-drivers/dvb-usb.rst for more information
   */
  #include "af9005.h"
 -#include "af9005-script.h"
@@ -55,7 +55,7 @@ a version of the script which is directly derived from the driver.
  
  struct af9005_fe_state {
  	struct dvb_usb_device *d;
-@@ -816,6 +832,8 @@ static int af9005_fe_init(struct dvb_fro
+@@ -813,6 +829,8 @@ static int af9005_fe_init(struct dvb_fro
  {
  	struct af9005_fe_state *state = fe->demodulator_priv;
  	struct dvb_usb_adapter *adap = fe->dvb->priv;
@@ -64,7 +64,7 @@ a version of the script which is directly derived from the driver.
  	int ret, i, scriptlen;
  	u8 temp, temp0 = 0, temp1 = 0, temp2 = 0;
  	u8 buf[2];
-@@ -968,37 +986,55 @@ static int af9005_fe_init(struct dvb_fro
+@@ -965,37 +983,55 @@ static int af9005_fe_init(struct dvb_fro
  	if ((ret = af9005_write_ofdm_register(state->d, 0xaefb, 0x01)))
  		return ret;
  
@@ -132,7 +132,7 @@ a version of the script which is directly derived from the driver.
  
  	/* save original TOPs */
  	deb_info("save original TOPs\n");
-@@ -1078,6 +1114,10 @@ static int af9005_fe_init(struct dvb_fro
+@@ -1075,6 +1111,10 @@ static int af9005_fe_init(struct dvb_fro
  
  	deb_info("profit!\n");
  	return 0;

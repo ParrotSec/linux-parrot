@@ -22,7 +22,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
 --- a/scripts/Kbuild.include
 +++ b/scripts/Kbuild.include
-@@ -195,7 +195,7 @@ CC_OPTION_CFLAGS = $(filter-out $(GCC_PL
+@@ -121,7 +121,7 @@ CC_OPTION_CFLAGS = $(filter-out $(GCC_PL
  # Usage: cflags-y += $(call cc-option,-march=winchip-c6,-march=i586)
  
  cc-option = $(call __cc-option, $(CC),\
@@ -31,39 +31,39 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  # hostcc-option
  # Usage: cflags-y += $(call hostcc-option,-march=winchip-c6,-march=i586)
-@@ -205,23 +205,24 @@ hostcc-option = $(call __cc-option, $(HO
+@@ -131,23 +131,24 @@ hostcc-option = $(call __cc-option, $(HO
  # cc-option-yn
  # Usage: flag := $(call cc-option-yn,-march=winchip-c6)
- cc-option-yn = $(call try-run-cached,\
+ cc-option-yn = $(call try-run,\
 -	$(CC) -Werror $(KBUILD_CPPFLAGS) $(CC_OPTION_CFLAGS) $(1) -c -x c /dev/null -o "$$TMP",y,n)
 +	$(CC) -Werror $(NOSTDINC_FLAGS) $(KBUILD_CPPFLAGS) $(CC_OPTION_CFLAGS) $(1) -c -x c /dev/null -o "$$TMP",y,n)
  
  # cc-disable-warning
  # Usage: cflags-y += $(call cc-disable-warning,unused-but-set-variable)
- cc-disable-warning = $(call try-run-cached,\
+ cc-disable-warning = $(call try-run,\
 -	$(CC) -Werror $(KBUILD_CPPFLAGS) $(CC_OPTION_CFLAGS) -W$(strip $(1)) -c -x c /dev/null -o "$$TMP",-Wno-$(strip $(1)))
 +	$(CC) -Werror $(NOSTDINC_FLAGS) $(KBUILD_CPPFLAGS) $(CC_OPTION_CFLAGS) -W$(strip $(1)) -c -x c /dev/null -o "$$TMP",-Wno-$(strip $(1)))
  
  # cc-name
  # Expands to either gcc or clang
- cc-name = $(call shell-cached,$(CC) -v 2>&1 | grep -q "clang version" && echo clang || echo gcc)
+ cc-name = $(shell $(CC) -v 2>&1 | grep -q "clang version" && echo clang || echo gcc)
  
  # cc-version
--cc-version = $(call shell-cached,$(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CC))
-+cc-version = $(call shell-cached,$(CONFIG_SHELL) \
+-cc-version = $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CC))
++cc-version = $(shell $(CONFIG_SHELL) \
 +	$(srctree)/scripts/gcc-version.sh $(CC) $(NOSTDINC_FLAGS))
  
  # cc-fullversion
- cc-fullversion = $(call shell-cached,$(CONFIG_SHELL) \
+ cc-fullversion = $(shell $(CONFIG_SHELL) \
 -	$(srctree)/scripts/gcc-version.sh -p $(CC))
 +	$(srctree)/scripts/gcc-version.sh -p $(CC) $(NOSTDINC_FLAGS))
  
  # cc-ifversion
  # Usage:  EXTRA_CFLAGS += $(call cc-ifversion, -lt, 0402, -O1)
-@@ -234,7 +235,7 @@ cc-if-fullversion = $(shell [ $(cc-fullv
+@@ -160,7 +161,7 @@ cc-if-fullversion = $(shell [ $(cc-fullv
  # cc-ldoption
  # Usage: ldflags += $(call cc-ldoption, -Wl$(comma)--hash-style=both)
- cc-ldoption = $(call try-run-cached,\
+ cc-ldoption = $(call try-run,\
 -	$(CC) $(1) $(KBUILD_CPPFLAGS) $(CC_OPTION_CFLAGS) -nostdlib -x c /dev/null -o "$$TMP",$(1),$(2))
 +	$(CC) $(1) $(NOSTDINC_FLAGS) $(KBUILD_CPPFLAGS) $(CC_OPTION_CFLAGS) -nostdlib -x c /dev/null -o "$$TMP",$(1),$(2))
  
@@ -71,7 +71,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  # Usage: LDFLAGS += $(call ld-option, -X)
 --- a/Makefile
 +++ b/Makefile
-@@ -652,6 +652,8 @@ endif
+@@ -665,6 +665,8 @@ endif
  KBUILD_CFLAGS += $(call cc-ifversion, -lt, 0409, \
  			$(call cc-disable-warning,maybe-uninitialized,))
  
@@ -80,12 +80,12 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  # Tell gcc to never replace conditional load with a non-conditional one
  KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
  
-@@ -803,7 +805,7 @@ KBUILD_CFLAGS	+= $(call cc-option,-fdata
+@@ -772,7 +774,7 @@ KBUILD_CFLAGS_KERNEL	+= $(call cc-option
  endif
  
  # arch Makefile may override CC so keep this after arch Makefile is included
--NOSTDINC_FLAGS += -nostdinc -isystem $(call shell-cached,$(CC) -print-file-name=include)
-+NOSTDINC_FLAGS += -isystem $(call shell-cached,$(CC) -print-file-name=include)
- CHECKFLAGS     += $(NOSTDINC_FLAGS)
+-NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
++NOSTDINC_FLAGS += -isystem $(shell $(CC) -print-file-name=include)
  
  # warn about C99 declaration after statement
+ KBUILD_CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)

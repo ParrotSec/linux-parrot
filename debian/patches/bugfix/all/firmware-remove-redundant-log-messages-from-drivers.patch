@@ -53,7 +53,7 @@ upstream submission.
    rec = (const struct ihex_binrec *)fw->data;
 --- a/drivers/atm/fore200e.c
 +++ b/drivers/atm/fore200e.c
-@@ -2504,10 +2504,9 @@ static int fore200e_load_and_start_fw(st
+@@ -2505,10 +2505,9 @@ static int fore200e_load_and_start_fw(st
  	return err;
  
      sprintf(buf, "%s%s", fore200e->bus->proc_name, FW_EXT);
@@ -175,7 +175,7 @@ upstream submission.
  		       fw->size, fw_name);
 --- a/drivers/dma/imx-sdma.c
 +++ b/drivers/dma/imx-sdma.c
-@@ -1482,11 +1482,8 @@ static void sdma_load_firmware(const str
+@@ -1475,11 +1475,8 @@ static void sdma_load_firmware(const str
  	const struct sdma_script_start_addrs *addr;
  	unsigned short *ram_code;
  
@@ -205,7 +205,7 @@ upstream submission.
  	where = 0;
 --- a/drivers/gpu/drm/nouveau/nvkm/engine/gr/gf100.c
 +++ b/drivers/gpu/drm/nouveau/nvkm/engine/gr/gf100.c
-@@ -1839,10 +1839,8 @@ gf100_gr_ctor_fw_legacy(struct gf100_gr
+@@ -1920,10 +1920,8 @@ gf100_gr_ctor_fw_legacy(struct gf100_gr
  	if (ret) {
  		snprintf(f, sizeof(f), "nouveau/%s", fwname);
  		ret = request_firmware(&fw, f, device->dev);
@@ -285,7 +285,7 @@ upstream submission.
  	ret = qib_ibsd_ucode_loaded(dd->pport, fw);
 --- a/drivers/input/touchscreen/atmel_mxt_ts.c
 +++ b/drivers/input/touchscreen/atmel_mxt_ts.c
-@@ -2758,10 +2758,8 @@ static int mxt_load_fw(struct device *de
+@@ -2760,10 +2760,8 @@ static int mxt_load_fw(struct device *de
  	int ret;
  
  	ret = request_firmware(&fw, fn, dev);
@@ -361,7 +361,7 @@ upstream submission.
  	const struct firmware *fw = NULL;
  
 -	if ((ret = request_firmware(&fw, props->firmware, &udev->dev)) != 0) {
--		err("did not find the firmware file. (%s) Please see linux/Documentation/dvb/ for more details on firmware-problems. (%d)",
+-		err("did not find the firmware file '%s' (status %d). You can use <kernel_dir>/scripts/get_dvb_firmware to get the firmware",
 -			props->firmware,ret);
 +	ret = request_firmware(&fw, props->firmware, &udev->dev);
 +	if (ret)
@@ -379,7 +379,7 @@ upstream submission.
  	u8 *buf;
  	if ((ret = request_firmware(&fw, bcm4500_firmware,
 -					&d->udev->dev)) != 0) {
--		err("did not find the bcm4500 firmware file. (%s) Please see linux/Documentation/dvb/ for more details on firmware-problems. (%d)",
+-		err("did not find the bcm4500 firmware file '%s' (status %d). You can use <kernel_dir>/scripts/get_dvb_firmware to get the firmware",
 -			bcm4500_firmware,ret);
 +					&d->udev->dev)) != 0)
  		return ret;
@@ -393,7 +393,7 @@ upstream submission.
 -	info("downloading bcm4500 firmware from file '%s'",bcm4500_firmware);
 -
  	ptr = fw->data;
- 	buf = kmalloc(64, GFP_KERNEL | GFP_DMA);
+ 	buf = kmalloc(64, GFP_KERNEL);
  	if (!buf) {
 --- a/drivers/media/usb/dvb-usb/opera1.c
 +++ b/drivers/media/usb/dvb-usb/opera1.c
@@ -401,7 +401,7 @@ upstream submission.
  	info("start downloading fpga firmware %s",filename);
  
  	if ((ret = request_firmware(&fw, filename, &dev->dev)) != 0) {
--		err("did not find the firmware file. (%s) Please see linux/Documentation/dvb/ for more details on firmware-problems.",
+-		err("did not find the firmware file '%s'. You can use <kernel_dir>/scripts/get_dvb_firmware to get the firmware",
 -			filename);
  		return ret;
  	} else {
@@ -627,7 +627,7 @@ upstream submission.
  		ret = request_firmware(&fw, fw_file, &client->dev);
 -		if (ret) {
 -			dev_err(&client->dev,
--				"did not find the firmware file. (%s) Please see linux/Documentation/dvb/ for more details on firmware-problems. (%d)\n",
+-				"did not find the firmware file '%s' (status %d). You can use <kernel_dir>/scripts/get_dvb_firmware to get the firmware\n",
 -				fw_file, ret);
 +		if (ret)
  			goto error;
@@ -660,7 +660,7 @@ upstream submission.
  	}
 --- a/drivers/media/common/siano/smscoreapi.c
 +++ b/drivers/media/common/siano/smscoreapi.c
-@@ -1162,10 +1162,8 @@ static int smscore_load_firmware_from_fi
+@@ -1164,10 +1164,8 @@ static int smscore_load_firmware_from_fi
  		return -EINVAL;
  
  	rc = request_firmware(&fw, fw_filename, coredev->device);
@@ -671,7 +671,7 @@ upstream submission.
 -	}
  	pr_debug("read fw %s, buffer size=0x%zx\n", fw_filename, fw->size);
  	fw_buf = kmalloc(ALIGN(fw->size + sizeof(struct sms_firmware),
- 			 SMS_ALLOC_ALIGNMENT), GFP_KERNEL | GFP_DMA);
+ 			 SMS_ALLOC_ALIGNMENT), GFP_KERNEL | coredev->gfp_buf_flags);
 --- a/drivers/media/pci/ttpci/av7110.c
 +++ b/drivers/media/pci/ttpci/av7110.c
 @@ -1516,13 +1516,8 @@ static int get_firmware(struct av7110* a
@@ -845,7 +845,7 @@ upstream submission.
  	}
 --- a/drivers/media/usb/cx231xx/cx231xx-417.c
 +++ b/drivers/media/usb/cx231xx/cx231xx-417.c
-@@ -995,11 +995,6 @@ static int cx231xx_load_firmware(struct
+@@ -996,11 +996,6 @@ static int cx231xx_load_firmware(struct
  				  dev->dev);
  
  	if (retval != 0) {
@@ -880,7 +880,7 @@ upstream submission.
  
  		ret = request_firmware(&fw, filename, &dev->pci->dev);
 -		if (ret != 0)
--			pr_err("did not find the firmware file. (%s) Please see linux/Documentation/dvb/ for more details on firmware-problems.",
+-			pr_err("did not find the firmware file '%s'. You can use <kernel_dir>/scripts/get_dvb_firmware to get the firmware.",
 -			       filename);
 -		else
 +		if (ret == 0)
@@ -1103,7 +1103,7 @@ upstream submission.
  
 --- a/drivers/net/ethernet/broadcom/bnx2.c
 +++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -3719,16 +3719,13 @@ static int bnx2_request_uncached_firmwar
+@@ -3720,16 +3720,13 @@ static int bnx2_request_uncached_firmwar
  	}
  
  	rc = request_firmware(&bp->mips_firmware, mips_fw_file, &bp->pdev->dev);
@@ -1140,7 +1140,7 @@ upstream submission.
  	if (rc) {
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -11378,11 +11378,8 @@ static int tg3_request_firmware(struct t
+@@ -11380,11 +11380,8 @@ static int tg3_request_firmware(struct t
  {
  	const struct tg3_firmware_hdr *fw_hdr;
  
@@ -1211,7 +1211,7 @@ upstream submission.
  	if (ret)
 --- a/drivers/net/ethernet/intel/e100.c
 +++ b/drivers/net/ethernet/intel/e100.c
-@@ -1291,9 +1291,6 @@ static const struct firmware *e100_reque
+@@ -1265,9 +1265,6 @@ static const struct firmware *e100_reque
  
  	if (err) {
  		if (required) {
@@ -1355,7 +1355,7 @@ upstream submission.
  
 --- a/drivers/net/wireless/atmel/atmel.c
 +++ b/drivers/net/wireless/atmel/atmel.c
-@@ -3908,12 +3908,8 @@ static int reset_atmel_card(struct net_d
+@@ -3897,12 +3897,8 @@ static int reset_atmel_card(struct net_d
  					strcpy(priv->firmware_id, "atmel_at76c502.bin");
  				}
  				err = request_firmware(&fw_entry, priv->firmware_id, priv->sys_dev);
@@ -1433,7 +1433,7 @@ upstream submission.
  	}
 --- a/drivers/net/wireless/intel/ipw2x00/ipw2100.c
 +++ b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-@@ -8416,12 +8416,8 @@ static int ipw2100_get_firmware(struct i
+@@ -8417,12 +8417,8 @@ static int ipw2100_get_firmware(struct i
  
  	rc = request_firmware(&fw->fw_entry, fw_name, &priv->pci_dev->dev);
  
@@ -1473,7 +1473,7 @@ upstream submission.
  			else
 --- a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
 +++ b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
-@@ -235,8 +235,6 @@ static int iwl_request_firmware(struct i
+@@ -236,8 +236,6 @@ static int iwl_request_firmware(struct i
  	}
  
  	if (drv->fw_index < cfg->ucode_api_min) {
@@ -1835,7 +1835,7 @@ upstream submission.
  	}
 --- a/drivers/scsi/ipr.c
 +++ b/drivers/scsi/ipr.c
-@@ -4061,10 +4061,8 @@ static ssize_t ipr_store_update_fw(struc
+@@ -4063,10 +4063,8 @@ static ssize_t ipr_store_update_fw(struc
  	if (endline)
  		*endline = '\0';
  
@@ -1873,7 +1873,7 @@ upstream submission.
  	}
 --- a/drivers/scsi/qla2xxx/qla_init.c
 +++ b/drivers/scsi/qla2xxx/qla_init.c
-@@ -7267,8 +7267,6 @@ qla2x00_load_risc(scsi_qla_host_t *vha,
+@@ -7275,8 +7275,6 @@ qla2x00_load_risc(scsi_qla_host_t *vha,
  	/* Load firmware blob. */
  	blob = qla2x00_request_firmware(vha);
  	if (!blob) {
@@ -1882,7 +1882,7 @@ upstream submission.
  		ql_log(ql_log_info, vha, 0x0084,
  		    "Firmware images can be retrieved from: "QLA_FW_URL ".\n");
  		return QLA_FUNCTION_FAILED;
-@@ -7370,8 +7368,6 @@ qla24xx_load_risc_blob(scsi_qla_host_t *
+@@ -7378,8 +7376,6 @@ qla24xx_load_risc_blob(scsi_qla_host_t *
  	/* Load firmware blob. */
  	blob = qla2x00_request_firmware(vha);
  	if (!blob) {
@@ -1908,7 +1908,7 @@ upstream submission.
  	if (qla82xx_validate_firmware_blob(vha,
 --- a/drivers/scsi/qla2xxx/qla_os.c
 +++ b/drivers/scsi/qla2xxx/qla_os.c
-@@ -6511,8 +6511,6 @@ qla2x00_request_firmware(scsi_qla_host_t
+@@ -6517,8 +6517,6 @@ qla2x00_request_firmware(scsi_qla_host_t
  		goto out;
  
  	if (request_firmware(&blob->fw, blob->name, &ha->pdev->dev)) {
@@ -1948,7 +1948,7 @@ upstream submission.
  			release_firmware(fw_entry);
 --- a/drivers/media/usb/go7007/go7007-fw.c
 +++ b/drivers/media/usb/go7007/go7007-fw.c
-@@ -1570,12 +1570,8 @@ int go7007_construct_fw_image(struct go7
+@@ -1573,12 +1573,8 @@ int go7007_construct_fw_image(struct go7
  	default:
  		return -1;
  	}
@@ -1959,7 +1959,7 @@ upstream submission.
 +	if (request_firmware(&fw_entry, GO7007_FW_NAME, go->dev))
  		return -1;
 -	}
- 	code = kzalloc(codespace * 2, GFP_KERNEL);
+ 	code = kcalloc(codespace, 2, GFP_KERNEL);
  	if (code == NULL)
  		goto fw_failed;
 --- a/drivers/media/usb/go7007/go7007-loader.c
@@ -2428,7 +2428,7 @@ upstream submission.
 @@ -60,11 +60,8 @@ static int get_firmware(const struct fir
  		"firmware requested: %s\n", card_fw[fw_index].data);
  	snprintf(name, sizeof(name), "ea/%s", card_fw[fw_index].data);
- 	err = request_firmware(fw_entry, name, pci_device(chip));
+ 	err = request_firmware(fw_entry, name, &chip->pci->dev);
 -	if (err < 0)
 -		dev_err(chip->card->dev,
 -			"get_firmware(): Firmware not available (%d)\n", err);

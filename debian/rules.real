@@ -38,6 +38,7 @@ stamp = [ -d $(dir $@) ] || mkdir $(dir $@); touch $@
 
 setup_env := env -u ABINAME -u ARCH -u FEATURESET -u FLAVOUR -u VERSION -u LOCALVERSION
 setup_env += DISTRIBUTION_OFFICIAL_BUILD=1 DISTRIBUTOR="$(DISTRIBUTOR)" DISTRIBUTION_VERSION="$(SOURCEVERSION)" KBUILD_BUILD_TIMESTAMP="$(SOURCE_DATE)" KBUILD_BUILD_VERSION_TIMESTAMP="$(DISTRIBUTOR) $(SOURCEVERSION) ($(SOURCE_DATE_UTC_ISO))" KBUILD_BUILD_USER="$(word 1,$(subst @, ,$(MAINTAINER)))" KBUILD_BUILD_HOST="$(word 2,$(subst @, ,$(MAINTAINER)))"
+setup_env += KBUILD_VERBOSE=$(if $(filter terse,$(DEB_BUILD_OPTIONS)),0,1)
 
 MAKE_CLEAN = $(setup_env) $(MAKE) CFLAGS_KERNEL=-fdebug-prefix-map=$(CURDIR)=. CFLAGS_MODULE=-fdebug-prefix-map=$(CURDIR)=.
 MAKE_SELF := $(MAKE) -f debian/rules.real $(MAKEOVERRIDES)
@@ -52,6 +53,9 @@ build-indep:
 binary-arch-arch:
 binary-indep:
 
+ifneq ($(DO_CONFIG),False)
+  binary-arch-arch: install-config_$(ARCH)
+endif
 ifneq ($(DO_HEADERS_ALL),False)
   binary-arch-arch: install-headers_$(ARCH)
 endif
@@ -80,7 +84,7 @@ binary-indep: install-support
 ifneq ($(DO_TOOLS_VERSIONED),False)
   build-arch-arch: $(STAMPS_DIR)/build-tools
   binary-arch-arch: install-kbuild
-  ifneq ($(filter alpha amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel powerpc ppc64 ppc64el s390 s390x sh4 sparc sparc64,$(DEB_HOST_ARCH)),)
+  ifneq ($(filter alpha amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel mipsr6 mipsr6el mips64r6 mips64r6el mipsn32 mipsn32el mipsn32r6 mipsn32r6el powerpc ppc64 ppc64el s390 s390x sh4 sparc sparc64,$(DEB_HOST_ARCH)),)
     ifeq ($(filter nopython,$(DEB_BUILD_PROFILES)),)
       binary-arch-arch: install-perf
     endif
@@ -214,6 +218,9 @@ $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR):
 	@$(stamp)
 
 $(STAMPS_DIR)/build-doc: DIR=$(BUILD_DIR)/build-doc
+# sphinx commands in /usr/bin are managed by the alternatives system.
+# Change $PATH to make sure we consistently use the Python 3 version.
+$(STAMPS_DIR)/build-doc: PATH:=/usr/share/sphinx/scripts/python3:$(PATH)
 $(STAMPS_DIR)/build-doc: $(STAMPS_DIR)/source
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	mkdir -p '$(BUILD_DIR)'
@@ -455,7 +462,7 @@ endif
 
 install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_dt: DT_INSTALL_DIR = $(PACKAGE_DIR)/usr/lib/linux-image-$(REAL_VERSION)
 install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_dt:
-ifneq ($(filter arm64 armel armhf,$(ARCH)),)
+ifneq ($(filter arm64 armel armhf mipsr6 mipsr6el mips64r6 mips64r6el,$(ARCH)),)
 	+$(MAKE_CLEAN) -C $(DIR) dtbs
 	+$(MAKE_CLEAN) -C $(DIR) dtbs_install INSTALL_DTBS_PATH=$(CURDIR)/$(DT_INSTALL_DIR)
 endif
@@ -569,19 +576,26 @@ install-source: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-source: $(BUILD_DIR)/$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz $(foreach FEATURESET,$(filter-out none,$(ALL_FEATURESETS)),$(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-$(FEATURESET).patch.xz)
 	dh_testdir
 	dh_testroot
-	dh_installdirs /usr/src/linux-config-$(UPSTREAMVERSION)
 	dh_install $^ /usr/src
-# Include our kernel config files, but with the module signing
-# configuration fixed to work for custom kernels.  Also delete
-# CONFIG_BUILD_SALT which makes no sense for custom kernels.
-	for triplet in $(ALL_TRIPLETS); do \
-	  sed '/CONFIG_\(MODULE_SIG_\(ALL\|KEY\)\|SYSTEM_TRUSTED_KEYS\|BUILD_SALT\)[ =]/d' $(BUILD_DIR)/build_$$triplet/.config | xz -c >debian/$(PACKAGE_NAME)/usr/src/linux-config-$(UPSTREAMVERSION)/config.$$triplet.xz; \
-	done
 # We don't want to recompress, but -Znone is not compatible with older
 # tools and is currently rejected by dak.  -Zgzip -z0 (uncompressed
 # data.tar.gz!) makes dpkg and dak happy, but is incomaptible with
 # other things (#725492).  So use the fastest real gzip mode.
 	+$(MAKE_SELF) install-base BUILDDEB_ARGS='-Zgzip -z1'
+
+install-config_$(ARCH): PACKAGE_NAME = $(SOURCE_BASENAME)-config-$(VERSION)
+install-config_$(ARCH): DH_OPTIONS = -p$(PACKAGE_NAME)
+install-config_$(ARCH): TRIPLETS = $(subst $(BUILD_DIR)/build_,,$(wildcard $(BUILD_DIR)/build_$(ARCH)_*_*))
+install-config_$(ARCH):
+	dh_testdir
+	dh_testroot
+	dh_installdirs /usr/src/linux-config-$(UPSTREAMVERSION)
+# Fix the module signing configuration to work for custom kernels.  Also delete
+# CONFIG_BUILD_SALT which makes no sense for custom kernels.
+	for triplet in $(TRIPLETS); do \
+		sed '/CONFIG_\(MODULE_SIG_\(ALL\|KEY\)\|SYSTEM_TRUSTED_KEYS\|BUILD_SALT\)[ =]/d' $(BUILD_DIR)/build_$$triplet/.config | xz -c >debian/$(PACKAGE_NAME)/usr/src/linux-config-$(UPSTREAMVERSION)/config.$$triplet.xz; \
+	done
+	+$(MAKE_SELF) install-base
 
 define make-tools
 +mkdir -p $(BUILD_DIR)/build-tools/$(1) && $(MAKE_CLEAN) -C $(BUILD_DIR)/build-tools/$(1) -f $(CURDIR)/debian/rules.d/$(1)/Makefile top_srcdir=$(CURDIR) top_rulesdir=$(CURDIR)/debian/rules.d OUTDIR=$(1) VERSION=$(VERSION) KERNEL_ARCH=$(KERNEL_ARCH)
@@ -658,7 +672,7 @@ install-perf: $(STAMPS_DIR)/build-tools
 	dh_prep
 	$(call make-tools,tools/perf) install DESTDIR=$(DIR)
 	dh_perl /usr/share/perf_$(VERSION)-core/scripts/perl/Perf-Trace-Util/lib/
-	dh_python2 /usr/share/perf_$(VERSION)-core/scripts/python/Perf-Trace-Util/lib/
+	dh_python3 /usr/share/perf_$(VERSION)-core/scripts/python/Perf-Trace-Util/lib/
 	dh_installchangelogs
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs

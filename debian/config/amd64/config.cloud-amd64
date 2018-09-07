@@ -875,7 +875,7 @@ CONFIG_HYPERV_NET=m
 # CONFIG_PCI_PASID is not set
 
 ##
-## file: drivers/pci/host/Kconfig
+## file: drivers/pci/controller/Kconfig
 ##
 # CONFIG_VMD is not set
 
@@ -1097,11 +1097,6 @@ CONFIG_HYPERV_STORAGE=m
 ## file: drivers/staging/Kconfig
 ##
 # CONFIG_STAGING is not set
-
-##
-## file: drivers/staging/ipx/Kconfig
-##
-# CONFIG_IPX is not set
 
 ##
 ## file: drivers/target/Kconfig

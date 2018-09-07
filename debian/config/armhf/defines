@@ -1,7 +1,7 @@
 [base]
-flavours:
- armmp
- armmp-lpae
+featuresets:
+ none
+ rt
 kernel-arch: arm
 
 [build]

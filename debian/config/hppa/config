@@ -443,11 +443,6 @@ CONFIG_PCMCIA_QLOGIC=m
 CONFIG_PCMCIA_SYM53C500=m
 
 ##
-## file: drivers/staging/ipx/Kconfig
-##
-# CONFIG_IPX is not set
-
-##
 ## file: drivers/tty/Kconfig
 ##
 CONFIG_VT=y

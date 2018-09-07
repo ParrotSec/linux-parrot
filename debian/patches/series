@@ -1,3 +1,10 @@
+# Disable features broken by exclusion of upstream files
+debian/dfsg/arch-powerpc-platforms-8xx-ucode-disable.patch
+debian/dfsg/drivers-media-dvb-dvb-usb-af9005-disable.patch
+debian/dfsg/vs6624-disable.patch
+debian/dfsg/drivers-net-appletalk-cops.patch
+debian/dfsg/video-remove-nvidiafb-and-rivafb.patch
+
 # Changes to support package build system
 debian/version.patch
 debian/uname-version-timestamp.patch
@@ -8,12 +15,15 @@ debian/mips-disable-werror.patch
 debian/mips-boston-disable-its.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/powerpcspe-omit-uimage.patch
-debian/modpost-symbol-prefix.patch
 debian/tools-perf-version.patch
 debian/tools-perf-install.patch
 debian/wireless-add-debian-wireless-regdb-certificates.patch
 debian/export-symbols-needed-by-android-drivers.patch
 debian/android-enable-building-ashmem-and-binder-as-modules.patch
+
+# Parrot patches
+features/all/wifi-injection.patch
+features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Fixes/improvements to firmware loading
 features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
@@ -22,10 +32,6 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
-
-# Parrot patches
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Patches from aufs4 repository, imported with
 # debian/patches/features/all/aufs4/gen-patch.  These are only the
@@ -66,22 +72,19 @@ bugfix/x86/platform-x86-ideapad-laptop-add-y520-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-y720-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-ideapad-v510-15ikb-t.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-several-models-to-no.patch
-bugfix/arm/gpu-host1x-fix-compiler-errors-by-converting-to-dma_.patch
 bugfix/x86/perf-tools-fix-unwind-build-on-i386.patch
 bugfix/sh/sh-boot-do-not-use-hyphen-in-exported-variable-name.patch
 bugfix/x86/mmap-remember-the-map_fixed-flag-as-vm_fixed.patch
 bugfix/x86/mmap-add-an-exception-to-the-stack-gap-for-hotspot-jvm.patch
 bugfix/powerpc/powerpc-lib-sstep-fix-building-for-powerpcspe.patch
 bugfix/powerpc/powerpc-lib-makefile-don-t-pull-in-quad.o-for-32-bit.patch
+bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
-# Add support for Raspberry PI 3b+
-features/armhf/ARM-dts-bcm2837-Add-Raspberry-Pi-3-B.patch
-features/arm64/arm64-dts-broadcom-Add-reference-to-Raspberry-Pi-3-B.patch
 # Add device-tree for Pinebook from linux next-20180625
 features/arm64/pinebook/0001-arm64-allwinner-a64-Add-RTC-clock-to-phandle-32kHz-e.patch
 features/arm64/pinebook/0002-arm64-dts-allwinner-a64-add-R_I2C-controller.patch
@@ -98,6 +101,7 @@ bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/i40e-build-for-64-bit-targets-only.patch
+bugfix/all/netfilter-ipvs-Fix-invalid-bytes-in-IP_VS_MH_TAB_IND.patch
 bugfix/all/block-really-disable-runtime-pm-for-blk-mq.patch
 
 # Miscellaneous features
@@ -154,10 +158,12 @@ bugfix/all/tools-perf-man-date.patch
 bugfix/all/tools-perf-remove-shebangs.patch
 bugfix/all/tools-lib-traceevent-use-ldflags.patch
 bugfix/x86/revert-perf-build-fix-libunwind-feature-detection-on.patch
+bugfix/all/perf-documentation-fix-out-of-tree-asciidoctor-man-page-generation.patch
 bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/lockdep-stub-nmi-watchdog-reset.patch
+bugfix/all/lockdep-stub-task_struct-state.patch
 bugfix/all/tools-lib-api-fs-fs.c-fix-misuse-of-strncpy.patch
 bugfix/all/usbip-fix-misuse-of-strncpy.patch
 

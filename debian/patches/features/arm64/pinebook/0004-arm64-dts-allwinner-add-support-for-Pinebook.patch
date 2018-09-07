@@ -45,10 +45,8 @@ Signed-off-by: Maxime Ripard <maxime.ripard@bootlin.com>
  2 files changed, 281 insertions(+)
  create mode 100644 arch/arm64/boot/dts/allwinner/sun50i-a64-pinebook.dts
 
-Index: linux-4.17.2/arch/arm64/boot/dts/allwinner/Makefile
-===================================================================
---- linux-4.17.2.orig/arch/arm64/boot/dts/allwinner/Makefile
-+++ linux-4.17.2/arch/arm64/boot/dts/allwinner/Makefile
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
 @@ -4,6 +4,7 @@ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-n
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-olinuxino.dtb
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-orangepi-win.dtb
@@ -56,11 +54,9 @@ Index: linux-4.17.2/arch/arm64/boot/dts/allwinner/Makefile
 +dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-pinebook.dtb
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-sopine-baseboard.dtb
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-teres-i.dtb
- dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-orangepi-pc2.dtb
-Index: linux-4.17.2/arch/arm64/boot/dts/allwinner/sun50i-a64-pinebook.dts
-===================================================================
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-libretech-all-h3-cc.dtb
 --- /dev/null
-+++ linux-4.17.2/arch/arm64/boot/dts/allwinner/sun50i-a64-pinebook.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pinebook.dts
 @@ -0,0 +1,280 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*

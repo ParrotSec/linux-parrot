@@ -1,5 +1,5 @@
 [abi]
-abiname: parrot17
+abiname: parrot8
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*
@@ -109,7 +109,6 @@ arches:
  sh4
  sparc
  sparc64
- tilegx
  x32
 compiler: gcc-7
 featuresets:
@@ -122,7 +121,7 @@ debug-info: true
 signed-code: false
 
 [featureset-rt_base]
-enabled: false
+enabled: true
 
 [description]
 part-long-up: This kernel is not suitable for SMP (multi-processor,

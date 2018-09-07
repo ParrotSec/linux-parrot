@@ -3,7 +3,7 @@ Build-Profiles: <!stage1 !pkg.linux.nosource>
 Architecture: all
 Section: kernel
 Depends: binutils, xz-utils, ${misc:Depends}
-Recommends: libc6-dev | libc-dev, gcc, make, bc
+Recommends: libc6-dev | libc-dev, gcc, make, bc, @source_basename@-config-@version@
 Suggests: libncurses-dev | ncurses-dev, libqt4-dev, pkg-config
 Multi-Arch: foreign
 Description: Linux kernel source for version @version@ with Debian patches

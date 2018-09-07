@@ -714,12 +714,6 @@ CONFIG_PCMCIA_QLOGIC=m
 CONFIG_PCMCIA_SYM53C500=m
 
 ##
-## file: drivers/staging/ipx/Kconfig
-##
-CONFIG_IPX=m
-CONFIG_IPX_INTERN=y
-
-##
 ## file: drivers/tty/Kconfig
 ##
 CONFIG_VT=y

@@ -147,9 +147,6 @@ CONFIG_OMAP_RESET_CLOCKS=y
 CONFIG_OMAP_32K_TIMER=y
 # CONFIG_OMAP3_L2_AUX_SECURE_SAVE_RESTORE is not set
 CONFIG_OMAP_SERIAL_WAKE=y
-## choice: OMAP PM layer selection
-CONFIG_OMAP_PM_NOOP=y
-## end choice
 
 ##
 ## file: drivers/android/Kconfig
@@ -241,7 +238,6 @@ CONFIG_ARM_TEGRA_DEVFREQ=m
 CONFIG_DMADEVICES=y
 CONFIG_AMBA_PL08X=y
 CONFIG_DMA_BCM2835=y
-CONFIG_DMA_OMAP=y
 CONFIG_DMA_SUN6I=m
 CONFIG_IMX_DMA=y
 CONFIG_IMX_SDMA=y
@@ -249,8 +245,13 @@ CONFIG_MV_XOR=y
 CONFIG_MXS_DMA=y
 CONFIG_PL330_DMA=y
 CONFIG_TEGRA20_APB_DMA=y
+
+##
+## file: drivers/dma/ti/Kconfig
+##
 CONFIG_TI_CPPI41=m
 CONFIG_TI_EDMA=y
+CONFIG_DMA_OMAP=y
 
 ##
 ## file: drivers/extcon/Kconfig
@@ -882,17 +883,17 @@ CONFIG_NVMEM_SUNXI_SID=m
 CONFIG_MESON_MX_EFUSE=m
 
 ##
-## file: drivers/pci/dwc/Kconfig
-##
-CONFIG_PCI_DRA7XX_HOST=y
-CONFIG_PCI_IMX6=y
-
-##
-## file: drivers/pci/host/Kconfig
+## file: drivers/pci/controller/Kconfig
 ##
 CONFIG_PCI_MVEBU=y
 CONFIG_PCI_TEGRA=y
 CONFIG_PCI_HOST_GENERIC=y
+
+##
+## file: drivers/pci/controller/dwc/Kconfig
+##
+CONFIG_PCI_DRA7XX_HOST=y
+CONFIG_PCI_IMX6=y
 
 ##
 ## file: drivers/phy/allwinner/Kconfig
@@ -1093,7 +1094,6 @@ CONFIG_SPI_SUN4I=m
 CONFIG_SPI_SUN6I=m
 CONFIG_SPI_TEGRA114=m
 CONFIG_SPI_TEGRA20_SFLASH=m
-CONFIG_SPI_SPIDEV=y
 
 ##
 ## file: drivers/thermal/Kconfig

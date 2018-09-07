@@ -7,9 +7,8 @@ CONFIG_JUMP_LABEL=y
 # CONFIG_STATIC_KEYS_SELFTEST is not set
 #. Until we work out how to package them
 # CONFIG_GCC_PLUGINS is not set
-## choice: Stack Protector buffer overflow detection
-CONFIG_CC_STACKPROTECTOR_STRONG=y
-## end choice
+CONFIG_STACKPROTECTOR=y
+CONFIG_STACKPROTECTOR_STRONG=y
 CONFIG_VMAP_STACK=y
 CONFIG_STRICT_KERNEL_RWX=y
 
@@ -192,7 +191,6 @@ CONFIG_ACPI_NFIT=m
 CONFIG_ANDROID_BINDER_IPC=m
 #. This configuration should support Anbox
 CONFIG_ANDROID_BINDER_DEVICES="binder"
-# CONFIG_ANDROID_BINDER_IPC_32BIT is not set
 # CONFIG_ANDROID_BINDER_IPC_SELFTEST is not set
 
 ##
@@ -305,14 +303,18 @@ CONFIG_DEVTMPFS=y
 # CONFIG_DEVTMPFS_MOUNT is not set
 CONFIG_STANDALONE=y
 CONFIG_PREVENT_FIRMWARE_BUILD=y
-CONFIG_FW_LOADER=y
-CONFIG_EXTRA_FIRMWARE=""
-# CONFIG_FW_LOADER_USER_HELPER_FALLBACK is not set
 CONFIG_ALLOW_DEV_COREDUMP=y
 # CONFIG_DEBUG_DRIVER is not set
 # CONFIG_DEBUG_DEVRES is not set
 # CONFIG_DEBUG_TEST_DRIVER_REMOVE is not set
 # CONFIG_DMA_FENCE_TRACE is not set
+
+##
+## file: drivers/base/firmware_loader/Kconfig
+##
+CONFIG_FW_LOADER=y
+CONFIG_EXTRA_FIRMWARE=""
+# CONFIG_FW_LOADER_USER_HELPER_FALLBACK is not set
 
 ##
 ## file: drivers/bcma/Kconfig
@@ -1015,6 +1017,8 @@ CONFIG_IIO_BUFFER=y
 ##
 ## file: drivers/iio/accel/Kconfig
 ##
+# CONFIG_ADIS16201 is not set
+# CONFIG_ADIS16209 is not set
 # CONFIG_BMA180 is not set
 # CONFIG_BMA220 is not set
 # CONFIG_BMC150_ACCEL is not set
@@ -1103,7 +1107,8 @@ CONFIG_AD5446=m
 # CONFIG_AD5593R is not set
 # CONFIG_AD5504 is not set
 # CONFIG_AD5624R_SPI is not set
-# CONFIG_AD5686 is not set
+# CONFIG_AD5686_SPI is not set
+# CONFIG_AD5696_I2C is not set
 # CONFIG_AD5755 is not set
 # CONFIG_AD5761 is not set
 # CONFIG_AD5764 is not set
@@ -1207,6 +1212,7 @@ CONFIG_HID_SENSOR_PROX=m
 # CONFIG_TCS3472 is not set
 # CONFIG_SENSORS_TSL2563 is not set
 # CONFIG_TSL2583 is not set
+# CONFIG_TSL2772 is not set
 # CONFIG_TSL4531 is not set
 # CONFIG_US5182D is not set
 # CONFIG_VCNL4000 is not set
@@ -1263,6 +1269,11 @@ CONFIG_HID_SENSOR_PRESS=m
 # CONFIG_AS3935 is not set
 # CONFIG_LIDAR_LITE_V2 is not set
 # CONFIG_SX9500 is not set
+
+##
+## file: drivers/iio/resolver/Kconfig
+##
+# CONFIG_AD2S1200 is not set
 
 ##
 ## file: drivers/iio/temperature/Kconfig
@@ -2079,18 +2090,6 @@ CONFIG_VIDEO_TW68=m
 CONFIG_VIDEO_TW686X=m
 
 ##
-## file: drivers/media/pci/zoran/Kconfig
-##
-CONFIG_VIDEO_ZORAN=m
-CONFIG_VIDEO_ZORAN_DC30=m
-CONFIG_VIDEO_ZORAN_ZR36060=m
-CONFIG_VIDEO_ZORAN_BUZ=m
-CONFIG_VIDEO_ZORAN_DC10=m
-CONFIG_VIDEO_ZORAN_LML33=m
-CONFIG_VIDEO_ZORAN_LML33R10=m
-CONFIG_VIDEO_ZORAN_AVS6EYES=m
-
-##
 ## file: drivers/media/platform/Kconfig
 ##
 CONFIG_V4L_PLATFORM_DRIVERS=y
@@ -2124,7 +2123,6 @@ CONFIG_VIDEO_VIVID_MAX_DEVS=64
 ## file: drivers/media/radio/Kconfig
 ##
 CONFIG_RADIO_ADAPTERS=y
-CONFIG_RADIO_SI470X=y
 # CONFIG_RADIO_SI4713 is not set
 CONFIG_USB_MR800=m
 CONFIG_RADIO_SHARK=m
@@ -2140,6 +2138,7 @@ CONFIG_USB_MA901=m
 ##
 ## file: drivers/media/radio/si470x/Kconfig
 ##
+CONFIG_RADIO_SI470X=y
 CONFIG_USB_SI470X=m
 # CONFIG_I2C_SI470X is not set
 
@@ -3949,9 +3948,9 @@ CONFIG_PCI_IOV=y
 # CONFIG_PCI_PASID is not set
 
 ##
-## file: drivers/pci/dwc/Kconfig
+## file: drivers/pci/controller/dwc/Kconfig
 ##
-# CONFIG_PCIE_DW_PLAT is not set
+# CONFIG_PCIE_DW_PLAT_HOST is not set
 
 ##
 ## file: drivers/pci/hotplug/Kconfig
@@ -3963,21 +3962,13 @@ CONFIG_HOTPLUG_PCI_CPCI=y
 ##
 CONFIG_PCIEPORTBUS=y
 CONFIG_HOTPLUG_PCI_PCIE=y
+CONFIG_PCIEAER=y
+CONFIG_PCIEAER_INJECT=m
+# CONFIG_PCIE_ECRC is not set
 CONFIG_PCIEASPM=y
 # CONFIG_PCIEASPM_DEBUG is not set
 CONFIG_PCIE_DPC=y
 CONFIG_PCIE_PTM=y
-
-##
-## file: drivers/pci/pcie/aer/Kconfig
-##
-CONFIG_PCIEAER=y
-# CONFIG_PCIE_ECRC is not set
-
-##
-## file: drivers/pci/pcie/aer/Kconfig.debug
-##
-CONFIG_PCIEAER_INJECT=m
 
 ##
 ## file: drivers/pcmcia/Kconfig
@@ -4121,7 +4112,7 @@ CONFIG_PPS_CLIENT_PARPORT=m
 ## file: drivers/ptp/Kconfig
 ##
 CONFIG_PTP_1588_CLOCK=m
-CONFIG_PTP_1588_CLOCK_GIANFAR=m
+CONFIG_PTP_1588_CLOCK_QORIQ=m
 CONFIG_PTP_1588_CLOCK_IXP46X=m
 
 ##
@@ -4445,7 +4436,7 @@ CONFIG_SPI_LM70_LLP=m
 # CONFIG_SPI_XCOMM is not set
 # CONFIG_SPI_XILINX is not set
 # CONFIG_SPI_ZYNQMP_GQSPI is not set
-# CONFIG_SPI_SPIDEV is not set
+CONFIG_SPI_SPIDEV=y
 # CONFIG_SPI_LOOPBACK_TEST is not set
 # CONFIG_SPI_TLE62X0 is not set
 
@@ -4522,9 +4513,7 @@ CONFIG_ASHMEM=m
 ##
 ## file: drivers/staging/iio/accel/Kconfig
 ##
-# CONFIG_ADIS16201 is not set
 # CONFIG_ADIS16203 is not set
-# CONFIG_ADIS16209 is not set
 # CONFIG_ADIS16240 is not set
 
 ##
@@ -4565,30 +4554,15 @@ CONFIG_ASHMEM=m
 # CONFIG_AD5933 is not set
 
 ##
-## file: drivers/staging/iio/light/Kconfig
-##
-# CONFIG_TSL2x7x is not set
-
-##
 ## file: drivers/staging/iio/meter/Kconfig
 ##
-# CONFIG_ADE7753 is not set
-# CONFIG_ADE7754 is not set
-# CONFIG_ADE7758 is not set
-# CONFIG_ADE7759 is not set
 # CONFIG_ADE7854 is not set
 
 ##
 ## file: drivers/staging/iio/resolver/Kconfig
 ##
 # CONFIG_AD2S90 is not set
-# CONFIG_AD2S1200 is not set
 # CONFIG_AD2S1210 is not set
-
-##
-## file: drivers/staging/lustre/lustre/Kconfig
-##
-# CONFIG_LUSTRE_FS is not set
 
 ##
 ## file: drivers/staging/media/Kconfig
@@ -4606,6 +4580,18 @@ CONFIG_ASHMEM=m
 # CONFIG_SOC_CAMERA_MT9T031 is not set
 
 ##
+## file: drivers/staging/media/zoran/Kconfig
+##
+CONFIG_VIDEO_ZORAN=m
+CONFIG_VIDEO_ZORAN_DC30=m
+CONFIG_VIDEO_ZORAN_ZR36060=m
+CONFIG_VIDEO_ZORAN_BUZ=m
+CONFIG_VIDEO_ZORAN_DC10=m
+CONFIG_VIDEO_ZORAN_LML33=m
+CONFIG_VIDEO_ZORAN_LML33R10=m
+CONFIG_VIDEO_ZORAN_AVS6EYES=m
+
+##
 ## file: drivers/staging/most/Kconfig
 ##
 # CONFIG_MOST is not set
@@ -4614,19 +4600,6 @@ CONFIG_ASHMEM=m
 ## file: drivers/staging/mt29f_spinand/Kconfig
 ##
 # CONFIG_MTD_SPINAND_MT29F is not set
-
-##
-## file: drivers/staging/ncpfs/Kconfig
-##
-CONFIG_NCP_FS=m
-CONFIG_NCPFS_PACKET_SIGNING=y
-CONFIG_NCPFS_IOCTL_LOCKING=y
-CONFIG_NCPFS_STRONG=y
-CONFIG_NCPFS_NFS_NS=y
-CONFIG_NCPFS_OS2_NS=y
-# CONFIG_NCPFS_SMALLDOS is not set
-CONFIG_NCPFS_NLS=y
-CONFIG_NCPFS_EXTRAS=y
 
 ##
 ## file: drivers/staging/rtl8188eu/Kconfig
@@ -5237,7 +5210,6 @@ CONFIG_FB_MB862XX_PCI_GDC=y
 ## end choice
 CONFIG_FB_MB862XX_I2C=y
 # CONFIG_FB_BROADSHEET is not set
-# CONFIG_FB_AUO_K190X is not set
 # CONFIG_FB_SSD1307 is not set
 # CONFIG_FB_SM712 is not set
 
@@ -5386,9 +5358,9 @@ CONFIG_AFS_FS=m
 CONFIG_AFS_FSCACHE=y
 
 ##
-## file: fs/autofs4/Kconfig
+## file: fs/autofs/Kconfig
 ##
-CONFIG_AUTOFS4_FS=m
+CONFIG_AUTOFS_FS=m
 
 ##
 ## file: fs/befs/Kconfig
@@ -5877,7 +5849,6 @@ CONFIG_XFS_RT=y
 ##
 ## file: init/Kconfig
 ##
-CONFIG_CROSS_COMPILE=""
 # CONFIG_COMPILE_TEST is not set
 CONFIG_LOCALVERSION=""
 # CONFIG_LOCALVERSION_AUTO is not set
@@ -6006,8 +5977,8 @@ CONFIG_MODULE_SIG_SHA256=y
 ##
 ## choice: Timer frequency
 # CONFIG_HZ_100 is not set
-# CONFIG_HZ_250 is not set
 CONFIG_HZ_300=y
+# CONFIG_HZ_250 is not set
 # CONFIG_HZ_1000 is not set
 ## end choice
 
@@ -6408,7 +6379,6 @@ CONFIG_BRIDGE_VLAN_FILTERING=y
 ## file: net/bridge/netfilter/Kconfig
 ##
 CONFIG_NF_TABLES_BRIDGE=y
-CONFIG_NFT_BRIDGE_META=m
 CONFIG_NFT_BRIDGE_REJECT=m
 CONFIG_NF_LOG_BRIDGE=m
 CONFIG_BRIDGE_NF_EBTABLES=m
@@ -6755,16 +6725,11 @@ CONFIG_NF_CT_NETLINK_TIMEOUT=y
 CONFIG_NF_CT_NETLINK_HELPER=m
 CONFIG_NETFILTER_NETLINK_GLUE_CT=y
 CONFIG_NF_TABLES=m
+CONFIG_NF_TABLES_SET=m
 CONFIG_NF_TABLES_INET=y
 CONFIG_NF_TABLES_NETDEV=y
-CONFIG_NFT_EXTHDR=m
-CONFIG_NFT_META=m
-CONFIG_NFT_RT=m
 CONFIG_NFT_NUMGEN=m
 CONFIG_NFT_CT=m
-CONFIG_NFT_SET_RBTREE=m
-CONFIG_NFT_SET_HASH=m
-CONFIG_NFT_SET_BITMAP=m
 CONFIG_NFT_COUNTER=m
 CONFIG_NFT_LOG=m
 CONFIG_NFT_LIMIT=m

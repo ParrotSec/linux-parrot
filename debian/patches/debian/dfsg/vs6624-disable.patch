@@ -5,8 +5,8 @@ Forwarded: not-needed
 
 --- a/drivers/media/i2c/Kconfig
 +++ b/drivers/media/i2c/Kconfig
-@@ -422,6 +422,7 @@ config VIDEO_OV7670
- 	  controller.
+@@ -768,6 +768,7 @@ config VIDEO_OV13858
+ 	  OV13858 camera.
  
  config VIDEO_VS6624
 +	depends on BROKEN

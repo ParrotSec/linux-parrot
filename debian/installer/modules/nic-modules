@@ -17,6 +17,7 @@ xircom_cb -
 
 # Exclude libraries packaged in nic-{common,shared} modules
 8390 -
+fixed_phy -
 libphy -
 
 # Exclude iSCSI drivers packaged in scsi-modules

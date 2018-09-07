@@ -1,0 +1,31 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Wed, 4 Apr 2018 11:43:57 +0200
+Subject: [PATCH] userns: Use irqsave variant of refcount_dec_and_lock()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+The irqsave variant of refcount_dec_and_lock handles irqsave/restore when
+taking/releasing the spin lock. With this variant the call of
+local_irq_save/restore is no longer required.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+[bigeasy: s@atomic_dec_and_lock@refcount_dec_and_lock@g ]
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/user.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+--- a/kernel/user.c
++++ b/kernel/user.c
+@@ -169,11 +169,8 @@ void free_uid(struct user_struct *up)
+ 	if (!up)
+ 		return;
+ 
+-	local_irq_save(flags);
+-	if (refcount_dec_and_lock(&up->__count, &uidhash_lock))
++	if (refcount_dec_and_lock_irqsave(&up->__count, &uidhash_lock, &flags))
+ 		free_user(up, flags);
+-	else
+-		local_irq_restore(flags);
+ }
+ 
+ struct user_struct *alloc_uid(kuid_t uid)

@@ -1,0 +1,103 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 7 May 2018 16:51:09 +0200
+Subject: [PATCH] bdi: use refcount_t for reference counting instead atomic_t
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+refcount_t type and corresponding API should be used instead of atomic_t when
+the variable is used as a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free situations.
+
+Suggested-by: Peter Zijlstra <peterz@infradead.org>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/backing-dev-defs.h |    3 ++-
+ include/linux/backing-dev.h      |    4 ++--
+ mm/backing-dev.c                 |   12 ++++++------
+ 3 files changed, 10 insertions(+), 9 deletions(-)
+
+--- a/include/linux/backing-dev-defs.h
++++ b/include/linux/backing-dev-defs.h
+@@ -12,6 +12,7 @@
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/kref.h>
++#include <linux/refcount.h>
+ 
+ struct page;
+ struct device;
+@@ -75,7 +76,7 @@ enum wb_reason {
+  */
+ struct bdi_writeback_congested {
+ 	unsigned long state;		/* WB_[a]sync_congested flags */
+-	atomic_t refcnt;		/* nr of attached wb's and blkg */
++	refcount_t refcnt;		/* nr of attached wb's and blkg */
+ 
+ #ifdef CONFIG_CGROUP_WRITEBACK
+ 	struct backing_dev_info *__bdi;	/* the associated bdi, set to NULL
+--- a/include/linux/backing-dev.h
++++ b/include/linux/backing-dev.h
+@@ -404,13 +404,13 @@ static inline bool inode_cgwb_enabled(st
+ static inline struct bdi_writeback_congested *
+ wb_congested_get_create(struct backing_dev_info *bdi, int blkcg_id, gfp_t gfp)
+ {
+-	atomic_inc(&bdi->wb_congested->refcnt);
++	refcount_inc(&bdi->wb_congested->refcnt);
+ 	return bdi->wb_congested;
+ }
+ 
+ static inline void wb_congested_put(struct bdi_writeback_congested *congested)
+ {
+-	if (atomic_dec_and_test(&congested->refcnt))
++	if (refcount_dec_and_test(&congested->refcnt))
+ 		kfree(congested);
+ }
+ 
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -438,10 +438,10 @@ wb_congested_get_create(struct backing_d
+ 	if (new_congested) {
+ 		/* !found and storage for new one already allocated, insert */
+ 		congested = new_congested;
+-		new_congested = NULL;
+ 		rb_link_node(&congested->rb_node, parent, node);
+ 		rb_insert_color(&congested->rb_node, &bdi->cgwb_congested_tree);
+-		goto found;
++		spin_unlock_irqrestore(&cgwb_lock, flags);
++		return congested;
+ 	}
+ 
+ 	spin_unlock_irqrestore(&cgwb_lock, flags);
+@@ -451,13 +451,13 @@ wb_congested_get_create(struct backing_d
+ 	if (!new_congested)
+ 		return NULL;
+ 
+-	atomic_set(&new_congested->refcnt, 0);
++	refcount_set(&new_congested->refcnt, 1);
+ 	new_congested->__bdi = bdi;
+ 	new_congested->blkcg_id = blkcg_id;
+ 	goto retry;
+ 
+ found:
+-	atomic_inc(&congested->refcnt);
++	refcount_inc(&congested->refcnt);
+ 	spin_unlock_irqrestore(&cgwb_lock, flags);
+ 	kfree(new_congested);
+ 	return congested;
+@@ -474,7 +474,7 @@ void wb_congested_put(struct bdi_writeba
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	if (!atomic_dec_and_lock(&congested->refcnt, &cgwb_lock)) {
++	if (!refcount_dec_and_lock(&congested->refcnt, &cgwb_lock)) {
+ 		local_irq_restore(flags);
+ 		return;
+ 	}
+@@ -804,7 +804,7 @@ static int cgwb_bdi_init(struct backing_
+ 	if (!bdi->wb_congested)
+ 		return -ENOMEM;
+ 
+-	atomic_set(&bdi->wb_congested->refcnt, 1);
++	refcount_set(&bdi->wb_congested->refcnt, 1);
+ 
+ 	err = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
+ 	if (err) {

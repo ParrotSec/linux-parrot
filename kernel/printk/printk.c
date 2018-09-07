@@ -1824,28 +1824,16 @@ static size_t log_output(int facility, int level, enum log_flags lflags, const c
 	return log_store(facility, level, lflags, 0, dict, dictlen, text, text_len);
 }
 
-asmlinkage int vprintk_emit(int facility, int level,
-			    const char *dict, size_t dictlen,
-			    const char *fmt, va_list args)
+/* Must be called under logbuf_lock. */
+int vprintk_store(int facility, int level,
+		  const char *dict, size_t dictlen,
+		  const char *fmt, va_list args)
 {
 	static char textbuf[LOG_LINE_MAX];
 	char *text = textbuf;
 	size_t text_len;
 	enum log_flags lflags = 0;
-	unsigned long flags;
-	int printed_len;
-	bool in_sched = false;
 
-	if (level == LOGLEVEL_SCHED) {
-		level = LOGLEVEL_DEFAULT;
-		in_sched = true;
-	}
-
-	boot_delay_msec(level);
-	printk_delay();
-
-	/* This stops the holder of console_sem just where we want him */
-	logbuf_lock_irqsave(flags);
 	/*
 	 * The printf needs to come first; we need the syslog
 	 * prefix which might be passed-in as a parameter.
@@ -1886,8 +1874,29 @@ asmlinkage int vprintk_emit(int facility, int level,
 	if (dict)
 		lflags |= LOG_PREFIX|LOG_NEWLINE;
 
-	printed_len = log_output(facility, level, lflags, dict, dictlen, text, text_len);
+	return log_output(facility, level, lflags,
+			  dict, dictlen, text, text_len);
+}
 
+asmlinkage int vprintk_emit(int facility, int level,
+			    const char *dict, size_t dictlen,
+			    const char *fmt, va_list args)
+{
+	int printed_len;
+	bool in_sched = false;
+	unsigned long flags;
+
+	if (level == LOGLEVEL_SCHED) {
+		level = LOGLEVEL_DEFAULT;
+		in_sched = true;
+	}
+
+	boot_delay_msec(level);
+	printk_delay();
+
+	/* This stops the holder of console_sem just where we want him */
+	logbuf_lock_irqsave(flags);
+	printed_len = vprintk_store(facility, level, dict, dictlen, fmt, args);
 	logbuf_unlock_irqrestore(flags);
 
 	/* If called from the scheduler, we can not call up(). */
@@ -1908,6 +1917,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 		preempt_enable();
 	}
 
+	wake_up_klogd();
 	return printed_len;
 }
 EXPORT_SYMBOL(vprintk_emit);
@@ -2289,9 +2299,7 @@ void console_unlock(void)
 {
 	static char ext_text[CONSOLE_EXT_LOG_MAX];
 	static char text[LOG_LINE_MAX + PREFIX_MAX];
-	static u64 seen_seq;
 	unsigned long flags;
-	bool wake_klogd = false;
 	bool do_cond_resched, retry;
 
 	if (console_suspended) {
@@ -2335,11 +2343,6 @@ again:
 
 		printk_safe_enter_irqsave(flags);
 		raw_spin_lock(&logbuf_lock);
-		if (seen_seq != log_next_seq) {
-			wake_klogd = true;
-			seen_seq = log_next_seq;
-		}
-
 		if (console_seq < log_first_seq) {
 			len = sprintf(text, "** %u printk messages dropped **\n",
 				      (unsigned)(log_first_seq - console_seq));
@@ -2397,7 +2400,7 @@ skip:
 
 		if (console_lock_spinning_disable_and_check()) {
 			printk_safe_exit_irqrestore(flags);
-			goto out;
+			return;
 		}
 
 		printk_safe_exit_irqrestore(flags);
@@ -2429,10 +2432,6 @@ skip:
 
 	if (retry && console_trylock())
 		goto again;
-
-out:
-	if (wake_klogd)
-		wake_up_klogd();
 }
 EXPORT_SYMBOL(console_unlock);
 
@@ -2888,16 +2887,20 @@ void wake_up_klogd(void)
 	preempt_enable();
 }
 
+void defer_console_output(void)
+{
+	preempt_disable();
+	__this_cpu_or(printk_pending, PRINTK_PENDING_OUTPUT);
+	irq_work_queue(this_cpu_ptr(&wake_up_klogd_work));
+	preempt_enable();
+}
+
 int vprintk_deferred(const char *fmt, va_list args)
 {
 	int r;
 
 	r = vprintk_emit(0, LOGLEVEL_SCHED, NULL, 0, fmt, args);
-
-	preempt_disable();
-	__this_cpu_or(printk_pending, PRINTK_PENDING_OUTPUT);
-	irq_work_queue(this_cpu_ptr(&wake_up_klogd_work));
-	preempt_enable();
+	defer_console_output();
 
 	return r;
 }

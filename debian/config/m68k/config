@@ -376,6 +376,7 @@ CONFIG_DEV_APPLETALK=m
 ##
 ## file: drivers/net/ethernet/8390/Kconfig
 ##
+CONFIG_XSURF100=m
 CONFIG_HYDRA=m
 CONFIG_MAC8390=m
 CONFIG_NE2000=m
@@ -499,6 +500,7 @@ CONFIG_A2091_SCSI=m
 CONFIG_GVP11_SCSI=m
 CONFIG_SCSI_A4000T=m
 CONFIG_SCSI_ZORRO7XX=m
+CONFIG_SCSI_ZORRO_ESP=m
 CONFIG_ATARI_SCSI=m
 CONFIG_MAC_SCSI=m
 CONFIG_SCSI_MAC_ESP=m
@@ -525,11 +527,6 @@ CONFIG_BVME6000_SCSI=m
 ## file: drivers/staging/Kconfig
 ##
 # CONFIG_STAGING is not set
-
-##
-## file: drivers/staging/ipx/Kconfig
-##
-CONFIG_IPX=m
 
 ##
 ## file: drivers/tty/Kconfig

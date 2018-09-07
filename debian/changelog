@@ -1,3 +1,396 @@
+linux (4.18.6-1parrot8) testing; urgency=medium
+
+  * Import new Debian release.
+  * Import wireless patches.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Fri, 07 Sep 2018 17:04:13 +0200
+
+linux (4.18.6-1) unstable; urgency=medium
+
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.18.6
+    - scsi: libsas: dynamically allocate and free ata host
+    - xprtrdma: Fix disconnect regression
+    - mei: don't update offset in write
+    - cifs: add missing support for ACLs in SMB 3.11
+    - cifs: fix uninitialized ptr deref in smb2 signing
+    - cifs: add missing debug entries for kconfig options
+    - cifs: use a refcount to protect open/closing the cached file handle
+    - cifs: check kmalloc before use
+    - smb3: enumerating snapshots was leaving part of the data off end
+    - smb3: Do not send SMB3 SET_INFO if nothing changed
+    - smb3: don't request leases in symlink creation and query
+    - smb3: fill in statfs fsid and correct namelen
+    - btrfs: use correct compare function of dirty_metadata_bytes
+    - btrfs: don't leak ret from do_chunk_alloc
+    - Btrfs: fix mount failure after fsync due to hard link recreation
+    - Btrfs: fix btrfs_write_inode vs delayed iput deadlock
+    - Btrfs: fix send failure when root has deleted files still open
+    - Btrfs: send, fix incorrect file layout after hole punching beyond eof
+    - hwmon: (k10temp) 27C Offset needed for Threadripper2
+    - [armhf] bpf: fix stack var offset in jit
+    - [armhf, arm64] iommu/arm-smmu: Error out only if not enough context
+      interrupts
+    - printk: Split the code for storing a message into the log buffer
+    - printk: Create helper function to queue deferred console handling
+    - printk/nmi: Prevent deadlock when accessing the main log buffer in NMI
+    - [arm64] kprobes: Fix %p uses in error messages
+    - [arm64] Fix mismatched cache line size detection
+    - [arm64] Handle mismatched cache type
+    - [arm64] mm: check for upper PAGE_SHIFT bits in pfn_valid()
+    - [arm64] dts: rockchip: corrected uart1 clock-names for rk3328
+    - [armhf, arm64] KVM: Fix potential loss of ptimer interrupts
+    - [armhf, arm64] KVM: Fix lost IRQs from emulated physcial timer when
+      blocked
+    - [armhf, arm64] KVM: Skip updating PMD entry if no change
+    - [armhf, arm64] KVM: Skip updating PTE entry if no change
+    - [s390x] kvm: fix deadlock when killed by oom
+    - [s390x] perf kvm: Fix subcommands on s390
+    - stop_machine: Reflow cpu_stop_queue_two_works()
+    - stop_machine: Atomically queue and wake stopper threads
+    - ext4: check for NUL characters in extended attribute's name
+    - ext4: use ext4_warning() for sb_getblk failure
+    - ext4: sysfs: print ext4_super_block fields as little-endian
+    - ext4: reset error code in ext4_find_entry in fallback
+    - ext4: fix race when setting the bitmap corrupted flag
+    - nvme-pci: add a memory barrier to nvme_dbbuf_update_and_check_event
+    - [x86] gpu: reserve ICL's graphics stolen memory
+    - [x86] platform: wmi: Do not mix pages and kmalloc
+    - [x86] platform: ideapad-laptop: Apply no_hw_rfkill to Y20-15IKBM, too
+    - mm: move tlb_table_flush to tlb_flush_mmu_free
+    - [x86] mm/tlb, mm: Support invalidating TLB caches for RCU_TABLE_FREE
+    - [x86] speculation/l1tf: Fix overflow in l1tf_pfn_limit() on 32bit
+    - [x86] speculation/l1tf: Fix off-by-one error when warning that system has
+      too much RAM (Closes: #907581)
+    - [x86] speculation/l1tf: Suggest what to do on systems with too much RAM
+    - [x86] vdso: Fix vDSO build if a retpoline is emitted
+    - [x86] process: Re-export start_thread()
+    - [x86] KVM: ensure all MSRs can always be KVM_GET/SET_MSR'd
+    - [x86] KVM: SVM: Call x86_spec_ctrl_set_guest/host() with interrupts
+      disabled
+    - fuse: Don't access pipe->buffers without pipe_lock()
+    - fuse: fix initial parallel dirops
+    - fuse: fix double request_end()
+    - fuse: fix unlocked access to processing queue
+    - fuse: umount should wait for all requests
+    - fuse: Fix oops at process_init_reply()
+    - fuse: Add missed unlock_page() to fuse_readpages_fill()
+    - lib/vsprintf: Do not handle %pO[^F] as %px
+    - udl-kms: change down_interruptible to down
+    - udl-kms: handle allocation failure
+    - udl-kms: fix crash due to uninitialized memory
+    - udl-kms: avoid division
+    - b43legacy/leds: Ensure NUL-termination of LED name string
+    - b43/leds: Ensure NUL-termination of LED name string
+    - ASoC: dpcm: don't merge format from invalid codec dai
+    - ASoC: zte: Fix incorrect PCM format bit usages
+    - ASoC: sirf: Fix potential NULL pointer dereference
+    - ASoC: wm_adsp: Correct DSP pointer for preloader control
+    - [armhf] pinctrl: freescale: off by one in imx1_pinconf_group_dbg_show()
+    - scsi: qla2xxx: Fix stalled relogin
+    - [x86] vdso: Fix lsl operand order
+    - [x86 ]nmi: Fix NMI uaccess race against CR3 switching
+    - [x86] irqflags: Mark native_restore_fl extern inline
+    - [x86] spectre: Add missing family 6 check to microcode check
+    - [x86] speculation/l1tf: Increase l1tf memory limit for Nehalem+
+      (Closes: #907581)
+    - hwmon: (nct6775) Fix potential Spectre v1
+    - [x86] entry/64: Wipe KASAN stack shadow before rewind_stack_do_exit()
+    - [x86] Allow generating user-space headers without a compiler
+    - [s390x] mm: fix addressing exception after suspend/resume
+    - [s390x] lib: use expoline for all bcr instructions
+    - [s390x] fix br_r1_trampoline for machines without exrl
+    - [s390x] qdio: reset old sbal_state flags
+    - [s390x] numa: move initial setup of node_to_cpumask_map
+    - [s390x] pci: fix out of bounds access during irq setup
+    - [s390x] purgatory: Fix crash with expoline enabled
+    - [s390x] purgatory: Add missing FORCE to Makefile targets
+    - kprobes: Show blacklist addresses as same as kallsyms does
+    - kprobes: Replace %p with other pointer types
+    - kprobes/arm: Fix %p uses in error messages
+    - kprobes: Make list and blacklist root user read only
+    - [mips*] Correct the 64-bit DSP accumulator register size
+    - [mips*] memset.S: Fix byte_fixup for MIPSr6
+    - [mips*] Always use -march=<arch>, not -<arch> shortcuts
+    - [mips*] Change definition of cpu_relax() for Loongson-3
+    - [mips*] lib: Provide MIPS64r6 __multi3() for GCC < 7
+    - tpm: Return the actual size when receiving an unsupported command
+    - tpm: separate cmd_ready/go_idle from runtime_pm
+    - scsi: mpt3sas: Fix calltrace observed while running IO & reset
+    - scsi: mpt3sas: Fix _transport_smp_handler() error path
+    - scsi: sysfs: Introduce sysfs_{un,}break_active_protection()
+    - scsi: core: Avoid that SCSI device removal through sysfs triggers a
+      deadlock
+    - iscsi target: fix session creation failure handling
+    - mtd: rawnand: hynix: Use ->exec_op() in hynix_nand_reg_write_op()
+    - mtd: rawnand: fsmc: Stop using chip->read_buf()
+    - mtd: rawnand: marvell: add suspend and resume hooks
+    - mtd: rawnand: qcom: wait for desc completion in all BAM channels
+    - [arm64] clk: rockchip: fix clk_i2sout parent selection bits on rk3399
+    - PM / clk: signedness bug in of_pm_clk_add_clks()
+    - power: generic-adc-battery: fix out-of-bounds write when copying channel
+      properties
+    - power: generic-adc-battery: check for duplicate properties copied from
+      iio channels
+    - watchdog: Mark watchdog touch functions as notrace
+    - cdrom: Fix info leak/OOB read in cdrom_ioctl_drive_status
+    - [x86] dumpstack: Don't dump kernel memory based on usermode RIP
+
+  [ Ben Hutchings ]
+  * Set ABI to 1
+  * [x86,arm64] Disable code signing for upload to unstable
+  * [rt] Re-enable PREEMPT_RT
+  * aufs: Update support patchset to aufs4.18-20180827 (no functional change)
+  * netfilter: Enable NF_TABLES_SET as module, replacing the multiple set
+    type modules that were enabled before 4.18
+  * [powerpc,powerpcspe,ppc64] Build-Depend on updated kernel-wedge to fix
+    broken symlinks in kernel-image udeb
+
+  [ Romain Perier ]
+  * [rt] Update to 4.18.5-rt3
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Thu, 06 Sep 2018 15:32:14 +0100
+
+linux (4.18.5-1~exp1) experimental; urgency=medium
+
+  * New upstream release: https://kernelnewbies.org/Linux_4.18
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.18.1
+    - [x86] paravirt: Fix spectre-v2 mitigations for paravirt guests
+    - [x86] speculation: Protect against userspace-userspace spectreRSB
+    - [x86] kprobes: Fix %p uses in error messages
+    - [x86] irqflags: Provide a declaration for native_save_fl
+    - [x86] speculation/l1tf: Increase 32bit PAE __PHYSICAL_PAGE_SHIFT
+    - [x86] speculation/l1tf: Change order of offset/type in swap entry
+    - [x86] speculation/l1tf: Protect swap entries against L1TF
+    - [x86] speculation/l1tf: Protect PROT_NONE PTEs against speculation
+    - [x86] speculation/l1tf: Make sure the first page is always reserved
+    - [x86] speculation/l1tf: Add sysfs reporting for l1tf
+    - [x86] speculation/l1tf: Disallow non privileged high MMIO PROT_NONE
+      mappings
+    - [x86] speculation/l1tf: Limit swap file size to MAX_PA/2
+    - [x86] Move the l1tf function and define pr_fmt properly
+    - sched/smt: Update sched_smt_present at runtime
+    - [x86] smp: Provide topology_is_primary_thread()
+    - [x86] topology: Provide topology_smt_supported()
+    - cpu/hotplug: Make bringup/teardown of smp threads symmetric
+    - cpu/hotplug: Split do_cpu_down()
+    - cpu/hotplug: Provide knobs to control SMT
+    - [x86] cpu: Remove the pointless CPU printout
+    - [x86] cpu/AMD: Remove the pointless detect_ht() call
+    - [x86] cpu/common: Provide detect_ht_early()
+    - [x86] cpu/topology: Provide detect_extended_topology_early()
+    - [x86] cpu/intel: Evaluate smp_num_siblings early
+    - [x86] cpu/AMD: Do not check CPUID max ext level before parsing SMP info
+    - [x86] cpu/AMD: Evaluate smp_num_siblings early
+    - [x86] apic: Ignore secondary threads if nosmt=force
+    - [x86] speculation/l1tf: Extend 64bit swap file size limit
+    - [x86] cpufeatures: Add detection of L1D cache flush support.
+    - [x86] cpu/AMD: Move TOPOEXT reenablement before reading smp_num_siblings
+    - [x86] speculation/l1tf: Protect PAE swap entries against L1TF
+    - [x86] speculation/l1tf: Fix up pte->pfn conversion for PAE
+    - Revert "x86/apic: Ignore secondary threads if nosmt=force"
+    - cpu/hotplug: Boot HT siblings at least once
+    - [x86] KVM: Warn user if KVM is loaded SMT and L1TF CPU bug being present
+    - [x86] KVM/VMX: Add module argument for L1TF mitigation
+    - [x86] KVM/VMX: Add L1D flush algorithm
+    - [x86] KVM/VMX: Add L1D MSR based flush
+    - [x86] KVM/VMX: Add L1D flush logic
+    - [x86] KVM/VMX: Split the VMX MSR LOAD structures to have an host/guest
+      numbers
+    - [x86] KVM/VMX: Add find_msr() helper function
+    - [x86] KVM/VMX: Separate the VMX AUTOLOAD guest/host number accounting
+    - [x86] KVM/VMX: Extend add_atomic_switch_msr() to allow VMENTER only MSRs
+    - [x86] KVM/VMX: Use MSR save list for IA32_FLUSH_CMD if required
+    - cpu/hotplug: Online siblings when SMT control is turned on
+    - [x86] litf: Introduce vmx status variable
+    - [x86] kvm: Drop L1TF MSR list approach
+    - [x86] l1tf: Handle EPT disabled state proper
+    - [x86] kvm: Move l1tf setup function
+    - [x86] kvm: Add static key for flush always
+    - [x86] kvm: Serialize L1D flush parameter setter
+    - [x86] kvm: Allow runtime control of L1D flush
+    - cpu/hotplug: Expose SMT control init function
+    - cpu/hotplug: Set CPU_SMT_NOT_SUPPORTED early
+    - [x86] bugs, kvm: Introduce boot-time control of L1TF mitigations
+    - [x86] speculation/l1tf: Unbreak !__HAVE_ARCH_PFN_MODIFY_ALLOWED
+      architectures
+    - [x86] KVM/VMX: Initialize the vmx_l1d_flush_pages' content
+    - cpu/hotplug: detect SMT disabled by BIOS
+    - [x86] KVM/VMX: Don't set l1tf_flush_l1d to true from vmx_l1d_flush()
+    - [x86] KVM/VMX: Replace 'vmx_l1d_flush_always' with 'vmx_l1d_flush_cond'
+    - [x86] KVM/VMX: Move the l1tf_flush_l1d test to vmx_l1d_flush()
+    - [x86] irq: Demote irq_cpustat_t::__softirq_pending to u16
+    - [x86] KVM/VMX: Introduce per-host-cpu analogue of l1tf_flush_l1d
+    - [x86] Don't include linux/irq.h from asm/hardirq.h
+    - [x86] irq: Let interrupt handlers set kvm_cpu_l1tf_flush_l1d
+    - [x86] KVM/VMX: Don't set l1tf_flush_l1d from vmx_handle_external_intr()
+    - [x86] speculation: Simplify sysfs report of VMX L1TF vulnerability
+    - [x86] speculation: Use ARCH_CAPABILITIES to skip L1D flush on vmentry
+    - [x86] KVM/VMX: Tell the nested hypervisor to skip L1D flush on vmentry
+    - cpu/hotplug: Fix SMT supported evaluation
+    - [x86] speculation/l1tf: Invert all not present mappings
+    - [x86] speculation/l1tf: Make pmd/pud_mknotpresent() invert
+    - [x86] mm/pat: Make set_memory_np() L1TF safe
+    - [x86] mm/kmmio: Make the tracer robust against L1TF
+    - tools headers: Synchronise x86 cpufeatures.h for L1TF additions
+    - [x86] microcode: Allow late microcode loading with SMT disabled
+    - cpu/hotplug: Non-SMP machines do not make use of booted_once
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.18.2
+    - [x86] l1tf: Fix build error seen if CONFIG_KVM_INTEL is disabled
+    - [x86] hyper-v: Check for VP_INVAL in hyperv_flush_tlb_others()
+    - [x86] platform/UV: Mark memblock related init code and data correctly
+    - [x86] mm/pti: Clear Global bit more aggressively
+    - [x86] xen/pv: Call get_cpu_address_sizes to set x86_virt/phys_bits
+    - [x86] mm: Disable ioremap free page handling on x86-PAE
+    - crypto: ccp - Check for NULL PSP pointer at module unload
+    - crypto: ccp - Fix command completion detection race
+    - [x86] crypto: x86/sha256-mb - fix digest copy in
+      sha256_mb_mgr_get_comp_job_avx2()
+    - crypto: vmac - require a block cipher with 128-bit block size
+    - crypto: vmac - separate tfm and request context
+    - Bluetooth: hidp: buffer overflow in hidp_process_report (CVE-2018-9363)
+    - ioremap: Update pgtable free interfaces with addr
+    - [x86] mm: Add TLB purge to free pmd/pte page interfaces
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.18.3
+    - [x86] speculation/l1tf: Exempt zeroed PTEs from inversion
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.18.4
+    - l2tp: use sk_dst_check() to avoid race on sk->sk_dst_cache
+    - net_sched: fix NULL pointer dereference when delete tcindex filter
+    - net_sched: Fix missing res info when create new tc_index filter
+    - r8169: don't use MSI-X on RTL8168g
+    - ALSA: hda - Sleep for 10ms after entering D3 on Conexant codecs
+    - ALSA: hda - Turn CX8200 into D3 as well upon reboot
+    - ALSA: vx222: Fix invalid endian conversions
+    - ALSA: cs5535audio: Fix invalid endian conversion
+    - ALSA: dice: fix wrong copy to rx parameters for Alesis iO26
+    - ALSA: hda: Correct Asrock B85M-ITX power_save blacklist entry
+    - ALSA: memalloc: Don't exceed over the requested size
+    - ALSA: vxpocket: Fix invalid endian conversions
+    - ALSA: seq: Fix poll() error return
+    - media: gl861: fix probe of dvb_usb_gl861
+    - USB: serial: sierra: fix potential deadlock at close
+    - USB: serial: pl2303: add a new device id for ATEN
+    - USB: option: add support for DW5821e
+    - [x86] ACPI / PM: save NVS memory for ASUS 1025C laptop
+    - tty: serial: 8250: Revert NXP SC16C2552 workaround
+    - serial: 8250_exar: Read INT0 from slave device, too
+    - [x86, armhf, arm64] serial: 8250_dw: always set baud rate in
+      dw8250_set_termios
+    - [armhf, arm64] serial: 8250_dw: Add ACPI support for uart on Broadcom SoC
+    - uio: fix wrong return value from uio_mmap()
+    - Revert "uio: use request_threaded_irq instead"
+    - Bluetooth: avoid killing an already killed socket
+    - net: sock_diag: Fix spectre v1 gadget in __sock_diag_cmd()
+    - [x86] hv/netvsc: Fix NULL dereference at single queue mode fallback
+    - r8169: don't use MSI-X on RTL8106e
+    - ip_vti: fix a null pointer deferrence when create vti fallback tunnel
+    - [arm64] net: ethernet: mvneta: Fix napi structure mixup on armada 3700
+    - [arm64] net: mvneta: fix mvneta_config_rss on armada 3700
+    - cls_matchall: fix tcf_unbind_filter missing
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.18.5
+    - [mips*, x86] EDAC: Add missing MEM_LRDDR4 entry in edac_mem_types[]
+    - pty: fix O_CLOEXEC for TIOCGPTPEER
+    - mm: Allow non-direct-map arguments to free_reserved_area()
+    - [x86] mm/init: Pass unconverted symbol addresses to free_init_pages()
+    - [x86] mm/init: Add helper for freeing kernel image pages
+    - [x86] mm/init: Remove freed kernel image areas from alias mapping
+    - [powerpc64] Show ori31 availability in spectre_v1 sysfs file not v2
+    - ext4: fix spectre gadget in ext4_mb_regular_allocator()
+    - [x86] drm/i915/kvmgt: Fix potential Spectre v1
+    - drm/amdgpu/pm: Fix potential Spectre v1
+    - [hppa/parisc] Remove unnecessary barriers from spinlock.h
+    - [hppa/parisc] Remove ordered stores from syscall.S
+    - PCI: Restore resized BAR state on resume
+    - PCI/ACPI/PM: Resume all bridges on suspend-to-RAM
+    - PCI: hotplug: Don't leak pci_slot on registration failure
+    - [arm64] PCI: aardvark: Size bridges before resources allocation
+    - PCI: Skip MPS logic for Virtual Functions (VFs)
+    - PCI: pciehp: Fix use-after-free on unplug
+    - PCI: pciehp: Fix unprotected list iteration in IRQ handler
+    - i2c: core: ACPI: Properly set status byte to 0 for multi-byte writes
+    - [armhf] i2c: imx: Fix race condition in dma read
+    - reiserfs: fix broken xattr handling (heap corruption, bad retval)
+
+  [ Uwe Kleine-König ]
+  * [arm64] enable RTC_DRV_PCF8563 for Odroid-C2
+
+  [ Romain Perier ]
+  * [armhf, arm64] add the rt featureset, which adds support for
+    PREEMPT_RT (Closes #719547)
+  * spi: Enable CONFIG_SPI_SPIDEV (Closes: #904043)
+
+  [ Ben Hutchings ]
+  * certs: Remove certificate for my personal signing key
+  * Update policy version to 4.2.0:
+    - linux-kbuild: Change "#!/usr/bin/env perl" to "#!/usr/bin/perl"
+    - Build with KBUILD_VERBOSE=1 by default
+    - objtool, usbip: Build with V=1 by default
+  * cpupower: Fix handling of noopt and nostrip build options
+  * debian/bin/gencontrol_signed.py: Add certificate fingerprints to template
+    metadata
+  * scripts/kernel-doc: Escape all literal braces in regexes (Closes: #905116)
+  * debian/bin/genorig.py: Add support for debian/copyright Files-Excluded
+    field
+  * Move file exclusion from d/p/debian/dfsg/files-1 to d/copyright
+  * Move disabling of broken features from d/p/series-orig to d/p/series
+  * Remove our private patch system, which is no longer needed
+  * debian/bin: Change "#!/usr/bin/env python3" to "#!/usr/bin/python3"
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 26 Aug 2018 20:52:17 +0100
+
+linux (4.18~rc5-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ John Paul Adrian Glaubitz ]
+  * [m68k] net: Enable CONFIG_XSURF100 as module.
+  * [m68k] udeb: Remove individual modules from nic-modules.
+  * [m68k] scsi: Enable CONFIG_SCSI_ZORRO_ESP as module.
+  * [m68k] udeb: Add zorro_esp module to scsi-modules.
+
+  [ Ben Hutchings ]
+  * [powerpcspe] powerpc/Makefile: Assemble with -me500 when building for E500
+    (fixes FTBFS) (thanks to James Clarke)
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Thu, 19 Jul 2018 16:16:23 +0100
+
+linux (4.18~rc4-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Ben Hutchings ]
+  * Remove remaining Python 2 (build-)dependencies:
+    - Build docs using Python 3 version of Sphinx
+    - linux-perf: Build docs using asciidoctor
+    - linux-perf: Use Python 3 for scripts
+  * autofs: rename 'autofs' module back to 'autofs4' (Closes: #902946)
+  * udeb: Move of_mdio to nic-shared-modules (Closes: #903587)
+  * [armhf] mm: Export __sync_icache_dcache() for xen-privcmd (fixes FTBFS)
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Thu, 12 Jul 2018 05:12:50 +0100
+
+linux (4.18~rc3-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Ben Hutchings ]
+  * aufs: Update to aufs4.x-rcN 20180702
+  * netfilter: ipvs: Fix invalid bytes in IP_VS_MH_TAB_INDEX help text
+  * Update config for 4.18 using kconfigeditor2
+    - [x86,arm64] PCI: HOTPLUG_PCI_SHPC is now built-in
+  * Move config files from linux-source-<version> to an arch-dependent
+    linux-config-<version> package
+  * lockdep: Stub task_struct::state
+  * [sh4] udeb: Add nic-shared-modules package
+  * udeb: Moved fixed_phy to nic-shared-modules
+
+  [ YunQiang Su ]
+  * [mips*r6*] Enable dtb building for boston.
+  * [mips*r6*/mipsn32*] build linux-perf in rules.real.
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Tue, 03 Jul 2018 17:26:05 +0100
+
 linux (4.17.17-1parrot17) testing; urgency=medium
 
   * Import new Debian release.

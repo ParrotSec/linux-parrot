@@ -29,12 +29,12 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
 --- a/scripts/Kbuild.include
 +++ b/scripts/Kbuild.include
-@@ -207,7 +207,7 @@ hdr-inst := -f $(srctree)/scripts/Makefi
+@@ -215,7 +215,7 @@ hdr-inst := -f $(srctree)/scripts/Makefi
  # Prefix -I with $(srctree) if it is not an absolute path.
  # skip if -I has no parameter
  addtree = $(if $(patsubst -I%,%,$(1)), \
--$(if $(filter-out -I/% -I./% -I../%,$(1)),$(patsubst -I%,-I$(srctree)/%,$(1)),$(1)))
-+$(if $(filter-out -I/% -I./% -I../%,$(subst $(quote),,$(subst $(squote),,$(1)))),$(patsubst -I%,-I$(srctree)/%,$(1)),$(1)))
+-$(if $(filter-out -I/% -I./% -I../%,$(1)),$(patsubst -I%,-I$(srctree)/%,$(1)),$(1)),$(1))
++$(if $(filter-out -I/% -I./% -I../%,$(subst $(quote),,$(subst $(squote),,$(1)))),$(patsubst -I%,-I$(srctree)/%,$(1)),$(1)),$(1))
  
  # Find all -I options and call addtree
  flags = $(foreach o,$($(1)),$(if $(filter -I%,$(o)),$(call addtree,$(o)),$(o)))

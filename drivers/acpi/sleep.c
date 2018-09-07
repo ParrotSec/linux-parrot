@@ -338,6 +338,14 @@ static const struct dmi_system_id acpisleep_dmi_table[] __initconst = {
 		DMI_MATCH(DMI_PRODUCT_NAME, "K54HR"),
 		},
 	},
+	{
+	.callback = init_nvs_save_s3,
+	.ident = "Asus 1025C",
+	.matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC."),
+		DMI_MATCH(DMI_PRODUCT_NAME, "1025C"),
+		},
+	},
 	/*
 	 * https://bugzilla.kernel.org/show_bug.cgi?id=189431
 	 * Lenovo G50-45 is a platform later than 2012, but needs nvs memory
@@ -989,6 +997,13 @@ static void acpi_s2idle_wake(void)
 	    !irqd_is_wakeup_armed(irq_get_irq_data(acpi_sci_irq))) {
 		pm_system_cancel_wakeup();
 		s2idle_wakeup = true;
+		/*
+		 * On some platforms with the LPS0 _DSM device noirq resume
+		 * takes too much time for EC wakeup events to survive, so look
+		 * for them now.
+		 */
+		if (lps0_device_handle)
+			acpi_ec_dispatch_gpe();
 	}
 }
 

@@ -1,0 +1,31 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Date: Wed, 4 Apr 2018 11:43:56 +0200
+Subject: [PATCH] bdi: Use irqsave variant of refcount_dec_and_lock()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+The irqsave variant of refcount_dec_and_lock handles irqsave/restore when
+taking/releasing the spin lock. With this variant the call of
+local_irq_save/restore is no longer required.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+[bigeasy: s@atomic_dec_and_lock@refcount_dec_and_lock@g ]
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/backing-dev.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -473,11 +473,8 @@ void wb_congested_put(struct bdi_writeba
+ {
+ 	unsigned long flags;
+ 
+-	local_irq_save(flags);
+-	if (!refcount_dec_and_lock(&congested->refcnt, &cgwb_lock)) {
+-		local_irq_restore(flags);
++	if (!refcount_dec_and_lock_irqsave(&congested->refcnt, &cgwb_lock, &flags))
+ 		return;
+-	}
+ 
+ 	/* bdi might already have been destroyed leaving @congested unlinked */
+ 	if (congested->__bdi) {

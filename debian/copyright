@@ -1,6 +1,13 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Linux kernel
 Source: https://www.kernel.org/pub/linux/kernel/
+Files-Excluded: Documentation/netlabel/draft-ietf-cipso-ipsecurity-01.txt
+ arch/powerpc/sysdev/micropatch.c
+ drivers/media/usb/dvb-usb/af9005-script.h
+ drivers/media/i2c/vs6624.c
+ drivers/net/appletalk/cops*.[ch]
+ drivers/video/fbdev/nvidia
+ drivers/video/fbdev/riva
 Comment:
  The 'perf' tool is dynamically linked with the Python interpreter,
  which is itself dynamically linked with OpenSSL, which is not

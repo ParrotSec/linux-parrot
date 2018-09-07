@@ -2,10 +2,7 @@
 ## file: arch/Kconfig
 ##
 # CONFIG_KPROBES is not set
-## choice: Stack Protector buffer overflow detection
-CONFIG_CC_STACKPROTECTOR_REGULAR=y
-# CONFIG_CC_STACKPROTECTOR_STRONG is not set
-## end choice
+# CONFIG_STACKPROTECTOR_STRONG is not set
 # CONFIG_STRICT_KERNEL_RWX is not set
 
 ##
@@ -189,7 +186,7 @@ CONFIG_SATA_MV=m
 # CONFIG_ATA_GENERIC is not set
 
 ##
-## file: drivers/base/Kconfig
+## file: drivers/base/firmware_loader/Kconfig
 ##
 CONFIG_FW_LOADER=m
 
@@ -520,21 +517,17 @@ CONFIG_MWIFIEX=m
 CONFIG_MWIFIEX_SDIO=m
 
 ##
-## file: drivers/pci/host/Kconfig
+## file: drivers/pci/controller/Kconfig
 ##
 CONFIG_PCI_MVEBU=y
 
 ##
 ## file: drivers/pci/pcie/Kconfig
 ##
+# CONFIG_PCIEAER is not set
 # CONFIG_PCIEASPM is not set
 # CONFIG_PCIE_DPC is not set
 # CONFIG_PCIE_PTM is not set
-
-##
-## file: drivers/pci/pcie/aer/Kconfig
-##
-# CONFIG_PCIEAER is not set
 
 ##
 ## file: drivers/pcmcia/Kconfig

@@ -1,0 +1,24 @@
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Tue, 03 Jul 2018 06:19:07 +0100
+Subject: lockdep: Stub task_struct::state
+
+---
+--- a/tools/include/linux/lockdep.h
++++ b/tools/include/linux/lockdep.h
+@@ -31,12 +31,16 @@ struct task_struct {
+ 	gfp_t lockdep_reclaim_gfp;
+ 	int pid;
+ 	char comm[17];
++	long state;
+ };
+ 
+ extern struct task_struct *__curr(void);
+ 
+ #define current (__curr())
+ 
++/* lockdep checks task_struct::state == TASK_RUNNING */
++#define TASK_RUNNING 0
++
+ static inline int debug_locks_off(void)
+ {
+ 	return 1;

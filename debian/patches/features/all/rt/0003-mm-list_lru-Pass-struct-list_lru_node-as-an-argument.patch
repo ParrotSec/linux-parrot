@@ -1,0 +1,56 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 3 Jul 2018 13:08:56 +0200
+Subject: [PATCH 3/4] mm/list_lru: Pass struct list_lru_node as an argument
+ __list_lru_walk_one()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+__list_lru_walk_one() is invoked with struct list_lru *lru, int nid as
+the first two argument. Those two are only used to retrieve struct
+list_lru_node. Since this is already done by the caller of the function
+for the locking, we can pass struct list_lru_node directly and avoid the
+dance around it.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/list_lru.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+--- a/mm/list_lru.c
++++ b/mm/list_lru.c
+@@ -194,12 +194,11 @@ unsigned long list_lru_count_node(struct
+ EXPORT_SYMBOL_GPL(list_lru_count_node);
+ 
+ static unsigned long
+-__list_lru_walk_one(struct list_lru *lru, int nid, int memcg_idx,
++__list_lru_walk_one(struct list_lru_node *nlru, int memcg_idx,
+ 		    list_lru_walk_cb isolate, void *cb_arg,
+ 		    unsigned long *nr_to_walk)
+ {
+ 
+-	struct list_lru_node *nlru = &lru->node[nid];
+ 	struct list_lru_one *l;
+ 	struct list_head *item, *n;
+ 	unsigned long isolated = 0;
+@@ -261,8 +260,8 @@ list_lru_walk_one(struct list_lru *lru,
+ 	unsigned long ret;
+ 
+ 	spin_lock(&nlru->lock);
+-	ret = __list_lru_walk_one(lru, nid, memcg_cache_id(memcg),
+-				  isolate, cb_arg, nr_to_walk);
++	ret = __list_lru_walk_one(nlru, memcg_cache_id(memcg), isolate, cb_arg,
++				  nr_to_walk);
+ 	spin_unlock(&nlru->lock);
+ 	return ret;
+ }
+@@ -282,8 +281,9 @@ unsigned long list_lru_walk_node(struct
+ 			struct list_lru_node *nlru = &lru->node[nid];
+ 
+ 			spin_lock(&nlru->lock);
+-			isolated += __list_lru_walk_one(lru, nid, memcg_idx,
+-						isolate, cb_arg, nr_to_walk);
++			isolated += __list_lru_walk_one(nlru, memcg_idx,
++							isolate, cb_arg,
++							nr_to_walk);
+ 			spin_unlock(&nlru->lock);
+ 
+ 			if (*nr_to_walk <= 0)

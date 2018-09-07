@@ -1,0 +1,23 @@
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Fri, 06 Jul 2018 23:22:10 +0100
+Subject: perf Documentation: Fix out-of-tree asciidoctor man page generation
+
+The dependency for the man page rule using asciidoctor incorrectly
+specifies a source file in $(OUTPUT).  When building out-of-tree, the
+source file is not found, resulting in a fall-back to the following
+rule which uses xmlto.
+
+Fixes: ffef80ecf89f ("perf Documentation: Support for asciidoctor")
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+--- a/tools/perf/Documentation/Makefile
++++ b/tools/perf/Documentation/Makefile
+@@ -285,7 +285,7 @@ $(MAN_HTML): $(OUTPUT)%.html : %.txt
+ 	mv $@+ $@
+ 
+ ifdef USE_ASCIIDOCTOR
+-$(OUTPUT)%.1 $(OUTPUT)%.5 $(OUTPUT)%.7 : $(OUTPUT)%.txt
++$(OUTPUT)%.1 $(OUTPUT)%.5 $(OUTPUT)%.7 : %.txt
+ 	$(QUIET_ASCIIDOC)$(RM) $@+ $@ && \
+ 	$(ASCIIDOC) -b manpage -d manpage \
+ 		$(ASCIIDOC_EXTRA) -aperf_version=$(PERF_VERSION) -o $@+ $< && \

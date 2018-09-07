@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 import sys
 sys.path.append("debian/lib/python")
@@ -81,6 +81,7 @@ class Gencontrol(Base):
             makeflags['DO_TOOLS_UNVERSIONED'] = False
         if not self.config.merge('packages').get('tools-versioned', True):
             makeflags['DO_TOOLS_VERSIONED'] = False
+        makeflags['SOURCE_BASENAME'] = self.vars['source_basename']
 
         # Prepare to generate debian/tests/control
         self.tests_control = None
@@ -99,26 +100,13 @@ class Gencontrol(Base):
                          ['source_%s_real' % featureset])
             makefile.add('source', ['source_%s' % featureset])
 
-        triplet_enabled = []
-        for arch in iter(self.config['base', ]['arches']):
-            for featureset in self.config['base', arch].get('featuresets', ()):
-                if self.config.merge('base', None, featureset).get('enabled', True):
-                    for flavour in self.config['base', arch, featureset]['flavours']:
-                        triplet_enabled.append('%s_%s_%s' %
-                                               (arch, featureset, flavour))
-
         makeflags = makeflags.copy()
         makeflags['ALL_FEATURESETS'] = ' '.join(fs_enabled)
-        makeflags['ALL_TRIPLETS'] = ' '.join(triplet_enabled)
-        makeflags['SOURCE_BASENAME'] = self.vars['source_basename']
         if not self.config.merge('packages').get('docs', True):
             makeflags['DO_DOCS'] = False
         if not self.config.merge('packages').get('source', True):
             makeflags['DO_SOURCE'] = False
         super(Gencontrol, self).do_main_makefile(makefile, makeflags, extra)
-
-        # linux-source-$UPSTREAMVERSION will contain all kconfig files
-        makefile.add('binary-indep', deps=['setup'])
 
     def do_main_packages(self, packages, vars, makeflags, extra):
         packages.extend(self.process_packages(self.templates["control.main"], self.vars))
@@ -210,11 +198,21 @@ class Gencontrol(Base):
 
         merge_packages(packages, packages_headers_arch, arch)
 
+        if (self.config['base', arch].get('featuresets') and
+            self.config.merge('packages').get('source', True)):
+            merge_packages(packages,
+                           self.process_packages(
+                               self.templates["control.config"], vars),
+                           arch)
+        else:
+            makeflags['DO_CONFIG'] = False
+
         cmds_build_arch = ["$(MAKE) -f debian/rules.real build-arch-arch %s" % makeflags]
         makefile.add('build-arch_%s_real' % arch, cmds=cmds_build_arch)
 
         cmds_binary_arch = ["$(MAKE) -f debian/rules.real binary-arch-arch %s" % makeflags]
-        makefile.add('binary-arch_%s_real' % arch, cmds=cmds_binary_arch)
+        makefile.add('binary-arch_%s_real' % arch, cmds=cmds_binary_arch,
+                     deps=['setup_%s' % arch])
 
         # For stage1 build profile
         makefile.add('binary-libc-dev_%s' % arch,

@@ -1,17 +1,19 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 import sys
 sys.path.append("debian/lib/python")
 
+import deb822
+import glob
 import os
 import os.path
 import re
 import shutil
 import subprocess
 import time
+import warnings
 
 from debian_linux.debian import Changelog, VersionLinux
-from debian_linux.patches import PatchSeries
 
 
 class Main(object):
@@ -49,7 +51,7 @@ class Main(object):
             if len(self.input_files) > 1:
                 self.upstream_patch(self.input_files[1])
 
-            # debian_patch() will change file mtimes.  Capture the
+            # exclude_files() will change dir mtimes.  Capture the
             # original release time so we can apply it to the final
             # tarball.  Note this doesn't work in case we apply an
             # upstream patch, as that doesn't carry a release time.
@@ -59,7 +61,7 @@ class Main(object):
                     os.stat(os.path.join(self.dir, self.orig, 'Makefile'))
                     .st_mtime))
 
-            self.debian_patch()
+            self.exclude_files()
             os.umask(old_umask)
             self.tar(orig_date)
         finally:
@@ -122,12 +124,23 @@ class Main(object):
         if os.spawnv(os.P_WAIT, '/bin/sh', ['sh', '-c', ' '.join(cmdline)]):
             raise RuntimeError("Can't patch source")
 
-    def debian_patch(self):
-        name = "orig"
-        self.log("Patching source with debian patch (series %s)\n" % name)
-        fp = open("debian/patches/series-" + name)
-        series = PatchSeries(name, "debian/patches", fp)
-        series(dir=os.path.join(self.dir, self.orig))
+    def exclude_files(self):
+        self.log("Excluding file patterns specified in debian/copyright\n")
+        with open("debian/copyright") as f:
+            header = deb822.Deb822(f)
+        patterns = header.get("Files-Excluded", '').strip().split()
+        for pattern in patterns:
+            matched = False
+            for name in glob.glob(os.path.join(self.dir, self.orig, pattern)):
+                try:
+                    shutil.rmtree(name)
+                except NotADirectoryError:
+                    os.unlink(name)
+                matched = True
+            if not matched:
+                warnings.warn("Exclusion pattern '%s' did not match anything"
+                              % pattern,
+                              RuntimeWarning)
 
     def tar(self, orig_date):
         out = os.path.join("../orig", self.orig_tar)

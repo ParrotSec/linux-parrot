@@ -22,7 +22,7 @@ need them.
  config ANDROID_BINDER_IPC
 -	bool "Android Binder IPC Driver"
 +	tristate "Android Binder IPC Driver"
- 	depends on MMU
+ 	depends on MMU && !M68K
  	default n
  	---help---
 --- a/drivers/android/Makefile
@@ -45,16 +45,17 @@ need them.
 +	tristate "Enable the Anonymous Shared Memory Subsystem"
  	default n
  	depends on SHMEM
- 	---help---
+ 	help
 --- a/drivers/staging/android/Makefile
 +++ b/drivers/staging/android/Makefile
-@@ -2,4 +2,5 @@ ccflags-y += -I$(src)			# needed for tra
+@@ -2,5 +2,6 @@ ccflags-y += -I$(src)			# needed for tra
  
  obj-y					+= ion/
  
 -obj-$(CONFIG_ASHMEM)			+= ashmem.o
 +obj-$(CONFIG_ASHMEM)			+= ashmem_linux.o
 +ashmem_linux-y += ashmem.o
+ obj-$(CONFIG_ANDROID_VSOC)		+= vsoc.o
 --- a/drivers/staging/android/ashmem.c
 +++ b/drivers/staging/android/ashmem.c
 @@ -24,6 +24,7 @@

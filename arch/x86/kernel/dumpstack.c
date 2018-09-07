@@ -17,15 +17,19 @@
 #include <linux/bug.h>
 #include <linux/nmi.h>
 #include <linux/sysfs.h>
+#include <linux/kasan.h>
 
 #include <asm/cpu_entry_area.h>
 #include <asm/stacktrace.h>
 #include <asm/unwind.h>
 
+#define OPCODE_BUFSIZE 64
+
 int panic_on_unrecovered_nmi;
 int panic_on_io_nmi;
-static unsigned int code_bytes = 64;
 static int die_counter;
+
+static struct pt_regs exec_summary_regs;
 
 bool in_task_stack(unsigned long *stack, struct task_struct *task,
 		   struct stack_info *info)
@@ -69,9 +73,71 @@ static void printk_stack_address(unsigned long address, int reliable,
 	printk("%s %s%pB\n", log_lvl, reliable ? "" : "? ", (void *)address);
 }
 
+/*
+ * There are a couple of reasons for the 2/3rd prologue, courtesy of Linus:
+ *
+ * In case where we don't have the exact kernel image (which, if we did, we can
+ * simply disassemble and navigate to the RIP), the purpose of the bigger
+ * prologue is to have more context and to be able to correlate the code from
+ * the different toolchains better.
+ *
+ * In addition, it helps in recreating the register allocation of the failing
+ * kernel and thus make sense of the register dump.
+ *
+ * What is more, the additional complication of a variable length insn arch like
+ * x86 warrants having longer byte sequence before rIP so that the disassembler
+ * can "sync" up properly and find instruction boundaries when decoding the
+ * opcode bytes.
+ *
+ * Thus, the 2/3rds prologue and 64 byte OPCODE_BUFSIZE is just a random
+ * guesstimate in attempt to achieve all of the above.
+ */
+void show_opcodes(struct pt_regs *regs, const char *loglvl)
+{
+	unsigned int code_prologue = OPCODE_BUFSIZE * 2 / 3;
+	u8 opcodes[OPCODE_BUFSIZE];
+	unsigned long ip;
+	int i;
+	bool bad_ip;
+
+	printk("%sCode: ", loglvl);
+
+	ip = regs->ip - code_prologue;
+
+	/*
+	 * Make sure userspace isn't trying to trick us into dumping kernel
+	 * memory by pointing the userspace instruction pointer at it.
+	 */
+	bad_ip = user_mode(regs) &&
+		 __chk_range_not_ok(ip, OPCODE_BUFSIZE, TASK_SIZE_MAX);
+
+	if (bad_ip || probe_kernel_read(opcodes, (u8 *)ip, OPCODE_BUFSIZE)) {
+		pr_cont("Bad RIP value.\n");
+		return;
+	}
+
+	for (i = 0; i < OPCODE_BUFSIZE; i++, ip++) {
+		if (ip == regs->ip)
+			pr_cont("<%02x> ", opcodes[i]);
+		else
+			pr_cont("%02x ", opcodes[i]);
+	}
+	pr_cont("\n");
+}
+
+void show_ip(struct pt_regs *regs, const char *loglvl)
+{
+#ifdef CONFIG_X86_32
+	printk("%sEIP: %pS\n", loglvl, (void *)regs->ip);
+#else
+	printk("%sRIP: %04x:%pS\n", loglvl, (int)regs->cs, (void *)regs->ip);
+#endif
+	show_opcodes(regs, loglvl);
+}
+
 void show_iret_regs(struct pt_regs *regs)
 {
-	printk(KERN_DEFAULT "RIP: %04x:%pS\n", (int)regs->cs, (void *)regs->ip);
+	show_ip(regs, KERN_DEFAULT);
 	printk(KERN_DEFAULT "RSP: %04x:%016lx EFLAGS: %08lx", (int)regs->ss,
 		regs->sp, regs->flags);
 }
@@ -267,7 +333,6 @@ unsigned long oops_begin(void)
 	bust_spinlocks(1);
 	return flags;
 }
-EXPORT_SYMBOL_GPL(oops_begin);
 NOKPROBE_SYMBOL(oops_begin);
 
 void __noreturn rewind_stack_do_exit(int signr);
@@ -287,6 +352,9 @@ void oops_end(unsigned long flags, struct pt_regs *regs, int signr)
 	raw_local_irq_restore(flags);
 	oops_exit();
 
+	/* Executive summary in case the oops scrolled away */
+	__show_regs(&exec_summary_regs, true);
+
 	if (!signr)
 		return;
 	if (in_interrupt())
@@ -298,17 +366,20 @@ void oops_end(unsigned long flags, struct pt_regs *regs, int signr)
 	 * We're not going to return, but we might be on an IST stack or
 	 * have very little stack space left.  Rewind the stack and kill
 	 * the task.
+	 * Before we rewind the stack, we have to tell KASAN that we're going to
+	 * reuse the task stack and that existing poisons are invalid.
 	 */
+	kasan_unpoison_task_stack(current);
 	rewind_stack_do_exit(signr);
 }
 NOKPROBE_SYMBOL(oops_end);
 
 int __die(const char *str, struct pt_regs *regs, long err)
 {
-#ifdef CONFIG_X86_32
-	unsigned short ss;
-	unsigned long sp;
-#endif
+	/* Save the regs of the first oops for the executive summary later. */
+	if (!die_counter)
+		exec_summary_regs = *regs;
+
 	printk(KERN_DEFAULT
 	       "%s: %04lx [#%d]%s%s%s%s%s\n", str, err & 0xffff, ++die_counter,
 	       IS_ENABLED(CONFIG_PREEMPT) ? " PREEMPT"         : "",
@@ -318,26 +389,13 @@ int __die(const char *str, struct pt_regs *regs, long err)
 	       IS_ENABLED(CONFIG_PAGE_TABLE_ISOLATION) ?
 	       (boot_cpu_has(X86_FEATURE_PTI) ? " PTI" : " NOPTI") : "");
 
+	show_regs(regs);
+	print_modules();
+
 	if (notify_die(DIE_OOPS, str, regs, err,
 			current->thread.trap_nr, SIGSEGV) == NOTIFY_STOP)
 		return 1;
 
-	print_modules();
-	show_regs(regs);
-#ifdef CONFIG_X86_32
-	if (user_mode(regs)) {
-		sp = regs->sp;
-		ss = regs->ss;
-	} else {
-		sp = kernel_stack_pointer(regs);
-		savesegment(ss, ss);
-	}
-	printk(KERN_EMERG "EIP: %pS SS:ESP: %04x:%08lx\n",
-	       (void *)regs->ip, ss, sp);
-#else
-	/* Executive summary in case the oops scrolled away */
-	printk(KERN_ALERT "RIP: %pS RSP: %016lx\n", (void *)regs->ip, regs->sp);
-#endif
 	return 0;
 }
 NOKPROBE_SYMBOL(__die);
@@ -356,30 +414,9 @@ void die(const char *str, struct pt_regs *regs, long err)
 	oops_end(flags, regs, sig);
 }
 
-static int __init code_bytes_setup(char *s)
-{
-	ssize_t ret;
-	unsigned long val;
-
-	if (!s)
-		return -EINVAL;
-
-	ret = kstrtoul(s, 0, &val);
-	if (ret)
-		return ret;
-
-	code_bytes = val;
-	if (code_bytes > 8192)
-		code_bytes = 8192;
-
-	return 1;
-}
-__setup("code_bytes=", code_bytes_setup);
-
 void show_regs(struct pt_regs *regs)
 {
 	bool all = true;
-	int i;
 
 	show_regs_print_info(KERN_DEFAULT);
 
@@ -389,36 +426,8 @@ void show_regs(struct pt_regs *regs)
 	__show_regs(regs, all);
 
 	/*
-	 * When in-kernel, we also print out the stack and code at the
-	 * time of the fault..
+	 * When in-kernel, we also print out the stack at the time of the fault..
 	 */
-	if (!user_mode(regs)) {
-		unsigned int code_prologue = code_bytes * 43 / 64;
-		unsigned int code_len = code_bytes;
-		unsigned char c;
-		u8 *ip;
-
+	if (!user_mode(regs))
 		show_trace_log_lvl(current, regs, NULL, KERN_DEFAULT);
-
-		printk(KERN_DEFAULT "Code: ");
-
-		ip = (u8 *)regs->ip - code_prologue;
-		if (ip < (u8 *)PAGE_OFFSET || probe_kernel_address(ip, c)) {
-			/* try starting at IP */
-			ip = (u8 *)regs->ip;
-			code_len = code_len - code_prologue + 1;
-		}
-		for (i = 0; i < code_len; i++, ip++) {
-			if (ip < (u8 *)PAGE_OFFSET ||
-					probe_kernel_address(ip, c)) {
-				pr_cont(" Bad RIP value.");
-				break;
-			}
-			if (ip == (u8 *)regs->ip)
-				pr_cont("<%02x> ", c);
-			else
-				pr_cont("%02x ", c);
-		}
-	}
-	pr_cont("\n");
 }

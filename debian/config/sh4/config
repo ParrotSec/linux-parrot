@@ -1,10 +1,7 @@
 ##
 ## file: arch/Kconfig
 ##
-## choice: Stack Protector buffer overflow detection
-CONFIG_CC_STACKPROTECTOR_REGULAR=y
-# CONFIG_CC_STACKPROTECTOR_STRONG is not set
-## end choice
+# CONFIG_STACKPROTECTOR_STRONG is not set
 
 ##
 ## file: arch/sh/Kconfig

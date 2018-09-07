@@ -44,7 +44,9 @@ SCRIPTS_REAL = $(wildcard $(addprefix $(top_srcdir)/$(OUTDIR)/,$(SCRIPTS)))
 install-local-scripts: $(SCRIPTS_REAL)
 	@for p in $^; do \
 	  echo " install -m755 '$$p' '$(DESTDIR)/$(installdir)'"; \
-	  install -D -m755 "$$p" "$(DESTDIR)/$(installdir)/$$(basename $$p)"; \
+	  install -D -m755 \
+	    -s --strip-program $(top_srcdir)/debian/bin/fix-shebang \
+	    "$$p" "$(DESTDIR)/$(installdir)/$$(basename $$p)"; \
 	done
 
 DATA_REAL = $(wildcard $(addprefix $(top_srcdir)/$(OUTDIR)/,$(DATA)))

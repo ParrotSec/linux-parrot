@@ -1,0 +1,53 @@
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Subject: [PATCH] iommu/amd: Remove redundant WARN_ON()
+Date: Fri, 20 Jul 2018 10:45:45 +0200
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+The WARN_ON() was introduced in commit 272e4f99e966 ("iommu/amd: WARN
+when __[attach|detach]_device are called with irqs enabled") to ensure
+that the domain->lock is taken in proper irqs disabled context. This
+is required, because the domain->lock is taken as well in irq
+context.
+
+The proper context check by the WARN_ON() is redundant, because it is
+already covered by LOCKDEP. When working with locks and changing
+context, a run with LOCKDEP is required anyway and would detect the
+wrong lock context.
+
+Furthermore all callers for those functions are within the same file
+and all callers acquire another lock which already disables interrupts.
+
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/iommu/amd_iommu.c |   12 ------------
+ 1 file changed, 12 deletions(-)
+
+--- a/drivers/iommu/amd_iommu.c
++++ b/drivers/iommu/amd_iommu.c
+@@ -1944,12 +1944,6 @@ static int __attach_device(struct iommu_
+ {
+ 	int ret;
+ 
+-	/*
+-	 * Must be called with IRQs disabled. Warn here to detect early
+-	 * when its not.
+-	 */
+-	WARN_ON(!irqs_disabled());
+-
+ 	/* lock domain */
+ 	spin_lock(&domain->lock);
+ 
+@@ -2115,12 +2109,6 @@ static void __detach_device(struct iommu
+ {
+ 	struct protection_domain *domain;
+ 
+-	/*
+-	 * Must be called with IRQs disabled. Warn here to detect early
+-	 * when its not.
+-	 */
+-	WARN_ON(!irqs_disabled());
+-
+ 	domain = dev_data->domain;
+ 
+ 	spin_lock(&domain->lock);

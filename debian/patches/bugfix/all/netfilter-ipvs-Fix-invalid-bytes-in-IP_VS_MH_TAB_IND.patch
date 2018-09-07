@@ -1,0 +1,34 @@
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Mon, 2 Jul 2018 17:24:27 +0100
+Subject: netfilter: ipvs: Fix invalid bytes in IP_VS_MH_TAB_INDEX help text
+
+The help text contains several \xa0 bytes, which are not valid UTF-8
+characters but could have been non-breaking spaces in Latin 1
+encoding.  I see no reason to use non-breaking spaces here, so replace
+them with regular spaces.
+
+Fixes: 30edf801d7ed ("netfilter: ipvs: Add configurations of Maglev hashing")
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ net/netfilter/ipvs/Kconfig | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index 05dc1b77e466..17b53eee05a5 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -296,10 +296,10 @@ config IP_VS_MH_TAB_INDEX
+ 	  stored in a hash table. This table is assigned by a preference
+ 	  list of the positions to each destination until all slots in
+ 	  the table are filled. The index determines the prime for size of
+-	  the table as 251, 509, 1021, 2039, 4093, 8191, 16381, 32749,
+-	  65521 or 131071. When using weights to allow destinations to
+-	  receive more connections, the table is assigned an amount
+-	  proportional to the weights specified. The table needs to be large
++	  the table as 251, 509, 1021, 2039, 4093, 8191, 16381, 32749,
++	  65521 or 131071. When using weights to allow destinations to
++	  receive more connections, the table is assigned an amount
++	  proportional to the weights specified. The table needs to be large
+ 	  enough to effectively fit all the destinations multiplied by their
+ 	  respective weights.
+ 

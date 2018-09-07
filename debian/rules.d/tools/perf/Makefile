@@ -38,6 +38,12 @@ MAKE_PERF += NO_LIBCRYPTO=1
 # Currently babeltrace support for `perf data' is not automatically detected.
 MAKE_PERF += LIBBABELTRACE=1
 
+# Build with asciidoctor, not asciidoc
+MAKE_PERF += USE_ASCIIDOCTOR=1
+
+# Build with Python 3, not Python 2
+MAKE_PERF += PYTHON=/usr/bin/python3
+
 all:
 ifdef HAVE_PERF
 # perf changes some default directories depending on whether DESTDIR is

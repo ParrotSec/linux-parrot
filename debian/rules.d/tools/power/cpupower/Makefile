@@ -2,7 +2,10 @@ include $(top_rulesdir)/Makefile.inc
 
 MAKE_CPUPOWER := $(shell dpkg-buildflags --export=cmdline) $(MAKE) O=$(CURDIR) CPUFREQ_BENCH=false V=true mandir=/usr/share/man
 
-MAKE_CPUPOWER += DEBUG=$(if $(findstring nostrip,$(DEB_BUILD_OPTIONS)),true,)
+MAKE_CPUPOWER += DEBUG=$(if $(filter noopt,$(DEB_BUILD_OPTIONS)),true,)
+
+# Don't strip binaries here; let dh_strip determine what to do
+MAKE_CPUPOWER += STRIP=true
 
 MAKE_CPUPOWER += CROSS='$(CROSS_COMPILE)'
 

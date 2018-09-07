@@ -1,0 +1,42 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 12 Apr 2018 09:55:25 +0200
+Subject: [PATCH] [SCSI] qla2xxx: remove irq save in qla2x00_poll()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+[ upstream commit b3a8aa90c46095cbad454eb068bfb5a8eb56d4e3 ]
+
+In commit d2ba5675d899 ("[SCSI] qla2xxx: Disable local-interrupts while
+polling for RISC status.") added a local_irq_disable() before invoking
+the ->intr_handler callback. The function, which was used in this
+callback, did not disable interrupts while acquiring the spin_lock so a
+deadlock was possible and this change was one possible solution.
+
+The function in question was qla2300_intr_handler() and is using
+spin_lock_irqsave() since commit 43fac4d97a1a ("[SCSI] qla2xxx: Resolve
+a performance issue in interrupt").
+I checked all other ->intr_handler callbacks and all of them use the
+irqsave variant so it is safe to remove the local_irq_save() block now.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/scsi/qla2xxx/qla_inline.h |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+--- a/drivers/scsi/qla2xxx/qla_inline.h
++++ b/drivers/scsi/qla2xxx/qla_inline.h
+@@ -58,14 +58,12 @@ qla2x00_debounce_register(volatile uint1
+ static inline void
+ qla2x00_poll(struct rsp_que *rsp)
+ {
+-	unsigned long flags;
+ 	struct qla_hw_data *ha = rsp->hw;
+-	local_irq_save(flags);
++
+ 	if (IS_P3P_TYPE(ha))
+ 		qla82xx_poll(0, rsp);
+ 	else
+ 		ha->isp_ops->intr_handler(0, rsp);
+-	local_irq_restore(flags);
+ }
+ 
+ static inline uint8_t *

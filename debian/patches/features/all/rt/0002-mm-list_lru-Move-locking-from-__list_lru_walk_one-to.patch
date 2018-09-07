@@ -1,0 +1,65 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 3 Jul 2018 13:06:07 +0200
+Subject: [PATCH 2/4] mm/list_lru: Move locking from __list_lru_walk_one() to
+ its caller
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+Move the locking inside __list_lru_walk_one() to its caller. This is a
+preparation step in order to introduce list_lru_walk_one_irq() which
+does spin_lock_irq() instead of spin_lock() for the locking.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/list_lru.c |   18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
+
+--- a/mm/list_lru.c
++++ b/mm/list_lru.c
+@@ -204,7 +204,6 @@ static unsigned long
+ 	struct list_head *item, *n;
+ 	unsigned long isolated = 0;
+ 
+-	spin_lock(&nlru->lock);
+ 	l = list_lru_from_memcg_idx(nlru, memcg_idx);
+ restart:
+ 	list_for_each_safe(item, n, &l->list) {
+@@ -250,8 +249,6 @@ static unsigned long
+ 			BUG();
+ 		}
+ 	}
+-
+-	spin_unlock(&nlru->lock);
+ 	return isolated;
+ }
+ 
+@@ -260,8 +257,14 @@ list_lru_walk_one(struct list_lru *lru,
+ 		  list_lru_walk_cb isolate, void *cb_arg,
+ 		  unsigned long *nr_to_walk)
+ {
+-	return __list_lru_walk_one(lru, nid, memcg_cache_id(memcg),
+-				   isolate, cb_arg, nr_to_walk);
++	struct list_lru_node *nlru = &lru->node[nid];
++	unsigned long ret;
++
++	spin_lock(&nlru->lock);
++	ret = __list_lru_walk_one(lru, nid, memcg_cache_id(memcg),
++				  isolate, cb_arg, nr_to_walk);
++	spin_unlock(&nlru->lock);
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(list_lru_walk_one);
+ 
+@@ -276,8 +279,13 @@ unsigned long list_lru_walk_node(struct
+ 				      nr_to_walk);
+ 	if (*nr_to_walk > 0 && list_lru_memcg_aware(lru)) {
+ 		for_each_memcg_cache_index(memcg_idx) {
++			struct list_lru_node *nlru = &lru->node[nid];
++
++			spin_lock(&nlru->lock);
+ 			isolated += __list_lru_walk_one(lru, nid, memcg_idx,
+ 						isolate, cb_arg, nr_to_walk);
++			spin_unlock(&nlru->lock);
++
+ 			if (*nr_to_walk <= 0)
+ 				break;
+ 		}

@@ -7,6 +7,11 @@ CONFIG_MIPS_GENERIC=y
 CONFIG_MIPS_CPS=y
 
 ##
+## file: arch/mips/generic/Kconfig
+##
+CONFIG_FIT_IMAGE_FDT_BOSTON=y
+
+##
 ## file: drivers/clk/imgtec/Kconfig
 ##
 CONFIG_COMMON_CLK_BOSTON=y

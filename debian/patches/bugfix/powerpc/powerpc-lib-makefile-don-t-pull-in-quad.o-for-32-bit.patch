@@ -17,9 +17,9 @@ Signed-off-by: James Clarke <jrtc27@jrtc27.com>
 
 --- a/arch/powerpc/lib/Makefile
 +++ b/arch/powerpc/lib/Makefile
-@@ -34,7 +34,7 @@ obj64-$(CONFIG_KPROBES_SANITY_TEST) += t
- 
- obj-y			+= checksum_$(BITS).o checksum_wrappers.o
+@@ -35,7 +35,7 @@ obj64-$(CONFIG_KPROBES_SANITY_TEST) += t
+ obj-y			+= checksum_$(BITS).o checksum_wrappers.o \
+ 			   string_$(BITS).o memcmp_$(BITS).o
  
 -obj-y			+= sstep.o ldstfp.o quad.o
 +obj-y			+= sstep.o ldstfp.o

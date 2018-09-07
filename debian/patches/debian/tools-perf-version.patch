@@ -9,7 +9,7 @@ version-dependent name.  And do the same for trace.]
 
 --- a/tools/perf/Makefile.perf
 +++ b/tools/perf/Makefile.perf
-@@ -721,23 +721,23 @@ endif
+@@ -750,23 +750,23 @@ endif
  install-tools: all install-gtk
  	$(call QUIET_INSTALL, binaries) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(bindir_SQ)'; \
@@ -36,10 +36,10 @@ version-dependent name.  And do the same for trace.]
  endif
 -	$(call QUIET_INSTALL, libexec) \
 -		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)'
- 	$(call QUIET_INSTALL, perf-archive) \
- 		$(INSTALL) $(OUTPUT)perf-archive -t '$(DESTDIR_SQ)$(perfexec_instdir_SQ)'
- 	$(call QUIET_INSTALL, perf-with-kcore) \
-@@ -765,7 +765,7 @@ ifndef NO_LIBPYTHON
+ ifndef NO_LIBBPF
+ 	$(call QUIET_INSTALL, lib) \
+ 		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perf_include_instdir_SQ)/bpf'
+@@ -804,7 +804,7 @@ ifndef NO_LIBPYTHON
  endif
  	$(call QUIET_INSTALL, perf_completion-script) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(sysconfdir_SQ)/bash_completion.d'; \
@@ -48,7 +48,7 @@ version-dependent name.  And do the same for trace.]
  	$(call QUIET_INSTALL, perf-tip) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(tip_instdir_SQ)'; \
  		$(INSTALL) Documentation/tips.txt -t '$(DESTDIR_SQ)$(tip_instdir_SQ)'
-@@ -790,7 +790,7 @@ install-python_ext:
+@@ -829,7 +829,7 @@ install-python_ext:
  
  # 'make install-doc' should call 'make -C Documentation install'
  $(INSTALL_DOC_TARGETS):
@@ -59,7 +59,7 @@ version-dependent name.  And do the same for trace.]
  
 --- a/tools/perf/Documentation/Makefile
 +++ b/tools/perf/Documentation/Makefile
-@@ -183,14 +183,16 @@ ifdef missing_tools
+@@ -194,14 +194,16 @@ ifdef missing_tools
  	$(error "You need to install $(missing_tools) for man pages")
  endif
  
@@ -84,7 +84,7 @@ version-dependent name.  And do the same for trace.]
  
 --- a/tools/perf/util/Build
 +++ b/tools/perf/util/Build
-@@ -179,6 +179,7 @@ CFLAGS_libstring.o     += -Wno-unused-pa
+@@ -192,6 +192,7 @@ CFLAGS_libstring.o     += -Wno-unused-pa
  CFLAGS_hweight.o       += -Wno-unused-parameter -DETC_PERFCONFIG="BUILD_STR($(ETC_PERFCONFIG_SQ))"
  CFLAGS_parse-events.o  += -Wno-redundant-decls
  CFLAGS_header.o        += -include $(OUTPUT)PERF-VERSION-FILE
@@ -94,7 +94,7 @@ version-dependent name.  And do the same for trace.]
  	$(call rule_mkdir)
 --- a/tools/perf/util/vdso.c
 +++ b/tools/perf/util/vdso.c
-@@ -51,12 +51,12 @@ static struct vdso_info *vdso_info__new(
+@@ -52,12 +52,12 @@ static struct vdso_info *vdso_info__new(
  		.vdso32  = {
  			.temp_file_name = VDSO__TEMP_FILE_NAME,
  			.dso_name = DSO__NAME_VDSO32,

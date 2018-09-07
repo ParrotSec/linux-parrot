@@ -10,3 +10,4 @@ mac_esp
 mac_scsi
 mvme16x_scsi
 zorro7xx
+zorro_esp

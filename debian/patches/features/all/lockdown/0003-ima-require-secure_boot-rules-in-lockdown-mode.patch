@@ -9,15 +9,15 @@ in secure boot lockdown mode.
 
 Signed-off-by: Mimi Zohar <zohar@linux.vnet.ibm.com>
 Signed-off-by: David Howells <dhowells@redhat.com>
+[bwh: Adjust context to apply after commit 6f0911a666d1
+ "ima: fix updating the ima_appraise flag"]
 ---
  security/integrity/ima/ima_policy.c | 39 +++++++++++++++++++++++++++----------
  1 file changed, 29 insertions(+), 10 deletions(-)
 
-diff --git a/security/integrity/ima/ima_policy.c b/security/integrity/ima/ima_policy.c
-index 95209a5f8595..49c75e2a1ec5 100644
 --- a/security/integrity/ima/ima_policy.c
 +++ b/security/integrity/ima/ima_policy.c
-@@ -427,14 +427,21 @@ void ima_update_policy_flag(void)
+@@ -459,14 +459,21 @@ static int ima_appraise_flag(enum ima_ho
   */
  void __init ima_init_policy(void)
  {
@@ -45,7 +45,7 @@ index 95209a5f8595..49c75e2a1ec5 100644
  
  	for (i = 0; i < measure_entries; i++)
  		list_add_tail(&dont_measure_rules[i].list, &ima_default_rules);
-@@ -455,11 +462,23 @@ void __init ima_init_policy(void)
+@@ -487,12 +494,24 @@ void __init ima_init_policy(void)
  
  	/*
  	 * Insert the appraise rules requiring file signatures, prior to
@@ -53,14 +53,13 @@ index 95209a5f8595..49c75e2a1ec5 100644
 +	 * any other appraise rules.  In secure boot lock-down mode, also
 +	 * require these appraise rules for custom policies.
  	 */
--	for (i = 0; i < secure_boot_entries; i++)
--		list_add_tail(&secure_boot_rules[i].list,
--			      &ima_default_rules);
-+	for (i = 0; i < secure_boot_entries; i++) {
+ 	for (i = 0; i < secure_boot_entries; i++) {
 +		struct ima_rule_entry *entry;
 +
 +		/* Include for builtin policies */
-+		list_add_tail(&secure_boot_rules[i].list, &ima_default_rules);
+ 		list_add_tail(&secure_boot_rules[i].list, &ima_default_rules);
+ 		temp_ima_appraise |=
+ 		    ima_appraise_flag(secure_boot_rules[i].func);
 +
 +		/* Include for custom policies */
 +		if (kernel_locked_down) {
@@ -69,7 +68,6 @@ index 95209a5f8595..49c75e2a1ec5 100644
 +			if (entry)
 +				list_add_tail(&entry->list, &ima_policy_rules);
 +		}
-+	}
+ 	}
  
  	for (i = 0; i < appraise_entries; i++) {
- 		list_add_tail(&default_appraise_rules[i].list,

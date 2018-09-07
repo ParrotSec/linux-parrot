@@ -1,0 +1,49 @@
+From 20690515ca3fd9baa92a3c915c74b14290fef13c Mon Sep 17 00:00:00 2001
+From: Ingo Molnar <mingo@elte.hu>
+Date: Fri, 3 Jul 2009 08:29:30 -0500
+Subject: [PATCH] random: Remove preempt disabled region
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.5-rt3.tar.xz
+
+No need to keep preemption disabled across the whole function.
+
+mix_pool_bytes() uses a spin_lock() to protect the pool and there are
+other places like write_pool() whhich invoke mix_pool_bytes() without
+disabling preemption.
+credit_entropy_bits() is invoked from other places like
+add_hwgenerator_randomness() without disabling preemption.
+
+Before commit 95b709b6be49 ("random: drop trickle mode") the function
+used __this_cpu_inc_return() which would require disabled preemption.
+The preempt_disable() section was added in commit 43d5d3018c37 ("[PATCH]
+random driver preempt robustness", history tree).  It was claimed that
+the code relied on "vt_ioctl() being called under BKL".
+
+Cc: "Theodore Ts'o" <tytso@mit.edu>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+[bigeasy: enhance the commit message]
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/char/random.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -1122,8 +1122,6 @@ static void add_timer_randomness(struct
+ 	} sample;
+ 	long delta, delta2, delta3;
+ 
+-	preempt_disable();
+-
+ 	sample.jiffies = jiffies;
+ 	sample.cycles = random_get_entropy();
+ 	sample.num = num;
+@@ -1161,8 +1159,6 @@ static void add_timer_randomness(struct
+ 	 * and limit entropy entimate to 12 bits.
+ 	 */
+ 	credit_entropy_bits(r, min_t(int, fls(delta>>1), 11));
+-
+-	preempt_enable();
+ }
+ 
+ void add_input_randomness(unsigned int type, unsigned int code,
