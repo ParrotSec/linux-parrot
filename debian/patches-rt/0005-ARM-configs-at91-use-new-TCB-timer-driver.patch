@@ -1,0 +1,35 @@
+From: Alexandre Belloni <alexandre.belloni@bootlin.com>
+Date: Wed, 18 Apr 2018 12:51:42 +0200
+Subject: [PATCH 5/6] ARM: configs: at91: use new TCB timer driver
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+
+Unselecting ATMEL_TCLIB switches the TCB timer driver from tcb_clksrc to
+timer-atmel-tcb.
+
+Signed-off-by: Alexandre Belloni <alexandre.belloni@bootlin.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ arch/arm/configs/at91_dt_defconfig |    1 -
+ arch/arm/configs/sama5_defconfig   |    1 -
+ 2 files changed, 2 deletions(-)
+
+--- a/arch/arm/configs/at91_dt_defconfig
++++ b/arch/arm/configs/at91_dt_defconfig
+@@ -64,7 +64,6 @@ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLK_DEV_RAM=y
+ CONFIG_BLK_DEV_RAM_COUNT=4
+ CONFIG_BLK_DEV_RAM_SIZE=8192
+-CONFIG_ATMEL_TCLIB=y
+ CONFIG_ATMEL_SSC=y
+ CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+--- a/arch/arm/configs/sama5_defconfig
++++ b/arch/arm/configs/sama5_defconfig
+@@ -75,7 +75,6 @@ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLK_DEV_RAM=y
+ CONFIG_BLK_DEV_RAM_COUNT=4
+ CONFIG_BLK_DEV_RAM_SIZE=8192
+-CONFIG_ATMEL_TCLIB=y
+ CONFIG_ATMEL_SSC=y
+ CONFIG_EEPROM_AT24=y
+ CONFIG_SCSI=y

@@ -1,0 +1,107 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 3 Jul 2018 13:17:27 +0200
+Subject: [PATCH 4/4] mm/list_lru: Introduce list_lru_shrink_walk_irq()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+
+Provide list_lru_shrink_walk_irq() and let it behave like
+list_lru_walk_one() except that it locks the spinlock with
+spin_lock_irq(). This is used by scan_shadow_nodes() because its lock
+nests within the i_pages lock which is acquired with IRQ.
+This change allows to use proper locking promitives instead hand crafted
+lock_irq_disable() plus spin_lock().
+There is no EXPORT_SYMBOL provided because the current user is in-KERNEL
+only.
+
+Add list_lru_shrink_walk_irq() which acquires the spinlock with the
+proper locking primitives.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/list_lru.h |   25 +++++++++++++++++++++++++
+ mm/list_lru.c            |   15 +++++++++++++++
+ mm/workingset.c          |    8 ++------
+ 3 files changed, 42 insertions(+), 6 deletions(-)
+
+--- a/include/linux/list_lru.h
++++ b/include/linux/list_lru.h
+@@ -162,6 +162,23 @@ unsigned long list_lru_walk_one(struct l
+ 				int nid, struct mem_cgroup *memcg,
+ 				list_lru_walk_cb isolate, void *cb_arg,
+ 				unsigned long *nr_to_walk);
++/**
++ * list_lru_walk_one_irq: walk a list_lru, isolating and disposing freeable items.
++ * @lru: the lru pointer.
++ * @nid: the node id to scan from.
++ * @memcg: the cgroup to scan from.
++ * @isolate: callback function that is resposible for deciding what to do with
++ *  the item currently being scanned
++ * @cb_arg: opaque type that will be passed to @isolate
++ * @nr_to_walk: how many items to scan.
++ *
++ * Same as @list_lru_walk_one except that the spinlock is acquired with
++ * spin_lock_irq().
++ */
++unsigned long list_lru_walk_one_irq(struct list_lru *lru,
++				    int nid, struct mem_cgroup *memcg,
++				    list_lru_walk_cb isolate, void *cb_arg,
++				    unsigned long *nr_to_walk);
+ unsigned long list_lru_walk_node(struct list_lru *lru, int nid,
+ 				 list_lru_walk_cb isolate, void *cb_arg,
+ 				 unsigned long *nr_to_walk);
+@@ -175,6 +192,14 @@ list_lru_shrink_walk(struct list_lru *lr
+ }
+ 
+ static inline unsigned long
++list_lru_shrink_walk_irq(struct list_lru *lru, struct shrink_control *sc,
++			 list_lru_walk_cb isolate, void *cb_arg)
++{
++	return list_lru_walk_one_irq(lru, sc->nid, sc->memcg, isolate, cb_arg,
++				     &sc->nr_to_scan);
++}
++
++static inline unsigned long
+ list_lru_walk(struct list_lru *lru, list_lru_walk_cb isolate,
+ 	      void *cb_arg, unsigned long nr_to_walk)
+ {
+--- a/mm/list_lru.c
++++ b/mm/list_lru.c
+@@ -267,6 +267,21 @@ list_lru_walk_one(struct list_lru *lru,
+ }
+ EXPORT_SYMBOL_GPL(list_lru_walk_one);
+ 
++unsigned long
++list_lru_walk_one_irq(struct list_lru *lru, int nid, struct mem_cgroup *memcg,
++		      list_lru_walk_cb isolate, void *cb_arg,
++		      unsigned long *nr_to_walk)
++{
++	struct list_lru_node *nlru = &lru->node[nid];
++	unsigned long ret;
++
++	spin_lock_irq(&nlru->lock);
++	ret = __list_lru_walk_one(nlru, memcg_cache_id(memcg), isolate, cb_arg,
++				  nr_to_walk);
++	spin_unlock_irq(&nlru->lock);
++	return ret;
++}
++
+ unsigned long list_lru_walk_node(struct list_lru *lru, int nid,
+ 				 list_lru_walk_cb isolate, void *cb_arg,
+ 				 unsigned long *nr_to_walk)
+--- a/mm/workingset.c
++++ b/mm/workingset.c
+@@ -480,13 +480,9 @@ static enum lru_status shadow_lru_isolat
+ static unsigned long scan_shadow_nodes(struct shrinker *shrinker,
+ 				       struct shrink_control *sc)
+ {
+-	unsigned long ret;
+-
+ 	/* list_lru lock nests inside the IRQ-safe i_pages lock */
+-	local_irq_disable();
+-	ret = list_lru_shrink_walk(&shadow_nodes, sc, shadow_lru_isolate, NULL);
+-	local_irq_enable();
+-	return ret;
++	return list_lru_shrink_walk_irq(&shadow_nodes, sc, shadow_lru_isolate,
++					NULL);
+ }
+ 
+ static struct shrinker workingset_shadow_shrinker = {

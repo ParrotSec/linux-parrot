@@ -1,6 +1,7 @@
-!/patches
+!/patches*
 !*.patch
 !*.diff
+!series
 *.debhelper*
 *.local
 *.pyc

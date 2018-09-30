@@ -5,7 +5,7 @@ Files-Excluded: Documentation/netlabel/draft-ietf-cipso-ipsecurity-01.txt
  arch/powerpc/sysdev/micropatch.c
  drivers/media/usb/dvb-usb/af9005-script.h
  drivers/media/i2c/vs6624.c
- drivers/net/appletalk/cops*.[ch]
+ drivers/net/appletalk/cops*
  drivers/video/fbdev/nvidia
  drivers/video/fbdev/riva
 Comment:

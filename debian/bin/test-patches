@@ -64,25 +64,24 @@ if [ "${version%a~test}" = "$version" ]; then
     dch -v "$version" --distribution UNRELEASED "Testing patches $*"
 fi
 
-# Make new directory for patches
-mkdir -p debian/patches/test
-
 # Ignore user's .quiltrc
 alias quilt='quilt --quiltrc -'
 
 # Try to clean up any previous test patches
 if [ "$featureset" = none ]; then
+    patchdir=debian/patches
     while patch="$(quilt next 2>/dev/null || quilt top 2>/dev/null)" && \
 	[ "${patch#test/}" != "$patch" ]; do
         quilt delete -r "$patch"
     done
 else
-    sed -i '/^test\//d' debian/patches/series-${featureset}
+    patchdir=debian/patches-${featureset}
+    sed -i '/^test\//d' $patchdir/series
 fi
 
 # Prepare a new directory for the patches
-rm -rf debian/patches/test/
-mkdir debian/patches/test
+rm -rf $patchdir/test/
+mkdir $patchdir/test
 
 # Regenerate control and included rules
 rm debian/control debian/rules.gen

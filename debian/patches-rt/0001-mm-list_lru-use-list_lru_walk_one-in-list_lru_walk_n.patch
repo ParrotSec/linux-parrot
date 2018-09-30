@@ -1,0 +1,31 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 3 Jul 2018 12:56:19 +0200
+Subject: [PATCH 1/4] mm/list_lru: use list_lru_walk_one() in
+ list_lru_walk_node()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+
+list_lru_walk_node() invokes __list_lru_walk_one() with -1 as the
+memcg_idx parameter. The same can be achieved by list_lru_walk_one() and
+passing NULL as memcg argument which then gets converted into -1. This
+is a preparation step when the spin_lock() function is lifted to the
+caller of __list_lru_walk_one().
+Invoke list_lru_walk_one() instead __list_lru_walk_one() when possible.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/list_lru.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/mm/list_lru.c
++++ b/mm/list_lru.c
+@@ -272,8 +272,8 @@ unsigned long list_lru_walk_node(struct
+ 	long isolated = 0;
+ 	int memcg_idx;
+ 
+-	isolated += __list_lru_walk_one(lru, nid, -1, isolate, cb_arg,
+-					nr_to_walk);
++	isolated += list_lru_walk_one(lru, nid, NULL, isolate, cb_arg,
++				      nr_to_walk);
+ 	if (*nr_to_walk > 0 && list_lru_memcg_aware(lru)) {
+ 		for_each_memcg_cache_index(memcg_idx) {
+ 			isolated += __list_lru_walk_one(lru, nid, memcg_idx,

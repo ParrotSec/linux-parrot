@@ -1330,6 +1330,11 @@ CONFIG_TCIC=m
 # CONFIG_PCMCIA_DEBUG is not set
 
 ##
+## file: drivers/pinctrl/Kconfig
+##
+CONFIG_PINCTRL_AMD=y
+
+##
 ## file: drivers/pinctrl/intel/Kconfig
 ##
 CONFIG_PINCTRL_BAYTRAIL=y
@@ -1624,6 +1629,11 @@ CONFIG_RTL8192U=m
 CONFIG_RTL8723BS=m
 
 ##
+## file: drivers/staging/rtlwifi/Kconfig
+##
+CONFIG_R8822BE=m
+
+##
 ## file: drivers/staging/rts5208/Kconfig
 ##
 CONFIG_RTS5208=m
@@ -1739,6 +1749,7 @@ CONFIG_USB_SL811_CS=m
 ##
 CONFIG_TYPEC=m
 CONFIG_TYPEC_TCPM=m
+CONFIG_TYPEC_TPS6598X=m
 
 ##
 ## file: drivers/usb/typec/fusb302/Kconfig

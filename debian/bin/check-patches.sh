@@ -2,8 +2,10 @@
 
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
-sed '/^#/d; /^[[:space:]]*$/d; /^X /d; s/^+ //; s,^,debian/patches/,' debian/patches/series* | sort -u > $TMPDIR/used
-find debian/patches ! -path '*/series*' -type f -name "*.diff" -o -name "*.patch" -printf "%p\n" | sort > $TMPDIR/avail
+for patchdir in debian/patches*; do
+    sed '/^#/d; /^[[:space:]]*$/d; /^X /d; s/^+ //; s,^,'"$patchdir"'/,' "$patchdir"/series
+done | sort -u > $TMPDIR/used
+find debian/patches* ! -path '*/series' -type f -name "*.diff" -o -name "*.patch" -printf "%p\n" | sort > $TMPDIR/avail
 echo "Used patches"
 echo "=============="
 cat $TMPDIR/used

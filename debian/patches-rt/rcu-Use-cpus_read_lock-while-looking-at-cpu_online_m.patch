@@ -1,0 +1,61 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 10 Sep 2018 14:58:37 +0200
+Subject: [PATCH] rcu: Use cpus_read_lock() while looking at cpu_online_mask
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+
+It was possible that sync_rcu_exp_select_cpus() enqueued something on
+CPU0 while CPU0 was offline. Such a work item wouldn't be processed
+until CPU0 gets back online. This problem was addressed in commit
+fcc6354365015 ("rcu: Make expedited GPs handle CPU 0 being offline"). I
+don't think the issue fully addressed.
+
+Assume grplo = 0 and grphi = 7 and sync_rcu_exp_select_cpus() is invoked
+on CPU1. The preempt_disable() section on CPU1 won't ensure that CPU0
+remains online between looking at cpu_online_mask and invoking
+queue_work_on() on CPU1.
+
+Use cpus_read_lock() to ensure that `cpu' is not going down between
+looking at cpu_online_mask at invoking queue_work_on() and waiting for
+its completion. It is added around the loop + flush_work() which is
+similar to work_on_cpu_safe() (and we can have multiple jobs running on
+NUMA systems).
+
+Fixes: fcc6354365015 ("rcu: Make expedited GPs handle CPU 0 being
+		      offline")
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/rcu/tree_exp.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/kernel/rcu/tree_exp.h
++++ b/kernel/rcu/tree_exp.h
+@@ -479,6 +479,7 @@ static void sync_rcu_exp_select_cpus(str
+ 	sync_exp_reset_tree(rsp);
+ 	trace_rcu_exp_grace_period(rsp->name, rcu_exp_gp_seq_endval(rsp), TPS("select"));
+ 
++	cpus_read_lock();
+ 	/* Schedule work for each leaf rcu_node structure. */
+ 	rcu_for_each_leaf_node(rsp, rnp) {
+ 		rnp->exp_need_flush = false;
+@@ -493,13 +494,11 @@ static void sync_rcu_exp_select_cpus(str
+ 			continue;
+ 		}
+ 		INIT_WORK(&rnp->rew.rew_work, sync_rcu_exp_select_node_cpus);
+-		preempt_disable();
+ 		cpu = cpumask_next(rnp->grplo - 1, cpu_online_mask);
+ 		/* If all offline, queue the work on an unbound CPU. */
+ 		if (unlikely(cpu > rnp->grphi))
+ 			cpu = WORK_CPU_UNBOUND;
+ 		queue_work_on(cpu, rcu_par_gp_wq, &rnp->rew.rew_work);
+-		preempt_enable();
+ 		rnp->exp_need_flush = true;
+ 	}
+ 
+@@ -507,6 +506,7 @@ static void sync_rcu_exp_select_cpus(str
+ 	rcu_for_each_leaf_node(rsp, rnp)
+ 		if (rnp->exp_need_flush)
+ 			flush_work(&rnp->rew.rew_work);
++	cpus_read_unlock();
+ }
+ 
+ static void synchronize_sched_expedited_wait(struct rcu_state *rsp)

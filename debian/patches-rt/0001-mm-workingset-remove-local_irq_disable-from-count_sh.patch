@@ -1,0 +1,46 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Fri, 22 Jun 2018 10:48:51 +0200
+Subject: [PATCH 1/3] mm: workingset: remove local_irq_disable() from
+ count_shadow_nodes()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+
+In commit 0c7c1bed7e13 ("mm: make counting of list_lru_one::nr_items
+lockless") the
+	spin_lock(&nlru->lock);
+
+statement was replaced with
+	rcu_read_lock();
+
+in __list_lru_count_one(). The comment in count_shadow_nodes() says that
+the local_irq_disable() is required because the lock must be acquired
+with disabled interrupts and (spin_lock()) does not do so.
+Since the lock is replaced with rcu_read_lock() the local_irq_disable()
+is no longer needed. The code path is
+  list_lru_shrink_count()
+    -> list_lru_count_one()
+      -> __list_lru_count_one()
+        -> rcu_read_lock()
+        -> list_lru_from_memcg_idx()
+        -> rcu_read_unlock()
+
+Remove the local_irq_disable() statement.
+
+Cc: Kirill Tkhai <ktkhai@virtuozzo.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/workingset.c |    3 ---
+ 1 file changed, 3 deletions(-)
+
+--- a/mm/workingset.c
++++ b/mm/workingset.c
+@@ -366,10 +366,7 @@ static unsigned long count_shadow_nodes(
+ 	unsigned long nodes;
+ 	unsigned long cache;
+ 
+-	/* list_lru lock nests inside the IRQ-safe i_pages lock */
+-	local_irq_disable();
+ 	nodes = list_lru_shrink_count(&shadow_nodes, sc);
+-	local_irq_enable();
+ 
+ 	/*
+ 	 * Approximate a reasonable limit for the radix tree nodes

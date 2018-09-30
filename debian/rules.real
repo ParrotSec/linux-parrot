@@ -130,7 +130,8 @@ $(BUILD_DIR)/$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz: $(STAMPS_DIR)/
 		-name '*.pyc' -prune -o \
 		-print0 | \
 		sort -z | \
-		tar --no-recursion --null -T - -caf '$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz'
+		tar --owner=root --group=root --numeric-owner \
+			--no-recursion --null -T - -caf '$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz'
 	rm -rf '$(DIR)'
 
 $(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-%.patch.xz: $(STAMPS_DIR)/source_none $(STAMPS_DIR)/source_%
@@ -143,10 +144,6 @@ $(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-%.patch.xz: $(STAMPS_DIR)/source_non
 	xz -c >$@ ||							\
 	(rm -f $@; exit 1)
 
-define patch_cmd
-cd '$(DIR)' && QUILT_PATCHES='$(CURDIR)/debian/patches' QUILT_SERIES=series-$(1) QUILT_PC=.pc quilt push --quiltrc - -a -q --fuzz=0
-endef
-
 $(STAMPS_DIR)/source:
 	test -d .pc
 	set +e; QUILT_PC=.pc quilt unapplied --quiltrc - >/dev/null && echo 'Patch series not fully applied'; test $$? -eq 1
@@ -158,7 +155,7 @@ $(STAMPS_DIR)/source_%: $(STAMPS_DIR)/source
 	mkdir -p '$(BUILD_DIR)'
 	rm -rf '$(DIR)'
 	$(call copy_source,$(DIR))
-	$(call patch_cmd,$*)
+	cd '$(DIR)' && QUILT_PATCHES='$(CURDIR)/debian/patches-$*' QUILT_PC=.pc quilt push --quiltrc - -a -q --fuzz=0
 	@$(stamp)
 .PRECIOUS: $(STAMPS_DIR)/source_%
 
@@ -233,7 +230,7 @@ endif
 
 install-base:
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
-	dh_installdocs $(INSTALLDOCS_ARGS)
+	dh_installdocs
 endif
 	dh_installchangelogs
 	dh_compress
@@ -370,7 +367,7 @@ install-headers_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/build_$(ARCH)_$(
 	ln -s /usr/src/$(PACKAGE_NAME) $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/build
 	ln -s /usr/src/$(PACKAGE_NAME_COMMON) $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/source
 
-	+$(MAKE_SELF) install-base INSTALLDOCS_ARGS="--link-doc=$(PACKAGE_NAME_COMMON)"
+	+$(MAKE_SELF) install-base
 
 install-libc-dev_$(ARCH): PACKAGE_NAME = linux-libc-dev
 install-libc-dev_$(ARCH): DH_OPTIONS = -p$(PACKAGE_NAME)

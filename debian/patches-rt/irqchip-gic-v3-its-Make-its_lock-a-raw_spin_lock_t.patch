@@ -1,0 +1,93 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 18 Jul 2018 17:42:04 +0200
+Subject: [PATCH] irqchip/gic-v3-its: Make its_lock a raw_spin_lock_t
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+
+[ Upstream commit a8db74564b0c634667e1722264bde303d296f566 ]
+
+The its_lock lock is held while a new device is added to the list and
+during setup while the CPU is booted. Even on -RT the CPU-bootup is
+performed with disabled interrupts.
+
+Make its_lock a raw_spin_lock_t.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Marc Zyngier <marc.zyngier@arm.com>
+---
+ drivers/irqchip/irq-gic-v3-its.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+--- a/drivers/irqchip/irq-gic-v3-its.c
++++ b/drivers/irqchip/irq-gic-v3-its.c
+@@ -160,7 +160,7 @@ static struct {
+ } vpe_proxy;
+ 
+ static LIST_HEAD(its_nodes);
+-static DEFINE_SPINLOCK(its_lock);
++static DEFINE_RAW_SPINLOCK(its_lock);
+ static struct rdists *gic_rdists;
+ static struct irq_domain *its_parent;
+ 
+@@ -1997,12 +1997,12 @@ static void its_cpu_init_collections(voi
+ {
+ 	struct its_node *its;
+ 
+-	spin_lock(&its_lock);
++	raw_spin_lock(&its_lock);
+ 
+ 	list_for_each_entry(its, &its_nodes, entry)
+ 		its_cpu_init_collection(its);
+ 
+-	spin_unlock(&its_lock);
++	raw_spin_unlock(&its_lock);
+ }
+ 
+ static struct its_device *its_find_device(struct its_node *its, u32 dev_id)
+@@ -3070,7 +3070,7 @@ static int its_save_disable(void)
+ 	struct its_node *its;
+ 	int err = 0;
+ 
+-	spin_lock(&its_lock);
++	raw_spin_lock(&its_lock);
+ 	list_for_each_entry(its, &its_nodes, entry) {
+ 		void __iomem *base;
+ 
+@@ -3102,7 +3102,7 @@ static int its_save_disable(void)
+ 			writel_relaxed(its->ctlr_save, base + GITS_CTLR);
+ 		}
+ 	}
+-	spin_unlock(&its_lock);
++	raw_spin_unlock(&its_lock);
+ 
+ 	return err;
+ }
+@@ -3112,7 +3112,7 @@ static void its_restore_enable(void)
+ 	struct its_node *its;
+ 	int ret;
+ 
+-	spin_lock(&its_lock);
++	raw_spin_lock(&its_lock);
+ 	list_for_each_entry(its, &its_nodes, entry) {
+ 		void __iomem *base;
+ 		int i;
+@@ -3164,7 +3164,7 @@ static void its_restore_enable(void)
+ 		    GITS_TYPER_HCC(gic_read_typer(base + GITS_TYPER)))
+ 			its_cpu_init_collection(its);
+ 	}
+-	spin_unlock(&its_lock);
++	raw_spin_unlock(&its_lock);
+ }
+ 
+ static struct syscore_ops its_syscore_ops = {
+@@ -3398,9 +3398,9 @@ static int __init its_probe_one(struct r
+ 	if (err)
+ 		goto out_free_tables;
+ 
+-	spin_lock(&its_lock);
++	raw_spin_lock(&its_lock);
+ 	list_add(&its->entry, &its_nodes);
+-	spin_unlock(&its_lock);
++	raw_spin_unlock(&its_lock);
+ 
+ 	return 0;
+ 

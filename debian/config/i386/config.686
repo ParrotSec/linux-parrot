@@ -18,7 +18,9 @@ CONFIG_GEOS=y
 ##
 ## choice: Processor family
 # CONFIG_M486 is not set
-CONFIG_M686=y
+#. We want to support Geode LX and similar AMD family 5 CPUs as well as
+#. family 6+ CPUs
+CONFIG_MGEODE_LX=y
 ## end choice
 
 ##
