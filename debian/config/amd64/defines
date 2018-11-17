@@ -8,6 +8,8 @@ kernel-arch: x86
 debug-info: true
 image-file: arch/x86/boot/bzImage
 vdso: true
+# We don't want signed modules in Kali
+signed-modules: false
 
 [image]
 bootloaders: grub-pc grub-efi-amd64 extlinux

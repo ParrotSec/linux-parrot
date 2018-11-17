@@ -7,6 +7,8 @@ kernel-arch: x86
 [build]
 image-file: arch/x86/boot/bzImage
 vdso: true
+# We don't want signed modules in Kali
+signed-modules: false
 
 [description]
 part-long-pae: This kernel requires PAE (Physical Address Extension).

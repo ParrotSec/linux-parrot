@@ -1,3 +1,27 @@
+linux (4.18.10-2parrot10) testing; urgency=medium
+
+  * Import new Debian release.
+  * Rebuild with new GCC compiler.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sat, 17 Nov 2018 03:42:37 +0100
+
+linux (4.18.10-2) unstable; urgency=medium
+
+  [ Ben Hutchings ]
+  * [rt][arm64,armhf] Fix build failure after rebasing onto 4.18.10
+  * xen-netback: fix input validation in xenvif_set_hash_mapping()
+    (CVE-2018-15471)
+  * Revert "uapi/linux/keyctl.h: don't use C++ reserved keyword as a struct
+    member name" (Closes: #909813)
+
+  [ Salvatore Bonaccorso ]
+  * [arm64] KVM: Tighten guest core register access from userspace
+    (CVE-2018-18021)
+  * [arm64] KVM: Sanitize PSTATE.M when being set from userspace
+    (CVE-2018-18021)
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 07 Oct 2018 21:57:06 +0100
+
 linux (4.18.10-1parrot10) testing; urgency=medium
 
   * Import new Debian release.

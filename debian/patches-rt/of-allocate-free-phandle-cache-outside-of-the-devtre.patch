@@ -37,7 +37,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 +
  	if (!phandles)
- 		goto out;
+-		goto out;
++		return;
  
  	cache_entries = roundup_pow_of_two(phandles);
  	phandle_cache_mask = cache_entries - 1;
