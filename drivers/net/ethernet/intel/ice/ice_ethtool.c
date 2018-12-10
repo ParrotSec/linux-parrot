@@ -26,7 +26,7 @@ static int ice_q_stats_len(struct net_device *netdev)
 {
 	struct ice_netdev_priv *np = netdev_priv(netdev);
 
-	return ((np->vsi->num_txq + np->vsi->num_rxq) *
+	return ((np->vsi->alloc_txq + np->vsi->alloc_rxq) *
 		(sizeof(struct ice_q_stats) / sizeof(u64)));
 }
 
@@ -218,7 +218,7 @@ static void ice_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
 			p += ETH_GSTRING_LEN;
 		}
 
-		ice_for_each_txq(vsi, i) {
+		ice_for_each_alloc_txq(vsi, i) {
 			snprintf(p, ETH_GSTRING_LEN,
 				 "tx-queue-%u.tx_packets", i);
 			p += ETH_GSTRING_LEN;
@@ -226,7 +226,7 @@ static void ice_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
 			p += ETH_GSTRING_LEN;
 		}
 
-		ice_for_each_rxq(vsi, i) {
+		ice_for_each_alloc_rxq(vsi, i) {
 			snprintf(p, ETH_GSTRING_LEN,
 				 "rx-queue-%u.rx_packets", i);
 			p += ETH_GSTRING_LEN;
@@ -253,6 +253,24 @@ static int ice_get_sset_count(struct net_device *netdev, int sset)
 {
 	switch (sset) {
 	case ETH_SS_STATS:
+		/* The number (and order) of strings reported *must* remain
+		 * constant for a given netdevice. This function must not
+		 * report a different number based on run time parameters
+		 * (such as the number of queues in use, or the setting of
+		 * a private ethtool flag). This is due to the nature of the
+		 * ethtool stats API.
+		 *
+		 * User space programs such as ethtool must make 3 separate
+		 * ioctl requests, one for size, one for the strings, and
+		 * finally one for the stats. Since these cross into
+		 * user space, changes to the number or size could result in
+		 * undefined memory access or incorrect string<->value
+		 * correlations for statistics.
+		 *
+		 * Even if it appears to be safe, changes to the size or
+		 * order of strings will suffer from race conditions and are
+		 * not safe.
+		 */
 		return ICE_ALL_STATS_LEN(netdev);
 	default:
 		return -EOPNOTSUPP;
@@ -280,18 +298,26 @@ ice_get_ethtool_stats(struct net_device *netdev,
 	/* populate per queue stats */
 	rcu_read_lock();
 
-	ice_for_each_txq(vsi, j) {
+	ice_for_each_alloc_txq(vsi, j) {
 		ring = READ_ONCE(vsi->tx_rings[j]);
-		if (!ring)
-			continue;
-		data[i++] = ring->stats.pkts;
-		data[i++] = ring->stats.bytes;
+		if (ring) {
+			data[i++] = ring->stats.pkts;
+			data[i++] = ring->stats.bytes;
+		} else {
+			data[i++] = 0;
+			data[i++] = 0;
+		}
 	}
 
-	ice_for_each_rxq(vsi, j) {
+	ice_for_each_alloc_rxq(vsi, j) {
 		ring = READ_ONCE(vsi->rx_rings[j]);
-		data[i++] = ring->stats.pkts;
-		data[i++] = ring->stats.bytes;
+		if (ring) {
+			data[i++] = ring->stats.pkts;
+			data[i++] = ring->stats.bytes;
+		} else {
+			data[i++] = 0;
+			data[i++] = 0;
+		}
 	}
 
 	rcu_read_unlock();
@@ -452,9 +478,11 @@ ice_get_ringparam(struct net_device *netdev, struct ethtool_ringparam *ring)
 	ring->tx_max_pending = ICE_MAX_NUM_DESC;
 	ring->rx_pending = vsi->rx_rings[0]->count;
 	ring->tx_pending = vsi->tx_rings[0]->count;
-	ring->rx_mini_pending = ICE_MIN_NUM_DESC;
+
+	/* Rx mini and jumbo rings are not supported */
 	ring->rx_mini_max_pending = 0;
 	ring->rx_jumbo_max_pending = 0;
+	ring->rx_mini_pending = 0;
 	ring->rx_jumbo_pending = 0;
 }
 
@@ -472,14 +500,23 @@ ice_set_ringparam(struct net_device *netdev, struct ethtool_ringparam *ring)
 	    ring->tx_pending < ICE_MIN_NUM_DESC ||
 	    ring->rx_pending > ICE_MAX_NUM_DESC ||
 	    ring->rx_pending < ICE_MIN_NUM_DESC) {
-		netdev_err(netdev, "Descriptors requested (Tx: %d / Rx: %d) out of range [%d-%d]\n",
+		netdev_err(netdev, "Descriptors requested (Tx: %d / Rx: %d) out of range [%d-%d] (increment %d)\n",
 			   ring->tx_pending, ring->rx_pending,
-			   ICE_MIN_NUM_DESC, ICE_MAX_NUM_DESC);
+			   ICE_MIN_NUM_DESC, ICE_MAX_NUM_DESC,
+			   ICE_REQ_DESC_MULTIPLE);
 		return -EINVAL;
 	}
 
 	new_tx_cnt = ALIGN(ring->tx_pending, ICE_REQ_DESC_MULTIPLE);
+	if (new_tx_cnt != ring->tx_pending)
+		netdev_info(netdev,
+			    "Requested Tx descriptor count rounded up to %d\n",
+			    new_tx_cnt);
 	new_rx_cnt = ALIGN(ring->rx_pending, ICE_REQ_DESC_MULTIPLE);
+	if (new_rx_cnt != ring->rx_pending)
+		netdev_info(netdev,
+			    "Requested Rx descriptor count rounded up to %d\n",
+			    new_rx_cnt);
 
 	/* if nothing to do return success */
 	if (new_tx_cnt == vsi->tx_rings[0]->count &&
@@ -519,7 +556,7 @@ ice_set_ringparam(struct net_device *netdev, struct ethtool_ringparam *ring)
 		goto done;
 	}
 
-	for (i = 0; i < vsi->num_txq; i++) {
+	for (i = 0; i < vsi->alloc_txq; i++) {
 		/* clone ring and setup updated count */
 		tx_rings[i] = *vsi->tx_rings[i];
 		tx_rings[i].count = new_tx_cnt;
@@ -551,7 +588,7 @@ process_rx:
 		goto done;
 	}
 
-	for (i = 0; i < vsi->num_rxq; i++) {
+	for (i = 0; i < vsi->alloc_rxq; i++) {
 		/* clone ring and setup updated count */
 		rx_rings[i] = *vsi->rx_rings[i];
 		rx_rings[i].count = new_rx_cnt;

@@ -1222,14 +1222,17 @@ static int smu8_dpm_force_dpm_level(struct pp_hwmgr *hwmgr,
 
 static int smu8_dpm_powerdown_uvd(struct pp_hwmgr *hwmgr)
 {
-	if (PP_CAP(PHM_PlatformCaps_UVDPowerGating))
+	if (PP_CAP(PHM_PlatformCaps_UVDPowerGating)) {
+		smu8_nbdpm_pstate_enable_disable(hwmgr, true, true);
 		return smum_send_msg_to_smc(hwmgr, PPSMC_MSG_UVDPowerOFF);
+	}
 	return 0;
 }
 
 static int smu8_dpm_powerup_uvd(struct pp_hwmgr *hwmgr)
 {
 	if (PP_CAP(PHM_PlatformCaps_UVDPowerGating)) {
+		smu8_nbdpm_pstate_enable_disable(hwmgr, false, true);
 		return smum_send_msg_to_smc_with_parameter(
 			hwmgr,
 			PPSMC_MSG_UVDPowerON,
@@ -1605,17 +1608,17 @@ static int smu8_get_clock_by_type(struct pp_hwmgr *hwmgr, enum amd_pp_clock_type
 	switch (type) {
 	case amd_pp_disp_clock:
 		for (i = 0; i < clocks->count; i++)
-			clocks->clock[i] = data->sys_info.display_clock[i] * 10;
+			clocks->clock[i] = data->sys_info.display_clock[i];
 		break;
 	case amd_pp_sys_clock:
 		table = hwmgr->dyn_state.vddc_dependency_on_sclk;
 		for (i = 0; i < clocks->count; i++)
-			clocks->clock[i] = table->entries[i].clk * 10;
+			clocks->clock[i] = table->entries[i].clk;
 		break;
 	case amd_pp_mem_clock:
 		clocks->count = SMU8_NUM_NBPMEMORYCLOCK;
 		for (i = 0; i < clocks->count; i++)
-			clocks->clock[i] = data->sys_info.nbp_memory_clock[clocks->count - 1 - i] * 10;
+			clocks->clock[i] = data->sys_info.nbp_memory_clock[clocks->count - 1 - i];
 		break;
 	default:
 		return -1;
