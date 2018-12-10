@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Wed, 4 Apr 2018 11:43:57 +0200
 Subject: [PATCH] userns: Use irqsave variant of refcount_dec_and_lock()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 The irqsave variant of refcount_dec_and_lock handles irqsave/restore when
 taking/releasing the spin lock. With this variant the call of

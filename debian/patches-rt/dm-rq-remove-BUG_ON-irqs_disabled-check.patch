@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 27 Mar 2018 16:24:15 +0200
 Subject: [PATCH] dm rq: remove BUG_ON(!irqs_disabled) check
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 In commit 052189a2ec95 ("dm: remove superfluous irq disablement in
 dm_request_fn") the spin_lock_irq() was replaced with spin_lock() + a

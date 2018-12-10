@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 18 Jul 2018 17:42:04 +0200
 Subject: [PATCH] irqchip/gic-v3-its: Make its_lock a raw_spin_lock_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 [ Upstream commit a8db74564b0c634667e1722264bde303d296f566 ]
 

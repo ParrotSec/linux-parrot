@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 1 Dec 2017 10:42:03 +0100
 Subject: [PATCH] arm*: disable NEON in kernel mode
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 NEON in kernel mode is used by the crypto algorithms and raid6 code.
 While the raid6 code looks okay, the crypto algorithms do not: NEON
@@ -13,6 +13,7 @@ stay on due to possible EFI callbacks so here I disable each algorithm.
 
 Cc: stable-rt@vger.kernel.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+[bwh: Forward-ported to 4.18.20: CONFIG_CRYPTO_SPECK_NEON no longer exists]
 ---
  arch/arm/Kconfig                  |    2 +-
  arch/arm64/crypto/Kconfig         |   30 +++++++++++++++---------------
@@ -142,15 +143,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	select CRYPTO_BLKCIPHER
  	select CRYPTO_AES_ARM64_NEON_BLK
  	select CRYPTO_AES_ARM64
-@@ -121,7 +121,7 @@ config CRYPTO_AES_ARM64_BS
- 
- config CRYPTO_SPECK_NEON
- 	tristate "NEON accelerated Speck cipher algorithms"
--	depends on KERNEL_MODE_NEON
-+	depends on KERNEL_MODE_NEON && !PREEMPT_RT_BASE
- 	select CRYPTO_BLKCIPHER
- 	select CRYPTO_SPECK
- 
 --- a/arch/arm64/crypto/crc32-ce-glue.c
 +++ b/arch/arm64/crypto/crc32-ce-glue.c
 @@ -208,7 +208,8 @@ static struct shash_alg crc32_pmull_algs

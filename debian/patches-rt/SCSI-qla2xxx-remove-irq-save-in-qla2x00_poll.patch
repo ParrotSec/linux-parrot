@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 12 Apr 2018 09:55:25 +0200
 Subject: [PATCH] [SCSI] qla2xxx: remove irq save in qla2x00_poll()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 [ upstream commit b3a8aa90c46095cbad454eb068bfb5a8eb56d4e3 ]
 

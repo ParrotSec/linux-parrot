@@ -1,7 +1,7 @@
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Mon, 26 Jun 2017 17:07:15 +0200
 Subject: rt: Increase/decrease the nr of migratory tasks when enabling/disabling migration
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 There is a problem in the migrate_disable()/enable() implementation
 regarding the number of migratory tasks in the rt/dl RQs. The problem
@@ -81,7 +81,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -7155,6 +7155,47 @@ const u32 sched_prio_to_wmult[40] = {
+@@ -7156,6 +7156,47 @@ const u32 sched_prio_to_wmult[40] = {
  
  #if defined(CONFIG_PREEMPT_COUNT) && defined(CONFIG_SMP)
  
@@ -129,7 +129,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  void migrate_disable(void)
  {
  	struct task_struct *p = current;
-@@ -7178,10 +7219,9 @@ void migrate_disable(void)
+@@ -7179,10 +7220,9 @@ void migrate_disable(void)
  	}
  
  	preempt_disable();
@@ -142,7 +142,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	preempt_enable();
  }
-@@ -7213,9 +7253,8 @@ void migrate_enable(void)
+@@ -7214,9 +7254,8 @@ void migrate_enable(void)
  
  	preempt_disable();
  

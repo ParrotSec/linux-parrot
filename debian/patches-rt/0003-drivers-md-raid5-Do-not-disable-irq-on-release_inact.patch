@@ -2,7 +2,7 @@ From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Fri, 4 May 2018 17:45:33 +0200
 Subject: [PATCH 3/3] drivers/md/raid5: Do not disable irq on
  release_inactive_stripe_list() call
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 There is no need to invoke release_inactive_stripe_list() with interrupts
 disabled. All call sites, except raid5_release_stripe(), unlock

@@ -29,7 +29,7 @@ bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
 
-# Parrot patches
+# Parrot Patches
 features/all/wifi-injection.patch
 features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
@@ -86,12 +86,14 @@ features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
-# Add device-tree for Pinebook from linux next-20180625
+# Add device-tree for Pinebook from linux 4.19.x
 features/arm64/pinebook/0001-arm64-allwinner-a64-Add-RTC-clock-to-phandle-32kHz-e.patch
 features/arm64/pinebook/0002-arm64-dts-allwinner-a64-add-R_I2C-controller.patch
 features/arm64/pinebook/0003-arm64-dts-allwinner-a64-Add-PWM-controllers.patch
 features/arm64/pinebook/0004-arm64-dts-allwinner-add-support-for-Pinebook.patch
 features/arm64/pinebook/0005-arm64-dts-allwinner-a64-add-SRAM-controller-device-t.patch
+features/arm64/pinebook/0006-arm64-allwinner-a64-change-TERES-I-DLDO3-s-name-to-s.patch
+features/arm64/pinebook/0007-arm64-allwinner-a64-allow-laptops-to-wake-up-from-li.patch
 features/powerpc/mtd-powernv_flash-set-of_node-in-mtd-s-dev.patch
 
 # Miscellaneous bug fixes
@@ -102,7 +104,6 @@ bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/netfilter-ipvs-Fix-invalid-bytes-in-IP_VS_MH_TAB_IND.patch
-bugfix/all/revert-uapi-linux-keyctl.h-don-t-use-c-reserved-keyw.patch
 
 # Miscellaneous features
 features/all/kbuild-add-build-salt-to-the-kernel-and-modules.patch
@@ -147,12 +148,6 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 bugfix/all/Revert-net-increase-fragment-memory-usage-limits.patch
-bugfix/all/floppy-Do-not-copy-a-kernel-pointer-to-user-memory-i.patch
-bugfix/all/scsi-target-iscsi-Use-hex2bin-instead-of-a-re-implem.patch
-bugfix/all/scsi-target-iscsi-Use-bin2hex-instead-of-a-re-implem.patch
-bugfix/arm64/arm64-kvm-tighten-guest-core-register-access-from-us.patch
-bugfix/arm64/arm64-kvm-sanitize-pstate.m-when-being-set-from-user.patch
-bugfix/all/xen-netback-fix-input-validation-in-xenvif_set_hash_.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch

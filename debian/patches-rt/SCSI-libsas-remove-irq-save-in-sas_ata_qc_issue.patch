@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 12 Apr 2018 09:16:22 +0200
 Subject: [PATCH] [SCSI] libsas: remove irq save in sas_ata_qc_issue()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 [ upstream commit 2da11d4262639dc0e2fabc6a70886db57af25c43 ]
 

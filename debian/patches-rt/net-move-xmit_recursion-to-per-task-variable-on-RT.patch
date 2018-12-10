@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 13 Jan 2016 15:55:02 +0100
 Subject: net: move xmit_recursion to per-task variable on -RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 A softirq on -RT can be preempted. That means one task is in
 __dev_queue_xmit(), gets preempted and another task may enter
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * Time (in jiffies) of last Tx
  	 */
-@@ -2554,14 +2558,53 @@ void netdev_freemem(struct net_device *d
+@@ -2561,14 +2565,53 @@ void netdev_freemem(struct net_device *d
  void synchronize_net(void);
  int init_dummy_netdev(struct net_device *dev);
  
@@ -92,7 +92,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  struct net_device *dev_get_by_index(struct net *net, int ifindex);
  struct net_device *__dev_get_by_index(struct net *net, int ifindex);
  struct net_device *dev_get_by_index_rcu(struct net *net, int ifindex);
-@@ -3639,10 +3682,48 @@ static inline u32 netif_msg_init(int deb
+@@ -3646,10 +3689,48 @@ static inline u32 netif_msg_init(int deb
  	return (1 << debug_value) - 1;
  }
  
@@ -142,7 +142,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static inline bool __netif_tx_acquire(struct netdev_queue *txq)
-@@ -3659,32 +3740,32 @@ static inline void __netif_tx_release(st
+@@ -3666,32 +3747,32 @@ static inline void __netif_tx_release(st
  static inline void __netif_tx_lock_bh(struct netdev_queue *txq)
  {
  	spin_lock_bh(&txq->_xmit_lock);
@@ -194,7 +194,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct task_struct		*oom_reaper_list;
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -3314,8 +3314,10 @@ static void skb_update_prio(struct sk_bu
+@@ -3336,8 +3336,10 @@ static void skb_update_prio(struct sk_bu
  #define skb_update_prio(skb)
  #endif
  
@@ -205,7 +205,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  /**
   *	dev_loopback_xmit - loop back @skb
-@@ -3555,9 +3557,12 @@ static int __dev_queue_xmit(struct sk_bu
+@@ -3577,9 +3579,12 @@ static int __dev_queue_xmit(struct sk_bu
  	if (dev->flags & IFF_UP) {
  		int cpu = smp_processor_id(); /* ok because BHs are off */
  
@@ -220,7 +220,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				goto recursion_alert;
  
  			skb = validate_xmit_skb(skb, dev, &again);
-@@ -3567,9 +3572,9 @@ static int __dev_queue_xmit(struct sk_bu
+@@ -3589,9 +3594,9 @@ static int __dev_queue_xmit(struct sk_bu
  			HARD_TX_LOCK(dev, txq, cpu);
  
  			if (!netif_xmit_stopped(txq)) {
@@ -232,7 +232,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				if (dev_xmit_complete(rc)) {
  					HARD_TX_UNLOCK(dev, txq);
  					goto out;
-@@ -7858,7 +7863,7 @@ static void netdev_init_one_queue(struct
+@@ -7882,7 +7887,7 @@ static void netdev_init_one_queue(struct
  	/* Initialize queue lock */
  	spin_lock_init(&queue->_xmit_lock);
  	netdev_set_xmit_lockdep_class(&queue->_xmit_lock, dev->type);

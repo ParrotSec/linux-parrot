@@ -2,7 +2,7 @@ From: "Steven Rostedt (VMware)" <rostedt@goodmis.org>
 Date: Mon, 9 Jul 2018 17:48:54 -0400
 Subject: [PATCH] cgroup/tracing: Move taking of spin lock out of trace event
  handlers
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 [ Upstream commit e4f8d81c738db6d3ffdabfb8329aa2feaa310699 ]
 
@@ -240,7 +240,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return ret;
  }
-@@ -4634,7 +4637,7 @@ static void css_release_work_fn(struct w
+@@ -4641,7 +4644,7 @@ static void css_release_work_fn(struct w
  		struct cgroup *tcgrp;
  
  		/* cgroup release path */
@@ -249,7 +249,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		if (cgroup_on_dfl(cgrp))
  			cgroup_rstat_flush(cgrp);
-@@ -4977,7 +4980,7 @@ int cgroup_mkdir(struct kernfs_node *par
+@@ -4984,7 +4987,7 @@ int cgroup_mkdir(struct kernfs_node *par
  	if (ret)
  		goto out_destroy;
  
@@ -258,7 +258,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* let's create and online css's */
  	kernfs_activate(kn);
-@@ -5165,9 +5168,8 @@ int cgroup_rmdir(struct kernfs_node *kn)
+@@ -5172,9 +5175,8 @@ int cgroup_rmdir(struct kernfs_node *kn)
  		return 0;
  
  	ret = cgroup_destroy_locked(cgrp);

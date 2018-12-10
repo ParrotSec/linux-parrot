@@ -39,9 +39,9 @@
 extern const char ice_drv_ver[];
 #define ICE_BAR0		0
 #define ICE_DFLT_NUM_DESC	128
-#define ICE_MIN_NUM_DESC	8
-#define ICE_MAX_NUM_DESC	8160
 #define ICE_REQ_DESC_MULTIPLE	32
+#define ICE_MIN_NUM_DESC	ICE_REQ_DESC_MULTIPLE
+#define ICE_MAX_NUM_DESC	8160
 #define ICE_DFLT_TRAFFIC_CLASS	BIT(0)
 #define ICE_INT_NAME_STR_LEN	(IFNAMSIZ + 16)
 #define ICE_ETHTOOL_FWVER_LEN	32
@@ -88,6 +88,13 @@ extern const char ice_drv_ver[];
 
 #define ice_for_each_rxq(vsi, i) \
 	for ((i) = 0; (i) < (vsi)->num_rxq; (i)++)
+
+/* Macros for each allocated tx/rx ring whether used or not in a VSI */
+#define ice_for_each_alloc_txq(vsi, i) \
+	for ((i) = 0; (i) < (vsi)->alloc_txq; (i)++)
+
+#define ice_for_each_alloc_rxq(vsi, i) \
+	for ((i) = 0; (i) < (vsi)->alloc_rxq; (i)++)
 
 struct ice_tc_info {
 	u16 qoffset;

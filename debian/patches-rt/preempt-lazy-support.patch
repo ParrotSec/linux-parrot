@@ -1,7 +1,7 @@
 Subject: sched: Add support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Oct 2012 18:50:54 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 It has become an obsession to mitigate the determinism vs. throughput
 loss of RT. Looking at the mainline semantics of preemption points
@@ -283,7 +283,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void resched_cpu(int cpu)
  {
  	struct rq *rq = cpu_rq(cpu);
-@@ -2428,6 +2470,9 @@ int sched_fork(unsigned long clone_flags
+@@ -2429,6 +2471,9 @@ int sched_fork(unsigned long clone_flags
  	p->on_cpu = 0;
  #endif
  	init_task_preempt_count(p);
@@ -293,7 +293,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_SMP
  	plist_node_init(&p->pushable_tasks, MAX_PRIO);
  	RB_CLEAR_NODE(&p->pushable_dl_tasks);
-@@ -3493,6 +3538,7 @@ static void __sched notrace __schedule(b
+@@ -3494,6 +3539,7 @@ static void __sched notrace __schedule(b
  
  	next = pick_next_task(rq, prev, &rf);
  	clear_tsk_need_resched(prev);
@@ -301,7 +301,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	clear_preempt_need_resched();
  
  	if (likely(prev != next)) {
-@@ -3673,6 +3719,30 @@ static void __sched notrace preempt_sche
+@@ -3674,6 +3720,30 @@ static void __sched notrace preempt_sche
  	} while (need_resched());
  }
  
@@ -332,7 +332,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_PREEMPT
  /*
   * this is the entry point to schedule() from in-kernel preemption
-@@ -3687,7 +3757,8 @@ asmlinkage __visible void __sched notrac
+@@ -3688,7 +3758,8 @@ asmlinkage __visible void __sched notrac
  	 */
  	if (likely(!preemptible()))
  		return;
@@ -342,7 +342,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	preempt_schedule_common();
  }
  NOKPROBE_SYMBOL(preempt_schedule);
-@@ -3714,6 +3785,9 @@ asmlinkage __visible void __sched notrac
+@@ -3715,6 +3786,9 @@ asmlinkage __visible void __sched notrac
  	if (likely(!preemptible()))
  		return;
  
@@ -352,7 +352,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	do {
  		/*
  		 * Because the function tracer can trace preempt_count_sub()
-@@ -5482,7 +5556,9 @@ void init_idle(struct task_struct *idle,
+@@ -5483,7 +5557,9 @@ void init_idle(struct task_struct *idle,
  
  	/* Set the preempt count _outside_ the spinlocks! */
  	init_idle_preempt_count(idle, cpu);
@@ -363,7 +363,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/*
  	 * The idle tasks have their own, simple scheduling class:
  	 */
-@@ -7198,6 +7274,7 @@ void migrate_disable(void)
+@@ -7199,6 +7275,7 @@ void migrate_disable(void)
  	}
  
  	preempt_disable();
@@ -371,7 +371,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	pin_current_cpu();
  
  	migrate_disable_update_cpus_allowed(p);
-@@ -7265,6 +7342,7 @@ void migrate_enable(void)
+@@ -7266,6 +7343,7 @@ void migrate_enable(void)
  			arg.dest_cpu = dest_cpu;
  
  			unpin_current_cpu();
@@ -379,7 +379,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  			preempt_enable();
  			stop_one_cpu(task_cpu(p), migration_cpu_stop, &arg);
  			tlb_migrate_finish(p->mm);
-@@ -7273,6 +7351,7 @@ void migrate_enable(void)
+@@ -7274,6 +7352,7 @@ void migrate_enable(void)
  		}
  	}
  	unpin_current_cpu();
@@ -389,7 +389,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  EXPORT_SYMBOL(migrate_enable);
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -4336,7 +4336,7 @@ check_preempt_tick(struct cfs_rq *cfs_rq
+@@ -4338,7 +4338,7 @@ check_preempt_tick(struct cfs_rq *cfs_rq
  	ideal_runtime = sched_slice(cfs_rq, curr);
  	delta_exec = curr->sum_exec_runtime - curr->prev_sum_exec_runtime;
  	if (delta_exec > ideal_runtime) {
@@ -398,7 +398,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		/*
  		 * The current task ran long enough, ensure it doesn't get
  		 * re-elected due to buddy favours.
-@@ -4360,7 +4360,7 @@ check_preempt_tick(struct cfs_rq *cfs_rq
+@@ -4362,7 +4362,7 @@ check_preempt_tick(struct cfs_rq *cfs_rq
  		return;
  
  	if (delta > ideal_runtime)
@@ -407,7 +407,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  static void
-@@ -4502,7 +4502,7 @@ entity_tick(struct cfs_rq *cfs_rq, struc
+@@ -4504,7 +4504,7 @@ entity_tick(struct cfs_rq *cfs_rq, struc
  	 * validating it and just reschedule.
  	 */
  	if (queued) {
@@ -416,7 +416,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		return;
  	}
  	/*
-@@ -4686,7 +4686,7 @@ static void __account_cfs_rq_runtime(str
+@@ -4688,7 +4688,7 @@ static void __account_cfs_rq_runtime(str
  	 * hierarchy can be throttled
  	 */
  	if (!assign_cfs_rq_runtime(cfs_rq) && likely(cfs_rq->curr))
@@ -425,7 +425,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  static __always_inline
-@@ -5340,7 +5340,7 @@ static void hrtick_start_fair(struct rq
+@@ -5342,7 +5342,7 @@ static void hrtick_start_fair(struct rq
  
  		if (delta < 0) {
  			if (rq->curr == p)
@@ -434,7 +434,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  			return;
  		}
  		hrtick_start(rq, delta);
-@@ -6881,7 +6881,7 @@ static void check_preempt_wakeup(struct
+@@ -6883,7 +6883,7 @@ static void check_preempt_wakeup(struct
  	return;
  
  preempt:
@@ -443,7 +443,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/*
  	 * Only set the backward buddy when the current task is still
  	 * on the rq. This can happen when a wakeup gets interleaved
-@@ -9967,7 +9967,7 @@ static void task_fork_fair(struct task_s
+@@ -9969,7 +9969,7 @@ static void task_fork_fair(struct task_s
  		 * 'current' within the tree based on its new key value.
  		 */
  		swap(curr->vruntime, se->vruntime);
@@ -452,7 +452,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	}
  
  	se->vruntime -= cfs_rq->min_vruntime;
-@@ -9991,7 +9991,7 @@ prio_changed_fair(struct rq *rq, struct
+@@ -9993,7 +9993,7 @@ prio_changed_fair(struct rq *rq, struct
  	 */
  	if (rq->curr == p) {
  		if (p->prio > oldprio)

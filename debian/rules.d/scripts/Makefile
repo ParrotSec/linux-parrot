@@ -11,7 +11,8 @@ DATA = \
 	Kbuild.include \
 	Makefile.* \
 	mkversion \
-	module-common.lds
+	module-common.lds \
+	subarch.include
 
 SCRIPTS =  \
 	checkincludes.pl \

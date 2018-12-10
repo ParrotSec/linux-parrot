@@ -96,6 +96,9 @@ void fsnotify_unmount_inodes(struct super_block *sb)
 
 	if (iput_inode)
 		iput(iput_inode);
+	/* Wait for outstanding inode references from connectors */
+	wait_var_event(&sb->s_fsnotify_inode_refs,
+		       !atomic_long_read(&sb->s_fsnotify_inode_refs));
 }
 
 /*
@@ -351,16 +354,9 @@ int fsnotify(struct inode *to_tell, __u32 mask, const void *data, int data_is,
 
 	iter_info.srcu_idx = srcu_read_lock(&fsnotify_mark_srcu);
 
-	if ((mask & FS_MODIFY) ||
-	    (test_mask & to_tell->i_fsnotify_mask)) {
-		iter_info.marks[FSNOTIFY_OBJ_TYPE_INODE] =
-			fsnotify_first_mark(&to_tell->i_fsnotify_marks);
-	}
-
-	if (mnt && ((mask & FS_MODIFY) ||
-		    (test_mask & mnt->mnt_fsnotify_mask))) {
-		iter_info.marks[FSNOTIFY_OBJ_TYPE_INODE] =
-			fsnotify_first_mark(&to_tell->i_fsnotify_marks);
+	iter_info.marks[FSNOTIFY_OBJ_TYPE_INODE] =
+		fsnotify_first_mark(&to_tell->i_fsnotify_marks);
+	if (mnt) {
 		iter_info.marks[FSNOTIFY_OBJ_TYPE_VFSMOUNT] =
 			fsnotify_first_mark(&mnt->mnt_fsnotify_marks);
 	}

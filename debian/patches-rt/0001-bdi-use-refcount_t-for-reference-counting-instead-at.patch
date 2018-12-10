@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 7 May 2018 16:51:09 +0200
 Subject: [PATCH] bdi: use refcount_t for reference counting instead atomic_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 refcount_t type and corresponding API should be used instead of atomic_t when
 the variable is used as a reference counter. This allows to avoid accidental

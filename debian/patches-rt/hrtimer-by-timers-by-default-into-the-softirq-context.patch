@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 3 Jul 2009 08:44:31 -0500
 Subject: hrtimer: by timers by default into the softirq context
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 We can't have hrtimers callbacks running in hardirq context on RT. Therefore
 the timers are deferred to the softirq context by default.
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/arch/x86/kvm/lapic.c
 +++ b/arch/x86/kvm/lapic.c
-@@ -2176,7 +2176,7 @@ int kvm_create_lapic(struct kvm_vcpu *vc
+@@ -2192,7 +2192,7 @@ int kvm_create_lapic(struct kvm_vcpu *vc
  	apic->vcpu = vcpu;
  
  	hrtimer_init(&apic->lapic_timer.timer, CLOCK_MONOTONIC,
@@ -61,7 +61,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
 --- a/kernel/events/core.c
 +++ b/kernel/events/core.c
-@@ -1102,7 +1102,7 @@ static void __perf_mux_hrtimer_init(stru
+@@ -1107,7 +1107,7 @@ static void __perf_mux_hrtimer_init(stru
  	cpuctx->hrtimer_interval = ns_to_ktime(NSEC_PER_MSEC * interval);
  
  	raw_spin_lock_init(&cpuctx->hrtimer_lock);
@@ -70,7 +70,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	timer->function = perf_mux_hrtimer_handler;
  }
  
-@@ -9166,7 +9166,7 @@ static void perf_swevent_init_hrtimer(st
+@@ -9183,7 +9183,7 @@ static void perf_swevent_init_hrtimer(st
  	if (!is_sampling_event(event))
  		return;
  
@@ -103,7 +103,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -5182,9 +5182,9 @@ void init_cfs_bandwidth(struct cfs_bandw
+@@ -5199,9 +5199,9 @@ void init_cfs_bandwidth(struct cfs_bandw
  	cfs_b->period = ns_to_ktime(default_cfs_period());
  
  	INIT_LIST_HEAD(&cfs_b->throttled_cfs_rq);
@@ -113,8 +113,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	hrtimer_init(&cfs_b->slack_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 +	hrtimer_init(&cfs_b->slack_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);
  	cfs_b->slack_timer.function = sched_cfs_slack_timer;
+ 	cfs_b->distribute_running = 0;
  }
- 
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
 @@ -43,8 +43,8 @@ void init_rt_bandwidth(struct rt_bandwid

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 31 Aug 2018 14:16:30 +0200
 Subject: [PATCH] of: allocate / free phandle cache outside of the devtree_lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 The phandle cache code allocates memory while holding devtree_lock which
 is a raw_spinlock_t. Memory allocation (and free()) is not possible on
@@ -13,7 +13,7 @@ Cc: Frank Rowand <frowand.list@gmail.com>
 Cc: devicetree@vger.kernel.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/of/base.c | 22 ++++++++++++++--------
+ drivers/of/base.c |   22 ++++++++++++++--------
  1 file changed, 14 insertions(+), 8 deletions(-)
 
 --- a/drivers/of/base.c
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	struct device_node **shadow;
  
  	raw_spin_lock_irqsave(&devtree_lock, flags);
--
+ 
 -	kfree(phandle_cache);
 +	shadow = phandle_cache;
  	phandle_cache = NULL;
@@ -33,9 +33,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	for_each_of_allnodes(np)
  		if (np->phandle && np->phandle != OF_PHANDLE_ILLEGAL)
  			phandles++;
- 
 +	raw_spin_unlock_irqrestore(&devtree_lock, flags);
-+
++	kfree(shadow);
+ 
  	if (!phandles)
 -		goto out;
 +		return;
@@ -47,11 +47,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -				GFP_ATOMIC);
 -	if (!phandle_cache)
 -		goto out;
-+	kfree(shadow);
 +	shadow = kcalloc(cache_entries, sizeof(*phandle_cache), GFP_KERNEL);
-+
 +	if (!shadow)
 +		return;
++
 +	raw_spin_lock_irqsave(&devtree_lock, flags);
 +	phandle_cache = shadow;
  

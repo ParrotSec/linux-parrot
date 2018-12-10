@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Jan 2015 15:10:08 +0100
 Subject: block/mq: don't complete requests via IPI
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 The IPI runs in hardirq context and there are sleeping locks. This patch
 moves the completion into a workqueue.
@@ -38,7 +38,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	INIT_LIST_HEAD(&rq->timeout_list);
  	rq->timeout = 0;
  
-@@ -545,12 +548,24 @@ void blk_mq_end_request(struct request *
+@@ -547,12 +550,24 @@ void blk_mq_end_request(struct request *
  }
  EXPORT_SYMBOL(blk_mq_end_request);
  
@@ -63,7 +63,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static void __blk_mq_complete_request(struct request *rq)
  {
-@@ -573,10 +588,18 @@ static void __blk_mq_complete_request(st
+@@ -575,10 +590,18 @@ static void __blk_mq_complete_request(st
  		shared = cpus_share_cache(cpu, ctx->cpu);
  
  	if (cpu != ctx->cpu && !shared && cpu_online(ctx->cpu)) {

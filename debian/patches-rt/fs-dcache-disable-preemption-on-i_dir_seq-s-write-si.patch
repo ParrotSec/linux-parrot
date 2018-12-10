@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 20 Oct 2017 11:29:53 +0200
 Subject: [PATCH] fs/dcache: disable preemption on i_dir_seq's write side
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 i_dir_seq is an opencoded seqcounter. Based on the code it looks like we
 could have two writers in parallel despite the fact that the d_lock is
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2430,9 +2430,10 @@ EXPORT_SYMBOL(d_rehash);
+@@ -2431,9 +2431,10 @@ EXPORT_SYMBOL(d_rehash);
  static inline unsigned start_dir_add(struct inode *dir)
  {
  
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			return n;
  		cpu_relax();
  	}
-@@ -2440,7 +2441,8 @@ static inline unsigned start_dir_add(str
+@@ -2441,7 +2442,8 @@ static inline unsigned start_dir_add(str
  
  static inline void end_dir_add(struct inode *dir, unsigned n)
  {
@@ -47,7 +47,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static void d_wait_lookup(struct dentry *dentry)
-@@ -2473,7 +2475,7 @@ struct dentry *d_alloc_parallel(struct d
+@@ -2474,7 +2476,7 @@ struct dentry *d_alloc_parallel(struct d
  
  retry:
  	rcu_read_lock();
@@ -56,7 +56,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	r_seq = read_seqbegin(&rename_lock);
  	dentry = __d_lookup_rcu(parent, name, &d_seq);
  	if (unlikely(dentry)) {
-@@ -2501,7 +2503,7 @@ struct dentry *d_alloc_parallel(struct d
+@@ -2502,7 +2504,7 @@ struct dentry *d_alloc_parallel(struct d
  	}
  
  	hlist_bl_lock(b);

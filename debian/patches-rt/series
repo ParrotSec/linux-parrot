@@ -45,6 +45,7 @@ irqchip-gic-v3-its-Make-its_lock-a-raw_spin_lock_t.patch
 0006-ARM-configs-at91-unselect-PIT.patch
 
 irqchip-gic-v3-its-Move-pending-table-allocation-to-.patch
+kthread-convert-worker-lock-to-raw-spinlock.patch
 
 ############################################################
 # POSTED
@@ -56,7 +57,6 @@ arm-unwind-use_raw_lock.patch
 cgroup-use-irqsave-in-cgroup_rstat_flush_locked.patch
 fscache-initialize-cookie-hash-table-raw-spinlocks.patch
 Drivers-hv-vmbus-include-header-for-get_irq_regs.patch
-rcu-Use-cpus_read_lock-while-looking-at-cpu_online_m.patch
 
 ############################################################
 # Ready for posting
@@ -73,6 +73,8 @@ efi-Allow-efi-runtime.patch
 x86-efi-drop-task_lock-from-efi_switch_mm.patch
 arm64-KVM-compute_layout-before-altenates-are-applie.patch
 of-allocate-free-phandle-cache-outside-of-the-devtre.patch
+mm-kasan-make-quarantine_lock-a-raw_spinlock_t.patch
+EXP-rcu-Revert-expedited-GP-parallelization-cleverne.patch
 
 ###############################################################
 # Stuff broken upstream and upstream wants something different
@@ -80,6 +82,7 @@ of-allocate-free-phandle-cache-outside-of-the-devtre.patch
 NFSv4-replace-seqcount_t-with-a-seqlock_t.patch
 kernel-sched-Provide-a-pointer-to-the-valid-CPU-mask.patch
 add_migrate_disable.patch
+sched-migrate_disable-Add-export_symbol_gpl-for-__mi.patch
 
 # Those two should vanish soon (not use PIT during bootup)
 at91_dont_enable_disable_clock.patch
@@ -283,6 +286,7 @@ rcu-enable-rcu_normal_after_boot-by-default-for-RT.patch
 # DRIVERS SERIAL
 drivers-tty-fix-omap-lock-crap.patch
 drivers-tty-pl011-irq-disable-madness.patch
+tty-serial-pl011-warning-about-uninitialized.patch
 rt-serial-warn-fix.patch
 tty-serial-8250-don-t-take-the-trylock-during-oops.patch
 
@@ -416,6 +420,7 @@ drivers-block-zram-Replace-bit-spinlocks-with-rtmute.patch
 drivers-zram-Don-t-disable-preemption-in-zcomp_strea.patch
 drivers-zram-fix-zcomp_stream_get-smp_processor_id-u.patch
 tpm_tis-fix-stall-after-iowrite-s.patch
+watchdog-prevent-deferral-of-watchdogd-wakeup-on-RT.patch
 
 # I915
 drmradeoni915_Use_preempt_disableenable_rt()_where_recommended.patch

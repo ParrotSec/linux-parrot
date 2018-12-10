@@ -1,7 +1,7 @@
 Subject: irqwork: push most work into softirq context
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 23 Jun 2015 15:32:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 Initially we defered all irqwork into softirq because we didn't want the
 latency spikes if perf or another user was busy and delayed the RT task.
@@ -22,16 +22,14 @@ Mike Galbraith,
           hard and soft variant]
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/irq_work.h |  8 ++++++
- kernel/irq_work.c        | 59 ++++++++++++++++++++++++++++++++--------
- kernel/rcu/tree.c        |  1 +
- kernel/sched/topology.c  |  1 +
- kernel/time/tick-sched.c |  1 +
- kernel/time/timer.c      |  2 ++
- 6 files changed, 60 insertions(+), 12 deletions(-)
+ include/linux/irq_work.h |    8 ++++++
+ kernel/irq_work.c        |   60 ++++++++++++++++++++++++++++++++++++-----------
+ kernel/rcu/tree.c        |    1 
+ kernel/sched/topology.c  |    1 
+ kernel/time/tick-sched.c |    1 
+ kernel/time/timer.c      |    2 +
+ 6 files changed, 60 insertions(+), 13 deletions(-)
 
-diff --git a/include/linux/irq_work.h b/include/linux/irq_work.h
-index b11fcdfd0770..c1afbba27902 100644
 --- a/include/linux/irq_work.h
 +++ b/include/linux/irq_work.h
 @@ -18,6 +18,8 @@
@@ -43,7 +41,7 @@ index b11fcdfd0770..c1afbba27902 100644
  
  #define IRQ_WORK_CLAIMED	(IRQ_WORK_PENDING | IRQ_WORK_BUSY)
  
-@@ -52,4 +54,10 @@ static inline bool irq_work_needs_cpu(void) { return false; }
+@@ -52,4 +54,10 @@ static inline bool irq_work_needs_cpu(vo
  static inline void irq_work_run(void) { }
  #endif
  
@@ -54,8 +52,6 @@ index b11fcdfd0770..c1afbba27902 100644
 +#endif
 +
  #endif /* _LINUX_IRQ_WORK_H */
-diff --git a/kernel/irq_work.c b/kernel/irq_work.c
-index 6b7cdf17ccf8..e765a79ef48b 100644
 --- a/kernel/irq_work.c
 +++ b/kernel/irq_work.c
 @@ -17,6 +17,7 @@
@@ -75,7 +71,7 @@ index 6b7cdf17ccf8..e765a79ef48b 100644
  	/* All work should have been flushed before going offline */
  	WARN_ON_ONCE(cpu_is_offline(cpu));
  
-@@ -76,7 +79,12 @@ bool irq_work_queue_on(struct irq_work *work, int cpu)
+@@ -76,7 +79,12 @@ bool irq_work_queue_on(struct irq_work *
  	if (!irq_work_claim(work))
  		return false;
  
@@ -89,7 +85,7 @@ index 6b7cdf17ccf8..e765a79ef48b 100644
  		arch_send_call_function_single_ipi(cpu);
  
  #else /* #ifdef CONFIG_SMP */
-@@ -89,6 +97,9 @@ bool irq_work_queue_on(struct irq_work *work, int cpu)
+@@ -89,6 +97,9 @@ bool irq_work_queue_on(struct irq_work *
  /* Enqueue the irq work @work on the current CPU */
  bool irq_work_queue(struct irq_work *work)
  {
@@ -99,7 +95,7 @@ index 6b7cdf17ccf8..e765a79ef48b 100644
  	/* Only queue if not already pending */
  	if (!irq_work_claim(work))
  		return false;
-@@ -96,13 +107,15 @@ bool irq_work_queue(struct irq_work *work)
+@@ -96,13 +107,15 @@ bool irq_work_queue(struct irq_work *wor
  	/* Queue the entry and raise the IPI if needed. */
  	preempt_disable();
  
@@ -134,7 +130,7 @@ index 6b7cdf17ccf8..e765a79ef48b 100644
  
  	/* All work should have been flushed before going offline */
  	WARN_ON_ONCE(cpu_is_offline(smp_processor_id()));
-@@ -135,7 +147,12 @@ static void irq_work_run_list(struct llist_head *list)
+@@ -135,8 +147,12 @@ static void irq_work_run_list(struct lli
  	struct llist_node *llnode;
  	unsigned long flags;
  
@@ -143,11 +139,12 @@ index 6b7cdf17ccf8..e765a79ef48b 100644
 +	 * nort: On RT IRQ-work may run in SOFTIRQ context.
 +	 */
  	BUG_ON(!irqs_disabled());
+-
 +#endif
- 
  	if (llist_empty(list))
  		return;
-@@ -168,7 +185,16 @@ static void irq_work_run_list(struct llist_head *list)
+ 
+@@ -168,7 +184,16 @@ static void irq_work_run_list(struct lli
  void irq_work_run(void)
  {
  	irq_work_run_list(this_cpu_ptr(&raised_list));
@@ -165,7 +162,7 @@ index 6b7cdf17ccf8..e765a79ef48b 100644
  }
  EXPORT_SYMBOL_GPL(irq_work_run);
  
-@@ -178,8 +204,17 @@ void irq_work_tick(void)
+@@ -178,8 +203,17 @@ void irq_work_tick(void)
  
  	if (!llist_empty(raised) && !arch_irq_work_has_interrupt())
  		irq_work_run_list(raised);
@@ -183,11 +180,9 @@ index 6b7cdf17ccf8..e765a79ef48b 100644
  
  /*
   * Synchronize against the irq_work @entry, ensures the entry is not
-diff --git a/kernel/rcu/tree.c b/kernel/rcu/tree.c
-index aa7cade1b9f3..131fe93756c4 100644
 --- a/kernel/rcu/tree.c
 +++ b/kernel/rcu/tree.c
-@@ -1259,6 +1259,7 @@ static int rcu_implicit_dynticks_qs(struct rcu_data *rdp)
+@@ -1294,6 +1294,7 @@ static int rcu_implicit_dynticks_qs(stru
  		    !rdp->rcu_iw_pending && rdp->rcu_iw_gpnum != rnp->gpnum &&
  		    (rnp->ffmask & rdp->grpmask)) {
  			init_irq_work(&rdp->rcu_iw, rcu_iw_handler);
@@ -195,11 +190,9 @@ index aa7cade1b9f3..131fe93756c4 100644
  			rdp->rcu_iw_pending = true;
  			rdp->rcu_iw_gpnum = rnp->gpnum;
  			irq_work_queue_on(&rdp->rcu_iw, rdp->cpu);
-diff --git a/kernel/sched/topology.c b/kernel/sched/topology.c
-index 56a0fed30c0a..dc7fd09d66fa 100644
 --- a/kernel/sched/topology.c
 +++ b/kernel/sched/topology.c
-@@ -279,6 +279,7 @@ static int init_rootdomain(struct root_domain *rd)
+@@ -279,6 +279,7 @@ static int init_rootdomain(struct root_d
  	rd->rto_cpu = -1;
  	raw_spin_lock_init(&rd->rto_lock);
  	init_irq_work(&rd->rto_push_work, rto_push_irq_work_func);
@@ -207,11 +200,9 @@ index 56a0fed30c0a..dc7fd09d66fa 100644
  #endif
  
  	init_dl_bw(&rd->dl_bw);
-diff --git a/kernel/time/tick-sched.c b/kernel/time/tick-sched.c
-index 5b33e2f5c0ed..2fd4a37ffdc2 100644
 --- a/kernel/time/tick-sched.c
 +++ b/kernel/time/tick-sched.c
-@@ -227,6 +227,7 @@ static void nohz_full_kick_func(struct irq_work *work)
+@@ -232,6 +232,7 @@ static void nohz_full_kick_func(struct i
  
  static DEFINE_PER_CPU(struct irq_work, nohz_full_kick_work) = {
  	.func = nohz_full_kick_func,
@@ -219,11 +210,9 @@ index 5b33e2f5c0ed..2fd4a37ffdc2 100644
  };
  
  /*
-diff --git a/kernel/time/timer.c b/kernel/time/timer.c
-index 786f8c014e7e..6c996ba08e0a 100644
 --- a/kernel/time/timer.c
 +++ b/kernel/time/timer.c
-@@ -1692,6 +1692,8 @@ static __latent_entropy void run_timer_softirq(struct softirq_action *h)
+@@ -1733,6 +1733,8 @@ static __latent_entropy void run_timer_s
  {
  	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
  
@@ -232,6 +221,3 @@ index 786f8c014e7e..6c996ba08e0a 100644
  	__run_timers(base);
  	if (IS_ENABLED(CONFIG_NO_HZ_COMMON))
  		__run_timers(this_cpu_ptr(&timer_bases[BASE_DEF]));
--- 
-2.19.0
-

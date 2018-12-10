@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue,  3 Jul 2018 11:25:41 +0200
 Subject: [PATCH v2] hrtimer: consolidate hrtimer_init() + hrtimer_init_sleeper() calls
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 hrtimer_init_sleeper() calls require a prior initialisation of the
 hrtimer object with hrtimer_init(). Lets make the initialisation of
@@ -27,7 +27,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
 
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
-@@ -2982,10 +2982,9 @@ static bool blk_mq_poll_hybrid_sleep(str
+@@ -2986,10 +2986,9 @@ static bool blk_mq_poll_hybrid_sleep(str
  	kt = nsecs;
  
  	mode = HRTIMER_MODE_REL;

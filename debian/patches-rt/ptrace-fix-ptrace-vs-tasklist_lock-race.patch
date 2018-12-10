@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Aug 2013 18:21:04 +0200
 Subject: ptrace: fix ptrace vs tasklist_lock race
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 As explained by Alexander Fyodorov <halcy@yandex.ru>:
 
@@ -116,7 +116,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	spin_unlock_irq(&task->sighand->siglock);
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1367,6 +1367,18 @@ int migrate_swap(struct task_struct *cur
+@@ -1368,6 +1368,18 @@ int migrate_swap(struct task_struct *cur
  	return ret;
  }
  
@@ -135,7 +135,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * wait_task_inactive - wait for a thread to unschedule.
   *
-@@ -1411,7 +1423,7 @@ unsigned long wait_task_inactive(struct
+@@ -1412,7 +1424,7 @@ unsigned long wait_task_inactive(struct
  		 * is actually now running somewhere else!
  		 */
  		while (task_running(rq, p)) {
@@ -144,7 +144,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				return 0;
  			cpu_relax();
  		}
-@@ -1426,7 +1438,8 @@ unsigned long wait_task_inactive(struct
+@@ -1427,7 +1439,8 @@ unsigned long wait_task_inactive(struct
  		running = task_running(rq, p);
  		queued = task_on_rq_queued(p);
  		ncsw = 0;

@@ -1,7 +1,7 @@
 Subject: sched: Move task_struct cleanup to RCU
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 31 May 2011 16:59:16 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 __put_task_struct() does quite some expensive work. We don't want to
 burden random tasks with that.
@@ -54,7 +54,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_ARCH_WANTS_DYNAMIC_TASK_STRUCT
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -671,7 +671,9 @@ static inline void put_signal_struct(str
+@@ -670,7 +670,9 @@ static inline void put_signal_struct(str
  	if (atomic_dec_and_test(&sig->sigcnt))
  		free_signal_struct(sig);
  }
@@ -65,7 +65,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void __put_task_struct(struct task_struct *tsk)
  {
  	WARN_ON(!tsk->exit_state);
-@@ -688,7 +690,18 @@ void __put_task_struct(struct task_struc
+@@ -687,7 +689,18 @@ void __put_task_struct(struct task_struc
  	if (!profile_handoff_task(tsk))
  		free_task(tsk);
  }

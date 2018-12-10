@@ -1,7 +1,7 @@
 Subject: locking/percpu-rwsem: Remove preempt_disable variants
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Wed Nov 23 16:29:32 CET 2016
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 Effective revert commit:
 
@@ -143,7 +143,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	locks_dispose_list(&dispose);
  	return error;
  }
-@@ -2533,13 +2533,13 @@ locks_remove_lease(struct file *filp, st
+@@ -2540,13 +2540,13 @@ locks_remove_lease(struct file *filp, st
  	if (list_empty(&ctx->flc_lease))
  		return;
  

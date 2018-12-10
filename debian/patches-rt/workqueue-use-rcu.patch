@@ -1,7 +1,7 @@
 Subject: workqueue: Use normal rcu
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 24 Jul 2013 15:26:54 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 There is no need for sched_rcu. The undocumented reason why sched_rcu
 is used is to avoid a few explicit rcu_read_lock()/unlock() pairs by
@@ -177,7 +177,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /**
-@@ -2851,14 +2855,14 @@ static bool start_flush_work(struct work
+@@ -2855,14 +2859,14 @@ static bool start_flush_work(struct work
  
  	might_sleep();
  
@@ -195,7 +195,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/* see the comment in try_to_grab_pending() with the same code */
  	pwq = get_work_pwq(work);
  	if (pwq) {
-@@ -2889,10 +2893,11 @@ static bool start_flush_work(struct work
+@@ -2894,10 +2898,11 @@ static bool start_flush_work(struct work
  		lock_map_acquire(&pwq->wq->lockdep_map);
  		lock_map_release(&pwq->wq->lockdep_map);
  	}
@@ -208,7 +208,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return false;
  }
  
-@@ -3326,7 +3331,7 @@ static void rcu_free_pool(struct rcu_hea
+@@ -3341,7 +3346,7 @@ static void rcu_free_pool(struct rcu_hea
   * put_unbound_pool - put a worker_pool
   * @pool: worker_pool to put
   *
@@ -217,7 +217,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
   * safe manner.  get_unbound_pool() calls this function on its failure path
   * and this function should be able to release pools which went through,
   * successfully or not, init_worker_pool().
-@@ -3380,8 +3385,8 @@ static void put_unbound_pool(struct work
+@@ -3395,8 +3400,8 @@ static void put_unbound_pool(struct work
  	del_timer_sync(&pool->idle_timer);
  	del_timer_sync(&pool->mayday_timer);
  
@@ -228,7 +228,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /**
-@@ -3488,14 +3493,14 @@ static void pwq_unbound_release_workfn(s
+@@ -3503,14 +3508,14 @@ static void pwq_unbound_release_workfn(s
  	put_unbound_pool(pool);
  	mutex_unlock(&wq_pool_mutex);
  
@@ -245,7 +245,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /**
-@@ -4180,7 +4185,7 @@ void destroy_workqueue(struct workqueue_
+@@ -4195,7 +4200,7 @@ void destroy_workqueue(struct workqueue_
  		 * The base ref is never dropped on per-cpu pwqs.  Directly
  		 * schedule RCU free.
  		 */
@@ -254,7 +254,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	} else {
  		/*
  		 * We're the sole accessor of @wq at this point.  Directly
-@@ -4290,7 +4295,8 @@ bool workqueue_congested(int cpu, struct
+@@ -4305,7 +4310,8 @@ bool workqueue_congested(int cpu, struct
  	struct pool_workqueue *pwq;
  	bool ret;
  
@@ -264,7 +264,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	if (cpu == WORK_CPU_UNBOUND)
  		cpu = smp_processor_id();
-@@ -4301,7 +4307,8 @@ bool workqueue_congested(int cpu, struct
+@@ -4316,7 +4322,8 @@ bool workqueue_congested(int cpu, struct
  		pwq = unbound_pwq_by_node(wq, cpu_to_node(cpu));
  
  	ret = !list_empty(&pwq->delayed_works);
@@ -274,7 +274,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return ret;
  }
-@@ -4327,15 +4334,15 @@ unsigned int work_busy(struct work_struc
+@@ -4342,15 +4349,15 @@ unsigned int work_busy(struct work_struc
  	if (work_pending(work))
  		ret |= WORK_BUSY_PENDING;
  
@@ -294,7 +294,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return ret;
  }
-@@ -4519,7 +4526,7 @@ void show_workqueue_state(void)
+@@ -4534,7 +4541,7 @@ void show_workqueue_state(void)
  	unsigned long flags;
  	int pi;
  
@@ -303,7 +303,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	pr_info("Showing busy workqueues and worker pools:\n");
  
-@@ -4584,7 +4591,7 @@ void show_workqueue_state(void)
+@@ -4599,7 +4606,7 @@ void show_workqueue_state(void)
  		touch_nmi_watchdog();
  	}
  
@@ -312,7 +312,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /* used to show worker information through /proc/PID/{comm,stat,status} */
-@@ -4971,16 +4978,16 @@ bool freeze_workqueues_busy(void)
+@@ -4986,16 +4993,16 @@ bool freeze_workqueues_busy(void)
  		 * nr_active is monotonically decreasing.  It's safe
  		 * to peek without lock.
  		 */
@@ -332,7 +332,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	}
  out_unlock:
  	mutex_unlock(&wq_pool_mutex);
-@@ -5175,7 +5182,8 @@ static ssize_t wq_pool_ids_show(struct d
+@@ -5190,7 +5197,8 @@ static ssize_t wq_pool_ids_show(struct d
  	const char *delim = "";
  	int node, written = 0;
  
@@ -342,7 +342,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	for_each_node(node) {
  		written += scnprintf(buf + written, PAGE_SIZE - written,
  				     "%s%d:%d", delim, node,
-@@ -5183,7 +5191,8 @@ static ssize_t wq_pool_ids_show(struct d
+@@ -5198,7 +5206,8 @@ static ssize_t wq_pool_ids_show(struct d
  		delim = " ";
  	}
  	written += scnprintf(buf + written, PAGE_SIZE - written, "\n");

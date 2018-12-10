@@ -1,7 +1,7 @@
 Subject: completion: Use simple wait queues
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 11 Jan 2013 11:23:51 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 Completions have no long lasting callbacks and therefor do not need
 the complex waitqueue variant. Use simple waitqueues which reduces the
@@ -282,7 +282,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  EXPORT_SYMBOL(completion_done);
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -7124,7 +7124,10 @@ void migrate_disable(void)
+@@ -7125,7 +7125,10 @@ void migrate_disable(void)
  		return;
  	}
  #ifdef CONFIG_SCHED_DEBUG
@@ -294,7 +294,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  
  	if (p->migrate_disable) {
-@@ -7154,7 +7157,10 @@ void migrate_enable(void)
+@@ -7155,7 +7158,10 @@ void migrate_enable(void)
  	}
  
  #ifdef CONFIG_SCHED_DEBUG

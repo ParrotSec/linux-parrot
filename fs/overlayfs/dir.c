@@ -461,6 +461,10 @@ static int ovl_create_over_whiteout(struct dentry *dentry, struct inode *inode,
 	if (IS_ERR(upper))
 		goto out_unlock;
 
+	err = -ESTALE;
+	if (d_is_negative(upper) || !IS_WHITEOUT(d_inode(upper)))
+		goto out_dput;
+
 	newdentry = ovl_create_temp(workdir, cattr);
 	err = PTR_ERR(newdentry);
 	if (IS_ERR(newdentry))
@@ -601,6 +605,10 @@ static int ovl_create_object(struct dentry *dentry, int mode, dev_t rdev,
 	if (!inode)
 		goto out_drop_write;
 
+	spin_lock(&inode->i_lock);
+	inode->i_state |= I_CREATING;
+	spin_unlock(&inode->i_lock);
+
 	inode_init_owner(inode, dentry->d_parent->d_inode, mode);
 	attr.mode = inode->i_mode;
 
@@ -656,6 +664,11 @@ static int ovl_link(struct dentry *old, struct inode *newdir,
 	err = ovl_copy_up(old);
 	if (err)
 		goto out_drop_write;
+
+	err = ovl_copy_up(new->d_parent);
+	if (err)
+		goto out_drop_write;
+
 
 	err = ovl_nlink_start(old, &locked);
 	if (err)

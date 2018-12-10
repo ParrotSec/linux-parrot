@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 6 Jul 2018 15:06:15 +0200
 Subject: [PATCH] sched/core: Remove get_cpu() from sched_fork()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 [ Upstream commit af0fffd9300b97d8875aa745bc78e2f6fdb3c1f0 ]
 

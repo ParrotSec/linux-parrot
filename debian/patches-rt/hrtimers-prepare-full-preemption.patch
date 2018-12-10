@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:29:34 -0500
 Subject: hrtimers: Prepare full preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 Make cancellation of a running callback in softirq context safe
 against preemption.
@@ -174,7 +174,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		expires = timeval_to_ktime(value->it_value);
 --- a/kernel/time/posix-timers.c
 +++ b/kernel/time/posix-timers.c
-@@ -469,7 +469,7 @@ static struct k_itimer * alloc_posix_tim
+@@ -478,7 +478,7 @@ static struct k_itimer * alloc_posix_tim
  
  static void k_itimer_rcu_free(struct rcu_head *head)
  {
@@ -183,7 +183,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	kmem_cache_free(posix_timers_cache, tmr);
  }
-@@ -486,7 +486,7 @@ static void release_posix_timer(struct k
+@@ -495,7 +495,7 @@ static void release_posix_timer(struct k
  	}
  	put_pid(tmr->it_pid);
  	sigqueue_free(tmr->sigq);
@@ -192,7 +192,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  static int common_timer_create(struct k_itimer *new_timer)
-@@ -825,6 +825,22 @@ static void common_hrtimer_arm(struct k_
+@@ -834,6 +834,22 @@ static void common_hrtimer_arm(struct k_
  		hrtimer_start_expires(timer, HRTIMER_MODE_ABS);
  }
  
@@ -215,7 +215,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  static int common_hrtimer_try_to_cancel(struct k_itimer *timr)
  {
  	return hrtimer_try_to_cancel(&timr->it.real.timer);
-@@ -889,6 +905,7 @@ static int do_timer_settime(timer_t time
+@@ -898,6 +914,7 @@ static int do_timer_settime(timer_t time
  	if (!timr)
  		return -EINVAL;
  
@@ -223,7 +223,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	kc = timr->kclock;
  	if (WARN_ON_ONCE(!kc || !kc->timer_set))
  		error = -EINVAL;
-@@ -897,9 +914,12 @@ static int do_timer_settime(timer_t time
+@@ -906,9 +923,12 @@ static int do_timer_settime(timer_t time
  
  	unlock_timer(timr, flag);
  	if (error == TIMER_RETRY) {
@@ -236,7 +236,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return error;
  }
-@@ -981,10 +1001,15 @@ SYSCALL_DEFINE1(timer_delete, timer_t, t
+@@ -990,10 +1010,15 @@ SYSCALL_DEFINE1(timer_delete, timer_t, t
  	if (!timer)
  		return -EINVAL;
  
@@ -252,7 +252,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	spin_lock(&current->sighand->siglock);
  	list_del(&timer->list);
-@@ -1010,8 +1035,18 @@ static void itimer_delete(struct k_itime
+@@ -1019,8 +1044,18 @@ static void itimer_delete(struct k_itime
  retry_delete:
  	spin_lock_irqsave(&timer->it_lock, flags);
  

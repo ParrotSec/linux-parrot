@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 13 Mar 2018 13:49:16 +0100
 Subject: [PATCH] block: blk-mq: move blk_queue_usage_counter_release()
  into process context
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 | BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:914
 | in_atomic(): 1, irqs_disabled(): 0, pid: 255, name: kworker/u257:6
@@ -52,7 +52,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/block/blk-core.c
 +++ b/block/blk-core.c
-@@ -965,12 +965,21 @@ void blk_queue_exit(struct request_queue
+@@ -969,12 +969,21 @@ void blk_queue_exit(struct request_queue
  	percpu_ref_put(&q->q_usage_counter);
  }
  
@@ -75,7 +75,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static void blk_rq_timed_out_timer(struct timer_list *t)
-@@ -1064,6 +1073,7 @@ struct request_queue *blk_alloc_queue_no
+@@ -1068,6 +1077,7 @@ struct request_queue *blk_alloc_queue_no
  	queue_flag_set_unlocked(QUEUE_FLAG_BYPASS, q);
  
  	init_waitqueue_head(&q->mq_freeze_wq);
@@ -83,7 +83,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * Init percpu_ref in atomic mode so that it's faster to shutdown.
-@@ -3948,6 +3958,8 @@ int __init blk_dev_init(void)
+@@ -3957,6 +3967,8 @@ int __init blk_dev_init(void)
  	if (!kblockd_workqueue)
  		panic("Failed to create kblockd\n");
  

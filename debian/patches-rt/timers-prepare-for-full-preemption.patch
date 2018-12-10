@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:29:34 -0500
 Subject: timers: Prepare for full preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 When softirqs can be preempted we need to make sure that cancelling
 the timer from the active thread can not deadlock vs. a running timer
@@ -145,7 +145,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  			raw_spin_lock_irq(&base->lock);
  		}
  	}
-@@ -1665,8 +1699,8 @@ static inline void __run_timers(struct t
+@@ -1681,8 +1715,8 @@ static inline void __run_timers(struct t
  		while (levels--)
  			expire_timers(base, heads + levels);
  	}
@@ -155,7 +155,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /*
-@@ -1924,6 +1958,9 @@ static void __init init_timer_cpu(int cp
+@@ -1927,6 +1961,9 @@ static void __init init_timer_cpu(int cp
  		base->cpu = cpu;
  		raw_spin_lock_init(&base->lock);
  		base->clk = jiffies;

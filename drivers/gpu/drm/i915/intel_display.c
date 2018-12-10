@@ -5062,10 +5062,14 @@ void hsw_disable_ips(const struct intel_crtc_state *crtc_state)
 		mutex_lock(&dev_priv->pcu_lock);
 		WARN_ON(sandybridge_pcode_write(dev_priv, DISPLAY_IPS_CONTROL, 0));
 		mutex_unlock(&dev_priv->pcu_lock);
-		/* wait for pcode to finish disabling IPS, which may take up to 42ms */
+		/*
+		 * Wait for PCODE to finish disabling IPS. The BSpec specified
+		 * 42ms timeout value leads to occasional timeouts so use 100ms
+		 * instead.
+		 */
 		if (intel_wait_for_register(dev_priv,
 					    IPS_CTL, IPS_ENABLE, 0,
-					    42))
+					    100))
 			DRM_ERROR("Timed out waiting for IPS disable\n");
 	} else {
 		I915_WRITE(IPS_CTL, 0);
@@ -12505,17 +12509,12 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 			intel_check_cpu_fifo_underruns(dev_priv);
 			intel_check_pch_fifo_underruns(dev_priv);
 
-			if (!new_crtc_state->active) {
-				/*
-				 * Make sure we don't call initial_watermarks
-				 * for ILK-style watermark updates.
-				 *
-				 * No clue what this is supposed to achieve.
-				 */
-				if (INTEL_GEN(dev_priv) >= 9)
-					dev_priv->display.initial_watermarks(intel_state,
-									     to_intel_crtc_state(new_crtc_state));
-			}
+			/* FIXME unify this for all platforms */
+			if (!new_crtc_state->active &&
+			    !HAS_GMCH_DISPLAY(dev_priv) &&
+			    dev_priv->display.initial_watermarks)
+				dev_priv->display.initial_watermarks(intel_state,
+								     to_intel_crtc_state(new_crtc_state));
 		}
 	}
 
@@ -14379,7 +14378,7 @@ static int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 	     fb->height < SKL_MIN_YUV_420_SRC_H ||
 	     (fb->width % 4) != 0 || (fb->height % 4) != 0)) {
 		DRM_DEBUG_KMS("src dimensions not correct for NV12\n");
-		return -EINVAL;
+		goto err;
 	}
 
 	for (i = 0; i < fb->format->num_planes; i++) {
@@ -15212,12 +15211,8 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc,
 			   I915_READ(reg) & ~PIPECONF_FRAME_START_DELAY_MASK);
 	}
 
-	/* restore vblank interrupts to correct state */
-	drm_crtc_vblank_reset(&crtc->base);
 	if (crtc->active) {
 		struct intel_plane *plane;
-
-		drm_crtc_vblank_on(&crtc->base);
 
 		/* Disable everything but the primary plane */
 		for_each_intel_plane_on_crtc(dev, crtc, plane) {
@@ -15545,7 +15540,6 @@ intel_modeset_setup_hw_state(struct drm_device *dev,
 			     struct drm_modeset_acquire_ctx *ctx)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	enum pipe pipe;
 	struct intel_crtc *crtc;
 	struct intel_encoder *encoder;
 	int i;
@@ -15556,15 +15550,23 @@ intel_modeset_setup_hw_state(struct drm_device *dev,
 	/* HW state is read out, now we need to sanitize this mess. */
 	get_encoder_power_domains(dev_priv);
 
-	intel_sanitize_plane_mapping(dev_priv);
+	/*
+	 * intel_sanitize_plane_mapping() may need to do vblank
+	 * waits, so we need vblank interrupts restored beforehand.
+	 */
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
+		drm_crtc_vblank_reset(&crtc->base);
 
-	for_each_intel_encoder(dev, encoder) {
-		intel_sanitize_encoder(encoder);
+		if (crtc->active)
+			drm_crtc_vblank_on(&crtc->base);
 	}
 
-	for_each_pipe(dev_priv, pipe) {
-		crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
+	intel_sanitize_plane_mapping(dev_priv);
 
+	for_each_intel_encoder(dev, encoder)
+		intel_sanitize_encoder(encoder);
+
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		intel_sanitize_crtc(crtc, ctx);
 		intel_dump_pipe_config(crtc, crtc->config,
 				       "[setup_hw_state]");

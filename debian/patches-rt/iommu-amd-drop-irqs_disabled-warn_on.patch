@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Subject: [PATCH] iommu/amd: Remove redundant WARN_ON()
 Date: Fri, 20 Jul 2018 10:45:45 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.7-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
 
 The WARN_ON() was introduced in commit 272e4f99e966 ("iommu/amd: WARN
 when __[attach|detach]_device are called with irqs enabled") to ensure
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/iommu/amd_iommu.c
 +++ b/drivers/iommu/amd_iommu.c
-@@ -1944,12 +1944,6 @@ static int __attach_device(struct iommu_
+@@ -1950,12 +1950,6 @@ static int __attach_device(struct iommu_
  {
  	int ret;
  
@@ -38,7 +38,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* lock domain */
  	spin_lock(&domain->lock);
  
-@@ -2115,12 +2109,6 @@ static void __detach_device(struct iommu
+@@ -2121,12 +2115,6 @@ static void __detach_device(struct iommu
  {
  	struct protection_domain *domain;
  
