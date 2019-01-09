@@ -189,6 +189,14 @@ into the templates:
 Normally, the arch-specific contents should be controlled by
 adjusting the corresponding defines file.
 
+Build-dependencies that relate to specific binary packages can be
+specified in a Build-Depends field in the template for that binary
+package.  gencontrol.py will append the value to the source package's
+Build-Depends-Arch or Build-Depends-Indep field, as appropriate.  It
+will also use the binary package's Architecture and Build-Profile as
+the architecture-qualification and/or restriction for each build-
+dependency that doesn't already have them.
+
 TODO:
 - Patches applied to the upstream source
 - How to define a flavour

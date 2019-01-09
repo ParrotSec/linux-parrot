@@ -46,7 +46,7 @@ static void mdp5_plane_destroy(struct drm_plane *plane)
 {
 	struct mdp5_plane *mdp5_plane = to_mdp5_plane(plane);
 
-	drm_plane_helper_disable(plane);
+	drm_plane_helper_disable(plane, NULL);
 	drm_plane_cleanup(plane);
 
 	kfree(mdp5_plane);
@@ -259,7 +259,6 @@ static void mdp5_plane_cleanup_fb(struct drm_plane *plane,
 	msm_framebuffer_cleanup(fb, kms->aspace);
 }
 
-#define FRAC_16_16(mult, div)    (((mult) << 16) / (div))
 static int mdp5_plane_atomic_check_with_state(struct drm_crtc_state *crtc_state,
 					      struct drm_plane_state *state)
 {
@@ -512,7 +511,7 @@ static void mdp5_plane_atomic_async_update(struct drm_plane *plane,
 	if (plane_enabled(new_state)) {
 		struct mdp5_ctl *ctl;
 		struct mdp5_pipeline *pipeline =
-					mdp5_crtc_get_pipeline(plane->crtc);
+					mdp5_crtc_get_pipeline(new_state->crtc);
 		int ret;
 
 		ret = mdp5_plane_mode_set(plane, new_state->crtc, new_state->fb,
@@ -1028,8 +1027,6 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 				     crtc_x + crtc_w, crtc_y, crtc_w, crtc_h,
 				     src_img_w, src_img_h,
 				     src_x + src_w, src_y, src_w, src_h);
-
-	plane->fb = fb;
 
 	return ret;
 }

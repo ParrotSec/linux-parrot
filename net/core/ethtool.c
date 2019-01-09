@@ -111,6 +111,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
 	[NETIF_F_RX_UDP_TUNNEL_PORT_BIT] =	 "rx-udp_tunnel-port-offload",
 	[NETIF_F_HW_TLS_RECORD_BIT] =	"tls-hw-record",
 	[NETIF_F_HW_TLS_TX_BIT] =	 "tls-hw-tx-offload",
+	[NETIF_F_HW_TLS_RX_BIT] =	 "tls-hw-rx-offload",
 };
 
 static const char
@@ -1014,6 +1015,9 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
 			return -EINVAL;
 	}
 
+	if (info.cmd != cmd)
+		return -EINVAL;
+
 	if (info.cmd == ETHTOOL_GRXCLSRLALL) {
 		if (info.rule_cnt > 0) {
 			if (info.rule_cnt <= KMALLOC_MAX_SIZE / sizeof(u32))
@@ -1482,6 +1486,7 @@ static int ethtool_get_wol(struct net_device *dev, char __user *useraddr)
 static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
 {
 	struct ethtool_wolinfo wol;
+	int ret;
 
 	if (!dev->ethtool_ops->set_wol)
 		return -EOPNOTSUPP;
@@ -1489,7 +1494,13 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
 	if (copy_from_user(&wol, useraddr, sizeof(wol)))
 		return -EFAULT;
 
-	return dev->ethtool_ops->set_wol(dev, &wol);
+	ret = dev->ethtool_ops->set_wol(dev, &wol);
+	if (ret)
+		return ret;
+
+	dev->wol_enabled = !!wol.wolopts;
+
+	return 0;
 }
 
 static int ethtool_get_eee(struct net_device *dev, char __user *useraddr)

@@ -1,6 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Subject: rbtree: don't include the rcu header
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 The RCU header pulls in spinlock.h and fails due not yet defined types:
 
@@ -102,7 +102,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #define ULONG_CMP_GE(a, b)	(ULONG_MAX / 2 >= (a) - (b))
  #define ULONG_CMP_LT(a, b)	(ULONG_MAX / 2 < (a) - (b))
-@@ -373,54 +374,6 @@ static inline void rcu_preempt_sleep_che
+@@ -372,54 +373,6 @@ static inline void rcu_preempt_sleep_che
  })
  
  /**

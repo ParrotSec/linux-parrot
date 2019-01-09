@@ -1,5 +1,6 @@
 SUBDIRS = \
 	hv \
+	lib/bpf \
 	lib/lockdep \
 	objtool \
 	perf \

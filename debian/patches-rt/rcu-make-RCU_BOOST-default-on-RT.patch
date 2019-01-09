@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 21 Mar 2014 20:19:05 +0100
 Subject: rcu: make RCU_BOOST default on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Since it is no longer invoked from the softirq people run into OOM more
 often if the priority of the RCU thread is too low. Making boosting
@@ -15,20 +15,13 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/rcu/Kconfig
 +++ b/kernel/rcu/Kconfig
-@@ -36,7 +36,7 @@ config TINY_RCU
+@@ -190,8 +190,8 @@ config RCU_FAST_NO_HZ
  
- config RCU_EXPERT
- 	bool "Make expert-level adjustments to RCU configuration"
--	default n
-+	default y if PREEMPT_RT_FULL
- 	help
- 	  This option needs to be enabled if you wish to make
- 	  expert-level adjustments to RCU configuration.  By default,
-@@ -191,7 +191,7 @@ config RCU_FAST_NO_HZ
  config RCU_BOOST
  	bool "Enable RCU priority boosting"
- 	depends on RT_MUTEXES && PREEMPT_RCU && RCU_EXPERT
+-	depends on RT_MUTEXES && PREEMPT_RCU && RCU_EXPERT
 -	default n
++	depends on (RT_MUTEXES && PREEMPT_RCU && RCU_EXPERT) || PREEMPT_RT_FULL
 +	default y if PREEMPT_RT_FULL
  	help
  	  This option boosts the priority of preempted RCU readers that

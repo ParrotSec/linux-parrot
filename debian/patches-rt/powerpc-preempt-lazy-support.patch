@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 1 Nov 2012 10:14:11 +0100
 Subject: powerpc: Add support for lazy preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Implement the powerpc pieces for lazy preempt.
 
@@ -16,7 +16,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/powerpc/Kconfig
 +++ b/arch/powerpc/Kconfig
-@@ -215,6 +215,7 @@ config PPC
+@@ -216,6 +216,7 @@ config PPC
  	select HAVE_HARDLOCKUP_DETECTOR_PERF	if PERF_EVENTS && HAVE_PERF_EVENTS_NMI && !HAVE_HARDLOCKUP_DETECTOR_ARCH
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
@@ -26,7 +26,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	select HAVE_RELIABLE_STACKTRACE		if PPC64 && CPU_LITTLE_ENDIAN
 --- a/arch/powerpc/include/asm/thread_info.h
 +++ b/arch/powerpc/include/asm/thread_info.h
-@@ -36,6 +36,8 @@ struct thread_info {
+@@ -37,6 +37,8 @@ struct thread_info {
  	int		cpu;			/* cpu we're on */
  	int		preempt_count;		/* 0 => preemptable,
  						   <0 => BUG */
@@ -35,7 +35,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	unsigned long	local_flags;		/* private flags for thread */
  #ifdef CONFIG_LIVEPATCH
  	unsigned long *livepatch_sp;
-@@ -80,7 +82,7 @@ extern int arch_dup_task_struct(struct t
+@@ -81,7 +83,7 @@ extern int arch_dup_task_struct(struct t
  #define TIF_SIGPENDING		1	/* signal pending */
  #define TIF_NEED_RESCHED	2	/* rescheduling necessary */
  #define TIF_FSCHECK		3	/* Check FS is USER_DS on return */
@@ -44,7 +44,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define TIF_RESTORE_TM		5	/* need to restore TM FP/VEC/VSX */
  #define TIF_PATCH_PENDING	6	/* pending live patching update */
  #define TIF_SYSCALL_AUDIT	7	/* syscall auditing active */
-@@ -99,6 +101,7 @@ extern int arch_dup_task_struct(struct t
+@@ -100,6 +102,7 @@ extern int arch_dup_task_struct(struct t
  #define TIF_ELF2ABI		18	/* function descriptors must die! */
  #endif
  #define TIF_POLLING_NRFLAG	19	/* true if poll_idle() is polling TIF_NEED_RESCHED */
@@ -52,7 +52,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  /* as above, but as bit values */
  #define _TIF_SYSCALL_TRACE	(1<<TIF_SYSCALL_TRACE)
-@@ -118,6 +121,7 @@ extern int arch_dup_task_struct(struct t
+@@ -119,6 +122,7 @@ extern int arch_dup_task_struct(struct t
  #define _TIF_SYSCALL_TRACEPOINT	(1<<TIF_SYSCALL_TRACEPOINT)
  #define _TIF_EMULATE_STACK_STORE	(1<<TIF_EMULATE_STACK_STORE)
  #define _TIF_NOHZ		(1<<TIF_NOHZ)
@@ -60,7 +60,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define _TIF_FSCHECK		(1<<TIF_FSCHECK)
  #define _TIF_SYSCALL_DOTRACE	(_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
  				 _TIF_SECCOMP | _TIF_SYSCALL_TRACEPOINT | \
-@@ -126,8 +130,9 @@ extern int arch_dup_task_struct(struct t
+@@ -127,8 +131,9 @@ extern int arch_dup_task_struct(struct t
  #define _TIF_USER_WORK_MASK	(_TIF_SIGPENDING | _TIF_NEED_RESCHED | \
  				 _TIF_NOTIFY_RESUME | _TIF_UPROBE | \
  				 _TIF_RESTORE_TM | _TIF_PATCH_PENDING | \
@@ -83,7 +83,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
 --- a/arch/powerpc/kernel/entry_32.S
 +++ b/arch/powerpc/kernel/entry_32.S
-@@ -873,7 +873,14 @@ user_exc_return:		/* r10 contains MSR_KE
+@@ -885,7 +885,14 @@ user_exc_return:		/* r10 contains MSR_KE
  	cmpwi	0,r0,0		/* if non-zero, just restore regs and return */
  	bne	restore
  	andi.	r8,r8,_TIF_NEED_RESCHED
@@ -98,7 +98,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	lwz	r3,_MSR(r1)
  	andi.	r0,r3,MSR_EE	/* interrupts off? */
  	beq	restore		/* don't schedule if so */
-@@ -884,11 +891,11 @@ user_exc_return:		/* r10 contains MSR_KE
+@@ -896,11 +903,11 @@ user_exc_return:		/* r10 contains MSR_KE
  	 */
  	bl	trace_hardirqs_off
  #endif
@@ -113,7 +113,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_TRACE_IRQFLAGS
  	/* And now, to properly rebalance the above, we tell lockdep they
  	 * are being turned back on, which will happen when we return
-@@ -1211,7 +1218,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_NEED_PAIRE
+@@ -1223,7 +1230,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_NEED_PAIRE
  #endif /* !(CONFIG_4xx || CONFIG_BOOKE) */
  
  do_work:			/* r10 contains MSR_KERNEL here */
@@ -122,7 +122,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	do_user_signal
  
  do_resched:			/* r10 contains MSR_KERNEL here */
-@@ -1232,7 +1239,7 @@ do_resched:			/* r10 contains MSR_KERNEL
+@@ -1244,7 +1251,7 @@ do_resched:			/* r10 contains MSR_KERNEL
  	MTMSRD(r10)		/* disable interrupts */
  	CURRENT_THREAD_INFO(r9, r1)
  	lwz	r9,TI_FLAGS(r9)
@@ -133,7 +133,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	restore_user
 --- a/arch/powerpc/kernel/entry_64.S
 +++ b/arch/powerpc/kernel/entry_64.S
-@@ -168,7 +168,7 @@ system_call:			/* label this so stack tr
+@@ -171,7 +171,7 @@ system_call:			/* label this so stack tr
   * based on caller's run-mode / personality.
   */
  	ld	r11,SYS_CALL_TABLE@toc(2)
@@ -142,7 +142,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	15f
  	addi	r11,r11,8	/* use 32-bit syscall entries */
  	clrldi	r3,r3,32
-@@ -707,7 +707,7 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
+@@ -763,7 +763,7 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
  	bl	restore_math
  	b	restore
  #endif
@@ -151,7 +151,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	2f
  	bl	restore_interrupts
  	SCHEDULE_USER
-@@ -769,10 +769,18 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
+@@ -825,10 +825,18 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
  
  #ifdef CONFIG_PREEMPT
  	/* Check if we need to preempt */
@@ -171,7 +171,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	cmpwi	cr0,r8,0
  	bne	restore
  	ld	r0,SOFTE(r1)
-@@ -789,7 +797,7 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
+@@ -845,7 +853,7 @@ END_MMU_FTR_SECTION_IFSET(MMU_FTR_1T_SEG
  	/* Re-test flags and eventually loop */
  	CURRENT_THREAD_INFO(r9, r1)
  	ld	r4,TI_FLAGS(r9)

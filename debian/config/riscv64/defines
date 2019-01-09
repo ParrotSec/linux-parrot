@@ -1,4 +1,14 @@
 [base]
 kernel-arch: riscv
 featuresets:
-# empty; just building headers yet
+ none
+
+[build]
+image-file: vmlinux
+
+[image]
+install-stem: vmlinux
+
+[riscv64_description]
+hardware: 64-bit RISC-V platforms
+hardware-long: 64-bit RISC-V platforms

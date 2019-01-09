@@ -1,7 +1,7 @@
 From: Clark Williams <williams@redhat.com>
 Date: Tue, 3 Jul 2018 13:34:30 -0500
 Subject: [PATCH] fscache: initialize cookie hash table raw spinlocks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 The fscache cookie mechanism uses a hash table of hlist_bl_head structures. The
 PREEMPT_RT patcheset adds a raw spinlock to this structure and so on PREEMPT_RT
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/fs/fscache/cookie.c
 +++ b/fs/fscache/cookie.c
-@@ -973,3 +973,11 @@ int __fscache_check_consistency(struct f
+@@ -962,3 +962,11 @@ int __fscache_check_consistency(struct f
  	return -ESTALE;
  }
  EXPORT_SYMBOL(__fscache_check_consistency);
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +}
 --- a/fs/fscache/main.c
 +++ b/fs/fscache/main.c
-@@ -151,6 +151,7 @@ static int __init fscache_init(void)
+@@ -149,6 +149,7 @@ static int __init fscache_init(void)
  		ret = -ENOMEM;
  		goto error_cookie_jar;
  	}

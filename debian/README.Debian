@@ -51,6 +51,12 @@ Non-free bits removed
 ---------------------
 See the Files-Excluded field in debian/copyright.
 
+Changelog
+---------
+Older Debian changelog entries are no longer included in binary
+packages, but can be found in debian/changelog.old in the source
+package.
+
 Further information
 -------------------
 Debian Linux Kernel Handbook:

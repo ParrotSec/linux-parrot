@@ -18,7 +18,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  - Pass result of efi_get_secureboot() in stub through to
    efi_set_secure_boot() in main kernel
  - Use lockdown API and naming]
-[bwh: Forward-ported to 4.18.20: adjust context in update_fdt()]
+[bwh: Forward-ported to 4.19.3: adjust context in update_fdt()]
 ---
  arch/arm64/Kconfig                      | 13 +++++++++++++
  drivers/firmware/efi/arm-init.c         |  7 +++++++
@@ -51,7 +51,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  		return;
 --- a/drivers/firmware/efi/efi.c
 +++ b/drivers/firmware/efi/efi.c
-@@ -648,7 +648,8 @@ static __initdata struct params fdt_para
+@@ -657,7 +657,8 @@ static __initdata struct params fdt_para
  	UEFI_PARAM("MemMap Address", "linux,uefi-mmap-start", mmap),
  	UEFI_PARAM("MemMap Size", "linux,uefi-mmap-size", mmap_size),
  	UEFI_PARAM("MemMap Desc. Size", "linux,uefi-mmap-desc-size", desc_size),

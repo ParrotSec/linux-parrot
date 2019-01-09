@@ -167,8 +167,8 @@ struct task_group;
  *   need_sleep = false;
  *   wake_up_state(p, TASK_UNINTERRUPTIBLE);
  *
- * Where wake_up_state() (and all other wakeup primitives) imply enough
- * barriers to order the store of the variable against wakeup.
+ * where wake_up_state() executes a full memory barrier before accessing the
+ * task state.
  *
  * Wakeup will do: if (@state & p->state) p->state = TASK_RUNNING, that is,
  * once it observes the TASK_UNINTERRUPTIBLE store the waking CPU can issue a
@@ -722,8 +722,8 @@ struct task_struct {
 	unsigned			restore_sigmask:1;
 #endif
 #ifdef CONFIG_MEMCG
-	unsigned			memcg_may_oom:1;
-#ifndef CONFIG_SLOB
+	unsigned			in_user_fault:1;
+#ifdef CONFIG_MEMCG_KMEM
 	unsigned			memcg_kmem_skip_account:1;
 #endif
 #endif
@@ -733,6 +733,10 @@ struct task_struct {
 #ifdef CONFIG_CGROUPS
 	/* disallow userland-initiated cgroup migration */
 	unsigned			no_cgroup_migration:1;
+#endif
+#ifdef CONFIG_BLK_CGROUP
+	/* to be used once the psi infrastructure lands upstream. */
+	unsigned			use_memdelay:1;
 #endif
 
 	unsigned long			atomic_flags; /* Flags requiring atomic access. */
@@ -775,7 +779,8 @@ struct task_struct {
 	struct list_head		ptrace_entry;
 
 	/* PID/PID hash table linkage. */
-	struct pid_link			pids[PIDTYPE_MAX];
+	struct pid			*thread_pid;
+	struct hlist_node		pid_links[PIDTYPE_MAX];
 	struct list_head		thread_group;
 	struct list_head		thread_node;
 
@@ -849,6 +854,7 @@ struct task_struct {
 #endif
 #ifdef CONFIG_DETECT_HUNG_TASK
 	unsigned long			last_switch_count;
+	unsigned long			last_switch_time;
 #endif
 	/* Filesystem information: */
 	struct fs_struct		*fs;
@@ -1017,7 +1023,6 @@ struct task_struct {
 	u64				last_sum_exec_runtime;
 	struct callback_head		numa_work;
 
-	struct list_head		numa_entry;
 	struct numa_group		*numa_group;
 
 	/*
@@ -1103,6 +1108,7 @@ struct task_struct {
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	/* Index of current stored address in ret_stack: */
 	int				curr_ret_stack;
+	int				curr_ret_depth;
 
 	/* Stack of return addresses for return function tracing: */
 	struct ftrace_ret_stack		*ret_stack;
@@ -1149,6 +1155,13 @@ struct task_struct {
 
 	/* Number of pages to reclaim on returning to userland: */
 	unsigned int			memcg_nr_pages_over_high;
+
+	/* Used by memcontrol for targeted memcg charge: */
+	struct mem_cgroup		*active_memcg;
+#endif
+
+#ifdef CONFIG_BLK_CGROUP
+	struct request_queue		*throttle_queue;
 #endif
 
 #ifdef CONFIG_UPROBES
@@ -1199,27 +1212,7 @@ struct task_struct {
 
 static inline struct pid *task_pid(struct task_struct *task)
 {
-	return task->pids[PIDTYPE_PID].pid;
-}
-
-static inline struct pid *task_tgid(struct task_struct *task)
-{
-	return task->group_leader->pids[PIDTYPE_PID].pid;
-}
-
-/*
- * Without tasklist or RCU lock it is not safe to dereference
- * the result of task_pgrp/task_session even if task == current,
- * we can race with another thread doing sys_setsid/sys_setpgid.
- */
-static inline struct pid *task_pgrp(struct task_struct *task)
-{
-	return task->group_leader->pids[PIDTYPE_PGID].pid;
-}
-
-static inline struct pid *task_session(struct task_struct *task)
-{
-	return task->group_leader->pids[PIDTYPE_SID].pid;
+	return task->thread_pid;
 }
 
 /*
@@ -1268,7 +1261,7 @@ static inline pid_t task_tgid_nr(struct task_struct *tsk)
  */
 static inline int pid_alive(const struct task_struct *p)
 {
-	return p->pids[PIDTYPE_PID].pid != NULL;
+	return p->thread_pid != NULL;
 }
 
 static inline pid_t task_pgrp_nr_ns(struct task_struct *tsk, struct pid_namespace *ns)
@@ -1294,12 +1287,12 @@ static inline pid_t task_session_vnr(struct task_struct *tsk)
 
 static inline pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns)
 {
-	return __task_pid_nr_ns(tsk, __PIDTYPE_TGID, ns);
+	return __task_pid_nr_ns(tsk, PIDTYPE_TGID, ns);
 }
 
 static inline pid_t task_tgid_vnr(struct task_struct *tsk)
 {
-	return __task_pid_nr_ns(tsk, __PIDTYPE_TGID, NULL);
+	return __task_pid_nr_ns(tsk, PIDTYPE_TGID, NULL);
 }
 
 static inline pid_t task_ppid_nr_ns(const struct task_struct *tsk, struct pid_namespace *ns)
@@ -1447,6 +1440,8 @@ static inline bool is_percpu_thread(void)
 #define PFA_SPREAD_SLAB			2	/* Spread some slab caches over cpuset */
 #define PFA_SPEC_SSB_DISABLE		3	/* Speculative Store Bypass disabled */
 #define PFA_SPEC_SSB_FORCE_DISABLE	4	/* Speculative Store Bypass force disabled*/
+#define PFA_SPEC_IB_DISABLE		5	/* Indirect branch speculation restricted */
+#define PFA_SPEC_IB_FORCE_DISABLE	6	/* Indirect branch speculation permanently restricted */
 
 #define TASK_PFA_TEST(name, func)					\
 	static inline bool task_##func(struct task_struct *p)		\
@@ -1477,6 +1472,13 @@ TASK_PFA_CLEAR(SPEC_SSB_DISABLE, spec_ssb_disable)
 
 TASK_PFA_TEST(SPEC_SSB_FORCE_DISABLE, spec_ssb_force_disable)
 TASK_PFA_SET(SPEC_SSB_FORCE_DISABLE, spec_ssb_force_disable)
+
+TASK_PFA_TEST(SPEC_IB_DISABLE, spec_ib_disable)
+TASK_PFA_SET(SPEC_IB_DISABLE, spec_ib_disable)
+TASK_PFA_CLEAR(SPEC_IB_DISABLE, spec_ib_disable)
+
+TASK_PFA_TEST(SPEC_IB_FORCE_DISABLE, spec_ib_force_disable)
+TASK_PFA_SET(SPEC_IB_FORCE_DISABLE, spec_ib_force_disable)
 
 static inline void
 current_restore_flags(unsigned long orig_flags, unsigned long flags)

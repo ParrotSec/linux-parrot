@@ -8,9 +8,11 @@ Origin: https://github.com/mjg59/linux/commit/02d999574936dd234a508c0112a0200c13
  arch/x86/boot/compressed/eboot.c | 22 ++++++++++++++++++++++
  1 file changed, 22 insertions(+)
 
+diff --git a/arch/x86/boot/compressed/eboot.c b/arch/x86/boot/compressed/eboot.c
+index 8b4c5e001157..0813490ca6e0 100644
 --- a/arch/x86/boot/compressed/eboot.c
 +++ b/arch/x86/boot/compressed/eboot.c
-@@ -604,6 +604,22 @@ void setup_graphics(struct boot_params *
+@@ -371,6 +371,22 @@ void setup_graphics(struct boot_params *boot_params)
  	}
  }
  
@@ -33,16 +35,16 @@ Origin: https://github.com/mjg59/linux/commit/02d999574936dd234a508c0112a0200c13
  /*
   * Because the x86 boot code expects to be passed a boot_params we
   * need to create one ourselves (usually the bootloader would create
-@@ -989,6 +1005,12 @@ struct boot_params *efi_main(struct efi_
- 		setup_boot_services32(efi_early);
+@@ -765,6 +781,12 @@ efi_main(struct efi_config *c, struct boot_params *boot_params)
+ 			 ((u64)boot_params->ext_cmd_line_ptr << 32));
+ 	efi_parse_options((char *)cmdline_paddr);
  
- 	/*
++	/*
 +	 * Ask the firmware to clear memory if we don't have a clean
 +	 * shutdown
 +	 */
 +	enable_reset_attack_mitigation();
 +
-+	/*
+ 	/*
  	 * If the boot loader gave us a value for secure_boot then we use that,
  	 * otherwise we ask the BIOS.
- 	 */

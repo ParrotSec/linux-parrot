@@ -14,7 +14,7 @@ it can still be enabled using "pci=bios".
 ---
 --- a/arch/x86/pci/common.c
 +++ b/arch/x86/pci/common.c
-@@ -20,8 +20,8 @@
+@@ -19,8 +19,8 @@
  #include <asm/pci_x86.h>
  #include <asm/setup.h>
  
@@ -23,5 +23,5 @@ it can still be enabled using "pci=bios".
 +unsigned int pci_probe = PCI_PROBE_CONF1 | PCI_PROBE_CONF2 | PCI_PROBE_MMCONF |
 +	(IS_ENABLED(CONFIG_X86_64) || IS_ENABLED(CONFIG_X86_PAE) ? 0 : PCI_PROBE_BIOS);
  
- unsigned int pci_early_dump_regs;
  static int pci_bf_sort;
+ int pci_routeirq;

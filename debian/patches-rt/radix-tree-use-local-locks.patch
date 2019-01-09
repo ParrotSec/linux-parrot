@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 25 Jan 2017 16:34:27 +0100
 Subject: [PATCH] radix-tree: use local locks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 The preload functionality uses per-CPU variables and preempt-disable to
 ensure that it does not switch CPUs during its usage. This patch adds
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/idr.h
 +++ b/include/linux/idr.h
-@@ -158,10 +158,7 @@ static inline bool idr_is_empty(const st
+@@ -169,10 +169,7 @@ static inline bool idr_is_empty(const st
   * Each idr_preload() should be matched with an invocation of this
   * function.  See idr_preload() for details.
   */
@@ -152,10 +152,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +}
 +EXPORT_SYMBOL(idr_preload_end);
 +
- /**
-  * ida_pre_get - reserve resources for ida allocation
-  * @ida: ida handle
-@@ -2122,7 +2136,7 @@ int ida_pre_get(struct ida *ida, gfp_t g
+ int ida_pre_get(struct ida *ida, gfp_t gfp)
+ {
+ 	/*
+@@ -2114,7 +2128,7 @@ int ida_pre_get(struct ida *ida, gfp_t g
  	 * to return to the ida_pre_get() step.
  	 */
  	if (!__radix_tree_preload(gfp, IDA_PRELOAD_SIZE))

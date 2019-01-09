@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 SHELL := sh -e
 
-DEB_HOST_ARCH  := $(shell dpkg-architecture -qDEB_HOST_ARCH)
+include /usr/share/dpkg/architecture.mk
 
 build: build-arch build-indep
 build-arch:

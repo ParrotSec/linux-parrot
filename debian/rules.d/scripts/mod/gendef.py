@@ -3,7 +3,7 @@ import re
 import sys
 
 for line in open(sys.argv[1]):
-    match = re.search('getopt\(argc, argv, "([\w:]*?)"\)', line)
+    match = re.search(r'getopt\(argc, argv, "([\w:]*?)"\)', line)
     if match:
         options = match.group(1)
         break

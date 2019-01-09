@@ -1,0 +1,3 @@
+usr/include/bpf
+usr/lib/*/libbpf.a
+usr/lib/*/libbpf.so

@@ -1,7 +1,7 @@
 Subject: lockdep: Make it RT aware
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 18:51:23 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 teach lockdep that we don't really do softirqs on -RT.
 
@@ -13,7 +13,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/irqflags.h
 +++ b/include/linux/irqflags.h
-@@ -32,14 +32,6 @@ do {						\
+@@ -43,14 +43,6 @@ do {						\
  do {						\
  	current->hardirq_context--;		\
  } while (0)
@@ -28,7 +28,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #else
  # define trace_hardirqs_on()		do { } while (0)
  # define trace_hardirqs_off()		do { } while (0)
-@@ -54,6 +46,21 @@ do {						\
+@@ -63,6 +55,21 @@ do {						\
  # define lockdep_softirq_enter()	do { } while (0)
  # define lockdep_softirq_exit()		do { } while (0)
  #endif
@@ -52,7 +52,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	defined(CONFIG_PREEMPT_TRACER)
 --- a/kernel/locking/lockdep.c
 +++ b/kernel/locking/lockdep.c
-@@ -3847,6 +3847,7 @@ static void check_flags(unsigned long fl
+@@ -3823,6 +3823,7 @@ static void check_flags(unsigned long fl
  		}
  	}
  
@@ -60,7 +60,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/*
  	 * We dont accurately track softirq state in e.g.
  	 * hardirq contexts (such as on 4KSTACKS), so only
-@@ -3861,6 +3862,7 @@ static void check_flags(unsigned long fl
+@@ -3837,6 +3838,7 @@ static void check_flags(unsigned long fl
  			DEBUG_LOCKS_WARN_ON(!current->softirqs_enabled);
  		}
  	}

@@ -1,7 +1,7 @@
 From: John Stultz <johnstul@us.ibm.com>
 Date: Fri, 3 Jul 2009 08:29:58 -0500
 Subject: posix-timers: Thread posix-cpu-timers on -rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 posix-cpu-timer code takes non -rt safe locks in hard irq
 context. Move it to a thread.
@@ -20,7 +20,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -827,6 +827,9 @@ struct task_struct {
+@@ -832,6 +832,9 @@ struct task_struct {
  #ifdef CONFIG_POSIX_TIMERS
  	struct task_cputime		cputime_expires;
  	struct list_head		cpu_timers[3];
@@ -32,7 +32,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/* Process credentials: */
 --- a/init/init_task.c
 +++ b/init/init_task.c
-@@ -43,6 +43,12 @@ static struct sighand_struct init_sighan
+@@ -50,6 +50,12 @@ static struct sighand_struct init_sighan
  	.signalfd_wqh	= __WAIT_QUEUE_HEAD_INITIALIZER(init_sighand.signalfd_wqh),
  };
  
@@ -45,17 +45,17 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * Set up the first task table, touch at your own risk!. Base=0,
   * limit=0x1fffff (=2MB)
-@@ -112,6 +118,7 @@ struct task_struct init_task
+@@ -119,6 +125,7 @@ struct task_struct init_task
  	INIT_CPU_TIMERS(init_task)
  	.pi_lock	= __RAW_SPIN_LOCK_UNLOCKED(init_task.pi_lock),
  	.timer_slack_ns = 50000, /* 50 usec default slack */
 +	INIT_TIMER_LIST
- 	.pids = {
- 		[PIDTYPE_PID]  = INIT_PID_LINK(PIDTYPE_PID),
- 		[PIDTYPE_PGID] = INIT_PID_LINK(PIDTYPE_PGID),
+ 	.thread_pid	= &init_struct_pid,
+ 	.thread_group	= LIST_HEAD_INIT(init_task.thread_group),
+ 	.thread_node	= LIST_HEAD_INIT(init_signals.thread_head),
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -1564,6 +1564,9 @@ static void rt_mutex_init_task(struct ta
+@@ -1575,6 +1575,9 @@ static void rt_mutex_init_task(struct ta
   */
  static void posix_cpu_timers_init(struct task_struct *tsk)
  {

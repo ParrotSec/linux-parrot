@@ -1,7 +1,7 @@
 Subject: fs: dcache: Use cpu_chill() in trylock loops
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 07 Mar 2012 21:00:34 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Retry loops on RT might loop forever when the modifying side was
 preempted. Use cpu_chill() instead of cpu_relax() to let the system
@@ -23,8 +23,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +#include <linux/delay.h>
  #include "autofs_i.h"
  
- static unsigned long now;
-@@ -148,7 +149,7 @@ static struct dentry *get_next_positive_
+ /* Check if a dentry can be expired */
+@@ -153,7 +154,7 @@ static struct dentry *get_next_positive_
  			parent = p->d_parent;
  			if (!spin_trylock(&parent->d_lock)) {
  				spin_unlock(&p->d_lock);
@@ -43,7 +43,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #include <linux/security.h>
  #include <linux/cred.h>
  #include <linux/idr.h>
-@@ -353,8 +354,11 @@ int __mnt_want_write(struct vfsmount *m)
+@@ -327,8 +328,11 @@ int __mnt_want_write(struct vfsmount *m)
  	 * incremented count after it has set MNT_WRITE_HOLD.
  	 */
  	smp_mb();

@@ -1,11 +1,5 @@
-/*
- * Copyright (c) 2016~2017 Hisilicon Limited.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- */
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright (c) 2016-2017 Hisilicon Limited.
 
 #include <linux/etherdevice.h>
 
@@ -1173,25 +1167,23 @@ static int hclge_pfc_setup_hw(struct hclge_dev *hdev)
  */
 static int hclge_bp_setup_hw(struct hclge_dev *hdev, u8 tc)
 {
-	struct hclge_vport *vport = hdev->vport;
-	u32 i, k, qs_bitmap;
-	int ret;
+	int i;
 
 	for (i = 0; i < HCLGE_BP_GRP_NUM; i++) {
-		qs_bitmap = 0;
+		u32 qs_bitmap = 0;
+		int k, ret;
 
 		for (k = 0; k < hdev->num_alloc_vport; k++) {
+			struct hclge_vport *vport = &hdev->vport[k];
 			u16 qs_id = vport->qs_offset + tc;
 			u8 grp, sub_grp;
 
-			grp = hnae_get_field(qs_id, HCLGE_BP_GRP_ID_M,
-					     HCLGE_BP_GRP_ID_S);
-			sub_grp = hnae_get_field(qs_id, HCLGE_BP_SUB_GRP_ID_M,
-						 HCLGE_BP_SUB_GRP_ID_S);
+			grp = hnae3_get_field(qs_id, HCLGE_BP_GRP_ID_M,
+					      HCLGE_BP_GRP_ID_S);
+			sub_grp = hnae3_get_field(qs_id, HCLGE_BP_SUB_GRP_ID_M,
+						  HCLGE_BP_SUB_GRP_ID_S);
 			if (i == grp)
 				qs_bitmap |= (1 << sub_grp);
-
-			vport++;
 		}
 
 		ret = hclge_tm_qs_bp_cfg(hdev, tc, i, qs_bitmap);

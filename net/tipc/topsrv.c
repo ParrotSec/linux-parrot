@@ -313,8 +313,8 @@ static void tipc_conn_send_work(struct work_struct *work)
 	conn_put(con);
 }
 
-/* tipc_conn_queue_evt() - interrupt level call from a subscription instance
- * The queued work is launched into tipc_send_work()->tipc_send_to_sock()
+/* tipc_topsrv_queue_evt() - interrupt level call from a subscription instance
+ * The queued work is launched into tipc_conn_send_work()->tipc_conn_send_to_sock()
  */
 void tipc_topsrv_queue_evt(struct net *net, int conid,
 			   u32 event, struct tipc_event *evt)
@@ -657,7 +657,7 @@ int tipc_topsrv_start(struct net *net)
 	srv->max_rcvbuf_size = sizeof(struct tipc_subscr);
 	INIT_WORK(&srv->awork, tipc_topsrv_accept);
 
-	strncpy(srv->name, name, strlen(name) + 1);
+	strscpy(srv->name, name, sizeof(srv->name));
 	tn->topsrv = srv;
 	atomic_set(&tn->subscription_count, 0);
 

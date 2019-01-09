@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue,  3 Jul 2018 11:25:41 +0200
 Subject: [PATCH v2] hrtimer: consolidate hrtimer_init() + hrtimer_init_sleeper() calls
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 hrtimer_init_sleeper() calls require a prior initialisation of the
 hrtimer object with hrtimer_init(). Lets make the initialisation of
@@ -27,7 +27,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
 
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
-@@ -2986,10 +2986,9 @@ static bool blk_mq_poll_hybrid_sleep(str
+@@ -3116,10 +3116,9 @@ static bool blk_mq_poll_hybrid_sleep(str
  	kt = nsecs;
  
  	mode = HRTIMER_MODE_REL;
@@ -41,15 +41,15 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  			break;
 --- a/drivers/staging/android/vsoc.c
 +++ b/drivers/staging/android/vsoc.c
-@@ -438,12 +438,10 @@ static int handle_vsoc_cond_wait(struct
- 
- 		if (!timespec_valid(&ts))
+@@ -437,12 +437,10 @@ static int handle_vsoc_cond_wait(struct
  			return -EINVAL;
+ 		wake_time = ktime_set(arg->wake_time_sec, arg->wake_time_nsec);
+ 
 -		hrtimer_init_on_stack(&to->timer, CLOCK_MONOTONIC,
 -				      HRTIMER_MODE_ABS);
 +		hrtimer_init_sleeper_on_stack(to, CLOCK_MONOTONIC,
 +					      HRTIMER_MODE_ABS, current);
- 		hrtimer_set_expires_range_ns(&to->timer, timespec_to_ktime(ts),
+ 		hrtimer_set_expires_range_ns(&to->timer, wake_time,
  					     current->timer_slack_ns);
 -
 -		hrtimer_init_sleeper(to, current);
@@ -159,7 +159,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  	}
 --- a/kernel/time/hrtimer.c
 +++ b/kernel/time/hrtimer.c
-@@ -1649,13 +1649,44 @@ static enum hrtimer_restart hrtimer_wake
+@@ -1648,13 +1648,44 @@ static enum hrtimer_restart hrtimer_wake
  	return HRTIMER_NORESTART;
  }
  
@@ -205,7 +205,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  int nanosleep_copyout(struct restart_block *restart, struct timespec64 *ts)
  {
  	switch(restart->nanosleep.type) {
-@@ -1679,8 +1710,6 @@ static int __sched do_nanosleep(struct h
+@@ -1678,8 +1709,6 @@ static int __sched do_nanosleep(struct h
  {
  	struct restart_block *restart;
  
@@ -214,7 +214,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  	do {
  		set_current_state(TASK_INTERRUPTIBLE);
  		hrtimer_start_expires(&t->timer, mode);
-@@ -1717,10 +1746,9 @@ static long __sched hrtimer_nanosleep_re
+@@ -1716,10 +1745,9 @@ static long __sched hrtimer_nanosleep_re
  	struct hrtimer_sleeper t;
  	int ret;
  
@@ -227,7 +227,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  	ret = do_nanosleep(&t, HRTIMER_MODE_ABS);
  	destroy_hrtimer_on_stack(&t.timer);
  	return ret;
-@@ -1738,7 +1766,7 @@ long hrtimer_nanosleep(const struct time
+@@ -1737,7 +1765,7 @@ long hrtimer_nanosleep(const struct time
  	if (dl_task(current) || rt_task(current))
  		slack = 0;
  
@@ -236,7 +236,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  	hrtimer_set_expires_range_ns(&t.timer, timespec64_to_ktime(*rqtp), slack);
  	ret = do_nanosleep(&t, mode);
  	if (ret != -ERESTART_RESTARTBLOCK)
-@@ -1937,11 +1965,9 @@ schedule_hrtimeout_range_clock(ktime_t *
+@@ -1936,11 +1964,9 @@ schedule_hrtimeout_range_clock(ktime_t *
  		return -EINTR;
  	}
  
@@ -251,7 +251,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  	if (likely(t.task))
 --- a/net/core/pktgen.c
 +++ b/net/core/pktgen.c
-@@ -2162,7 +2162,8 @@ static void spin(struct pktgen_dev *pkt_
+@@ -2160,7 +2160,8 @@ static void spin(struct pktgen_dev *pkt_
  	s64 remaining;
  	struct hrtimer_sleeper t;
  
@@ -261,7 +261,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  	hrtimer_set_expires(&t.timer, spin_until);
  
  	remaining = ktime_to_ns(hrtimer_expires_remaining(&t.timer));
-@@ -2177,7 +2178,6 @@ static void spin(struct pktgen_dev *pkt_
+@@ -2175,7 +2176,6 @@ static void spin(struct pktgen_dev *pkt_
  		} while (ktime_compare(end_time, spin_until) < 0);
  	} else {
  		/* see do_nanosleep */

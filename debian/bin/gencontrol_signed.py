@@ -1,25 +1,30 @@
 #!/usr/bin/python3
 
+import codecs
+import hashlib
+import io
+import json
+import os.path
+import re
+import ssl
+import subprocess
 import sys
-sys.path.append("debian/lib/python")
 
 from debian_linux.config import ConfigCoreDump
-from debian_linux.debian import Changelog, PackageDescription, VersionLinux, \
-    Package, PackageRelationGroup
+from debian_linux.debian import VersionLinux
 from debian_linux.gencontrol import Gencontrol as Base, merge_packages
 from debian_linux.utils import Templates, read_control
 
-import os.path, re, codecs, io, json, subprocess, time, ssl, hashlib
 
 class Gencontrol(Base):
     def __init__(self, arch):
         super(Gencontrol, self).__init__(
-            ConfigCoreDump(fp = open('debian/config.defines.dump', 'rb')),
+            ConfigCoreDump(fp=open('debian/config.defines.dump', 'rb')),
             Templates(['debian/signing_templates', 'debian/templates']))
 
         image_binary_version = self.changelog[0].version.complete
 
-        config_entry = self.config['version',]
+        config_entry = self.config[('version',)]
         self.version = VersionLinux(config_entry['source'])
 
         # Check config version matches changelog version
@@ -28,6 +33,7 @@ class Gencontrol(Base):
 
         self.abiname = config_entry['abiname']
         self.vars = {
+            'template': 'linux-image-%s-signed-template' % arch,
             'upstreamversion': self.version.linux_upstream,
             'version': self.version.linux_version,
             'source_upstream': self.version.upstream,
@@ -37,9 +43,12 @@ class Gencontrol(Base):
             'arch': arch,
         }
 
-        self.template_top_dir = ('debian/linux-image-%(arch)s-signed-template/usr/share/code-signing/linux-image-%(arch)s-signed-template' %
-                                 self.vars)
-        self.template_debian_dir = self.template_top_dir + '/source-template/debian'
+        self.package_dir = 'debian/%(template)s' % self.vars
+        self.template_top_dir = (self.package_dir
+                                 + '/usr/share/code-signing/%(template)s'
+                                 % self.vars)
+        self.template_debian_dir = (self.template_top_dir
+                                    + '/source-template/debian')
         os.makedirs(self.template_debian_dir, exist_ok=True)
 
         self.image_packages = []
@@ -51,8 +60,47 @@ class Gencontrol(Base):
     def do_main_setup(self, vars, makeflags, extra):
         makeflags['VERSION'] = self.version.linux_version
         makeflags['GENCONTROL_ARGS'] = (
-            '-v%(imagebinaryversion)s -DBuilt-Using="linux (= %(imagesourceversion)s)"' % vars)
+            '-v%(imagebinaryversion)s '
+            '-DBuilt-Using="linux (= %(imagesourceversion)s)"' %
+            vars)
         makeflags['PACKAGE_VERSION'] = vars['imagebinaryversion']
+
+        self.installer_packages = {}
+
+        if os.getenv('DEBIAN_KERNEL_DISABLE_INSTALLER'):
+            if self.changelog[0].distribution == 'UNRELEASED':
+                import warnings
+                warnings.warn('Disable installer modules on request '
+                              '(DEBIAN_KERNEL_DISABLE_INSTALLER set)')
+            else:
+                raise RuntimeError(
+                    'Unable to disable installer modules in release build '
+                    '(DEBIAN_KERNEL_DISABLE_INSTALLER set)')
+        elif self.config.merge('packages').get('installer', True):
+            # Add udebs using kernel-wedge
+            kw_env = os.environ.copy()
+            kw_env['KW_DEFCONFIG_DIR'] = 'debian/installer'
+            kw_env['KW_CONFIG_DIR'] = 'debian/installer'
+            kw_proc = subprocess.Popen(
+                ['kernel-wedge', 'gen-control', vars['abiname']],
+                stdout=subprocess.PIPE,
+                env=kw_env)
+            if not isinstance(kw_proc.stdout, io.IOBase):
+                udeb_packages = read_control(io.open(kw_proc.stdout.fileno(),
+                                                     closefd=False))
+            else:
+                udeb_packages = read_control(io.TextIOWrapper(kw_proc.stdout))
+            kw_proc.wait()
+            if kw_proc.returncode != 0:
+                raise RuntimeError('kernel-wedge exited with code %d' %
+                                   kw_proc.returncode)
+
+            for package in udeb_packages:
+                for arch in package['Architecture']:
+                    if self.config.merge('build', arch) \
+                                  .get('signed-code', False):
+                        self.installer_packages.setdefault(arch, []) \
+                                               .append(package)
 
     def do_main_packages(self, packages, vars, makeflags, extra):
         # Assume that arch:all packages do not get binNMU'd
@@ -61,7 +109,8 @@ class Gencontrol(Base):
 
     def do_main_recurse(self, packages, makefile, vars, makeflags, extra):
         # Each signed source package only covers a single architecture
-        self.do_arch(packages, makefile, self.vars['arch'], vars.copy(), makeflags.copy(), extra)
+        self.do_arch(packages, makefile, self.vars['arch'], vars.copy(),
+                     makeflags.copy(), extra)
 
     def do_extra(self, packages, makefile):
         pass
@@ -76,55 +125,34 @@ class Gencontrol(Base):
         makeflags['ABINAME'] = vars['abiname'] = \
             self.config['version', ]['abiname_base'] + abiname_part
 
-    def do_arch_packages(self, packages, makefile, arch, vars, makeflags, extra):
-        if os.getenv('DEBIAN_KERNEL_DISABLE_INSTALLER'):
-            if self.changelog[0].distribution == 'UNRELEASED':
-                import warnings
-                warnings.warn('Disable installer modules on request (DEBIAN_KERNEL_DISABLE_INSTALLER set)')
-            else:
-                raise RuntimeError('Unable to disable installer modules in release build (DEBIAN_KERNEL_DISABLE_INSTALLER set)')
-        elif (self.config.merge('packages').get('installer', True) and
-              self.config.merge('build', arch).get('signed-code', False)):
-            # Add udebs using kernel-wedge
-            installer_def_dir = 'debian/installer'
-            installer_arch_dir = os.path.join(installer_def_dir, arch)
-            if os.path.isdir(installer_arch_dir):
-                kw_env = os.environ.copy()
-                kw_env['KW_DEFCONFIG_DIR'] = installer_def_dir
-                kw_env['KW_CONFIG_DIR'] = installer_arch_dir
-                kw_proc = subprocess.Popen(
-                    ['kernel-wedge', 'gen-control', vars['abiname']],
-                    stdout=subprocess.PIPE,
-                    env=kw_env)
-                if not isinstance(kw_proc.stdout, io.IOBase):
-                    udeb_packages = read_control(io.open(kw_proc.stdout.fileno(), closefd=False))
-                else:
-                    udeb_packages = read_control(io.TextIOWrapper(kw_proc.stdout))
-                kw_proc.wait()
-                if kw_proc.returncode != 0:
-                    raise RuntimeError('kernel-wedge exited with code %d' %
-                                       kw_proc.returncode)
+    def do_arch_packages(self, packages, makefile, arch, vars, makeflags,
+                         extra):
+        udeb_packages = self.installer_packages.get(arch, [])
+        if udeb_packages:
+            merge_packages(packages, udeb_packages, arch)
 
-                merge_packages(packages, udeb_packages, arch)
+            # These packages must be built after the per-flavour/
+            # per-featureset packages.  Also, this won't work
+            # correctly with an empty package list.
+            if udeb_packages:
+                makefile.add(
+                    'binary-arch_%s' % arch,
+                    cmds=["$(MAKE) -f debian/rules.real install-udeb_%s %s "
+                          "PACKAGE_NAMES='%s'" %
+                          (arch, makeflags,
+                           ' '.join(p['Package'] for p in udeb_packages))])
 
-                # These packages must be built after the per-flavour/
-                # per-featureset packages.  Also, this won't work
-                # correctly with an empty package list.
-                if udeb_packages:
-                    makefile.add(
-                        'binary-arch_%s' % arch,
-                        cmds=["$(MAKE) -f debian/rules.real install-udeb_%s %s "
-                              "PACKAGE_NAMES='%s'" %
-                              (arch, makeflags,
-                               ' '.join(p['Package'] for p in udeb_packages))])
-
-    def do_flavour_setup(self, vars, makeflags, arch, featureset, flavour, extra):
-        super(Gencontrol, self).do_flavour_setup(vars, makeflags, arch, featureset, flavour, extra)
+    def do_flavour_setup(self, vars, makeflags, arch, featureset, flavour,
+                         extra):
+        super(Gencontrol, self).do_flavour_setup(vars, makeflags, arch,
+                                                 featureset, flavour, extra)
 
         config_image = self.config.merge('image', arch, featureset, flavour)
-        makeflags['IMAGE_INSTALL_STEM'] = vars['image-stem'] = config_image.get('install-stem')
+        vars['image-stem'] = config_image.get('install-stem')
+        makeflags['IMAGE_INSTALL_STEM'] = vars['image-stem']
 
-    def do_flavour_packages(self, packages, makefile, arch, featureset, flavour, vars, makeflags, extra):
+    def do_flavour_packages(self, packages, makefile, arch, featureset,
+                            flavour, vars, makeflags, extra):
         if not (self.config.merge('build', arch, featureset, flavour)
                 .get('signed-code', False)):
             return
@@ -148,15 +176,16 @@ class Gencontrol(Base):
                 break
         assert cert_file_name
         if featureset != "none":
-            cert_file_name = os.path.join('debian/build/source_%s' % featureset,
+            cert_file_name = os.path.join('debian/build/source_%s' %
+                                          featureset,
                                           cert_file_name)
 
         self.image_packages.append((image_suffix, image_package_name,
                                     cert_file_name))
 
         packages['source']['Build-Depends'].append(
-            image_package_name +
-            ' (= %(imagebinaryversion)s) [%(arch)s]' % vars)
+            image_package_name
+            + ' (= %(imagebinaryversion)s) [%(arch)s]' % vars)
 
         packages_signed = self.process_packages(
             self.templates['control.image'], vars)
@@ -172,14 +201,28 @@ class Gencontrol(Base):
 
         cmds_binary_arch = []
         for i in packages_signed:
-            cmds_binary_arch += ["$(MAKE) -f debian/rules.real install-signed PACKAGE_NAME='%s' %s" % (i['Package'], makeflags)]
-        makefile.add('binary-arch_%s_%s_%s_real' % (arch, featureset, flavour), cmds = cmds_binary_arch)
+            cmds_binary_arch += ["$(MAKE) -f debian/rules.real install-signed "
+                                 "PACKAGE_NAME='%s' %s" %
+                                 (i['Package'], makeflags)]
+        makefile.add('binary-arch_%s_%s_%s_real' % (arch, featureset, flavour),
+                     cmds=cmds_binary_arch)
 
-        for name in ['postinst', 'postrm', 'preinst', 'prerm']:
-            self._substitute_file('image.%s' % name, vars,
-                                  self.template_debian_dir +
-                                  '/linux-image-%s%s.%s' %
-                                  (vars['abiname'], vars['localversion'], name))
+        os.makedirs(self.package_dir + '/usr/share/lintian/overrides', 0o755,
+                    exist_ok=True)
+        with open(self.package_dir
+                  + '/usr/share/lintian/overrides/%(template)s' % self.vars,
+                  'a') as lintian_overrides:
+            for script_base in ['postinst', 'postrm', 'preinst', 'prerm']:
+                script_name = (self.template_debian_dir
+                               + '/linux-image-%s%s.%s'
+                               % (vars['abiname'], vars['localversion'],
+                                  script_base))
+                self._substitute_file('image.%s' % script_base, vars,
+                                      script_name)
+                lintian_overrides.write('%s: script-not-executable %s\n' %
+                                        (self.vars['template'],
+                                         os.path.relpath(script_name,
+                                                         self.package_dir)))
 
     def write(self, packages, makefile):
         self.write_changelog()
@@ -197,16 +240,18 @@ class Gencontrol(Base):
         vars['source'] = self.changelog[0].source
         vars['distribution'] = self.changelog[0].distribution
         vars['urgency'] = self.changelog[0].urgency
-        vars['signedsourceversion'] = (re.sub(r'-', r'+', vars['imagebinaryversion']))
+        vars['signedsourceversion'] = (re.sub(r'-', r'+',
+                                              vars['imagebinaryversion']))
 
-        with codecs.open(self.template_debian_dir + '/changelog', 'w', 'utf-8') as f:
+        with codecs.open(self.template_debian_dir + '/changelog', 'w',
+                         'utf-8') as f:
             f.write(self.substitute('''\
 linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
 
   * Sign kernel from @source@ @imagebinaryversion@
 
 ''',
-                vars))
+                                    vars))
 
             with codecs.open('debian/changelog', 'r', 'utf-8') as changelog_in:
                 # Ignore first two header lines
@@ -251,7 +296,7 @@ linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
         all_files = {}
 
         for image_suffix, image_package_name, cert_file_name in \
-            self.image_packages:
+                self.image_packages:
             package_dir = 'debian/%s' % image_package_name
             package_files = []
             package_files.append({'sig_type': 'efi',
@@ -263,7 +308,7 @@ linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
                         package_files.append(
                             {'sig_type': 'linux-module',
                              'file': '%s/%s' %
-                             (root[len(package_dir) + 1 :], name)})
+                             (root[(len(package_dir) + 1):], name)})
             package_certs = [get_cert_fingerprint(cert, 'sha256')
                              for cert in get_certs(cert_file_name)]
             assert len(package_certs) >= 1
@@ -274,6 +319,7 @@ linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
 
         with codecs.open(self.template_top_dir + '/files.json', 'w') as f:
             json.dump(all_files, f)
+
 
 if __name__ == '__main__':
     Gencontrol(sys.argv[1])()

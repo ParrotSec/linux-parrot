@@ -25,7 +25,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
 --- a/arch/sh/Makefile
 +++ b/arch/sh/Makefile
-@@ -115,16 +115,16 @@ KBUILD_DEFCONFIG	:= cayman_defconfig
+@@ -119,16 +119,16 @@ LDFLAGS_vmlinux		+= --defsym phys_stext=
  endif
  
  ifdef CONFIG_CPU_LITTLE_ENDIAN
@@ -33,13 +33,13 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 -LDFLAGS_vmlinux		+= --defsym jiffies=jiffies_64 --oformat $(ld-bfd)
 +ld_bfd			:= elf32-$(UTS_MACHINE)-linux
 +LDFLAGS_vmlinux		+= --defsym jiffies=jiffies_64 --oformat $(ld_bfd)
- LDFLAGS			+= -EL
+ KBUILD_LDFLAGS		+= -EL
  else
 -ld-bfd			:= elf32-$(UTS_MACHINE)big-linux
 -LDFLAGS_vmlinux		+= --defsym jiffies=jiffies_64+4 --oformat $(ld-bfd)
 +ld_bfd			:= elf32-$(UTS_MACHINE)big-linux
 +LDFLAGS_vmlinux		+= --defsym jiffies=jiffies_64+4 --oformat $(ld_bfd)
- LDFLAGS			+= -EB
+ KBUILD_LDFLAGS		+= -EB
  endif
  
 -export ld-bfd BITS
@@ -83,7 +83,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +       KERNEL_MEMORY suffix_y
 --- a/arch/sh/boot/compressed/Makefile
 +++ b/arch/sh/boot/compressed/Makefile
-@@ -32,7 +32,7 @@ ORIG_CFLAGS := $(KBUILD_CFLAGS)
+@@ -33,7 +33,7 @@ ORIG_CFLAGS := $(KBUILD_CFLAGS)
  KBUILD_CFLAGS = $(subst -pg, , $(ORIG_CFLAGS))
  endif
  
@@ -92,7 +92,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  		   -T $(obj)/../../kernel/vmlinux.lds
  
  #
-@@ -74,7 +74,7 @@ $(obj)/vmlinux.bin.lzo: $(vmlinux.bin.al
+@@ -75,7 +75,7 @@ $(obj)/vmlinux.bin.lzo: $(vmlinux.bin.al
  
  OBJCOPYFLAGS += -R .empty_zero_page
  
@@ -104,7 +104,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	$(call if_changed,ld)
 --- a/arch/sh/boot/romimage/Makefile
 +++ b/arch/sh/boot/romimage/Makefile
-@@ -12,7 +12,7 @@ mmcif-obj-$(CONFIG_CPU_SUBTYPE_SH7724)	:
+@@ -13,7 +13,7 @@ mmcif-obj-$(CONFIG_CPU_SUBTYPE_SH7724)	:
  load-$(CONFIG_ROMIMAGE_MMCIF)		:= $(mmcif-load-y)
  obj-$(CONFIG_ROMIMAGE_MMCIF)		:= $(mmcif-obj-y)
  
@@ -113,7 +113,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  		   -T $(obj)/../../kernel/vmlinux.lds
  
  $(obj)/vmlinux: $(obj)/head.o $(obj-y) $(obj)/piggy.o FORCE
-@@ -23,7 +23,7 @@ OBJCOPYFLAGS += -j .empty_zero_page
+@@ -24,7 +24,7 @@ OBJCOPYFLAGS += -j .empty_zero_page
  $(obj)/zeropage.bin: vmlinux FORCE
  	$(call if_changed,objcopy)
  

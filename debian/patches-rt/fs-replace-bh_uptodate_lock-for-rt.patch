@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 18 Mar 2011 09:18:52 +0100
 Subject: buffer_head: Replace bh_uptodate_lock for -rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Wrap the bit_spin_lock calls into a separate inline and add the RT
 replacements with a real spinlock.
@@ -11,9 +11,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  fs/buffer.c                 |   21 +++++++--------------
  fs/ext4/page-io.c           |    6 ++----
  fs/ntfs/aops.c              |   10 +++-------
- fs/xfs/xfs_aops.c           |    6 ++----
  include/linux/buffer_head.h |   34 ++++++++++++++++++++++++++++++++++
- 5 files changed, 48 insertions(+), 29 deletions(-)
+ 4 files changed, 46 insertions(+), 25 deletions(-)
 
 --- a/fs/buffer.c
 +++ b/fs/buffer.c
@@ -76,7 +75,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  EXPORT_SYMBOL(end_buffer_async_write);
  
-@@ -3349,6 +3341,7 @@ struct buffer_head *alloc_buffer_head(gf
+@@ -3360,6 +3352,7 @@ struct buffer_head *alloc_buffer_head(gf
  	struct buffer_head *ret = kmem_cache_zalloc(bh_cachep, gfp_flags);
  	if (ret) {
  		INIT_LIST_HEAD(&ret->b_assoc_buffers);
@@ -139,28 +138,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /**
---- a/fs/xfs/xfs_aops.c
-+++ b/fs/xfs/xfs_aops.c
-@@ -108,8 +108,7 @@ xfs_finish_page_writeback(
- 	ASSERT(bvec->bv_offset + bvec->bv_len <= PAGE_SIZE);
- 	ASSERT((bvec->bv_len & (i_blocksize(inode) - 1)) == 0);
- 
--	local_irq_save(flags);
--	bit_spin_lock(BH_Uptodate_Lock, &head->b_state);
-+	flags = bh_uptodate_lock_irqsave(head);
- 	do {
- 		if (off >= bvec->bv_offset &&
- 		    off < bvec->bv_offset + bvec->bv_len) {
-@@ -131,8 +130,7 @@ xfs_finish_page_writeback(
- 		}
- 		off += bh->b_size;
- 	} while ((bh = bh->b_this_page) != head);
--	bit_spin_unlock(BH_Uptodate_Lock, &head->b_state);
--	local_irq_restore(flags);
-+	bh_uptodate_unlock_irqrestore(head, flags);
- 
- 	if (!busy)
- 		end_page_writeback(bvec->bv_page);
 --- a/include/linux/buffer_head.h
 +++ b/include/linux/buffer_head.h
 @@ -76,8 +76,42 @@ struct buffer_head {

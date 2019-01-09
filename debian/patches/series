@@ -78,23 +78,23 @@ bugfix/x86/mmap-add-an-exception-to-the-stack-gap-for-hotspot-jvm.patch
 bugfix/powerpc/powerpc-lib-sstep-fix-building-for-powerpcspe.patch
 bugfix/powerpc/powerpc-lib-makefile-don-t-pull-in-quad.o-for-32-bit.patch
 bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
+bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
+bugfix/x86/x86-mm-Fix-guard-hole-handling.patch
+bugfix/arm/gpio-mvebu-only-fail-on-missing-clk-if-pwm-is-actual.patch
+bugfix/powerpc/powerpc-fix-mcpu-options-for-spe-only-compiler.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
-# Add device-tree for Pinebook from linux 4.19.x
-features/arm64/pinebook/0001-arm64-allwinner-a64-Add-RTC-clock-to-phandle-32kHz-e.patch
-features/arm64/pinebook/0002-arm64-dts-allwinner-a64-add-R_I2C-controller.patch
-features/arm64/pinebook/0003-arm64-dts-allwinner-a64-Add-PWM-controllers.patch
-features/arm64/pinebook/0004-arm64-dts-allwinner-add-support-for-Pinebook.patch
-features/arm64/pinebook/0005-arm64-dts-allwinner-a64-add-SRAM-controller-device-t.patch
-features/arm64/pinebook/0006-arm64-allwinner-a64-change-TERES-I-DLDO3-s-name-to-s.patch
-features/arm64/pinebook/0007-arm64-allwinner-a64-allow-laptops-to-wake-up-from-li.patch
-features/powerpc/mtd-powernv_flash-set-of_node-in-mtd-s-dev.patch
+features/x86/x86-boot-Add-ACPI-RSDP-address-to-setup_header.patch
+features/x86/x86-acpi-x86-boot-Take-RSDP-address-for-boot-params-.patch
+features/x86/x86-boot-Mostly-revert-commit-ae7e1238e68f2a-Add-ACP.patch
+features/x86/x86-acpi-x86-boot-Take-RSDP-address-from-boot-params.patch
+features/x86/x86-boot-Clear-RSDP-address-in-boot_params-for-broke.patch
 
 # Miscellaneous bug fixes
 bugfix/all/kbuild-use-nostdinc-in-compile-tests.patch
@@ -103,13 +103,8 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
-bugfix/all/netfilter-ipvs-Fix-invalid-bytes-in-IP_VS_MH_TAB_IND.patch
 
 # Miscellaneous features
-features/all/kbuild-add-build-salt-to-the-kernel-and-modules.patch
-features/x86/x86-add-build-salt-to-the-vdso.patch
-features/powerpc/powerpc-add-build-salt-to-the-vdso.patch
-features/arm64/arm64-add-build-salt-to-the-vdso.patch
 
 # Lockdown (formerly 'securelevel') patchset
 features/all/lockdown/0001-Add-the-ability-to-lock-down-access-to-the-running-k.patch
@@ -147,7 +142,6 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/Revert-net-increase-fragment-memory-usage-limits.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -159,16 +153,45 @@ bugfix/all/tools-perf-man-date.patch
 bugfix/all/tools-perf-remove-shebangs.patch
 bugfix/all/tools-lib-traceevent-use-ldflags.patch
 bugfix/x86/revert-perf-build-fix-libunwind-feature-detection-on.patch
-bugfix/all/perf-documentation-fix-out-of-tree-asciidoctor-man-page-generation.patch
 bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
+bugfix/all/libcpupower-hide-private-function.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
-bugfix/all/lockdep-stub-nmi-watchdog-reset.patch
-bugfix/all/lockdep-stub-task_struct-state.patch
 bugfix/all/tools-lib-api-fs-fs.c-fix-misuse-of-strncpy.patch
 bugfix/all/usbip-fix-misuse-of-strncpy.patch
+bugfix/x86/tools-x86_energy_perf_policy-fix-uninitialized-varia.patch
+bugfix/x86/tools-turbostat-Add-checks-for-failure-of-fgets-and-.patch
+bugfix/all/libbpf-add-soname-to-shared-object.patch
+bugfix/all/libbpf-link-shared-object-with-libelf.patch
+bugfix/riscv/tools-uapi-fix-risc-v-64-bit-support.patch
 
 # wireless: Disable regulatory.db direct loading (until we sort out signing)
 debian/wireless-disable-regulatory.db-direct-loading.patch
+
+# Licence clarification
+bugfix/all/documentation-media-uapi-explicitly-say-there-are-no-invariant-sections.patch
+
+# overlay: allow mounting in user namespaces
+debian/overlayfs-permit-mounts-in-userns.patch
+
+# Amazon ENA ethernet driver backport from Linux 4.20
+features/all/ena/0001-net-ethernet-remove-redundant-include.patch
+features/all/ena/0002-net-ena-minor-performance-improvement.patch
+features/all/ena/0003-net-ena-complete-host-info-to-match-latest-ENA-spec.patch
+features/all/ena/0004-net-ena-introduce-Low-Latency-Queues-data-structures.patch
+features/all/ena/0005-net-ena-add-functions-for-handling-Low-Latency-Queue.patch
+features/all/ena/0006-net-ena-add-functions-for-handling-Low-Latency-Queue.patch
+features/all/ena/0007-net-ena-use-CSUM_CHECKED-device-indication-to-report.patch
+features/all/ena/0008-net-ena-explicit-casting-and-initialization-and-clea.patch
+features/all/ena/0009-net-ena-limit-refill-Rx-threshold-to-256-to-avoid-la.patch
+features/all/ena/0010-net-ena-change-rx-copybreak-default-to-reduce-kernel.patch
+features/all/ena/0011-net-ena-remove-redundant-parameter-in-ena_com_admin_.patch
+features/all/ena/0012-net-ena-update-driver-version-to-2.0.1.patch
+features/all/ena/0013-net-ena-fix-indentations-in-ena_defs-for-better-read.patch
+features/all/ena/0014-net-ena-Fix-Kconfig-dependency-on-X86.patch
+features/all/ena/0015-net-ena-enable-Low-Latency-Queues.patch
+features/all/ena/0016-net-ena-fix-compilation-error-in-xtensa-architecture.patch
+features/all/ena/0017-net-ena-fix-crash-during-ena_remove.patch
+features/all/ena/0018-net-ena-update-driver-version-from-2.0.1-to-2.0.2.patch
 
 # ABI maintenance

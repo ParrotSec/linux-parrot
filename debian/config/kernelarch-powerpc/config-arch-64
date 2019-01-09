@@ -176,6 +176,14 @@ CONFIG_VFIO_PCI=m
 CONFIG_WATCHDOG_RTAS=m
 
 ##
+## file: init/Kconfig
+##
+## choice: Cputime accounting
+# CONFIG_TICK_CPU_ACCOUNTING is not set
+CONFIG_VIRT_CPU_ACCOUNTING_NATIVE=y
+## end choice
+
+##
 ## file: lib/Kconfig
 ##
 CONFIG_CPUMASK_OFFSTACK=y

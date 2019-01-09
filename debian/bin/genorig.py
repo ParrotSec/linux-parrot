@@ -1,8 +1,6 @@
 #!/usr/bin/python3
 
 import sys
-sys.path.append("debian/lib/python")
-
 import deb822
 import glob
 import os
@@ -33,7 +31,8 @@ class Main(object):
         if self.version_dfsg is None:
             self.version_dfsg = '0'
 
-        self.log('Using source name %s, version %s, dfsg %s\n' % (source, version.upstream, self.version_dfsg))
+        self.log('Using source name %s, version %s, dfsg %s\n' %
+                 (source, version.upstream, self.version_dfsg))
 
         self.orig = '%s-%s' % (source, version.upstream)
         self.orig_tar = '%s_%s.orig.tar.xz' % (source, version.upstream)
@@ -76,7 +75,7 @@ class Main(object):
         verify_proc = subprocess.Popen(['git',
                                         '-c', 'gpg.program=%s' % gpg_wrapper,
                                         'tag', '-v', self.tag],
-                                        cwd=input_repo)
+                                       cwd=input_repo)
         if verify_proc.wait():
             raise RuntimeError("GPG tag verification failed")
 
@@ -94,7 +93,9 @@ class Main(object):
 
     def upstream_extract(self, input_tar):
         self.log("Extracting tarball %s\n" % input_tar)
-        match = re.match(r'(^|.*/)(?P<dir>linux-\d+\.\d+(\.\d+)?(-\S+)?)\.tar(\.(?P<extension>(bz2|gz|xz)))?$', input_tar)
+        match = re.match(r'(^|.*/)(?P<dir>linux-\d+\.\d+(\.\d+)?(-\S+)?)\.tar'
+                         r'(\.(?P<extension>(bz2|gz|xz)))?$',
+                         input_tar)
         if not match:
             raise RuntimeError("Can't identify name of tarball")
 
@@ -103,11 +104,14 @@ class Main(object):
         if subprocess.Popen(cmdline).wait():
             raise RuntimeError("Can't extract tarball")
 
-        os.rename(os.path.join(self.dir, match.group('dir')), os.path.join(self.dir, self.orig))
+        os.rename(os.path.join(self.dir, match.group('dir')),
+                  os.path.join(self.dir, self.orig))
 
     def upstream_patch(self, input_patch):
         self.log("Patching source with %s\n" % input_patch)
-        match = re.match(r'(^|.*/)patch-\d+\.\d+(\.\d+)?(-\S+?)?(\.(?P<extension>(bz2|gz|xz)))?$', input_patch)
+        match = re.match(r'(^|.*/)patch-\d+\.\d+(\.\d+)?(-\S+?)?'
+                         r'(\.(?P<extension>(bz2|gz|xz)))?$',
+                         input_patch)
         if not match:
             raise RuntimeError("Can't identify name of patch")
         cmdline = []
@@ -120,7 +124,8 @@ class Main(object):
         else:
             cmdline.append('cat')
         cmdline.append(input_patch)
-        cmdline.append('| (cd %s; patch -p1 -f -s -t --no-backup-if-mismatch)' % os.path.join(self.dir, self.orig))
+        cmdline.append('| (cd %s; patch -p1 -f -s -t --no-backup-if-mismatch)'
+                       % os.path.join(self.dir, self.orig))
         if os.spawnv(os.P_WAIT, '/bin/sh', ['sh', '-c', ' '.join(cmdline)]):
             raise RuntimeError("Can't patch source")
 
@@ -174,21 +179,24 @@ class Main(object):
         try:
             subprocess.run(cmd, env=env, check=True)
             os.chmod(out, 0o644)
-        except:
+        except BaseException:
             try:
                 os.unlink(out)
             except OSError:
                 pass
             raise
         try:
-            os.symlink(os.path.join('orig', self.orig_tar), os.path.join('..', self.orig_tar))
+            os.symlink(os.path.join('orig', self.orig_tar),
+                       os.path.join('..', self.orig_tar))
         except OSError:
             pass
+
 
 if __name__ == '__main__':
     from optparse import OptionParser
     parser = OptionParser(usage="%prog [OPTION]... {TAR [PATCH] | REPO}")
-    parser.add_option("-V", "--override-version", dest="override_version", help="Override version", metavar="VERSION")
+    parser.add_option("-V", "--override-version", dest="override_version",
+                      help="Override version", metavar="VERSION")
     options, args = parser.parse_args()
 
     assert 1 <= len(args) <= 2

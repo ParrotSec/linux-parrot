@@ -8,10 +8,8 @@ Don't complain about being unable to load regulatory.db directly.
 This is expected until we generate a signing key and update
 wireless-regdb to be signed with it.
 
-Index: debian-kernel/net/wireless/reg.c
-===================================================================
---- debian-kernel.orig/net/wireless/reg.c
-+++ debian-kernel/net/wireless/reg.c
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
 @@ -476,6 +476,7 @@ static void reg_regdb_apply(struct work_
  
  static DECLARE_WORK(reg_regdb_work, reg_regdb_apply);
@@ -28,7 +26,7 @@ Index: debian-kernel/net/wireless/reg.c
  
  #ifdef CONFIG_CFG80211_CRDA_SUPPORT
  /* Max number of consecutive attempts to communicate with CRDA  */
-@@ -574,6 +576,36 @@ static inline int call_crda(const char *
+@@ -574,6 +576,35 @@ static inline int call_crda(const char *
  /* code to directly load a firmware database through request_firmware */
  static const struct fwdb_header *regdb;
  
@@ -53,8 +51,7 @@ Index: debian-kernel/net/wireless/reg.c
 +	return -ENOENT;
 +}
 +
-+int reg_query_regdb_wmm(char *alpha2, int freq,
-+			struct ieee80211_reg_rule *rule)
++int reg_query_regdb_wmm(char *alpha2, int freq, struct ieee80211_reg_rule *rule)
 +{
 +	return -ENODATA;
 +}
@@ -65,7 +62,7 @@ Index: debian-kernel/net/wireless/reg.c
  struct fwdb_country {
  	u8 alpha2[2];
  	__be16 coll_ptr;
-@@ -1090,6 +1122,8 @@ int reg_reload_regdb(void)
+@@ -1090,6 +1121,8 @@ int reg_reload_regdb(void)
  	return err;
  }
  

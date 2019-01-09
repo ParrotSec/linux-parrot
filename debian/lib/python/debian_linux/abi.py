@@ -39,4 +39,4 @@ class Symbols(dict):
     def write(self, file):
         for s in sorted(self.values(), key=lambda i: i.name):
             file.write("%s %s %s %s\n" %
-                    (s.version, s.name, s.module, s.export))
+                       (s.version, s.name, s.module, s.export))

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 26 Jul 2018 15:03:16 +0200
 Subject: [PATCH] efi: Disable runtime services on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Based on meassurements the EFI functions get_variable /
 get_next_variable take up to 2us which looks okay.
@@ -29,9 +29,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/firmware/efi/efi.c
 +++ b/drivers/firmware/efi/efi.c
-@@ -84,7 +84,7 @@ struct mm_struct efi_mm = {
- 	.mmlist			= LIST_HEAD_INIT(efi_mm.mmlist),
- };
+@@ -87,7 +87,7 @@ struct mm_struct efi_mm = {
+ 
+ struct workqueue_struct *efi_rts_wq;
  
 -static bool disable_runtime;
 +static bool disable_runtime = IS_ENABLED(CONFIG_PREEMPT_RT_BASE);

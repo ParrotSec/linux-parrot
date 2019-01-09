@@ -1,7 +1,7 @@
 Subject: seqlock: Prevent rt starvation
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 22 Feb 2012 12:03:30 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 If a low prio writer gets preempted while holding the seqlock write
 locked, a high prio reader spins forever on RT.
@@ -167,9 +167,9 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 -static inline int neigh_hh_output(const struct hh_cache *hh, struct sk_buff *skb)
 +static inline int neigh_hh_output(struct hh_cache *hh, struct sk_buff *skb)
  {
+ 	unsigned int hh_alen = 0;
  	unsigned int seq;
- 	unsigned int hh_len;
-@@ -475,7 +475,7 @@ static inline int neigh_hh_output(const
+@@ -493,7 +493,7 @@ static inline int neigh_hh_output(const
  
  static inline int neigh_output(struct neighbour *n, struct sk_buff *skb)
  {
@@ -178,7 +178,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	if ((n->nud_state & NUD_CONNECTED) && hh->hh_len)
  		return neigh_hh_output(hh, skb);
-@@ -516,7 +516,7 @@ struct neighbour_cb {
+@@ -534,7 +534,7 @@ struct neighbour_cb {
  
  #define NEIGH_CB(skb)	((struct neighbour_cb *)(skb)->cb)
  

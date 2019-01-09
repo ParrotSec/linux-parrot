@@ -1,7 +1,7 @@
 From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 Date: Fri, 11 Jul 2014 15:26:11 +0200
 Subject: work-simple: Simple work queue implemenation
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Provides a framework for enqueuing callbacks from irq context
 PREEMPT_RT_FULL safe. The callbacks are executed in kthread context.
@@ -52,7 +52,7 @@ Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
 -obj-y += wait.o wait_bit.o swait.o completion.o
 +obj-y += wait.o wait_bit.o swait.o swork.o completion.o
  
- obj-$(CONFIG_SMP) += cpupri.o cpudeadline.o topology.o stop_task.o
+ obj-$(CONFIG_SMP) += cpupri.o cpudeadline.o topology.o stop_task.o pelt.o
  obj-$(CONFIG_SCHED_AUTOGROUP) += autogroup.o
 --- /dev/null
 +++ b/kernel/sched/swork.c
@@ -105,8 +105,8 @@ Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
 +	struct sworker *worker = arg;
 +
 +	for (;;) {
-+		swait_event_interruptible(worker->wq,
-+					swork_readable(worker));
++		swait_event_interruptible_exclusive(worker->wq,
++						    swork_readable(worker));
 +		if (kthread_should_stop())
 +			break;
 +
@@ -176,7 +176,7 @@ Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
 +	list_add_tail(&sev->item, &glob_worker->events);
 +	raw_spin_unlock_irqrestore(&glob_worker->lock, flags);
 +
-+	swake_up(&glob_worker->wq);
++	swake_up_one(&glob_worker->wq);
 +	return true;
 +}
 +EXPORT_SYMBOL_GPL(swork_queue);

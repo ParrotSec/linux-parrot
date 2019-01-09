@@ -1,7 +1,7 @@
 Subject: printk: Add a printk kill switch
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 22 Jul 2011 17:58:40 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Add a prinkt-kill-switch. This is used from (NMI) watchdog to ensure that
 it does not dead-lock with the early printk code.
@@ -29,7 +29,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_PRINTK_NMI
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -404,6 +404,58 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
+@@ -405,6 +405,58 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
  		printk_safe_exit_irqrestore(flags);	\
  	} while (0)
  
@@ -88,7 +88,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_PRINTK
  DECLARE_WAIT_QUEUE_HEAD(log_wait);
  /* the next printk record to read by syslog(READ) or /proc/kmsg */
-@@ -1886,6 +1938,13 @@ asmlinkage int vprintk_emit(int facility
+@@ -1897,6 +1949,13 @@ asmlinkage int vprintk_emit(int facility
  	bool in_sched = false;
  	unsigned long flags;
  
@@ -102,7 +102,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	if (level == LOGLEVEL_SCHED) {
  		level = LOGLEVEL_DEFAULT;
  		in_sched = true;
-@@ -2026,26 +2085,6 @@ static bool suppress_message_printing(in
+@@ -2037,26 +2096,6 @@ static bool suppress_message_printing(in
  
  #endif /* CONFIG_PRINTK */
  

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Aug 2013 11:48:57 +0200
 Subject: md: disable bcache
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 It uses anon semaphores
 |drivers/md/bcache/request.c: In function ‘cached_dev_write_complete’:
@@ -27,6 +27,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  config BCACHE
  	tristate "Block device as cache"
 +	depends on !PREEMPT_RT_FULL
- 	---help---
+ 	select CRC64
+ 	help
  	Allows a block device to be used as cache for other devices; uses
- 	a btree for indexing and the layout is optimized for SSDs.

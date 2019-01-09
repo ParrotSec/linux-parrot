@@ -10,7 +10,21 @@ Package: linux-perf-@version@
 Build-Profiles: <!stage1 !pkg.linux.notools !nopython>
 Section: devel
 Architecture: alpha amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel mipsn32 mipsn32el mipsr6 mipsr6el mipsn32r6 mipsn32r6el mips64r6 mips64r6el powerpc ppc64 ppc64el s390 s390x sh4 sparc sparc64
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends}, ${python:Depends}
+Build-Depends:
+ asciidoctor <!stage1 !nodoc !pkg.linux.notools !nopython>,
+ gcc-multilib [amd64 mips64 mips64el mips64r6 mips64r6el ppc64 s390x sparc64],
+ libaudit-dev,
+ libbabeltrace-dev (>= 1.5.0),
+# libbabeltrace-ctf-dev may or may not be needed as well
+ libbabeltrace-dev (>= 1.5.3-2~) | libbabeltrace-ctf-dev (>= 1.5.0),
+ libdw-dev,
+ libiberty-dev,
+ libnewt-dev,
+ libnuma-dev,
+ libperl-dev,
+ libunwind-dev [amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel powerpc ppc64 ppc64el sh4],
+ python3-dev,
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends}, ${python3:Depends}
 Recommends: linux-base
 Provides: linux-tools-@version@
 Conflicts: linux-tools-@version@

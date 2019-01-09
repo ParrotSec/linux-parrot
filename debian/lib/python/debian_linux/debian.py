@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 import os.path
 import re
 import unittest
@@ -45,7 +46,8 @@ class Changelog(list):
     _ignore_re = re.compile(r'^(?:  |\s*\n)')
 
     class Entry(object):
-        __slot__ = 'distribution', 'source', 'version', 'urgency', 'maintainer', 'date'
+        __slot__ = ('distribution', 'source', 'version', 'urgency',
+                    'maintainer', 'date')
 
         def __init__(self, **kwargs):
             for key, value in kwargs.items():
@@ -57,7 +59,8 @@ class Changelog(list):
         if file:
             self._parse(version, file)
         else:
-            with open(os.path.join(dir, "debian/changelog"), encoding="UTF-8") as f:
+            with open(os.path.join(dir, "debian/changelog"),
+                      encoding="UTF-8") as f:
                 self._parse(version, f)
 
     def _parse(self, version, f):
@@ -72,7 +75,8 @@ class Changelog(list):
             elif top_match is None:
                 top_match = self._top_re.match(line)
                 if not top_match:
-                    raise Exception('invalid top line %d in changelog' % line_no)
+                    raise Exception('invalid top line %d in changelog' %
+                                    line_no)
                 try:
                     v = version(top_match.group('version'))
                 except Exception:
@@ -82,15 +86,18 @@ class Changelog(list):
             else:
                 bottom_match = self._bottom_re.match(line)
                 if not bottom_match:
-                    raise Exception('invalid bottom line %d in changelog' % line_no)
+                    raise Exception('invalid bottom line %d in changelog' %
+                                    line_no)
 
-                self.append(self.Entry(distribution=top_match.group('distribution'),
-                                       source=top_match.group('source'),
-                                       version=v,
-                                       urgency=top_match.group('urgency'),
-                                       maintainer=bottom_match.group('maintainer'),
-                                       date=bottom_match.group('date')))
+                self.append(self.Entry(
+                    distribution=top_match.group('distribution'),
+                    source=top_match.group('source'),
+                    version=v,
+                    urgency=top_match.group('urgency'),
+                    maintainer=bottom_match.group('maintainer'),
+                    date=bottom_match.group('date')))
                 top_match = bottom_match = None
+
 
 class Version(object):
     _epoch_re = re.compile(r'\d+$')
@@ -110,9 +117,9 @@ class Version(object):
             upstream, revision = rest, None
         else:
             upstream, revision = rest[0:split], rest[split+1:]
-        if ((epoch is not None and not self._epoch_re.match(epoch)) or
-            not self._upstream_re.match(upstream) or
-            (revision is not None and not self._revision_re.match(revision))):
+        if (epoch is not None and not self._epoch_re.match(epoch)) or \
+           not self._upstream_re.match(upstream) or \
+           (revision is not None and not self._revision_re.match(revision)):
             raise RuntimeError(u"Invalid debian version")
         self.epoch = epoch and int(epoch)
         self.upstream = upstream
@@ -136,7 +143,8 @@ class Version(object):
     @property
     def debian(self):
         from warnings import warn
-        warn(u"debian argument was replaced by revision", DeprecationWarning, stacklevel=2)
+        warn(u"debian argument was replaced by revision", DeprecationWarning,
+             stacklevel=2)
         return self.revision
 
 
@@ -188,29 +196,29 @@ class _VersionTest(unittest.TestCase):
 
     def test_invalid_epoch(self):
         with self.assertRaises(RuntimeError):
-            v = Version('a:1')
+            Version('a:1')
         with self.assertRaises(RuntimeError):
-            v = Version('-1:1')
+            Version('-1:1')
         with self.assertRaises(RuntimeError):
-            v = Version('1a:1')
+            Version('1a:1')
 
     def test_invalid_upstream(self):
         with self.assertRaises(RuntimeError):
-            v = Version('1_2')
+            Version('1_2')
         with self.assertRaises(RuntimeError):
-            v = Version('1/2')
+            Version('1/2')
         with self.assertRaises(RuntimeError):
-            v = Version('a1')
+            Version('a1')
         with self.assertRaises(RuntimeError):
-            v = Version('1 2')
+            Version('1 2')
 
     def test_invalid_revision(self):
         with self.assertRaises(RuntimeError):
-            v = Version('1-2_3')
+            Version('1-2_3')
         with self.assertRaises(RuntimeError):
-            v = Version('1-2/3')
+            Version('1-2/3')
         with self.assertRaises(RuntimeError):
-            v = Version('1-2:3')
+            Version('1-2:3')
 
 
 class VersionLinux(Version):
@@ -379,7 +387,7 @@ class _VersionLinuxTest(unittest.TestCase):
         self.assertFalse(v.linux_revision_other)
 
     def test_other_revision(self):
-        v = VersionLinux('4.16.5-1+revert+crng+ready') # from #898087
+        v = VersionLinux('4.16.5-1+revert+crng+ready')  # from #898087
         self.assertFalse(v.linux_revision_experimental)
         self.assertFalse(v.linux_revision_security)
         self.assertFalse(v.linux_revision_backports)
@@ -393,7 +401,7 @@ class _VersionLinuxTest(unittest.TestCase):
         self.assertTrue(v.linux_revision_other)
 
 
-class PackageArchitecture(collections.MutableSet):
+class PackageArchitecture(collections.abc.MutableSet):
     __slots__ = '_data'
 
     def __init__(self, value=None):
@@ -421,7 +429,7 @@ class PackageArchitecture(collections.MutableSet):
 
     def extend(self, value):
         if isinstance(value, str):
-            for i in re.split('\s', value.strip()):
+            for i in re.split(r'\s', value.strip()):
                 self.add(i)
         else:
             raise RuntimeError
@@ -493,7 +501,7 @@ class PackageRelation(list):
 
     def extend(self, value, override_arches=None):
         if isinstance(value, str):
-            value = (j.strip() for j in re.split(',', value.strip()))
+            value = (j.strip() for j in re.split(r',', value.strip()))
         for i in value:
             self.append(i, override_arches)
 
@@ -529,7 +537,7 @@ class PackageRelationGroup(list):
 
     def extend(self, value, override_arches=None):
         if isinstance(value, str):
-            value = (j.strip() for j in re.split('\|', value.strip()))
+            value = (j.strip() for j in re.split(r'\|', value.strip()))
         for i in value:
             self.append(i, override_arches)
 
@@ -537,7 +545,8 @@ class PackageRelationGroup(list):
 class PackageRelationEntry(object):
     __slots__ = "name", "operator", "version", "arches", "restrictions"
 
-    _re = re.compile(r'^(\S+)(?: \((<<|<=|=|!=|>=|>>)\s*([^)]+)\))?(?: \[([^]]+)\])?(?: <([^>]+)>)?$')
+    _re = re.compile(r'^(\S+)(?: \((<<|<=|=|!=|>=|>>)\s*([^)]+)\))?'
+                     r'(?: \[([^]]+)\])?(?: <([^>]+)>)?$')
 
     class _operator(object):
         OP_LT = 1
@@ -573,7 +582,8 @@ class PackageRelationEntry(object):
             self._op = self.operators[value]
 
         def __neg__(self):
-            return self.__class__(self.operators_text[self.operators_neg[self._op]])
+            return self.__class__(
+                self.operators_text[self.operators_neg[self._op]])
 
         def __str__(self):
             return self.operators_text[self._op]
@@ -612,11 +622,11 @@ class PackageRelationEntry(object):
             self.operator = None
         self.version = match[2]
         if match[3] is not None:
-            self.arches = re.split('\s+', match[3])
+            self.arches = re.split(r'\s+', match[3])
         else:
             self.arches = []
         if match[4] is not None:
-            self.restrictions = re.split('\s+', match[4])
+            self.restrictions = re.split(r'\s+', match[4])
         else:
             self.restrictions = []
 

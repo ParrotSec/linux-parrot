@@ -1,15 +1,13 @@
 #!/usr/bin/python3
 
 import sys
-sys.path.append('debian/lib/python')
-
-import fnmatch
 import glob
-import stat
+import os
+import re
 
 from debian_linux.abi import Symbols
 from debian_linux.config import ConfigCoreDump
-from debian_linux.debian import *
+from debian_linux.debian import Changelog, VersionLinux
 
 
 class CheckAbi(object):
@@ -46,19 +44,22 @@ class CheckAbi(object):
         self.filename_new = "%s/Module.symvers" % dir
 
         try:
-            version_abi = (self.config['version',]['abiname_base'] + '-' +
-                           self.config['abi', arch]['abiname'])
+            version_abi = (self.config[('version',)]['abiname_base'] + '-'
+                           + self.config['abi', arch]['abiname'])
         except KeyError:
-            version_abi = self.config['version',]['abiname']
-        self.filename_ref = "debian/abi/%s/%s_%s_%s" % (version_abi, arch, featureset, flavour)
+            version_abi = self.config[('version',)]['abiname']
+        self.filename_ref = ("debian/abi/%s/%s_%s_%s" %
+                             (version_abi, arch, featureset, flavour))
 
     def __call__(self, out):
         ret = 0
 
         new = Symbols(open(self.filename_new))
-        unversioned = [name for name in new if new[name].version == '0x00000000']
+        unversioned = [name for name in new
+                       if new[name].version == '0x00000000']
         if unversioned:
-            out.write("ABI is not completely versioned!  Refusing to continue.\n")
+            out.write("ABI is not completely versioned!  "
+                      "Refusing to continue.\n")
             out.write("\nUnversioned symbols:\n")
             for name in sorted(unversioned):
                 self.SymbolInfo(new[name]).write(out, False)
@@ -82,11 +83,13 @@ class CheckAbi(object):
             out.write("ABI has changed!  Refusing to continue.\n")
             ret = 1
         elif change or remove:
-            out.write("ABI has changed but all changes have been ignored.  Continuing.\n")
+            out.write("ABI has changed but all changes have been ignored.  "
+                      "Continuing.\n")
         elif add_effective:
             out.write("New symbols have been added.  Continuing.\n")
         elif add:
-            out.write("New symbols have been added but have been ignored.  Continuing.\n")
+            out.write("New symbols have been added but have been ignored.  "
+                      "Continuing.\n")
         else:
             out.write("No ABI changes.\n")
 
@@ -149,9 +152,12 @@ class CheckAbi(object):
     def _ignore(self, symbols):
         # TODO: let config merge this lists
         configs = []
-        configs.append(self.config.get(('abi', self.arch, self.featureset, self.flavour), {}))
-        configs.append(self.config.get(('abi', self.arch, None, self.flavour), {}))
-        configs.append(self.config.get(('abi', self.arch, self.featureset), {}))
+        configs.append(self.config.get(('abi', self.arch, self.featureset,
+                                        self.flavour), {}))
+        configs.append(self.config.get(('abi', self.arch, None, self.flavour),
+                                       {}))
+        configs.append(self.config.get(('abi', self.arch, self.featureset),
+                                       {}))
         configs.append(self.config.get(('abi', self.arch), {}))
         configs.append(self.config.get(('abi', None, self.featureset), {}))
         configs.append(self.config.get(('abi',), {}))
@@ -183,13 +189,17 @@ class CheckImage(object):
 
         self.changelog = Changelog(version=VersionLinux)[0]
 
-        self.config_entry_base = config.merge('base', arch, featureset, flavour)
-        self.config_entry_build = config.merge('build', arch, featureset, flavour)
-        self.config_entry_image = config.merge('image', arch, featureset, flavour)
+        self.config_entry_base = config.merge('base', arch, featureset,
+                                              flavour)
+        self.config_entry_build = config.merge('build', arch, featureset,
+                                               flavour)
+        self.config_entry_image = config.merge('image', arch, featureset,
+                                               flavour)
 
     def __call__(self, out):
         image = self.config_entry_build.get('image-file')
-        uncompressed_image = self.config_entry_build.get('uncompressed-image-file')
+        uncompressed_image = self.config_entry_build \
+                                 .get('uncompressed-image-file')
 
         if not image:
             # TODO: Bail out
@@ -236,16 +246,19 @@ class CheckImage(object):
         out.write('Continuing.\n')
 
         # Also check the uncompressed image
-        if uncompressed_image and self.config_entry_image.get('check-uncompressed-size'):
+        if uncompressed_image and \
+           self.config_entry_image.get('check-uncompressed-size'):
             value = self.config_entry_image.get('check-uncompressed-size')
             size = os.stat(uncompressed_image).st_size
             usage = (float(size)/value) * 100.0
-            out.write('Uncompressed Image size %d/%d, using %.2f%%.  ' % (size, value, usage))
+            out.write('Uncompressed Image size %d/%d, using %.2f%%.  ' %
+                      (size, value, usage))
             if size > value:
                 out.write('Too large.  Refusing to continue.\n')
                 return 1
             elif usage >= 99.0:
-                out.write('Uncompressed Image Under 1%% space in %s.  ' % self.changelog.distribution)
+                out.write('Uncompressed Image Under 1%% space in %s.  ' %
+                          self.changelog.distribution)
             else:
                 out.write('Uncompressed Image fits.  ')
             out.write('Continuing.\n')

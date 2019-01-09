@@ -1409,7 +1409,7 @@ void __i40e_del_filter(struct i40e_vsi *vsi, struct i40e_mac_filter *f)
 	}
 
 	vsi->flags |= I40E_VSI_FLAG_FILTER_CHANGED;
-	set_bit(__I40E_MACVLAN_SYNC_PENDING, vsi->state);
+	set_bit(__I40E_MACVLAN_SYNC_PENDING, vsi->back->state);
 }
 
 /**
@@ -1800,6 +1800,7 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
 						       num_tc_qps);
 					break;
 				}
+				/* fall through */
 			case I40E_VSI_FDIR:
 			case I40E_VSI_SRIOV:
 			case I40E_VSI_VMDQ2:
@@ -6598,6 +6599,8 @@ static i40e_status i40e_force_link_state(struct i40e_pf *pf, bool is_up)
 	config.eee_capability = abilities.eee_capability;
 	config.eeer = abilities.eeer_val;
 	config.low_power_ctrl = abilities.d3_lpan;
+	config.fec_config = abilities.fec_cfg_curr_mod_ext_info &
+			    I40E_AQ_PHY_FEC_CONFIG_MASK;
 	err = i40e_aq_set_phy_config(hw, &config, NULL);
 
 	if (err) {
@@ -7523,7 +7526,7 @@ static int i40e_setup_tc_cls_flower(struct i40e_netdev_priv *np,
 	case TC_CLSFLOWER_STATS:
 		return -EOPNOTSUPP;
 	default:
-		return -EINVAL;
+		return -EOPNOTSUPP;
 	}
 }
 
@@ -7555,7 +7558,7 @@ static int i40e_setup_tc_block(struct net_device *dev,
 	switch (f->command) {
 	case TC_BLOCK_BIND:
 		return tcf_block_cb_register(f->block, i40e_setup_tc_block_cb,
-					     np, np);
+					     np, np, f->extack);
 	case TC_BLOCK_UNBIND:
 		tcf_block_cb_unregister(f->block, i40e_setup_tc_block_cb, np);
 		return 0;
@@ -11842,7 +11845,6 @@ static int i40e_xdp(struct net_device *dev,
 	case XDP_SETUP_PROG:
 		return i40e_xdp_setup(vsi, xdp->prog);
 	case XDP_QUERY_PROG:
-		xdp->prog_attached = i40e_enabled_xdp_vsi(vsi);
 		xdp->prog_id = vsi->xdp_prog ? vsi->xdp_prog->aux->id : 0;
 		return 0;
 	default:
@@ -11924,6 +11926,8 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
 			  NETIF_F_GSO_GRE		|
 			  NETIF_F_GSO_GRE_CSUM		|
 			  NETIF_F_GSO_PARTIAL		|
+			  NETIF_F_GSO_IPXIP4		|
+			  NETIF_F_GSO_IPXIP6		|
 			  NETIF_F_GSO_UDP_TUNNEL	|
 			  NETIF_F_GSO_UDP_TUNNEL_CSUM	|
 			  NETIF_F_SCTP_CRC		|
@@ -11979,7 +11983,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
 		snprintf(netdev->name, IFNAMSIZ, "%.*sv%%d",
 			 IFNAMSIZ - 4,
 			 pf->vsi[pf->lan_vsi]->netdev->name);
-		random_ether_addr(mac_addr);
+		eth_random_addr(mac_addr);
 
 		spin_lock_bh(&vsi->mac_filter_hash_lock);
 		i40e_add_mac_filter(vsi, mac_addr);
@@ -14355,12 +14359,6 @@ static void i40e_shutdown(struct pci_dev *pdev)
 
 	set_bit(__I40E_SUSPENDED, pf->state);
 	set_bit(__I40E_DOWN, pf->state);
-	rtnl_lock();
-	i40e_prep_for_reset(pf, true);
-	rtnl_unlock();
-
-	wr32(hw, I40E_PFPM_APM, (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
-	wr32(hw, I40E_PFPM_WUFC, (pf->wol_en ? I40E_PFPM_WUFC_MAG_MASK : 0));
 
 	del_timer_sync(&pf->service_timer);
 	cancel_work_sync(&pf->service_task);

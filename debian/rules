@@ -1,11 +1,13 @@
 #!/usr/bin/make -f
 
 SHELL    := sh -e
-DEB_HOST_ARCH := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 SOURCE := $(shell dpkg-parsechangelog -SSource)
 VERSION := $(shell dpkg-parsechangelog -SVersion)
 VERSION_UPSTREAM := $(shell echo "$(VERSION)" | sed -e 's,-[^-]*$$,,')
 VERSION_BINNMU := $(shell echo "$(VERSION)" | sed -rne 's,.*\+b([0-9]+)$$,\1,p')
+VERSION_SOURCE := $(patsubst %+b$(VERSION_BINNMU),%,$(VERSION))
+
+include /usr/share/dpkg/architecture.mk
 
 include debian/rules.defs
 
@@ -91,17 +93,23 @@ clean: debian/control
 	rm -rf $(BUILD_DIR) $(STAMPS_DIR) debian/lib/python/debian_linux/*.pyc debian/lib/python/debian_linux/__pycache__ $$(find debian -maxdepth 1 -type d -name 'linux-*') debian/*-modules-*-di* debian/kernel-image-*-di* debian/xen-linux-system-* debian/*-tmp
 	dh_clean
 
-CONTROL_FILES = debian/changelog $(wildcard debian/templates/*.in)
+CONTROL_FILES = $(BUILD_DIR)/version-info $(wildcard debian/templates/*.in)
 CONTROL_FILES += debian/config/defines $(wildcard debian/config/*/defines) $(wildcard debian/config/*/*/defines)
-CONTROL_FILES += $(wildcard debian/installer/*/kernel-versions) $(wildcard debian/installer/*/package-list) debian/installer/package-list
+CONTROL_FILES += debian/installer/kernel-versions debian/installer/package-list
+
+# debian/bin/gencontrol.py uses debian/changelog as input, but the
+# output only depends on the source name and version.  To avoid
+# frequent changes to debian/control.md5sum, include only those fields
+# in the checksum.
+$(BUILD_DIR)/version-info: debian/changelog
+	mkdir -p $(@D)
+	printf >$@ 'Source: %s\nVersion: %s\n' $(SOURCE) $(VERSION_SOURCE)
+
 debian/control debian/rules.gen: debian/bin/gencontrol.py $(CONTROL_FILES)
 ifeq ($(wildcard debian/control.md5sum),)
 	$(MAKE) -f debian/rules debian/control-real
-else ifeq ($(VERSION_BINNMU),)
-	md5sum --check debian/control.md5sum --status || \
-		$(MAKE) -f debian/rules debian/control-real
 else
-	grep -v debian/changelog debian/control.md5sum | md5sum --check - --status || \
+	md5sum --check debian/control.md5sum --status || \
 		$(MAKE) -f debian/rules debian/control-real
 endif
 
@@ -117,4 +125,4 @@ debian/control-real: debian/bin/gencontrol.py $(CONTROL_FILES)
 	@echo
 	exit 1
 
-.PHONY: clean build setup binary-indep binary-arch binary
+.PHONY: binary binary-% build build-% clean debian/control-real orig setup source

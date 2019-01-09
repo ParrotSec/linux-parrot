@@ -1,14 +1,14 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 12 Oct 2017 17:34:38 +0200
 Subject: rtmutex: add ww_mutex addon for mutex-rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- kernel/locking/rtmutex.c        |  269 ++++++++++++++++++++++++++++++++++++++--
+ kernel/locking/rtmutex.c        |  271 ++++++++++++++++++++++++++++++++++++++--
  kernel/locking/rtmutex_common.h |    2 
  kernel/locking/rwsem-rt.c       |    2 
- 3 files changed, 260 insertions(+), 13 deletions(-)
+ 3 files changed, 261 insertions(+), 14 deletions(-)
 
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
@@ -278,6 +278,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static inline int
+@@ -1833,7 +1981,7 @@ rt_mutex_fastunlock(struct rt_mutex *loc
+ int __sched __rt_mutex_lock_state(struct rt_mutex *lock, int state)
+ {
+ 	might_sleep();
+-	return rt_mutex_fastlock(lock, state, rt_mutex_slowlock);
++	return rt_mutex_fastlock(lock, state, NULL, rt_mutex_slowlock);
+ }
+ 
+ /**
 @@ -1953,6 +2101,7 @@ rt_mutex_timed_lock(struct rt_mutex *loc
  	mutex_acquire(&lock->dep_map, 0, 0, _RET_IP_);
  	ret = rt_mutex_timed_fastlock(lock, TASK_INTERRUPTIBLE, timeout,

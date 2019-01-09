@@ -3,4 +3,3 @@ include /usr/share/dpkg/default.mk
 BUILD_DIR = debian/build
 STAMPS_DIR = debian/stamps
 
--include debian/rules.defs.local

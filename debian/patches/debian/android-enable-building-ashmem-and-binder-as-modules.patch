@@ -22,7 +22,7 @@ need them.
  config ANDROID_BINDER_IPC
 -	bool "Android Binder IPC Driver"
 +	tristate "Android Binder IPC Driver"
- 	depends on MMU && !M68K
+ 	depends on MMU
  	default n
  	---help---
 --- a/drivers/android/Makefile
@@ -66,7 +66,7 @@ need them.
  #include "ashmem.h"
  
  #define ASHMEM_NAME_PREFIX "dev/ashmem/"
-@@ -895,3 +896,5 @@ out:
+@@ -903,3 +904,5 @@ out:
  	return ret;
  }
  device_initcall(ashmem_init);
@@ -74,9 +74,9 @@ need them.
 +MODULE_LICENSE("GPL v2");
 --- a/drivers/android/binder_alloc.c
 +++ b/drivers/android/binder_alloc.c
-@@ -42,7 +42,7 @@ enum {
+@@ -44,7 +44,7 @@ enum {
  };
- static uint32_t binder_alloc_debug_mask;
+ static uint32_t binder_alloc_debug_mask = BINDER_DEBUG_USER_ERROR;
  
 -module_param_named(debug_mask, binder_alloc_debug_mask,
 +module_param_named(alloc_debug_mask, binder_alloc_debug_mask,

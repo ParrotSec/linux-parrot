@@ -3,6 +3,23 @@
 # architecture, which is derived from the files in the modules directory.
 #
 Package: kernel-image
+Provides_amd64: zlib-modules
+Provides_arm64: zlib-modules
+Provides_armel: rtc-modules
+Provides_armmp: mtd-core-modules
+Provides_i386: rtc-modules, zlib-modules
+Provides_ia64: efi-modules, zlib-modules
+Provides_loongson-3: i2c-modules, rtc-modules
+Provides_mips: rtc-modules
+Provides_mips64: rtc-modules
+Provides_mips64el: rtc-modules
+Provides_mips64r6: rtc-modules
+Provides_mips64r6el: rtc-modules
+Provides_mipsel: rtc-modules
+Provides_mipsr6: rtc-modules
+Provides_mipsr6el: rtc-modules
+Provides_parisc64-smp: i2c-modules
+Provides_sh4: event-modules, fb-modules, input-modules, mouse-modules, nic-shared-modules, rtc-modules, uinput-modules, usb-modules
 Priority: standard
 Description: Linux kernel image and core modules for the Debian installer
  This package contains the kernel image and core modules for the Debian
@@ -10,7 +27,7 @@ Description: Linux kernel image and core modules for the Debian installer
  Debian system.
 
 Package: nic-modules
-Depends: kernel-image, nic-shared-modules, i2c-modules, crc-modules, zlib-modules
+Depends: kernel-image, nic-shared-modules, i2c-modules, crc-modules, zlib-modules, mtd-core-modules
 Provides: nic-extra-modules
 Priority: standard
 Description: NIC drivers
@@ -33,6 +50,7 @@ Description: Shared NIC drivers
 
 Package: serial-modules
 Depends: kernel-image, pcmcia-modules
+Depends_ia64: kernel-image, pcmcia-modules, sn-modules
 Priority: optional
 Description: Serial drivers
  This package contains serial drivers for the kernel.
@@ -52,11 +70,14 @@ Description: PPP drivers
 Package: pata-modules
 Depends: kernel-image, ata-modules
 Priority: standard
+Priority_armhf: optional
 Description: PATA drivers
  This package contains PATA drivers for the kernel.
 
 Package: cdrom-core-modules
 Depends: kernel-image, scsi-core-modules, isofs-modules
+Depends_ia64: kernel-image, scsi-core-modules, ide-modules, isofs-modules
+Depends_m68k: kernel-image, scsi-core-modules, ide-modules
 Priority: standard
 Description: CDROM support
  This package contains core CDROM support for the kernel.
@@ -112,7 +133,7 @@ Description: ISOFS filesystem support
  This package contains the ISOFS filesystem module for the kernel.
 
 Package: jffs2-modules
-Depends: kernel-image, zlib-modules, compress-modules
+Depends: kernel-image, zlib-modules, compress-modules, mtd-modules
 Priority: optional
 Description: JFFS2 filesystem support
  This package contains the JFFS2 filesystem module for the kernel.
@@ -144,6 +165,9 @@ Description: XFS filesystem support
 Package: fat-modules
 Depends: kernel-image
 Priority: optional
+Priority_amd64: standard
+Priority_i386: standard
+Priority_ia64: standard
 Description: FAT filesystem support
  This package contains the FAT and VFAT filesystem modules for the kernel.
 
@@ -203,7 +227,9 @@ Description: PCMCIA storage drivers
 
 Package: fb-modules
 Depends: kernel-image, i2c-modules
+Depends_armel: kernel-image, usb-modules
 Priority: optional
+Priority_hppa: standard
 Description: Frame buffer support
  This package contains Frame buffer drivers for the kernel.
 
@@ -227,6 +253,8 @@ Description: Mouse support
 
 Package: nic-pcmcia-modules
 Depends: kernel-image, nic-shared-modules, nic-wireless-modules, pcmcia-modules, mmc-core-modules
+Depends_powerpc: kernel-image, nic-modules, nic-shared-modules, pcmcia-modules
+Depends_ppc64: kernel-image, nic-modules, nic-shared-modules, pcmcia-modules
 Priority: standard
 Description: Common PCMCIA NIC drivers
  This package contains common PCMCIA NIC drivers for the kernel.
@@ -385,7 +413,66 @@ Description: FUSE modules
  This package contains the Filesystem in Userspace (FUSE) module.
 
 Package: mtd-modules
+Depends: kernel-image, mtd-core-modules
+Priority: optional
+Description: MTD driver modules
+ This package contains MTD driver modules.
+
+Package: mtd-core-modules
 Depends: kernel-image
 Priority: optional
-Description: MTD modules
- This package contains MTD modules.
+Description: MTD core
+ This package contains the MTD core.
+
+Package: srm-modules
+Depends: kernel-image
+Priority: standard
+Description: SRM modules
+ This package contains the srm_env module which provides access to the SRM
+ environment.
+
+Package: ide-core-modules
+Depends: kernel-image
+Priority: standard
+Description: IDE support
+ This package contains core IDE support for the kernel.
+
+Package: ide-modules
+Depends: kernel-image, ide-core-modules, sn-modules
+Priority: standard
+Description: IDE drivers
+ This package contains IDE drivers for the kernel.
+
+Package: sn-modules
+Depends: kernel-image
+Priority: optional
+Description: SN modules
+ This package contains SN modules for Altix systems
+
+Package: hypervisor-modules
+Depends: kernel-image
+Priority: standard
+Description: IBM 64bit hypervisor console modules
+ Contains drivers for the hypervisor console, used as console for linux
+ running in logical partitions of IBM hardware supporting it.
+
+Package: fancontrol-modules
+Depends: kernel-image
+Priority: standard
+Description: Apple powermac fancontrol modules
+ Contains drivers for macintosh i2c bus as well as for the monitoring devices
+ connected to it. This allows to control the fans during installation.
+
+Package: dasd-modules
+Depends: kernel-image
+Priority: standard
+Description: dasd modules
+ This package contains dasd modules.
+
+Package: dasd-extra-modules
+Depends: kernel-image, dasd-modules
+Priority: optional
+Description: optional dasd DIAG support
+ This package contains the module for dasd DIAG support. The udeb is
+ not loaded by default as the installer does not actually support this.
+ It can however be useful to have available in rescue situations.

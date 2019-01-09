@@ -68,10 +68,10 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +	$(CC) $(1) $(NOSTDINC_FLAGS) $(KBUILD_CPPFLAGS) $(CC_OPTION_CFLAGS) -nostdlib -x c /dev/null -o "$$TMP",$(1),$(2))
  
  # ld-option
- # Usage: LDFLAGS += $(call ld-option, -X)
+ # Usage: KBUILD_LDFLAGS += $(call ld-option, -X, -Y)
 --- a/Makefile
 +++ b/Makefile
-@@ -665,6 +665,8 @@ endif
+@@ -675,6 +675,8 @@ endif
  KBUILD_CFLAGS += $(call cc-ifversion, -lt, 0409, \
  			$(call cc-disable-warning,maybe-uninitialized,))
  
@@ -80,7 +80,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  # Tell gcc to never replace conditional load with a non-conditional one
  KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
  
-@@ -772,7 +774,7 @@ KBUILD_CFLAGS_KERNEL	+= $(call cc-option
+@@ -798,7 +800,7 @@ LDFLAGS_vmlinux += --gc-sections
  endif
  
  # arch Makefile may override CC so keep this after arch Makefile is included

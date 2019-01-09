@@ -16,7 +16,15 @@ ifeq ($(DISTRIBUTOR),)
 DISTRIBUTOR := Debian
 endif
 
+include /usr/share/dpkg/architecture.mk
+
 include debian/rules.defs
+
+ifdef ARCH
+  ifneq ($(DEB_HOST_ARCH),$(ARCH))
+    $(error Attempting to build a $(ARCH) target but host architecture is $(DEB_HOST_ARCH).  Use dpkg-architecture to override the host architecture)
+  endif
+endif
 
 ifdef OVERRIDE_HOST_TYPE
   CROSS_COMPILE := $(OVERRIDE_HOST_TYPE)-
@@ -27,7 +35,6 @@ else
 endif
 export CROSS_COMPILE
 
-export PYTHONPATH = $(CURDIR)/debian/lib/python
 export DH_OPTIONS
 export DEB_HOST_ARCH DEB_HOST_GNU_TYPE DEB_BUILD_ARCH
 export DEB_BUILD_PATH = $(CURDIR)  # for dpkg-buildflags
@@ -53,8 +60,10 @@ build-indep:
 binary-arch-arch:
 binary-indep:
 
-ifneq ($(DO_CONFIG),False)
-  binary-arch-arch: install-config_$(ARCH)
+ifeq (,$(filter pkg.linux.nosource,$(DEB_BUILD_PROFILES)))
+  ifneq ($(DO_CONFIG),False)
+    binary-arch-arch: install-config_$(ARCH)
+  endif
 endif
 ifneq ($(DO_HEADERS_ALL),False)
   binary-arch-arch: install-headers_$(ARCH)
@@ -82,20 +91,24 @@ endif
 binary-indep: install-support
 
 ifneq ($(DO_TOOLS_VERSIONED),False)
-  build-arch-arch: $(STAMPS_DIR)/build-tools
+  build-arch-arch: build-kbuild
   binary-arch-arch: install-kbuild
   ifneq ($(filter alpha amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel mipsr6 mipsr6el mips64r6 mips64r6el mipsn32 mipsn32el mipsn32r6 mipsn32r6el powerpc ppc64 ppc64el s390 s390x sh4 sparc sparc64,$(DEB_HOST_ARCH)),)
     ifeq ($(filter nopython,$(DEB_BUILD_PROFILES)),)
+      build-arch-arch: build-perf
       binary-arch-arch: install-perf
     endif
   endif
   ifneq ($(filter powerpc powerpcspe ppc64,$(DEB_HOST_ARCH)),)
+    build-arch-arch: build-bootwrapper
     binary-arch-arch: install-bootwrapper
   endif
 endif
 ifneq ($(DO_TOOLS_UNVERSIONED),False)
-  binary-arch-arch: install-usbip install-cpupower install-liblockdep
+  build-arch-arch:build-usbip build-cpupower build-liblockdep build-libbpf
+  binary-arch-arch: install-usbip install-cpupower install-liblockdep install-libbpf
   ifneq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
+    build-arch-arch: build-hyperv-daemons
     binary-arch-arch: install-hyperv-daemons
   endif
   binary-indep: install-lockdep
@@ -173,8 +186,6 @@ $(STAMPS_DIR)/setup_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/source_$(FEA
 	rm -rf '$(DIR)'
 	mkdir '$(DIR)'
 	cp '$(CONFIG)' '$(DIR)/.config'
-# Add "salt" to fix #872263
-	echo 'CONFIG_BUILD_SALT="$(ABINAME)$(LOCALVERSION_IMAGE)"' >> '$(DIR)/.config'
 	echo 'override ARCH = $(KERNEL_ARCH)' >> '$(DIR)/.kernelvariables'
 	echo 'override KERNELRELEASE = $(ABINAME)$(LOCALVERSION_IMAGE)' >> '$(DIR)/.kernelvariables'
 	echo 'CCACHE = ccache' >> '$(DIR)/.kernelvariables'
@@ -468,12 +479,12 @@ ifneq ($(filter powerpc powerpcspe ppc64,$(ARCH)),)
 # the executables it calls.  Kbuild will always build these executable
 # as native code, which is wrong for a cross-built package.  Install
 # symlinks to the versions in the linux-bootwrapper package instead.
-	rm -rf '$(DIR)_bootwrapper'
+	rm -rf '$(BUILD_DIR)/bootwrapper_$(ARCH)_$(FEATURESET)_$(FLAVOUR)'
 	+$(MAKE_CLEAN) -C '$(DIR)' bootwrapper_install \
 		WRAPPER_OBJDIR='$(CURDIR)/$(DT_INSTALL_DIR)' \
 		WRAPPER_DTSDIR='$(CURDIR)/$(DT_INSTALL_DIR)/dts' \
-		WRAPPER_BINDIR='$(CURDIR)/$(DIR)_bootwrapper'
-	for prog in '$(DIR)_bootwrapper'/*; do \
+		WRAPPER_BINDIR='$(CURDIR)/$(BUILD_DIR)/bootwrapper_$(ARCH)_$(FEATURESET)_$(FLAVOUR)'
+	for prog in '$(BUILD_DIR)/bootwrapper_$(ARCH)_$(FEATURESET)_$(FLAVOUR)'/*; do \
 		prog="$$(basename $$prog)"; \
 		ln -s ../linux-bootwrapper-$(ABINAME)/$$prog \
 			'$(DT_INSTALL_DIR)'/$$prog; \
@@ -539,12 +550,10 @@ install-signed-template_$(ARCH):
 		debian/signing_templates/rules.real \
 		debian/signing_templates/source \
 		$(CODE_SIGNING_DIR)/source-template/debian/
-	dh_fixperms
-	dh_gencontrol
-	dh_builddeb
+	+$(MAKE_SELF) install-base
 
 install-udeb_$(ARCH): export KW_DEFCONFIG_DIR=debian/installer
-install-udeb_$(ARCH): export KW_CONFIG_DIR=debian/installer/$(ARCH)
+install-udeb_$(ARCH): export KW_CONFIG_DIR=debian/installer
 install-udeb_$(ARCH): DH_OPTIONS=$(PACKAGE_NAMES:%=-p%)
 ifeq ($(UDEB_UNSIGNED_TEST_BUILD),True)
 install-udeb_$(ARCH): export DEB_BUILD_PROFILES=pkg.linux.udeb-unsigned-test-build
@@ -598,15 +607,15 @@ define make-tools
 +mkdir -p $(BUILD_DIR)/build-tools/$(1) && $(MAKE_CLEAN) -C $(BUILD_DIR)/build-tools/$(1) -f $(CURDIR)/debian/rules.d/$(1)/Makefile top_srcdir=$(CURDIR) top_rulesdir=$(CURDIR)/debian/rules.d OUTDIR=$(1) VERSION=$(VERSION) KERNEL_ARCH=$(KERNEL_ARCH)
 endef
 
-$(STAMPS_DIR)/build-tools:
-	$(call make-tools,.)
-	@$(stamp)
+build-kbuild:
+	$(call make-tools,scripts)
+	$(call make-tools,tools/objtool)
 
 install-kbuild: PACKAGE_NAME = linux-kbuild-$(VERSION)
 install-kbuild: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-kbuild: PREFIX_DIR = /usr/lib/$(PACKAGE_NAME)
 install-kbuild: DIR = $(CURDIR)/debian/$(PACKAGE_NAME)
-install-kbuild: $(STAMPS_DIR)/build-tools
+install-kbuild: build-kbuild
 	dh_testdir
 	dh_testroot
 	dh_prep
@@ -626,9 +635,15 @@ endif
 	dh_md5sums
 	dh_builddeb
 
+build-cpupower:
+	$(call make-tools,tools/power/cpupower)
+ifneq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
+	$(call make-tools,tools/power/x86)
+endif
+
 install-cpupower: DH_OPTIONS = -plinux-cpupower -plibcpupower1 -plibcpupower-dev
 install-cpupower: DIR = $(CURDIR)/debian/cpupower-tmp
-install-cpupower: $(STAMPS_DIR)/build-tools
+install-cpupower: build-cpupower
 	dh_testdir
 	dh_testroot
 	dh_prep
@@ -660,16 +675,21 @@ endif
 	dh_md5sums
 	dh_builddeb
 
+build-perf:
+	$(call make-tools,tools/perf)
+
 install-perf: PACKAGE_NAME = linux-perf-$(VERSION)
 install-perf: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-perf: DIR = $(CURDIR)/debian/$(PACKAGE_NAME)
-install-perf: $(STAMPS_DIR)/build-tools
+install-perf: build-perf
 	dh_testdir
 	dh_testroot
 	dh_prep
 	$(call make-tools,tools/perf) install DESTDIR=$(DIR)
-	dh_perl /usr/share/perf_$(VERSION)-core/scripts/perl/Perf-Trace-Util/lib/
-	dh_python3 /usr/share/perf_$(VERSION)-core/scripts/python/Perf-Trace-Util/lib/
+	# do not ship python2 script
+	rm -f $(DIR)/usr/lib/perf_$(VERSION)-core/scripts/python/call-graph-from-sql.py
+	dh_perl /usr/lib/perf_$(VERSION)-core/scripts/perl/Perf-Trace-Util/lib/
+	dh_python3 /usr/lib/perf_$(VERSION)-core/scripts/python/Perf-Trace-Util/lib/
 	dh_installchangelogs
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
@@ -684,9 +704,12 @@ endif
 	dh_md5sums
 	dh_builddeb
 
+build-usbip:
+	$(call make-tools,tools/usb/usbip)
+
 install-usbip: DH_OPTIONS = -pusbip
 install-usbip: DIR = $(CURDIR)/debian/usbip-tmp
-install-usbip: $(STAMPS_DIR)/build-tools
+install-usbip: build-usbip
 	dh_testdir
 	dh_testroot
 	dh_prep
@@ -709,10 +732,13 @@ endif
 	dh_md5sums
 	dh_builddeb
 
+build-hyperv-daemons:
+	$(call make-tools,tools/hv)
+
 install-hyperv-daemons: PACKAGE_NAME = hyperv-daemons
 install-hyperv-daemons: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-hyperv-daemons: DIR = $(CURDIR)/debian/$(PACKAGE_NAME)
-install-hyperv-daemons: $(STAMPS_DIR)/build-tools
+install-hyperv-daemons: build-hyperv-daemons
 	dh_testdir
 	dh_testroot
 	dh_prep
@@ -744,9 +770,40 @@ endif
 	dh_md5sums
 	dh_builddeb
 
+build-libbpf:
+	$(call make-tools,tools/lib/bpf)
+
+install-libbpf: DH_OPTIONS = -plibbpf$(VERSION) -plibbpf-dev
+install-libbpf: DIR = $(CURDIR)/debian/libbpf-tmp
+install-libbpf: build-libbpf
+	dh_testdir
+	dh_testroot
+	dh_prep
+	$(call make-tools,tools/lib/bpf) install DESTDIR=$(DIR)
+	env -u DH_OPTIONS dh_install -plibbpf$(VERSION) --sourcedir=$(DIR) \
+		'usr/lib/*/libbpf.so.*'
+	dh_install --sourcedir=$(DIR)
+	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
+	dh_installdocs
+endif
+	dh_strip
+	dh_compress
+	dh_fixperms
+	env -u DH_OPTIONS dh_makeshlibs -plibbpf$(VERSION) \
+		libbpf$(VERSION)
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+build-liblockdep:
+	$(call make-tools,tools/lib/lockdep)
+
 install-liblockdep: DH_OPTIONS = -pliblockdep$(VERSION) -pliblockdep-dev
 install-liblockdep: DIR = $(CURDIR)/debian/liblockdep-tmp
-install-liblockdep: $(STAMPS_DIR)/build-tools
+install-liblockdep: build-liblockdep
 	dh_testdir
 	dh_testroot
 	dh_prep
@@ -792,10 +849,13 @@ endif
 	dh_md5sums
 	dh_builddeb
 
+build-bootwrapper:
+	$(call make-tools,arch/powerpc/boot)
+
 install-bootwrapper: PACKAGE_NAME = linux-bootwrapper-$(ABINAME)
 install-bootwrapper: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-bootwrapper: DIR = $(CURDIR)/debian/$(PACKAGE_NAME)
-install-bootwrapper: $(STAMPS_DIR)/build-tools
+install-bootwrapper: build-bootwrapper
 	dh_testdir
 	dh_testroot
 	dh_prep
@@ -809,5 +869,7 @@ install-bootwrapper: $(STAMPS_DIR)/build-tools
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb
+
+.PHONY: binary-% build-% install-% setup-% source-%
 
 # vim: filetype=make

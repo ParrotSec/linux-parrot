@@ -4,7 +4,7 @@ Subject: [PATCH] kernel: sched: Provide a pointer to the valid CPU mask
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 In commit 4b53a3412d66 ("sched/core: Remove the tsk_nr_cpus_allowed()
 wrapper") the tsk_nr_cpus_allowed() wrapper was removed. There was not
@@ -57,29 +57,30 @@ Cc: Ingo Molnar <mingo@elte.hu>
 Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/ia64/kernel/mca.c                     |    2 -
- arch/mips/include/asm/switch_to.h          |    4 +-
- arch/mips/kernel/mips-mt-fpaff.c           |    2 -
- arch/mips/kernel/traps.c                   |    6 ++--
- arch/powerpc/platforms/cell/spufs/sched.c  |    2 -
- drivers/infiniband/hw/hfi1/affinity.c      |    6 ++--
- drivers/infiniband/hw/hfi1/sdma.c          |    3 --
- drivers/infiniband/hw/qib/qib_file_ops.c   |    7 ++---
- fs/proc/array.c                            |    4 +-
- include/linux/sched.h                      |    5 ++-
- init/init_task.c                           |    3 +-
- kernel/cgroup/cpuset.c                     |    2 -
- kernel/fork.c                              |    2 +
- kernel/sched/core.c                        |   40 ++++++++++++++---------------
- kernel/sched/cpudeadline.c                 |    4 +-
- kernel/sched/cpupri.c                      |    4 +-
- kernel/sched/deadline.c                    |    6 ++--
- kernel/sched/fair.c                        |   32 +++++++++++------------
- kernel/sched/rt.c                          |    4 +-
- kernel/trace/trace_hwlat.c                 |    2 -
- lib/smp_processor_id.c                     |    2 -
- samples/trace_events/trace-events-sample.c |    2 -
- 22 files changed, 73 insertions(+), 71 deletions(-)
+ arch/ia64/kernel/mca.c                      |    2 -
+ arch/mips/include/asm/switch_to.h           |    4 +-
+ arch/mips/kernel/mips-mt-fpaff.c            |    2 -
+ arch/mips/kernel/traps.c                    |    6 ++--
+ arch/powerpc/platforms/cell/spufs/sched.c   |    2 -
+ arch/x86/kernel/cpu/intel_rdt_pseudo_lock.c |    2 -
+ drivers/infiniband/hw/hfi1/affinity.c       |    6 ++--
+ drivers/infiniband/hw/hfi1/sdma.c           |    3 --
+ drivers/infiniband/hw/qib/qib_file_ops.c    |    7 ++--
+ fs/proc/array.c                             |    4 +-
+ include/linux/sched.h                       |    5 ++-
+ init/init_task.c                            |    3 +-
+ kernel/cgroup/cpuset.c                      |    2 -
+ kernel/fork.c                               |    2 +
+ kernel/sched/core.c                         |   40 ++++++++++++++--------------
+ kernel/sched/cpudeadline.c                  |    4 +-
+ kernel/sched/cpupri.c                       |    4 +-
+ kernel/sched/deadline.c                     |    6 ++--
+ kernel/sched/fair.c                         |   32 +++++++++++-----------
+ kernel/sched/rt.c                           |    4 +-
+ kernel/trace/trace_hwlat.c                  |    2 -
+ lib/smp_processor_id.c                      |    2 -
+ samples/trace_events/trace-events-sample.c  |    2 -
+ 23 files changed, 74 insertions(+), 72 deletions(-)
 
 --- a/arch/ia64/kernel/mca.c
 +++ b/arch/ia64/kernel/mca.c
@@ -125,7 +126,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  out_unlock:
 --- a/arch/mips/kernel/traps.c
 +++ b/arch/mips/kernel/traps.c
-@@ -1176,12 +1176,12 @@ static void mt_ase_fp_affinity(void)
+@@ -1174,12 +1174,12 @@ static void mt_ase_fp_affinity(void)
  		 * restricted the allowed set to exclude any CPUs with FPUs,
  		 * we'll skip the procedure.
  		 */
@@ -152,6 +153,17 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Save the current cpu id for spu interrupt routing. */
  	ctx->last_ran = raw_smp_processor_id();
+--- a/arch/x86/kernel/cpu/intel_rdt_pseudo_lock.c
++++ b/arch/x86/kernel/cpu/intel_rdt_pseudo_lock.c
+@@ -1435,7 +1435,7 @@ static int pseudo_lock_dev_mmap(struct f
+ 	 * may be scheduled elsewhere and invalidate entries in the
+ 	 * pseudo-locked region.
+ 	 */
+-	if (!cpumask_subset(&current->cpus_allowed, &plr->d->cpu_mask)) {
++	if (!cpumask_subset(current->cpus_ptr, &plr->d->cpu_mask)) {
+ 		mutex_unlock(&rdtgroup_mutex);
+ 		return -EINVAL;
+ 	}
 --- a/drivers/infiniband/hw/hfi1/affinity.c
 +++ b/drivers/infiniband/hw/hfi1/affinity.c
 @@ -1037,7 +1037,7 @@ int hfi1_get_proc_affinity(int node)
@@ -248,7 +260,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #ifdef CONFIG_PREEMPT_RCU
  	int				rcu_read_lock_nesting;
-@@ -1397,7 +1398,7 @@ extern struct pid *cad_pid;
+@@ -1390,7 +1391,7 @@ extern struct pid *cad_pid;
  #define PF_KTHREAD		0x00200000	/* I am a kernel thread */
  #define PF_RANDOMIZE		0x00400000	/* Randomize virtual address space */
  #define PF_SWAPWRITE		0x00800000	/* Allowed to write to swap */
@@ -259,7 +271,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #define PF_FREEZER_SKIP		0x40000000	/* Freezer should not count it as freezable */
 --- a/init/init_task.c
 +++ b/init/init_task.c
-@@ -64,7 +64,8 @@ struct task_struct init_task
+@@ -71,7 +71,8 @@ struct task_struct init_task
  	.static_prio	= MAX_PRIO - 20,
  	.normal_prio	= MAX_PRIO - 20,
  	.policy		= SCHED_NORMAL,
@@ -282,7 +294,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -844,6 +844,8 @@ static struct task_struct *dup_task_stru
+@@ -845,6 +845,8 @@ static struct task_struct *dup_task_stru
  #ifdef CONFIG_STACKPROTECTOR
  	tsk->stack_canary = get_random_canary();
  #endif
@@ -293,7 +305,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	 * One for us, one for whoever does the "release_task()" (usually
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -900,7 +900,7 @@ static inline bool is_per_cpu_kthread(st
+@@ -877,7 +877,7 @@ static inline bool is_per_cpu_kthread(st
   */
  static inline bool is_cpu_allowed(struct task_struct *p, int cpu)
  {
@@ -302,7 +314,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return false;
  
  	if (is_per_cpu_kthread(p))
-@@ -995,7 +995,7 @@ static int migration_cpu_stop(void *data
+@@ -972,7 +972,7 @@ static int migration_cpu_stop(void *data
  	local_irq_disable();
  	/*
  	 * We need to explicitly wake pending tasks before running
@@ -311,7 +323,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	 * during wakeups, see set_cpus_allowed_ptr()'s TASK_WAKING test.
  	 */
  	sched_ttwu_pending();
-@@ -1026,7 +1026,7 @@ static int migration_cpu_stop(void *data
+@@ -1003,7 +1003,7 @@ static int migration_cpu_stop(void *data
   */
  void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask)
  {
@@ -320,7 +332,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	p->nr_cpus_allowed = cpumask_weight(new_mask);
  }
  
-@@ -1096,7 +1096,7 @@ static int __set_cpus_allowed_ptr(struct
+@@ -1073,7 +1073,7 @@ static int __set_cpus_allowed_ptr(struct
  		goto out;
  	}
  
@@ -329,7 +341,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		goto out;
  
  	if (!cpumask_intersects(new_mask, cpu_valid_mask)) {
-@@ -1258,10 +1258,10 @@ static int migrate_swap_stop(void *data)
+@@ -1236,10 +1236,10 @@ static int migrate_swap_stop(void *data)
  	if (task_cpu(arg->src_task) != arg->src_cpu)
  		goto unlock;
  
@@ -342,7 +354,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		goto unlock;
  
  	__migrate_swap_task(arg->src_task, arg->dst_cpu);
-@@ -1302,10 +1302,10 @@ int migrate_swap(struct task_struct *cur
+@@ -1281,10 +1281,10 @@ int migrate_swap(struct task_struct *cur
  	if (!cpu_active(arg.src_cpu) || !cpu_active(arg.dst_cpu))
  		goto out;
  
@@ -355,7 +367,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		goto out;
  
  	trace_sched_swap_numa(cur, arg.src_cpu, p, arg.dst_cpu);
-@@ -1449,7 +1449,7 @@ void kick_process(struct task_struct *p)
+@@ -1429,7 +1429,7 @@ void kick_process(struct task_struct *p)
  EXPORT_SYMBOL_GPL(kick_process);
  
  /*
@@ -364,7 +376,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   *
   * A few notes on cpu_active vs cpu_online:
   *
-@@ -1489,14 +1489,14 @@ static int select_fallback_rq(int cpu, s
+@@ -1469,14 +1469,14 @@ static int select_fallback_rq(int cpu, s
  		for_each_cpu(dest_cpu, nodemask) {
  			if (!cpu_active(dest_cpu))
  				continue;
@@ -381,7 +393,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			if (!is_cpu_allowed(p, dest_cpu))
  				continue;
  
-@@ -1540,7 +1540,7 @@ static int select_fallback_rq(int cpu, s
+@@ -1520,7 +1520,7 @@ static int select_fallback_rq(int cpu, s
  }
  
  /*
@@ -390,7 +402,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static inline
  int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags)
-@@ -1550,11 +1550,11 @@ int select_task_rq(struct task_struct *p
+@@ -1530,11 +1530,11 @@ int select_task_rq(struct task_struct *p
  	if (p->nr_cpus_allowed > 1)
  		cpu = p->sched_class->select_task_rq(p, cpu, sd_flags, wake_flags);
  	else
@@ -404,7 +416,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	 * CPU.
  	 *
  	 * Since this is common to all placement strategies, this lives here.
-@@ -2426,7 +2426,7 @@ void wake_up_new_task(struct task_struct
+@@ -2401,7 +2401,7 @@ void wake_up_new_task(struct task_struct
  #ifdef CONFIG_SMP
  	/*
  	 * Fork balancing, do it here and not earlier because:
@@ -413,7 +425,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	 *  - any previously selected CPU might disappear through hotplug
  	 *
  	 * Use __set_task_cpu() to avoid calling sched_class::migrate_task_rq,
-@@ -4297,7 +4297,7 @@ static int __sched_setscheduler(struct t
+@@ -4274,7 +4274,7 @@ static int __sched_setscheduler(struct t
  			 * the entire root_domain to become SCHED_DEADLINE. We
  			 * will also fail if there's no bandwidth available.
  			 */
@@ -422,7 +434,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			    rq->rd->dl_bw.bw == 0) {
  				task_rq_unlock(rq, p, &rf);
  				return -EPERM;
-@@ -4896,7 +4896,7 @@ long sched_getaffinity(pid_t pid, struct
+@@ -4873,7 +4873,7 @@ long sched_getaffinity(pid_t pid, struct
  		goto out_unlock;
  
  	raw_spin_lock_irqsave(&p->pi_lock, flags);
@@ -431,7 +443,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
  
  out_unlock:
-@@ -5476,7 +5476,7 @@ int task_can_attach(struct task_struct *
+@@ -5453,7 +5453,7 @@ int task_can_attach(struct task_struct *
  	 * allowed nodes is unnecessary.  Thus, cpusets are not
  	 * applicable for such threads.  This prevents checking for
  	 * success of set_cpus_allowed_ptr() on all attached tasks
@@ -440,7 +452,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	 */
  	if (p->flags & PF_NO_SETAFFINITY) {
  		ret = -EINVAL;
-@@ -5503,7 +5503,7 @@ int migrate_task_to(struct task_struct *
+@@ -5480,7 +5480,7 @@ int migrate_task_to(struct task_struct *
  	if (curr_cpu == target_cpu)
  		return 0;
  
@@ -449,7 +461,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return -EINVAL;
  
  	/* TODO: This is not properly updating schedstats */
-@@ -5641,7 +5641,7 @@ static void migrate_tasks(struct rq *dea
+@@ -5618,7 +5618,7 @@ static void migrate_tasks(struct rq *dea
  		put_prev_task(rq, next);
  
  		/*
@@ -495,7 +507,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			 * We have to ensure that we have at least one bit
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
-@@ -538,7 +538,7 @@ static struct rq *dl_task_offline_migrat
+@@ -539,7 +539,7 @@ static struct rq *dl_task_offline_migrat
  		 * If we cannot preempt any rq, fall back to pick any
  		 * online CPU:
  		 */
@@ -504,7 +516,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (cpu >= nr_cpu_ids) {
  			/*
  			 * Failed to find any suitable CPU.
-@@ -1820,7 +1820,7 @@ static void set_curr_task_dl(struct rq *
+@@ -1824,7 +1824,7 @@ static void set_curr_task_dl(struct rq *
  static int pick_dl_task(struct rq *rq, struct task_struct *p, int cpu)
  {
  	if (!task_running(rq, p) &&
@@ -513,7 +525,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return 1;
  	return 0;
  }
-@@ -1970,7 +1970,7 @@ static struct rq *find_lock_later_rq(str
+@@ -1974,7 +1974,7 @@ static struct rq *find_lock_later_rq(str
  		/* Retry if something changed. */
  		if (double_lock_balance(rq, later_rq)) {
  			if (unlikely(task_rq(task) != rq ||
@@ -524,16 +536,16 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				     !task_on_rq_queued(task))) {
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -1616,7 +1616,7 @@ static void task_numa_compare(struct tas
+@@ -1631,7 +1631,7 @@ static void task_numa_compare(struct tas
+ 	 * be incurred if the tasks were swapped.
  	 */
- 	if (cur) {
- 		/* Skip this swap candidate if cannot move to the source CPU: */
--		if (!cpumask_test_cpu(env->src_cpu, &cur->cpus_allowed))
-+		if (!cpumask_test_cpu(env->src_cpu, cur->cpus_ptr))
- 			goto unlock;
+ 	/* Skip this swap candidate if cannot move to the source cpu */
+-	if (!cpumask_test_cpu(env->src_cpu, &cur->cpus_allowed))
++	if (!cpumask_test_cpu(env->src_cpu, cur->cpus_ptr))
+ 		goto unlock;
  
- 		/*
-@@ -1726,7 +1726,7 @@ static void task_numa_find_cpu(struct ta
+ 	/*
+@@ -1728,7 +1728,7 @@ static void task_numa_find_cpu(struct ta
  
  	for_each_cpu(cpu, cpumask_of_node(env->dst_nid)) {
  		/* Skip this CPU if the source task cannot migrate */
@@ -542,7 +554,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			continue;
  
  		env->dst_cpu = cpu;
-@@ -6018,7 +6018,7 @@ find_idlest_group(struct sched_domain *s
+@@ -5711,7 +5711,7 @@ find_idlest_group(struct sched_domain *s
  
  		/* Skip over this group if it has no CPUs allowed */
  		if (!cpumask_intersects(sched_group_span(group),
@@ -551,7 +563,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			continue;
  
  		local_group = cpumask_test_cpu(this_cpu,
-@@ -6150,7 +6150,7 @@ find_idlest_group_cpu(struct sched_group
+@@ -5843,7 +5843,7 @@ find_idlest_group_cpu(struct sched_group
  		return cpumask_first(sched_group_span(group));
  
  	/* Traverse only the allowed CPUs */
@@ -560,7 +572,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (available_idle_cpu(i)) {
  			struct rq *rq = cpu_rq(i);
  			struct cpuidle_state *idle = idle_get_state(rq);
-@@ -6190,7 +6190,7 @@ static inline int find_idlest_cpu(struct
+@@ -5883,7 +5883,7 @@ static inline int find_idlest_cpu(struct
  {
  	int new_cpu = cpu;
  
@@ -569,7 +581,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return prev_cpu;
  
  	/*
-@@ -6306,7 +6306,7 @@ static int select_idle_core(struct task_
+@@ -5999,7 +5999,7 @@ static int select_idle_core(struct task_
  	if (!test_idle_cores(target, false))
  		return -1;
  
@@ -578,7 +590,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	for_each_cpu_wrap(core, cpus, target) {
  		bool idle = true;
-@@ -6340,7 +6340,7 @@ static int select_idle_smt(struct task_s
+@@ -6033,7 +6033,7 @@ static int select_idle_smt(struct task_s
  		return -1;
  
  	for_each_cpu(cpu, cpu_smt_mask(target)) {
@@ -587,7 +599,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			continue;
  		if (available_idle_cpu(cpu))
  			return cpu;
-@@ -6403,7 +6403,7 @@ static int select_idle_cpu(struct task_s
+@@ -6096,7 +6096,7 @@ static int select_idle_cpu(struct task_s
  	for_each_cpu_wrap(cpu, sched_domain_span(sd), target) {
  		if (!--nr)
  			return -1;
@@ -596,7 +608,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			continue;
  		if (available_idle_cpu(cpu))
  			break;
-@@ -6440,7 +6440,7 @@ static int select_idle_sibling(struct ta
+@@ -6133,7 +6133,7 @@ static int select_idle_sibling(struct ta
  	    recent_used_cpu != target &&
  	    cpus_share_cache(recent_used_cpu, target) &&
  	    available_idle_cpu(recent_used_cpu) &&
@@ -605,7 +617,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/*
  		 * Replace recent_used_cpu with prev as it is a potential
  		 * candidate for the next wake:
-@@ -6624,7 +6624,7 @@ select_task_rq_fair(struct task_struct *
+@@ -6351,7 +6351,7 @@ select_task_rq_fair(struct task_struct *
  	if (sd_flag & SD_BALANCE_WAKE) {
  		record_wakee(p);
  		want_affine = !wake_wide(p) && !wake_cap(p, cpu, prev_cpu)
@@ -614,7 +626,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	rcu_read_lock();
-@@ -7360,14 +7360,14 @@ int can_migrate_task(struct task_struct
+@@ -7090,14 +7090,14 @@ int can_migrate_task(struct task_struct
  	/*
  	 * We do not migrate tasks that are:
  	 * 1) throttled_lb_pair, or
@@ -631,7 +643,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		int cpu;
  
  		schedstat_inc(p->se.statistics.nr_failed_migrations_affine);
-@@ -7387,7 +7387,7 @@ int can_migrate_task(struct task_struct
+@@ -7117,7 +7117,7 @@ int can_migrate_task(struct task_struct
  
  		/* Prevent to re-select dst_cpu via env's CPUs: */
  		for_each_cpu_and(cpu, env->dst_grpmask, env->cpus) {
@@ -640,7 +652,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				env->flags |= LBF_DST_PINNED;
  				env->new_dst_cpu = cpu;
  				break;
-@@ -7984,7 +7984,7 @@ check_cpu_capacity(struct rq *rq, struct
+@@ -7738,7 +7738,7 @@ check_cpu_capacity(struct rq *rq, struct
  
  /*
   * Group imbalance indicates (and tries to solve) the problem where balancing
@@ -649,7 +661,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   *
   * Imagine a situation of two groups of 4 CPUs each and 4 tasks each with a
   * cpumask covering 1 CPU of the first group and 3 CPUs of the second group.
-@@ -8599,7 +8599,7 @@ static struct sched_group *find_busiest_
+@@ -8353,7 +8353,7 @@ static struct sched_group *find_busiest_
  	/*
  	 * If the busiest group is imbalanced the below checks don't
  	 * work because they assume all things are equal, which typically
@@ -658,7 +670,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	 */
  	if (busiest->group_type == group_imbalanced)
  		goto force_balance;
-@@ -8995,7 +8995,7 @@ static int load_balance(int this_cpu, st
+@@ -8749,7 +8749,7 @@ static int load_balance(int this_cpu, st
  			 * if the curr task on busiest CPU can't be
  			 * moved to this_cpu:
  			 */
@@ -669,7 +681,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				env.flags |= LBF_ALL_PINNED;
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
-@@ -1601,7 +1601,7 @@ static void put_prev_task_rt(struct rq *
+@@ -1611,7 +1611,7 @@ static void put_prev_task_rt(struct rq *
  static int pick_rt_task(struct rq *rq, struct task_struct *p, int cpu)
  {
  	if (!task_running(rq, p) &&
@@ -678,7 +690,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return 1;
  
  	return 0;
-@@ -1738,7 +1738,7 @@ static struct rq *find_lock_lowest_rq(st
+@@ -1748,7 +1748,7 @@ static struct rq *find_lock_lowest_rq(st
  			 * Also make sure that it wasn't scheduled on its rq.
  			 */
  			if (unlikely(task_rq(task) != rq ||
@@ -689,7 +701,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				     !task_on_rq_queued(task))) {
 --- a/kernel/trace/trace_hwlat.c
 +++ b/kernel/trace/trace_hwlat.c
-@@ -279,7 +279,7 @@ static void move_to_next_cpu(void)
+@@ -277,7 +277,7 @@ static void move_to_next_cpu(void)
  	 * of this thread, than stop migrating for the duration
  	 * of the current test.
  	 */

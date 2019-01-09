@@ -761,9 +761,7 @@ static int udf_find_fileset(struct super_block *sb,
 			    struct kernel_lb_addr *root)
 {
 	struct buffer_head *bh = NULL;
-	long lastblock;
 	uint16_t ident;
-	struct udf_sb_info *sbi;
 
 	if (fileset->logicalBlockNum != 0xFFFFFFFF ||
 	    fileset->partitionReferenceNum != 0xFFFF) {
@@ -776,69 +774,11 @@ static int udf_find_fileset(struct super_block *sb,
 			return 1;
 		}
 
-	}
-
-	sbi = UDF_SB(sb);
-	if (!bh) {
-		/* Search backwards through the partitions */
-		struct kernel_lb_addr newfileset;
-
-/* --> cvg: FIXME - is it reasonable? */
-		return 1;
-
-		for (newfileset.partitionReferenceNum = sbi->s_partitions - 1;
-		     (newfileset.partitionReferenceNum != 0xFFFF &&
-		      fileset->logicalBlockNum == 0xFFFFFFFF &&
-		      fileset->partitionReferenceNum == 0xFFFF);
-		     newfileset.partitionReferenceNum--) {
-			lastblock = sbi->s_partmaps
-					[newfileset.partitionReferenceNum]
-						.s_partition_len;
-			newfileset.logicalBlockNum = 0;
-
-			do {
-				bh = udf_read_ptagged(sb, &newfileset, 0,
-						      &ident);
-				if (!bh) {
-					newfileset.logicalBlockNum++;
-					continue;
-				}
-
-				switch (ident) {
-				case TAG_IDENT_SBD:
-				{
-					struct spaceBitmapDesc *sp;
-					sp = (struct spaceBitmapDesc *)
-								bh->b_data;
-					newfileset.logicalBlockNum += 1 +
-						((le32_to_cpu(sp->numOfBytes) +
-						  sizeof(struct spaceBitmapDesc)
-						  - 1) >> sb->s_blocksize_bits);
-					brelse(bh);
-					break;
-				}
-				case TAG_IDENT_FSD:
-					*fileset = newfileset;
-					break;
-				default:
-					newfileset.logicalBlockNum++;
-					brelse(bh);
-					bh = NULL;
-					break;
-				}
-			} while (newfileset.logicalBlockNum < lastblock &&
-				 fileset->logicalBlockNum == 0xFFFFFFFF &&
-				 fileset->partitionReferenceNum == 0xFFFF);
-		}
-	}
-
-	if ((fileset->logicalBlockNum != 0xFFFFFFFF ||
-	     fileset->partitionReferenceNum != 0xFFFF) && bh) {
 		udf_debug("Fileset at block=%u, partition=%u\n",
 			  fileset->logicalBlockNum,
 			  fileset->partitionReferenceNum);
 
-		sbi->s_partition = fileset->partitionReferenceNum;
+		UDF_SB(sb)->s_partition = fileset->partitionReferenceNum;
 		udf_load_fileset(sb, bh, root);
 		brelse(bh);
 		return 0;
@@ -891,16 +831,20 @@ static int udf_load_pvoldesc(struct super_block *sb, sector_t block)
 
 
 	ret = udf_dstrCS0toChar(sb, outstr, 31, pvoldesc->volIdent, 32);
-	if (ret < 0)
-		goto out_bh;
-
-	strncpy(UDF_SB(sb)->s_volume_ident, outstr, ret);
+	if (ret < 0) {
+		strcpy(UDF_SB(sb)->s_volume_ident, "InvalidName");
+		pr_warn("incorrect volume identification, setting to "
+			"'InvalidName'\n");
+	} else {
+		strncpy(UDF_SB(sb)->s_volume_ident, outstr, ret);
+	}
 	udf_debug("volIdent[] = '%s'\n", UDF_SB(sb)->s_volume_ident);
 
 	ret = udf_dstrCS0toChar(sb, outstr, 127, pvoldesc->volSetIdent, 128);
-	if (ret < 0)
+	if (ret < 0) {
+		ret = 0;
 		goto out_bh;
-
+	}
 	outstr[ret] = 0;
 	udf_debug("volSetIdent[] = '%s'\n", outstr);
 
@@ -1985,7 +1929,7 @@ static void udf_open_lvid(struct super_block *sb)
 	struct buffer_head *bh = sbi->s_lvid_bh;
 	struct logicalVolIntegrityDesc *lvid;
 	struct logicalVolIntegrityDescImpUse *lvidiu;
-	struct timespec ts;
+	struct timespec64 ts;
 
 	if (!bh)
 		return;
@@ -1997,7 +1941,7 @@ static void udf_open_lvid(struct super_block *sb)
 	mutex_lock(&sbi->s_alloc_mutex);
 	lvidiu->impIdent.identSuffix[0] = UDF_OS_CLASS_UNIX;
 	lvidiu->impIdent.identSuffix[1] = UDF_OS_ID_LINUX;
-	ktime_get_real_ts(&ts);
+	ktime_get_real_ts64(&ts);
 	udf_time_to_disk_stamp(&lvid->recordingDateAndTime, ts);
 	if (le32_to_cpu(lvid->integrityType) == LVID_INTEGRITY_TYPE_CLOSE)
 		lvid->integrityType = cpu_to_le32(LVID_INTEGRITY_TYPE_OPEN);
@@ -2022,7 +1966,7 @@ static void udf_close_lvid(struct super_block *sb)
 	struct buffer_head *bh = sbi->s_lvid_bh;
 	struct logicalVolIntegrityDesc *lvid;
 	struct logicalVolIntegrityDescImpUse *lvidiu;
-	struct timespec ts;
+	struct timespec64 ts;
 
 	if (!bh)
 		return;
@@ -2034,7 +1978,7 @@ static void udf_close_lvid(struct super_block *sb)
 	mutex_lock(&sbi->s_alloc_mutex);
 	lvidiu->impIdent.identSuffix[0] = UDF_OS_CLASS_UNIX;
 	lvidiu->impIdent.identSuffix[1] = UDF_OS_ID_LINUX;
-	ktime_get_real_ts(&ts);
+	ktime_get_real_ts64(&ts);
 	udf_time_to_disk_stamp(&lvid->recordingDateAndTime, ts);
 	if (UDF_MAX_WRITE_VERSION > le16_to_cpu(lvidiu->maxUDFWriteRev))
 		lvidiu->maxUDFWriteRev = cpu_to_le16(UDF_MAX_WRITE_VERSION);

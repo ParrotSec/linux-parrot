@@ -26,6 +26,8 @@
 
 /* drm_file.c */
 extern struct mutex drm_global_mutex;
+struct drm_file *drm_file_alloc(struct drm_minor *minor);
+void drm_file_free(struct drm_file *file);
 void drm_lastclose(struct drm_device *dev);
 
 /* drm_pci.c */
@@ -96,6 +98,8 @@ void drm_sysfs_destroy(void);
 struct device *drm_sysfs_minor_alloc(struct drm_minor *minor);
 int drm_sysfs_connector_add(struct drm_connector *connector);
 void drm_sysfs_connector_remove(struct drm_connector *connector);
+
+void drm_sysfs_lease_event(struct drm_device *dev);
 
 /* drm_gem.c */
 int drm_gem_init(struct drm_device *dev);

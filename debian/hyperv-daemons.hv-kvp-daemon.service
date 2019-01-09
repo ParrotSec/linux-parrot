@@ -1,6 +1,6 @@
 [Unit]
 Description=Hyper-V key-value pair (KVP) daemon
-ConditionVirtualization=microsoft
+ConditionPathExists=/dev/vmbus/hv_kvp
 
 [Service]
 ExecStart=/usr/sbin/hv_kvp_daemon -n

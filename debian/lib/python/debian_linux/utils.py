@@ -44,9 +44,11 @@ def read_control(f):
     from .debian import Package
     return _read_rfc822(f, Package)
 
+
 def read_tests_control(f):
     from .debian import TestsControl
     return _read_rfc822(f, TestsControl)
+
 
 def _read_rfc822(f, cls):
     entries = []
@@ -69,14 +71,16 @@ def _read_rfc822(f, cls):
                 break
             if line[0] in ' \t':
                 if not last:
-                    raise ValueError('Continuation line seen before first header')
+                    raise ValueError(
+                        'Continuation line seen before first header')
                 lines.append(line.lstrip())
                 continue
             if last:
                 e[last] = '\n'.join(lines)
             i = line.find(':')
             if i < 0:
-                raise ValueError(u"Not a header, not a continuation: ``%s''" % line)
+                raise ValueError(u"Not a header, not a continuation: ``%s''" %
+                                 line)
             last = line[:i]
             lines = [line[i + 1:].lstrip()]
         if last:

@@ -814,9 +814,9 @@ void start_tty(struct tty_struct *tty)
 }
 EXPORT_SYMBOL(start_tty);
 
-static void tty_update_time(struct timespec *time)
+static void tty_update_time(struct timespec64 *time)
 {
-	unsigned long sec = get_seconds();
+	time64_t sec = ktime_get_real_seconds();
 
 	/*
 	 * We only care if the two values differ in anything other than the
@@ -867,13 +867,8 @@ static ssize_t tty_read(struct file *file, char __user *buf, size_t count,
 		i = -EIO;
 	tty_ldisc_deref(ld);
 
-	if (i > 0) {
-		struct timespec ts;
-
-		ts = timespec64_to_timespec(inode->i_atime);
-		tty_update_time(&ts);
-		inode->i_atime = timespec_to_timespec64(ts);
-	}
+	if (i > 0)
+		tty_update_time(&inode->i_atime);
 
 	return i;
 }
@@ -974,11 +969,7 @@ static inline ssize_t do_tty_write(
 		cond_resched();
 	}
 	if (written) {
-		struct timespec ts;
-
-		ts = timespec64_to_timespec(file_inode(file)->i_mtime);
-		tty_update_time(&ts);
-		file_inode(file)->i_mtime = timespec_to_timespec64(ts);
+		tty_update_time(&file_inode(file)->i_mtime);
 		ret = written;
 	}
 out:
@@ -1381,7 +1372,13 @@ err_release_lock:
 	return ERR_PTR(retval);
 }
 
-static void tty_free_termios(struct tty_struct *tty)
+/**
+ * tty_save_termios() - save tty termios data in driver table
+ * @tty: tty whose termios data to save
+ *
+ * Locking: Caller guarantees serialisation with tty_init_termios().
+ */
+void tty_save_termios(struct tty_struct *tty)
 {
 	struct ktermios *tp;
 	int idx = tty->index;
@@ -1400,6 +1397,7 @@ static void tty_free_termios(struct tty_struct *tty)
 	}
 	*tp = tty->termios;
 }
+EXPORT_SYMBOL_GPL(tty_save_termios);
 
 /**
  *	tty_flush_works		-	flush all works of a tty/pty pair
@@ -1499,7 +1497,7 @@ static void release_tty(struct tty_struct *tty, int idx)
 	WARN_ON(!mutex_is_locked(&tty_mutex));
 	if (tty->ops->shutdown)
 		tty->ops->shutdown(tty);
-	tty_free_termios(tty);
+	tty_save_termios(tty);
 	tty_driver_remove_tty(tty->driver, tty);
 	tty->port->itty = NULL;
 	if (tty->link)
@@ -2127,7 +2125,7 @@ static int __tty_fasync(int fd, struct file *filp, int on)
 			type = PIDTYPE_PGID;
 		} else {
 			pid = task_pid(current);
-			type = PIDTYPE_PID;
+			type = PIDTYPE_TGID;
 		}
 		get_pid(pid);
 		spin_unlock_irqrestore(&tty->ctrl_lock, flags);

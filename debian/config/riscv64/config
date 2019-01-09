@@ -1,0 +1,58 @@
+##
+## file: arch/riscv/Kconfig
+##
+CONFIG_SMP=y
+CONFIG_PCI=y
+
+##
+## file: drivers/ata/Kconfig
+##
+CONFIG_SATA_AHCI_PLATFORM=m
+
+##
+## file: drivers/gpu/drm/Kconfig
+##
+CONFIG_DRM=m
+CONFIG_DRM_RADEON=m
+
+##
+## file: drivers/irqchip/Kconfig
+##
+CONFIG_SIFIVE_PLIC=y
+
+##
+## file: drivers/net/ethernet/cadence/Kconfig
+##
+CONFIG_MACB=m
+
+##
+## file: drivers/pci/controller/Kconfig
+##
+CONFIG_PCIE_XILINX=y
+
+##
+## file: drivers/tty/hvc/Kconfig
+##
+CONFIG_HVC_RISCV_SBI=y
+
+##
+## file: drivers/tty/serial/8250/Kconfig
+##
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_OF_PLATFORM=y
+
+##
+## file: drivers/usb/Kconfig
+##
+CONFIG_USB=m
+
+##
+## file: drivers/usb/host/Kconfig
+##
+CONFIG_USB_XHCI_PLATFORM=m
+CONFIG_USB_EHCI_HCD=m
+CONFIG_USB_EHCI_HCD_PLATFORM=m
+CONFIG_USB_OHCI_HCD=m
+CONFIG_USB_OHCI_HCD_PLATFORM=m
+

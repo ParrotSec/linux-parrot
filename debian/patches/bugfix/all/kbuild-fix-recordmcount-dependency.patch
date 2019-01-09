@@ -9,8 +9,8 @@ sources.
 
 --- a/scripts/Makefile.build
 +++ b/scripts/Makefile.build
-@@ -242,6 +242,11 @@ cmd_record_mcount =						\
- endif # -record-mcount
+@@ -232,6 +232,11 @@ cmd_record_mcount =						\
+ endif # CC_USING_RECORD_MCOUNT
  endif # CONFIG_FTRACE_MCOUNT_RECORD
  
 +# Don't require recordmcount source for an OOT build.

@@ -1,8 +1,8 @@
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
-Date: Wed, 18 Apr 2018 12:51:39 +0200
-Subject: [PATCH 2/6] clocksource/drivers: Add a new driver for the Atmel ARM
+Date: Thu, 13 Sep 2018 13:30:19 +0200
+Subject: [PATCH 2/7] clocksource/drivers: Add a new driver for the Atmel ARM
  TC blocks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Add a driver for the Atmel Timer Counter Blocks. This driver provides a
 clocksource and two clockevent devices.
@@ -26,8 +26,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  drivers/clocksource/Kconfig           |    8 
  drivers/clocksource/Makefile          |    3 
- drivers/clocksource/timer-atmel-tcb.c |  608 ++++++++++++++++++++++++++++++++++
- 3 files changed, 618 insertions(+), 1 deletion(-)
+ drivers/clocksource/timer-atmel-tcb.c |  410 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 420 insertions(+), 1 deletion(-)
  create mode 100644 drivers/clocksource/timer-atmel-tcb.c
 
 --- a/drivers/clocksource/Kconfig
@@ -61,7 +61,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  obj-$(CONFIG_CS5535_CLOCK_EVENT_SRC)	+= cs5535-clockevt.o
 --- /dev/null
 +++ b/drivers/clocksource/timer-atmel-tcb.c
-@@ -0,0 +1,608 @@
+@@ -0,0 +1,410 @@
 +// SPDX-License-Identifier: GPL-2.0
 +#include <linux/clk.h>
 +#include <linux/clockchips.h>
@@ -75,7 +75,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#include <linux/sched_clock.h>
 +#include <soc/at91/atmel_tcb.h>
 +
-+static struct atmel_tcb_clksrc {
++struct atmel_tcb_clksrc {
 +	struct clocksource clksrc;
 +	struct clock_event_device clkevt;
 +	struct regmap *regmap;
@@ -93,216 +93,22 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	} cache[2];
 +	u32 bmr_cache;
 +	bool registered;
-+} tc = {
-+	.clksrc = {
-+		.rating		= 200,
-+		.mask		= CLOCKSOURCE_MASK(32),
-+		.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
-+	},
-+	.clkevt	= {
-+		.features	= CLOCK_EVT_FEAT_ONESHOT,
-+		/* Should be lower than at91rm9200's system timer */
-+		.rating		= 125,
-+	},
++	bool clk_enabled;
 +};
 +
-+static struct tc_clkevt_device {
-+	struct clock_event_device clkevt;
-+	struct regmap *regmap;
-+	void __iomem *base;
-+	struct clk *slow_clk;
++static struct atmel_tcb_clksrc tc;
++
++static struct clk *tcb_clk_get(struct device_node *node, int channel)
++{
 +	struct clk *clk;
-+	char name[20];
-+	int channel;
-+	int irq;
-+	struct {
-+		u32 cmr;
-+		u32 imr;
-+		u32 rc;
-+		bool clken;
-+	} cache;
-+	bool registered;
-+} tce = {
-+	.clkevt	= {
-+		.features		= CLOCK_EVT_FEAT_PERIODIC |
-+					  CLOCK_EVT_FEAT_ONESHOT,
-+		/*
-+		 * Should be lower than at91rm9200's system timer
-+		 * but higher than tc.clkevt.rating
-+		 */
-+		.rating			= 140,
-+	},
-+};
++	char clk_name[] = "t0_clk";
 +
-+/*
-+ * Clockevent device using its own channel
-+ */
-+static int tc_clkevt2_shutdown(struct clock_event_device *d)
-+{
-+	writel(0xff, tce.base + ATMEL_TC_IDR(tce.channel));
-+	writel(ATMEL_TC_CCR_CLKDIS, tce.base + ATMEL_TC_CCR(tce.channel));
-+	if (!clockevent_state_detached(d))
-+		clk_disable(tce.clk);
++	clk_name[1] += channel;
++	clk = of_clk_get_by_name(node->parent, clk_name);
++	if (!IS_ERR(clk))
++		return clk;
 +
-+	return 0;
-+}
-+
-+/* For now, we always use the 32K clock ... this optimizes for NO_HZ,
-+ * because using one of the divided clocks would usually mean the
-+ * tick rate can never be less than several dozen Hz (vs 0.5 Hz).
-+ *
-+ * A divided clock could be good for high resolution timers, since
-+ * 30.5 usec resolution can seem "low".
-+ */
-+static int tc_clkevt2_set_oneshot(struct clock_event_device *d)
-+{
-+	if (clockevent_state_oneshot(d) || clockevent_state_periodic(d))
-+		tc_clkevt2_shutdown(d);
-+
-+	clk_enable(tce.clk);
-+
-+	/* slow clock, count up to RC, then irq and stop */
-+	writel(ATMEL_TC_CMR_TCLK(4) | ATMEL_TC_CMR_CPCSTOP |
-+	       ATMEL_TC_CMR_WAVE | ATMEL_TC_CMR_WAVESEL_UPRC,
-+	       tce.base + ATMEL_TC_CMR(tce.channel));
-+	writel(ATMEL_TC_CPCS, tce.base + ATMEL_TC_IER(tce.channel));
-+
-+	return 0;
-+}
-+
-+static int tc_clkevt2_set_periodic(struct clock_event_device *d)
-+{
-+	if (clockevent_state_oneshot(d) || clockevent_state_periodic(d))
-+		tc_clkevt2_shutdown(d);
-+
-+	/* By not making the gentime core emulate periodic mode on top
-+	 * of oneshot, we get lower overhead and improved accuracy.
-+	 */
-+	clk_enable(tce.clk);
-+
-+	/* slow clock, count up to RC, then irq and restart */
-+	writel(ATMEL_TC_CMR_TCLK(4) | ATMEL_TC_CMR_WAVE |
-+	       ATMEL_TC_CMR_WAVESEL_UPRC,
-+	       tce.base + ATMEL_TC_CMR(tce.channel));
-+	writel((32768 + HZ / 2) / HZ, tce.base + ATMEL_TC_RC(tce.channel));
-+
-+	/* Enable clock and interrupts on RC compare */
-+	writel(ATMEL_TC_CPCS, tce.base + ATMEL_TC_IER(tce.channel));
-+	writel(ATMEL_TC_CCR_CLKEN | ATMEL_TC_CCR_SWTRG,
-+	       tce.base + ATMEL_TC_CCR(tce.channel));
-+
-+	return 0;
-+}
-+
-+static int tc_clkevt2_next_event(unsigned long delta,
-+				 struct clock_event_device *d)
-+{
-+	writel(delta, tce.base + ATMEL_TC_RC(tce.channel));
-+	writel(ATMEL_TC_CCR_CLKEN | ATMEL_TC_CCR_SWTRG,
-+	       tce.base + ATMEL_TC_CCR(tce.channel));
-+
-+	return 0;
-+}
-+
-+static irqreturn_t tc_clkevt2_irq(int irq, void *handle)
-+{
-+	unsigned int sr;
-+
-+	sr = readl(tce.base + ATMEL_TC_SR(tce.channel));
-+	if (sr & ATMEL_TC_CPCS) {
-+		tce.clkevt.event_handler(&tce.clkevt);
-+		return IRQ_HANDLED;
-+	}
-+
-+	return IRQ_NONE;
-+}
-+
-+static void tc_clkevt2_suspend(struct clock_event_device *d)
-+{
-+	tce.cache.cmr = readl(tce.base + ATMEL_TC_CMR(tce.channel));
-+	tce.cache.imr = readl(tce.base + ATMEL_TC_IMR(tce.channel));
-+	tce.cache.rc = readl(tce.base + ATMEL_TC_RC(tce.channel));
-+	tce.cache.clken = !!(readl(tce.base + ATMEL_TC_SR(tce.channel)) &
-+				ATMEL_TC_CLKSTA);
-+}
-+
-+static void tc_clkevt2_resume(struct clock_event_device *d)
-+{
-+	/* Restore registers for the channel, RA and RB are not used  */
-+	writel(tce.cache.cmr, tc.base + ATMEL_TC_CMR(tce.channel));
-+	writel(tce.cache.rc, tc.base + ATMEL_TC_RC(tce.channel));
-+	writel(0, tc.base + ATMEL_TC_RA(tce.channel));
-+	writel(0, tc.base + ATMEL_TC_RB(tce.channel));
-+	/* Disable all the interrupts */
-+	writel(0xff, tc.base + ATMEL_TC_IDR(tce.channel));
-+	/* Reenable interrupts that were enabled before suspending */
-+	writel(tce.cache.imr, tc.base + ATMEL_TC_IER(tce.channel));
-+
-+	/* Start the clock if it was used */
-+	if (tce.cache.clken)
-+		writel(ATMEL_TC_CCR_CLKEN | ATMEL_TC_CCR_SWTRG,
-+		       tc.base + ATMEL_TC_CCR(tce.channel));
-+}
-+
-+static int __init tc_clkevt_register(struct device_node *node,
-+				     struct regmap *regmap, void __iomem *base,
-+				     int channel, int irq, int bits)
-+{
-+	int ret;
-+
-+	tce.regmap = regmap;
-+	tce.base = base;
-+	tce.channel = channel;
-+	tce.irq = irq;
-+
-+	tce.slow_clk = of_clk_get_by_name(node->parent, "slow_clk");
-+	if (IS_ERR(tce.slow_clk))
-+		return PTR_ERR(tce.slow_clk);
-+
-+	ret = clk_prepare_enable(tce.slow_clk);
-+	if (ret)
-+		return ret;
-+
-+	tce.clk = tcb_clk_get(node, tce.channel);
-+	if (IS_ERR(tce.clk)) {
-+		ret = PTR_ERR(tce.clk);
-+		goto err_slow;
-+	}
-+
-+	snprintf(tce.name, sizeof(tce.name), "%s:%d",
-+		 kbasename(node->parent->full_name), channel);
-+	tce.clkevt.cpumask = cpumask_of(0);
-+	tce.clkevt.name = tce.name;
-+	tce.clkevt.set_next_event = tc_clkevt2_next_event,
-+	tce.clkevt.set_state_shutdown = tc_clkevt2_shutdown,
-+	tce.clkevt.set_state_periodic = tc_clkevt2_set_periodic,
-+	tce.clkevt.set_state_oneshot = tc_clkevt2_set_oneshot,
-+	tce.clkevt.suspend = tc_clkevt2_suspend,
-+	tce.clkevt.resume = tc_clkevt2_resume,
-+
-+	/* try to enable clk to avoid future errors in mode change */
-+	ret = clk_prepare_enable(tce.clk);
-+	if (ret)
-+		goto err_slow;
-+	clk_disable(tce.clk);
-+
-+	clockevents_config_and_register(&tce.clkevt, 32768, 1, BIT(bits) - 1);
-+
-+	ret = request_irq(tce.irq, tc_clkevt2_irq, IRQF_TIMER | IRQF_SHARED,
-+			  tce.clkevt.name, &tce);
-+	if (ret)
-+		goto err_clk;
-+
-+	tce.registered = true;
-+
-+	return 0;
-+
-+err_clk:
-+	clk_unprepare(tce.clk);
-+err_slow:
-+	clk_disable_unprepare(tce.slow_clk);
-+
-+	return ret;
++	return of_clk_get_by_name(node->parent, "t0_clk");
 +}
 +
 +/*
@@ -339,7 +145,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +				 struct clock_event_device *d)
 +{
 +	u32 old, next, cur;
-+
 +
 +	old = readl(tc.base + ATMEL_TC_CV(tc.channels[0]));
 +	next = old + delta;
@@ -567,6 +372,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	tc.clksrc.name = tc.name;
 +	tc.clksrc.suspend = tc_clksrc_suspend;
 +	tc.clksrc.resume = tc_clksrc_resume;
++	tc.clksrc.rating = 200;
++	tc.clksrc.mask = CLOCKSOURCE_MASK(32);
++	tc.clksrc.flags = CLOCK_SOURCE_IS_CONTINUOUS;
 +
 +	err = clocksource_register_hz(&tc.clksrc, divided_rate);
 +	if (err)
@@ -582,6 +390,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	tc.clkevt.set_next_event = tcb_clkevt_next_event;
 +	tc.clkevt.set_state_oneshot = tcb_clkevt_oneshot;
 +	tc.clkevt.set_state_shutdown = tcb_clkevt_shutdown;
++	tc.clkevt.features = CLOCK_EVT_FEAT_ONESHOT;
++	tc.clkevt.rating = 125;
++
 +	clockevents_config_and_register(&tc.clkevt, divided_rate, 1,
 +					BIT(tc.bits) - 1);
 +
@@ -610,13 +421,13 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +static int __init tcb_clksrc_init(struct device_node *node)
 +{
 +	const struct of_device_id *match;
-+	const struct atmel_tcb_info *tcb_info;
 +	struct regmap *regmap;
 +	void __iomem *tcb_base;
 +	u32 channel;
-+	int bits, irq, err, chan1 = -1;
++	int irq, err, chan1 = -1;
++	unsigned bits;
 +
-+	if (tc.registered && tce.registered)
++	if (tc.registered)
 +		return -ENODEV;
 +
 +	/*
@@ -635,38 +446,29 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	}
 +
 +	match = of_match_node(atmel_tcb_dt_ids, node->parent);
-+	tcb_info = match->data;
-+	bits = tcb_info->bits;
++	bits = (uintptr_t)match->data;
 +
 +	err = of_property_read_u32_index(node, "reg", 0, &channel);
 +	if (err)
 +		return err;
 +
-+	irq = tcb_irq_get(node, channel);
-+	if (irq < 0)
-+		return irq;
-+
-+	if (tc.registered)
-+		return tc_clkevt_register(node, regmap, tcb_base, channel, irq,
-+					  bits);
++	irq = of_irq_get(node->parent, channel);
++	if (irq < 0) {
++		irq = of_irq_get(node->parent, 0);
++		if (irq < 0)
++			return irq;
++	}
 +
 +	if (bits == 16) {
 +		of_property_read_u32_index(node, "reg", 1, &chan1);
 +		if (chan1 == -1) {
-+			if (tce.registered) {
-+				pr_err("%s: clocksource needs two channels\n",
-+				       node->parent->full_name);
-+				return -EINVAL;
-+			} else {
-+				return tc_clkevt_register(node, regmap,
-+							  tcb_base, channel,
-+							  irq, bits);
-+			}
++			pr_err("%s: clocksource needs two channels\n",
++			       node->parent->full_name);
++			return -EINVAL;
 +		}
 +	}
 +
 +	return tcb_clksrc_register(node, regmap, tcb_base, channel, chan1, irq,
 +				   bits);
 +}
-+CLOCKSOURCE_OF_DECLARE(atmel_tcb_clksrc, "atmel,tcb-timer",
-+		       tcb_clksrc_init);
++TIMER_OF_DECLARE(atmel_tcb_clksrc, "atmel,tcb-timer", tcb_clksrc_init);

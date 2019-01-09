@@ -6,9 +6,9 @@ kernel-arch: x86
 
 [build]
 image-file: arch/x86/boot/bzImage
-vdso: true
 # We don't want signed modules in Kali
-signed-modules: false
+signed-code: false
+vdso: true
 
 [description]
 part-long-pae: This kernel requires PAE (Physical Address Extension).
@@ -22,8 +22,8 @@ install-stem: vmlinuz
 breaks: xserver-xorg-input-vmmouse (<< 1:13.0.99)
 
 [relations]
-gcc-7: gcc-7 (>= 7.2.0-20~) <!stage1 !cross>, gcc-7-i686-linux-gnu (>= 7.2.0-20~) <!stage1 cross>
-headers%gcc-7: linux-compiler-gcc-7-x86 (>= 4.14.17-1~)
+gcc-8: gcc-8 (>= 8-20180123-1~) <!stage1 !cross>, gcc-8-x86-64-linux-gnu (>= 8-20180123-1~) <!stage1 cross>
+headers%gcc-8: linux-compiler-gcc-8-x86
 
 [686_description]
 hardware: older PCs

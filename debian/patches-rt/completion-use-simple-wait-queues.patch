@@ -1,7 +1,7 @@
 Subject: completion: Use simple wait queues
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 11 Jan 2013 11:23:51 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Completions have no long lasting callbacks and therefor do not need
 the complex waitqueue variant. Use simple waitqueues which reduces the
@@ -9,33 +9,49 @@ contention on the waitqueue lock.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- drivers/net/wireless/intersil/orinoco/orinoco_usb.c |    2 -
+ arch/powerpc/platforms/ps3/device-init.c            |    4 +-
+ drivers/net/wireless/intersil/orinoco/orinoco_usb.c |    4 +-
  drivers/usb/gadget/function/f_fs.c                  |    2 -
  drivers/usb/gadget/legacy/inode.c                   |    4 +-
  include/linux/completion.h                          |    8 ++--
  include/linux/suspend.h                             |    6 +++
- include/linux/swait.h                               |    1 
+ include/linux/swait.h                               |    2 +
  kernel/power/hibernate.c                            |    7 ++++
  kernel/power/suspend.c                              |    4 ++
  kernel/sched/completion.c                           |   34 ++++++++++----------
  kernel/sched/core.c                                 |   10 ++++-
- kernel/sched/swait.c                                |   19 +++++++++++
- 11 files changed, 70 insertions(+), 27 deletions(-)
+ kernel/sched/swait.c                                |   21 +++++++++++-
+ 12 files changed, 75 insertions(+), 31 deletions(-)
 
+--- a/arch/powerpc/platforms/ps3/device-init.c
++++ b/arch/powerpc/platforms/ps3/device-init.c
+@@ -752,8 +752,8 @@ static int ps3_notification_read_write(s
+ 	}
+ 	pr_debug("%s:%u: notification %s issued\n", __func__, __LINE__, op);
+ 
+-	res = wait_event_interruptible(dev->done.wait,
+-				       dev->done.done || kthread_should_stop());
++	res = swait_event_interruptible_exclusive(dev->done.wait,
++						  dev->done.done || kthread_should_stop());
+ 	if (kthread_should_stop())
+ 		res = -EINTR;
+ 	if (res) {
 --- a/drivers/net/wireless/intersil/orinoco/orinoco_usb.c
 +++ b/drivers/net/wireless/intersil/orinoco/orinoco_usb.c
-@@ -697,7 +697,7 @@ static void ezusb_req_ctx_wait(struct ez
+@@ -697,8 +697,8 @@ static void ezusb_req_ctx_wait(struct ez
  			while (!ctx->done.done && msecs--)
  				udelay(1000);
  		} else {
 -			wait_event_interruptible(ctx->done.wait,
-+			swait_event_interruptible(ctx->done.wait,
- 						 ctx->done.done);
+-						 ctx->done.done);
++			swait_event_interruptible_exclusive(ctx->done.wait,
++							    ctx->done.done);
  		}
  		break;
+ 	default:
 --- a/drivers/usb/gadget/function/f_fs.c
 +++ b/drivers/usb/gadget/function/f_fs.c
-@@ -1633,7 +1633,7 @@ static void ffs_data_put(struct ffs_data
+@@ -1623,7 +1623,7 @@ static void ffs_data_put(struct ffs_data
  		pr_info("%s(): freeing\n", __func__);
  		ffs_data_clear(ffs);
  		BUG_ON(waitqueue_active(&ffs->ev.waitq) ||
@@ -51,7 +67,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	if (likely (value == 0)) {
 -		value = wait_event_interruptible (done.wait, done.done);
-+		value = swait_event_interruptible (done.wait, done.done);
++		value = swait_event_interruptible_exclusive(done.wait, done.done);
  		if (value != 0) {
  			spin_lock_irq (&epdata->dev->lock);
  			if (likely (epdata->ep != NULL)) {
@@ -60,7 +76,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  				spin_unlock_irq (&epdata->dev->lock);
  
 -				wait_event (done.wait, done.done);
-+				swait_event (done.wait, done.done);
++				swait_event_exclusive(done.wait, done.done);
  				if (epdata->status == -ECONNRESET)
  					epdata->status = -EINTR;
  			} else {
@@ -119,17 +135,19 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  extern suspend_state_t mem_sleep_default;
 --- a/include/linux/swait.h
 +++ b/include/linux/swait.h
-@@ -160,6 +160,7 @@ static inline bool swq_has_sleeper(struc
- extern void swake_up(struct swait_queue_head *q);
+@@ -160,7 +160,9 @@ static inline bool swq_has_sleeper(struc
+ extern void swake_up_one(struct swait_queue_head *q);
  extern void swake_up_all(struct swait_queue_head *q);
  extern void swake_up_locked(struct swait_queue_head *q);
 +extern void swake_up_all_locked(struct swait_queue_head *q);
  
- extern void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait);
- extern void prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait, int state);
++extern void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait);
+ extern void prepare_to_swait_exclusive(struct swait_queue_head *q, struct swait_queue *wait, int state);
+ extern long prepare_to_swait_event(struct swait_queue_head *q, struct swait_queue *wait, int state);
+ 
 --- a/kernel/power/hibernate.c
 +++ b/kernel/power/hibernate.c
-@@ -679,6 +679,10 @@ static int load_image_and_restore(void)
+@@ -681,6 +681,10 @@ static int load_image_and_restore(void)
  	return error;
  }
  
@@ -140,7 +158,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /**
   * hibernate - Carry out system hibernation, including saving the image.
   */
-@@ -692,6 +696,8 @@ int hibernate(void)
+@@ -694,6 +698,8 @@ int hibernate(void)
  		return -EPERM;
  	}
  
@@ -149,7 +167,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	lock_system_sleep();
  	/* The snapshot device should not be opened while we're running */
  	if (!atomic_add_unless(&snapshot_device_available, -1, 0)) {
-@@ -770,6 +776,7 @@ int hibernate(void)
+@@ -772,6 +778,7 @@ int hibernate(void)
  	atomic_inc(&snapshot_device_available);
   Unlock:
  	unlock_system_sleep();
@@ -159,7 +177,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return error;
 --- a/kernel/power/suspend.c
 +++ b/kernel/power/suspend.c
-@@ -594,6 +594,8 @@ static int enter_state(suspend_state_t s
+@@ -600,6 +600,8 @@ static int enter_state(suspend_state_t s
  	return error;
  }
  
@@ -168,7 +186,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /**
   * pm_suspend - Externally visible function for suspending the system.
   * @state: System sleep state to enter.
-@@ -608,6 +610,7 @@ int pm_suspend(suspend_state_t state)
+@@ -614,6 +616,7 @@ int pm_suspend(suspend_state_t state)
  	if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX)
  		return -EINVAL;
  
@@ -176,7 +194,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	pr_info("suspend entry (%s)\n", mem_sleep_labels[state]);
  	error = enter_state(state);
  	if (error) {
-@@ -617,6 +620,7 @@ int pm_suspend(suspend_state_t state)
+@@ -623,6 +626,7 @@ int pm_suspend(suspend_state_t state)
  		suspend_stats.success++;
  	}
  	pr_info("suspend exit\n");
@@ -282,7 +300,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  EXPORT_SYMBOL(completion_done);
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -7125,7 +7125,10 @@ void migrate_disable(void)
+@@ -7108,7 +7108,10 @@ void migrate_disable(void)
  		return;
  	}
  #ifdef CONFIG_SCHED_DEBUG
@@ -294,7 +312,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  
  	if (p->migrate_disable) {
-@@ -7155,7 +7158,10 @@ void migrate_enable(void)
+@@ -7138,7 +7141,10 @@ void migrate_enable(void)
  	}
  
  #ifdef CONFIG_SCHED_DEBUG
@@ -331,6 +349,15 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +}
 +EXPORT_SYMBOL(swake_up_all_locked);
 +
- void swake_up(struct swait_queue_head *q)
+ void swake_up_one(struct swait_queue_head *q)
  {
  	unsigned long flags;
+@@ -69,7 +88,7 @@ void swake_up_all(struct swait_queue_hea
+ }
+ EXPORT_SYMBOL(swake_up_all);
+ 
+-static void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait)
++void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait)
+ {
+ 	wait->task = current;
+ 	if (list_empty(&wait->task_list))

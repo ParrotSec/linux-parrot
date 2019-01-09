@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 14:35:49 +0200
 Subject: [PATCH] fs/dcache: use swait_queue instead of waitqueue
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 __d_lookup_done() invokes wake_up_all() while holding a hlist_bl_lock()
 which disables preemption. As a workaround convert it to swait.
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2448,21 +2448,24 @@ static inline void end_dir_add(struct in
+@@ -2421,21 +2421,24 @@ static inline void end_dir_add(struct in
  
  static void d_wait_lookup(struct dentry *dentry)
  {
@@ -55,7 +55,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +
 +	INIT_LIST_HEAD(&__wait.task_list);
 +	do {
-+		prepare_to_swait(dentry->d_wait, &__wait, TASK_UNINTERRUPTIBLE);
++		prepare_to_swait_exclusive(dentry->d_wait, &__wait, TASK_UNINTERRUPTIBLE);
 +		spin_unlock(&dentry->d_lock);
 +		schedule();
 +		spin_lock(&dentry->d_lock);
@@ -70,7 +70,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	unsigned int hash = name->hash;
  	struct hlist_bl_head *b = in_lookup_hash(parent, hash);
-@@ -2577,7 +2580,7 @@ void __d_lookup_done(struct dentry *dent
+@@ -2550,7 +2553,7 @@ void __d_lookup_done(struct dentry *dent
  	hlist_bl_lock(b);
  	dentry->d_flags &= ~DCACHE_PAR_LOOKUP;
  	__hlist_bl_del(&dentry->d_u.d_in_lookup_hash);
@@ -81,7 +81,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	INIT_HLIST_NODE(&dentry->d_u.d_alias);
 --- a/fs/fuse/dir.c
 +++ b/fs/fuse/dir.c
-@@ -1196,7 +1196,7 @@ static int fuse_direntplus_link(struct f
+@@ -1203,7 +1203,7 @@ static int fuse_direntplus_link(struct f
  	struct inode *dir = d_inode(parent);
  	struct fuse_conn *fc;
  	struct inode *inode;
@@ -92,7 +92,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/*
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -1604,7 +1604,7 @@ static struct dentry *__lookup_slow(cons
+@@ -1645,7 +1645,7 @@ static struct dentry *__lookup_slow(cons
  {
  	struct dentry *dentry, *old;
  	struct inode *inode = dir->d_inode;
@@ -101,7 +101,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Don't go there if it's already dead */
  	if (unlikely(IS_DEADDIR(inode)))
-@@ -3121,7 +3121,7 @@ static int lookup_open(struct nameidata
+@@ -3135,7 +3135,7 @@ static int lookup_open(struct nameidata
  	struct dentry *dentry;
  	int error, create_error = 0;
  	umode_t mode = op->mode;
@@ -121,9 +121,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct dentry *dentry;
  	struct dentry *alias;
  	struct inode *dir = d_inode(parent);
-@@ -1454,7 +1454,7 @@ int nfs_atomic_open(struct inode *dir, s
+@@ -1459,7 +1459,7 @@ int nfs_atomic_open(struct inode *dir, s
  		    struct file *file, unsigned open_flags,
- 		    umode_t mode, int *opened)
+ 		    umode_t mode)
  {
 -	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(wq);
 +	DECLARE_SWAIT_QUEUE_HEAD_ONSTACK(wq);
@@ -152,7 +152,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	spin_lock(&dentry->d_lock);
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
-@@ -1878,7 +1878,7 @@ bool proc_fill_cache(struct file *file,
+@@ -1876,7 +1876,7 @@ bool proc_fill_cache(struct file *file,
  
  	child = d_hash_and_lookup(dir, &qname);
  	if (!child) {
@@ -183,7 +183,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	};
  	struct list_head d_child;	/* child of parent list */
  	struct list_head d_subdirs;	/* our children */
-@@ -238,7 +238,7 @@ extern struct dentry * d_alloc(struct de
+@@ -236,7 +236,7 @@ extern struct dentry * d_alloc(struct de
  extern struct dentry * d_alloc_anon(struct super_block *);
  extern struct dentry * d_alloc_pseudo(struct super_block *, const struct qstr *);
  extern struct dentry * d_alloc_parallel(struct dentry *, const struct qstr *,
@@ -194,7 +194,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  extern struct dentry * d_exact_alias(struct dentry *, struct inode *);
 --- a/include/linux/nfs_xdr.h
 +++ b/include/linux/nfs_xdr.h
-@@ -1536,7 +1536,7 @@ struct nfs_unlinkdata {
+@@ -1549,7 +1549,7 @@ struct nfs_unlinkdata {
  	struct nfs_removeargs args;
  	struct nfs_removeres res;
  	struct dentry *dentry;

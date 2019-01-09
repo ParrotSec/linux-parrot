@@ -4,7 +4,6 @@ import os.path
 import pickle
 import re
 import sys
-import textwrap
 
 from configparser import RawConfigParser
 
@@ -22,19 +21,16 @@ class SchemaItemBoolean(object):
             return True
         if i in ("false", "0"):
             return False
-        raise Error
+        raise ValueError
 
 
 class SchemaItemInteger(object):
     def __call__(self, i):
-        try:
-            return int(i.strip(), 0)
-        except ValueError:
-            raise Error
+        return int(i.strip(), 0)
 
 
 class SchemaItemList(object):
-    def __init__(self, type="\s+"):
+    def __init__(self, type=r"\s+"):
         self.type = type
 
     def __call__(self, i):
@@ -50,7 +46,8 @@ class ConfigCore(collections.OrderedDict):
         temp = []
 
         if arch and featureset and flavour:
-            temp.append(self.get((section, arch, featureset, flavour), {}).get(key))
+            temp.append(self.get((section, arch, featureset, flavour), {})
+                        .get(key))
             temp.append(self.get((section, arch, None, flavour), {}).get(key))
         if arch and featureset:
             temp.append(self.get((section, arch, featureset), {}).get(key))
@@ -157,13 +154,12 @@ class ConfigCoreHierarchy(object):
                 base['featuresets'] = featuresets
                 del base['flavours']
                 ret['base', arch] = base
-                ret['base', arch, 'none'] = {'flavours': flavours, 'implicit-flavour': True}
+                ret['base', arch, 'none'] = {'flavours': flavours,
+                                             'implicit-flavour': True}
 
         def read_arch_featureset(self, ret, arch, featureset):
             config = ConfigParser(self.schema)
             config.read(self.get_files(arch, featureset))
-
-            flavours = config['base', ].get('flavours', [])
 
             for section in iter(config):
                 real = (section[-1], arch, featureset) + section[:-1]
@@ -207,7 +203,7 @@ class ConfigParser(object):
     def __init__(self, schemas):
         self.schemas = schemas
 
-        self._config = config = RawConfigParser()
+        self._config = RawConfigParser()
 
     def __getitem__(self, key):
         return self._convert()[key]
@@ -241,7 +237,7 @@ class ConfigParser(object):
                 value = schema[key](value)
             ret[key] = value
         return ret
- 
+
     def keys(self):
         return self._convert().keys()
 
@@ -250,10 +246,10 @@ class ConfigParser(object):
 
 
 if __name__ == '__main__':
-    import sys
     sys.path.append('debian/lib/python')
     config = ConfigCoreDump(open('debian/config.defines.dump', 'rb'))
-    for section, items in sorted(config.items(), key=lambda a:tuple(i or '' for i in a[0])):
+    for section, items in sorted(config.items(),
+                                 key=(lambda a: tuple(i or '' for i in a[0]))):
         print(u"[%s]" % (section,))
         for item, value in sorted(items.items()):
             print(u"%s: %s" % (item, value))

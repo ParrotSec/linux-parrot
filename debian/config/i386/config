@@ -1,4 +1,9 @@
 ##
+## file: arch/Kconfig
+##
+CONFIG_ARCH_MMAP_RND_BITS=8
+
+##
 ## file: arch/x86/Kconfig
 ##
 # CONFIG_64BIT is not set

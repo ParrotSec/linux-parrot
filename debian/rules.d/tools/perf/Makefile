@@ -16,13 +16,13 @@ else ifeq ($(KERNEL_ARCH),x86)
   endif
 endif
 
-MAKE_PERF := $(MAKE) O=$(CURDIR) prefix=/usr V=1 ARCH=$(KERNEL_ARCH) EXTRA_WARNINGS=-Wno-error EXTRA_CFLAGS='$(CFLAGS) $(CPPFLAGS)' LDFLAGS='$(LDFLAGS)'
+MAKE_PERF := $(MAKE) O=$(CURDIR) prefix=/usr V=1 VF=1 ARCH=$(KERNEL_ARCH) WERROR=0 EXTRA_CFLAGS='$(CFLAGS) $(CPPFLAGS)' LDFLAGS='$(LDFLAGS)'
 
 # Disable Gtk UI until it's more usable
 MAKE_PERF += NO_GTK2=1
 
 # Include version in all directory names
-MAKE_PERF += perfexecdir=lib/perf_$(VERSION)-core plugindir=/usr/lib/traceevent_$(VERSION)/plugins STRACE_GROUPS_DIR=share/perf_$(VERSION)-core/strace/groups tipdir=share/doc/linux-perf-$(VERSION)
+MAKE_PERF += perfexecdir=lib/perf_$(VERSION)-core plugindir=/usr/lib/traceevent_$(VERSION)/plugins STRACE_GROUPS_DIR=share/perf_$(VERSION)-core/strace/groups tipdir=share/doc/linux-perf-$(VERSION) perf_include_dir=include/perf_$(VERSION) perf_examples_dir=share/doc/linux-perf-$(VERSION)/examples
 
 # perf can link against libbfd if available, but the result is
 # undistributable as they are licenced under GPL v2 and v3+
@@ -76,6 +76,6 @@ endif
 		$(DESTDIR)/usr/share/bash-completion/completions
 	rmdir --ignore-fail-on-non-empty $(DESTDIR)/etc
 # Check for unversioned files that are likely to result in file conflicts
-	! find $(DESTDIR) -name '*perf*' \! -path '*[_-]$(VERSION)*' | grep .
+	cd $(DESTDIR) && ! find \! -type d \! -path '*[_-]$(VERSION)*' | grep .
 
 endif # !nopython

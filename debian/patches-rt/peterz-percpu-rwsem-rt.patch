@@ -1,7 +1,7 @@
 Subject: locking/percpu-rwsem: Remove preempt_disable variants
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Wed Nov 23 16:29:32 CET 2016
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Effective revert commit:
 
@@ -19,7 +19,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 
 --- a/fs/locks.c
 +++ b/fs/locks.c
-@@ -945,7 +945,7 @@ static int flock_lock_inode(struct inode
+@@ -936,7 +936,7 @@ static int flock_lock_inode(struct inode
  			return -ENOMEM;
  	}
  
@@ -28,7 +28,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	spin_lock(&ctx->flc_lock);
  	if (request->fl_flags & FL_ACCESS)
  		goto find_conflict;
-@@ -986,7 +986,7 @@ static int flock_lock_inode(struct inode
+@@ -977,7 +977,7 @@ static int flock_lock_inode(struct inode
  
  out:
  	spin_unlock(&ctx->flc_lock);
@@ -37,7 +37,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	if (new_fl)
  		locks_free_lock(new_fl);
  	locks_dispose_list(&dispose);
-@@ -1023,7 +1023,7 @@ static int posix_lock_inode(struct inode
+@@ -1015,7 +1015,7 @@ static int posix_lock_inode(struct inode
  		new_fl2 = locks_alloc_lock();
  	}
  
@@ -46,7 +46,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	spin_lock(&ctx->flc_lock);
  	/*
  	 * New lock request. Walk all POSIX locks and look for conflicts. If
-@@ -1195,7 +1195,7 @@ static int posix_lock_inode(struct inode
+@@ -1187,7 +1187,7 @@ static int posix_lock_inode(struct inode
  	}
   out:
  	spin_unlock(&ctx->flc_lock);
@@ -55,7 +55,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	/*
  	 * Free any unused locks.
  	 */
-@@ -1470,7 +1470,7 @@ int __break_lease(struct inode *inode, u
+@@ -1462,7 +1462,7 @@ int __break_lease(struct inode *inode, u
  		return error;
  	}
  
@@ -64,7 +64,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	spin_lock(&ctx->flc_lock);
  
  	time_out_leases(inode, &dispose);
-@@ -1522,13 +1522,13 @@ int __break_lease(struct inode *inode, u
+@@ -1514,13 +1514,13 @@ int __break_lease(struct inode *inode, u
  	locks_insert_block(fl, new_fl);
  	trace_break_lease_block(inode, new_fl);
  	spin_unlock(&ctx->flc_lock);
@@ -80,7 +80,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	spin_lock(&ctx->flc_lock);
  	trace_break_lease_unblock(inode, new_fl);
  	locks_delete_block(new_fl);
-@@ -1545,7 +1545,7 @@ int __break_lease(struct inode *inode, u
+@@ -1537,7 +1537,7 @@ int __break_lease(struct inode *inode, u
  	}
  out:
  	spin_unlock(&ctx->flc_lock);
@@ -89,7 +89,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	locks_dispose_list(&dispose);
  	locks_free_lock(new_fl);
  	return error;
-@@ -1617,7 +1617,7 @@ int fcntl_getlease(struct file *filp)
+@@ -1609,7 +1609,7 @@ int fcntl_getlease(struct file *filp)
  
  	ctx = smp_load_acquire(&inode->i_flctx);
  	if (ctx && !list_empty_careful(&ctx->flc_lease)) {
@@ -98,7 +98,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  		spin_lock(&ctx->flc_lock);
  		time_out_leases(inode, &dispose);
  		list_for_each_entry(fl, &ctx->flc_lease, fl_list) {
-@@ -1627,7 +1627,7 @@ int fcntl_getlease(struct file *filp)
+@@ -1619,7 +1619,7 @@ int fcntl_getlease(struct file *filp)
  			break;
  		}
  		spin_unlock(&ctx->flc_lock);
@@ -107,7 +107,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  
  		locks_dispose_list(&dispose);
  	}
-@@ -1702,7 +1702,7 @@ generic_add_lease(struct file *filp, lon
+@@ -1693,7 +1693,7 @@ generic_add_lease(struct file *filp, lon
  		return -EINVAL;
  	}
  
@@ -116,7 +116,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	spin_lock(&ctx->flc_lock);
  	time_out_leases(inode, &dispose);
  	error = check_conflicting_open(dentry, arg, lease->fl_flags);
-@@ -1773,7 +1773,7 @@ generic_add_lease(struct file *filp, lon
+@@ -1764,7 +1764,7 @@ generic_add_lease(struct file *filp, lon
  		lease->fl_lmops->lm_setup(lease, priv);
  out:
  	spin_unlock(&ctx->flc_lock);
@@ -125,7 +125,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	locks_dispose_list(&dispose);
  	if (is_deleg)
  		inode_unlock(inode);
-@@ -1796,7 +1796,7 @@ static int generic_delete_lease(struct f
+@@ -1787,7 +1787,7 @@ static int generic_delete_lease(struct f
  		return error;
  	}
  
@@ -134,7 +134,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	spin_lock(&ctx->flc_lock);
  	list_for_each_entry(fl, &ctx->flc_lease, fl_list) {
  		if (fl->fl_file == filp &&
-@@ -1809,7 +1809,7 @@ static int generic_delete_lease(struct f
+@@ -1800,7 +1800,7 @@ static int generic_delete_lease(struct f
  	if (victim)
  		error = fl->fl_lmops->lm_change(victim, F_UNLCK, &dispose);
  	spin_unlock(&ctx->flc_lock);
@@ -143,7 +143,7 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
  	locks_dispose_list(&dispose);
  	return error;
  }
-@@ -2540,13 +2540,13 @@ locks_remove_lease(struct file *filp, st
+@@ -2531,13 +2531,13 @@ locks_remove_lease(struct file *filp, st
  	if (list_empty(&ctx->flc_lease))
  		return;
  

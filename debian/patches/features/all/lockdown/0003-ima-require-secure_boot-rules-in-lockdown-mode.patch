@@ -9,15 +9,16 @@ in secure boot lockdown mode.
 
 Signed-off-by: Mimi Zohar <zohar@linux.vnet.ibm.com>
 Signed-off-by: David Howells <dhowells@redhat.com>
-[bwh: Adjust context to apply after commit 6f0911a666d1
- "ima: fix updating the ima_appraise flag"]
+[bwh: Adjust context to apply after commits 6f0911a666d1
+ "ima: fix updating the ima_appraise flag" and ef96837b0de4
+ "ima: add build time policy"]
 ---
  security/integrity/ima/ima_policy.c | 39 +++++++++++++++++++++++++++----------
  1 file changed, 29 insertions(+), 10 deletions(-)
 
 --- a/security/integrity/ima/ima_policy.c
 +++ b/security/integrity/ima/ima_policy.c
-@@ -459,14 +459,21 @@ static int ima_appraise_flag(enum ima_ho
+@@ -481,14 +481,21 @@ static int ima_appraise_flag(enum ima_ho
   */
  void __init ima_init_policy(void)
  {
@@ -45,13 +46,12 @@ Signed-off-by: David Howells <dhowells@redhat.com>
  
  	for (i = 0; i < measure_entries; i++)
  		list_add_tail(&dont_measure_rules[i].list, &ima_default_rules);
-@@ -487,12 +494,24 @@ void __init ima_init_policy(void)
- 
+@@ -510,11 +517,24 @@ void __init ima_init_policy(void)
  	/*
- 	 * Insert the appraise rules requiring file signatures, prior to
--	 * any other appraise rules.
-+	 * any other appraise rules.  In secure boot lock-down mode, also
-+	 * require these appraise rules for custom policies.
+ 	 * Insert the builtin "secure_boot" policy rules requiring file
+ 	 * signatures, prior to any other appraise rules.
++	 * In secure boot lock-down mode, also require these appraise
++	 * rules for custom policies.
  	 */
  	for (i = 0; i < secure_boot_entries; i++) {
 +		struct ima_rule_entry *entry;
@@ -70,4 +70,4 @@ Signed-off-by: David Howells <dhowells@redhat.com>
 +		}
  	}
  
- 	for (i = 0; i < appraise_entries; i++) {
+ 	/*

@@ -1,3 +1,543 @@
+linux (4.19.13-1parrot1.13t) testing; urgency=medium
+
+  * Import new Debian release.
+  * Change version abiname naming convention
+        +(https://nest.parrotsec.org/parrot-organization/parrot-standards-codex/issues/2).
+  * Re-import parrot/kali patches.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Wed, 09 Jan 2019 14:57:37 +0100
+
+linux (4.19.13-1) unstable; urgency=medium
+
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.13
+    - Revert "vfs: Allow userns root to call mknod on owned filesystems."
+    - USB: hso: Fix OOB memory access in hso_probe/hso_get_config_data
+      (CVE-2018-19985)
+    - xhci: Don't prevent USB2 bus suspend in state check intended for USB3
+      only
+    - USB: xhci: fix 'broken_suspend' placement in struct xchi_hcd
+    - USB: serial: option: add GosunCn ZTE WeLink ME3630
+    - USB: serial: option: add HP lt4132
+    - USB: serial: option: add Simcom SIM7500/SIM7600 (MBIM mode)
+    - USB: serial: option: add Fibocom NL668 series
+    - USB: serial: option: add Telit LN940 series
+    - ubifs: Handle re-linking of inodes correctly while recovery
+    - scsi: t10-pi: Return correct ref tag when queue has no integrity profile
+    - scsi: sd: use mempool for discard special page
+    - mmc: core: Reset HPI enabled state during re-init and in case of errors
+    - mmc: core: Allow BKOPS and CACHE ctrl even if no HPI support
+    - mmc: core: Use a minimum 1600ms timeout when enabling CACHE ctrl
+    - [armhf] mmc: omap_hsmmc: fix DMA API warning
+    - gpiolib-acpi: Only defer request_irq for GpioInt ACPI event handlers
+    - posix-timers: Fix division by zero bug
+    - [x86] KVM: Fix NULL deref in vcpu_scan_ioapic
+    - [x86] kvm: Add AMD's EX_CFG to the list of ignored MSRs
+    - [x86] KVM: Fix UAF in nested posted interrupt processing
+    - [x86] Drivers: hv: vmbus: Return -EINVAL for the sys files for unopened
+      channels
+    - futex: Cure exit race
+    - [x86] mtrr: Don't copy uninitialized gentry fields back to userspace
+    - [x86] mm: Fix decoy address handling vs 32-bit builds (Closes: #917569)
+    - [x86] vdso: Pass --eh-frame-hdr to the linker
+    - panic: avoid deadlocks in re-entrant console drivers
+    - mm: add mm_pxd_folded checks to pgtable_bytes accounting functions
+    - mm: make the __PAGETABLE_PxD_FOLDED defines non-empty
+    - mm: introduce mm_[p4d|pud|pmd]_folded
+    - xfrm_user: fix freeing of xfrm states on acquire
+    - rtlwifi: Fix leak of skb when processing C2H_BT_INFO
+    - iwlwifi: mvm: don't send GEO_TX_POWER_LIMIT to old firmwares
+    - Revert "mwifiex: restructure rx_reorder_tbl_lock usage"
+    - iwlwifi: add new cards for 9560, 9462, 9461 and killer series
+    - mm, memory_hotplug: initialize struct pages for the full memory section
+    - mm: thp: fix flags for pmd migration when split
+    - mm, page_alloc: fix has_unmovable_pages for HugePages
+    - mm: don't miss the last page because of round-off error
+    - Input: elantech - disable elan-i2c for P52 and P72
+    - proc/sysctl: don't return ENOMEM on lookup when a table is unregistering
+    - drm/ioctl: Fix Spectre v1 vulnerabilities
+
+  [ Uwe Kleine-König ]
+  * [armhf] enable some kconfig items for Allwinner SoCs (SUNXI_CCU=y,
+    SUN8I_DE2_CCU=y, DRM_SUN8I_DW_HDMI=m, SND_SUN8I_CODEC=m,
+    SND_SUN8I_CODEC_ANALOG=m). (Closes: #915899)
+
+  [ Ben Hutchings ]
+  * linux-image-*-unsigned: Remove Provides field (Closes: #916927)
+  * [ia64,m68k] libbpf: Don't build on architectures without performance events
+  * [riscv64] tools uapi: fix RISC-V 64-bit support
+  * [powerpc,powerpcspe,ppc64] linux-config: Eliminate config.*_bootwrapper.gz
+    files
+  * [powerpcspe] Fix -mcpu= options for SPE-only compiler
+  * debian/lib/python/debian_linux/debian.py: Fix deprecated import of
+    MutableSet
+  * Fix pycodestyle "line break after binary operator" warnings
+  * Fix pycodestyle "inalid escape sequence" warnings
+
+  [ Romain Perier ]
+  * [rt] Update to 4.19.10-rt8
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Sun, 30 Dec 2018 10:04:03 +0100
+
+linux (4.19.12-1) unstable; urgency=medium
+
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.10
+    - ipv4: ipv6: netfilter: Adjust the frag mem limit when truesize changes
+    - ipv6: Check available headroom in ip6_xmit() even without options
+    - ipv6: sr: properly initialize flowi6 prior passing to ip6_route_output
+    - [arm64, hppa, powerpc, x86, alpha, armhf, mips*] net: 8139cp: fix a BUG
+      triggered by changing mtu with network traffic
+    - net: phy: don't allow __set_phy_supported to add unsupported modes
+    - net: Prevent invalid access to skb->prev in __qdisc_drop_all
+    - net: use skb_list_del_init() to remove from RX sublists
+    - Revert "net/ibm/emac: wrong bit is used for STA control"
+    - rtnetlink: ndo_dflt_fdb_dump() only work for ARPHRD_ETHER devices
+    - sctp: kfree_rcu asoc
+    - tcp: Do not underestimate rwnd_limited
+    - tcp: fix NULL ref in tail loss probe
+    - tun: forbid iface creation with rtnl ops
+    - virtio-net: keep vnet header zeroed after processing XDP
+    - net: phy: sfp: correct store of detected link modes
+    - sctp: update frag_point when stream_interleave is set
+    - net: restore call to netdev_queue_numa_node_write when resetting XPS
+    - net: fix XPS static_key accounting
+    - [armhf] OMAP2+: prm44xx: Fix section annotation on
+      omap44xx_prm_enable_io_wakeup
+    - [arm64, x86] staging: rtl8723bs: Fix the return value in case of error in
+      'rtw_wx_read32()'
+    - [armhf] dts: am3517: Fix pinmuxing for CD on MMC1
+    - [armhf] dts: LogicPD Torpedo: Fix mmc3_dat1 interrupt
+    - [armhf] dts: logicpd-somlv: Fix interrupt on mmc3_dat1
+    - [armhf] dts: am3517-som: Fix WL127x Wifi interrupt
+    - tools: bpftool: prevent infinite loop in get_fdinfo()
+    - [arm64] dts: sdm845-mtp: Reserve reserved gpios
+    - sysv: return 'err' instead of 0 in __sysv_write_inode
+    - netfilter: nf_tables: don't skip inactive chains during update
+    - perf tools: Fix crash on synthesizing the unit
+    - netfilter: xt_RATEEST: remove netns exit routine
+    - netfilter: nf_tables: fix use-after-free when deleting compat expressions
+    - [armhf] ASoC: rockchip: add missing slave_config setting for I2S
+    - s390/cpum_cf: Reject request for sampling in event initialization
+    - [arm64, armel, x86, armhf] ASoC: dapm: Recalculate audio map forcely when
+      card instantiated
+    - [armhf] spi: omap2-mcspi: Add missing suspend and resume calls
+    - bpf: allocate local storage buffers using GFP_ATOMIC
+    - aio: fix failure to put the file pointer
+    - netfilter: xt_hashlimit: fix a possible memory leak in htable_create()
+    - hwmon: (w83795) temp4_type has writable permission
+    - perf tools: Restore proper cwd on return from mnt namespace
+    - [armhf] PCI: imx6: Fix link training status detection in link up check
+    - objtool: Fix double-free in .cold detection error path
+    - objtool: Fix segfault in .cold detection with -ffunction-sections
+    - [arm64] phy: qcom-qusb2: Use HSTX_TRIM fused value as is
+    - [arm64] phy: qcom-qusb2: Fix HSTX_TRIM tuning with fused value for SDM845
+    - Btrfs: send, fix infinite loop due to directory rename dependencies
+    - RDMA/mlx5: Fix fence type for IB_WR_LOCAL_INV WR
+    - RDMA/core: Add GIDs while changing MAC addr only for registered ndev
+    - RDMA/rdmavt: Fix rvt_create_ah function signature
+    - tools: bpftool: fix potential NULL pointer dereference in do_load
+    - ipvs: call ip_vs_dst_notifier earlier than ipv6_dev_notf
+    - [x86] thunderbolt: Prevent root port runtime suspend during NVM upgrade
+    - [arm64] drm/meson: add support for 1080p25 mode
+    - netfilter: ipv6: Preserve link scope traffic original oif
+    - IB/mlx5: Fix page fault handling for MW
+    - netfilter: add missing error handling code for register functions
+    - [x86] KVM: VMX: Update shared MSRs to be saved/restored on MSR_EFER.LMA
+      changes
+    - [x86] kvm/vmx: fix old-style function declaration
+    - [arm64] net: thunderx: fix NULL pointer dereference in nic_remove
+    - netfilter: nf_tables: deactivate expressions in rule replecement routine
+    - ALSA: usb-audio: Add vendor and product name for Dell WD19 Dock
+    - cachefiles: Fix an assertion failure when trying to update a failed object
+    - fscache: Fix race in fscache_op_complete() due to split atomic_sub & read
+    - cachefiles: Fix page leak in cachefiles_read_backing_file while vmscan is
+      active
+    - igb: fix uninitialized variables
+    - ixgbe: recognize 1000BaseLX SFP modules as 1Gbps
+    - [arm64] net: hisilicon: remove unexpected free_netdev
+    - drm/amdgpu: Add delay after enable RLC ucode
+    - [arm64, powerpc, x86] drm/ast: fixed reading monitor EDID not stable issue
+    - Revert "xen/balloon: Mark unallocated host memory as UNUSABLE"
+    - afs: Fix validation/callback interaction
+    - fscache: fix race between enablement and dropping of object
+    - cachefiles: Explicitly cast enumerated type in put_object
+    - fscache, cachefiles: remove redundant variable 'cache'
+    - nvme: warn when finding multi-port subsystems without multipathing enabled
+    - ocfs2: fix deadlock caused by ocfs2_defrag_extent()
+    - mm/page_alloc.c: fix calculation of pgdat->nr_zones
+    - hfs: do not free node before using
+    - hfsplus: do not free node before using
+    - initramfs: clean old path before creating a hardlink
+    - ocfs2: fix potential use after free
+    - dax: Check page->mapping isn't NULL
+    - ALSA: hda/realtek - Fixed headphone issue for ALC700
+    - ALSA: hda/realtek: ALC294 mic and headset-mode fixups for ASUS X542UN
+    - ALSA: hda/realtek: Enable audio jacks of ASUS UX533FD with ALC294
+    - ALSA: hda/realtek: Enable audio jacks of ASUS UX433FN/UX333FA with ALC294
+    - ALSA: hda/realtek - Fix the mute LED regresion on Lenovo X1 Carbon
+    - IB/hfi1: Fix an out-of-bounds access in get_hw_stats
+    - bpf: fix off-by-one error in adjust_subprog_starts
+    - tcp: lack of available data can also cause TSO defer
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.11
+    - sched/pelt: Fix warning and clean up IRQ PELT config
+    - scsi: raid_attrs: fix unused variable warning
+    - [i386] staging: olpc_dcon: add a missing dependency
+    - [arm64] dts: qcom-apq8064-arrow-sd-600eval fix graph_endpoint warning
+    - [arm64] drm/msm: fix address space warning
+    - aio: fix spectre gadget in lookup_ioctx
+    - fs/iomap.c: get/put the page in iomap_page_create/release()
+    - userfaultfd: check VM_MAYWRITE was set after verifying the uffd is
+      registered
+    - [arm64] dma-mapping: Fix FORCE_CONTIGUOUS buffer clearing
+    - block/bio: Do not zero user pages
+    - ovl: fix decode of dir file handle with multi lower layers
+    - ovl: fix missing override creds in link of a metacopy upper
+    - [armhf] MMC: OMAP: fix broken MMC on OMAP15XX/OMAP5910/OMAP310
+    - mmc: core: use mrq->sbc when sending CMD23 for RPMB
+    - mmc: sdhci: fix the timeout check window for clock and reset
+    - fuse: continue to send FUSE_RELEASEDIR when FUSE_OPEN returns ENOSYS
+    - [arm] mmp/mmp2: fix cpu_is_mmp2() on mmp2-dt
+    - [arm] dts: bcm2837: Fix polarity of wifi reset GPIOs (Closes: #911443)
+    - dm thin: send event about thin-pool state change _after_ making it
+    - dm cache metadata: verify cache has blocks in
+      blocks_are_clean_separate_dirty()
+    - dm: call blk_queue_split() to impose device limits on bios
+    - tracing: Fix memory leak of instance function hash filters
+    - [powerpc*] msi: Fix NULL pointer access in teardown code
+    - drm/nouveau/kms: Fix memory leak in nv50_mstm_del()
+    - drm/nouveau/kms/nv50-: also flush fb writes when rewinding push buffer
+    - Revert "drm/rockchip: Allow driver to be shutdown on reboot/kexec"
+    - [x86] drm/i915/execlists: Apply a full mb before execution for Braswell
+    - [amd64] drm/amdkfd: add new vega10 pci ids
+    - drm/amdgpu: add some additional vega10 pci ids
+    - drm/amdgpu: update smu firmware images for VI variants (v2)
+    - drm/amdgpu: update SMC firmware image for polaris10 variants
+    - [x86] build: Fix compiler support check for CONFIG_RETPOLINE
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.12
+    - locking/qspinlock: Re-order code
+    - [x86] locking/qspinlock, x86: Provide liveness guarantee
+    - [amd64] IB/hfi1: Remove race conditions in user_sdma send path
+    - mac80211_hwsim: fix module init error paths for netlink
+    - [x86] Input: hyper-v - fix wakeup from suspend-to-idle
+    - scsi: libiscsi: Fix NULL pointer dereference in iscsi_eh_session_reset
+    - [x86] scsi: vmw_pscsi: Rearrange code to avoid multiple calls to
+      free_irq during unload
+    - [x86] earlyprintk/efi: Fix infinite loop on some screen widths
+    - [arm64] drm/msm: Fix task dump in gpu recovery
+    - [arm64] drm/msm/gpu: Fix a couple memory leaks in debugfs
+    - [arm64] drm/msm: fix handling of cmdstream offset
+    - [arm64] drm/msm/dsi: configure VCO rate for 10nm PLL driver
+    - [arm64] drm/msm: Grab a vblank reference when waiting for commit_done
+    - drm/ttm: fix LRU handling in ttm_buffer_object_transfer
+    - drm/amdgpu: wait for IB test on first device open
+    - [arm64,armhf] net: stmmac: Move debugfs init/exit to
+      ->probe()/->remove()
+    - [amd64] net: aquantia: fix rx checksum offload bits
+    - bonding: fix 802.3ad state sent to partner when unbinding slave
+    - liquidio: read sc->iq_no before release sc
+    - nfs: don't dirty kernel pages read by direct-io
+    - SUNRPC: Fix a potential race in xprt_connect()
+    - [sparc64] sbus: char: add of_node_put()
+    - [sparc64] drivers/sbus/char: add of_node_put()
+    - [sparc64] drivers/tty: add missing of_node_put()
+    - [arm64] drm/msm/hdmi: Enable HPD after HDMI IRQ is set up
+    - [amr64] drm/msm: dpu: Don't set legacy plane->crtc pointer
+    - [arm64] drm/msm: dpu: Fix "WARNING: invalid free of devm_ allocated
+      data"
+    - [arm64] drm/msm: Fix error return checking
+    - [arm64] clk: mvebu: Off by one bugs in cp110_of_clk_get()
+    - Input: synaptics - enable SMBus for HP 15-ay000
+    - [armhf] Input: omap-keypad - fix keyboard debounce configuration
+    - libata: whitelist all SAMSUNG MZ7KM* solid-state disks
+    - macvlan: return correct error value
+    - [arm64,armhf] mv88e6060: disable hardware level MAC learning
+    - net/mlx4_en: Fix build break when CONFIG_INET is off
+    - bpf: check pending signals while verifying programs
+    - [arm*] 8814/1: mm: improve/fix ARM v7_dma_inv_range() unaligned address
+      handling
+    - [arm*] 8815/1: V7M: align v7m_dma_inv_range() with v7 counterpart
+    - [arm*] 8816/1: dma-mapping: fix potential uninitialized return
+    - [arm64,armhf] thermal: armada: fix legacy validity test sense
+    - [arm64,armhf] net: mvpp2: fix detection of 10G SFP modules
+    - [arm64,armhf] net: mvpp2: fix phylink handling of invalid PHY modes
+    - drm/amdgpu/vcn: Update vcn.cur_state during suspend
+    - [amd64,arm64] acpi/nfit: Fix user-initiated ARS to be "ARS-long" rather
+      than "ARS-short"
+    - drm/ast: Fix connector leak during driver unload
+    - cifs: In Kconfig CONFIG_CIFS_POSIX needs depends on legacy (insecure
+      cifs)
+    - vhost/vsock: fix reset orphans race with close timeout
+    - [x86] i2c: scmi: Fix probe error on devices with an empty SMB0001 ACPI
+      device node
+    - nvme: validate controller state before rescheduling keep alive
+    - nvmet-rdma: fix response use after free
+    - Btrfs: fix missing delayed iputs on unmount
+
+  [ Uwe Kleine-König ]
+  * [arm] Fix probing of 3rd gpio device on Armada 370.
+
+  [ Ben Hutchings ]
+  * linux-perf: Fix build-time check for unversioned files
+  * linux-perf: Fix installation directories for BPF headers and examples
+    (Closes: #916774)
+
+  [ Noah Meyerhans ]
+  * drivers/net/ethernet/amazon: Backport v2.0.2 from Linux 4.20
+
+  [ Bastian Blank ]
+  * Ignore various ABI changes.
+
+  [ Salvatore Bonaccorso ]
+  * iomap: Revert "fs/iomap.c: get/put the page in
+    iomap_page_create/release()"
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Sat, 22 Dec 2018 09:06:45 +0100
+
+linux (4.19.9-1) unstable; urgency=medium
+
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.6
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.7
+    - [x86] KVM: LAPIC: Fix pv ipis use-before-initialization (CVE-2018-19406)
+    - mm: cleancache: fix corruption on missed inode invalidation
+      (CVE-2018-16862)
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.8
+    - blk-mq: fix corruption with direct issue (Closes: #915666)
+    - userfaultfd: use ENOENT instead of EFAULT if the atomic copy user fails
+      (CVE-2018-18397)
+    - userfaultfd: shmem: allocate anonymous memory for MAP_PRIVATE shmem
+      (CVE-2018-18397)
+    - userfaultfd: shmem: add i_size checks (CVE-2018-18397)
+    - userfaultfd: shmem: UFFDIO_COPY: set the page dirty if VM_WRITE is not
+      set (CVE-2018-18397)
+    - blk-mq: punt failed direct issue to dispatch list
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.9
+    - ALSA: usb-audio: Fix UAF decrement if card has no live interfaces in
+      card.c (CVE-2018-19824)
+    - vhost/vsock: fix use-after-free in network stack callers
+      (CVE-2018-14625)
+
+  [ Marcin Juszkiewicz ]
+  * [arm64] Enable ACPI IMPI
+  * [arm64] Enable IPMI watchdog and power off support
+  * [arm64] Enable PCI Express hotplug
+  * [arm64] Enable PMU for several server cpus
+  * [arm64] Enable HiSilicon LPC for serial/ipmi access
+
+  [ Romain Perier ]
+  * [x86] Enable support for error detection and correction on the Intel
+    Pondicherry2 Integrated Memory Controller (Closes: #914946)
+  * [rt] Update to 4.19.8-rt6
+
+  [ Uwe Kleine-König ]
+  * Enable usb support for ATH10K (Closes: #915083)
+
+  [ Luca Boccassi ]
+  * debian/rules.real: Split the rules so that the [un]versioned_tools
+    knobs can be used to avoid building them. Fixes FTBFS with unversioned
+    tools disabled.
+  * perf: do not ship python2-only call-graph-from-sql script.
+  * Override Lintian warning dbg-package-missing-depends in source too.
+
+  [ Ben Hutchings ]
+  * debian/rules.real: Mark most targets as phony
+  * debian/rules: Mark more targets as phony
+  * libcpupower: Hide private function and drop it from .symbols file
+  * integrity: Disable INTEGRITY_TRUSTED_KEYRING (Closes: #865277)
+
+  [ Vagrant Cascadian ]
+  * debian/config/config: Enable Z3FOLD as a module.
+
+  [ Salvatore Bonaccorso ]
+  * Set ABI to 1
+
+  [ Nicolas Schier ]
+  * ovl: permit overlayfs mounts in user namespaces (Closes: #913880)
+
+  [ Hilko Bengen ]
+  * Add patches to build libbpf.so with SONAME, link against libelf
+  * Add versioned libbpf, libbpf-dev package (Closes: #914428)
+
+  [ Hans van Kranenburg ]
+  * [x86] Add patch to repair booting as Xen dom0 (Closes: #914951)
+  * [x86] Add patches to support booting a Xen PVH guest via Grub2
+
+  [ Christoph Anton Mitterer ]
+  * crypto: Enable MORUS and AEGIS AEAD ciphers (Closes: #914136)
+  * [amd64]: Enable AES-NI/SSE2/AVX2 optimised implementations of the MORUS
+    and AEGIS AEAD ciphers
+
+  [ Bastian Blank ]
+  * Enable NFT_CONNLIMIT, NFT_TUNNEL, NFT_SOCKET, NFT_OSF, NFT_TPROXY,
+    IP_VS_MH.
+  * Enable netfilter flow table support.
+  * [x86] Enable DRM_XEN_FRONTEND.
+  * Enable EFI_BOOTLOADER_CONTROL, EFI_CAPSULE_LOADER.
+
+ -- Bastian Blank <waldi@debian.org>  Sun, 16 Dec 2018 19:45:54 +0100
+
+linux (4.19.5-1~exp1) experimental; urgency=medium
+
+  * New upstream release: https://kernelnewbies.org/Linux_4.19
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.1
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.2
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.3
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.4
+    https://www.kernel.org/pub/linux/kernel/v4.x/ChangeLog-4.19.5
+
+  [ Ben Hutchings ]
+  * linux-perf: Enable verbose output for build-time feature detection
+  * udeb: Define mtd-core-modules package to contain MTD core if not built-in
+  * udeb: Move MTD core from nic-modules to mtd-core-modules
+  * debian/changelog: Move older entries to changelog.old
+  * debian/rules: Checksum only the source name and version from
+    debian/changelog
+  * Move generation of CONFIG_BUILD_SALT to gencontrol.py
+  * [x86] hyperv-daemons: Make all services conditional on device existence
+  * debian/rules.real: Fix build failure with pkg.linux.nosource profile
+  * debian/source/options: Delete redundant compression setting; satisfy
+    lintian
+  * Documentation/media: uapi: Explicitly say there are no Invariant Sections
+    (Closes: #698668)
+
+  [ Karsten Merker ]
+  * [riscv64] Build a kernel image and udebs for riscv64 (Closes: #908161)
+
+  [ Uwe Kleine-König ]
+  * [armhf,arm64] enable SND_BCM2835 as a module (Closes: #911121)
+  * Enable Orange filesystem (Closes: #911743)
+  * [arm64] Enable hns3 network driver as a module. (Closes: #914422)
+
+  [ Noah Meyerhans ]
+  * [cloud-amd64] Enable Amazon ENA ethernet driver (Closes: #910049)
+
+  [ Romain Perier ]
+  * [rt] Update to 4.19.1-rt3
+  * [rt] Update patch arm-disable-NEON-in-kernel-mode.patch, so it can be
+    applied onto 4.19.2
+  * [rt] Update patch
+    irq-allow-disabling-of-softirq-processing-in-irq-thread-context.patch, so
+    it can be applied onto 4.19.2
+  * [amd64] Enable AMD pinctrl driver (Closes: #908954)
+  * Enable Diffie-Hellman operations on retained keys (Closes: #911998)
+  * Update patch features/all/lockdown/enable-cold-boot-attack-mitigation.patch,
+    so it can be applied onto 4.19.2
+  * [x86] Enable DisplayPort CEC-Tunneling-over-AUX HDMI support
+    (Closes: #913199)
+
+ -- Bastian Blank <waldi@debian.org>  Tue, 27 Nov 2018 20:06:42 +0100
+
+linux (4.19~rc7-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Uwe Kleine-König ]
+  * [armhf] enable MVNETA_BM_ENABLE and CAN_FLEXCAN as a module
+  * enable NET_SCH_CAKE as a module (Closes: #908709)
+  * enable HID_NTI as a module (Closes: #910260)
+
+  [ Ben Hutchings ]
+  * linux-kbuild: Include scripts/subarch.include (Closes: #910348)
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 07 Oct 2018 23:48:27 +0100
+
+linux (4.19~rc6-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Ben Hutchings ]
+  * [ppc64el] udeb: Fix relative #include filenames in kernel-image module
+    list (really fixes FTBFS?)
+  * debian/bin, debian/lib/python: Fix most errors reported by pycodestyle
+  * debian/bin, debian/rules.real: Add symlink to Python package directory
+    instead of editing path
+  * debian/bin, debian/lib/python: Clean up imports based on pyflakes report
+  * debian/bin, debian/lib/python: Delete write-only vars reported by pyflakes
+  * debian/lib/python/debian_linux/gencontrol.py: Delete broken methods
+  * debian/lib/python/debian_linux/config.py: Fix undefined exception type
+  * Add Python static checks and unit tests to autopkgtest tests
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Wed, 03 Oct 2018 18:57:08 +0100
+
+linux (4.19~rc4-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Ben Hutchings ]
+  * debian/control: Add arch-qualification to build-dependencies for linux-perf
+    (Closes: #908519)
+  * debian/control: Build-depend on libunwind-dev instead of libunwind8-dev
+  * [hppa,mips*,powerpc*,sh4] debian/control: Build-depend on libunwind-dev for
+    linux-perf
+  * debian/control: Build-depend on libnuma-dev for linux-perf on all arches
+  * debian/control: Remove "cross" from profiles for build-dep on libssl-dev
+  * [mips64*] debian/control: Build-depend on gcc-multilib for linux-perf
+  * debian/lib/python: Use raw strings for all regexes
+  * debian/control: Fix restrictions for build-deps on asciidoctor and
+    patchutils
+  * Add support for specifying build-dependencies in binary package templates
+  * debian/templates: Move various build-dependencies to binary package
+    templates
+  * linux-perf: Fix generation of Perl and Python interpreter dependencies
+    (Closes: #908547)
+  * lockdep, lib{cpupower,lockdep}-dev: Remove bogus deps on ${shlibs:Depends}
+  * debian/rules.d/tools/power/linux-cpupower: Add "+" to recursive make
+    commands
+  * tools: x86_energy_perf_policy: Fix "uninitialized variable" warnings at -O2
+  * tools: turbostat: Add checks for failure of fgets() and fscanf()
+  * debian/control: Build-depend on texlive-latex-{base,extra}, dvipng for
+    linux-doc
+  * debian/rules{,.real}: Use /usr/share/dpkg/architecture.mk
+  * debian/signing_templates/rules: Use /usr/share/dpkg/architecture.mk
+  * linux-image-*-signed-template: Add ${misc:Depends} to Depends
+  * linux-image-*-signed-template: Include changelog and copyright files
+  * linux-image-*-signed-template: Depend on dpkg-dev
+  * linux-image-*-signed-template: Override lintian warnings about non-
+    executable scripts
+  * [ia64] udeb: Fix priority of sn-modules
+  * Revert "Revert "net: increase fragment memory usage limits"", as 4.19
+    includes a better fix for CVE-2018-5391
+  * debian/patches: Add Forwarded fields to several patches
+  * [ppc64el] udeb: Fix relative #include filenames in module lists (fixes
+    FTBFS)
+  * [ppc64] udeb: Revert accidental change to nic-pcmcia-modules dependencies
+    (fixes FTBFS)
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Tue, 18 Sep 2018 15:52:02 +0100
+
+linux (4.19~rc3-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Ben Hutchings ]
+  * [s390x] linux-image: Install compressed kernel image (fixes FTBFS)
+  * [powerpc*] boot: Fix missing crc32poly.h when building with KERNEL_XZ
+    (fixes FTBFS)
+  * [x86] boot: Fix EFI stub alignment
+  * wireless: Update "wireless: Disable regulatory.db direct loading" for
+    4.19-rc3
+  * aufs: Update support patchset to aufs4.x-rcN 20180910
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Mon, 10 Sep 2018 20:13:55 +0100
+
+linux (4.19~rc2-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Ben Hutchings ]
+  * aufs: Disable until it is updated for Linux 4.19
+  * debian/rules.d: Update for move of bin2c back up to scripts
+  * locking/lockdep: Delete unnecesary #include (fixes liblockdep build)
+  * [hppa] debian/control: Simplify build-dependencies for 64-bit toolchain
+  * Compile with gcc-8 on all architectures
+  * udeb: Merge configuration directories and files across architectures
+  * [alpha,hppa] udeb: Remove incorrect dependency overrides
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Mon, 03 Sep 2018 21:34:41 +0100
+
+
 linux (4.18.20-2parrot20) testing; urgency=medium
 
   * Import new Debian release.

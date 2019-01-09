@@ -1113,7 +1113,7 @@ route_lookup:
 			dst = NULL;
 			goto tx_err_link_failure;
 		}
-		if (t->parms.collect_md &&
+		if (t->parms.collect_md && ipv6_addr_any(&fl6->saddr) &&
 		    ipv6_dev_get_saddr(net, ip6_dst_idev(dst)->dev,
 				       &fl6->daddr, 0, &fl6->saddr))
 			goto tx_err_link_failure;
@@ -1184,7 +1184,14 @@ route_lookup:
 	}
 	skb_dst_set(skb, dst);
 
-	hop_limit = hop_limit ? : ip6_dst_hoplimit(dst);
+	if (hop_limit == 0) {
+		if (skb->protocol == htons(ETH_P_IP))
+			hop_limit = ip_hdr(skb)->ttl;
+		else if (skb->protocol == htons(ETH_P_IPV6))
+			hop_limit = ipv6_hdr(skb)->hop_limit;
+		else
+			hop_limit = ip6_dst_hoplimit(dst);
+	}
 
 	/* Calculate max headroom for all the headers and adjust
 	 * needed_headroom if necessary.
@@ -1257,6 +1264,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 		key = &tun_info->key;
 		memset(&fl6, 0, sizeof(fl6));
 		fl6.flowi6_proto = IPPROTO_IPIP;
+		fl6.saddr = key->u.ipv6.src;
 		fl6.daddr = key->u.ipv6.dst;
 		fl6.flowlabel = key->label;
 		dsfield =  key->tos;
@@ -1332,6 +1340,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 		key = &tun_info->key;
 		memset(&fl6, 0, sizeof(fl6));
 		fl6.flowi6_proto = IPPROTO_IPV6;
+		fl6.saddr = key->u.ipv6.src;
 		fl6.daddr = key->u.ipv6.dst;
 		fl6.flowlabel = key->label;
 		dsfield = key->tos;

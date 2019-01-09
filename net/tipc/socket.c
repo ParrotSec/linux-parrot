@@ -411,7 +411,6 @@ static int tipc_sk_sock_err(struct socket *sock, long *timeout)
 static int tipc_sk_create(struct net *net, struct socket *sock,
 			  int protocol, int kern)
 {
-	struct tipc_net *tn;
 	const struct proto_ops *ops;
 	struct sock *sk;
 	struct tipc_sock *tsk;
@@ -446,7 +445,6 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
 	INIT_LIST_HEAD(&tsk->publications);
 	INIT_LIST_HEAD(&tsk->cong_links);
 	msg = &tsk->phdr;
-	tn = net_generic(sock_net(sk), tipc_net_id);
 
 	/* Finish initializing socket data structures */
 	sock->ops = ops;
@@ -717,7 +715,7 @@ static __poll_t tipc_poll(struct file *file, struct socket *sock,
 	struct tipc_sock *tsk = tipc_sk(sk);
 	__poll_t revents = 0;
 
-	sock_poll_wait(file, sk_sleep(sk), wait);
+	sock_poll_wait(file, sock, wait);
 
 	if (sk->sk_shutdown & RCV_SHUTDOWN)
 		revents |= EPOLLRDHUP | EPOLLIN | EPOLLRDNORM;
@@ -1118,7 +1116,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
 	u32 self = tipc_own_addr(net);
 	u32 type, lower, upper, scope;
 	struct sk_buff *skb, *_skb;
-	u32 portid, oport, onode;
+	u32 portid, onode;
 	struct sk_buff_head tmpq;
 	struct list_head dports;
 	struct tipc_msg *hdr;
@@ -1134,7 +1132,6 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
 		user = msg_user(hdr);
 		mtyp = msg_type(hdr);
 		hlen = skb_headroom(skb) + msg_hdr_sz(hdr);
-		oport = msg_origport(hdr);
 		onode = msg_orignode(hdr);
 		type = msg_nametype(hdr);
 
@@ -1199,6 +1196,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
  * @skb: pointer to message buffer.
  */
 static void tipc_sk_conn_proto_rcv(struct tipc_sock *tsk, struct sk_buff *skb,
+				   struct sk_buff_head *inputq,
 				   struct sk_buff_head *xmitq)
 {
 	struct tipc_msg *hdr = buf_msg(skb);
@@ -1216,7 +1214,16 @@ static void tipc_sk_conn_proto_rcv(struct tipc_sock *tsk, struct sk_buff *skb,
 		tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
 				      tsk_peer_port(tsk));
 		sk->sk_state_change(sk);
-		goto exit;
+
+		/* State change is ignored if socket already awake,
+		 * - convert msg to abort msg and add to inqueue
+		 */
+		msg_set_user(hdr, TIPC_CRITICAL_IMPORTANCE);
+		msg_set_type(hdr, TIPC_CONN_MSG);
+		msg_set_size(hdr, BASIC_H_SIZE);
+		msg_set_hdr_sz(hdr, BASIC_H_SIZE);
+		__skb_queue_tail(inputq, skb);
+		return;
 	}
 
 	tsk->probe_unacked = false;
@@ -1541,16 +1548,17 @@ static void tipc_sk_set_orig_addr(struct msghdr *m, struct sk_buff *skb)
 /**
  * tipc_sk_anc_data_recv - optionally capture ancillary data for received message
  * @m: descriptor for message info
- * @msg: received message header
+ * @skb: received message buffer
  * @tsk: TIPC port associated with message
  *
  * Note: Ancillary data is not captured if not requested by receiver.
  *
  * Returns 0 if successful, otherwise errno
  */
-static int tipc_sk_anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
+static int tipc_sk_anc_data_recv(struct msghdr *m, struct sk_buff *skb,
 				 struct tipc_sock *tsk)
 {
+	struct tipc_msg *msg;
 	u32 anc_data[3];
 	u32 err;
 	u32 dest_type;
@@ -1559,6 +1567,7 @@ static int tipc_sk_anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
 
 	if (likely(m->msg_controllen == 0))
 		return 0;
+	msg = buf_msg(skb);
 
 	/* Optionally capture errored message object(s) */
 	err = msg ? msg_errcode(msg) : 0;
@@ -1569,6 +1578,9 @@ static int tipc_sk_anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
 		if (res)
 			return res;
 		if (anc_data[1]) {
+			if (skb_linearize(skb))
+				return -ENOMEM;
+			msg = buf_msg(skb);
 			res = put_cmsg(m, SOL_TIPC, TIPC_RETDATA, anc_data[1],
 				       msg_data(msg));
 			if (res)
@@ -1730,9 +1742,10 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m,
 
 	/* Collect msg meta data, including error code and rejected data */
 	tipc_sk_set_orig_addr(m, skb);
-	rc = tipc_sk_anc_data_recv(m, hdr, tsk);
+	rc = tipc_sk_anc_data_recv(m, skb, tsk);
 	if (unlikely(rc))
 		goto exit;
+	hdr = buf_msg(skb);
 
 	/* Capture data if non-error msg, otherwise just set return value */
 	if (likely(!err)) {
@@ -1842,9 +1855,10 @@ static int tipc_recvstream(struct socket *sock, struct msghdr *m,
 		/* Collect msg meta data, incl. error code and rejected data */
 		if (!copied) {
 			tipc_sk_set_orig_addr(m, skb);
-			rc = tipc_sk_anc_data_recv(m, hdr, tsk);
+			rc = tipc_sk_anc_data_recv(m, skb, tsk);
 			if (rc)
 				break;
+			hdr = buf_msg(skb);
 		}
 
 		/* Copy data if msg ok, otherwise return error/partial data */
@@ -1939,7 +1953,7 @@ static void tipc_sk_proto_rcv(struct sock *sk,
 
 	switch (msg_user(hdr)) {
 	case CONN_MANAGER:
-		tipc_sk_conn_proto_rcv(tsk, skb, xmitq);
+		tipc_sk_conn_proto_rcv(tsk, skb, inputq, xmitq);
 		return;
 	case SOCK_WAKEUP:
 		tipc_dest_del(&tsk->cong_links, msg_orignode(hdr), 0);
@@ -3354,6 +3368,11 @@ int tipc_sk_fill_sock_diag(struct sk_buff *skb, struct netlink_callback *cb,
 		goto stat_msg_cancel;
 
 	nla_nest_end(skb, stat);
+
+	if (tsk->group)
+		if (tipc_group_fill_sock_diag(tsk->group, skb))
+			goto stat_msg_cancel;
+
 	nla_nest_end(skb, attrs);
 
 	return 0;

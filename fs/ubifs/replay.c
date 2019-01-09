@@ -210,6 +210,38 @@ static int trun_remove_range(struct ubifs_info *c, struct replay_entry *r)
 }
 
 /**
+ * inode_still_linked - check whether inode in question will be re-linked.
+ * @c: UBIFS file-system description object
+ * @rino: replay entry to test
+ *
+ * O_TMPFILE files can be re-linked, this means link count goes from 0 to 1.
+ * This case needs special care, otherwise all references to the inode will
+ * be removed upon the first replay entry of an inode with link count 0
+ * is found.
+ */
+static bool inode_still_linked(struct ubifs_info *c, struct replay_entry *rino)
+{
+	struct replay_entry *r;
+
+	ubifs_assert(c, rino->deletion);
+	ubifs_assert(c, key_type(c, &rino->key) == UBIFS_INO_KEY);
+
+	/*
+	 * Find the most recent entry for the inode behind @rino and check
+	 * whether it is a deletion.
+	 */
+	list_for_each_entry_reverse(r, &c->replay_list, list) {
+		ubifs_assert(c, r->sqnum >= rino->sqnum);
+		if (key_inum(c, &r->key) == key_inum(c, &rino->key))
+			return r->deletion == 0;
+
+	}
+
+	ubifs_assert(c, 0);
+	return false;
+}
+
+/**
  * apply_replay_entry - apply a replay entry to the TNC.
  * @c: UBIFS file-system description object
  * @r: replay entry to apply
@@ -235,6 +267,11 @@ static int apply_replay_entry(struct ubifs_info *c, struct replay_entry *r)
 			case UBIFS_INO_KEY:
 			{
 				ino_t inum = key_inum(c, &r->key);
+
+				if (inode_still_linked(c, r)) {
+					err = 0;
+					break;
+				}
 
 				err = ubifs_tnc_remove_ino(c, inum);
 				break;
@@ -273,6 +310,7 @@ static int apply_replay_entry(struct ubifs_info *c, struct replay_entry *r)
 static int replay_entries_cmp(void *priv, struct list_head *a,
 			      struct list_head *b)
 {
+	struct ubifs_info *c = priv;
 	struct replay_entry *ra, *rb;
 
 	cond_resched();
@@ -281,7 +319,7 @@ static int replay_entries_cmp(void *priv, struct list_head *a,
 
 	ra = list_entry(a, struct replay_entry, list);
 	rb = list_entry(b, struct replay_entry, list);
-	ubifs_assert(ra->sqnum != rb->sqnum);
+	ubifs_assert(c, ra->sqnum != rb->sqnum);
 	if (ra->sqnum > rb->sqnum)
 		return 1;
 	return -1;
@@ -668,9 +706,9 @@ static int replay_bud(struct ubifs_info *c, struct bud_entry *b)
 			goto out;
 	}
 
-	ubifs_assert(ubifs_search_bud(c, lnum));
-	ubifs_assert(sleb->endpt - offs >= used);
-	ubifs_assert(sleb->endpt % c->min_io_size == 0);
+	ubifs_assert(c, ubifs_search_bud(c, lnum));
+	ubifs_assert(c, sleb->endpt - offs >= used);
+	ubifs_assert(c, sleb->endpt % c->min_io_size == 0);
 
 	b->dirty = sleb->endpt - offs - used;
 	b->free = c->leb_size - sleb->endpt;
@@ -706,7 +744,7 @@ static int replay_buds(struct ubifs_info *c)
 		if (err)
 			return err;
 
-		ubifs_assert(b->sqnum > prev_sqnum);
+		ubifs_assert(c, b->sqnum > prev_sqnum);
 		prev_sqnum = b->sqnum;
 	}
 
@@ -1067,7 +1105,7 @@ int ubifs_replay_journal(struct ubifs_info *c)
 	c->bi.uncommitted_idx = atomic_long_read(&c->dirty_zn_cnt);
 	c->bi.uncommitted_idx *= c->max_idx_node_sz;
 
-	ubifs_assert(c->bud_bytes <= c->max_bud_bytes || c->need_recovery);
+	ubifs_assert(c, c->bud_bytes <= c->max_bud_bytes || c->need_recovery);
 	dbg_mnt("finished, log head LEB %d:%d, max_sqnum %llu, highest_inum %lu",
 		c->lhead_lnum, c->lhead_offs, c->max_sqnum,
 		(unsigned long)c->highest_inum);

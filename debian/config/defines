@@ -1,5 +1,5 @@
 [abi]
-abiname: parrot20
+abiname: parrot1-13t
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*
@@ -43,6 +43,7 @@ ignore-changes:
  module:net/ceph/libceph
  module:net/l2tp/**
  module:net/rxrpc/rxrpc
+ module:net/sctp/**
  module:sound/core/seq/**
  module:sound/firewire/snd-firewire-lib
  module:sound/pci/hda/*
@@ -74,6 +75,11 @@ ignore-changes:
  acpi_nfit_init
 # ignore loop_register_transfer (used by cryptoloop, nothing OOT)
  loop_register_transfer
+# Only used in vmlinux
+ xen_xlate_*
+# Not OOT
+ nf_nat_masquerade_ipv4_register_notifier
+ nf_nat_masquerade_ipv6_register_notifier
 
 [base]
 arches:
@@ -111,7 +117,7 @@ arches:
  sparc
  sparc64
  x32
-compiler: gcc-7
+compiler: gcc-8
 featuresets:
  none
  rt
@@ -134,7 +140,7 @@ recommends: apparmor
 
 [relations]
 # compilers
-gcc-7: gcc-7 <!stage1 !cross>, gcc-7-@gnu-type-package@ <!stage1 cross>
+gcc-8: gcc-8 <!stage1 !cross>, gcc-8-@gnu-type-package@ <!stage1 cross>
 
 # initramfs-generators
 initramfs-fallback: linux-initramfs-tool

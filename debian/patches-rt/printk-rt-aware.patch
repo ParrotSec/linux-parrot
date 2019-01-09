@@ -1,7 +1,7 @@
 Subject: printk: Make rt aware
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 19 Sep 2012 14:50:37 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Drop the lock before calling the console driver and do not disable
 interrupts while printing to a serial console.
@@ -13,7 +13,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -1606,6 +1606,7 @@ SYSCALL_DEFINE3(syslog, int, type, char
+@@ -1617,6 +1617,7 @@ SYSCALL_DEFINE3(syslog, int, type, char
  	return do_syslog(type, buf, len, SYSLOG_FROM_READER);
  }
  
@@ -21,7 +21,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * Special console_lock variants that help to reduce the risk of soft-lockups.
   * They allow to pass console_lock to another printk() call using a busy wait.
-@@ -1746,6 +1747,15 @@ static int console_trylock_spinning(void
+@@ -1757,6 +1758,15 @@ static int console_trylock_spinning(void
  	return 1;
  }
  
@@ -37,7 +37,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * Call the console drivers, asking them to write out
   * log_buf[start] to log_buf[end - 1].
-@@ -1761,6 +1771,7 @@ static void call_console_drivers(const c
+@@ -1772,6 +1782,7 @@ static void call_console_drivers(const c
  	if (!console_drivers)
  		return;
  
@@ -45,7 +45,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	for_each_console(con) {
  		if (exclusive_console && con != exclusive_console)
  			continue;
-@@ -1776,6 +1787,7 @@ static void call_console_drivers(const c
+@@ -1787,6 +1798,7 @@ static void call_console_drivers(const c
  		else
  			con->write(con, text, len);
  	}
@@ -53,7 +53,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  int printk_delay_msec __read_mostly;
-@@ -1967,20 +1979,30 @@ asmlinkage int vprintk_emit(int facility
+@@ -1978,20 +1990,30 @@ asmlinkage int vprintk_emit(int facility
  
  	/* If called from the scheduler, we can not call up(). */
  	if (!in_sched) {
@@ -87,7 +87,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	}
  
  	wake_up_klogd();
-@@ -2432,6 +2454,10 @@ void console_unlock(void)
+@@ -2444,6 +2466,10 @@ void console_unlock(void)
  		console_seq++;
  		raw_spin_unlock(&logbuf_lock);
  
@@ -98,7 +98,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		/*
  		 * While actively printing out messages, if another printk()
  		 * were to occur on another CPU, it may wait for this one to
-@@ -2450,6 +2476,7 @@ void console_unlock(void)
+@@ -2462,6 +2488,7 @@ void console_unlock(void)
  		}
  
  		printk_safe_exit_irqrestore(flags);

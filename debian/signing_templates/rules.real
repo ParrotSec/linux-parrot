@@ -59,7 +59,7 @@ install-signed:
 	dh_builddeb
 
 install-udeb_$(ARCH): export KW_DEFCONFIG_DIR=/usr/share/linux-support-$(ABINAME)/installer
-install-udeb_$(ARCH): export KW_CONFIG_DIR=/usr/share/linux-support-$(ABINAME)/installer/$(ARCH)
+install-udeb_$(ARCH): export KW_CONFIG_DIR=/usr/share/linux-support-$(ABINAME)/installer
 install-udeb_$(ARCH): DH_OPTIONS=$(PACKAGE_NAMES:%=-p%)
 install-udeb_$(ARCH):
 	dh_testdir

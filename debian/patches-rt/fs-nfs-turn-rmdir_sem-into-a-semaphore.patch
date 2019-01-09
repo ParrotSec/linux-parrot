@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 15 Sep 2016 10:51:27 +0200
 Subject: [PATCH] fs/nfs: turn rmdir_sem into a semaphore
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 The RW semaphore had a reader side which used the _non_owner version
 because it most likely took the reader lock in one thread and released it
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/fs/nfs/dir.c
 +++ b/fs/nfs/dir.c
-@@ -1775,7 +1775,11 @@ int nfs_rmdir(struct inode *dir, struct
+@@ -1786,7 +1786,11 @@ int nfs_rmdir(struct inode *dir, struct
  
  	trace_nfs_rmdir_enter(dir, dentry);
  	if (d_really_is_positive(dentry)) {
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		error = NFS_PROTO(dir)->rmdir(dir, &dentry->d_name);
  		/* Ensure the VFS deletes this inode */
  		switch (error) {
-@@ -1785,7 +1789,11 @@ int nfs_rmdir(struct inode *dir, struct
+@@ -1796,7 +1800,11 @@ int nfs_rmdir(struct inode *dir, struct
  		case -ENOENT:
  			nfs_dentry_handle_enoent(dentry);
  		}

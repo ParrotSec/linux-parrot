@@ -6,7 +6,7 @@ shopt -s extglob
 # Set defaults from the running kernel
 arch="$(dpkg --print-architecture)"
 kernelabi="$(uname -r)"
-ff="${kernelabi#+([^-])-@(trunk|+([0-9]))-}"
+ff="${kernelabi#+([^-])-@(trunk|?(rc)+([0-9])|+([0-9]).bpo.+([0-9]))-}"
 if [ "x$ff" != "x$kernelabi" ]; then
     flavour="${ff#@(openvz|rt|vserver|xen)-}"
     if [ "x$flavour" != "x$ff" ]; then

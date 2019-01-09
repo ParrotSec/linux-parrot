@@ -253,10 +253,14 @@ static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head,
 	while (1) {
 		struct fsync_inode_entry *entry;
 
-		if (!f2fs_is_valid_meta_blkaddr(sbi, blkaddr, META_POR))
+		if (!f2fs_is_valid_blkaddr(sbi, blkaddr, META_POR))
 			return 0;
 
 		page = f2fs_get_tmp_page(sbi, blkaddr);
+		if (IS_ERR(page)) {
+			err = PTR_ERR(page);
+			break;
+		}
 
 		if (!is_recoverable_dnode(page))
 			break;
@@ -472,7 +476,10 @@ retry_dn:
 
 	f2fs_wait_on_page_writeback(dn.node_page, NODE, true);
 
-	f2fs_get_node_info(sbi, dn.nid, &ni);
+	err = f2fs_get_node_info(sbi, dn.nid, &ni);
+	if (err)
+		goto err;
+
 	f2fs_bug_on(sbi, ni.ino != ino_of_node(page));
 	f2fs_bug_on(sbi, ofs_of_node(dn.node_page) != ofs_of_node(page));
 
@@ -508,14 +515,13 @@ retry_dn:
 		}
 
 		/* dest is valid block, try to recover from src to dest */
-		if (f2fs_is_valid_meta_blkaddr(sbi, dest, META_POR)) {
+		if (f2fs_is_valid_blkaddr(sbi, dest, META_POR)) {
 
 			if (src == NULL_ADDR) {
 				err = f2fs_reserve_new_block(&dn);
-#ifdef CONFIG_F2FS_FAULT_INJECTION
-				while (err)
+				while (err &&
+				       IS_ENABLED(CONFIG_F2FS_FAULT_INJECTION))
 					err = f2fs_reserve_new_block(&dn);
-#endif
 				/* We should not get -ENOSPC */
 				f2fs_bug_on(sbi, err);
 				if (err)
@@ -569,12 +575,16 @@ static int recover_data(struct f2fs_sb_info *sbi, struct list_head *inode_list,
 	while (1) {
 		struct fsync_inode_entry *entry;
 
-		if (!f2fs_is_valid_meta_blkaddr(sbi, blkaddr, META_POR))
+		if (!f2fs_is_valid_blkaddr(sbi, blkaddr, META_POR))
 			break;
 
 		f2fs_ra_meta_pages_cond(sbi, blkaddr);
 
 		page = f2fs_get_tmp_page(sbi, blkaddr);
+		if (IS_ERR(page)) {
+			err = PTR_ERR(page);
+			break;
+		}
 
 		if (!is_recoverable_dnode(page)) {
 			f2fs_put_page(page, 1);
@@ -629,7 +639,8 @@ int f2fs_recover_fsync_data(struct f2fs_sb_info *sbi, bool check_only)
 #endif
 
 	if (s_flags & SB_RDONLY) {
-		f2fs_msg(sbi->sb, KERN_INFO, "orphan cleanup on readonly fs");
+		f2fs_msg(sbi->sb, KERN_INFO,
+				"recover fsync data on readonly fs");
 		sbi->sb->s_flags &= ~SB_RDONLY;
 	}
 
@@ -687,11 +698,15 @@ skip:
 	/* let's drop all the directory inodes for clean checkpoint */
 	destroy_fsync_dnodes(&dir_list);
 
-	if (!err && need_writecp) {
-		struct cp_control cpc = {
-			.reason = CP_RECOVERY,
-		};
-		err = f2fs_write_checkpoint(sbi, &cpc);
+	if (need_writecp) {
+		set_sbi_flag(sbi, SBI_IS_RECOVERED);
+
+		if (!err) {
+			struct cp_control cpc = {
+				.reason = CP_RECOVERY,
+			};
+			err = f2fs_write_checkpoint(sbi, &cpc);
+		}
 	}
 
 	kmem_cache_destroy(fsync_entry_slab);

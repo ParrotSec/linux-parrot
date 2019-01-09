@@ -165,10 +165,10 @@ static inline void tcp_event_ack_sent(struct sock *sk, unsigned int pkts,
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
-	if (unlikely(tp->compressed_ack)) {
+	if (unlikely(tp->compressed_ack > TCP_FASTRETRANS_THRESH)) {
 		NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPACKCOMPRESSED,
-			      tp->compressed_ack);
-		tp->compressed_ack = 0;
+			      tp->compressed_ack - TCP_FASTRETRANS_THRESH);
+		tp->compressed_ack = TCP_FASTRETRANS_THRESH;
 		if (hrtimer_try_to_cancel(&tp->compressed_ack_timer) == 1)
 			__sock_put(sk);
 	}
@@ -977,17 +977,6 @@ enum hrtimer_restart tcp_pace_kick(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-/* BBR congestion control needs pacing.
- * Same remark for SO_MAX_PACING_RATE.
- * sch_fq packet scheduler is efficiently handling pacing,
- * but is not always installed/used.
- * Return true if TCP stack should pace packets itself.
- */
-static bool tcp_needs_internal_pacing(const struct sock *sk)
-{
-	return smp_load_acquire(&sk->sk_pacing_status) == SK_PACING_NEEDED;
-}
-
 static void tcp_internal_pacing(struct sock *sk, const struct sk_buff *skb)
 {
 	u64 len_ns;
@@ -999,9 +988,6 @@ static void tcp_internal_pacing(struct sock *sk, const struct sk_buff *skb)
 	if (!rate || rate == ~0U)
 		return;
 
-	/* Should account for header sizes as sch_fq does,
-	 * but lets make things simple.
-	 */
 	len_ns = (u64)skb->len * NSEC_PER_SEC;
 	do_div(len_ns, rate);
 	hrtimer_start(&tcp_sk(sk)->pacing_timer,
@@ -1150,6 +1136,7 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
 	if (skb->len != tcp_header_size) {
 		tcp_event_data_sent(tp, sk);
 		tp->data_segs_out += tcp_skb_pcount(skb);
+		tp->bytes_sent += skb->len - tcp_header_size;
 		tcp_internal_pacing(sk, skb);
 	}
 
@@ -1915,16 +1902,15 @@ static int tso_fragment(struct sock *sk, enum tcp_queue tcp_queue,
  * This algorithm is from John Heffner.
  */
 static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
-				 bool *is_cwnd_limited, u32 max_segs)
+				 bool *is_cwnd_limited,
+				 bool *is_rwnd_limited,
+				 u32 max_segs)
 {
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 	u32 age, send_win, cong_win, limit, in_flight;
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sk_buff *head;
 	int win_divisor;
-
-	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
-		goto send_now;
 
 	if (icsk->icsk_ca_state >= TCP_CA_Recovery)
 		goto send_now;
@@ -1984,10 +1970,27 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
 	if (age < (tp->srtt_us >> 4))
 		goto send_now;
 
-	/* Ok, it looks like it is advisable to defer. */
+	/* Ok, it looks like it is advisable to defer.
+	 * Three cases are tracked :
+	 * 1) We are cwnd-limited
+	 * 2) We are rwnd-limited
+	 * 3) We are application limited.
+	 */
+	if (cong_win < send_win) {
+		if (cong_win <= skb->len) {
+			*is_cwnd_limited = true;
+			return true;
+		}
+	} else {
+		if (send_win <= skb->len) {
+			*is_rwnd_limited = true;
+			return true;
+		}
+	}
 
-	if (cong_win < send_win && cong_win <= skb->len)
-		*is_cwnd_limited = true;
+	/* If this packet won't get more data, do not wait. */
+	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
+		goto send_now;
 
 	return true;
 
@@ -2351,7 +2354,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 		} else {
 			if (!push_one &&
 			    tcp_tso_should_defer(sk, skb, &is_cwnd_limited,
-						 max_segs))
+						 &is_rwnd_limited, max_segs))
 				break;
 		}
 
@@ -2489,13 +2492,16 @@ void tcp_send_loss_probe(struct sock *sk)
 		goto rearm_timer;
 	}
 	skb = skb_rb_last(&sk->tcp_rtx_queue);
+	if (unlikely(!skb)) {
+		WARN_ONCE(tp->packets_out,
+			  "invalid inflight: %u state %u cwnd %u mss %d\n",
+			  tp->packets_out, sk->sk_state, tp->snd_cwnd, mss);
+		inet_csk(sk)->icsk_pending = 0;
+		return;
+	}
 
 	/* At most one outstanding TLP retransmission. */
 	if (tp->tlp_high_seq)
-		goto rearm_timer;
-
-	/* Retransmit last segment. */
-	if (WARN_ON(!skb))
 		goto rearm_timer;
 
 	if (skb_still_in_host_queue(sk, skb))
@@ -2711,9 +2717,8 @@ static bool tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sk_buff *next_skb = skb_rb_next(skb);
-	int skb_size, next_skb_size;
+	int next_skb_size;
 
-	skb_size = skb->len;
 	next_skb_size = next_skb->len;
 
 	BUG_ON(tcp_skb_pcount(skb) != 1 || tcp_skb_pcount(next_skb) != 1);
@@ -2884,6 +2889,7 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
 	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
 		__NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
 	tp->total_retrans += segs;
+	tp->bytes_retrans += skb->len;
 
 	/* make sure skb->data is aligned on arches that require it
 	 * and check if ack-trimming & collapsing extended the headroom

@@ -1,7 +1,7 @@
 Subject: rcu: Merge RCU-bh into RCU-preempt
 Date: Wed, 5 Oct 2011 11:59:38 -0700
 From: Thomas Gleixner <tglx@linutronix.de>
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 The Linux kernel has long RCU-bh read-side critical sections that
 intolerably increase scheduling latency under mainline's RCU-bh rules,
@@ -27,12 +27,12 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
  include/linux/rcupdate.h |   19 +++++++++++++++++++
  include/linux/rcutree.h  |    8 ++++++++
- kernel/rcu/rcu.h         |   14 +++++++++++---
+ kernel/rcu/rcu.h         |   11 +++++++++--
  kernel/rcu/rcutorture.c  |    7 +++++++
- kernel/rcu/tree.c        |   24 ++++++++++++++++++++++++
+ kernel/rcu/tree.c        |   26 ++++++++++++++++++++++++++
  kernel/rcu/tree.h        |    2 ++
  kernel/rcu/update.c      |    2 ++
- 7 files changed, 73 insertions(+), 3 deletions(-)
+ 7 files changed, 73 insertions(+), 2 deletions(-)
 
 --- a/include/linux/rcupdate.h
 +++ b/include/linux/rcupdate.h
@@ -48,7 +48,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void call_rcu_sched(struct rcu_head *head, rcu_callback_t func);
  void synchronize_sched(void);
  void rcu_barrier_tasks(void);
-@@ -264,7 +268,14 @@ extern struct lockdep_map rcu_sched_lock
+@@ -263,7 +267,14 @@ extern struct lockdep_map rcu_sched_lock
  extern struct lockdep_map rcu_callback_map;
  int debug_lockdep_rcu_enabled(void);
  int rcu_read_lock_held(void);
@@ -63,7 +63,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  int rcu_read_lock_sched_held(void);
  
  #else /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
-@@ -665,10 +676,14 @@ static inline void rcu_read_unlock(void)
+@@ -663,10 +674,14 @@ static inline void rcu_read_unlock(void)
  static inline void rcu_read_lock_bh(void)
  {
  	local_bh_disable();
@@ -78,7 +78,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  /*
-@@ -678,10 +693,14 @@ static inline void rcu_read_lock_bh(void
+@@ -676,10 +691,14 @@ static inline void rcu_read_lock_bh(void
   */
  static inline void rcu_read_unlock_bh(void)
  {
@@ -121,33 +121,29 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  unsigned long get_state_synchronize_rcu(void);
 --- a/kernel/rcu/rcu.h
 +++ b/kernel/rcu/rcu.h
-@@ -478,20 +478,28 @@ static inline void show_rcu_gp_kthreads(
- extern unsigned long rcutorture_testseq;
- extern unsigned long rcutorture_vernum;
- unsigned long rcu_batches_started(void);
--unsigned long rcu_batches_started_bh(void);
- unsigned long rcu_batches_started_sched(void);
- unsigned long rcu_batches_completed(void);
--unsigned long rcu_batches_completed_bh(void);
- unsigned long rcu_batches_completed_sched(void);
+@@ -528,7 +528,6 @@ static inline void show_rcu_gp_kthreads(
+ static inline int rcu_get_gp_kthreads_prio(void) { return 0; }
+ #else /* #ifdef CONFIG_TINY_RCU */
+ unsigned long rcu_get_gp_seq(void);
+-unsigned long rcu_bh_get_gp_seq(void);
+ unsigned long rcu_sched_get_gp_seq(void);
  unsigned long rcu_exp_batches_completed(void);
  unsigned long rcu_exp_batches_completed_sched(void);
- unsigned long srcu_batches_completed(struct srcu_struct *sp);
+@@ -536,10 +535,18 @@ unsigned long srcu_batches_completed(str
  void show_rcu_gp_kthreads(void);
+ int rcu_get_gp_kthreads_prio(void);
  void rcu_force_quiescent_state(void);
 -void rcu_bh_force_quiescent_state(void);
  void rcu_sched_force_quiescent_state(void);
  extern struct workqueue_struct *rcu_gp_wq;
  extern struct workqueue_struct *rcu_par_gp_wq;
 +
-+#ifndef CONFIG_PREEMPT_RT_FULL
-+void rcu_bh_force_quiescent_state(void);
-+unsigned long rcu_batches_started_bh(void);
-+unsigned long rcu_batches_completed_bh(void);
++#ifdef CONFIG_PREEMPT_RT_FULL
++#define rcu_bh_get_gp_seq		rcu_get_gp_seq
++#define rcu_bh_force_quiescent_state	rcu_force_quiescent_state
 +#else
-+# define rcu_bh_force_quiescent_state	rcu_force_quiescent_state
-+# define rcu_batches_completed_bh	rcu_batches_completed
-+# define rcu_batches_started_bh		rcu_batches_completed
++unsigned long rcu_bh_get_gp_seq(void);
++void rcu_bh_force_quiescent_state(void);
 +#endif
 +
  #endif /* #else #ifdef CONFIG_TINY_RCU */
@@ -155,7 +151,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_RCU_NOCB_CPU
 --- a/kernel/rcu/rcutorture.c
 +++ b/kernel/rcu/rcutorture.c
-@@ -413,6 +413,7 @@ static struct rcu_torture_ops rcu_ops =
+@@ -434,6 +434,7 @@ static struct rcu_torture_ops rcu_ops =
  	.name		= "rcu"
  };
  
@@ -163,7 +159,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * Definitions for rcu_bh torture testing.
   */
-@@ -452,6 +453,12 @@ static struct rcu_torture_ops rcu_bh_ops
+@@ -475,6 +476,12 @@ static struct rcu_torture_ops rcu_bh_ops
  	.name		= "rcu_bh"
  };
  
@@ -178,7 +174,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
   * The names includes "busted", and they really means it!
 --- a/kernel/rcu/tree.c
 +++ b/kernel/rcu/tree.c
-@@ -243,6 +243,7 @@ void rcu_sched_qs(void)
+@@ -244,6 +244,7 @@ void rcu_sched_qs(void)
  			   this_cpu_ptr(&rcu_sched_data), true);
  }
  
@@ -186,45 +182,35 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void rcu_bh_qs(void)
  {
  	RCU_LOCKDEP_WARN(preemptible(), "rcu_bh_qs() invoked with preemption enabled!!!");
-@@ -253,6 +254,7 @@ void rcu_bh_qs(void)
+@@ -254,6 +255,11 @@ void rcu_bh_qs(void)
  		__this_cpu_write(rcu_bh_data.cpu_no_qs.b.norm, false);
  	}
  }
++#else
++void rcu_bh_qs(void)
++{
++}
 +#endif
  
  /*
   * Steal a bit from the bottom of ->dynticks for idle entry/exit
-@@ -549,11 +551,13 @@ EXPORT_SYMBOL_GPL(rcu_batches_started_sc
- /*
-  * Return the number of RCU BH batches started thus far for debug & stats.
-  */
-+#ifndef CONFIG_PREEMPT_RT_FULL
- unsigned long rcu_batches_started_bh(void)
- {
- 	return rcu_bh_state.gpnum;
+@@ -568,6 +574,7 @@ unsigned long rcu_sched_get_gp_seq(void)
  }
- EXPORT_SYMBOL_GPL(rcu_batches_started_bh);
-+#endif
- 
- /*
-  * Return the number of RCU batches completed thus far for debug & stats.
-@@ -573,6 +577,7 @@ unsigned long rcu_batches_completed_sche
- }
- EXPORT_SYMBOL_GPL(rcu_batches_completed_sched);
+ EXPORT_SYMBOL_GPL(rcu_sched_get_gp_seq);
  
 +#ifndef CONFIG_PREEMPT_RT_FULL
  /*
-  * Return the number of RCU BH batches completed thus far for debug & stats.
+  * Return the number of RCU-bh GPs completed thus far for debug & stats.
   */
-@@ -581,6 +586,7 @@ unsigned long rcu_batches_completed_bh(v
- 	return rcu_bh_state.completed;
+@@ -576,6 +583,7 @@ unsigned long rcu_bh_get_gp_seq(void)
+ 	return READ_ONCE(rcu_bh_state.gp_seq);
  }
- EXPORT_SYMBOL_GPL(rcu_batches_completed_bh);
+ EXPORT_SYMBOL_GPL(rcu_bh_get_gp_seq);
 +#endif
  
  /*
   * Return the number of RCU expedited batches completed thus far for
-@@ -604,6 +610,7 @@ unsigned long rcu_exp_batches_completed_
+@@ -599,6 +607,7 @@ unsigned long rcu_exp_batches_completed_
  }
  EXPORT_SYMBOL_GPL(rcu_exp_batches_completed_sched);
  
@@ -232,7 +218,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * Force a quiescent state.
   */
-@@ -622,6 +629,13 @@ void rcu_bh_force_quiescent_state(void)
+@@ -617,6 +626,13 @@ void rcu_bh_force_quiescent_state(void)
  }
  EXPORT_SYMBOL_GPL(rcu_bh_force_quiescent_state);
  
@@ -246,7 +232,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * Force a quiescent state for RCU-sched.
   */
-@@ -672,9 +686,11 @@ void rcutorture_get_gp_data(enum rcutort
+@@ -674,9 +690,11 @@ void rcutorture_get_gp_data(enum rcutort
  	case RCU_FLAVOR:
  		rsp = rcu_state_p;
  		break;
@@ -258,7 +244,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	case RCU_SCHED_FLAVOR:
  		rsp = &rcu_sched_state;
  		break;
-@@ -2986,6 +3002,7 @@ void call_rcu_sched(struct rcu_head *hea
+@@ -3049,6 +3067,7 @@ void call_rcu_sched(struct rcu_head *hea
  }
  EXPORT_SYMBOL_GPL(call_rcu_sched);
  
@@ -266,7 +252,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /**
   * call_rcu_bh() - Queue an RCU for invocation after a quicker grace period.
   * @head: structure to be used for queueing the RCU updates.
-@@ -3013,6 +3030,7 @@ void call_rcu_bh(struct rcu_head *head,
+@@ -3076,6 +3095,7 @@ void call_rcu_bh(struct rcu_head *head,
  	__call_rcu(head, func, &rcu_bh_state, -1, 0);
  }
  EXPORT_SYMBOL_GPL(call_rcu_bh);
@@ -274,7 +260,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  /*
   * Queue an RCU callback for lazy invocation after a grace period.
-@@ -3098,6 +3116,7 @@ void synchronize_sched(void)
+@@ -3161,6 +3181,7 @@ void synchronize_sched(void)
  }
  EXPORT_SYMBOL_GPL(synchronize_sched);
  
@@ -282,7 +268,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /**
   * synchronize_rcu_bh - wait until an rcu_bh grace period has elapsed.
   *
-@@ -3124,6 +3143,7 @@ void synchronize_rcu_bh(void)
+@@ -3187,6 +3208,7 @@ void synchronize_rcu_bh(void)
  		wait_rcu_gp(call_rcu_bh);
  }
  EXPORT_SYMBOL_GPL(synchronize_rcu_bh);
@@ -290,7 +276,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  /**
   * get_state_synchronize_rcu - Snapshot current RCU state
-@@ -3457,6 +3477,7 @@ static void _rcu_barrier(struct rcu_stat
+@@ -3494,6 +3516,7 @@ static void _rcu_barrier(struct rcu_stat
  	mutex_unlock(&rsp->barrier_mutex);
  }
  
@@ -298,7 +284,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /**
   * rcu_barrier_bh - Wait until all in-flight call_rcu_bh() callbacks complete.
   */
-@@ -3465,6 +3486,7 @@ void rcu_barrier_bh(void)
+@@ -3502,6 +3525,7 @@ void rcu_barrier_bh(void)
  	_rcu_barrier(&rcu_bh_state);
  }
  EXPORT_SYMBOL_GPL(rcu_barrier_bh);
@@ -306,7 +292,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  /**
   * rcu_barrier_sched - Wait for in-flight call_rcu_sched() callbacks.
-@@ -4081,7 +4103,9 @@ void __init rcu_init(void)
+@@ -4149,7 +4173,9 @@ void __init rcu_init(void)
  
  	rcu_bootup_announce();
  	rcu_init_geometry();
@@ -318,7 +304,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		rcu_dump_rcu_node_tree(&rcu_sched_state);
 --- a/kernel/rcu/tree.h
 +++ b/kernel/rcu/tree.h
-@@ -422,7 +422,9 @@ extern struct list_head rcu_struct_flavo
+@@ -413,7 +413,9 @@ extern struct list_head rcu_struct_flavo
   */
  extern struct rcu_state rcu_sched_state;
  

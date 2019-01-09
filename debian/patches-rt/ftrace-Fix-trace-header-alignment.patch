@@ -1,7 +1,7 @@
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Sun, 16 Oct 2016 05:08:30 +0200
 Subject: [PATCH] ftrace: Fix trace header alignment
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Line up helper arrows to the right column.
 
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
-@@ -3347,17 +3347,17 @@ get_total_entries(struct trace_buffer *b
+@@ -3348,17 +3348,17 @@ get_total_entries(struct trace_buffer *b
  
  static void print_lat_help_header(struct seq_file *m)
  {

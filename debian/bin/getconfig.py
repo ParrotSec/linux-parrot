@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 import sys
-sys.path.append(sys.path[0] + "/../lib/python")
 
 from debian_linux.config import ConfigCoreDump
 
@@ -24,4 +23,3 @@ else:
     except TypeError:
         # Otherwise use the default format
         print(value)
-

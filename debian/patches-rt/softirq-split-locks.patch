@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 04 Oct 2012 14:20:47 +0100
 Subject: softirq: Split softirq locks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 The 3.x RT series removed the split softirq implementation in favour
 of pushing softirq processing into the context of the thread which
@@ -172,7 +172,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  				   (NMI_MASK | HARDIRQ_MASK | SOFTIRQ_OFFSET)))
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -1177,6 +1177,8 @@ struct task_struct {
+@@ -1190,6 +1190,8 @@ struct task_struct {
  #endif
  #ifdef CONFIG_PREEMPT_RT_BASE
  	struct rcu_head			put_rcu;
@@ -181,7 +181,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
  	unsigned long			task_state_change;
-@@ -1394,6 +1396,7 @@ extern struct pid *cad_pid;
+@@ -1387,6 +1389,7 @@ extern struct pid *cad_pid;
  /*
   * Per process flags
   */

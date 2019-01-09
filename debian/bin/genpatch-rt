@@ -1,6 +1,15 @@
 #!/usr/bin/python3
 
-import codecs, errno, io, os, os.path, re, shutil, subprocess, sys, tempfile
+import codecs
+import io
+import os
+import os.path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
 
 def main(source, version=None):
     patch_dir = 'debian/patches-rt'
@@ -46,25 +55,29 @@ def main(source, version=None):
             # Validate tag signature
             gpg_wrapper = os.path.join(os.getcwd(),
                                        "debian/bin/git-tag-gpg-wrapper")
-            verify_proc = subprocess.Popen(['git',
-                                            '-c', 'gpg.program=%s' % gpg_wrapper,
-                                            'tag', '-v', 'v%s-rebase' % version],
-                                           env=env)
+            verify_proc = subprocess.Popen(
+                ['git', '-c', 'gpg.program=%s' % gpg_wrapper,
+                 'tag', '-v', 'v%s-rebase' % version],
+                env=env)
             if verify_proc.wait():
                 raise RuntimeError("GPG tag verification failed")
 
-            args = ['git', 'format-patch', 'v%s..v%s-rebase' % (up_ver, version)]
+            args = ['git', 'format-patch',
+                    'v%s..v%s-rebase' % (up_ver, version)]
             format_proc = subprocess.Popen(args,
                                            cwd=patch_dir,
                                            env=env, stdout=subprocess.PIPE)
-            with io.open(format_proc.stdout.fileno(), encoding='utf-8') as pipe:
+            with io.open(format_proc.stdout.fileno(), encoding='utf-8') \
+                 as pipe:
                 for line in pipe:
                     name = line.strip('\n')
                     with open(os.path.join(patch_dir, name)) as source_patch:
                         patch_from = source_patch.readline()
                         match = re.match(r'From ([0-9a-f]{40}) ', patch_from)
                         assert match
-                        origin = 'https://git.kernel.org/cgit/linux/kernel/git/rt/linux-stable-rt.git/commit?id=%s' % match.group(1)
+                        origin = ('https://git.kernel.org/cgit/linux/kernel/'
+                                  'git/rt/linux-stable-rt.git/commit?id=%s' %
+                                  match.group(1))
                         add_patch(name, source_patch, origin)
 
         else:
@@ -90,7 +103,7 @@ def main(source, version=None):
                not re.search(r'^\[GNUPG:\]\s+VALIDSIG\s',
                              codecs.decode(verify_output),
                              re.MULTILINE):
-                os.write(2, verify_output) # bytes not str!
+                os.write(2, verify_output)  # bytes not str!
                 raise RuntimeError("GPG signature verification failed")
 
             temp_dir = tempfile.mkdtemp(prefix='rt-genpatch', dir='debian')
@@ -98,16 +111,20 @@ def main(source, version=None):
                 # Unpack tarball
                 subprocess.check_call(['tar', '-C', temp_dir, '-xaf', source])
                 source_dir = os.path.join(temp_dir, 'patches')
-                assert os.path.isdir(source_dir), 'tarball does not contain patches directory'
+                assert os.path.isdir(source_dir), \
+                    'tarball does not contain patches directory'
 
                 # Copy patch series
-                origin = 'https://www.kernel.org/pub/linux/kernel/projects/rt/%s/older/patches-%s.tar.xz' % (up_ver, version)
-                with open(os.path.join(source_dir, 'series'), 'r') as \
-                        source_series_fh:
+                origin = ('https://www.kernel.org/pub/linux/kernel/projects/'
+                          'rt/%s/older/patches-%s.tar.xz' %
+                          (up_ver, version))
+                with open(os.path.join(source_dir, 'series'), 'r') \
+                     as source_series_fh:
                     for line in source_series_fh:
                         name = line.strip()
                         if name != '' and name[0] != '#':
-                            with open(os.path.join(source_dir, name)) as source_patch:
+                            with open(os.path.join(source_dir, name)) \
+                                 as source_patch:
                                 add_patch(name, source_patch, origin)
                         series_fh.write(line)
             finally:
@@ -122,10 +139,13 @@ def main(source, version=None):
     for name in old_series:
         print('Obsoleted patch', os.path.join(patch_dir, name))
 
+
 if __name__ == '__main__':
     if not (1 <= len(sys.argv) <= 3):
-        print('Usage: %s {TAR [RT-VERSION] | REPO RT-VERSION}' % sys.argv[0], file=sys.stderr)
+        print('Usage: %s {TAR [RT-VERSION] | REPO RT-VERSION}' % sys.argv[0],
+              file=sys.stderr)
         print('TAR is a tarball of patches.', file=sys.stderr)
-        print('REPO is a git repo containing the given RT-VERSION.', file=sys.stderr)
+        print('REPO is a git repo containing the given RT-VERSION.',
+              file=sys.stderr)
         sys.exit(2)
     main(*sys.argv[1:])

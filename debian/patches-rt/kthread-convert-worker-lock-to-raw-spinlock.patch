@@ -1,7 +1,7 @@
 From: Julia Cartwright <julia@ni.com>
 Date: Fri, 28 Sep 2018 21:03:51 +0000
 Subject: [PATCH] kthread: convert worker lock to raw spinlock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 In order to enable the queuing of kthread work items from hardirq
 context even when PREEMPT_RT_FULL is enabled, convert the worker
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct task_struct	*task;
 --- a/kernel/kthread.c
 +++ b/kernel/kthread.c
-@@ -597,7 +597,7 @@ void __kthread_init_worker(struct kthrea
+@@ -599,7 +599,7 @@ void __kthread_init_worker(struct kthrea
  				struct lock_class_key *key)
  {
  	memset(worker, 0, sizeof(struct kthread_worker));
@@ -43,7 +43,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	lockdep_set_class_and_name(&worker->lock, key, name);
  	INIT_LIST_HEAD(&worker->work_list);
  	INIT_LIST_HEAD(&worker->delayed_work_list);
-@@ -639,21 +639,21 @@ int kthread_worker_fn(void *worker_ptr)
+@@ -641,21 +641,21 @@ int kthread_worker_fn(void *worker_ptr)
  
  	if (kthread_should_stop()) {
  		__set_current_state(TASK_RUNNING);
@@ -69,7 +69,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (work) {
  		__set_current_state(TASK_RUNNING);
-@@ -810,12 +810,12 @@ bool kthread_queue_work(struct kthread_w
+@@ -812,12 +812,12 @@ bool kthread_queue_work(struct kthread_w
  	bool ret = false;
  	unsigned long flags;
  
@@ -84,7 +84,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return ret;
  }
  EXPORT_SYMBOL_GPL(kthread_queue_work);
-@@ -841,7 +841,7 @@ void kthread_delayed_work_timer_fn(struc
+@@ -843,7 +843,7 @@ void kthread_delayed_work_timer_fn(struc
  	if (WARN_ON_ONCE(!worker))
  		return;
  
@@ -93,7 +93,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* Work must not be used with >1 worker, see kthread_queue_work(). */
  	WARN_ON_ONCE(work->worker != worker);
  
-@@ -850,7 +850,7 @@ void kthread_delayed_work_timer_fn(struc
+@@ -852,7 +852,7 @@ void kthread_delayed_work_timer_fn(struc
  	list_del_init(&work->node);
  	kthread_insert_work(worker, work, &worker->work_list);
  
@@ -102,7 +102,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  EXPORT_SYMBOL(kthread_delayed_work_timer_fn);
  
-@@ -906,14 +906,14 @@ bool kthread_queue_delayed_work(struct k
+@@ -908,14 +908,14 @@ bool kthread_queue_delayed_work(struct k
  	unsigned long flags;
  	bool ret = false;
  
@@ -119,7 +119,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return ret;
  }
  EXPORT_SYMBOL_GPL(kthread_queue_delayed_work);
-@@ -949,7 +949,7 @@ void kthread_flush_work(struct kthread_w
+@@ -951,7 +951,7 @@ void kthread_flush_work(struct kthread_w
  	if (!worker)
  		return;
  
@@ -128,7 +128,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* Work must not be used with >1 worker, see kthread_queue_work(). */
  	WARN_ON_ONCE(work->worker != worker);
  
-@@ -961,7 +961,7 @@ void kthread_flush_work(struct kthread_w
+@@ -963,7 +963,7 @@ void kthread_flush_work(struct kthread_w
  	else
  		noop = true;
  
@@ -137,7 +137,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (!noop)
  		wait_for_completion(&fwork.done);
-@@ -994,9 +994,9 @@ static bool __kthread_cancel_work(struct
+@@ -996,9 +996,9 @@ static bool __kthread_cancel_work(struct
  		 * any queuing is blocked by setting the canceling counter.
  		 */
  		work->canceling++;
@@ -149,7 +149,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		work->canceling--;
  	}
  
-@@ -1043,7 +1043,7 @@ bool kthread_mod_delayed_work(struct kth
+@@ -1045,7 +1045,7 @@ bool kthread_mod_delayed_work(struct kth
  	unsigned long flags;
  	int ret = false;
  
@@ -158,7 +158,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Do not bother with canceling when never queued. */
  	if (!work->worker)
-@@ -1060,7 +1060,7 @@ bool kthread_mod_delayed_work(struct kth
+@@ -1062,7 +1062,7 @@ bool kthread_mod_delayed_work(struct kth
  fast_queue:
  	__kthread_queue_delayed_work(worker, dwork, delay);
  out:
@@ -167,7 +167,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return ret;
  }
  EXPORT_SYMBOL_GPL(kthread_mod_delayed_work);
-@@ -1074,7 +1074,7 @@ static bool __kthread_cancel_work_sync(s
+@@ -1076,7 +1076,7 @@ static bool __kthread_cancel_work_sync(s
  	if (!worker)
  		goto out;
  
@@ -176,7 +176,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* Work must not be used with >1 worker, see kthread_queue_work(). */
  	WARN_ON_ONCE(work->worker != worker);
  
-@@ -1088,13 +1088,13 @@ static bool __kthread_cancel_work_sync(s
+@@ -1090,13 +1090,13 @@ static bool __kthread_cancel_work_sync(s
  	 * In the meantime, block any queuing by setting the canceling counter.
  	 */
  	work->canceling++;

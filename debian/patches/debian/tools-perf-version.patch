@@ -9,7 +9,7 @@ version-dependent name.  And do the same for trace.]
 
 --- a/tools/perf/Makefile.perf
 +++ b/tools/perf/Makefile.perf
-@@ -750,23 +750,23 @@ endif
+@@ -759,23 +759,23 @@ endif
  install-tools: all install-gtk
  	$(call QUIET_INSTALL, binaries) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(bindir_SQ)'; \
@@ -37,9 +37,9 @@ version-dependent name.  And do the same for trace.]
 -	$(call QUIET_INSTALL, libexec) \
 -		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)'
  ifndef NO_LIBBPF
- 	$(call QUIET_INSTALL, lib) \
- 		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perf_include_instdir_SQ)/bpf'
-@@ -804,7 +804,7 @@ ifndef NO_LIBPYTHON
+ 	$(call QUIET_INSTALL, bpf-headers) \
+ 		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perf_include_instdir_SQ)/bpf'; \
+@@ -811,7 +811,7 @@ ifndef NO_LIBPYTHON
  endif
  	$(call QUIET_INSTALL, perf_completion-script) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(sysconfdir_SQ)/bash_completion.d'; \
@@ -48,7 +48,7 @@ version-dependent name.  And do the same for trace.]
  	$(call QUIET_INSTALL, perf-tip) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(tip_instdir_SQ)'; \
  		$(INSTALL) Documentation/tips.txt -t '$(DESTDIR_SQ)$(tip_instdir_SQ)'
-@@ -829,7 +829,7 @@ install-python_ext:
+@@ -836,7 +836,7 @@ install-python_ext:
  
  # 'make install-doc' should call 'make -C Documentation install'
  $(INSTALL_DOC_TARGETS):
@@ -84,7 +84,7 @@ version-dependent name.  And do the same for trace.]
  
 --- a/tools/perf/util/Build
 +++ b/tools/perf/util/Build
-@@ -192,6 +192,7 @@ CFLAGS_libstring.o     += -Wno-unused-pa
+@@ -193,6 +193,7 @@ CFLAGS_libstring.o     += -Wno-unused-pa
  CFLAGS_hweight.o       += -Wno-unused-parameter -DETC_PERFCONFIG="BUILD_STR($(ETC_PERFCONFIG_SQ))"
  CFLAGS_parse-events.o  += -Wno-redundant-decls
  CFLAGS_header.o        += -include $(OUTPUT)PERF-VERSION-FILE

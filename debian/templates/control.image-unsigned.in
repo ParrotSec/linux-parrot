@@ -5,6 +5,5 @@ Recommends: firmware-linux-free, ${kernel:Recommends}
 Suggests: linux-doc-@version@, debian-kernel-handbook
 Conflicts: linux-image-@abiname@@localversion@
 Replaces: linux-image-@abiname@@localversion@
-Provides: linux-image-@abiname@@localversion@
 Description: Linux @upstreamversion@ for @class@
  The Linux kernel @upstreamversion@ and modules for use on @longclass@.

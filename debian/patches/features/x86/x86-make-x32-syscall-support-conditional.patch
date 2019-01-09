@@ -2,6 +2,7 @@ From: Ben Hutchings <ben@decadent.org.uk>
 Date: Mon, 12 Feb 2018 23:59:26 +0000
 Subject: x86: Make x32 syscall support conditional on a kernel parameter
 Bug-Debian: https://bugs.debian.org/708070
+Forwarded: https://lore.kernel.org/lkml/1415245982.3398.53.camel@decadent.org.uk/T/#u
 
 Enabling x32 in the standard amd64 kernel would increase its attack
 surface while provide no benefit to the vast majority of its users.

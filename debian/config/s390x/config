@@ -179,6 +179,13 @@ CONFIG_HVC_IUCV=y
 CONFIG_DIAG288_WATCHDOG=m
 
 ##
+## file: init/Kconfig
+##
+## choice: Cputime accounting
+CONFIG_VIRT_CPU_ACCOUNTING_NATIVE=y
+## end choice
+
+##
 ## file: mm/Kconfig
 ##
 ## choice: Memory model

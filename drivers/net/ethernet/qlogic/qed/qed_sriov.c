@@ -101,6 +101,7 @@ static int qed_sp_vf_start(struct qed_hwfn *p_hwfn, struct qed_vf_info *p_vf)
 	default:
 		DP_NOTICE(p_hwfn, "Unknown VF personality %d\n",
 			  p_hwfn->hw_info.personality);
+		qed_sp_destroy_request(p_hwfn, p_ent);
 		return -EINVAL;
 	}
 
@@ -672,8 +673,8 @@ int qed_iov_hw_info(struct qed_hwfn *p_hwfn)
 	return 0;
 }
 
-bool _qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn,
-			      int vfid, bool b_fail_malicious)
+static bool _qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn,
+				     int vfid, bool b_fail_malicious)
 {
 	/* Check PF supports sriov */
 	if (IS_VF(p_hwfn->cdev) || !IS_QED_SRIOV(p_hwfn->cdev) ||
@@ -687,7 +688,7 @@ bool _qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn,
 	return true;
 }
 
-bool qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn, int vfid)
+static bool qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn, int vfid)
 {
 	return _qed_iov_pf_sanity_check(p_hwfn, vfid, true);
 }
@@ -3979,7 +3980,7 @@ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
 	}
 }
 
-void qed_iov_pf_get_pending_events(struct qed_hwfn *p_hwfn, u64 *events)
+static void qed_iov_pf_get_pending_events(struct qed_hwfn *p_hwfn, u64 *events)
 {
 	int i;
 

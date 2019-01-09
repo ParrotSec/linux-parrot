@@ -29,6 +29,7 @@
 #include <linux/pagemap.h>
 #include <linux/file.h>
 #include <linux/mm.h>
+#include <linux/random.h>
 #include <linux/sched/signal.h>
 #include <linux/export.h>
 #include <linux/swap.h>
@@ -123,7 +124,7 @@ static int shmem_replace_page(struct page **pagep, gfp_t gfp,
 static int shmem_getpage_gfp(struct inode *inode, pgoff_t index,
 		struct page **pagep, enum sgp_type sgp,
 		gfp_t gfp, struct vm_area_struct *vma,
-		struct vm_fault *vmf, int *fault_type);
+		struct vm_fault *vmf, vm_fault_t *fault_type);
 
 int shmem_getpage(struct inode *inode, pgoff_t index,
 		struct page **pagep, enum sgp_type sgp)
@@ -296,12 +297,14 @@ bool shmem_charge(struct inode *inode, long pages)
 	if (!shmem_inode_acct_block(inode, pages))
 		return false;
 
+	/* nrpages adjustment first, then shmem_recalc_inode() when balanced */
+	inode->i_mapping->nrpages += pages;
+
 	spin_lock_irqsave(&info->lock, flags);
 	info->alloced += pages;
 	inode->i_blocks += pages * BLOCKS_PER_PAGE;
 	shmem_recalc_inode(inode);
 	spin_unlock_irqrestore(&info->lock, flags);
-	inode->i_mapping->nrpages += pages;
 
 	return true;
 }
@@ -310,6 +313,8 @@ void shmem_uncharge(struct inode *inode, long pages)
 {
 	struct shmem_inode_info *info = SHMEM_I(inode);
 	unsigned long flags;
+
+	/* nrpages adjustment done by __delete_from_page_cache() or caller */
 
 	spin_lock_irqsave(&info->lock, flags);
 	info->alloced -= pages;
@@ -1239,8 +1244,8 @@ int shmem_unuse(swp_entry_t swap, struct page *page)
 	 * the shmem_swaplist_mutex which might hold up shmem_writepage().
 	 * Charged back to the user (not to caller) when swap account is used.
 	 */
-	error = mem_cgroup_try_charge(page, current->mm, GFP_KERNEL, &memcg,
-			false);
+	error = mem_cgroup_try_charge_delay(page, current->mm, GFP_KERNEL,
+					    &memcg, false);
 	if (error)
 		goto out;
 	/* No radix_tree_preload: swap entry keeps a place for page in tree */
@@ -1420,7 +1425,6 @@ static void shmem_pseudo_vma_init(struct vm_area_struct *vma,
 		struct shmem_inode_info *info, pgoff_t index)
 {
 	/* Create a pseudo vma that just contains the policy */
-	memset(vma, 0, sizeof(*vma));
 	vma_init(vma, NULL);
 	/* Bias interleave by inode number to distribute better across nodes */
 	vma->vm_pgoff = index + info->vfs_inode.i_ino;
@@ -1547,11 +1551,13 @@ static int shmem_replace_page(struct page **pagep, gfp_t gfp,
 {
 	struct page *oldpage, *newpage;
 	struct address_space *swap_mapping;
+	swp_entry_t entry;
 	pgoff_t swap_index;
 	int error;
 
 	oldpage = *pagep;
-	swap_index = page_private(oldpage);
+	entry.val = page_private(oldpage);
+	swap_index = swp_offset(entry);
 	swap_mapping = page_mapping(oldpage);
 
 	/*
@@ -1570,7 +1576,7 @@ static int shmem_replace_page(struct page **pagep, gfp_t gfp,
 	__SetPageLocked(newpage);
 	__SetPageSwapBacked(newpage);
 	SetPageUptodate(newpage);
-	set_page_private(newpage, swap_index);
+	set_page_private(newpage, entry.val);
 	SetPageSwapCache(newpage);
 
 	/*
@@ -1620,7 +1626,8 @@ static int shmem_replace_page(struct page **pagep, gfp_t gfp,
  */
 static int shmem_getpage_gfp(struct inode *inode, pgoff_t index,
 	struct page **pagep, enum sgp_type sgp, gfp_t gfp,
-	struct vm_area_struct *vma, struct vm_fault *vmf, int *fault_type)
+	struct vm_area_struct *vma, struct vm_fault *vmf,
+			vm_fault_t *fault_type)
 {
 	struct address_space *mapping = inode->i_mapping;
 	struct shmem_inode_info *info = SHMEM_I(inode);
@@ -1713,7 +1720,7 @@ repeat:
 				goto failed;
 		}
 
-		error = mem_cgroup_try_charge(page, charge_mm, gfp, &memcg,
+		error = mem_cgroup_try_charge_delay(page, charge_mm, gfp, &memcg,
 				false);
 		if (!error) {
 			error = shmem_add_to_page_cache(page, mapping, index,
@@ -1819,7 +1826,7 @@ alloc_nohuge:		page = shmem_alloc_and_acct_page(gfp, inode,
 		if (sgp == SGP_WRITE)
 			__SetPageReferenced(page);
 
-		error = mem_cgroup_try_charge(page, charge_mm, gfp, &memcg,
+		error = mem_cgroup_try_charge_delay(page, charge_mm, gfp, &memcg,
 				PageTransHuge(page));
 		if (error)
 			goto unacct;
@@ -2188,7 +2195,7 @@ static struct inode *shmem_get_inode(struct super_block *sb, const struct inode 
 		inode_init_owner(inode, dir, mode);
 		inode->i_blocks = 0;
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
-		inode->i_generation = get_seconds();
+		inode->i_generation = prandom_u32();
 		info = SHMEM_I(inode);
 		memset(info, 0, (char *)inode - (char *)info);
 		spin_lock_init(&info->lock);
@@ -2257,6 +2264,7 @@ static int shmem_mfill_atomic_pte(struct mm_struct *dst_mm,
 	struct page *page;
 	pte_t _dst_pte, *dst_pte;
 	int ret;
+	pgoff_t offset, max_off;
 
 	ret = -ENOMEM;
 	if (!shmem_inode_acct_block(inode, 1))
@@ -2279,7 +2287,7 @@ static int shmem_mfill_atomic_pte(struct mm_struct *dst_mm,
 				*pagep = page;
 				shmem_inode_unacct_blocks(inode, 1);
 				/* don't free the page */
-				return -EFAULT;
+				return -ENOENT;
 			}
 		} else {		/* mfill_zeropage_atomic */
 			clear_highpage(page);
@@ -2294,7 +2302,13 @@ static int shmem_mfill_atomic_pte(struct mm_struct *dst_mm,
 	__SetPageSwapBacked(page);
 	__SetPageUptodate(page);
 
-	ret = mem_cgroup_try_charge(page, dst_mm, gfp, &memcg, false);
+	ret = -EFAULT;
+	offset = linear_page_index(dst_vma, dst_addr);
+	max_off = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
+	if (unlikely(offset >= max_off))
+		goto out_release;
+
+	ret = mem_cgroup_try_charge_delay(page, dst_mm, gfp, &memcg, false);
 	if (ret)
 		goto out_release;
 
@@ -2311,9 +2325,25 @@ static int shmem_mfill_atomic_pte(struct mm_struct *dst_mm,
 	_dst_pte = mk_pte(page, dst_vma->vm_page_prot);
 	if (dst_vma->vm_flags & VM_WRITE)
 		_dst_pte = pte_mkwrite(pte_mkdirty(_dst_pte));
+	else {
+		/*
+		 * We don't set the pte dirty if the vma has no
+		 * VM_WRITE permission, so mark the page dirty or it
+		 * could be freed from under us. We could do it
+		 * unconditionally before unlock_page(), but doing it
+		 * only if VM_WRITE is not set is faster.
+		 */
+		set_page_dirty(page);
+	}
+
+	dst_pte = pte_offset_map_lock(dst_mm, dst_pmd, dst_addr, &ptl);
+
+	ret = -EFAULT;
+	max_off = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
+	if (unlikely(offset >= max_off))
+		goto out_release_uncharge_unlock;
 
 	ret = -EEXIST;
-	dst_pte = pte_offset_map_lock(dst_mm, dst_pmd, dst_addr, &ptl);
 	if (!pte_none(*dst_pte))
 		goto out_release_uncharge_unlock;
 
@@ -2331,13 +2361,15 @@ static int shmem_mfill_atomic_pte(struct mm_struct *dst_mm,
 
 	/* No need to invalidate - it was non-present before */
 	update_mmu_cache(dst_vma, dst_addr, dst_pte);
-	unlock_page(page);
 	pte_unmap_unlock(dst_pte, ptl);
+	unlock_page(page);
 	ret = 0;
 out:
 	return ret;
 out_release_uncharge_unlock:
 	pte_unmap_unlock(dst_pte, ptl);
+	ClearPageDirty(page);
+	delete_from_page_cache(page);
 out_release_uncharge:
 	mem_cgroup_cancel_charge(page, memcg, false);
 out_release:
@@ -2609,9 +2641,7 @@ static loff_t shmem_file_llseek(struct file *file, loff_t offset, int whence)
 	inode_lock(inode);
 	/* We're holding i_mutex so we can access i_size directly */
 
-	if (offset < 0)
-		offset = -EINVAL;
-	else if (offset >= inode->i_size)
+	if (offset < 0 || offset >= inode->i_size)
 		offset = -ENXIO;
 	else {
 		start = offset >> PAGE_SHIFT;
@@ -3899,18 +3929,11 @@ EXPORT_SYMBOL_GPL(shmem_truncate_range);
 
 /* common code */
 
-static const struct dentry_operations anon_ops = {
-	.d_dname = simple_dname
-};
-
 static struct file *__shmem_file_setup(struct vfsmount *mnt, const char *name, loff_t size,
 				       unsigned long flags, unsigned int i_flags)
 {
-	struct file *res;
 	struct inode *inode;
-	struct path path;
-	struct super_block *sb;
-	struct qstr this;
+	struct file *res;
 
 	if (IS_ERR(mnt))
 		return ERR_CAST(mnt);
@@ -3921,41 +3944,21 @@ static struct file *__shmem_file_setup(struct vfsmount *mnt, const char *name, l
 	if (shmem_acct_size(flags, size))
 		return ERR_PTR(-ENOMEM);
 
-	res = ERR_PTR(-ENOMEM);
-	this.name = name;
-	this.len = strlen(name);
-	this.hash = 0; /* will go */
-	sb = mnt->mnt_sb;
-	path.mnt = mntget(mnt);
-	path.dentry = d_alloc_pseudo(sb, &this);
-	if (!path.dentry)
-		goto put_memory;
-	d_set_d_op(path.dentry, &anon_ops);
-
-	res = ERR_PTR(-ENOSPC);
-	inode = shmem_get_inode(sb, NULL, S_IFREG | 0777, 0, flags);
-	if (!inode)
-		goto put_memory;
-
+	inode = shmem_get_inode(mnt->mnt_sb, NULL, S_IFREG | S_IRWXUGO, 0,
+				flags);
+	if (unlikely(!inode)) {
+		shmem_unacct_size(flags, size);
+		return ERR_PTR(-ENOSPC);
+	}
 	inode->i_flags |= i_flags;
-	d_instantiate(path.dentry, inode);
 	inode->i_size = size;
 	clear_nlink(inode);	/* It is unlinked */
 	res = ERR_PTR(ramfs_nommu_expand_for_mapping(inode, size));
+	if (!IS_ERR(res))
+		res = alloc_file_pseudo(inode, mnt, name, O_RDWR,
+				&shmem_file_operations);
 	if (IS_ERR(res))
-		goto put_path;
-
-	res = alloc_file(&path, FMODE_WRITE | FMODE_READ,
-		  &shmem_file_operations);
-	if (IS_ERR(res))
-		goto put_path;
-
-	return res;
-
-put_memory:
-	shmem_unacct_size(flags, size);
-put_path:
-	path_put(&path);
+		iput(inode);
 	return res;
 }
 

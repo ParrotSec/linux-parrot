@@ -72,13 +72,11 @@ struct irq_list_head {
 	struct work_struct work;
 };
 
-#if defined(CONFIG_DRM_AMD_DC_FBC)
 struct dm_comressor_info {
 	void *cpu_addr;
 	struct amdgpu_bo *bo_ptr;
 	uint64_t gpu_addr;
 };
-#endif
 
 
 struct amdgpu_display_manager {
@@ -129,9 +127,8 @@ struct amdgpu_display_manager {
 	 * Caches device atomic state for suspend/resume
 	 */
 	struct drm_atomic_state *cached_state;
-#if defined(CONFIG_DRM_AMD_DC_FBC)
+
 	struct dm_comressor_info compressor;
-#endif
 };
 
 struct amdgpu_dm_connector {
@@ -176,8 +173,6 @@ struct amdgpu_dm_connector {
 	struct mutex hpd_lock;
 
 	bool fake_enable;
-
-	bool mst_connected;
 };
 
 #define to_amdgpu_dm_connector(x) container_of(x, struct amdgpu_dm_connector, base)
@@ -218,6 +213,7 @@ struct dm_connector_state {
 	enum amdgpu_rmx_type scaling;
 	uint8_t underscan_vborder;
 	uint8_t underscan_hborder;
+	uint8_t max_bpc;
 	bool underscan_enable;
 	struct mod_freesync_user_enable user_enable;
 	bool freesync_capable;

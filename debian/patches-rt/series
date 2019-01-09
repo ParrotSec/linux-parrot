@@ -6,46 +6,24 @@
 # UPSTREAM merged
 ############################################################
 
-#misc
-SCSI-libsas-remove-irq-save-in-sas_ata_qc_issue.patch
-SCSI-qla2xxx-remove-irq-save-in-qla2x00_poll.patch
-cgroup-tracing-Move-taking-of-spin-lock-out-of-trace.patch
-sched-core-Remove-get_cpu-from-sched_fork.patch
-random-Remove-preempt-disabled-region.patch
-iommu-amd-drop-irqs_disabled-warn_on.patch
-# atomic_dec_and_lock_irqsave / refcount_dec_and_lock_irqsave
-0002-drivers-md-raid5-Use-irqsave-variant-of-atomic_dec_a.patch
-0003-drivers-md-raid5-Do-not-disable-irq-on-release_inact.patch
-0001-bdi-use-refcount_t-for-reference-counting-instead-at.patch
-0002-userns-use-refcount_t-for-reference-counting-instead.patch
-0005-bdi-Use-irqsave-variant-of-refcount_dec_and_lock.patch
-0006-userns-Use-irqsave-variant-of-refcount_dec_and_lock.patch
-libata-remove-ata_sff_data_xfer_noirq.patch
-ntfs-avoid-disabling-interrupts-during-kmap_atomic.patch
-# mm/workingset
-0001-mm-workingset-remove-local_irq_disable-from-count_sh.patch
-0002-mm-workingset-make-shadow_lru_isolate-use-locking-su.patch
-0001-mm-list_lru-use-list_lru_walk_one-in-list_lru_walk_n.patch
-0002-mm-list_lru-Move-locking-from-__list_lru_walk_one-to.patch
-0003-mm-list_lru-Pass-struct-list_lru_node-as-an-argument.patch
-0004-mm-list_lru-Introduce-list_lru_shrink_walk_irq.patch
-irqchip-gic-v3-its-Make-its_lock-a-raw_spin_lock_t.patch
-
 ############################################################
 # POSTED by others
 ############################################################
 # AT91
-# Alexandre Belloni | [PATCH v4 0/6] clocksource: rework Atmel TCB timer driver
-# Date: Wed, 18 Apr 2018 12:51:37 +0200
+# Alexandre Belloni | [PATCH v7 0/7] clocksource: rework Atmel TCB timer driver
+# Date: Thu, 13 Sep 2018 13:30:18 +0200
 0001-ARM-at91-add-TCB-registers-definitions.patch
 0002-clocksource-drivers-Add-a-new-driver-for-the-Atmel-A.patch
-0003-clocksource-drivers-atmel-pit-make-option-silent.patch
-0004-ARM-at91-Implement-clocksource-selection.patch
-0005-ARM-configs-at91-use-new-TCB-timer-driver.patch
-0006-ARM-configs-at91-unselect-PIT.patch
+0003-clocksource-drivers-timer-atmel-tcb-add-clockevent-d.patch
+0004-clocksource-drivers-atmel-pit-make-option-silent.patch
+0005-ARM-at91-Implement-clocksource-selection.patch
+0006-ARM-configs-at91-use-new-TCB-timer-driver.patch
+0007-ARM-configs-at91-unselect-PIT.patch
 
 irqchip-gic-v3-its-Move-pending-table-allocation-to-.patch
 kthread-convert-worker-lock-to-raw-spinlock.patch
+pinctrl-bcm2835-Use-raw-spinlock-for-RT-compatibilit.patch
+crypto-caam-qi-simplify-CGR-allocation-freeing.patch
 
 ############################################################
 # POSTED
@@ -57,6 +35,8 @@ arm-unwind-use_raw_lock.patch
 cgroup-use-irqsave-in-cgroup_rstat_flush_locked.patch
 fscache-initialize-cookie-hash-table-raw-spinlocks.patch
 Drivers-hv-vmbus-include-header-for-get_irq_regs.patch
+percpu-include-irqflags.h-for-raw_local_irq_save.patch
+perf-x86-intel-Delay-memory-deallocation-until-cpu_d.patch
 
 ############################################################
 # Ready for posting
@@ -75,6 +55,7 @@ arm64-KVM-compute_layout-before-altenates-are-applie.patch
 of-allocate-free-phandle-cache-outside-of-the-devtre.patch
 mm-kasan-make-quarantine_lock-a-raw_spinlock_t.patch
 EXP-rcu-Revert-expedited-GP-parallelization-cleverne.patch
+kmemleak-Turn-kmemleak_lock-to-raw-spinlock-on-RT.patch
 
 ###############################################################
 # Stuff broken upstream and upstream wants something different
@@ -107,7 +88,6 @@ usb-do-not-disable-interrupts-in-giveback.patch
 
 # Kconfig on/off
 rt-preempt-base-config.patch
-kconfig-preempt-rt-full.patch
 cpumask-disable-offstack-on-rt.patch
 jump-label-rt.patch
 kconfig-disable-a-few-options-rt.patch
@@ -184,6 +164,7 @@ slub-disable-SLUB_CPU_PARTIAL.patch
 mm-memcontrol-Don-t-call-schedule_work_on-in-preempt.patch
 mm-memcontrol-do_not_disable_irq.patch
 mm_zsmalloc_copy_with_get_cpu_var_and_locking.patch
+x86-mm-pat-disable-preemption-__split_large_page-aft.patch
 
 # RADIX TREE
 radix-tree-use-local-locks.patch
@@ -209,6 +190,7 @@ hrtimer-consolidate-hrtimer_init-hrtimer_init_sleepe.patch
 hrtimers-prepare-full-preemption.patch
 hrtimer-by-timers-by-default-into-the-softirq-context.patch
 hrtimer-Move-schedule_work-call-to-helper-thread.patch
+hrtimer-move-state-change-before-hrtimer_cancel-in-d.patch
 
 # POSIX-CPU-TIMERS
 posix-timers-thread-posix-cpu-timers-on-rt.patch
@@ -267,6 +249,8 @@ rtmutex-add-rwsem-implementation-based-on-rtmutex.patch
 rtmutex-add-rwlock-implementation-based-on-rtmutex.patch
 rtmutex-wire-up-RT-s-locking.patch
 rtmutex-add-ww_mutex-addon-for-mutex-rt.patch
+# Allow to enable RT-FULL after sleeping spinlocks are wired up
+kconfig-preempt-rt-full.patch
 locking-rt-mutex-fix-deadlock-in-device-mapper-block.patch
 locking-rtmutex-re-init-the-wait_lock-in-rt_mutex_in.patch
 ptrace-fix-ptrace-vs-tasklist_lock-race.patch
@@ -299,6 +283,7 @@ squashfs-make-use-of-local-lock-in-multi_cpu-decompr.patch
 
 # X86
 thermal-Defer-thermal-wakups-to-threads.patch
+x86-fpu-Disable-preemption-around-local_bh_disable.patch
 
 # CPU get light
 epoll-use-get-cpu-light.patch
@@ -352,9 +337,6 @@ irqwork-push_most_work_into_softirq_context.patch
 printk-rt-aware.patch
 kernel-printk-Don-t-try-to-print-from-IRQ-NMI-region.patch
 HACK-printk-drop-the-logbuf_lock-more-often.patch
-
-# POWERC
-powerpc-ps3-device-init.c-adapt-to-completions-using.patch
 
 # ARM
 ARM-enable-irq-in-translation-section-permission-fau.patch
@@ -425,6 +407,8 @@ watchdog-prevent-deferral-of-watchdogd-wakeup-on-RT.patch
 # I915
 drmradeoni915_Use_preempt_disableenable_rt()_where_recommended.patch
 drmi915_Use_local_lockunlock_irq()_in_intel_pipe_update_startend().patch
+drm-i915-disable-tracing-on-RT.patch
+drm-i915-skip-DRM_I915_LOW_LEVEL_TRACEPOINTS-with-NO.patch
 
 # CGROUPS
 cgroups-use-simple-wait-in-css_release.patch

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 26 Jul 2018 15:06:10 +0200
 Subject: [PATCH] efi: Allow efi=runtime
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 In case the option "efi=noruntime" is default at built-time, the user
 could overwrite its sate by `efi=runtime' and allow it again.
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/firmware/efi/efi.c
 +++ b/drivers/firmware/efi/efi.c
-@@ -110,6 +110,9 @@ static int __init parse_efi_cmdline(char
+@@ -113,6 +113,9 @@ static int __init parse_efi_cmdline(char
  	if (parse_option_str(str, "noruntime"))
  		disable_runtime = true;
  

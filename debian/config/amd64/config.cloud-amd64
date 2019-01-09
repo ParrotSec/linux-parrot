@@ -565,7 +565,9 @@ CONFIG_XEN_NETDEV_FRONTEND=m
 ##
 ## file: drivers/net/ethernet/amazon/Kconfig
 ##
-# CONFIG_NET_VENDOR_AMAZON is not set
+CONFIG_NET_VENDOR_AMAZON=y
+#. Amazon EC2 uses Elastic Network Adapter (ENA) support
+CONFIG_ENA_ETHERNET=m
 
 ##
 ## file: drivers/net/ethernet/amd/Kconfig
@@ -596,7 +598,7 @@ CONFIG_XEN_NETDEV_FRONTEND=m
 ##
 ## file: drivers/net/ethernet/cadence/Kconfig
 ##
-# CONFIG_NET_CADENCE is not set
+# CONFIG_NET_VENDOR_CADENCE is not set
 
 ##
 ## file: drivers/net/ethernet/cavium/Kconfig
@@ -688,7 +690,7 @@ CONFIG_NET_VENDOR_MELLANOX=y
 ##
 ## file: drivers/net/ethernet/neterion/Kconfig
 ##
-# CONFIG_NET_VENDOR_EXAR is not set
+# CONFIG_NET_VENDOR_NETERION is not set
 
 ##
 ## file: drivers/net/ethernet/netronome/Kconfig
@@ -708,7 +710,7 @@ CONFIG_NET_VENDOR_MELLANOX=y
 ##
 ## file: drivers/net/ethernet/packetengines/Kconfig
 ##
-# CONFIG_NET_PACKET_ENGINE is not set
+# CONFIG_NET_VENDOR_PACKET_ENGINES is not set
 
 ##
 ## file: drivers/net/ethernet/qlogic/Kconfig

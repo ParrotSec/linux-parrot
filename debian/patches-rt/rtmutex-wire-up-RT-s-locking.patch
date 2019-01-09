@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:31:14 +0200
 Subject: rtmutex: wire up RT's locking
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -86,7 +86,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
 --- a/include/linux/spinlock.h
 +++ b/include/linux/spinlock.h
-@@ -279,7 +279,11 @@ static inline void do_raw_spin_unlock(ra
+@@ -298,7 +298,11 @@ static inline void do_raw_spin_unlock(ra
  })
  
  /* Include rwlock functions */
@@ -99,7 +99,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  /*
   * Pull the _spin_*()/_read_*()/_write_*() functions/declarations:
-@@ -290,6 +294,10 @@ static inline void do_raw_spin_unlock(ra
+@@ -309,6 +313,10 @@ static inline void do_raw_spin_unlock(ra
  # include <linux/spinlock_api_up.h>
  #endif
  
@@ -110,7 +110,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Map the spin_lock functions to the raw variants for PREEMPT_RT=n
   */
-@@ -410,6 +418,8 @@ static __always_inline int spin_is_conte
+@@ -429,6 +437,8 @@ static __always_inline int spin_is_conte
  
  #define assert_spin_locked(lock)	assert_raw_spin_locked(&(lock)->rlock)
  

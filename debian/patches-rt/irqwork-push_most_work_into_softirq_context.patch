@@ -1,7 +1,7 @@
 Subject: irqwork: push most work into softirq context
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 23 Jun 2015 15:32:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 Initially we defered all irqwork into softirq because we didn't want the
 latency spikes if perf or another user was busy and delayed the RT task.
@@ -182,13 +182,13 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * Synchronize against the irq_work @entry, ensures the entry is not
 --- a/kernel/rcu/tree.c
 +++ b/kernel/rcu/tree.c
-@@ -1294,6 +1294,7 @@ static int rcu_implicit_dynticks_qs(stru
- 		    !rdp->rcu_iw_pending && rdp->rcu_iw_gpnum != rnp->gpnum &&
+@@ -1296,6 +1296,7 @@ static int rcu_implicit_dynticks_qs(stru
+ 		    !rdp->rcu_iw_pending && rdp->rcu_iw_gp_seq != rnp->gp_seq &&
  		    (rnp->ffmask & rdp->grpmask)) {
  			init_irq_work(&rdp->rcu_iw, rcu_iw_handler);
 +			rdp->rcu_iw.flags = IRQ_WORK_HARD_IRQ;
  			rdp->rcu_iw_pending = true;
- 			rdp->rcu_iw_gpnum = rnp->gpnum;
+ 			rdp->rcu_iw_gp_seq = rnp->gp_seq;
  			irq_work_queue_on(&rdp->rcu_iw, rdp->cpu);
 --- a/kernel/sched/topology.c
 +++ b/kernel/sched/topology.c

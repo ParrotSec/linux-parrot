@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:29:34 -0500
 Subject: timers: Prepare for full preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.18/older/patches-4.18.16-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
 
 When softirqs can be preempted we need to make sure that cancelling
 the timer from the active thread can not deadlock vs. a running timer
@@ -29,7 +29,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  # define del_timer_sync(t)		del_timer(t)
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -503,11 +503,14 @@ void resched_cpu(int cpu)
+@@ -497,11 +497,14 @@ void resched_cpu(int cpu)
   */
  int get_nohz_timer_target(void)
  {
@@ -46,7 +46,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	rcu_read_lock();
  	for_each_domain(cpu, sd) {
-@@ -526,6 +529,8 @@ int get_nohz_timer_target(void)
+@@ -520,6 +523,8 @@ int get_nohz_timer_target(void)
  		cpu = housekeeping_any_cpu(HK_FLAG_TIMER);
  unlock:
  	rcu_read_unlock();
@@ -92,8 +92,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +		return;
 +
 +	base = get_timer_base(tf);
-+	swait_event(base->wait_for_running_timer,
-+		    base->running_timer != timer);
++	swait_event_exclusive(base->wait_for_running_timer,
++			      base->running_timer != timer);
 +}
 +
 +# define wakeup_timer_waiters(b)	swake_up_all(&(b)->wait_for_running_timer)
