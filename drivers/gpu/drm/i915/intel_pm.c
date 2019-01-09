@@ -2492,6 +2492,9 @@ static uint32_t ilk_compute_pri_wm(const struct intel_crtc_state *cstate,
 	uint32_t method1, method2;
 	int cpp;
 
+	if (mem_value == 0)
+		return U32_MAX;
+
 	if (!intel_wm_plane_visible(cstate, pstate))
 		return 0;
 
@@ -2521,6 +2524,9 @@ static uint32_t ilk_compute_spr_wm(const struct intel_crtc_state *cstate,
 	uint32_t method1, method2;
 	int cpp;
 
+	if (mem_value == 0)
+		return U32_MAX;
+
 	if (!intel_wm_plane_visible(cstate, pstate))
 		return 0;
 
@@ -2543,6 +2549,9 @@ static uint32_t ilk_compute_cur_wm(const struct intel_crtc_state *cstate,
 				   uint32_t mem_value)
 {
 	int cpp;
+
+	if (mem_value == 0)
+		return U32_MAX;
 
 	if (!intel_wm_plane_visible(cstate, pstate))
 		return 0;
@@ -2942,8 +2951,8 @@ static void intel_print_wm_latency(struct drm_i915_private *dev_priv,
 		unsigned int latency = wm[level];
 
 		if (latency == 0) {
-			DRM_ERROR("%s WM%d latency not provided\n",
-				  name, level);
+			DRM_DEBUG_KMS("%s WM%d latency not provided\n",
+				      name, level);
 			continue;
 		}
 
@@ -2998,6 +3007,34 @@ static void snb_wm_latency_quirk(struct drm_i915_private *dev_priv)
 	intel_print_wm_latency(dev_priv, "Cursor", dev_priv->wm.cur_latency);
 }
 
+static void snb_wm_lp3_irq_quirk(struct drm_i915_private *dev_priv)
+{
+	/*
+	 * On some SNB machines (Thinkpad X220 Tablet at least)
+	 * LP3 usage can cause vblank interrupts to be lost.
+	 * The DEIIR bit will go high but it looks like the CPU
+	 * never gets interrupted.
+	 *
+	 * It's not clear whether other interrupt source could
+	 * be affected or if this is somehow limited to vblank
+	 * interrupts only. To play it safe we disable LP3
+	 * watermarks entirely.
+	 */
+	if (dev_priv->wm.pri_latency[3] == 0 &&
+	    dev_priv->wm.spr_latency[3] == 0 &&
+	    dev_priv->wm.cur_latency[3] == 0)
+		return;
+
+	dev_priv->wm.pri_latency[3] = 0;
+	dev_priv->wm.spr_latency[3] = 0;
+	dev_priv->wm.cur_latency[3] = 0;
+
+	DRM_DEBUG_KMS("LP3 watermarks disabled due to potential for lost interrupts\n");
+	intel_print_wm_latency(dev_priv, "Primary", dev_priv->wm.pri_latency);
+	intel_print_wm_latency(dev_priv, "Sprite", dev_priv->wm.spr_latency);
+	intel_print_wm_latency(dev_priv, "Cursor", dev_priv->wm.cur_latency);
+}
+
 static void ilk_setup_wm_latency(struct drm_i915_private *dev_priv)
 {
 	intel_read_wm_latency(dev_priv, dev_priv->wm.pri_latency);
@@ -3014,8 +3051,10 @@ static void ilk_setup_wm_latency(struct drm_i915_private *dev_priv)
 	intel_print_wm_latency(dev_priv, "Sprite", dev_priv->wm.spr_latency);
 	intel_print_wm_latency(dev_priv, "Cursor", dev_priv->wm.cur_latency);
 
-	if (IS_GEN6(dev_priv))
+	if (IS_GEN6(dev_priv)) {
 		snb_wm_latency_quirk(dev_priv);
+		snb_wm_lp3_irq_quirk(dev_priv);
+	}
 }
 
 static void skl_setup_wm_latency(struct drm_i915_private *dev_priv)
@@ -6264,42 +6303,15 @@ static u32 intel_rps_limits(struct drm_i915_private *dev_priv, u8 val)
 	return limits;
 }
 
-static void gen6_set_rps_thresholds(struct drm_i915_private *dev_priv, u8 val)
+static void rps_set_power(struct drm_i915_private *dev_priv, int new_power)
 {
 	struct intel_rps *rps = &dev_priv->gt_pm.rps;
-	int new_power;
 	u32 threshold_up = 0, threshold_down = 0; /* in % */
 	u32 ei_up = 0, ei_down = 0;
 
-	new_power = rps->power;
-	switch (rps->power) {
-	case LOW_POWER:
-		if (val > rps->efficient_freq + 1 &&
-		    val > rps->cur_freq)
-			new_power = BETWEEN;
-		break;
+	lockdep_assert_held(&rps->power.mutex);
 
-	case BETWEEN:
-		if (val <= rps->efficient_freq &&
-		    val < rps->cur_freq)
-			new_power = LOW_POWER;
-		else if (val >= rps->rp0_freq &&
-			 val > rps->cur_freq)
-			new_power = HIGH_POWER;
-		break;
-
-	case HIGH_POWER:
-		if (val < (rps->rp1_freq + rps->rp0_freq) >> 1 &&
-		    val < rps->cur_freq)
-			new_power = BETWEEN;
-		break;
-	}
-	/* Max/min bins are special */
-	if (val <= rps->min_freq_softlimit)
-		new_power = LOW_POWER;
-	if (val >= rps->max_freq_softlimit)
-		new_power = HIGH_POWER;
-	if (new_power == rps->power)
+	if (new_power == rps->power.mode)
 		return;
 
 	/* Note the units here are not exactly 1us, but 1280ns. */
@@ -6362,10 +6374,69 @@ static void gen6_set_rps_thresholds(struct drm_i915_private *dev_priv, u8 val)
 		   GEN6_RP_DOWN_IDLE_AVG);
 
 skip_hw_write:
-	rps->power = new_power;
-	rps->up_threshold = threshold_up;
-	rps->down_threshold = threshold_down;
+	rps->power.mode = new_power;
+	rps->power.up_threshold = threshold_up;
+	rps->power.down_threshold = threshold_down;
+}
+
+static void gen6_set_rps_thresholds(struct drm_i915_private *dev_priv, u8 val)
+{
+	struct intel_rps *rps = &dev_priv->gt_pm.rps;
+	int new_power;
+
+	new_power = rps->power.mode;
+	switch (rps->power.mode) {
+	case LOW_POWER:
+		if (val > rps->efficient_freq + 1 &&
+		    val > rps->cur_freq)
+			new_power = BETWEEN;
+		break;
+
+	case BETWEEN:
+		if (val <= rps->efficient_freq &&
+		    val < rps->cur_freq)
+			new_power = LOW_POWER;
+		else if (val >= rps->rp0_freq &&
+			 val > rps->cur_freq)
+			new_power = HIGH_POWER;
+		break;
+
+	case HIGH_POWER:
+		if (val < (rps->rp1_freq + rps->rp0_freq) >> 1 &&
+		    val < rps->cur_freq)
+			new_power = BETWEEN;
+		break;
+	}
+	/* Max/min bins are special */
+	if (val <= rps->min_freq_softlimit)
+		new_power = LOW_POWER;
+	if (val >= rps->max_freq_softlimit)
+		new_power = HIGH_POWER;
+
+	mutex_lock(&rps->power.mutex);
+	if (rps->power.interactive)
+		new_power = HIGH_POWER;
+	rps_set_power(dev_priv, new_power);
+	mutex_unlock(&rps->power.mutex);
 	rps->last_adj = 0;
+}
+
+void intel_rps_mark_interactive(struct drm_i915_private *i915, bool interactive)
+{
+	struct intel_rps *rps = &i915->gt_pm.rps;
+
+	if (INTEL_GEN(i915) < 6)
+		return;
+
+	mutex_lock(&rps->power.mutex);
+	if (interactive) {
+		if (!rps->power.interactive++ && READ_ONCE(i915->gt.awake))
+			rps_set_power(i915, HIGH_POWER);
+	} else {
+		GEM_BUG_ON(!rps->power.interactive);
+		rps->power.interactive--;
+	}
+	mutex_unlock(&rps->power.mutex);
 }
 
 static u32 gen6_rps_pm_mask(struct drm_i915_private *dev_priv, u8 val)
@@ -6780,7 +6851,7 @@ static void reset_rps(struct drm_i915_private *dev_priv,
 	u8 freq = rps->cur_freq;
 
 	/* force a reset */
-	rps->power = -1;
+	rps->power.mode = -1;
 	rps->cur_freq = -1;
 
 	if (set(dev_priv, freq))
@@ -7347,11 +7418,11 @@ out:
 
 static void valleyview_cleanup_pctx(struct drm_i915_private *dev_priv)
 {
-	if (WARN_ON(!dev_priv->vlv_pctx))
-		return;
+	struct drm_i915_gem_object *pctx;
 
-	i915_gem_object_put(dev_priv->vlv_pctx);
-	dev_priv->vlv_pctx = NULL;
+	pctx = fetch_and_zero(&dev_priv->vlv_pctx);
+	if (pctx)
+		i915_gem_object_put(pctx);
 }
 
 static void vlv_init_gpll_ref_freq(struct drm_i915_private *dev_priv)
@@ -9604,6 +9675,7 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val)
 void intel_pm_setup(struct drm_i915_private *dev_priv)
 {
 	mutex_init(&dev_priv->pcu_lock);
+	mutex_init(&dev_priv->gt_pm.rps.power.mutex);
 
 	atomic_set(&dev_priv->gt_pm.rps.num_waiters, 0);
 

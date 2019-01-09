@@ -20,30 +20,32 @@
 #include "hw_atl_llh_internal.h"
 
 #define DEFAULT_B0_BOARD_BASIC_CAPABILITIES \
-	.is_64_dma = true,	\
-	.msix_irqs = 4U,	\
-	.irq_mask = ~0U,	\
-	.vecs = HW_ATL_B0_RSS_MAX,	\
-	.tcs = HW_ATL_B0_TC_MAX,	\
-	.rxd_alignment = 1U,		\
-	.rxd_size = HW_ATL_B0_RXD_SIZE, \
-	.rxds = 4U * 1024U,		\
-	.txd_alignment = 1U,		\
-	.txd_size = HW_ATL_B0_TXD_SIZE, \
-	.txds = 8U * 1024U,		\
-	.txhwb_alignment = 4096U,	\
-	.tx_rings = HW_ATL_B0_TX_RINGS, \
-	.rx_rings = HW_ATL_B0_RX_RINGS, \
-	.hw_features = NETIF_F_HW_CSUM | \
-			NETIF_F_RXCSUM | \
-			NETIF_F_RXHASH | \
-			NETIF_F_SG |  \
-			NETIF_F_TSO | \
-			NETIF_F_LRO,  \
-	.hw_priv_flags = IFF_UNICAST_FLT,   \
-	.flow_control = true,		\
-	.mtu = HW_ATL_B0_MTU_JUMBO,	\
-	.mac_regs_count = 88,		\
+	.is_64_dma = true,		  \
+	.msix_irqs = 4U,		  \
+	.irq_mask = ~0U,		  \
+	.vecs = HW_ATL_B0_RSS_MAX,	  \
+	.tcs = HW_ATL_B0_TC_MAX,	  \
+	.rxd_alignment = 1U,		  \
+	.rxd_size = HW_ATL_B0_RXD_SIZE,   \
+	.rxds_max = HW_ATL_B0_MAX_RXD,    \
+	.rxds_min = HW_ATL_B0_MIN_RXD,    \
+	.txd_alignment = 1U,		  \
+	.txd_size = HW_ATL_B0_TXD_SIZE,   \
+	.txds_max = HW_ATL_B0_MAX_TXD,    \
+	.txds_min = HW_ATL_B0_MIN_TXD,    \
+	.txhwb_alignment = 4096U,	  \
+	.tx_rings = HW_ATL_B0_TX_RINGS,   \
+	.rx_rings = HW_ATL_B0_RX_RINGS,   \
+	.hw_features = NETIF_F_HW_CSUM |  \
+			NETIF_F_RXCSUM |  \
+			NETIF_F_RXHASH |  \
+			NETIF_F_SG |      \
+			NETIF_F_TSO |     \
+			NETIF_F_LRO,      \
+	.hw_priv_flags = IFF_UNICAST_FLT, \
+	.flow_control = true,		  \
+	.mtu = HW_ATL_B0_MTU_JUMBO,	  \
+	.mac_regs_count = 88,		  \
 	.hw_alive_check_addr = 0x10U
 
 const struct aq_hw_caps_s hw_atl_b0_caps_aqc100 = {
@@ -653,9 +655,9 @@ static int hw_atl_b0_hw_ring_rx_receive(struct aq_hw_s *self,
 		struct hw_atl_rxd_wb_s *rxd_wb = (struct hw_atl_rxd_wb_s *)
 			&ring->dx_ring[ring->hw_head * HW_ATL_B0_RXD_SIZE];
 
-		unsigned int is_err = 1U;
 		unsigned int is_rx_check_sum_enabled = 0U;
 		unsigned int pkt_type = 0U;
+		u8 rx_stat = 0U;
 
 		if (!(rxd_wb->status & 0x1U)) { /* RxD is not done */
 			break;
@@ -663,35 +665,35 @@ static int hw_atl_b0_hw_ring_rx_receive(struct aq_hw_s *self,
 
 		buff = &ring->buff_ring[ring->hw_head];
 
-		is_err = (0x0000003CU & rxd_wb->status);
+		rx_stat = (0x0000003CU & rxd_wb->status) >> 2;
 
-		is_rx_check_sum_enabled = (rxd_wb->type) & (0x3U << 19);
-		is_err &= ~0x20U; /* exclude validity bit */
+		is_rx_check_sum_enabled = (rxd_wb->type >> 19) & 0x3U;
 
 		pkt_type = 0xFFU & (rxd_wb->type >> 4);
 
-		if (is_rx_check_sum_enabled) {
-			if (0x0U == (pkt_type & 0x3U))
-				buff->is_ip_cso = (is_err & 0x08U) ? 0U : 1U;
+		if (is_rx_check_sum_enabled & BIT(0) &&
+		    (0x0U == (pkt_type & 0x3U)))
+			buff->is_ip_cso = (rx_stat & BIT(1)) ? 0U : 1U;
 
+		if (is_rx_check_sum_enabled & BIT(1)) {
 			if (0x4U == (pkt_type & 0x1CU))
-				buff->is_udp_cso = buff->is_cso_err ? 0U : 1U;
+				buff->is_udp_cso = (rx_stat & BIT(2)) ? 0U :
+						   !!(rx_stat & BIT(3));
 			else if (0x0U == (pkt_type & 0x1CU))
-				buff->is_tcp_cso = buff->is_cso_err ? 0U : 1U;
-
-			/* Checksum offload workaround for small packets */
-			if (rxd_wb->pkt_len <= 60) {
-				buff->is_ip_cso = 0U;
-				buff->is_cso_err = 0U;
-			}
+				buff->is_tcp_cso = (rx_stat & BIT(2)) ? 0U :
+						   !!(rx_stat & BIT(3));
 		}
-
-		is_err &= ~0x18U;
+		buff->is_cso_err = !!(rx_stat & 0x6);
+		/* Checksum offload workaround for small packets */
+		if (unlikely(rxd_wb->pkt_len <= 60)) {
+			buff->is_ip_cso = 0U;
+			buff->is_cso_err = 0U;
+		}
 
 		dma_unmap_page(ndev, buff->pa, buff->len, DMA_FROM_DEVICE);
 
-		if (is_err || rxd_wb->type & 0x1000U) {
-			/* status error or DMA error */
+		if ((rx_stat & BIT(0)) || rxd_wb->type & 0x1000U) {
+			/* MAC error or DMA error */
 			buff->is_error = 1U;
 		} else {
 			if (self->aq_nic_cfg->is_rss) {
@@ -913,6 +915,12 @@ static int hw_atl_b0_hw_interrupt_moderation_set(struct aq_hw_s *self)
 static int hw_atl_b0_hw_stop(struct aq_hw_s *self)
 {
 	hw_atl_b0_hw_irq_disable(self, HW_ATL_B0_INT_MASK);
+
+	/* Invalidate Descriptor Cache to prevent writing to the cached
+	 * descriptors and to the data pointer of those descriptors
+	 */
+	hw_atl_rdm_rx_dma_desc_cache_init_set(self, 1);
+
 	return aq_hw_err_from_flags(self);
 }
 
@@ -933,7 +941,6 @@ static int hw_atl_b0_hw_ring_rx_stop(struct aq_hw_s *self,
 const struct aq_hw_ops hw_atl_ops_b0 = {
 	.hw_set_mac_address   = hw_atl_b0_hw_mac_addr_set,
 	.hw_init              = hw_atl_b0_hw_init,
-	.hw_deinit            = hw_atl_utils_hw_deinit,
 	.hw_set_power         = hw_atl_utils_hw_set_power,
 	.hw_reset             = hw_atl_b0_hw_reset,
 	.hw_start             = hw_atl_b0_hw_start,

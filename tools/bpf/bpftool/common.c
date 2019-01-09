@@ -31,8 +31,6 @@
  * SOFTWARE.
  */
 
-/* Author: Jakub Kicinski <kubakici@wp.pl> */
-
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -306,7 +304,7 @@ char *get_fdinfo(int fd, const char *key)
 		return NULL;
 	}
 
-	while ((n = getline(&line, &line_n, fdi))) {
+	while ((n = getline(&line, &line_n, fdi)) > 0) {
 		char *value;
 		int len;
 

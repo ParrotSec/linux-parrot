@@ -1303,7 +1303,7 @@ static ssize_t scrub_store(struct device *dev,
 	if (nd_desc) {
 		struct acpi_nfit_desc *acpi_desc = to_acpi_desc(nd_desc);
 
-		rc = acpi_nfit_ars_rescan(acpi_desc, 0);
+		rc = acpi_nfit_ars_rescan(acpi_desc, ARS_REQ_LONG);
 	}
 	device_unlock(dev);
 	if (rc)
@@ -1699,7 +1699,7 @@ static int acpi_nfit_add_dimm(struct acpi_nfit_desc *acpi_desc,
 {
 	struct acpi_device *adev, *adev_dimm;
 	struct device *dev = acpi_desc->dev;
-	unsigned long dsm_mask;
+	unsigned long dsm_mask, label_mask;
 	const guid_t *guid;
 	int i;
 	int family = -1;
@@ -1770,6 +1770,16 @@ static int acpi_nfit_add_dimm(struct acpi_nfit_desc *acpi_desc,
 					nfit_dsm_revid(nfit_mem->family, i),
 					1ULL << i))
 			set_bit(i, &nfit_mem->dsm_mask);
+
+	/*
+	 * Prefer the NVDIMM_FAMILY_INTEL label read commands if present
+	 * due to their better semantics handling locked capacity.
+	 */
+	label_mask = 1 << ND_CMD_GET_CONFIG_SIZE | 1 << ND_CMD_GET_CONFIG_DATA
+		| 1 << ND_CMD_SET_CONFIG_DATA;
+	if (family == NVDIMM_FAMILY_INTEL
+			&& (dsm_mask & label_mask) == label_mask)
+		return 0;
 
 	if (acpi_nvdimm_has_method(adev_dimm, "_LSI")
 			&& acpi_nvdimm_has_method(adev_dimm, "_LSR")) {

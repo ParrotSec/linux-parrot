@@ -463,7 +463,7 @@ static void ttm_transfered_destroy(struct ttm_buffer_object *bo)
 	struct ttm_transfer_obj *fbo;
 
 	fbo = container_of(bo, struct ttm_transfer_obj, base);
-	ttm_bo_unref(&fbo->bo);
+	ttm_bo_put(fbo->bo);
 	kfree(fbo);
 }
 
@@ -493,7 +493,10 @@ static int ttm_buffer_object_transfer(struct ttm_buffer_object *bo,
 		return -ENOMEM;
 
 	fbo->base = *bo;
-	fbo->bo = ttm_bo_reference(bo);
+	fbo->base.mem.placement |= TTM_PL_FLAG_NO_EVICT;
+
+	ttm_bo_get(bo);
+	fbo->bo = bo;
 
 	/**
 	 * Fix up members that we shouldn't copy directly:
@@ -730,7 +733,7 @@ int ttm_bo_move_accel_cleanup(struct ttm_buffer_object *bo,
 			bo->ttm = NULL;
 
 		ttm_bo_unreserve(ghost_obj);
-		ttm_bo_unref(&ghost_obj);
+		ttm_bo_put(ghost_obj);
 	}
 
 	*old_mem = *new_mem;
@@ -786,7 +789,7 @@ int ttm_bo_pipeline_move(struct ttm_buffer_object *bo,
 			bo->ttm = NULL;
 
 		ttm_bo_unreserve(ghost_obj);
-		ttm_bo_unref(&ghost_obj);
+		ttm_bo_put(ghost_obj);
 
 	} else if (from->flags & TTM_MEMTYPE_FLAG_FIXED) {
 
@@ -851,7 +854,7 @@ int ttm_bo_pipeline_gutting(struct ttm_buffer_object *bo)
 	bo->ttm = NULL;
 
 	ttm_bo_unreserve(ghost);
-	ttm_bo_unref(&ghost);
+	ttm_bo_put(ghost);
 
 	return 0;
 }

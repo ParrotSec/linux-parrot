@@ -1102,16 +1102,20 @@ static const struct ksz_chip_data ksz_switch_chips[] = {
 		.cpu_ports = 0x7F,	/* can be configured as cpu port */
 		.port_cnt = 7,		/* total physical port count */
 	},
+	{
+		.chip_id = 0x00989700,
+		.dev_name = "KSZ9897",
+		.num_vlans = 4096,
+		.num_alus = 4096,
+		.num_statics = 16,
+		.cpu_ports = 0x7F,	/* can be configured as cpu port */
+		.port_cnt = 7,		/* total physical port count */
+	},
 };
 
 static int ksz_switch_init(struct ksz_device *dev)
 {
 	int i;
-
-	mutex_init(&dev->reg_mutex);
-	mutex_init(&dev->stats_mutex);
-	mutex_init(&dev->alu_mutex);
-	mutex_init(&dev->vlan_mutex);
 
 	dev->ds->ops = &ksz_switch_ops;
 
@@ -1196,6 +1200,11 @@ int ksz_switch_register(struct ksz_device *dev)
 
 	if (dev->pdata)
 		dev->chip_id = dev->pdata->chip_id;
+
+	mutex_init(&dev->reg_mutex);
+	mutex_init(&dev->stats_mutex);
+	mutex_init(&dev->alu_mutex);
+	mutex_init(&dev->vlan_mutex);
 
 	if (ksz_switch_detect(dev))
 		return -EINVAL;

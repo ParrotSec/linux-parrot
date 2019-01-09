@@ -35,6 +35,21 @@ struct rxrpc_abort_buffer {
 static const char rxrpc_keepalive_string[] = "";
 
 /*
+ * Increase Tx backoff on transmission failure and clear it on success.
+ */
+static void rxrpc_tx_backoff(struct rxrpc_call *call, int ret)
+{
+	if (ret < 0) {
+		u16 tx_backoff = READ_ONCE(call->tx_backoff);
+
+		if (tx_backoff < HZ)
+			WRITE_ONCE(call->tx_backoff, tx_backoff + 1);
+	} else {
+		WRITE_ONCE(call->tx_backoff, 0);
+	}
+}
+
+/*
  * Arrange for a keepalive ping a certain time after we last transmitted.  This
  * lets the far side know we're still interested in this call and helps keep
  * the route through any intervening firewall open.
@@ -182,7 +197,7 @@ int rxrpc_send_ack_packet(struct rxrpc_call *call, bool ping,
 
 	serial = atomic_inc_return(&conn->serial);
 	pkt->whdr.serial = htonl(serial);
-	trace_rxrpc_tx_ack(call, serial,
+	trace_rxrpc_tx_ack(call->debug_id, serial,
 			   ntohl(pkt->ack.firstPacket),
 			   ntohl(pkt->ack.serial),
 			   pkt->ack.reason, pkt->ack.nAcks);
@@ -206,7 +221,11 @@ int rxrpc_send_ack_packet(struct rxrpc_call *call, bool ping,
 	conn->params.peer->last_tx_at = ktime_get_seconds();
 	if (ret < 0)
 		trace_rxrpc_tx_fail(call->debug_id, serial, ret,
-				    rxrpc_tx_fail_call_ack);
+				    rxrpc_tx_point_call_ack);
+	else
+		trace_rxrpc_tx_packet(call->debug_id, &pkt->whdr,
+				      rxrpc_tx_point_call_ack);
+	rxrpc_tx_backoff(call, ret);
 
 	if (call->state < RXRPC_CALL_COMPLETE) {
 		if (ret < 0) {
@@ -215,7 +234,7 @@ int rxrpc_send_ack_packet(struct rxrpc_call *call, bool ping,
 			rxrpc_propose_ACK(call, pkt->ack.reason,
 					  ntohs(pkt->ack.maxSkew),
 					  ntohl(pkt->ack.serial),
-					  true, true,
+					  false, true,
 					  rxrpc_propose_ack_retry_tx);
 		} else {
 			spin_lock_bh(&call->lock);
@@ -293,8 +312,11 @@ int rxrpc_send_abort_packet(struct rxrpc_call *call)
 	conn->params.peer->last_tx_at = ktime_get_seconds();
 	if (ret < 0)
 		trace_rxrpc_tx_fail(call->debug_id, serial, ret,
-				    rxrpc_tx_fail_call_abort);
-
+				    rxrpc_tx_point_call_abort);
+	else
+		trace_rxrpc_tx_packet(call->debug_id, &pkt.whdr,
+				      rxrpc_tx_point_call_abort);
+	rxrpc_tx_backoff(call, ret);
 
 	rxrpc_put_connection(conn);
 	return ret;
@@ -401,7 +423,11 @@ int rxrpc_send_data_packet(struct rxrpc_call *call, struct sk_buff *skb,
 	up_read(&conn->params.local->defrag_sem);
 	if (ret < 0)
 		trace_rxrpc_tx_fail(call->debug_id, serial, ret,
-				    rxrpc_tx_fail_call_data_nofrag);
+				    rxrpc_tx_point_call_data_nofrag);
+	else
+		trace_rxrpc_tx_packet(call->debug_id, &whdr,
+				      rxrpc_tx_point_call_data_nofrag);
+	rxrpc_tx_backoff(call, ret);
 	if (ret == -EMSGSIZE)
 		goto send_fragmentable;
 
@@ -436,9 +462,18 @@ done:
 			rxrpc_reduce_call_timer(call, expect_rx_by, nowj,
 						rxrpc_timer_set_for_normal);
 		}
-	}
 
-	rxrpc_set_keepalive(call);
+		rxrpc_set_keepalive(call);
+	} else {
+		/* Cancel the call if the initial transmission fails,
+		 * particularly if that's due to network routing issues that
+		 * aren't going away anytime soon.  The layer above can arrange
+		 * the retransmission.
+		 */
+		if (!test_and_set_bit(RXRPC_CALL_BEGAN_RX_TIMER, &call->flags))
+			rxrpc_set_call_completion(call, RXRPC_CALL_LOCAL_ERROR,
+						  RX_USER_ABORT, ret);
+	}
 
 	_leave(" = %d [%u]", ret, call->peer->maxdata);
 	return ret;
@@ -493,7 +528,11 @@ send_fragmentable:
 
 	if (ret < 0)
 		trace_rxrpc_tx_fail(call->debug_id, serial, ret,
-				    rxrpc_tx_fail_call_data_frag);
+				    rxrpc_tx_point_call_data_frag);
+	else
+		trace_rxrpc_tx_packet(call->debug_id, &whdr,
+				      rxrpc_tx_point_call_data_frag);
+	rxrpc_tx_backoff(call, ret);
 
 	up_write(&conn->params.local->defrag_sem);
 	goto done;
@@ -512,7 +551,7 @@ void rxrpc_reject_packets(struct rxrpc_local *local)
 	struct kvec iov[2];
 	size_t size;
 	__be32 code;
-	int ret;
+	int ret, ioc;
 
 	_enter("%d", local->debug_id);
 
@@ -520,7 +559,6 @@ void rxrpc_reject_packets(struct rxrpc_local *local)
 	iov[0].iov_len = sizeof(whdr);
 	iov[1].iov_base = &code;
 	iov[1].iov_len = sizeof(code);
-	size = sizeof(whdr) + sizeof(code);
 
 	msg.msg_name = &srx.transport;
 	msg.msg_control = NULL;
@@ -528,16 +566,30 @@ void rxrpc_reject_packets(struct rxrpc_local *local)
 	msg.msg_flags = 0;
 
 	memset(&whdr, 0, sizeof(whdr));
-	whdr.type = RXRPC_PACKET_TYPE_ABORT;
 
 	while ((skb = skb_dequeue(&local->reject_queue))) {
 		rxrpc_see_skb(skb, rxrpc_skb_rx_seen);
 		sp = rxrpc_skb(skb);
 
+		switch (skb->mark) {
+		case RXRPC_SKB_MARK_REJECT_BUSY:
+			whdr.type = RXRPC_PACKET_TYPE_BUSY;
+			size = sizeof(whdr);
+			ioc = 1;
+			break;
+		case RXRPC_SKB_MARK_REJECT_ABORT:
+			whdr.type = RXRPC_PACKET_TYPE_ABORT;
+			code = htonl(skb->priority);
+			size = sizeof(whdr) + sizeof(code);
+			ioc = 2;
+			break;
+		default:
+			rxrpc_free_skb(skb, rxrpc_skb_rx_freed);
+			continue;
+		}
+
 		if (rxrpc_extract_addr_from_skb(local, &srx, skb) == 0) {
 			msg.msg_namelen = srx.transport_len;
-
-			code = htonl(skb->priority);
 
 			whdr.epoch	= htonl(sp->hdr.epoch);
 			whdr.cid	= htonl(sp->hdr.cid);
@@ -547,10 +599,14 @@ void rxrpc_reject_packets(struct rxrpc_local *local)
 			whdr.flags	^= RXRPC_CLIENT_INITIATED;
 			whdr.flags	&= RXRPC_CLIENT_INITIATED;
 
-			ret = kernel_sendmsg(local->socket, &msg, iov, 2, size);
+			ret = kernel_sendmsg(local->socket, &msg,
+					     iov, ioc, size);
 			if (ret < 0)
 				trace_rxrpc_tx_fail(local->debug_id, 0, ret,
-						    rxrpc_tx_fail_reject);
+						    rxrpc_tx_point_reject);
+			else
+				trace_rxrpc_tx_packet(local->debug_id, &whdr,
+						      rxrpc_tx_point_reject);
 		}
 
 		rxrpc_free_skb(skb, rxrpc_skb_rx_freed);
@@ -602,7 +658,10 @@ void rxrpc_send_keepalive(struct rxrpc_peer *peer)
 	ret = kernel_sendmsg(peer->local->socket, &msg, iov, 2, len);
 	if (ret < 0)
 		trace_rxrpc_tx_fail(peer->debug_id, 0, ret,
-				    rxrpc_tx_fail_version_keepalive);
+				    rxrpc_tx_point_version_keepalive);
+	else
+		trace_rxrpc_tx_packet(peer->debug_id, &whdr,
+				      rxrpc_tx_point_version_keepalive);
 
 	peer->last_tx_at = ktime_get_seconds();
 	_leave("");

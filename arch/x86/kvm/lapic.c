@@ -55,7 +55,7 @@
 #define PRIo64 "o"
 
 /* #define apic_debug(fmt,arg...) printk(KERN_WARNING fmt,##arg) */
-#define apic_debug(fmt, arg...)
+#define apic_debug(fmt, arg...) do {} while (0)
 
 /* 14 is the version for Xeon and Pentium 8.4.8*/
 #define APIC_VERSION			(0x14UL | ((KVM_APIC_LVT_NUM - 1) << 16))
@@ -545,6 +545,64 @@ int kvm_apic_set_irq(struct kvm_vcpu *vcpu, struct kvm_lapic_irq *irq,
 
 	return __apic_accept_irq(apic, irq->delivery_mode, irq->vector,
 			irq->level, irq->trig_mode, dest_map);
+}
+
+int kvm_pv_send_ipi(struct kvm *kvm, unsigned long ipi_bitmap_low,
+		    unsigned long ipi_bitmap_high, u32 min,
+		    unsigned long icr, int op_64_bit)
+{
+	int i;
+	struct kvm_apic_map *map;
+	struct kvm_vcpu *vcpu;
+	struct kvm_lapic_irq irq = {0};
+	int cluster_size = op_64_bit ? 64 : 32;
+	int count = 0;
+
+	irq.vector = icr & APIC_VECTOR_MASK;
+	irq.delivery_mode = icr & APIC_MODE_MASK;
+	irq.level = (icr & APIC_INT_ASSERT) != 0;
+	irq.trig_mode = icr & APIC_INT_LEVELTRIG;
+
+	if (icr & APIC_DEST_MASK)
+		return -KVM_EINVAL;
+	if (icr & APIC_SHORT_MASK)
+		return -KVM_EINVAL;
+
+	rcu_read_lock();
+	map = rcu_dereference(kvm->arch.apic_map);
+
+	if (unlikely(!map)) {
+		count = -EOPNOTSUPP;
+		goto out;
+	}
+
+	if (min > map->max_apic_id)
+		goto out;
+	/* Bits above cluster_size are masked in the caller.  */
+	for_each_set_bit(i, &ipi_bitmap_low,
+		min((u32)BITS_PER_LONG, (map->max_apic_id - min + 1))) {
+		if (map->phys_map[min + i]) {
+			vcpu = map->phys_map[min + i]->vcpu;
+			count += kvm_apic_set_irq(vcpu, &irq, NULL);
+		}
+	}
+
+	min += cluster_size;
+
+	if (min > map->max_apic_id)
+		goto out;
+
+	for_each_set_bit(i, &ipi_bitmap_high,
+		min((u32)BITS_PER_LONG, (map->max_apic_id - min + 1))) {
+		if (map->phys_map[min + i]) {
+			vcpu = map->phys_map[min + i]->vcpu;
+			count += kvm_apic_set_irq(vcpu, &irq, NULL);
+		}
+	}
+
+out:
+	rcu_read_unlock();
+	return count;
 }
 
 static int pv_eoi_put_user(struct kvm_vcpu *vcpu, u8 val)
@@ -1387,7 +1445,7 @@ static void apic_timer_expired(struct kvm_lapic *apic)
 	 * using swait_active() is safe.
 	 */
 	if (swait_active(q))
-		swake_up(q);
+		swake_up_one(q);
 
 	if (apic_lvtt_tscdeadline(apic))
 		ktimer->expired_tscdeadline = ktimer->tscdeadline;
