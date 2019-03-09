@@ -11,21 +11,11 @@ include /usr/share/dpkg/architecture.mk
 
 include debian/rules.defs
 
-DEBIAN_KERNEL_JOBS ?= 4
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
   DEBIAN_KERNEL_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
 endif
 ifdef DEBIAN_KERNEL_JOBS
   MAKEFLAGS += -j$(DEBIAN_KERNEL_JOBS)
-endif
-BUILD_STAGE1 := $(filter stage1,$(DEB_BUILD_PROFILES))
-ifneq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
-# This only disables building the linux-doc package.
-# The rules for tools packages check separately for the 'nodoc' profile.
-  MAKEFLAGS += DO_DOCS=False
-endif
-ifneq (,$(filter pkg.linux.notools,$(DEB_BUILD_PROFILES)))
-  MAKEFLAGS += DO_TOOLS_VERSIONED=False DO_TOOLS_UNVERSIONED=False
 endif
 
 .NOTPARALLEL:
@@ -42,31 +32,21 @@ build: build-arch build-indep
 
 build-arch: debian/control
 	dh_testdir
-ifndef BUILD_STAGE1
 	$(MAKE) -f debian/rules.gen build-arch_$(DEB_HOST_ARCH)
-endif
 
 build-indep: debian/control
 	dh_testdir
-ifndef BUILD_STAGE1
 	$(MAKE) -f debian/rules.gen build-indep
-endif
 
 binary:	binary-indep binary-arch
 
 binary-arch: build-arch
 	dh_testdir
-ifdef BUILD_STAGE1
-	$(MAKE) -f debian/rules.gen binary-libc-dev_$(DEB_HOST_ARCH)
-else
 	$(MAKE) -f debian/rules.gen binary-arch_$(DEB_HOST_ARCH)
-endif
 
 binary-indep: build-indep
 	dh_testdir
-ifndef BUILD_STAGE1
 	$(MAKE) -f debian/rules.gen binary-indep
-endif
 
 DIR_ORIG = ../orig/$(SOURCE)-$(VERSION_UPSTREAM)
 TAR_ORIG_NAME = $(SOURCE)_$(VERSION_UPSTREAM).orig.tar.xz

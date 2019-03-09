@@ -1,7 +1,7 @@
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Date: Thu, 13 Sep 2018 13:30:21 +0200
 Subject: [PATCH 4/7] clocksource/drivers: atmel-pit: make option silent
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 To conform with the other option, make the ATMEL_PIT option silent so it
 can be selected from the platform
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/clocksource/Kconfig
 +++ b/drivers/clocksource/Kconfig
-@@ -392,8 +392,11 @@ config ARMV7M_SYSTICK
+@@ -393,8 +393,11 @@ config ARMV7M_SYSTICK
  	  This options enables support for the ARMv7M system timer unit
  
  config ATMEL_PIT

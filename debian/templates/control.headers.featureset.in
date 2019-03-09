@@ -1,5 +1,5 @@
 Package: linux-headers-@abiname@-common@localversion@
-Build-Profiles: <!stage1>
+Build-Profiles: <!stage1 !pkg.linux.nokernel>
 Architecture: all
 Depends: ${misc:Depends}
 Multi-Arch: foreign

@@ -1,7 +1,7 @@
 From: Mikulas Patocka <mpatocka@redhat.com>
 Date: Mon, 13 Nov 2017 12:56:53 -0500
 Subject: [PATCH] locking/rt-mutex: fix deadlock in device mapper / block-IO
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 When some block device driver creates a bio and submits it to another
 block device driver, the bio is added to current->bio_list (in order to
@@ -54,7 +54,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	 * If rt_mutex blocks, the function sched_submit_work will not call
 +	 * blk_schedule_flush_plug (because tsk_is_pi_blocked would be true).
 +	 * We must call blk_schedule_flush_plug here, if we don't call it,
-+	 * a deadlock in device mapper may happen.
++	 * a deadlock in I/O may happen.
 +	 */
 +	if (unlikely(blk_needs_flush_plug(current)))
 +		blk_schedule_flush_plug(current);

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 13 Sep 2017 14:43:41 +0200
 Subject: [PATCH] srcu: use cpu_online() instead custom check
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 The current check via srcu_online is slightly racy because after looking
 at srcu_online there could be an interrupt that interrupted us long
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #include "rcu.h"
  #include "rcu_segcblist.h"
-@@ -459,21 +460,6 @@ static void srcu_gp_start(struct srcu_st
+@@ -461,21 +462,6 @@ static void srcu_gp_start(struct srcu_st
  }
  
  /*
@@ -50,7 +50,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * Place the workqueue handler on the specified CPU if online, otherwise
   * just run it whereever.  This is useful for placing workqueue handlers
   * that are to invoke the specified CPU's callbacks.
-@@ -484,12 +470,12 @@ static bool srcu_queue_delayed_work_on(i
+@@ -486,12 +472,12 @@ static bool srcu_queue_delayed_work_on(i
  {
  	bool ret;
  

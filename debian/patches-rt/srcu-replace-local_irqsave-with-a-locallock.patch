@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 12 Oct 2017 18:37:12 +0200
 Subject: [PATCH] srcu: replace local_irqsave() with a locallock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 There are two instances which disable interrupts in order to become a
 stable this_cpu_ptr() pointer. The restore part is coupled with
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #include "rcu.h"
  #include "rcu_segcblist.h"
-@@ -758,6 +759,8 @@ static void srcu_flip(struct srcu_struct
+@@ -760,6 +761,8 @@ static void srcu_flip(struct srcu_struct
   * negligible when amoritized over that time period, and the extra latency
   * of a needlessly non-expedited grace period is similarly negligible.
   */
@@ -33,7 +33,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static bool srcu_might_be_idle(struct srcu_struct *sp)
  {
  	unsigned long curseq;
-@@ -766,13 +769,13 @@ static bool srcu_might_be_idle(struct sr
+@@ -768,13 +771,13 @@ static bool srcu_might_be_idle(struct sr
  	unsigned long t;
  
  	/* If the local srcu_data structure has callbacks, not idle.  */
@@ -50,7 +50,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * No local callbacks, so probabalistically probe global state.
-@@ -850,7 +853,7 @@ void __call_srcu(struct srcu_struct *sp,
+@@ -852,7 +855,7 @@ void __call_srcu(struct srcu_struct *sp,
  		return;
  	}
  	rhp->func = func;
@@ -59,7 +59,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	sdp = this_cpu_ptr(sp->sda);
  	spin_lock_rcu_node(sdp);
  	rcu_segcblist_enqueue(&sdp->srcu_cblist, rhp, false);
-@@ -866,7 +869,8 @@ void __call_srcu(struct srcu_struct *sp,
+@@ -868,7 +871,8 @@ void __call_srcu(struct srcu_struct *sp,
  		sdp->srcu_gp_seq_needed_exp = s;
  		needexp = true;
  	}

@@ -38,6 +38,11 @@ CONFIG_DRM=m
 CONFIG_DRM_RADEON=m
 
 ##
+## file: drivers/gpu/drm/ast/Kconfig
+##
+CONFIG_DRM_AST=m
+
+##
 ## file: drivers/i2c/Kconfig
 ##
 CONFIG_I2C=y
@@ -77,6 +82,11 @@ CONFIG_REGULATOR=y
 ## file: drivers/rtc/Kconfig
 ##
 CONFIG_RTC_DRV_CMOS=y
+
+##
+## file: drivers/staging/sm750fb/Kconfig
+##
+CONFIG_FB_SM750=m
 
 ##
 ## file: drivers/tty/serial/8250/Kconfig

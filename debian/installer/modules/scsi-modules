@@ -20,11 +20,12 @@ virtio_scsi -
 # Exclude PCMCIA drivers, which depend on pcmcia-modules (FIXME)
 drivers/scsi/pcmcia/* -
 
-# Exclude Chelsio iSCSI drivers, which depend on the corresponding Ethernet
-# drivers in nic-modules (FIXME)
+# Exclude drivers for converged NICs, packaged in scsi-nic-modules
 drivers/scsi/cxgbi/* -
 cxgb3i -
 cxgb4i -
+qedf -
+qedi -
 
 # Exclude enclosure driver
 ses -

@@ -160,6 +160,16 @@ You can check the final list of configuration files by reading
 debian/rules.gen.  Each binary-arch_<arch>_<fset>_<flavour>_real
 rule passes the list to debian/rules.real as the KCONFIG variable.
 
+These files should be kept in order using the kconfigeditor2
+utility from <https://salsa.debian.org/kernel-team/kernel-team>.
+With this source package as your working directory, run:
+
+    debian/rules source
+    .../kernel-team/utils/kconfigeditor2/process.py .
+
+This will also warn about any symbols that no longer exist, or
+cannot be explicitly configured.
+
 Control file
 ============
 The master control file debian/control must be generated before
@@ -237,6 +247,8 @@ Several build profiles are understood and supported:
 - nodoc: Exclude most documentation
 - pkg.linux.notools: Exclude userland tool packages (linux-kbuild-<version>,
   linux-perf-<version>, etc.)
+- pkg.linux.nokernel: Exclude kernel image and header packages
+- pkg.linux.nosource: Exclude source binary package (linux-source-<version>)
 - cross: Needed when cross-building.  Currently this must be used together
   with nopython as the build-dependencies will be unsatisfiable otherwise.
 - nopython: Disable Python bindings.  This currently disables building the

@@ -19,18 +19,20 @@ Build-Depends:
  bison <!stage1>, flex (>= 2.6.1-1.1~) <!stage1>,
 Build-Depends-Arch:
 # used by debian/rules.real to build udebs
- kernel-wedge (>= 2.99~) <!stage1>,
+ kernel-wedge (>= 2.99~) <!stage1 !pkg.linux.nokernel>,
 # used by kernel-wedge (only on Linux, thus not declared as a dependency)
- kmod <!stage1>,
+ kmod <!stage1 !pkg.linux.nokernel>,
 # used by upstream to build include/generated/timeconst.h
- bc <!stage1>,
+ bc <!stage1 !pkg.linux.nokernel>,
 # used by upstream to build signing tools and to process certificates
- libssl-dev:native <!stage1>, libssl-dev <!stage1 !pkg.linux.notools>,
- openssl (>= 1.1.0-1~) <!stage1>,
+ libssl-dev:native <!stage1 !pkg.linux.nokernel>,
+ libssl-dev <!stage1 !pkg.linux.notools>,
+ openssl (>= 1.1.0-1~) <!stage1 !pkg.linux.nokernel>,
 # used by upstream to build objtool (native for amd64 images; host arch for
 # linux-kbuild), perf (host arch), libbpf (host arch)
- libelf-dev:native [amd64] <!stage1>, libelf-dev <!stage1 !pkg.linux.notools>,
+ libelf-dev:native [amd64] <!stage1 !pkg.linux.nokernel>,
+ libelf-dev <!stage1 !pkg.linux.notools>,
 Rules-Requires-Root: no
-Vcs-Git: https://nest.parrotsec.org/debian-packages/linux
+Vcs-Git: https://nest.parrotsec.org/debian-packages/linux.git
 Vcs-Browser: https://nest.parrotsec.org/debian-packages/linux
 Homepage: https://www.kernel.org/

@@ -1,0 +1,37 @@
+From: Peter Shier <pshier@google.com>
+Date: Thu, 11 Oct 2018 11:46:46 -0700
+Subject: KVM: nVMX: unconditionally cancel preemption timer in free_nested
+ (CVE-2019-7221)
+Origin: https://git.kernel.org/linus/ecec76885bcfe3294685dc363fd1273df0d5d65f
+Bug-Debian-Security: https://security-tracker.debian.org/tracker/CVE-2019-7221
+
+Bugzilla: 1671904
+
+There are multiple code paths where an hrtimer may have been started to
+emulate an L1 VMX preemption timer that can result in a call to free_nested
+without an intervening L2 exit where the hrtimer is normally
+cancelled. Unconditionally cancel in free_nested to cover all cases.
+
+Embargoed until Feb 7th 2019.
+
+Signed-off-by: Peter Shier <pshier@google.com>
+Reported-by: Jim Mattson <jmattson@google.com>
+Reviewed-by: Jim Mattson <jmattson@google.com>
+Reported-by: Felix Wilhelm <fwilhelm@google.com>
+Cc: stable@kernel.org
+Message-Id: <20181011184646.154065-1-pshier@google.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+[carnil: Backport to 4.19. Adjust filename to arch/x86/kvm/vmx/vmx.c
+as later refactoring moved nested code to dedicated files]
+---
+
+--- a/arch/x86/kvm/vmx.c
++++ b/arch/x86/kvm/vmx.c
+@@ -8469,6 +8469,7 @@ static void free_nested(struct vcpu_vmx
+ 	if (!vmx->nested.vmxon && !vmx->nested.smm.vmxon)
+ 		return;
+ 
++	hrtimer_cancel(&vmx->nested.preemption_timer);
+ 	vmx->nested.vmxon = false;
+ 	vmx->nested.smm.vmxon = false;
+ 	free_vpid(vmx->nested.vpid02);

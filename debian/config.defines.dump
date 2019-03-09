@@ -8,7 +8,7 @@ tp3
 (dp4
 Vabiname
 p5
-Vparrot1-13t
+Vparrot1-20t
 p6
 sVignore-changes
 p7
@@ -283,7 +283,7 @@ tp147
 (dp148
 Vgcc-8
 p149
-Vgcc-8 <!stage1 !cross>, gcc-8-@gnu-type-package@ <!stage1 cross>
+Vgcc-8 <!stage1 !cross !pkg.linux.nokernel>, gcc-8-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
 p150
 sVinitramfs-fallback
 p151
@@ -440,7 +440,7 @@ tp231
 (dp232
 Vgcc-8
 p233
-Vgcc-8 (>= 8-20180123-1~) <!stage1 !cross>, gcc-8-x86-64-linux-gnu (>= 8-20180123-1~) <!stage1 cross>
+Vgcc-8 (>= 8-20180123-1~) <!stage1 !cross !pkg.linux.nokernel>, gcc-8-x86-64-linux-gnu (>= 8-20180123-1~) <!stage1 cross !pkg.linux.nokernel>
 p234
 sVheaders%gcc-8
 p235
@@ -680,13 +680,13 @@ Vu-boot-tools
 p363
 sVcheck-size
 p364
-L2097080L
+I2097080
 sVcheck-size-with-dtb
 p365
 I01
 sVcheck-uncompressed-size
 p366
-L7340032L
+I7340032
 sVbreaks
 p367
 Vflash-kernel (<< 3.57~)
@@ -913,7 +913,7 @@ tp484
 (dp485
 Vgcc-8
 p486
-Vgcc-8 <!stage1 !cross>, gcc-8-hppa-linux-gnu <!stage1 cross>, binutils-hppa64-linux-gnu <!stage1>, gcc-8-hppa64-linux-gnu <!stage1>
+Vgcc-8 <!stage1 !cross !pkg.linux.nokernel>, gcc-8-hppa-linux-gnu <!stage1 cross !pkg.linux.nokernel>, binutils-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>, gcc-8-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>
 p487
 ss(g192
 g432
@@ -998,7 +998,7 @@ tp528
 (dp529
 Vgcc-8
 p530
-Vgcc-8 (>= 8-20180123-1~) <!stage1 !cross>, gcc-8-x86-64-linux-gnu (>= 8-20180123-1~) <!stage1 cross>
+Vgcc-8 (>= 8-20180123-1~) <!stage1 !cross !pkg.linux.nokernel>, gcc-8-i686-linux-gnu (>= 8-20180123-1~) <!stage1 cross !pkg.linux.nokernel>
 p531
 sVheaders%gcc-8
 p532
@@ -2702,7 +2702,7 @@ Vu-boot-tools
 p1437
 sVcheck-size
 p1438
-L4194304L
+I4194304
 ss(g192
 g1400
 g163
@@ -2874,7 +2874,7 @@ tp1530
 (dp1531
 Vsource
 p1532
-V4.19.13-1parrot1.13t
+V4.19.20-2parrot1.20t
 p1533
 sVupstream
 p1534
@@ -2886,6 +2886,6 @@ V4.19.0
 p1537
 sVabiname
 p1538
-V4.19.0-parrot1-13t
+V4.19.0-parrot1-20t
 p1539
 ss.
