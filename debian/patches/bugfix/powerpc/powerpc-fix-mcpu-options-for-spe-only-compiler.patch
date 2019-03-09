@@ -38,5 +38,5 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  endif
 +endif
  
- ifdef CONFIG_MPROFILE_KERNEL
- 	CC_FLAGS_FTRACE := -pg -mprofile-kernel
+ ifdef CONFIG_FUNCTION_TRACER
+ CC_FLAGS_FTRACE := -pg

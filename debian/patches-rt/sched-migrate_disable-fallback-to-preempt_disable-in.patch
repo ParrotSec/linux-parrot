@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 5 Jul 2018 14:44:51 +0200
 Subject: [PATCH] sched/migrate_disable: fallback to preempt_disable() instead
  barrier()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 On SMP + !RT migrate_disable() is still around. It is not part of spin_lock()
 anymore so it has almost no users. However the futex code has a workaround for
@@ -90,7 +90,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1030,7 +1030,7 @@ void set_cpus_allowed_common(struct task
+@@ -1029,7 +1029,7 @@ void set_cpus_allowed_common(struct task
  	p->nr_cpus_allowed = cpumask_weight(new_mask);
  }
  
@@ -99,7 +99,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  int __migrate_disabled(struct task_struct *p)
  {
  	return p->migrate_disable;
-@@ -1070,7 +1070,7 @@ static void __do_set_cpus_allowed_tail(s
+@@ -1069,7 +1069,7 @@ static void __do_set_cpus_allowed_tail(s
  
  void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
  {
@@ -108,7 +108,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (__migrate_disabled(p)) {
  		lockdep_assert_held(&p->pi_lock);
  
-@@ -1143,7 +1143,7 @@ static int __set_cpus_allowed_ptr(struct
+@@ -1142,7 +1142,7 @@ static int __set_cpus_allowed_ptr(struct
  	if (cpumask_test_cpu(task_cpu(p), new_mask) || __migrate_disabled(p))
  		goto out;
  
@@ -117,7 +117,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (__migrate_disabled(p)) {
  		p->migrate_disable_update = 1;
  		goto out;
-@@ -7164,7 +7164,7 @@ const u32 sched_prio_to_wmult[40] = {
+@@ -7163,7 +7163,7 @@ const u32 sched_prio_to_wmult[40] = {
  
  #undef CREATE_TRACE_POINTS
  
@@ -126,7 +126,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static inline void
  update_nr_migratory(struct task_struct *p, long delta)
-@@ -7312,45 +7312,44 @@ EXPORT_SYMBOL(migrate_enable);
+@@ -7311,45 +7311,44 @@ EXPORT_SYMBOL(migrate_enable);
  #elif !defined(CONFIG_SMP) && defined(CONFIG_PREEMPT_RT_BASE)
  void migrate_disable(void)
  {

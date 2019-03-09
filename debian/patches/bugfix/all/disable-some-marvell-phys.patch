@@ -14,9 +14,11 @@ correctness.
 [bwh: Also #if-out the init functions for these PHYs to avoid
  compiler warnings]
 
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -928,6 +928,7 @@ static int m88e1118_config_init(struct p
+Index: linux/drivers/net/phy/marvell.c
+===================================================================
+--- linux.orig/drivers/net/phy/marvell.c
++++ linux/drivers/net/phy/marvell.c
+@@ -962,6 +962,7 @@ static int m88e1118_config_init(struct p
  	return genphy_soft_reset(phydev);
  }
  
@@ -24,7 +26,7 @@ correctness.
  static int m88e1149_config_init(struct phy_device *phydev)
  {
  	int err;
-@@ -953,7 +954,9 @@ static int m88e1149_config_init(struct p
+@@ -987,7 +988,9 @@ static int m88e1149_config_init(struct p
  
  	return genphy_soft_reset(phydev);
  }
@@ -34,15 +36,15 @@ correctness.
  static int m88e1145_config_init_rgmii(struct phy_device *phydev)
  {
  	int err;
-@@ -1028,6 +1031,7 @@ static int m88e1145_config_init(struct p
+@@ -1062,6 +1065,7 @@ static int m88e1145_config_init(struct p
  
  	return 0;
  }
 +#endif
  
- /**
-  * fiber_lpa_to_ethtool_lpa_t
-@@ -2102,6 +2106,7 @@ static struct phy_driver marvell_drivers
+ /* The VOD can be out of specification on link up. Poke an
+  * undocumented register, in an undocumented page, with a magic value
+@@ -2175,6 +2179,7 @@ static struct phy_driver marvell_drivers
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -50,7 +52,7 @@ correctness.
  	{
  		.phy_id = MARVELL_PHY_ID_88E1145,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2122,6 +2127,8 @@ static struct phy_driver marvell_drivers
+@@ -2195,6 +2200,8 @@ static struct phy_driver marvell_drivers
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -59,7 +61,7 @@ correctness.
  	{
  		.phy_id = MARVELL_PHY_ID_88E1149R,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2141,6 +2148,8 @@ static struct phy_driver marvell_drivers
+@@ -2214,6 +2221,8 @@ static struct phy_driver marvell_drivers
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -68,7 +70,7 @@ correctness.
  	{
  		.phy_id = MARVELL_PHY_ID_88E1240,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2160,6 +2169,7 @@ static struct phy_driver marvell_drivers
+@@ -2233,6 +2242,7 @@ static struct phy_driver marvell_drivers
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -76,7 +78,7 @@ correctness.
  	{
  		.phy_id = MARVELL_PHY_ID_88E1116R,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2296,9 +2306,9 @@ static struct mdio_device_id __maybe_unu
+@@ -2369,9 +2379,9 @@ static struct mdio_device_id __maybe_unu
  	{ MARVELL_PHY_ID_88E1111, MARVELL_PHY_ID_MASK },
  	{ MARVELL_PHY_ID_88E1118, MARVELL_PHY_ID_MASK },
  	{ MARVELL_PHY_ID_88E1121R, MARVELL_PHY_ID_MASK },

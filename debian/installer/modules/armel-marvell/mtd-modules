@@ -9,3 +9,4 @@ ofpart
 mtdblock
 physmap_of
 cmdlinepart
+spi-orion

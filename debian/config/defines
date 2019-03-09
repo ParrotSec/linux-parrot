@@ -1,5 +1,5 @@
 [abi]
-abiname: parrot1-13t
+abiname: parrot1-20t
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*
@@ -140,7 +140,7 @@ recommends: apparmor
 
 [relations]
 # compilers
-gcc-8: gcc-8 <!stage1 !cross>, gcc-8-@gnu-type-package@ <!stage1 cross>
+gcc-8: gcc-8 <!stage1 !cross !pkg.linux.nokernel>, gcc-8-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
 
 # initramfs-generators
 initramfs-fallback: linux-initramfs-tool

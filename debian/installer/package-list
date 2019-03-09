@@ -100,6 +100,12 @@ Priority: standard
 Description: SCSI drivers
  This package contains SCSI drivers for the kernel.
 
+Package: scsi-nic-modules
+Depends: scsi-modules, nic-modules
+Priority: optional
+Description: SCSI drivers for converged NICs
+ This package contains SCSI drivers that depend on net drivers.
+
 Package: loop-modules
 Depends: kernel-image
 Priority: standard
@@ -359,7 +365,7 @@ Description: RTC modules
  This package contains RTC modules.
 
 Package: virtio-modules
-Depends: kernel-image, scsi-core-modules
+Depends: kernel-image, scsi-core-modules, fb-modules
 Priority: optional
 Description: virtio modules
  This package contains virtio modules.

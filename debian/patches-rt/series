@@ -24,6 +24,7 @@ irqchip-gic-v3-its-Move-pending-table-allocation-to-.patch
 kthread-convert-worker-lock-to-raw-spinlock.patch
 pinctrl-bcm2835-Use-raw-spinlock-for-RT-compatibilit.patch
 crypto-caam-qi-simplify-CGR-allocation-freeing.patch
+sched-fair-Robustify-CFS-bandwidth-timer-locking.patch
 
 ############################################################
 # POSTED
@@ -164,6 +165,7 @@ slub-disable-SLUB_CPU_PARTIAL.patch
 mm-memcontrol-Don-t-call-schedule_work_on-in-preempt.patch
 mm-memcontrol-do_not_disable_irq.patch
 mm_zsmalloc_copy_with_get_cpu_var_and_locking.patch
+# check in next release if it is still required.
 x86-mm-pat-disable-preemption-__split_large_page-aft.patch
 
 # RADIX TREE
@@ -189,6 +191,7 @@ time-hrtimer-avoid-schedule_work-with-interrupts-dis.patch
 hrtimer-consolidate-hrtimer_init-hrtimer_init_sleepe.patch
 hrtimers-prepare-full-preemption.patch
 hrtimer-by-timers-by-default-into-the-softirq-context.patch
+sched-fair-Make-the-hrtimers-non-hard-again.patch
 hrtimer-Move-schedule_work-call-to-helper-thread.patch
 hrtimer-move-state-change-before-hrtimer_cancel-in-d.patch
 
@@ -247,11 +250,13 @@ rtmutex-add-sleeping-lock-implementation.patch
 rtmutex-add-mutex-implementation-based-on-rtmutex.patch
 rtmutex-add-rwsem-implementation-based-on-rtmutex.patch
 rtmutex-add-rwlock-implementation-based-on-rtmutex.patch
+rtmutex-rwlock-preserve-state-like-a-sleeping-lock.patch
 rtmutex-wire-up-RT-s-locking.patch
 rtmutex-add-ww_mutex-addon-for-mutex-rt.patch
 # Allow to enable RT-FULL after sleeping spinlocks are wired up
 kconfig-preempt-rt-full.patch
 locking-rt-mutex-fix-deadlock-in-device-mapper-block.patch
+locking-rt-mutex-Flush-block-plug-on-__down_read.patch
 locking-rtmutex-re-init-the-wait_lock-in-rt_mutex_in.patch
 ptrace-fix-ptrace-vs-tasklist_lock-race.patch
 rtmutex-annotate-sleeping-lock-context.patch

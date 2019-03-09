@@ -55,70 +55,54 @@ MAKEOVERRIDES =
 # Targets
 #
 
-build-arch-arch:
-build-indep:
-binary-arch-arch:
-binary-indep:
+packages_enabled := $(shell dh_listpackages)
+define if_package
+$(if $(filter $(1),$(packages_enabled)),$(2))
+endef
 
-ifeq (,$(filter pkg.linux.nosource,$(DEB_BUILD_PROFILES)))
-  ifneq ($(DO_CONFIG),False)
-    binary-arch-arch: install-config_$(ARCH)
-  endif
-endif
-ifneq ($(DO_HEADERS_ALL),False)
-  binary-arch-arch: install-headers_$(ARCH)
-endif
-ifneq ($(DO_LIBC),False)
-  binary-arch-arch: install-libc-dev_$(ARCH)
-endif
-binary-arch-flavour: install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
-ifeq ($(DEBUG),True)
-  binary-arch-flavour: install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
-endif
-binary-arch-flavour: install-headers_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
+build-arch-arch: \
+	$(call if_package, linux-kbuild-$(VERSION),      build-kbuild) \
+	$(call if_package, linux-perf-$(VERSION),        build-perf) \
+	$(call if_package, linux-bootwrapper-$(ABINAME), build-bootwrapper) \
+	$(call if_package, usbip,                        build-usbip) \
+	$(call if_package, linux-cpupower,               build-cpupower) \
+	$(call if_package, liblockdep-dev,               build-liblockdep) \
+	$(call if_package, libbpf-dev,                   build-libbpf) \
+	$(call if_package, hyperv-daemons,               build-hyperv-daemons)
+binary-arch-arch: \
+	$(call if_package, $(SOURCE_BASENAME)-config-$(VERSION), install-config_$(ARCH)) \
+	$(call if_package, linux-headers-$(ABINAME)-all, install-headers_$(ARCH)) \
+	$(call if_package, linux-libc-dev,               install-libc-dev_$(ARCH)) \
+	$(call if_package, linux-kbuild-$(VERSION),      install-kbuild) \
+	$(call if_package, linux-perf-$(VERSION),        install-perf) \
+	$(call if_package, linux-bootwrapper-$(ABINAME), install-bootwrapper) \
+	$(call if_package, usbip,                        install-usbip) \
+	$(call if_package, linux-cpupower,               install-cpupower) \
+	$(call if_package, liblockdep-dev,               install-liblockdep) \
+	$(call if_package, libbpf-dev,                   install-libbpf) \
+	$(call if_package, hyperv-daemons,               install-hyperv-daemons)
 
-ifneq ($(DO_DOCS),False)
-  binary-indep: install-doc
-  ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
-    build-indep: $(STAMPS_DIR)/build-doc
-  endif
-endif
-ifeq (,$(filter pkg.linux.nosource,$(DEB_BUILD_PROFILES)))
-  ifneq ($(DO_SOURCE),False)
-    binary-indep: install-source
-  endif
-endif
-binary-indep: install-support
+build-indep: \
+	$(call if_package, $(SOURCE_BASENAME)-doc-$(VERSION), $(STAMPS_DIR)/build-doc)
+binary-indep: \
+	$(call if_package, $(SOURCE_BASENAME)-doc-$(VERSION), install-doc) \
+	$(call if_package, $(SOURCE_BASENAME)-source-$(VERSION), install-source) \
+	$(call if_package, $(SOURCE_BASENAME)-support-$(ABINAME), install-support) \
+	$(call if_package, lockdep,                      install-lockdep)
 
-ifneq ($(DO_TOOLS_VERSIONED),False)
-  build-arch-arch: build-kbuild
-  binary-arch-arch: install-kbuild
-  ifneq ($(filter alpha amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel mipsr6 mipsr6el mips64r6 mips64r6el mipsn32 mipsn32el mipsn32r6 mipsn32r6el powerpc ppc64 ppc64el s390 s390x sh4 sparc sparc64,$(DEB_HOST_ARCH)),)
-    ifeq ($(filter nopython,$(DEB_BUILD_PROFILES)),)
-      build-arch-arch: build-perf
-      binary-arch-arch: install-perf
-    endif
-  endif
-  ifneq ($(filter powerpc powerpcspe ppc64,$(DEB_HOST_ARCH)),)
-    build-arch-arch: build-bootwrapper
-    binary-arch-arch: install-bootwrapper
-  endif
-endif
-ifneq ($(DO_TOOLS_UNVERSIONED),False)
-  build-arch-arch:build-usbip build-cpupower build-liblockdep build-libbpf
-  binary-arch-arch: install-usbip install-cpupower install-liblockdep install-libbpf
-  ifneq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
-    build-arch-arch: build-hyperv-daemons
-    binary-arch-arch: install-hyperv-daemons
-  endif
-  binary-indep: install-lockdep
-endif
+binary-arch-flavour: \
+	$(call if_package, $(IMAGE_PACKAGE_NAME),        install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)) \
+	$(call if_package, linux-image-$(ABINAME)$(LOCALVERSION)-dbg, install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR)) \
+	$(call if_package, linux-headers-$(ABINAME)$(LOCALVERSION), install-headers_$(ARCH)_$(FEATURESET)_$(FLAVOUR))
 
-binary-indep-featureset: install-common-headers_$(FEATURESET)
+binary-indep-featureset: \
+	$(call if_package, linux-headers-$(ABINAME)-common$(LOCALVERSION), install-common-headers_$(FEATURESET))
 
-build-arch-flavour: $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
+build-arch-flavour: \
+	$(call if_package, $(IMAGE_PACKAGE_NAME),        $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR))
 
-setup-arch-flavour: $(STAMPS_DIR)/setup_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
+setup-arch-flavour: \
+	$(call if_package, $(IMAGE_PACKAGE_NAME),        $(STAMPS_DIR)/setup_$(ARCH)_$(FEATURESET)_$(FLAVOUR))
 
 source-featureset: $(STAMPS_DIR)/source_$(FEATURESET)
 
@@ -537,6 +521,7 @@ install-signed-template_$(ARCH): DH_OPTIONS = -p$(PACKAGE_NAME)
 install-signed-template_$(ARCH): PACKAGE_DIR = debian/$(PACKAGE_NAME)
 install-signed-template_$(ARCH): CODE_SIGNING_DIR = $(PACKAGE_DIR)/usr/share/code-signing/$(PACKAGE_NAME)
 install-signed-template_$(ARCH):
+ifneq (,$(filter linux-image-$(ARCH)-signed-template,$(packages_enabled)))
 	dh_testdir
 	dh_testroot
 	dh_prep
@@ -551,6 +536,7 @@ install-signed-template_$(ARCH):
 		debian/signing_templates/source \
 		$(CODE_SIGNING_DIR)/source-template/debian/
 	+$(MAKE_SELF) install-base
+endif  # enabled
 
 install-udeb_$(ARCH): export KW_DEFCONFIG_DIR=debian/installer
 install-udeb_$(ARCH): export KW_CONFIG_DIR=debian/installer
@@ -559,6 +545,8 @@ ifeq ($(UDEB_UNSIGNED_TEST_BUILD),True)
 install-udeb_$(ARCH): export DEB_BUILD_PROFILES=pkg.linux.udeb-unsigned-test-build
 endif
 install-udeb_$(ARCH):
+# Logically we should check for %-di here, but that would break test builds
+ifneq (,$(filter linux-image-%,$(packages_enabled)))
 	dh_testdir
 	dh_prep
 ifeq ($(UDEB_UNSIGNED_TEST_BUILD),True)
@@ -576,6 +564,7 @@ ifeq ($(UDEB_UNSIGNED_TEST_BUILD),False)
 	dh_gencontrol
 	dh_builddeb
 endif
+endif  # enabled
 
 install-source: PACKAGE_NAME = $(SOURCE_BASENAME)-source-$(VERSION)
 install-source: DH_OPTIONS = -p$(PACKAGE_NAME)
@@ -607,7 +596,14 @@ define make-tools
 +mkdir -p $(BUILD_DIR)/build-tools/$(1) && $(MAKE_CLEAN) -C $(BUILD_DIR)/build-tools/$(1) -f $(CURDIR)/debian/rules.d/$(1)/Makefile top_srcdir=$(CURDIR) top_rulesdir=$(CURDIR)/debian/rules.d OUTDIR=$(1) VERSION=$(VERSION) KERNEL_ARCH=$(KERNEL_ARCH)
 endef
 
-build-kbuild:
+$(STAMPS_DIR)/build-tools-headers:
+	mkdir -p $(BUILD_DIR)/build-tools/headers-tools
+	$(MAKE) ARCH=$(KERNEL_ARCH) O=$(BUILD_DIR)/build-tools/headers-tools \
+		INSTALL_HDR_PATH=$(CURDIR)/$(BUILD_DIR)/build-tools \
+		headers_install
+	@$(stamp)
+
+build-kbuild: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,scripts)
 	$(call make-tools,tools/objtool)
 
@@ -635,7 +631,7 @@ endif
 	dh_md5sums
 	dh_builddeb
 
-build-cpupower:
+build-cpupower: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,tools/power/cpupower)
 ifneq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
 	$(call make-tools,tools/power/x86)
@@ -675,7 +671,7 @@ endif
 	dh_md5sums
 	dh_builddeb
 
-build-perf:
+build-perf: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,tools/perf)
 
 install-perf: PACKAGE_NAME = linux-perf-$(VERSION)
@@ -704,7 +700,7 @@ endif
 	dh_md5sums
 	dh_builddeb
 
-build-usbip:
+build-usbip: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,tools/usb/usbip)
 
 install-usbip: DH_OPTIONS = -pusbip
@@ -732,7 +728,7 @@ endif
 	dh_md5sums
 	dh_builddeb
 
-build-hyperv-daemons:
+build-hyperv-daemons: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,tools/hv)
 
 install-hyperv-daemons: PACKAGE_NAME = hyperv-daemons
@@ -770,7 +766,7 @@ endif
 	dh_md5sums
 	dh_builddeb
 
-build-libbpf:
+build-libbpf: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,tools/lib/bpf)
 
 install-libbpf: DH_OPTIONS = -plibbpf$(VERSION) -plibbpf-dev
@@ -798,7 +794,7 @@ endif
 	dh_md5sums
 	dh_builddeb
 
-build-liblockdep:
+build-liblockdep: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,tools/lib/lockdep)
 
 install-liblockdep: DH_OPTIONS = -pliblockdep$(VERSION) -pliblockdep-dev
@@ -849,7 +845,7 @@ endif
 	dh_md5sums
 	dh_builddeb
 
-build-bootwrapper:
+build-bootwrapper: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,arch/powerpc/boot)
 
 install-bootwrapper: PACKAGE_NAME = linux-bootwrapper-$(ABINAME)

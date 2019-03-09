@@ -1,7 +1,7 @@
 Subject: sched: Add saved_state for tasks blocked on sleeping locks
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sat, 25 Jun 2011 09:21:04 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 Spinlocks are state preserving in !RT. RT changes the state when a
 task gets blocked on a lock. So we need to remember the state before
@@ -37,7 +37,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #ifdef CONFIG_SMP
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1998,8 +1998,27 @@ try_to_wake_up(struct task_struct *p, un
+@@ -1997,8 +1997,27 @@ try_to_wake_up(struct task_struct *p, un
  	 */
  	raw_spin_lock_irqsave(&p->pi_lock, flags);
  	smp_mb__after_spinlock();
@@ -66,7 +66,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	trace_sched_waking(p);
  
-@@ -2163,6 +2182,18 @@ int wake_up_process(struct task_struct *
+@@ -2162,6 +2181,18 @@ int wake_up_process(struct task_struct *
  }
  EXPORT_SYMBOL(wake_up_process);
  
@@ -87,7 +87,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return try_to_wake_up(p, state, 0);
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -1444,6 +1444,7 @@ static inline int task_on_rq_migrating(s
+@@ -1443,6 +1443,7 @@ static inline int task_on_rq_migrating(s
  #define WF_SYNC			0x01		/* Waker goes to sleep after wakeup */
  #define WF_FORK			0x02		/* Child wakeup after fork */
  #define WF_MIGRATED		0x4		/* Internal use, task got migrated */

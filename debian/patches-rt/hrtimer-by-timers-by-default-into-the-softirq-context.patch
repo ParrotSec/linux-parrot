@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 3 Jul 2009 08:44:31 -0500
 Subject: hrtimer: by timers by default into the softirq context
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 We can't have hrtimers callbacks running in hardirq context on RT. Therefore
 the timers are deferred to the softirq context by default.
@@ -81,7 +81,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -315,7 +315,7 @@ static void hrtick_rq_init(struct rq *rq
+@@ -314,7 +314,7 @@ static void hrtick_rq_init(struct rq *rq
  	rq->hrtick_csd.info = rq;
  #endif
  
@@ -103,7 +103,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -4878,9 +4878,9 @@ void init_cfs_bandwidth(struct cfs_bandw
+@@ -4879,9 +4879,9 @@ void init_cfs_bandwidth(struct cfs_bandw
  	cfs_b->period = ns_to_ktime(default_cfs_period());
  
  	INIT_LIST_HEAD(&cfs_b->throttled_cfs_rq);

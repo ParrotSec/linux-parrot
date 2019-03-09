@@ -5,6 +5,9 @@ virtio_scsi
 virtio_input
 virtio_console
 
+# Some architectures do not build graphics
+virtio-gpu ?
+
 # Some architectures do not have PCI bus
 virtio_pci ?
 virtio_mmio ?

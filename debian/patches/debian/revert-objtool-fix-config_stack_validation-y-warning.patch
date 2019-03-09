@@ -7,12 +7,12 @@ This reverts commit 9f0c18aec620bc9d82268b3cb937568dd07b43ff.  This
 check doesn't make sense for OOT modules as they should always use
 a pre-built objtool.
 ---
- Makefile | 33 ++++++++++++++++-----------------
- 1 file changed, 16 insertions(+), 17 deletions(-)
+ Makefile | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
 --- a/Makefile
 +++ b/Makefile
-@@ -923,22 +923,6 @@ mod_sign_cmd = true
+@@ -949,17 +949,6 @@ mod_sign_cmd = true
  endif
  export mod_sign_cmd
  
@@ -22,11 +22,6 @@ a pre-built objtool.
 -  ifeq ($(has_libelf),1)
 -    objtool_target := tools/objtool FORCE
 -  else
--    ifdef CONFIG_UNWINDER_ORC
--      $(error "Cannot generate ORC metadata for CONFIG_UNWINDER_ORC=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel")
--    else
--      $(warning "Cannot use CONFIG_STACK_VALIDATION=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel")
--    endif
 -    SKIP_STACK_VALIDATION := 1
 -    export SKIP_STACK_VALIDATION
 -  endif
@@ -35,7 +30,7 @@ a pre-built objtool.
  
  ifeq ($(KBUILD_EXTMOD),)
  core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
-@@ -1075,6 +1059,22 @@ uapi-asm-generic:
+@@ -1110,6 +1099,17 @@ uapi-asm-generic:
  	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.asm-generic \
  	            src=uapi/asm obj=arch/$(SRCARCH)/include/generated/uapi/asm
  
@@ -45,11 +40,6 @@ a pre-built objtool.
 +  ifeq ($(has_libelf),1)
 +    objtool_target := tools/objtool FORCE
 +  else
-+    ifdef CONFIG_UNWINDER_ORC
-+      $(error "Cannot generate ORC metadata for CONFIG_UNWINDER_ORC=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel")
-+    else
-+      $(warning "Cannot use CONFIG_STACK_VALIDATION=y, please install libelf-dev, libelf-devel or elfutils-libelf-devel")
-+    endif
 +    SKIP_STACK_VALIDATION := 1
 +    export SKIP_STACK_VALIDATION
 +  endif
@@ -57,4 +47,4 @@ a pre-built objtool.
 +
  PHONY += prepare-objtool
  prepare-objtool: $(objtool_target)
- 
+ ifeq ($(SKIP_STACK_VALIDATION),1)

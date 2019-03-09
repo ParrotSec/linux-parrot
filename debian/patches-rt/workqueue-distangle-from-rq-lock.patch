@@ -22,7 +22,7 @@ Cc: Jens Axboe <axboe@kernel.dk>
 Cc: Linus Torvalds <torvalds@linux-foundation.org>
 Link: http://lkml.kernel.org/r/20110622174919.135236139@linutronix.de
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 [bigeasy: preempt_disable() around wq_worker_sleeping() by Daniel Bristot de
           Oliveira]
@@ -35,7 +35,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1703,10 +1703,6 @@ static inline void ttwu_activate(struct
+@@ -1702,10 +1702,6 @@ static inline void ttwu_activate(struct
  {
  	activate_task(rq, p, en_flags);
  	p->on_rq = TASK_ON_RQ_QUEUED;
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /*
-@@ -2143,56 +2139,6 @@ try_to_wake_up(struct task_struct *p, un
+@@ -2142,56 +2138,6 @@ try_to_wake_up(struct task_struct *p, un
  }
  
  /**
@@ -103,7 +103,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * wake_up_process - Wake up a specific process
   * @p: The process to be woken up.
   *
-@@ -3519,21 +3465,6 @@ static void __sched notrace __schedule(b
+@@ -3518,21 +3464,6 @@ static void __sched notrace __schedule(b
  				atomic_inc(&rq->nr_iowait);
  				delayacct_blkio_start();
  			}
@@ -125,7 +125,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		}
  		switch_count = &prev->nvcsw;
  	}
-@@ -3593,6 +3524,20 @@ static inline void sched_submit_work(str
+@@ -3592,6 +3523,20 @@ static inline void sched_submit_work(str
  {
  	if (!tsk->state || tsk_is_pi_blocked(tsk))
  		return;
@@ -146,7 +146,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * If we are going to sleep and we have plugged IO queued,
  	 * make sure to submit it to avoid deadlocks.
-@@ -3601,6 +3546,12 @@ static inline void sched_submit_work(str
+@@ -3600,6 +3545,12 @@ static inline void sched_submit_work(str
  		blk_schedule_flush_plug(tsk);
  }
  
@@ -159,7 +159,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  asmlinkage __visible void __sched schedule(void)
  {
  	struct task_struct *tsk = current;
-@@ -3611,6 +3562,7 @@ asmlinkage __visible void __sched schedu
+@@ -3610,6 +3561,7 @@ asmlinkage __visible void __sched schedu
  		__schedule(false);
  		sched_preempt_enable_no_resched();
  	} while (need_resched());

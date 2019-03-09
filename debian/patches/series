@@ -81,9 +81,9 @@ bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
-bugfix/x86/x86-mm-Fix-guard-hole-handling.patch
-bugfix/arm/gpio-mvebu-only-fail-on-missing-clk-if-pwm-is-actual.patch
 bugfix/powerpc/powerpc-fix-mcpu-options-for-spe-only-compiler.patch
+bugfix/m68k/m68k-build-with-ffreestanding.patch
+bugfix/x86/x86-kvmclock-set-offset-for-kvm-unstable-clock.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
@@ -103,6 +103,7 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
+bugfix/all/percpu-convert-spin_lock_irq-to-spin_lock_irqsave.patch
 
 # Miscellaneous features
 
@@ -142,6 +143,10 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
+bugfix/all/kvm-fix-kvm_ioctl_create_device-reference-counting-C.patch
+bugfix/x86/KVM-x86-work-around-leak-of-uninitialized-stack-cont.patch
+bugfix/x86/KVM-nVMX-unconditionally-cancel-preemption-timer-in-.patch
+bugfix/all/HID-debug-fix-the-ring-buffer-implementation.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch

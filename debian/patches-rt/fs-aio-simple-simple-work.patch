@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 16 Feb 2015 18:49:10 +0100
 Subject: fs/aio: simple simple work
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 |BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:768
 |in_atomic(): 1, irqs_disabled(): 0, pid: 26, name: rcuos/2
@@ -38,7 +38,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #include <asm/kmap_types.h>
  #include <linux/uaccess.h>
-@@ -120,6 +121,7 @@ struct kioctx {
+@@ -121,6 +122,7 @@ struct kioctx {
  	long			nr_pages;
  
  	struct rcu_work		free_rwork;	/* see free_ioctx() */
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * signals when all in-flight requests are done
-@@ -254,6 +256,7 @@ static int __init aio_setup(void)
+@@ -255,6 +257,7 @@ static int __init aio_setup(void)
  		.mount		= aio_mount,
  		.kill_sb	= kill_anon_super,
  	};
@@ -54,7 +54,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	aio_mnt = kern_mount(&aio_fs);
  	if (IS_ERR(aio_mnt))
  		panic("Failed to create aio fs mount.");
-@@ -595,9 +598,9 @@ static void free_ioctx_reqs(struct percp
+@@ -596,9 +599,9 @@ static void free_ioctx_reqs(struct percp
   * and ctx->users has dropped to 0, so we know no more kiocbs can be submitted -
   * now it's safe to cancel any that need to be.
   */
@@ -66,7 +66,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct aio_kiocb *req;
  
  	spin_lock_irq(&ctx->ctx_lock);
-@@ -615,6 +618,14 @@ static void free_ioctx_users(struct perc
+@@ -616,6 +619,14 @@ static void free_ioctx_users(struct perc
  	percpu_ref_put(&ctx->reqs);
  }
  

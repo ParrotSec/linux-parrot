@@ -2,7 +2,7 @@ From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Thu, 31 Mar 2016 04:08:28 +0200
 Subject: [PATCH] drivers/block/zram: Replace bit spinlocks with rtmutex
  for -rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 They're nondeterministic, and lead to ___might_sleep() splats in -rt.
 OTOH, they're a lot less wasteful than an rtmutex per page.
@@ -55,7 +55,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static inline bool init_done(struct zram *zram)
  {
-@@ -898,6 +923,8 @@ static DEVICE_ATTR_RO(io_stat);
+@@ -900,6 +925,8 @@ static DEVICE_ATTR_RO(io_stat);
  static DEVICE_ATTR_RO(mm_stat);
  static DEVICE_ATTR_RO(debug_stat);
  
@@ -64,7 +64,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static void zram_meta_free(struct zram *zram, u64 disksize)
  {
  	size_t num_pages = disksize >> PAGE_SHIFT;
-@@ -928,6 +955,7 @@ static bool zram_meta_alloc(struct zram
+@@ -930,6 +957,7 @@ static bool zram_meta_alloc(struct zram
  
  	if (!huge_class_size)
  		huge_class_size = zs_huge_class_size(zram->mem_pool);

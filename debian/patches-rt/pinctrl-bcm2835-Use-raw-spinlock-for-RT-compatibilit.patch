@@ -1,7 +1,7 @@
 From: Lukas Wunner <lukas@wunner.de>
 Date: Sat, 27 Oct 2018 10:15:33 +0200
 Subject: [PATCH] pinctrl: bcm2835: Use raw spinlock for RT compatibility
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.10-rt8.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
 
 [Upstream commit 71dfaa749f2f7c1722ebf6716d3f797a04528cba]
 

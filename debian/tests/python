@@ -34,4 +34,7 @@ if ! xargs pyflakes3 < "$sources"; then
 fi
 
 echo "I: Running debian_linux.debian unit tests..."
-PYTHONPATH=debian/lib/python python3 -m debian_linux.debian || true
+# unittest only writes to stderr
+if ! PYTHONPATH=debian/lib/python python3 -m debian_linux.debian 2>&1; then
+    echo >&2 "E: some unit tests failed"
+fi
