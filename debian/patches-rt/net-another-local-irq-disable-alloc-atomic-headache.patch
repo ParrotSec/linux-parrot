@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 26 Sep 2012 16:21:08 +0200
 Subject: net: Another local_irq_disable/kmalloc headache
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 Replace it by a local lock. Though that's pretty inefficient :(
 
@@ -41,7 +41,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return data;
  }
  
-@@ -408,13 +410,13 @@ struct sk_buff *__netdev_alloc_skb(struc
+@@ -412,13 +414,13 @@ struct sk_buff *__netdev_alloc_skb(struc
  	if (sk_memalloc_socks())
  		gfp_mask |= __GFP_MEMALLOC;
  

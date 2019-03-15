@@ -4,6 +4,7 @@
 # CONFIG_KPROBES is not set
 # CONFIG_STACKPROTECTOR_STRONG is not set
 # CONFIG_STRICT_KERNEL_RWX is not set
+# CONFIG_STRICT_MODULE_RWX is not set
 
 ##
 ## file: arch/arm/Kconfig
@@ -20,6 +21,7 @@ CONFIG_ARM_ATAG_DTB_COMPAT=y
 CONFIG_CMDLINE=""
 # CONFIG_XIP_KERNEL is not set
 CONFIG_ATAGS_PROC=y
+# CONFIG_CRASH_DUMP is not set
 CONFIG_VFP=y
 
 ##

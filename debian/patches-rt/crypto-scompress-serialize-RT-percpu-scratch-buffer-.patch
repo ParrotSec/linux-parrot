@@ -2,7 +2,7 @@ From: Mike Galbraith <efault@gmx.de>
 Date: Wed, 11 Jul 2018 17:14:47 +0200
 Subject: [PATCH] crypto: scompress - serialize RT percpu scratch buffer
  access with a local lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 | BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:974
 | in_atomic(): 1, irqs_disabled(): 0, pid: 1401, name: cryptomgr_test

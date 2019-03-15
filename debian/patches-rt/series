@@ -22,7 +22,6 @@
 
 irqchip-gic-v3-its-Move-pending-table-allocation-to-.patch
 kthread-convert-worker-lock-to-raw-spinlock.patch
-pinctrl-bcm2835-Use-raw-spinlock-for-RT-compatibilit.patch
 crypto-caam-qi-simplify-CGR-allocation-freeing.patch
 sched-fair-Robustify-CFS-bandwidth-timer-locking.patch
 
@@ -37,7 +36,6 @@ cgroup-use-irqsave-in-cgroup_rstat_flush_locked.patch
 fscache-initialize-cookie-hash-table-raw-spinlocks.patch
 Drivers-hv-vmbus-include-header-for-get_irq_regs.patch
 percpu-include-irqflags.h-for-raw_local_irq_save.patch
-perf-x86-intel-Delay-memory-deallocation-until-cpu_d.patch
 
 ############################################################
 # Ready for posting
@@ -225,6 +223,8 @@ softirq-split-locks.patch
 net-core-use-local_bh_disable-in-netif_rx_ni.patch
 irq-allow-disabling-of-softirq-processing-in-irq-thread-context.patch
 softirq-split-timer-softirqs-out-of-ksoftirqd.patch
+softirq-Avoid-local_softirq_pending-messages-if-ksof.patch
+softirq-Avoid-local_softirq_pending-messages-if-task.patch
 rtmutex-trylock-is-okay-on-RT.patch
 
 # compile fix due to rtmutex locks
@@ -300,6 +300,8 @@ md-raid5-percpu-handling-rt-aware.patch
 
 # CPU CHILL
 rt-introduce-cpu-chill.patch
+hrtimer-Don-t-lose-state-in-cpu_chill.patch
+hrtimer-cpu_chill-save-task-state-in-saved_state.patch
 
 # block
 block-blk-mq-move-blk_queue_usage_counter_release-in.patch
@@ -397,6 +399,8 @@ lockdep-selftest-fix-warnings-due-to-missing-PREEMPT.patch
 preempt-lazy-support.patch
 ftrace-Fix-trace-header-alignment.patch
 x86-preempt-lazy.patch
+x86-lazy-preempt-properly-check-against-preempt-mask.patch
+x86-lazy-preempt-use-proper-return-label-on-32bit-x8.patch
 arm-preempt-lazy-support.patch
 powerpc-preempt-lazy-support.patch
 arch-arm64-Add-lazy-preempt-support.patch

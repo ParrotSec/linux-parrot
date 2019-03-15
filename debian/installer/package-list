@@ -4,9 +4,9 @@
 #
 Package: kernel-image
 Provides_amd64: zlib-modules
-Provides_arm64: zlib-modules
+Provides_arm64: mmc-core-modules, zlib-modules
 Provides_armel: rtc-modules
-Provides_armmp: mtd-core-modules
+Provides_armmp: mmc-core-modules, mtd-core-modules
 Provides_i386: rtc-modules, zlib-modules
 Provides_ia64: efi-modules, zlib-modules
 Provides_loongson-3: i2c-modules, rtc-modules
@@ -19,6 +19,8 @@ Provides_mipsel: rtc-modules
 Provides_mipsr6: rtc-modules
 Provides_mipsr6el: rtc-modules
 Provides_parisc64-smp: i2c-modules
+Provides_powerpc: i2c-modules
+Provides_powerpc64:
 Provides_sh4: event-modules, fb-modules, input-modules, mouse-modules, nic-shared-modules, rtc-modules, uinput-modules, usb-modules
 Priority: standard
 Description: Linux kernel image and core modules for the Debian installer
@@ -35,7 +37,7 @@ Description: NIC drivers
  for the kernel.
 
 Package: nic-wireless-modules
-Depends: kernel-image, nic-shared-modules, usb-modules, mmc-modules, pcmcia-modules, crc-modules
+Depends: kernel-image, nic-shared-modules, usb-modules, mmc-core-modules, pcmcia-modules, crc-modules
 Priority: standard
 Description: Wireless NIC drivers
  This package contains wireless NIC drivers for the kernel.
@@ -259,8 +261,6 @@ Description: Mouse support
 
 Package: nic-pcmcia-modules
 Depends: kernel-image, nic-shared-modules, nic-wireless-modules, pcmcia-modules, mmc-core-modules
-Depends_powerpc: kernel-image, nic-modules, nic-shared-modules, pcmcia-modules
-Depends_ppc64: kernel-image, nic-modules, nic-shared-modules, pcmcia-modules
 Priority: standard
 Description: Common PCMCIA NIC drivers
  This package contains common PCMCIA NIC drivers for the kernel.
@@ -364,12 +364,6 @@ Priority: optional
 Description: RTC modules
  This package contains RTC modules.
 
-Package: virtio-modules
-Depends: kernel-image, scsi-core-modules, fb-modules
-Priority: optional
-Description: virtio modules
- This package contains virtio modules.
-
 Package: uinput-modules
 Depends: kernel-image
 Priority: optional
@@ -399,12 +393,6 @@ Depends: kernel-image
 Priority: optional
 Description: LED modules
  This package contains LED modules.
-
-Package: hyperv-modules
-Depends: kernel-image, input-modules, scsi-core-modules, nic-shared-modules
-Priority: optional
-Description: Hyper-V modules
- This package contains Hyper-V paravirtualised drivers for the kernel.
 
 Package: udf-modules
 Depends: kernel-image, crc-modules

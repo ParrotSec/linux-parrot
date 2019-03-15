@@ -189,15 +189,7 @@ class Gencontrol(Base):
 
         packages_signed = self.process_packages(
             self.templates['control.image'], vars)
-
-        for package in packages_signed:
-            name = package['Package']
-            if name in packages:
-                package = packages.get(name)
-                package['Architecture'].add(arch)
-            else:
-                package['Architecture'] = arch
-                packages.append(package)
+        merge_packages(packages, packages_signed, arch)
 
         cmds_binary_arch = []
         for i in packages_signed:
@@ -293,7 +285,7 @@ linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
             hasher.update(ssl.PEM_cert_to_DER_cert(cert))
             return hasher.hexdigest()
 
-        all_files = {}
+        all_files = {'packages': {}}
 
         for image_suffix, image_package_name, cert_file_name in \
                 self.image_packages:
@@ -312,7 +304,7 @@ linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
             package_certs = [get_cert_fingerprint(cert, 'sha256')
                              for cert in get_certs(cert_file_name)]
             assert len(package_certs) >= 1
-            all_files[image_package_name] = {
+            all_files['packages'][image_package_name] = {
                 'trusted_certs': package_certs,
                 'files': package_files
             }

@@ -1,6 +1,4 @@
-drm ?
-drm_kms_helper ?
+#include <fb-modules>
+
 radeon ?
 ttm ?
-
-

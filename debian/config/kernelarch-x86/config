@@ -80,7 +80,6 @@ CONFIG_PCI=y
 #. Doesn't support handover; see #822575
 # CONFIG_X86_SYSFB is not set
 CONFIG_IA32_EMULATION=y
-CONFIG_IA32_AOUT=y
 
 ##
 ## file: arch/x86/Kconfig.cpu

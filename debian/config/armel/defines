@@ -1,14 +1,13 @@
 [base]
 flavours:
  marvell
+ rpi
 kernel-arch: arm
 
 [build]
 image-file: arch/arm/boot/zImage
 # uncompressed-image is just for size checking
 uncompressed-image-file: arch/arm/boot/Image
-# We don't want signed modules in Kali
-signed-code: false
 
 [image]
 install-stem: vmlinuz
@@ -19,6 +18,10 @@ headers%gcc-8: linux-compiler-gcc-8-arm
 [marvell_description]
 hardware: Marvell Kirkwood/Orion
 hardware-long: Marvell Kirkwood and Orion based systems (https://wiki.debian.org/ArmEabiPort#Supported_hardware)
+
+[rpi_description]
+hardware: Raspberry Pi and Pi Zero
+hardware-long: Raspberry Pi, Raspberry Pi Zero based systems
 
 [marvell_image]
 recommends: u-boot-tools

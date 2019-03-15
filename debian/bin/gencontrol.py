@@ -11,7 +11,8 @@ import re
 from debian_linux import config
 from debian_linux.debian import PackageDescription, PackageRelation, \
     PackageRelationEntry, PackageRelationGroup, VersionLinux
-from debian_linux.gencontrol import Gencontrol as Base, merge_packages
+from debian_linux.gencontrol import Gencontrol as Base, merge_packages, \
+    iter_featuresets
 from debian_linux.utils import Templates, read_control
 
 locale.setlocale(locale.LC_CTYPE, "C.UTF-8")
@@ -147,11 +148,7 @@ class Gencontrol(Base):
                                            .append(package)
 
     def do_main_makefile(self, makefile, makeflags, extra):
-        fs_enabled = [featureset
-                      for featureset in self.config['base', ]['featuresets']
-                      if (self.config.merge('base', None, featureset)
-                          .get('enabled', True))]
-        for featureset in fs_enabled:
+        for featureset in iter_featuresets(self.config):
             makeflags_featureset = makeflags.copy()
             makeflags_featureset['FEATURESET'] = featureset
             cmds_source = ["$(MAKE) -f debian/rules.real source-featureset %s"
@@ -162,7 +159,7 @@ class Gencontrol(Base):
             makefile.add('source', ['source_%s' % featureset])
 
         makeflags = makeflags.copy()
-        makeflags['ALL_FEATURESETS'] = ' '.join(fs_enabled)
+        makeflags['ALL_FEATURESETS'] = ' '.join(iter_featuresets(self.config))
         super(Gencontrol, self).do_main_makefile(makefile, makeflags, extra)
 
     def do_main_packages(self, packages, vars, makeflags, extra):
@@ -366,6 +363,7 @@ class Gencontrol(Base):
     def do_flavour_packages(self, packages, makefile, arch, featureset,
                             flavour, vars, makeflags, extra):
         headers = self.templates["control.headers"]
+        assert len(headers) == 1
 
         config_entry_base = self.config.merge('base', arch, featureset,
                                               flavour)
@@ -448,20 +446,19 @@ class Gencontrol(Base):
                 desc.append_short(config_entry_description
                                   .get('part-short-' + part, ''))
 
-        packages_dummy = []
         packages_own = []
 
         build_signed = config_entry_build.get('signed-code')
 
         image = self.templates[build_signed and "control.image-unsigned"
                                or "control.image"]
+        assert len(image) == 1
 
         vars.setdefault('desc', None)
 
         image_main = self.process_real_image(image[0], image_fields, vars)
         packages_own.append(image_main)
         makeflags['IMAGE_PACKAGE_NAME'] = image_main['Package']
-        packages_own.extend(self.process_packages(image[1:], vars))
 
         package_headers = self.process_package(headers[0], vars)
         package_headers['Depends'].extend(relations_compiler_headers)
@@ -491,7 +488,7 @@ class Gencontrol(Base):
             packages_own.extend(self.process_packages(
                 self.templates['control.image-dbg'], vars))
 
-        merge_packages(packages, packages_own + packages_dummy, arch)
+        merge_packages(packages, packages_own, arch)
 
         tests_control = self.process_package(
             self.templates['tests-control.image'][0], vars)
@@ -567,11 +564,6 @@ class Gencontrol(Base):
         cmds_binary_arch = ["$(MAKE) -f debian/rules.real binary-arch-flavour "
                             "%s" %
                             makeflags]
-        if packages_dummy:
-            cmds_binary_arch.append(
-                "$(MAKE) -f debian/rules.real install-dummy DH_OPTIONS='%s' %s"
-                % (' '.join("-p%s" % i['Package'] for i in packages_dummy),
-                   makeflags))
         cmds_build = ["$(MAKE) -f debian/rules.real build-arch-flavour %s" %
                       makeflags]
         cmds_setup = ["$(MAKE) -f debian/rules.real setup-arch-flavour %s" %
@@ -582,6 +574,12 @@ class Gencontrol(Base):
                      cmds=cmds_build)
         makefile.add('setup_%s_%s_%s_real' % (arch, featureset, flavour),
                      cmds=cmds_setup)
+
+        merged_config = ('debian/build/config.%s_%s_%s' %
+                         (arch, featureset, flavour))
+        makefile.add(merged_config,
+                     cmds=["$(MAKE) -f debian/rules.real %s %s" %
+                           (merged_config, makeflags)])
 
         # Substitute kernel version etc. into maintainer scripts,
         # translations and lintian overrides

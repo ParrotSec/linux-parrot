@@ -1,1 +1,1 @@
-#include <compress-modules>
+#include "../powerpc/compress-modules"

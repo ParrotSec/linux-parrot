@@ -466,11 +466,6 @@ CONFIG_MIXCOMWD=m
 CONFIG_WDT=m
 
 ##
-## file: fs/Kconfig.binfmt
-##
-CONFIG_BINFMT_AOUT=m
-
-##
 ## file: kernel/irq/Kconfig
 ##
 # CONFIG_SPARSE_IRQ is not set

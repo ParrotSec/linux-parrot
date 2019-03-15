@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 13 Sep 2017 12:32:34 +0200
 Subject: [PATCH] fs/dcache: bring back explicit INIT_HLIST_BL_HEAD init
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 Commit 3d375d78593c ("mm: update callers to use HASH_ZERO flag") removed
 INIT_HLIST_BL_HEAD and uses the ZERO flag instead for the init. However
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -3062,6 +3062,8 @@ static int __init set_dhash_entries(char
+@@ -3058,6 +3058,8 @@ static int __init set_dhash_entries(char
  
  static void __init dcache_init_early(void)
  {
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* If hashes are distributed across NUMA nodes, defer
  	 * hash allocation until vmalloc space is available.
  	 */
-@@ -3078,11 +3080,16 @@ static void __init dcache_init_early(voi
+@@ -3074,11 +3076,16 @@ static void __init dcache_init_early(voi
  					NULL,
  					0,
  					0);
@@ -41,7 +41,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * A constructor could be added for stable state like the lists,
  	 * but it is probably not worth it because of the cache nature
-@@ -3106,6 +3113,10 @@ static void __init dcache_init(void)
+@@ -3102,6 +3109,10 @@ static void __init dcache_init(void)
  					NULL,
  					0,
  					0);

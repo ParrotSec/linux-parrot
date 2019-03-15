@@ -72,6 +72,26 @@ class MakeFlags(dict):
         return self.__class__(super(MakeFlags, self).copy())
 
 
+def iter_featuresets(config):
+    for featureset in config['base', ]['featuresets']:
+        if config.merge('base', None, featureset).get('enabled', True):
+            yield featureset
+
+
+def iter_arches(config):
+    return iter(config['base', ]['arches'])
+
+
+def iter_arch_featuresets(config, arch):
+    for featureset in config['base', arch].get('featuresets', []):
+        if config.merge('base', arch, featureset).get('enabled', True):
+            yield featureset
+
+
+def iter_flavours(config, arch, featureset):
+    return iter(config['base', arch, featureset]['flavours'])
+
+
 class Gencontrol(object):
     makefile_targets = ('binary-arch', 'build-arch', 'setup')
     makefile_targets_indep = ('binary-indep', 'build-indep', 'setup')
@@ -124,12 +144,10 @@ class Gencontrol(object):
         pass
 
     def do_main_recurse(self, packages, makefile, vars, makeflags, extra):
-        for featureset in self.config['base', ]['featuresets']:
-            if self.config.merge('base', None, featureset) \
-                          .get('enabled', True):
-                self.do_indep_featureset(packages, makefile, featureset,
-                                         vars.copy(), makeflags.copy(), extra)
-        for arch in iter(self.config['base', ]['arches']):
+        for featureset in iter_featuresets(self.config):
+            self.do_indep_featureset(packages, makefile, featureset,
+                                     vars.copy(), makeflags.copy(), extra)
+        for arch in iter_arches(self.config):
             self.do_arch(packages, makefile, arch, vars.copy(),
                          makeflags.copy(), extra)
 
@@ -214,16 +232,12 @@ class Gencontrol(object):
 
     def do_arch_recurse(self, packages, makefile, arch, vars, makeflags,
                         extra):
-        for featureset in self.config['base', arch].get('featuresets', ()):
+        for featureset in iter_arch_featuresets(self.config, arch):
             self.do_featureset(packages, makefile, arch, featureset,
                                vars.copy(), makeflags.copy(), extra)
 
     def do_featureset(self, packages, makefile, arch, featureset, vars,
                       makeflags, extra):
-        config_base = self.config.merge('base', arch, featureset)
-        if not config_base.get('enabled', True):
-            return
-
         vars['localversion'] = ''
         if featureset != 'none':
             vars['localversion'] = '-' + featureset
@@ -256,7 +270,7 @@ class Gencontrol(object):
 
     def do_featureset_recurse(self, packages, makefile, arch, featureset, vars,
                               makeflags, extra):
-        for flavour in self.config['base', arch, featureset]['flavours']:
+        for flavour in iter_flavours(self.config, arch, featureset):
             self.do_flavour(packages, makefile, arch, featureset, flavour,
                             vars.copy(), makeflags.copy(), extra)
 

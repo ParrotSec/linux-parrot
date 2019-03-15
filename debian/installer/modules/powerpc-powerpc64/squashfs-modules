@@ -1,1 +1,1 @@
-#include <squashfs-modules>
+#include "../powerpc/squashfs-modules"

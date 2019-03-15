@@ -1,9 +1,6 @@
 # Include HID drivers by default
 drivers/hid/**
 
-# Exclude hid-hyperv, packaged in hyperv-modules
-hid-hyperv -
-
 # Exclude drivers for anything but keyboard and mouse/trackball/touchpad
 drivers/hid/hid-*ff -
 hid-dr -
@@ -37,3 +34,6 @@ synaptics_usb ?
 wistron_btns ?
 gpio_keys ?
 soc_button_array ?
+hyperv-keyboard ?
+virtio_console ?
+virtio_input ?

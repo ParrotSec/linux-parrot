@@ -1,7 +1,7 @@
 From: He Zhe <zhe.he@windriver.com>
 Date: Wed, 19 Dec 2018 16:30:57 +0100
 Subject: [PATCH] kmemleak: Turn kmemleak_lock to raw spinlock on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 kmemleak_lock, as a rwlock on RT, can possibly be held in atomic context and
 causes the follow BUG.

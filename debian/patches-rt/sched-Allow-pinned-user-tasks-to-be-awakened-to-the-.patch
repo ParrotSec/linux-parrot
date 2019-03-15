@@ -2,7 +2,7 @@ From: Mike Galbraith <efault@gmx.de>
 Date: Sun, 19 Aug 2018 08:28:35 +0200
 Subject: [PATCH] sched: Allow pinned user tasks to be awakened to the CPU they
  pinned
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 Since commit 7af443ee16976 ("sched/core: Require cpu_active() in
 select_task_rq(), for user tasks") select_fallback_rq() will BUG() if

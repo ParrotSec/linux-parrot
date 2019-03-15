@@ -19,6 +19,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
    efi_set_secure_boot() in main kernel
  - Use lockdown API and naming]
 [bwh: Forward-ported to 4.19.3: adjust context in update_fdt()]
+[dannf: Moved init_lockdown() call after uefi_init(), fixing SB detection]
 ---
  arch/arm64/Kconfig                      | 13 +++++++++++++
  drivers/firmware/efi/arm-init.c         |  7 +++++++
@@ -39,16 +40,16 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  
  #include <asm/efi.h>
  
-@@ -252,6 +253,9 @@ void __init efi_init(void)
- 	     "Unexpected EFI_MEMORY_DESCRIPTOR version %ld",
- 	      efi.memmap.desc_version);
+@@ -257,6 +258,9 @@ void __init efi_init(void)
+ 		return;
+ 	}
  
 +	efi_set_secure_boot(params.secure_boot);
 +	init_lockdown();
 +
- 	if (uefi_init() < 0) {
- 		efi_memmap_unmap();
- 		return;
+ 	reserve_regions();
+ 	efi_esrt_init();
+ 
 --- a/drivers/firmware/efi/efi.c
 +++ b/drivers/firmware/efi/efi.c
 @@ -657,7 +657,8 @@ static __initdata struct params fdt_para

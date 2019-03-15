@@ -1,3 +1,1 @@
 #include <pata-modules>
-pata_mpc52xx ?
-pata_macio ?

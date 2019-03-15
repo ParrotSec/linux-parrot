@@ -1,1 +1,1 @@
-#include <multipath-modules>
+#include "../powerpc/multipath-modules"

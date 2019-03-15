@@ -23,6 +23,7 @@ Build-Depends:
  libnuma-dev,
  libperl-dev,
  libunwind-dev [amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel powerpc ppc64 ppc64el sh4],
+ libopencsd-dev,
  python3-dev,
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends}, ${python3:Depends}
 Recommends: linux-base

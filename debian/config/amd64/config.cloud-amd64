@@ -18,7 +18,6 @@
 # CONFIG_ISA_DMA_API is not set
 # CONFIG_ISA is not set
 # CONFIG_EISA is not set
-# CONFIG_IA32_AOUT is not set
 # CONFIG_X86_X32 is not set
 
 ##

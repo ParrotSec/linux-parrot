@@ -1,3 +1,5 @@
+#include <fb-modules>
+
 radeon
 ast
 sm750fb

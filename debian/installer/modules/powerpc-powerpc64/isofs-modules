@@ -1,1 +1,1 @@
-#include <isofs-modules>
+#include "../powerpc/isofs-modules"

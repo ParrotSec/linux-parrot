@@ -15,7 +15,7 @@ MAKE_PERF += perfexecdir=lib/perf_$(VERSION)-core plugindir=/usr/lib/traceevent_
 # undistributable as they are licenced under GPL v2 and v3+
 # respectively.  Override detection of libbfd and insist that
 # cplus_demangle() can be found in libiberty (LGPL v2.1+).
-MAKE_PERF += feature-libbfd=0 HAVE_CPLUS_DEMANGLE_SUPPORT=1
+MAKE_PERF += feature-libbfd=0 feature-libbfd-liberty=0 feature-libbfd-liberty-z=0 HAVE_CPLUS_DEMANGLE_SUPPORT=1
 
 # perf can link against libcrypto if available, but the result is
 # undistributable as GPL v2 and OpenSSL are not compatible without

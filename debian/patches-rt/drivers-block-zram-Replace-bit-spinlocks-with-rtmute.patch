@@ -2,7 +2,7 @@ From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Thu, 31 Mar 2016 04:08:28 +0200
 Subject: [PATCH] drivers/block/zram: Replace bit spinlocks with rtmutex
  for -rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 They're nondeterministic, and lead to ___might_sleep() splats in -rt.
 OTOH, they're a lot less wasteful than an rtmutex per page.
@@ -10,13 +10,13 @@ OTOH, they're a lot less wasteful than an rtmutex per page.
 Signed-off-by: Mike Galbraith <umgwanakikbuti@gmail.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/block/zram/zram_drv.c |   28 ++++++++++++++++++++++++++++
+ drivers/block/zram/zram_drv.c |   38 ++++++++++++++++++++++++++++++++++++++
  drivers/block/zram/zram_drv.h |    3 +++
- 2 files changed, 31 insertions(+)
+ 2 files changed, 41 insertions(+)
 
 --- a/drivers/block/zram/zram_drv.c
 +++ b/drivers/block/zram/zram_drv.c
-@@ -53,6 +53,30 @@ static size_t huge_class_size;
+@@ -53,6 +53,40 @@ static size_t huge_class_size;
  
  static void zram_free_page(struct zram *zram, size_t index);
  
@@ -27,6 +27,16 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +
 +	for (index = 0; index < num_pages; index++)
 +		spin_lock_init(&zram->table[index].lock);
++}
++
++static int zram_slot_trylock(struct zram *zram, u32 index)
++{
++	int ret;
++
++	ret = spin_trylock(&zram->table[index].lock);
++	if (ret)
++		__set_bit(ZRAM_LOCK, &zram->table[index].value);
++	return ret;
 +}
 +
 +static void zram_slot_lock(struct zram *zram, u32 index)
@@ -44,10 +54,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#else
 +static void zram_meta_init_table_locks(struct zram *zram, size_t num_pages) { }
 +
- static void zram_slot_lock(struct zram *zram, u32 index)
+ static int zram_slot_trylock(struct zram *zram, u32 index)
  {
- 	bit_spin_lock(ZRAM_LOCK, &zram->table[index].value);
-@@ -62,6 +86,7 @@ static void zram_slot_unlock(struct zram
+ 	return bit_spin_trylock(ZRAM_LOCK, &zram->table[index].value);
+@@ -67,6 +101,7 @@ static void zram_slot_unlock(struct zram
  {
  	bit_spin_unlock(ZRAM_LOCK, &zram->table[index].value);
  }
@@ -55,7 +65,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static inline bool init_done(struct zram *zram)
  {
-@@ -900,6 +925,8 @@ static DEVICE_ATTR_RO(io_stat);
+@@ -900,6 +935,8 @@ static DEVICE_ATTR_RO(io_stat);
  static DEVICE_ATTR_RO(mm_stat);
  static DEVICE_ATTR_RO(debug_stat);
  
@@ -64,7 +74,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static void zram_meta_free(struct zram *zram, u64 disksize)
  {
  	size_t num_pages = disksize >> PAGE_SHIFT;
-@@ -930,6 +957,7 @@ static bool zram_meta_alloc(struct zram
+@@ -930,6 +967,7 @@ static bool zram_meta_alloc(struct zram
  
  	if (!huge_class_size)
  		huge_class_size = zs_huge_class_size(zram->mem_pool);

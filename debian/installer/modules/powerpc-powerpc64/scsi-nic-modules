@@ -1,1 +1,1 @@
-#include <scsi-nic-modules>
+#include "../powerpc/scsi-nic-modules"

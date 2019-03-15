@@ -904,8 +904,6 @@ CONFIG_USBPCWATCHDOG=m
 ##
 ## file: fs/Kconfig.binfmt
 ##
-CONFIG_BINFMT_AOUT=m
-CONFIG_OSF4_COMPAT=y
 # CONFIG_BINFMT_EM86 is not set
 
 ##

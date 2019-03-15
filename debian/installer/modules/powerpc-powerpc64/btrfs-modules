@@ -1,1 +1,1 @@
-#include <btrfs-modules>
+#include "../powerpc/btrfs-modules"

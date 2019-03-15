@@ -1,1 +1,1 @@
-#include <nbd-modules>
+#include "../powerpc/nbd-modules"

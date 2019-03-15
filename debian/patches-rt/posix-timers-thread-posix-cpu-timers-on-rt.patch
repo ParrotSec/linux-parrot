@@ -1,7 +1,7 @@
 From: John Stultz <johnstul@us.ibm.com>
 Date: Fri, 3 Jul 2009 08:29:58 -0500
 Subject: posix-timers: Thread posix-cpu-timers on -rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 posix-cpu-timer code takes non -rt safe locks in hard irq
 context. Move it to a thread.
@@ -86,7 +86,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  #include "posix-timers.h"
  
-@@ -1135,14 +1138,12 @@ static inline int fastpath_timer_check(s
+@@ -1136,14 +1139,12 @@ static inline int fastpath_timer_check(s
   * already updated our counts.  We need to check if any timers fire now.
   * Interrupts are disabled.
   */
@@ -102,7 +102,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/*
  	 * The fast path checks that there are no expired thread or thread
  	 * group timers.  If that's so, just return.
-@@ -1195,6 +1196,153 @@ void run_posix_cpu_timers(struct task_st
+@@ -1196,6 +1197,153 @@ void run_posix_cpu_timers(struct task_st
  	}
  }
  

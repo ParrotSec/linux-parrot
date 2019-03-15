@@ -1,6 +1,8 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Date: Fri, 23 Nov 2018 16:38:34 -0200
-Subject: Documentation/media: uapi: Explicitly say there are no Invariant Sections
+Date: Fri, 23 Nov 2018 13:38:34 -0500
+Subject: media: Documentation/media: uapi: Explicitly say there are no
+ Invariant Sections
+Origin: https://git.kernel.org/linus/861c56c13d817b76e802d664e6ce7edb09cb9417
 Bug-Debian: https://bugs.debian.org/698668
 
 The GNU Free Documentation License allows for a work to specify
@@ -12,17 +14,20 @@ specify any such sections, but it also doesn't say there are none (as
 is recommended by the license text).  Make it explicit that there are
 none.
 
-References: https://bugs.debian.org/698668
+Signed-off-by: Aaro Koskinen <aaro.koskinen@nokia.com>
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
 Signed-off-by: Gerd Hoffmann <kraxel@redhat.com>
 Signed-off-by: Hans Verkuil <hans.verkuil@cisco.com>
-Signed-off-by: Sylwester Nawrocki <snawrocki@kernel.org>
 Signed-off-by: Johannes Stezenbach <js@linuxtv.org>
-Signed-off-by: Ralph Metzler <rjkm@metzlerbros.de>
+Signed-off-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
 Signed-off-by: Marcus Metzler <mocm@metzlerbros.de>
-Signed-off-by: Sean Young <sean@mess.org>
 Signed-off-by: Michael Ira Krufky <mkrufky@gmail.com>
+Signed-off-by: Ralph Metzler <rjkm@metzlerbros.de>
+Signed-off-by: Sakari Ailus <sakari.ailus@linux.intel.com>
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Sylwester Nawrocki <snawrocki@kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Kate Stewart <kstewart@linuxfoundation.org>
 Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
 ---
  Documentation/media/media_uapi.rst | 6 +++---

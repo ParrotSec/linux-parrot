@@ -3,7 +3,9 @@ drivers/net/dsa/** ?
 drivers/net/ethernet/**
 drivers/net/phy/*
 
-# Include paravirtual network drivers with minimal dependencies
+# Include paravirtual network drivers
+hv_netvsc ?
+virtio_net ?
 vmxnet3 ?
 xen-netfront ?
 

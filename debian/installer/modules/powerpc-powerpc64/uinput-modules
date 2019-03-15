@@ -1,1 +1,1 @@
-#include <uinput-modules>
+#include "../powerpc/uinput-modules"

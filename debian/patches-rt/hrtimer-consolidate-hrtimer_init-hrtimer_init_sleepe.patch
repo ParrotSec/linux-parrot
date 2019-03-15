@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue,  3 Jul 2018 11:25:41 +0200
 Subject: [PATCH v2] hrtimer: consolidate hrtimer_init() + hrtimer_init_sleeper() calls
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 hrtimer_init_sleeper() calls require a prior initialisation of the
 hrtimer object with hrtimer_init(). Lets make the initialisation of
@@ -143,7 +143,7 @@ Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
  		hrtimer_set_expires(&to->timer, *time);
  	}
  
-@@ -3201,10 +3199,9 @@ static int futex_wait_requeue_pi(u32 __u
+@@ -3209,10 +3207,9 @@ static int futex_wait_requeue_pi(u32 __u
  
  	if (abs_time) {
  		to = &timeout;

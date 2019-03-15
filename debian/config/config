@@ -9,6 +9,7 @@ CONFIG_STACKPROTECTOR=y
 CONFIG_STACKPROTECTOR_STRONG=y
 CONFIG_VMAP_STACK=y
 CONFIG_STRICT_KERNEL_RWX=y
+CONFIG_STRICT_MODULE_RWX=y
 
 ##
 ## file: block/Kconfig
@@ -73,8 +74,10 @@ CONFIG_EFI_PARTITION=y
 ##
 #. Signatures are added in linux-signed
 CONFIG_MODULE_SIG_KEY=""
-#. Actually a file containing X.509 certificates, not keys
-CONFIG_SYSTEM_TRUSTED_KEYS="debian/certs/test-signing-certs.pem"
+#. Actually a file containing X.509 certificates, not keys.
+#. Whenever the filename changes, this also needs to be updated in
+#. debian/featureset-*/config
+CONFIG_SYSTEM_TRUSTED_KEYS="debian/certs/debian-uefi-certs.pem"
 
 ##
 ## file: crypto/Kconfig
@@ -5769,6 +5772,7 @@ CONFIG_BFS_FS=m
 CONFIG_BINFMT_ELF=y
 CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS=y
 CONFIG_BINFMT_SCRIPT=y
+# CONFIG_BINFMT_AOUT is not set
 CONFIG_BINFMT_MISC=m
 CONFIG_COREDUMP=y
 

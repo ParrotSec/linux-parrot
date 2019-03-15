@@ -1,1 +1,1 @@
-#include <nic-pcmcia-modules>
+#include "../powerpc/nic-pcmcia-modules"

@@ -9,7 +9,7 @@ debian/dfsg/video-remove-nvidiafb-and-rivafb.patch
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-#debian/gitignore.patch # Kali: we have that in the git repo already
+debian/gitignore.patch
 debian/ia64-hardcode-arch-script-output.patch
 debian/mips-disable-werror.patch
 debian/mips-boston-disable-its.patch
@@ -28,10 +28,6 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
-
-# Parrot Patches
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Patches from aufs4 repository, imported with debian/bin/genpatch-aufs.
 # These are only the changes needed to allow aufs to be built out-of-tree.
@@ -73,8 +69,6 @@ bugfix/x86/platform-x86-ideapad-laptop-add-ideapad-v510-15ikb-t.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-several-models-to-no.patch
 bugfix/x86/perf-tools-fix-unwind-build-on-i386.patch
 bugfix/sh/sh-boot-do-not-use-hyphen-in-exported-variable-name.patch
-bugfix/x86/mmap-remember-the-map_fixed-flag-as-vm_fixed.patch
-bugfix/x86/mmap-add-an-exception-to-the-stack-gap-for-hotspot-jvm.patch
 bugfix/powerpc/powerpc-lib-sstep-fix-building-for-powerpcspe.patch
 bugfix/powerpc/powerpc-lib-makefile-don-t-pull-in-quad.o-for-32-bit.patch
 bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
@@ -84,6 +78,9 @@ bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
 bugfix/powerpc/powerpc-fix-mcpu-options-for-spe-only-compiler.patch
 bugfix/m68k/m68k-build-with-ffreestanding.patch
 bugfix/x86/x86-kvmclock-set-offset-for-kvm-unstable-clock.patch
+bugfix/arm/ARM-dts-sun8i-h3-add-sy8106a-to-orange-pi-plus.patch
+bugfix/arm64/arm64-dts-allwinner-a64-Enable-A64-timer-workaround.patch
+bugfix/mips/MIPS-Loongson-Introduce-and-use-loongson_llsc_mb.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
@@ -95,6 +92,7 @@ features/x86/x86-acpi-x86-boot-Take-RSDP-address-for-boot-params-.patch
 features/x86/x86-boot-Mostly-revert-commit-ae7e1238e68f2a-Add-ACP.patch
 features/x86/x86-acpi-x86-boot-Take-RSDP-address-from-boot-params.patch
 features/x86/x86-boot-Clear-RSDP-address-in-boot_params-for-broke.patch
+features/arm64/arm64-dts-allwinner-a64-Add-Pine64-LTS-device-tree-f.patch
 
 # Miscellaneous bug fixes
 bugfix/all/kbuild-use-nostdinc-in-compile-tests.patch
@@ -103,7 +101,8 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
-bugfix/all/percpu-convert-spin_lock_irq-to-spin_lock_irqsave.patch
+bugfix/all/mt76-use-the-correct-hweight8-function.patch
+bugfix/all/btrfs-fix-corruption-reading-shared-and-compressed-e.patch
 
 # Miscellaneous features
 
@@ -143,10 +142,6 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/kvm-fix-kvm_ioctl_create_device-reference-counting-C.patch
-bugfix/x86/KVM-x86-work-around-leak-of-uninitialized-stack-cont.patch
-bugfix/x86/KVM-nVMX-unconditionally-cancel-preemption-timer-in-.patch
-bugfix/all/HID-debug-fix-the-ring-buffer-implementation.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -168,7 +163,6 @@ bugfix/x86/tools-x86_energy_perf_policy-fix-uninitialized-varia.patch
 bugfix/x86/tools-turbostat-Add-checks-for-failure-of-fgets-and-.patch
 bugfix/all/libbpf-add-soname-to-shared-object.patch
 bugfix/all/libbpf-link-shared-object-with-libelf.patch
-bugfix/riscv/tools-uapi-fix-risc-v-64-bit-support.patch
 
 # wireless: Disable regulatory.db direct loading (until we sort out signing)
 debian/wireless-disable-regulatory.db-direct-loading.patch

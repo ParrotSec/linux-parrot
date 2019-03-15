@@ -1,1 +1,2 @@
-libata
+#include <ata-modules>
+

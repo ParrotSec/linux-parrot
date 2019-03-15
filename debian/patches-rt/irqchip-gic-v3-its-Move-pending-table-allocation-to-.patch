@@ -2,7 +2,7 @@ From: Marc Zyngier <marc.zyngier@arm.com>
 Date: Fri, 27 Jul 2018 13:38:54 +0100
 Subject: [PATCH] irqchip/gic-v3-its: Move pending table allocation to init
  time
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.15-rt12.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
 
 Signed-off-by: Marc Zyngier <marc.zyngier@arm.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -13,7 +13,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/irqchip/irq-gic-v3-its.c
 +++ b/drivers/irqchip/irq-gic-v3-its.c
-@@ -173,6 +173,7 @@ static DEFINE_RAW_SPINLOCK(vmovp_lock);
+@@ -179,6 +179,7 @@ static DEFINE_RAW_SPINLOCK(vmovp_lock);
  static DEFINE_IDA(its_vpeid_ida);
  
  #define gic_data_rdist()		(raw_cpu_ptr(gic_rdists->rdist))
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #define gic_data_rdist_rd_base()	(gic_data_rdist()->rd_base)
  #define gic_data_rdist_vlpi_base()	(gic_data_rdist_rd_base() + SZ_128K)
  
-@@ -1622,7 +1623,7 @@ static void its_free_prop_table(struct p
+@@ -1628,7 +1629,7 @@ static void its_free_prop_table(struct p
  		   get_order(LPI_PROPBASE_SZ));
  }
  
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	phys_addr_t paddr;
  
-@@ -1945,30 +1946,47 @@ static void its_free_pending_table(struc
+@@ -1951,30 +1952,47 @@ static void its_free_pending_table(struc
  		   get_order(max_t(u32, LPI_PENDBASE_SZ, SZ_64K)));
  }
  
@@ -93,7 +93,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* set PROPBASE */
  	val = (page_to_phys(gic_rdists->prop_page) |
  	       GICR_PROPBASER_InnerShareable |
-@@ -2020,6 +2038,10 @@ static void its_cpu_init_lpis(void)
+@@ -2026,6 +2044,10 @@ static void its_cpu_init_lpis(void)
  
  	/* Make sure the GIC has seen the above */
  	dsb(sy);
@@ -104,7 +104,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static void its_cpu_init_collection(struct its_node *its)
-@@ -3498,16 +3520,6 @@ static int redist_disable_lpis(void)
+@@ -3521,16 +3543,6 @@ static int redist_disable_lpis(void)
  	u64 timeout = USEC_PER_SEC;
  	u64 val;
  
@@ -121,7 +121,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!gic_rdists_supports_plpis()) {
  		pr_info("CPU%d: LPIs not supported\n", smp_processor_id());
  		return -ENXIO;
-@@ -3517,7 +3529,18 @@ static int redist_disable_lpis(void)
+@@ -3540,7 +3552,18 @@ static int redist_disable_lpis(void)
  	if (!(val & GICR_CTLR_ENABLE_LPIS))
  		return 0;
  
@@ -141,7 +141,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		smp_processor_id());
  	add_taint(TAINT_CRAP, LOCKDEP_STILL_OK);
  
-@@ -3773,7 +3796,8 @@ int __init its_init(struct fwnode_handle
+@@ -3796,7 +3819,8 @@ int __init its_init(struct fwnode_handle
  	}
  
  	gic_rdists = rdists;

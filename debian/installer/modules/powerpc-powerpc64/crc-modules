@@ -1,1 +1,1 @@
-#include <crc-modules>
+#include "../powerpc/crc-modules"
