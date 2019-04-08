@@ -1,3 +1,9 @@
+linux (4.19.28-2parrot2.28t) testing; urgency=medium
+
+  * Fix abiname version.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Mon, 08 Apr 2019 21:48:41 +0200
+
 linux (4.19.28-2parrot1.28t) testing; urgency=medium
 
   * Import new Debian release.
