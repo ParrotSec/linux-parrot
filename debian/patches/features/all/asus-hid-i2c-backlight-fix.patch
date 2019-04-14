@@ -1,0 +1,110 @@
+Description: Fix asus keyboard backlight.
+ linux (4.19.28-2parrot3.28t) testing; urgency=medium
+ .
+   * Rebuild kernel with missing udebs.
+   * Re-include ASUS-GLV keyboard backlight patch.
+Author: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>
+Last-Update: 2019-04-14
+
+--- linux-4.19.28.orig/drivers/hid/hid-asus.c
++++ linux-4.19.28/drivers/hid/hid-asus.c
+@@ -70,7 +70,7 @@ MODULE_DESCRIPTION("Asus HID Keyboard an
+ #define QUIRK_T100CHI			BIT(7)
+ #define QUIRK_G752_KEYBOARD		BIT(8)
+ 
+-#define I2C_KEYBOARD_QUIRKS			(QUIRK_FIX_NOTEBOOK_REPORT | \
++#define I2C_KEYBOARD_QUIRKS			(QUIRK_USE_KBD_BACKLIGHT | QUIRK_FIX_NOTEBOOK_REPORT | \
+ 						 QUIRK_NO_INIT_REPORTS | \
+ 						 QUIRK_NO_CONSUMER_USAGES)
+ #define I2C_TOUCHPAD_QUIRKS			(QUIRK_NO_INIT_REPORTS | \
+@@ -782,6 +782,8 @@ static const struct hid_device_id asus_d
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD3), QUIRK_G752_KEYBOARD },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
++        USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD4), QUIRK_USE_KBD_BACKLIGHT },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_T100TA_KEYBOARD),
+ 	  QUIRK_T100_KEYBOARD | QUIRK_NO_CONSUMER_USAGES },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+--- linux-4.19.28.orig/drivers/hid/hid-ids.h
++++ linux-4.19.28/drivers/hid/hid-ids.h
+@@ -189,6 +189,7 @@
+ #define USB_DEVICE_ID_ASUSTEK_T304_KEYBOARD	0x184a
+ #define USB_DEVICE_ID_ASUSTEK_I2C_KEYBOARD	0x8585
+ #define USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD	0x0101
++#define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD4 0x8176
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1 0x1854
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD2 0x1837
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD3 0x1822
+@@ -377,6 +378,9 @@
+ #define USB_DEVICE_ID_DWAV_EGALAX_MULTITOUCH_A001	0xa001
+ 
+ #define USB_VENDOR_ID_ELAN		0x04f3
++
++#define I2C_VENDOR_ID_ELAN 0x04f3
++#define I2C_PRODUCT_ID_ELAN_TOUCHPAD 0x303e
+ #define USB_DEVICE_ID_TOSHIBA_CLICK_L9W	0x0401
+ #define USB_DEVICE_ID_HP_X2		0x074d
+ #define USB_DEVICE_ID_HP_X2_10_COVER	0x0755
+--- linux-4.19.28.orig/drivers/hid/hid-quirks.c
++++ linux-4.19.28/drivers/hid/hid-quirks.c
+@@ -290,6 +290,7 @@ static const struct hid_device_id hid_ha
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD2) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD3) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD4) },   
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_JESS, USB_DEVICE_ID_ASUS_MD_5112) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_TURBOX, USB_DEVICE_ID_ASUS_MD_5110) },
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_T100CHI_KEYBOARD) },
+--- linux-4.19.28.orig/drivers/hid/i2c-hid/i2c-hid.c
++++ linux-4.19.28/drivers/hid/i2c-hid/i2c-hid.c
+@@ -49,6 +49,8 @@
+ #define I2C_HID_QUIRK_NO_IRQ_AFTER_RESET	BIT(1)
+ #define I2C_HID_QUIRK_NO_RUNTIME_PM		BIT(2)
+ #define I2C_HID_QUIRK_DELAY_AFTER_SLEEP		BIT(3)
++#define I2C_HID_QUIRK_FORCE_TRIGGER_FALLING	BIT(4)
++
+ 
+ /* flags */
+ #define I2C_HID_STARTED		0
+@@ -176,6 +178,8 @@ static const struct i2c_hid_quirks {
+ 		I2C_HID_QUIRK_NO_RUNTIME_PM },
+ 	{ I2C_VENDOR_ID_RAYDIUM, I2C_PRODUCT_ID_RAYDIUM_4B33,
+ 		I2C_HID_QUIRK_DELAY_AFTER_SLEEP },
++	{ I2C_VENDOR_ID_ELAN, I2C_PRODUCT_ID_ELAN_TOUCHPAD,
++		I2C_HID_QUIRK_FORCE_TRIGGER_FALLING },
+ 	{ 0, 0 }
+ };
+ 
+@@ -829,6 +833,9 @@ static int i2c_hid_init_irq(struct i2c_c
+ 	if (!irq_get_trigger_type(client->irq))
+ 		irqflags = IRQF_TRIGGER_LOW;
+ 
++	if (ihid->quirks & I2C_HID_QUIRK_FORCE_TRIGGER_FALLING)
++		irqflags = IRQF_TRIGGER_FALLING;
++
+ 	ret = request_threaded_irq(client->irq, NULL, i2c_hid_irq,
+ 				   irqflags | IRQF_ONESHOT, client->name, ihid);
+ 	if (ret < 0) {
+@@ -1086,10 +1093,6 @@ static int i2c_hid_probe(struct i2c_clie
+ 		goto err_pm;
+ 	}
+ 
+-	ret = i2c_hid_fetch_hid_descriptor(ihid);
+-	if (ret < 0)
+-		goto err_pm;
+-
+ 	ret = i2c_hid_init_irq(client);
+ 	if (ret < 0)
+ 		goto err_pm;
+@@ -1115,6 +1118,10 @@ static int i2c_hid_probe(struct i2c_clie
+ 	strlcpy(hid->phys, dev_name(&client->dev), sizeof(hid->phys));
+ 
+ 	ihid->quirks = i2c_hid_lookup_quirk(hid->vendor, hid->product);
++	
++	ret = i2c_hid_init_irq(client);
++	if (ret < 0)
++		goto err_pm;
+ 
+ 	ret = hid_add_device(hid);
+ 	if (ret) {

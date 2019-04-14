@@ -1,3 +1,10 @@
+linux (4.19.28-2parrot3.28t) testing; urgency=medium
+
+  * Rebuild kernel with missing udebs.
+  * Re-include ASUS-GLV keyboard backlight patch.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sun, 14 Apr 2019 10:10:11 +0200
+
 linux (4.19.28-2parrot2.28t) testing; urgency=medium
 
   * Fix abiname version.
