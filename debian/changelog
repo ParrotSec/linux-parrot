@@ -1,5 +1,6 @@
 linux (4.19.28-2parrot4.28t) testing; urgency=medium
 
+  * Recompile package with new gcc version.
   * Exclude ASUS-GLV keyboard backlight patch (causes kernel panic).
 
  -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Thu, 18 Apr 2019 21:32:33 +0200
