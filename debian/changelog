@@ -1,3 +1,9 @@
+linux (4.19.28-2parrot4.28t) testing; urgency=medium
+
+  * Exclude ASUS-GLV keyboard backlight patch (causes kernel panic).
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Thu, 18 Apr 2019 21:32:33 +0200
+
 linux (4.19.28-2parrot3.28t) testing; urgency=medium
 
   * Rebuild kernel with missing udebs.
