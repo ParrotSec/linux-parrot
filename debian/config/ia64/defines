@@ -8,7 +8,7 @@ kernel-arch: ia64
 image-file: vmlinux.gz
 
 [image]
-bootloaders: elilo
+bootloaders: grub-efi-ia64
 install-stem: vmlinuz
 
 [itanium_description]

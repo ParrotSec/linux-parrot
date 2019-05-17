@@ -203,6 +203,11 @@ CONFIG_BT_HCIBFUSB=m
 CONFIG_BT_HCIVHCI=m
 
 ##
+## file: drivers/char/hw_random/Kconfig
+##
+# CONFIG_HW_RANDOM is not set
+
+##
 ## file: drivers/connector/Kconfig
 ##
 CONFIG_CONNECTOR=m

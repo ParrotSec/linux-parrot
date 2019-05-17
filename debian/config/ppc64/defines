@@ -9,6 +9,7 @@ vdso: true
 
 [image]
 configs:
+bootloaders: grub-ieee1275
 suggests: mkvmlinuz
 install-stem: vmlinux
 

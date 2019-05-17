@@ -5,6 +5,7 @@ featuresets:
 
 [build]
 image-file: vmlinux
+vdso: true
 
 [image]
 install-stem: vmlinux

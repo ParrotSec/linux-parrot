@@ -17,3 +17,6 @@ virtio_balloon ?
 virtio_mmio ?
 virtio_pci ?
 virtio_ring ?
+
+# The installer generally needs good entropy sources
+drivers/char/hw_random/**

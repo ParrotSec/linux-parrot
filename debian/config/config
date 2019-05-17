@@ -78,6 +78,11 @@ CONFIG_MODULE_SIG_KEY=""
 #. Whenever the filename changes, this also needs to be updated in
 #. debian/featureset-*/config
 CONFIG_SYSTEM_TRUSTED_KEYS="debian/certs/debian-uefi-certs.pem"
+#. Add secondary keyring with keys from UEFI db and MOK.
+CONFIG_SECONDARY_TRUSTED_KEYRING=y
+CONFIG_SYSTEM_BLACKLIST_KEYRING=y
+CONFIG_EFI_SIGNATURE_LIST_PARSER=y
+CONFIG_LOAD_UEFI_KEYS=y
 
 ##
 ## file: crypto/Kconfig
@@ -600,6 +605,14 @@ CONFIG_EFI_CAPSULE_LOADER=m
 # CONFIG_EFI_TEST is not set
 #. Until userland clears the flag on clean shutdown
 # CONFIG_RESET_ATTACK_MITIGATION is not set
+
+##
+## file: drivers/firmware/google/Kconfig
+##
+CONFIG_GOOGLE_FIRMWARE=y
+CONFIG_GOOGLE_COREBOOT_TABLE_ACPI=m
+CONFIG_GOOGLE_COREBOOT_TABLE_OF=m
+CONFIG_GOOGLE_MEMCONSOLE_COREBOOT=m
 
 ##
 ## file: drivers/fmc/Kconfig
@@ -6099,9 +6112,7 @@ CONFIG_INOTIFY_USER=y
 ##
 ## file: fs/ntfs/Kconfig
 ##
-CONFIG_NTFS_FS=m
-# CONFIG_NTFS_DEBUG is not set
-# CONFIG_NTFS_RW is not set
+# CONFIG_NTFS_FS is not set
 
 ##
 ## file: fs/ocfs2/Kconfig
@@ -6394,8 +6405,8 @@ CONFIG_MODULE_SIG_SHA256=y
 ##
 ## choice: Timer frequency
 # CONFIG_HZ_100 is not set
-CONFIG_HZ_250=y
-# CONFIG_HZ_300 is not set
+CONFIG_HZ_300=y
+# CONFIG_HZ_250 is not set
 # CONFIG_HZ_1000 is not set
 ## end choice
 

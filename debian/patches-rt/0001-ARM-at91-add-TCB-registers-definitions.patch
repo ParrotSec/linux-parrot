@@ -1,7 +1,8 @@
+From bc4d8f04b5bd123853531af90f1ec548d8ab61e4 Mon Sep 17 00:00:00 2001
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Date: Thu, 13 Sep 2018 13:30:18 +0200
-Subject: [PATCH 1/7] ARM: at91: add TCB registers definitions
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
+Subject: [PATCH 001/264] ARM: at91: add TCB registers definitions
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
 
 Add registers and bits definitions for the timer counter blocks found on
 Atmel ARM SoCs.
@@ -11,10 +12,13 @@ Tested-by: Andras Szemzo <szemzo.andras@gmail.com>
 Signed-off-by: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/soc/at91/atmel_tcb.h |  183 +++++++++++++++++++++++++++++++++++++++++++
+ include/soc/at91/atmel_tcb.h | 183 +++++++++++++++++++++++++++++++++++
  1 file changed, 183 insertions(+)
  create mode 100644 include/soc/at91/atmel_tcb.h
 
+diff --git a/include/soc/at91/atmel_tcb.h b/include/soc/at91/atmel_tcb.h
+new file mode 100644
+index 000000000000..657e234b1483
 --- /dev/null
 +++ b/include/soc/at91/atmel_tcb.h
 @@ -0,0 +1,183 @@
@@ -201,3 +205,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +};
 +
 +#endif /* __SOC_ATMEL_TCB_H */
+-- 
+2.20.1
+

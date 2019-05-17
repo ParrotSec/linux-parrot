@@ -13,11 +13,11 @@ from debian_linux.abi import Symbols
 from debian_linux.config import ConfigCoreDump
 from debian_linux.debian import Changelog, VersionLinux
 
-default_url_base = "http://deb.debian.org/debian/"
-default_url_base_incoming = "http://incoming.debian.org/debian-buildd/"
-default_url_base_ports = "http://ftp.ports.debian.org/debian-ports/"
-default_url_base_ports_incoming = "http://incoming.ports.debian.org/"
-default_url_base_security = "http://security.debian.org/"
+default_url_base = "https://deb.debian.org/debian/"
+default_url_base_incoming = "https://incoming.debian.org/debian-buildd/"
+default_url_base_ports = "https://deb.debian.org/debian-ports/"
+default_url_base_ports_incoming = "https://incoming.ports.debian.org/"
+default_url_base_security = "https://deb.debian.org/debian-security/"
 
 
 class url_debian_flat(object):
@@ -54,13 +54,9 @@ class url_debian_security_pool(url_debian_pool):
 class Main(object):
     dir = None
 
-    def __init__(self, url, url_config=None, arch=None, featureset=None,
-                 flavour=None):
+    def __init__(self, arch=None, featureset=None, flavour=None):
         self.log = sys.stdout.write
 
-        self.url = self.url_config = url
-        if url_config is not None:
-            self.url_config = url_config
         self.override_arch = arch
         self.override_featureset = featureset
         self.override_flavour = flavour
@@ -73,6 +69,12 @@ class Main(object):
         self.source = changelog.source
         self.version = changelog.version.linux_version
         self.version_source = changelog.version.complete
+
+        if changelog.distribution.endswith('-security'):
+            self.urls = [url_base_security]
+        else:
+            self.urls = [url_base, url_base_ports,
+                         url_base_incoming, url_base_ports_incoming]
 
         self.config = ConfigCoreDump(fp=open("debian/config.defines.dump",
                                              "rb"))
@@ -113,7 +115,7 @@ class Main(object):
             version_abi = self.version_abi
         filename = ("linux-headers-%s-%s_%s_%s.deb" %
                     (version_abi, prefix, self.version_source, arch))
-        f = self.retrieve_package(self.url, filename, arch)
+        f = self.retrieve_package(filename, arch)
         d = self.extract_package(f, "linux-headers-%s_%s" % (prefix, arch))
         f1 = d + ("/usr/src/linux-headers-%s-%s/Module.symvers" %
                   (version_abi, prefix))
@@ -127,18 +129,27 @@ class Main(object):
         # pickle.load allows running arbitrary code.
         return self.config
 
-    def retrieve_package(self, url, filename, arch):
-        u = url(self.source, filename, arch)
-        filename_out = self.dir + "/" + filename
+    def retrieve_package(self, filename, arch):
+        for i, url in enumerate(self.urls):
+            u = url(self.source, filename, arch)
+            filename_out = self.dir + "/" + filename
 
-        f_in = urlopen(u)
-        f_out = open(filename_out, 'wb')
-        while 1:
-            r = f_in.read()
-            if not r:
-                break
-            f_out.write(r)
-        return filename_out
+            try:
+                f_in = urlopen(u)
+            except HTTPError:
+                if i == len(self.urls) - 1:
+                    # No more URLs to try
+                    raise
+                else:
+                    continue
+
+            f_out = open(filename_out, 'wb')
+            while 1:
+                r = f_in.read()
+                if not r:
+                    break
+                f_out.write(r)
+            return filename_out
 
     def save_abi(self, version_abi, symbols, arch, featureset, flavour):
         dir = "debian/abi/%s" % version_abi
@@ -190,12 +201,6 @@ class Main(object):
 
 if __name__ == '__main__':
     options = optparse.OptionParser()
-    options.add_option("-i", "--incoming", action="store_true",
-                       dest="incoming")
-    options.add_option("--incoming-config", action="store_true",
-                       dest="incoming_config")
-    options.add_option("--ports", action="store_true", dest="ports")
-    options.add_option("--security", action="store_true", dest="security")
     options.add_option("-u", "--url-base", dest="url_base",
                        default=default_url_base)
     options.add_option("--url-base-incoming", dest="url_base_incoming",
@@ -223,15 +228,5 @@ if __name__ == '__main__':
     url_base_ports = url_debian_ports_pool(opts.url_base_ports)
     url_base_ports_incoming = url_debian_flat(opts.url_base_ports_incoming)
     url_base_security = url_debian_security_pool(opts.url_base_security)
-    if opts.incoming_config:
-        url = url_config = url_base_incoming
-    else:
-        url_config = url_base
-        if opts.security:
-            url = url_base_security
-        elif opts.ports:
-            url = url_base_ports_incoming if opts.incoming else url_base_ports
-        else:
-            url = url_base_incoming if opts.incoming else url_base
 
-    Main(url, url_config, **kw)()
+    Main(**kw)()

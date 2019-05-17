@@ -152,12 +152,6 @@ Priority: standard
 Description: JFS filesystem support
  This package contains the JFS filesystem module for the kernel.
 
-Package: ntfs-modules
-Depends: kernel-image
-Priority: optional
-Description: NTFS filesystem support
- This package contains the NTFS file system module for the kernel.
-
 Package: ufs-modules
 Depends: kernel-image
 Priority: optional

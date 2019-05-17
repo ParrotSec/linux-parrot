@@ -1,8 +1,9 @@
+From 1eef86c9b8aa09d8e57f4ee5684c7bfd28f6900f Mon Sep 17 00:00:00 2001
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Date: Thu, 13 Sep 2018 13:30:19 +0200
-Subject: [PATCH 2/7] clocksource/drivers: Add a new driver for the Atmel ARM
- TC blocks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
+Subject: [PATCH 002/264] clocksource/drivers: Add a new driver for the Atmel
+ ARM TC blocks
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
 
 Add a driver for the Atmel Timer Counter Blocks. This driver provides a
 clocksource and two clockevent devices.
@@ -24,15 +25,17 @@ Tested-by: Andras Szemzo <szemzo.andras@gmail.com>
 Signed-off-by: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/clocksource/Kconfig           |    8 
- drivers/clocksource/Makefile          |    3 
- drivers/clocksource/timer-atmel-tcb.c |  410 ++++++++++++++++++++++++++++++++++
+ drivers/clocksource/Kconfig           |   8 +
+ drivers/clocksource/Makefile          |   3 +-
+ drivers/clocksource/timer-atmel-tcb.c | 410 ++++++++++++++++++++++++++
  3 files changed, 420 insertions(+), 1 deletion(-)
  create mode 100644 drivers/clocksource/timer-atmel-tcb.c
 
+diff --git a/drivers/clocksource/Kconfig b/drivers/clocksource/Kconfig
+index c1ddafa4c299..c5a5ad4e22e7 100644
 --- a/drivers/clocksource/Kconfig
 +++ b/drivers/clocksource/Kconfig
-@@ -404,6 +404,14 @@ config ATMEL_ST
+@@ -414,6 +414,14 @@ config ATMEL_ST
  	help
  	  Support for the Atmel ST timer.
  
@@ -47,6 +50,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  config CLKSRC_EXYNOS_MCT
  	bool "Exynos multi core timer driver" if COMPILE_TEST
  	depends on ARM || ARM64
+diff --git a/drivers/clocksource/Makefile b/drivers/clocksource/Makefile
+index db51b2427e8a..0df9384a1230 100644
 --- a/drivers/clocksource/Makefile
 +++ b/drivers/clocksource/Makefile
 @@ -3,7 +3,8 @@ obj-$(CONFIG_TIMER_OF)		+= timer-of.o
@@ -59,6 +64,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  obj-$(CONFIG_X86_PM_TIMER)	+= acpi_pm.o
  obj-$(CONFIG_SCx200HR_TIMER)	+= scx200_hrt.o
  obj-$(CONFIG_CS5535_CLOCK_EVENT_SRC)	+= cs5535-clockevt.o
+diff --git a/drivers/clocksource/timer-atmel-tcb.c b/drivers/clocksource/timer-atmel-tcb.c
+new file mode 100644
+index 000000000000..21fbe430f91b
 --- /dev/null
 +++ b/drivers/clocksource/timer-atmel-tcb.c
 @@ -0,0 +1,410 @@
@@ -472,3 +480,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +				   bits);
 +}
 +TIMER_OF_DECLARE(atmel_tcb_clksrc, "atmel,tcb-timer", tcb_clksrc_init);
+-- 
+2.20.1
+

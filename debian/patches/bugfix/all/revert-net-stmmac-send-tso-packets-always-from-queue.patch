@@ -1,0 +1,35 @@
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Tue, 9 Apr 2019 01:01:56 +0100
+Subject: Revert "net: stmmac: Send TSO packets always from Queue 0"
+Forwarded: https://lore.kernel.org/lkml/a5f9b02fbb5ca830e598f1c601cdbecc6c86b789.camel@decadent.org.uk/T/#u
+
+This reverts commit 496eaed7fe94df7202d7cbe37873f96bcdda375e, which
+was commit c5acdbee22a1b200dde07effd26fd1f649e9ab8a upstream.  This
+introduces data races.
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 886176be818e..8c3e228b1da6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3033,17 +3033,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* Manage oversized TCP frames for GMAC4 device */
+ 	if (skb_is_gso(skb) && priv->tso) {
+-		if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)) {
+-			/*
+-			 * There is no way to determine the number of TSO
+-			 * capable Queues. Let's use always the Queue 0
+-			 * because if TSO is supported then at least this
+-			 * one will be capable.
+-			 */
+-			skb_set_queue_mapping(skb, 0);
+-
++		if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
+ 			return stmmac_tso_xmit(skb, dev);
+-		}
+ 	}
+ 
+ 	if (unlikely(stmmac_tx_avail(priv, queue) < nfrags + 1)) {

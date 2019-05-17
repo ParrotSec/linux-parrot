@@ -38,6 +38,12 @@ class Gencontrol(Base):
             'check-size': config.SchemaItemInteger(),
             'check-size-with-dtb': config.SchemaItemBoolean(),
             'check-uncompressed-size': config.SchemaItemInteger(),
+            'depends': config.SchemaItemList(','),
+            'provides': config.SchemaItemList(','),
+            'suggests': config.SchemaItemList(','),
+            'recommends': config.SchemaItemList(','),
+            'conflicts': config.SchemaItemList(','),
+            'breaks': config.SchemaItemList(','),
         },
         'relations': {
         },
@@ -371,10 +377,12 @@ class Gencontrol(Base):
                                                flavour)
         config_entry_description = self.config.merge('description', arch,
                                                      featureset, flavour)
-        config_entry_image = self.config.merge('image', arch, featureset,
-                                               flavour)
         config_entry_relations = self.config.merge('relations', arch,
                                                    featureset, flavour)
+
+        def config_entry_image(key, *args, **kwargs):
+            return self.config.get_merge(
+                'image', arch, featureset, flavour, key, *args, **kwargs)
 
         compiler = config_entry_base.get('compiler', 'gcc')
 
@@ -403,10 +411,11 @@ class Gencontrol(Base):
         image_fields = {'Description': PackageDescription()}
         for field in ('Depends', 'Provides', 'Suggests', 'Recommends',
                       'Conflicts', 'Breaks'):
-            image_fields[field] = PackageRelation(config_entry_image.get(
-                field.lower(), None), override_arches=(arch,))
+            image_fields[field] = PackageRelation(
+                config_entry_image(field.lower(), None),
+                override_arches=(arch,))
 
-        generators = config_entry_image['initramfs-generators']
+        generators = config_entry_image('initramfs-generators')
         group = PackageRelationGroup()
         for i in generators:
             i = config_entry_relations.get(i, i)
@@ -419,7 +428,7 @@ class Gencontrol(Base):
             item.arches = [arch]
         image_fields['Depends'].append(group)
 
-        bootloaders = config_entry_image.get('bootloaders')
+        bootloaders = config_entry_image('bootloaders', None)
         if bootloaders:
             group = PackageRelationGroup()
             for i in bootloaders:

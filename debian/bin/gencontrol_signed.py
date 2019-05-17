@@ -291,16 +291,21 @@ linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
                 self.image_packages:
             package_dir = 'debian/%s' % image_package_name
             package_files = []
+            package_modules = []
             package_files.append({'sig_type': 'efi',
                                   'file': 'boot/vmlinuz-%s' % image_suffix})
             for root, dirs, files in os.walk('%s/lib/modules' % package_dir,
                                              onerror=raise_func):
                 for name in files:
                     if name.endswith('.ko'):
-                        package_files.append(
-                            {'sig_type': 'linux-module',
-                             'file': '%s/%s' %
-                             (root[(len(package_dir) + 1):], name)})
+                        package_modules.append(
+                            '%s/%s' % 
+                            (root[(len(package_dir) + 1):], name))
+            package_modules.sort()
+            for module in package_modules:
+                package_files.append(
+                    {'sig_type': 'linux-module',
+                     'file': module})
             package_certs = [get_cert_fingerprint(cert, 'sha256')
                              for cert in get_certs(cert_file_name)]
             assert len(package_certs) >= 1

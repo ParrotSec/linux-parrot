@@ -17,7 +17,7 @@ part-long-pae: This kernel requires PAE (Physical Address Extension).
  Turion or Phenom; Transmeta Efficeon; VIA C7; and some other processors.
 
 [image]
-bootloaders: grub-pc extlinux
+bootloaders: grub-pc grub-efi-ia32 extlinux
 install-stem: vmlinuz
 breaks: xserver-xorg-input-vmmouse (<< 1:13.0.99)
 

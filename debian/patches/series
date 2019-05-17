@@ -32,7 +32,6 @@ debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
 # Parrot patches
 features/all/wifi-injection.patch
 features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
-# features/all/asus-hid-i2c-backlight-fix.patch
 
 # Patches from aufs4 repository, imported with debian/bin/genpatch-aufs.
 # These are only the changes needed to allow aufs to be built out-of-tree.
@@ -81,11 +80,12 @@ bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
 bugfix/powerpc/powerpc-fix-mcpu-options-for-spe-only-compiler.patch
-bugfix/m68k/m68k-build-with-ffreestanding.patch
 bugfix/x86/x86-kvmclock-set-offset-for-kvm-unstable-clock.patch
 bugfix/arm/ARM-dts-sun8i-h3-add-sy8106a-to-orange-pi-plus.patch
 bugfix/arm64/arm64-dts-allwinner-a64-Enable-A64-timer-workaround.patch
 bugfix/mips/MIPS-Loongson-Introduce-and-use-loongson_llsc_mb.patch
+bugfix/powerpc/powerpc-vdso-make-vdso32-installation-conditional-in.patch
+bugfix/mips/MIPS-scall64-o32-Fix-indirect-syscall-number-load.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
@@ -107,7 +107,7 @@ bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/mt76-use-the-correct-hweight8-function.patch
-bugfix/all/btrfs-fix-corruption-reading-shared-and-compressed-e.patch
+bugfix/all/revert-net-stmmac-send-tso-packets-always-from-queue.patch
 
 # Miscellaneous features
 
@@ -144,9 +144,77 @@ features/all/lockdown/0029-efi-Lock-down-the-kernel-if-booted-in-secure-boot-mo.
 features/all/lockdown/enable-cold-boot-attack-mitigation.patch
 features/all/lockdown/mtd-disable-slram-and-phram-when-locked-down.patch
 features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
+# until the "kernel_lockdown.7" manual page exists
+features/all/lockdown/lockdown-refer-to-debian-wiki-until-manual-page-exists.patch
+
+# load db and MOK keys into secondary keyring for kernel modules verification
+features/all/db-mok-keyring/0001-KEYS-Allow-unrestricted-boot-time-addition-of-keys-t.patch
+features/all/db-mok-keyring/0002-efi-Add-EFI-signature-data-types.patch
+features/all/db-mok-keyring/0003-efi-Add-an-EFI-signature-blob-parser.patch
+features/all/db-mok-keyring/0004-MODSIGN-Import-certificates-from-UEFI-Secure-Boot.patch
+features/all/db-mok-keyring/0005-MODSIGN-Allow-the-db-UEFI-variable-to-be-suppressed.patch
+features/all/db-mok-keyring/0006-Make-get_cert_list-not-complain-about-cert-lists-tha.patch
+features/all/db-mok-keyring/0007-modsign-Use-secondary-trust-keyring-for-module-signi.patch
+features/all/db-mok-keyring/0001-MODSIGN-do-not-load-mok-when-secure-boot-disabled.patch
+features/all/db-mok-keyring/0002-MODSIGN-load-blacklist-from-MOKx.patch
+features/all/db-mok-keyring/0003-MODSIGN-checking-the-blacklisted-hash-before-loading-a-kernel-module.patch
+features/all/db-mok-keyring/0004-MODSIGN-check-the-attributes-of-db-and-mok.patch
+features/all/db-mok-keyring/modsign-make-shash-allocation-failure-fatal.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
+bugfix/all/xen-pciback-Don-t-disable-PCI_COMMAND-on-PCI-device-.patch
+debian/ntfs-mark-it-as-broken.patch
+bugfix/all/vfio-type1-Limit-DMA-mappings-per-container.patch
+bugfix/all/0001-aio-clear-IOCB_HIPRI.patch
+bugfix/all/0002-aio-use-assigned-completion-handler.patch
+bugfix/all/0003-aio-separate-out-ring-reservation-from-req-allocatio.patch
+bugfix/all/0004-aio-don-t-zero-entire-aio_kiocb-aio_get_req.patch
+bugfix/all/0005-aio-use-iocb_put-instead-of-open-coding-it.patch
+bugfix/all/0006-aio-split-out-iocb-copy-from-io_submit_one.patch
+bugfix/all/0007-aio-abstract-out-io_event-filler-helper.patch
+bugfix/all/0008-aio-initialize-kiocb-private-in-case-any-filesystems.patch
+bugfix/all/0009-aio-simplify-and-fix-fget-fput-for-io_submit.patch
+bugfix/all/0010-pin-iocb-through-aio.patch
+bugfix/all/0011-aio-fold-lookup_kiocb-into-its-sole-caller.patch
+bugfix/all/0012-aio-keep-io_event-in-aio_kiocb.patch
+bugfix/all/0013-aio-store-event-at-final-iocb_put.patch
+bugfix/all/0014-Fix-aio_poll-races.patch
+bugfix/all/tracing-fix-buffer_ref-pipe-ops.patch
+bugfix/all/0001-mm-make-page-ref-count-overflow-check-tighter-and-mo.patch
+bugfix/all/0002-mm-add-try_get_page-helper-function.patch
+bugfix/all/0003-mm-prevent-get_user_pages-from-overflowing-page-refc.patch
+bugfix/all/0004-fs-prevent-page-refcount-overflow-in-pipe_buf_get.patch
+bugfix/all/spec/0001-Documentation-l1tf-Fix-small-spelling-typo.patch
+bugfix/all/spec/0002-x86-cpu-Sanitize-FAM6_ATOM-naming.patch
+bugfix/all/spec/0003-kvm-x86-Report-STIBP-on-GET_SUPPORTED_CPUID.patch
+bugfix/all/spec/0004-x86-msr-index-Cleanup-bit-defines.patch
+bugfix/all/spec/0005-x86-speculation-Consolidate-CPU-whitelists.patch
+bugfix/all/spec/0006-x86-speculation-mds-Add-basic-bug-infrastructure-for.patch
+bugfix/all/spec/0007-x86-speculation-mds-Add-BUG_MSBDS_ONLY.patch
+bugfix/all/spec/0008-x86-kvm-Expose-X86_FEATURE_MD_CLEAR-to-guests.patch
+bugfix/all/spec/0009-x86-speculation-mds-Add-mds_clear_cpu_buffers.patch
+bugfix/all/spec/0010-x86-speculation-mds-Clear-CPU-buffers-on-exit-to-use.patch
+bugfix/all/spec/0011-x86-kvm-vmx-Add-MDS-protection-when-L1D-Flush-is-not.patch
+bugfix/all/spec/0012-x86-speculation-mds-Conditionally-clear-CPU-buffers-.patch
+bugfix/all/spec/0013-x86-speculation-mds-Add-mitigation-control-for-MDS.patch
+bugfix/all/spec/0014-x86-speculation-mds-Add-sysfs-reporting-for-MDS.patch
+bugfix/all/spec/0015-x86-speculation-mds-Add-mitigation-mode-VMWERV.patch
+bugfix/all/spec/0016-Documentation-Move-L1TF-to-separate-directory.patch
+bugfix/all/spec/0017-Documentation-Add-MDS-vulnerability-documentation.patch
+bugfix/all/spec/0018-x86-speculation-mds-Add-mds-full-nosmt-cmdline-optio.patch
+bugfix/all/spec/0019-x86-speculation-Move-arch_smt_update-call-to-after-m.patch
+bugfix/all/spec/0020-x86-speculation-mds-Add-SMT-warning-message.patch
+bugfix/all/spec/0021-x86-speculation-mds-Fix-comment.patch
+bugfix/all/spec/0022-x86-speculation-mds-Print-SMT-vulnerable-on-MSBDS-wi.patch
+bugfix/all/spec/0023-cpu-speculation-Add-mitigations-cmdline-option.patch
+bugfix/all/spec/0024-x86-speculation-Support-mitigations-cmdline-option.patch
+bugfix/all/spec/0025-powerpc-speculation-Support-mitigations-cmdline-opti.patch
+bugfix/all/spec/0026-s390-speculation-Support-mitigations-cmdline-option.patch
+bugfix/all/spec/0027-x86-speculation-mds-Add-mitigations-support-for-MDS.patch
+bugfix/all/spec/0028-x86-mds-Add-MDSUM-variant-to-the-MDS-documentation.patch
+bugfix/all/spec/0029-Documentation-Correct-the-possible-MDS-sysfs-values.patch
+bugfix/all/spec/0030-x86-speculation-mds-Fix-documentation-typo.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -168,6 +236,7 @@ bugfix/x86/tools-x86_energy_perf_policy-fix-uninitialized-varia.patch
 bugfix/x86/tools-turbostat-Add-checks-for-failure-of-fgets-and-.patch
 bugfix/all/libbpf-add-soname-to-shared-object.patch
 bugfix/all/libbpf-link-shared-object-with-libelf.patch
+bugfix/all/libbpf-generate-pkg-config.patch
 
 # wireless: Disable regulatory.db direct loading (until we sort out signing)
 debian/wireless-disable-regulatory.db-direct-loading.patch

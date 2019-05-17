@@ -1,8 +1,9 @@
+From f6803050ab0965a1255a3b407ca429a04c5cb230 Mon Sep 17 00:00:00 2001
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Date: Thu, 13 Sep 2018 13:30:20 +0200
-Subject: [PATCH 3/7] clocksource/drivers: timer-atmel-tcb: add clockevent
+Subject: [PATCH 003/264] clocksource/drivers: timer-atmel-tcb: add clockevent
  device on separate channel
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.25-rt16.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
 
 Add an other clockevent device that uses a separate TCB channel when
 available.
@@ -10,9 +11,11 @@ available.
 Signed-off-by: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/clocksource/timer-atmel-tcb.c |  217 +++++++++++++++++++++++++++++++++-
+ drivers/clocksource/timer-atmel-tcb.c | 217 +++++++++++++++++++++++++-
  1 file changed, 212 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/clocksource/timer-atmel-tcb.c b/drivers/clocksource/timer-atmel-tcb.c
+index 21fbe430f91b..63ce3b69338a 100644
 --- a/drivers/clocksource/timer-atmel-tcb.c
 +++ b/drivers/clocksource/timer-atmel-tcb.c
 @@ -32,7 +32,7 @@ struct atmel_tcb_clksrc {
@@ -24,10 +27,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static struct clk *tcb_clk_get(struct device_node *node, int channel)
  {
-@@ -48,6 +48,203 @@ static struct clk *tcb_clk_get(struct de
+@@ -47,6 +47,203 @@ static struct clk *tcb_clk_get(struct device_node *node, int channel)
+ 	return of_clk_get_by_name(node->parent, "t0_clk");
  }
  
- /*
++/*
 + * Clockevent device using its own channel
 + */
 +
@@ -224,11 +228,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	return ret;
 +}
 +
-+/*
+ /*
   * Clocksource and clockevent using the same channel(s)
   */
- static u64 tc_get_cycles(struct clocksource *cs)
-@@ -363,7 +560,7 @@ static int __init tcb_clksrc_init(struct
+@@ -363,7 +560,7 @@ static int __init tcb_clksrc_init(struct device_node *node)
  	int irq, err, chan1 = -1;
  	unsigned bits;
  
@@ -237,7 +240,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return -ENODEV;
  
  	/*
-@@ -395,12 +592,22 @@ static int __init tcb_clksrc_init(struct
+@@ -395,12 +592,22 @@ static int __init tcb_clksrc_init(struct device_node *node)
  			return irq;
  	}
  
@@ -263,3 +266,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		}
  	}
  
+-- 
+2.20.1
+
