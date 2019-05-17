@@ -1250,6 +1250,23 @@ static int team_port_add(struct team *team, struct net_device *port_dev,
 		goto err_option_port_add;
 	}
 
+	/* set promiscuity level to new slave */
+	if (dev->flags & IFF_PROMISC) {
+		err = dev_set_promiscuity(port_dev, 1);
+		if (err)
+			goto err_set_slave_promisc;
+	}
+
+	/* set allmulti level to new slave */
+	if (dev->flags & IFF_ALLMULTI) {
+		err = dev_set_allmulti(port_dev, 1);
+		if (err) {
+			if (dev->flags & IFF_PROMISC)
+				dev_set_promiscuity(port_dev, -1);
+			goto err_set_slave_promisc;
+		}
+	}
+
 	netif_addr_lock_bh(dev);
 	dev_uc_sync_multiple(port_dev, dev);
 	dev_mc_sync_multiple(port_dev, dev);
@@ -1259,12 +1276,15 @@ static int team_port_add(struct team *team, struct net_device *port_dev,
 	list_add_tail_rcu(&port->list, &team->port_list);
 	team_port_enable(team, port);
 	__team_compute_features(team);
-	__team_port_change_port_added(port, !!netif_carrier_ok(port_dev));
+	__team_port_change_port_added(port, !!netif_oper_up(port_dev));
 	__team_options_change_check(team);
 
 	netdev_info(dev, "Port device %s added\n", portname);
 
 	return 0;
+
+err_set_slave_promisc:
+	__team_option_inst_del_port(team, port);
 
 err_option_port_add:
 	team_upper_dev_unlink(team, port);
@@ -1311,6 +1331,12 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
 
 	team_port_disable(team, port);
 	list_del_rcu(&port->list);
+
+	if (dev->flags & IFF_PROMISC)
+		dev_set_promiscuity(port_dev, -1);
+	if (dev->flags & IFF_ALLMULTI)
+		dev_set_allmulti(port_dev, -1);
+
 	team_upper_dev_unlink(team, port);
 	netdev_rx_handler_unregister(port_dev);
 	team_port_disable_netpoll(port);
@@ -2918,7 +2944,7 @@ static int team_device_event(struct notifier_block *unused,
 
 	switch (event) {
 	case NETDEV_UP:
-		if (netif_carrier_ok(dev))
+		if (netif_oper_up(dev))
 			team_port_change_check(port, true);
 		break;
 	case NETDEV_DOWN:
