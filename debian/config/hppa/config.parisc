@@ -5,7 +5,8 @@
 CONFIG_PA7000=y
 # CONFIG_PA8X00 is not set
 ## end choice
-# CONFIG_SMP is not set
+CONFIG_SMP=y
+CONFIG_NR_CPUS=4
 
 ##
 ## file: drivers/net/ethernet/ti/Kconfig

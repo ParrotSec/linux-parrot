@@ -3,7 +3,6 @@
 ##
 CONFIG_X86_32_IRIS=m
 # CONFIG_MATH_EMULATION is not set
-# CONFIG_EISA is not set
 CONFIG_OLPC=y
 CONFIG_OLPC_XO1_PM=y
 CONFIG_OLPC_XO1_RTC=y
@@ -22,6 +21,11 @@ CONFIG_GEOS=y
 #. family 6+ CPUs
 CONFIG_MGEODE_LX=y
 ## end choice
+
+##
+## file: drivers/eisa/Kconfig
+##
+# CONFIG_EISA is not set
 
 ##
 ## file: drivers/i2c/Kconfig

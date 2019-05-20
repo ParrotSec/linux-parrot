@@ -14,21 +14,20 @@ Cc: Josh Boyer <jwboyer@fedoraproject.org>
 Cc: James Bottomley <James.Bottomley@HansenPartnership.com>
 Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 [Rebased by Luca Boccassi]
+[bwh: Forward-ported to 5.0: adjust filename]
 ---
- certs/load_uefi.c | 26 +++++++++++++++-----------
+ security/integrity/platform_certs/load_uefi.c | 26 +++++++++++++++-----------
  1 file changed, 15 insertions(+), 11 deletions(-)
 
-diff --git a/certs/load_uefi.c b/certs/load_uefi.c
-index 3d88459..d6de4d0 100644
---- a/certs/load_uefi.c
-+++ b/certs/load_uefi.c
-@@ -171,17 +171,6 @@
+--- a/security/integrity/platform_certs/load_uefi.c
++++ b/security/integrity/platform_certs/load_uefi.c
+@@ -173,17 +173,6 @@ static int __init load_uefi_certs(void)
  		}
  	}
  
 -	rc = get_cert_list(L"MokListRT", &mok_var, &moksize, &mok);
 -	if (rc < 0) {
--		pr_info("MODSIGN: Couldn't get UEFI MokListRT\n");
+-		pr_info("Couldn't get UEFI MokListRT\n");
 -	} else if (moksize != 0) {
 -		rc = parse_efi_signature_list("UEFI:MokListRT",
 -					      mok, moksize, get_handler_for_db);
@@ -39,8 +38,8 @@ index 3d88459..d6de4d0 100644
 -
  	rc = get_cert_list(L"dbx", &secure_var, &dbxsize, &dbx);
  	if (rc < 0) {
- 		pr_info("MODSIGN: Couldn't get UEFI dbx list\n");
-@@ -194,6 +183,21 @@
+ 		pr_info("Couldn't get UEFI dbx list\n");
+@@ -196,6 +185,21 @@ static int __init load_uefi_certs(void)
  		kfree(dbx);
  	}
  
@@ -50,7 +49,7 @@ index 3d88459..d6de4d0 100644
 +
 +	rc = get_cert_list(L"MokListRT", &mok_var, &moksize, &mok);
 +	if (rc < 0) {
-+		pr_info("MODSIGN: Couldn't get UEFI MokListRT\n");
++		pr_info("Couldn't get UEFI MokListRT\n");
 +	} else if (moksize != 0) {
 +		rc = parse_efi_signature_list("UEFI:MokListRT",
 +					      mok, moksize, get_handler_for_db);

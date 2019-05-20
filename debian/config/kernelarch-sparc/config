@@ -5,7 +5,6 @@ CONFIG_64BIT=y
 CONFIG_SECCOMP=y
 # CONFIG_CMDLINE_BOOL is not set
 CONFIG_SUN_LDOMS=y
-CONFIG_PCI=y
 CONFIG_SUN_OPENPROMFS=m
 
 ##
@@ -44,7 +43,6 @@ CONFIG_PATA_LEGACY=m
 ## file: drivers/block/Kconfig
 ##
 CONFIG_BLK_DEV_FD=y
-# CONFIG_BLK_DEV_DAC960 is not set
 # CONFIG_BLK_DEV_UMEM is not set
 CONFIG_BLK_DEV_SX8=m
 CONFIG_CDROM_PKTCDVD=m
@@ -383,6 +381,11 @@ CONFIG_MWIFIEX_PCIE=m
 CONFIG_PARPORT_SUNBPP=m
 
 ##
+## file: drivers/pci/Kconfig
+##
+CONFIG_PCI=y
+
+##
 ## file: drivers/sbus/char/Kconfig
 ##
 CONFIG_SUN_OPENPROMIO=y
@@ -395,6 +398,8 @@ CONFIG_DISPLAY7SEG=m
 ## file: drivers/scsi/Kconfig
 ##
 CONFIG_SCSI_ARCMSR=m
+# CONFIG_SCSI_MYRB is not set
+# CONFIG_SCSI_MYRS is not set
 CONFIG_SCSI_DMX3191D=m
 # CONFIG_SCSI_IPS is not set
 CONFIG_SCSI_INITIO=m

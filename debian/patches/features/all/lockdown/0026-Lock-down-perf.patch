@@ -1,0 +1,29 @@
+From: David Howells <dhowells@redhat.com>
+Date: Mon, 18 Feb 2019 12:45:02 +0000
+Subject: [26/30] Lock down perf
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git/commit?id=08d4f2b7c17b41a730785d4f03d7b10fcbdaa384
+
+Disallow the use of certain perf facilities that might allow userspace to
+access kernel data.
+
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
+ kernel/events/core.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 26d6edab051a..4265ce43bca4 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -10477,6 +10477,11 @@ SYSCALL_DEFINE5(perf_event_open,
+ 			return -EINVAL;
+ 	}
+ 
++	if ((attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
++	    kernel_is_locked_down("PERF_SAMPLE_REGS_INTR"))
++		/* REGS_INTR can leak data, lockdown must prevent this */
++		return -EPERM;
++
+ 	/* Only privileged users can get physical addresses */
+ 	if ((attr.sample_type & PERF_SAMPLE_PHYS_ADDR) &&
+ 	    perf_paranoid_kernel() && !capable(CAP_SYS_ADMIN))

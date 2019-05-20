@@ -7,8 +7,6 @@ kernel-arch: arm
 [build]
 image-file: arch/arm/boot/zImage
 vdso: true
-# We don't want signed code in Kali
-signed-code: false
 
 [image]
 install-stem: vmlinuz

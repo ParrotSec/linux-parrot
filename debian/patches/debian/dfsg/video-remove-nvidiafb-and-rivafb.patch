@@ -15,7 +15,7 @@ probably discontinued 10 years ago.
 ---
 --- a/drivers/video/fbdev/Kconfig
 +++ b/drivers/video/fbdev/Kconfig
-@@ -991,101 +991,6 @@ config FB_ATMEL_STN
+@@ -877,99 +877,6 @@ config FB_ATMEL
  	help
  	  This enables support for the AT91/AT32 LCD Controller.
  
@@ -54,7 +54,6 @@ probably discontinued 10 years ago.
 -config FB_NVIDIA_DEBUG
 -	bool "Lots of debug output"
 -	depends on FB_NVIDIA
--	default n
 -	help
 -	  Say Y here if you want the nVidia driver to output all sorts
 -	  of debugging information to provide to the maintainer when
@@ -101,7 +100,6 @@ probably discontinued 10 years ago.
 -config FB_RIVA_DEBUG
 -	bool "Lots of debug output"
 -	depends on FB_RIVA
--	default n
 -	help
 -	  Say Y here if you want the Riva driver to output all sorts
 -	  of debugging information to provide to the maintainer when
@@ -119,7 +117,7 @@ probably discontinued 10 years ago.
  	depends on FB && PCI
 --- a/drivers/video/fbdev/Makefile
 +++ b/drivers/video/fbdev/Makefile
-@@ -22,8 +22,6 @@ obj-$(CONFIG_FB_PM3)		  += pm3fb.o
+@@ -21,8 +21,6 @@ obj-$(CONFIG_FB_PM3)		  += pm3fb.o
  
  obj-$(CONFIG_FB_I740)		  += i740fb.o
  obj-$(CONFIG_FB_MATROX)		  += matrox/

@@ -556,9 +556,12 @@ static int f81232_open(struct tty_struct *tty, struct usb_serial_port *port)
 
 static void f81232_close(struct usb_serial_port *port)
 {
+	struct f81232_private *port_priv = usb_get_serial_port_data(port);
+
 	f81232_port_disable(port);
 	usb_serial_generic_close(port);
 	usb_kill_urb(port->interrupt_in_urb);
+	flush_work(&port_priv->interrupt_work);
 }
 
 static void f81232_dtr_rts(struct usb_serial_port *port, int on)
@@ -583,36 +586,16 @@ static int f81232_carrier_raised(struct usb_serial_port *port)
 	return 0;
 }
 
-static int f81232_get_serial_info(struct usb_serial_port *port,
-		unsigned long arg)
-{
-	struct serial_struct ser;
-
-	memset(&ser, 0, sizeof(ser));
-
-	ser.type = PORT_16550A;
-	ser.line = port->minor;
-	ser.port = port->port_number;
-	ser.baud_base = F81232_MAX_BAUDRATE;
-
-	if (copy_to_user((void __user *)arg, &ser, sizeof(ser)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int f81232_ioctl(struct tty_struct *tty,
-			unsigned int cmd, unsigned long arg)
+static int f81232_get_serial_info(struct tty_struct *tty,
+		struct serial_struct *ss)
 {
 	struct usb_serial_port *port = tty->driver_data;
 
-	switch (cmd) {
-	case TIOCGSERIAL:
-		return f81232_get_serial_info(port, arg);
-	default:
-		break;
-	}
-	return -ENOIOCTLCMD;
+	ss->type = PORT_16550A;
+	ss->line = port->minor;
+	ss->port = port->port_number;
+	ss->baud_base = F81232_MAX_BAUDRATE;
+	return 0;
 }
 
 static void  f81232_interrupt_work(struct work_struct *work)
@@ -652,6 +635,40 @@ static int f81232_port_remove(struct usb_serial_port *port)
 	return 0;
 }
 
+static int f81232_suspend(struct usb_serial *serial, pm_message_t message)
+{
+	struct usb_serial_port *port = serial->port[0];
+	struct f81232_private *port_priv = usb_get_serial_port_data(port);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(port->read_urbs); ++i)
+		usb_kill_urb(port->read_urbs[i]);
+
+	usb_kill_urb(port->interrupt_in_urb);
+
+	if (port_priv)
+		flush_work(&port_priv->interrupt_work);
+
+	return 0;
+}
+
+static int f81232_resume(struct usb_serial *serial)
+{
+	struct usb_serial_port *port = serial->port[0];
+	int result;
+
+	if (tty_port_initialized(&port->port)) {
+		result = usb_submit_urb(port->interrupt_in_urb, GFP_NOIO);
+		if (result) {
+			dev_err(&port->dev, "submit interrupt urb failed: %d\n",
+					result);
+			return result;
+		}
+	}
+
+	return usb_serial_generic_resume(serial);
+}
+
 static struct usb_serial_driver f81232_device = {
 	.driver = {
 		.owner =	THIS_MODULE,
@@ -665,7 +682,7 @@ static struct usb_serial_driver f81232_device = {
 	.close =		f81232_close,
 	.dtr_rts =		f81232_dtr_rts,
 	.carrier_raised =	f81232_carrier_raised,
-	.ioctl =		f81232_ioctl,
+	.get_serial =		f81232_get_serial_info,
 	.break_ctl =		f81232_break_ctl,
 	.set_termios =		f81232_set_termios,
 	.tiocmget =		f81232_tiocmget,
@@ -675,6 +692,8 @@ static struct usb_serial_driver f81232_device = {
 	.read_int_callback =	f81232_read_int_callback,
 	.port_probe =		f81232_port_probe,
 	.port_remove =		f81232_port_remove,
+	.suspend =		f81232_suspend,
+	.resume =		f81232_resume,
 };
 
 static struct usb_serial_driver * const serial_drivers[] = {

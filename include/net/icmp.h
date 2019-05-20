@@ -48,7 +48,7 @@ static inline void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 
 }
 
 int icmp_rcv(struct sk_buff *skb);
-void icmp_err(struct sk_buff *skb, u32 info);
+int icmp_err(struct sk_buff *skb, u32 info);
 int icmp_init(void);
 void icmp_out_count(struct net *net, unsigned char type);
 

@@ -54,7 +54,12 @@
 	; gcc 7.3.1 (ARC GNU 2018.03) onwards generates unaligned access
 	; by default
 	lr	r5, [status32]
+#ifdef CONFIG_ARC_USE_UNALIGNED_MEM_ACCESS
 	bset	r5, r5, STATUS_AD_BIT
+#else
+	; Although disabled at reset, bootloader might have enabled it
+	bclr	r5, r5, STATUS_AD_BIT
+#endif
 	kflag	r5
 #endif
 .endm
@@ -100,7 +105,6 @@ ENTRY(stext)
 	st.ab   0, [r5, 4]
 1:
 
-#ifdef CONFIG_ARC_UBOOT_SUPPORT
 	; Uboot - kernel ABI
 	;    r0 = [0] No uboot interaction, [1] cmdline in r2, [2] DTB in r2
 	;    r1 = magic number (always zero as of now)
@@ -109,7 +113,6 @@ ENTRY(stext)
 	st	r0, [@uboot_tag]
 	st      r1, [@uboot_magic]
 	st	r2, [@uboot_arg]
-#endif
 
 	; setup "current" tsk and optionally cache it in dedicated r25
 	mov	r9, @init_task

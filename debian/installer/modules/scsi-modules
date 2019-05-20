@@ -1,6 +1,5 @@
 # Include SCSI controller drivers by default
 drivers/scsi/**
-DAC960 ?
 mptfc
 mptsas
 mptspi

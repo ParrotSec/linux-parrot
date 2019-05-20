@@ -31,7 +31,6 @@
 #include <linux/ethtool.h>
 #include <linux/phy.h>
 #include <net/arp.h>
-#include <net/switchdev.h>
 
 #include "vlan.h"
 #include "vlanproc.h"
@@ -368,10 +367,12 @@ static int vlan_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	ifrr.ifr_ifru = ifr->ifr_ifru;
 
 	switch (cmd) {
+	case SIOCSHWTSTAMP:
+		if (!net_eq(dev_net(dev), &init_net))
+			break;
 	case SIOCGMIIPHY:
 	case SIOCGMIIREG:
 	case SIOCSMIIREG:
-	case SIOCSHWTSTAMP:
 	case SIOCGHWTSTAMP:
 		if (netif_device_present(real_dev) && ops->ndo_do_ioctl)
 			err = ops->ndo_do_ioctl(real_dev, &ifrr, cmd);
@@ -444,17 +445,6 @@ static int vlan_dev_fcoe_disable(struct net_device *dev)
 	return rc;
 }
 
-static int vlan_dev_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type)
-{
-	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
-	const struct net_device_ops *ops = real_dev->netdev_ops;
-	int rc = -EINVAL;
-
-	if (ops->ndo_fcoe_get_wwn)
-		rc = ops->ndo_fcoe_get_wwn(real_dev, wwn, type);
-	return rc;
-}
-
 static int vlan_dev_fcoe_ddp_target(struct net_device *dev, u16 xid,
 				    struct scatterlist *sgl, unsigned int sgc)
 {
@@ -465,6 +455,19 @@ static int vlan_dev_fcoe_ddp_target(struct net_device *dev, u16 xid,
 	if (ops->ndo_fcoe_ddp_target)
 		rc = ops->ndo_fcoe_ddp_target(real_dev, xid, sgl, sgc);
 
+	return rc;
+}
+#endif
+
+#ifdef NETDEV_FCOE_WWNN
+static int vlan_dev_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type)
+{
+	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
+	const struct net_device_ops *ops = real_dev->netdev_ops;
+	int rc = -EINVAL;
+
+	if (ops->ndo_fcoe_get_wwn)
+		rc = ops->ndo_fcoe_get_wwn(real_dev, wwn, type);
 	return rc;
 }
 #endif
@@ -562,6 +565,7 @@ static int vlan_dev_init(struct net_device *dev)
 
 	dev->hw_features = NETIF_F_HW_CSUM | NETIF_F_SG |
 			   NETIF_F_FRAGLIST | NETIF_F_GSO_SOFTWARE |
+			   NETIF_F_GSO_ENCAP_ALL |
 			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CRC |
 			   NETIF_F_ALL_FCOE;
 
@@ -572,6 +576,7 @@ static int vlan_dev_init(struct net_device *dev)
 		netdev_warn(real_dev, "VLAN features are set incorrectly.  Q-in-Q configurations may not work correctly.\n");
 
 	dev->vlan_features = real_dev->vlan_features & ~NETIF_F_ALL_FCOE;
+	dev->hw_enc_features = vlan_tnl_features(real_dev);
 
 	/* ipv6 shared card related stuff */
 	dev->dev_id = real_dev->dev_id;
@@ -756,8 +761,7 @@ static void vlan_dev_netpoll_cleanup(struct net_device *dev)
 		return;
 
 	vlan->netpoll = NULL;
-
-	__netpoll_free_async(netpoll);
+	__netpoll_free(netpoll);
 }
 #endif /* CONFIG_NET_POLL_CONTROLLER */
 
@@ -794,8 +798,10 @@ static const struct net_device_ops vlan_netdev_ops = {
 	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
 	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
 	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
-	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
 	.ndo_fcoe_ddp_target	= vlan_dev_fcoe_ddp_target,
+#endif
+#ifdef NETDEV_FCOE_WWNN
+	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
 #endif
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller	= vlan_dev_poll_controller,

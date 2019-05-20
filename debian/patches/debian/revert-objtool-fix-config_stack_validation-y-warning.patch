@@ -10,9 +10,11 @@ a pre-built objtool.
  Makefile | 22 +++++++++++-----------
  1 file changed, 11 insertions(+), 11 deletions(-)
 
+diff --git a/Makefile b/Makefile
+index b5865d9d8c85..4009cf7e0488 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -954,17 +954,6 @@ export mod_sign_cmd
+@@ -957,17 +957,6 @@ export mod_sign_cmd
  
  HOST_LIBELF_LIBS = $(shell pkg-config libelf --libs 2>/dev/null || echo -lelf)
  
@@ -27,12 +29,12 @@ a pre-built objtool.
 -  endif
 -endif
 -
+ PHONY += prepare0
  
  ifeq ($(KBUILD_EXTMOD),)
- core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
-@@ -1115,6 +1104,17 @@ uapi-asm-generic:
- 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.asm-generic \
- 	            src=uapi/asm obj=arch/$(SRCARCH)/include/generated/uapi/asm
+@@ -1112,6 +1101,17 @@ uapi-asm-generic:
+ 	$(Q)$(MAKE) $(asm-generic)=arch/$(SRCARCH)/include/generated/uapi/asm \
+ 	generic=include/uapi/asm-generic
  
 +ifdef CONFIG_STACK_VALIDATION
 +  has_libelf := $(call try-run,\
@@ -48,3 +50,6 @@ a pre-built objtool.
  PHONY += prepare-objtool
  prepare-objtool: $(objtool_target)
  ifeq ($(SKIP_STACK_VALIDATION),1)
+-- 
+2.20.1
+

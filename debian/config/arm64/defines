@@ -7,7 +7,6 @@ featuresets:
 [build]
 debug-info: true
 image-file: arch/arm64/boot/Image
-# We don't want signed modules in Kali
 signed-code: false
 vdso: true
 

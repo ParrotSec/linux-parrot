@@ -1,5 +1,5 @@
 [abi]
-abiname: parrot1-37t
+abiname: parrot1-3t
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*
@@ -128,7 +128,7 @@ debug-info: true
 signed-code: false
 
 [featureset-rt_base]
-enabled: true
+enabled: false
 
 [description]
 part-long-up: This kernel is not suitable for SMP (multi-processor,

@@ -8,8 +8,6 @@ kernel-arch: arm
 image-file: arch/arm/boot/zImage
 # uncompressed-image is just for size checking
 uncompressed-image-file: arch/arm/boot/Image
-# We don't want signed modules in Kali
-signed-code: false
 
 [image]
 install-stem: vmlinuz

@@ -35,4 +35,5 @@ Build-Depends-Arch:
 Rules-Requires-Root: no
 Vcs-Git: https://nest.parrotsec.org/debian-packages/linux.git
 Vcs-Browser: https://nest.parrotsec.org/debian-packages/linux.
+
 Homepage: https://www.kernel.org/

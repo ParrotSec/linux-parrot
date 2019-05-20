@@ -27,7 +27,7 @@
 
 #define MLXSW_PCI_SW_RESET			0xF0010
 #define MLXSW_PCI_SW_RESET_RST_BIT		BIT(0)
-#define MLXSW_PCI_SW_RESET_TIMEOUT_MSECS	13000
+#define MLXSW_PCI_SW_RESET_TIMEOUT_MSECS	20000
 #define MLXSW_PCI_SW_RESET_WAIT_MSECS		100
 #define MLXSW_PCI_FW_READY			0xA1844
 #define MLXSW_PCI_FW_READY_MASK			0xFFFF
@@ -222,7 +222,7 @@ MLXSW_ITEM32(pci, eqe, event_type, 0x0C, 24, 8);
 MLXSW_ITEM32(pci, eqe, event_sub_type, 0x0C, 16, 8);
 
 /* pci_eqe_cqn
- * Completion Queue that triggeret this EQE.
+ * Completion Queue that triggered this EQE.
  */
 MLXSW_ITEM32(pci, eqe, cqn, 0x0C, 8, 7);
 

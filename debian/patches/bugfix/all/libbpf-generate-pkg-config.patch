@@ -1,39 +1,56 @@
-Author: Luca Boccassi <bluca@debian.org>
-Description: generate pkg-config file for libbpf
- Generate a libbpf.pc file at build time so that users can rely
- on pkg-config to find the library, its CFLAGS and LDFLAGS.
+From: Luca Boccassi <bluca@debian.org>
+Date: Wed, 15 May 2019 19:25:28 +0200
+Subject: generate pkg-config file for libbpf
+
+Generate a libbpf.pc file at build time so that users can rely on
+pkg-config to find the library, its CFLAGS and LDFLAGS.
+
 Origin: https://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git/commit/?id=dd399ac9e343c7573c47d6820e4a23013c54749d
 Applied-Upstream: yes
+---
+ tools/lib/bpf/.gitignore         |  1 +
+ tools/lib/bpf/Makefile           | 18 +++++++++++++++---
+ tools/lib/bpf/libbpf.pc.template | 12 ++++++++++++
+ 3 files changed, 28 insertions(+), 3 deletions(-)
+ create mode 100644 tools/lib/bpf/libbpf.pc.template
+
 --- a/tools/lib/bpf/.gitignore
 +++ b/tools/lib/bpf/.gitignore
-@@ -1,2 +1,3 @@
+@@ -1,4 +1,5 @@
  libbpf_version.h
 +libbpf.pc
  FEATURE-DUMP.libbpf
+ test_libbpf
+ libbpf.so.*
 --- a/tools/lib/bpf/Makefile
 +++ b/tools/lib/bpf/Makefile
-@@ -93,6 +93,7 @@
- LIBBPF_VERSION=$(shell make --no-print-directory -sC ../../.. kernelversion)
+@@ -90,6 +90,7 @@ LIBBPF_VERSION	= $(BPF_VERSION).$(BPF_PA
  
- LIB_FILE = libbpf.a libbpf.so.$(LIBBPF_VERSION)
-+PC_FILE = libbpf.pc
+ LIB_TARGET	= libbpf.a libbpf.so.$(LIBBPF_VERSION)
+ LIB_FILE	= libbpf.a libbpf.so*
++PC_FILE		= libbpf.pc
  
- OBJ		= $@
- N		=
-@@ -136,8 +137,9 @@
+ # Set compile option CFLAGS
+ ifdef EXTRA_CFLAGS
+@@ -134,13 +135,14 @@ VERSION_SCRIPT	:= libbpf.map
  
- BPF_IN    := $(OUTPUT)libbpf-in.o
- LIB_FILE := $(addprefix $(OUTPUT),$(LIB_FILE))
-+PC_FILE := $(addprefix $(OUTPUT),$(PC_FILE))
+ LIB_TARGET	:= $(addprefix $(OUTPUT),$(LIB_TARGET))
+ LIB_FILE	:= $(addprefix $(OUTPUT),$(LIB_FILE))
++PC_FILE		:= $(addprefix $(OUTPUT),$(PC_FILE))
  
--CMD_TARGETS = $(LIB_FILE)
-+CMD_TARGETS = $(LIB_FILE) $(PC_FILE)
+ GLOBAL_SYM_COUNT = $(shell readelf -s --wide $(BPF_IN) | \
+ 			   awk '/GLOBAL/ && /DEFAULT/ && !/UND/ {s++} END{print s}')
+ VERSIONED_SYM_COUNT = $(shell readelf -s --wide $(OUTPUT)libbpf.so | \
+ 			      grep -Eo '[^ ]+@LIBBPF_' | cut -d@ -f1 | sort -u | wc -l)
  
- TARGETS = $(CMD_TARGETS)
+-CMD_TARGETS = $(LIB_TARGET)
++CMD_TARGETS = $(LIB_TARGET) $(PC_FILE)
  
-@@ -166,6 +168,12 @@
- $(OUTPUT)libbpf.a: $(BPF_IN)
- 	$(QUIET_LINK)$(RM) $@; $(AR) rcs $@ $^
+ CXX_TEST_TARGET = $(OUTPUT)test_libbpf
+ 
+@@ -187,6 +189,12 @@ $(OUTPUT)libbpf.a: $(BPF_IN)
+ $(OUTPUT)test_libbpf: test_libbpf.cpp $(OUTPUT)libbpf.a
+ 	$(QUIET_LINK)$(CXX) $(INCLUDES) $^ -lelf -o $@
  
 +$(OUTPUT)libbpf.pc:
 +	$(QUIET_GEN)sed -e "s|@PREFIX@|$(prefix)|" \
@@ -41,31 +58,30 @@ Applied-Upstream: yes
 +		-e "s|@VERSION@|$(LIBBPF_VERSION)|" \
 +		< libbpf.pc.template > $@
 +
- define do_install
- 	if [ ! -d '$(DESTDIR_SQ)$2' ]; then		\
- 		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$2';	\
-@@ -184,7 +192,12 @@
- 		$(call do_install,libbpf.h,$(prefix)/include/bpf,644);
- 		$(call do_install,btf.h,$(prefix)/include/bpf,644);
+ check: check_abi
+ 
+ check_abi: $(OUTPUT)libbpf.so
+@@ -224,7 +232,11 @@ install_headers:
+ 		$(call do_install,btf.h,$(prefix)/include/bpf,644); \
+ 		$(call do_install,xsk.h,$(prefix)/include/bpf,644);
  
 -install: install_lib
 +install_pkgconfig: $(PC_FILE)
 +	$(call QUIET_INSTALL, $(PC_FILE)) \
 +		$(call do_install,$(PC_FILE),$(libdir_SQ)/pkgconfig,644)
 +
-+
 +install: install_lib install_pkgconfig
  
  ### Cleaning rules
  
-@@ -193,7 +206,7 @@
- 	$(Q)$(MAKE) -C $(srctree)/tools/build/feature/ clean >/dev/null
+@@ -234,7 +246,7 @@ config-clean:
  
  clean:
--	$(call QUIET_CLEAN, libbpf) $(RM) *.o *~ $(TARGETS) *.a *.so .*.d .*.cmd \
-+	$(call QUIET_CLEAN, libbpf) $(RM) *.o *~ $(TARGETS) *.a *.so .*.d .*.cmd *.pc \
- 		$(RM) LIBBPF-CFLAGS
+ 	$(call QUIET_CLEAN, libbpf) $(RM) $(TARGETS) $(CXX_TEST_TARGET) \
+-		*.o *~ *.a *.so *.so.$(VERSION) .*.d .*.cmd LIBBPF-CFLAGS
++		*.o *~ *.a *.so *.so.$(VERSION) .*.d .*.cmd *.pc LIBBPF-CFLAGS
  	$(call QUIET_CLEAN, core-gen) $(RM) $(OUTPUT)FEATURE-DUMP.libbpf
+ 
  
 --- /dev/null
 +++ b/tools/lib/bpf/libbpf.pc.template

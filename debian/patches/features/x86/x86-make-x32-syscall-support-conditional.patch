@@ -30,7 +30,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4142,6 +4142,10 @@
+@@ -4458,6 +4458,10 @@
  
  	switches=	[HW,M68k]
  
@@ -43,7 +43,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  			on older distributions. When this option is enabled
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -2910,6 +2910,14 @@ config COMPAT_32
+@@ -2893,6 +2893,14 @@ config COMPAT_32
  	select HAVE_UID16
  	select OLD_SIGSUSPEND3
  
@@ -60,7 +60,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	depends on IA32_EMULATION || X86_X32
 --- a/arch/x86/entry/common.c
 +++ b/arch/x86/entry/common.c
-@@ -281,12 +281,21 @@ __visible void do_syscall_64(unsigned lo
+@@ -284,12 +284,21 @@ __visible void do_syscall_64(unsigned lo
  	 * table.  The only functional difference is the x32 bit in
  	 * regs->orig_ax, which changes the behavior of some syscalls.
  	 */
@@ -150,10 +150,10 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +#endif
 --- a/arch/x86/include/asm/elf.h
 +++ b/arch/x86/include/asm/elf.h
-@@ -10,6 +10,7 @@
- #include <asm/ptrace.h>
+@@ -11,6 +11,7 @@
  #include <asm/user.h>
  #include <asm/auxvec.h>
+ #include <asm/fsgsbase.h>
 +#include <asm/syscall.h>
  
  typedef unsigned long elf_greg_t;

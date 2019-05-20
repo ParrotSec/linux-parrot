@@ -698,6 +698,132 @@ union meson_hdmi_venc_mode meson_hdmi_encp_mode_1080p60 = {
 	},
 };
 
+union meson_hdmi_venc_mode meson_hdmi_encp_mode_2160p24 = {
+	.encp = {
+		.dvi_settings = 0x1,
+		.video_mode = 0x4040,
+		.video_mode_adv = 0x8,
+		/* video_sync_mode */
+		/* video_yc_dly */
+		/* video_rgb_ctrl */
+		.video_filt_ctrl = 0x1000,
+		.video_filt_ctrl_present = true,
+		/* video_ofld_voav_ofst */
+		.yfp1_htime = 140,
+		.yfp2_htime = 140+3840,
+		.max_pxcnt = 3840+1660-1,
+		.hspuls_begin = 2156+1920,
+		.hspuls_end = 44,
+		.hspuls_switch = 44,
+		.vspuls_begin = 140,
+		.vspuls_end = 2059+1920,
+		.vspuls_bline = 0,
+		.vspuls_eline = 4,
+		.havon_begin = 148,
+		.havon_end = 3987,
+		.vavon_bline = 89,
+		.vavon_eline = 2248,
+		/* eqpuls_begin */
+		/* eqpuls_end */
+		/* eqpuls_bline */
+		/* eqpuls_eline */
+		.hso_begin = 44,
+		.hso_end = 2156+1920,
+		.vso_begin = 2100+1920,
+		.vso_end = 2164+1920,
+		.vso_bline = 51,
+		.vso_eline = 53,
+		.vso_eline_present = true,
+		/* sy_val */
+		/* sy2_val */
+		.max_lncnt = 2249,
+	},
+};
+
+union meson_hdmi_venc_mode meson_hdmi_encp_mode_2160p25 = {
+	.encp = {
+		.dvi_settings = 0x1,
+		.video_mode = 0x4040,
+		.video_mode_adv = 0x8,
+		/* video_sync_mode */
+		/* video_yc_dly */
+		/* video_rgb_ctrl */
+		.video_filt_ctrl = 0x1000,
+		.video_filt_ctrl_present = true,
+		/* video_ofld_voav_ofst */
+		.yfp1_htime = 140,
+		.yfp2_htime = 140+3840,
+		.max_pxcnt = 3840+1440-1,
+		.hspuls_begin = 2156+1920,
+		.hspuls_end = 44,
+		.hspuls_switch = 44,
+		.vspuls_begin = 140,
+		.vspuls_end = 2059+1920,
+		.vspuls_bline = 0,
+		.vspuls_eline = 4,
+		.havon_begin = 148,
+		.havon_end = 3987,
+		.vavon_bline = 89,
+		.vavon_eline = 2248,
+		/* eqpuls_begin */
+		/* eqpuls_end */
+		/* eqpuls_bline */
+		/* eqpuls_eline */
+		.hso_begin = 44,
+		.hso_end = 2156+1920,
+		.vso_begin = 2100+1920,
+		.vso_end = 2164+1920,
+		.vso_bline = 51,
+		.vso_eline = 53,
+		.vso_eline_present = true,
+		/* sy_val */
+		/* sy2_val */
+		.max_lncnt = 2249,
+	},
+};
+
+union meson_hdmi_venc_mode meson_hdmi_encp_mode_2160p30 = {
+	.encp = {
+		.dvi_settings = 0x1,
+		.video_mode = 0x4040,
+		.video_mode_adv = 0x8,
+		/* video_sync_mode */
+		/* video_yc_dly */
+		/* video_rgb_ctrl */
+		.video_filt_ctrl = 0x1000,
+		.video_filt_ctrl_present = true,
+		/* video_ofld_voav_ofst */
+		.yfp1_htime = 140,
+		.yfp2_htime = 140+3840,
+		.max_pxcnt = 3840+560-1,
+		.hspuls_begin = 2156+1920,
+		.hspuls_end = 44,
+		.hspuls_switch = 44,
+		.vspuls_begin = 140,
+		.vspuls_end = 2059+1920,
+		.vspuls_bline = 0,
+		.vspuls_eline = 4,
+		.havon_begin = 148,
+		.havon_end = 3987,
+		.vavon_bline = 89,
+		.vavon_eline = 2248,
+		/* eqpuls_begin */
+		/* eqpuls_end */
+		/* eqpuls_bline */
+		/* eqpuls_eline */
+		.hso_begin = 44,
+		.hso_end = 2156+1920,
+		.vso_begin = 2100+1920,
+		.vso_end = 2164+1920,
+		.vso_bline = 51,
+		.vso_eline = 53,
+		.vso_eline_present = true,
+		/* sy_val */
+		/* sy2_val */
+		.max_lncnt = 2249,
+	},
+};
+
 struct meson_hdmi_venc_vic_mode {
 	unsigned int vic;
 	union meson_hdmi_venc_mode *mode;
@@ -719,6 +845,11 @@ struct meson_hdmi_venc_vic_mode {
 	{ 34, &meson_hdmi_encp_mode_1080p30 },
 	{ 31, &meson_hdmi_encp_mode_1080p50 },
 	{ 16, &meson_hdmi_encp_mode_1080p60 },
+	{ 93, &meson_hdmi_encp_mode_2160p24 },
+	{ 94, &meson_hdmi_encp_mode_2160p25 },
+	{ 95, &meson_hdmi_encp_mode_2160p30 },
+	{ 96, &meson_hdmi_encp_mode_2160p25 },
+	{ 97, &meson_hdmi_encp_mode_2160p30 },
 	{ 0, NULL}, /* sentinel */
 };
 
@@ -856,6 +987,13 @@ void meson_venc_hdmi_mode_set(struct meson_drm *priv, int vic,
 	unsigned int sof_lines;
 	unsigned int vsync_lines;
 
+	/* Use VENCI for 480i and 576i and double HDMI pixels */
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK) {
+		hdmi_repeat = true;
+		use_enci = true;
+		venc_hdmi_latency = 1;
+	}
+
 	if (meson_venc_hdmi_supported_vic(vic)) {
 		vmode = meson_venc_hdmi_get_vic_vmode(vic);
 		if (!vmode) {
@@ -867,13 +1005,7 @@ void meson_venc_hdmi_mode_set(struct meson_drm *priv, int vic,
 	} else {
 		meson_venc_hdmi_get_dmt_vmode(mode, &vmode_dmt);
 		vmode = &vmode_dmt;
-	}
-
-	/* Use VENCI for 480i and 576i and double HDMI pixels */
-	if (mode->flags & DRM_MODE_FLAG_DBLCLK) {
-		hdmi_repeat = true;
-		use_enci = true;
-		venc_hdmi_latency = 1;
+		use_enci = false;
 	}
 
 	/* Repeat VENC pixels for 480/576i/p, 720p50/60 and 1080p50/60 */

@@ -9,7 +9,6 @@ CONFIG_HIGHMEM64G=y
 ## end choice
 CONFIG_X86_PAE=y
 # CONFIG_MATH_EMULATION is not set
-# CONFIG_EISA is not set
 # CONFIG_ALIX is not set
 # CONFIG_NET5501 is not set
 # CONFIG_GEOS is not set
@@ -21,6 +20,11 @@ CONFIG_X86_PAE=y
 # CONFIG_M486 is not set
 CONFIG_M686=y
 ## end choice
+
+##
+## file: drivers/eisa/Kconfig
+##
+# CONFIG_EISA is not set
 
 ##
 ## file: drivers/i2c/Kconfig

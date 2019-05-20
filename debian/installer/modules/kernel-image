@@ -8,6 +8,7 @@ mfd-core ?
 nls_base
 # Default I/O charset for most filesystems that do character conversion
 nls_utf8
+thermal_sys ?
 
 # Basic paravirtual modules
 hv_utils ?
