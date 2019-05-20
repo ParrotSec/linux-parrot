@@ -31,7 +31,7 @@
 
 #undef i386     /* in case the preprocessor is a 32bit one */
 
-OUTPUT_FORMAT(CONFIG_OUTPUT_FORMAT, CONFIG_OUTPUT_FORMAT, CONFIG_OUTPUT_FORMAT)
+OUTPUT_FORMAT(CONFIG_OUTPUT_FORMAT)
 
 #ifdef CONFIG_X86_32
 OUTPUT_ARCH(i386)
@@ -135,16 +135,6 @@ SECTIONS
 		SOFTIRQENTRY_TEXT
 		*(.fixup)
 		*(.gnu.warning)
-
-#ifdef CONFIG_X86_64
-		. = ALIGN(PAGE_SIZE);
-		__entry_trampoline_start = .;
-		_entry_trampoline = .;
-		*(.entry_trampoline)
-		. = ALIGN(PAGE_SIZE);
-		__entry_trampoline_end = .;
-		ASSERT(. - _entry_trampoline == PAGE_SIZE, "entry trampoline is too big");
-#endif
 
 #ifdef CONFIG_RETPOLINE
 		__indirect_thunk_start = .;
@@ -372,7 +362,7 @@ SECTIONS
 	.bss : AT(ADDR(.bss) - LOAD_OFFSET) {
 		__bss_start = .;
 		*(.bss..page_aligned)
-		*(.bss)
+		*(BSS_MAIN)
 		BSS_DECRYPTED
 		. = ALIGN(PAGE_SIZE);
 		__bss_stop = .;

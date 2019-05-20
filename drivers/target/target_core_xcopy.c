@@ -391,7 +391,6 @@ out:
 struct xcopy_pt_cmd {
 	bool remote_port;
 	struct se_cmd se_cmd;
-	struct xcopy_op *xcopy_op;
 	struct completion xpt_passthrough_sem;
 	unsigned char sense_buffer[TRANSPORT_SENSE_BUFFER];
 };
@@ -399,11 +398,6 @@ struct xcopy_pt_cmd {
 struct se_portal_group xcopy_pt_tpg;
 static struct se_session xcopy_pt_sess;
 static struct se_node_acl xcopy_pt_nacl;
-
-static char *xcopy_pt_get_fabric_name(void)
-{
-        return "xcopy-pt";
-}
 
 static int xcopy_pt_get_cmd_state(struct se_cmd *se_cmd)
 {
@@ -448,11 +442,6 @@ static int xcopy_pt_write_pending(struct se_cmd *se_cmd)
 	return 0;
 }
 
-static int xcopy_pt_write_pending_status(struct se_cmd *se_cmd)
-{
-	return 0;
-}
-
 static int xcopy_pt_queue_data_in(struct se_cmd *se_cmd)
 {
 	return 0;
@@ -464,12 +453,11 @@ static int xcopy_pt_queue_status(struct se_cmd *se_cmd)
 }
 
 static const struct target_core_fabric_ops xcopy_pt_tfo = {
-	.get_fabric_name	= xcopy_pt_get_fabric_name,
+	.fabric_name		= "xcopy-pt",
 	.get_cmd_state		= xcopy_pt_get_cmd_state,
 	.release_cmd		= xcopy_pt_release_cmd,
 	.check_stop_free	= xcopy_pt_check_stop_free,
 	.write_pending		= xcopy_pt_write_pending,
-	.write_pending_status	= xcopy_pt_write_pending_status,
 	.queue_data_in		= xcopy_pt_queue_data_in,
 	.queue_status		= xcopy_pt_queue_status,
 };
@@ -600,8 +588,6 @@ static int target_xcopy_setup_pt_cmd(
 	 * X-COPY PUSH or X-COPY PULL based upon where the CDB was received.
 	 */
 	target_xcopy_init_pt_lun(se_dev, cmd, remote_port);
-
-	xpt_cmd->xcopy_op = xop;
 	target_xcopy_setup_pt_port(xpt_cmd, xop, remote_port);
 
 	cmd->tag = 0;

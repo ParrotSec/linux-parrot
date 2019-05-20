@@ -912,23 +912,30 @@ static void gspca_set_default_mode(struct gspca_dev *gspca_dev)
 }
 
 static int wxh_to_mode(struct gspca_dev *gspca_dev,
-			int width, int height)
+			int width, int height, u32 pixelformat)
 {
 	int i;
 
 	for (i = 0; i < gspca_dev->cam.nmodes; i++) {
 		if (width == gspca_dev->cam.cam_mode[i].width
-		    && height == gspca_dev->cam.cam_mode[i].height)
+		    && height == gspca_dev->cam.cam_mode[i].height
+		    && pixelformat == gspca_dev->cam.cam_mode[i].pixelformat)
 			return i;
 	}
 	return -EINVAL;
 }
 
 static int wxh_to_nearest_mode(struct gspca_dev *gspca_dev,
-			int width, int height)
+			int width, int height, u32 pixelformat)
 {
 	int i;
 
+	for (i = gspca_dev->cam.nmodes; --i > 0; ) {
+		if (width >= gspca_dev->cam.cam_mode[i].width
+		    && height >= gspca_dev->cam.cam_mode[i].height
+		    && pixelformat == gspca_dev->cam.cam_mode[i].pixelformat)
+			return i;
+	}
 	for (i = gspca_dev->cam.nmodes; --i > 0; ) {
 		if (width >= gspca_dev->cam.cam_mode[i].width
 		    && height >= gspca_dev->cam.cam_mode[i].height)
@@ -1058,7 +1065,7 @@ static int try_fmt_vid_cap(struct gspca_dev *gspca_dev,
 		    fmt->fmt.pix.pixelformat, w, h);
 
 	/* search the nearest mode for width and height */
-	mode = wxh_to_nearest_mode(gspca_dev, w, h);
+	mode = wxh_to_nearest_mode(gspca_dev, w, h, fmt->fmt.pix.pixelformat);
 
 	/* OK if right palette */
 	if (gspca_dev->cam.cam_mode[mode].pixelformat
@@ -1152,7 +1159,8 @@ static int vidioc_enum_frameintervals(struct file *filp, void *priv,
 	int mode;
 	__u32 i;
 
-	mode = wxh_to_mode(gspca_dev, fival->width, fival->height);
+	mode = wxh_to_mode(gspca_dev, fival->width, fival->height,
+			   fival->pixel_format);
 	if (mode < 0)
 		return -EINVAL;
 
@@ -1193,11 +1201,11 @@ static int vidioc_querycap(struct file *file, void  *priv,
 {
 	struct gspca_dev *gspca_dev = video_drvdata(file);
 
-	strlcpy((char *) cap->driver, gspca_dev->sd_desc->name,
-			sizeof cap->driver);
+	strscpy((char *)cap->driver, gspca_dev->sd_desc->name,
+		sizeof(cap->driver));
 	if (gspca_dev->dev->product != NULL) {
-		strlcpy((char *) cap->card, gspca_dev->dev->product,
-			sizeof cap->card);
+		strscpy((char *)cap->card, gspca_dev->dev->product,
+			sizeof(cap->card));
 	} else {
 		snprintf((char *) cap->card, sizeof cap->card,
 			"USB Camera (%04x:%04x)",
@@ -1222,7 +1230,7 @@ static int vidioc_enum_input(struct file *file, void *priv,
 		return -EINVAL;
 	input->type = V4L2_INPUT_TYPE_CAMERA;
 	input->status = gspca_dev->cam.input_flags;
-	strlcpy(input->name, gspca_dev->sd_desc->name,
+	strscpy(input->name, gspca_dev->sd_desc->name,
 		sizeof input->name);
 	return 0;
 }

@@ -2608,6 +2608,13 @@ static const struct renesas_usb3_priv renesas_usb3_priv_gen3 = {
 	.ramsize_per_pipe = SZ_4K,
 };
 
+static const struct renesas_usb3_priv renesas_usb3_priv_r8a77990 = {
+	.ramsize_per_ramif = SZ_16K,
+	.num_ramif = 4,
+	.ramsize_per_pipe = SZ_4K,
+	.workaround_for_vbus = true,
+};
+
 static const struct of_device_id usb3_of_match[] = {
 	{
 		.compatible = "renesas,r8a7795-usb3-peri",
@@ -2623,8 +2630,16 @@ MODULE_DEVICE_TABLE(of, usb3_of_match);
 
 static const struct soc_device_attribute renesas_usb3_quirks_match[] = {
 	{
+		.soc_id = "r8a774c0",
+		.data = &renesas_usb3_priv_r8a77990,
+	},
+	{
 		.soc_id = "r8a7795", .revision = "ES1.*",
 		.data = &renesas_usb3_priv_r8a7795_es1,
+	},
+	{
+		.soc_id = "r8a77990",
+		.data = &renesas_usb3_priv_r8a77990,
 	},
 	{ /* sentinel */ },
 };

@@ -38,6 +38,7 @@ static __poll_t cec_poll(struct file *filp,
 	struct cec_adapter *adap = fh->adap;
 	__poll_t res = 0;
 
+	poll_wait(filp, &fh->wait, poll);
 	if (!cec_is_registered(adap))
 		return EPOLLERR | EPOLLHUP;
 	mutex_lock(&adap->lock);
@@ -48,7 +49,6 @@ static __poll_t cec_poll(struct file *filp,
 		res |= EPOLLIN | EPOLLRDNORM;
 	if (fh->total_queued_events)
 		res |= EPOLLPRI;
-	poll_wait(filp, &fh->wait, poll);
 	mutex_unlock(&adap->lock);
 	return res;
 }
@@ -77,9 +77,9 @@ static long cec_adap_g_caps(struct cec_adapter *adap,
 {
 	struct cec_caps caps = {};
 
-	strlcpy(caps.driver, adap->devnode.dev.parent->driver->name,
+	strscpy(caps.driver, adap->devnode.dev.parent->driver->name,
 		sizeof(caps.driver));
-	strlcpy(caps.name, adap->name, sizeof(caps.name));
+	strscpy(caps.name, adap->name, sizeof(caps.name));
 	caps.available_log_addrs = adap->available_log_addrs;
 	caps.capabilities = adap->capabilities;
 	caps.version = LINUX_VERSION_CODE;
@@ -682,6 +682,7 @@ const struct file_operations cec_devnode_fops = {
 	.owner = THIS_MODULE,
 	.open = cec_open,
 	.unlocked_ioctl = cec_ioctl,
+	.compat_ioctl = cec_ioctl,
 	.release = cec_release,
 	.poll = cec_poll,
 	.llseek = no_llseek,

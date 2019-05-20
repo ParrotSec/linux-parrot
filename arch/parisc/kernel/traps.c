@@ -218,7 +218,7 @@ void die_if_kernel(char *str, struct pt_regs *regs, long err)
 		return;
 	}
 
-	oops_in_progress = 1;
+	bust_spinlocks(1);
 
 	oops_enter();
 
@@ -396,7 +396,7 @@ void parisc_terminate(char *msg, struct pt_regs *regs, int code, unsigned long o
 {
 	static DEFINE_SPINLOCK(terminate_lock);
 
-	oops_in_progress = 1;
+	bust_spinlocks(1);
 
 	set_eiem(0);
 	local_irq_disable();
@@ -430,8 +430,8 @@ void parisc_terminate(char *msg, struct pt_regs *regs, int code, unsigned long o
 	}
 
 	printk("\n");
-	pr_crit("%s: Code=%d (%s) regs=%p (Addr=" RFMT ")\n",
-		msg, code, trap_name(code), regs, offset);
+	pr_crit("%s: Code=%d (%s) at addr " RFMT "\n",
+		msg, code, trap_name(code), offset);
 	show_regs(regs);
 
 	spin_unlock(&terminate_lock);

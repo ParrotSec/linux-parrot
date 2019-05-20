@@ -1535,7 +1535,7 @@ static int ablkcipher_setkey(struct crypto_ablkcipher *cipher,
 	}
 
 	if (unlikely(crypto_ablkcipher_get_flags(cipher) &
-		     CRYPTO_TFM_REQ_WEAK_KEY) &&
+		     CRYPTO_TFM_REQ_FORBID_WEAK_KEYS) &&
 	    !des_ekey(tmp, key)) {
 		crypto_ablkcipher_set_flags(cipher, CRYPTO_TFM_RES_WEAK_KEY);
 		return -EINVAL;
@@ -3147,7 +3147,6 @@ static struct talitos_crypto_alg *talitos_alg_alloc(struct device *dev,
 		alg->cra_ablkcipher.setkey = ablkcipher_setkey;
 		alg->cra_ablkcipher.encrypt = ablkcipher_encrypt;
 		alg->cra_ablkcipher.decrypt = ablkcipher_decrypt;
-		alg->cra_ablkcipher.geniv = "eseqiv";
 		break;
 	case CRYPTO_ALG_TYPE_AEAD:
 		alg = &t_alg->algt.alg.aead.base;

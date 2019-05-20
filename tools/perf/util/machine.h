@@ -4,7 +4,7 @@
 
 #include <sys/types.h>
 #include <linux/rbtree.h>
-#include "map.h"
+#include "map_groups.h"
 #include "dso.h"
 #include "event.h"
 #include "rwsem.h"
@@ -29,11 +29,11 @@ struct vdso_info;
 #define THREADS__TABLE_SIZE	(1 << THREADS__TABLE_BITS)
 
 struct threads {
-	struct rb_root	  entries;
-	struct rw_semaphore lock;
-	unsigned int	  nr;
-	struct list_head  dead;
-	struct thread	  *last_match;
+	struct rb_root_cached  entries;
+	struct rw_semaphore    lock;
+	unsigned int	       nr;
+	struct list_head       dead;
+	struct thread	       *last_match;
 };
 
 struct machine {
@@ -130,6 +130,9 @@ int machine__process_mmap_event(struct machine *machine, union perf_event *event
 				struct perf_sample *sample);
 int machine__process_mmap2_event(struct machine *machine, union perf_event *event,
 				 struct perf_sample *sample);
+int machine__process_ksymbol(struct machine *machine,
+			     union perf_event *event,
+			     struct perf_sample *sample);
 int machine__process_event(struct machine *machine, union perf_event *event,
 				struct perf_sample *sample);
 
@@ -137,7 +140,7 @@ typedef void (*machine__process_t)(struct machine *machine, void *data);
 
 struct machines {
 	struct machine host;
-	struct rb_root guests;
+	struct rb_root_cached guests;
 };
 
 void machines__init(struct machines *machines);
@@ -250,17 +253,14 @@ int machines__for_each_thread(struct machines *machines,
 int __machine__synthesize_threads(struct machine *machine, struct perf_tool *tool,
 				  struct target *target, struct thread_map *threads,
 				  perf_event__handler_t process, bool data_mmap,
-				  unsigned int proc_map_timeout,
 				  unsigned int nr_threads_synthesize);
 static inline
 int machine__synthesize_threads(struct machine *machine, struct target *target,
 				struct thread_map *threads, bool data_mmap,
-				unsigned int proc_map_timeout,
 				unsigned int nr_threads_synthesize)
 {
 	return __machine__synthesize_threads(machine, NULL, target, threads,
 					     perf_event__process, data_mmap,
-					     proc_map_timeout,
 					     nr_threads_synthesize);
 }
 

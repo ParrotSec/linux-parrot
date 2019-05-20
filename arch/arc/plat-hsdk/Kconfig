@@ -12,4 +12,4 @@ menuconfig ARC_SOC_HSDK
 	select ARC_IRQ_NO_AUTOSAVE
 	select CLK_HSDK
 	select RESET_HSDK
-	select MIGHT_HAVE_PCI
+	select HAVE_PCI

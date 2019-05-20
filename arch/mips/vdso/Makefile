@@ -11,7 +11,7 @@ ccflags-vdso := \
 	$(filter -m%-float,$(KBUILD_CFLAGS)) \
 	-D__VDSO__
 
-ifeq ($(cc-name),clang)
+ifdef CONFIG_CC_IS_CLANG
 ccflags-vdso += $(filter --target=%,$(KBUILD_CFLAGS))
 endif
 
@@ -51,6 +51,7 @@ VDSO_LDFLAGS := \
 	$(call cc-ldoption, -Wl$(comma)--build-id)
 
 GCOV_PROFILE := n
+UBSAN_SANITIZE := n
 
 #
 # Shared build commands.

@@ -10,6 +10,7 @@
  */
 #include <linux/module.h>
 #include <drm/drmP.h>
+#include <drm/drm_util.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_crtc_helper.h>
 
@@ -169,7 +170,6 @@ static int cirrusfb_create(struct drm_fb_helper *helper,
 	struct drm_mode_fb_cmd2 mode_cmd;
 	void *sysram;
 	struct drm_gem_object *gobj = NULL;
-	struct cirrus_bo *bo = NULL;
 	int size, ret;
 
 	mode_cmd.width = sizes->surface_width;
@@ -184,8 +184,6 @@ static int cirrusfb_create(struct drm_fb_helper *helper,
 		DRM_ERROR("failed to create fbcon backing object %d\n", ret);
 		return ret;
 	}
-
-	bo = gem_to_cirrus_bo(gobj);
 
 	sysram = vmalloc(size);
 	if (!sysram)
@@ -259,6 +257,8 @@ static int cirrus_fbdev_destroy(struct drm_device *dev,
 {
 	struct drm_framebuffer *gfb = gfbdev->gfb;
 
+	drm_helper_force_disable_all(dev);
+
 	drm_fb_helper_unregister_fbi(&gfbdev->helper);
 
 	vfree(gfbdev->sysram);
@@ -277,7 +277,6 @@ int cirrus_fbdev_init(struct cirrus_device *cdev)
 {
 	struct cirrus_fbdev *gfbdev;
 	int ret;
-	int bpp_sel = 24;
 
 	/*bpp_sel = 8;*/
 	gfbdev = kzalloc(sizeof(struct cirrus_fbdev), GFP_KERNEL);
@@ -302,7 +301,7 @@ int cirrus_fbdev_init(struct cirrus_device *cdev)
 	/* disable all the possible outputs/crtcs before entering KMS mode */
 	drm_helper_disable_unused_functions(cdev->dev);
 
-	return drm_fb_helper_initial_config(&gfbdev->helper, bpp_sel);
+	return drm_fb_helper_initial_config(&gfbdev->helper, cirrus_bpp);
 }
 
 void cirrus_fbdev_fini(struct cirrus_device *cdev)

@@ -304,7 +304,6 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *skb,
 	rcu_read_lock();
 	__IP6_INC_STATS(net, __in6_dev_get(dev), IPSTATS_MIB_REASMOKS);
 	rcu_read_unlock();
-	fq->q.fragments = NULL;
 	fq->q.rb_fragments = RB_ROOT;
 	fq->q.fragments_tail = NULL;
 	fq->q.last_run_head = NULL;
@@ -452,7 +451,6 @@ static int __net_init ip6_frags_ns_sysctl_register(struct net *net)
 
 		table[0].data = &net->ipv6.frags.high_thresh;
 		table[0].extra1 = &net->ipv6.frags.low_thresh;
-		table[0].extra2 = &init_net.ipv6.frags.high_thresh;
 		table[1].data = &net->ipv6.frags.low_thresh;
 		table[1].extra2 = &net->ipv6.frags.high_thresh;
 		table[2].data = &net->ipv6.frags.timeout;

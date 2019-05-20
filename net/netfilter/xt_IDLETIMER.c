@@ -41,19 +41,13 @@
 #include <linux/workqueue.h>
 #include <linux/sysfs.h>
 
-struct idletimer_tg_attr {
-	struct attribute attr;
-	ssize_t	(*show)(struct kobject *kobj,
-			struct attribute *attr, char *buf);
-};
-
 struct idletimer_tg {
 	struct list_head entry;
 	struct timer_list timer;
 	struct work_struct work;
 
 	struct kobject *kobj;
-	struct idletimer_tg_attr attr;
+	struct device_attribute attr;
 
 	unsigned int refcnt;
 };
@@ -68,8 +62,6 @@ struct idletimer_tg *__idletimer_tg_find_by_label(const char *label)
 {
 	struct idletimer_tg *entry;
 
-	BUG_ON(!label);
-
 	list_for_each_entry(entry, &idletimer_tg_list, entry) {
 		if (!strcmp(label, entry->attr.attr.name))
 			return entry;
@@ -78,15 +70,15 @@ struct idletimer_tg *__idletimer_tg_find_by_label(const char *label)
 	return NULL;
 }
 
-static ssize_t idletimer_tg_show(struct kobject *kobj, struct attribute *attr,
-				 char *buf)
+static ssize_t idletimer_tg_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
 {
 	struct idletimer_tg *timer;
 	unsigned long expires = 0;
 
 	mutex_lock(&list_mutex);
 
-	timer =	__idletimer_tg_find_by_label(attr->name);
+	timer =	__idletimer_tg_find_by_label(attr->attr.name);
 	if (timer)
 		expires = timer->timer.expires;
 
@@ -191,8 +183,6 @@ static unsigned int idletimer_tg_target(struct sk_buff *skb,
 
 	pr_debug("resetting timer %s, timeout period %u\n",
 		 info->label, info->timeout);
-
-	BUG_ON(!info->timer);
 
 	mod_timer(&info->timer->timer,
 		  msecs_to_jiffies(info->timeout * 1000) + jiffies);

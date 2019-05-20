@@ -221,6 +221,10 @@ static void skl_uncore_msr_init_box(struct intel_uncore_box *box)
 		wrmsrl(SKL_UNC_PERF_GLOBAL_CTL,
 			SNB_UNC_GLOBAL_CTL_EN | SKL_UNC_GLOBAL_CTL_CORE_ALL);
 	}
+
+	/* The 8th CBOX has different MSR space */
+	if (box->pmu->pmu_idx == 7)
+		__set_bit(UNCORE_BOX_FLAG_CFL8_CBOX_MSR_OFFS, &box->flags);
 }
 
 static void skl_uncore_msr_enable_box(struct intel_uncore_box *box)
@@ -247,7 +251,7 @@ static struct intel_uncore_ops skl_uncore_msr_ops = {
 static struct intel_uncore_type skl_uncore_cbox = {
 	.name		= "cbox",
 	.num_counters   = 4,
-	.num_boxes	= 5,
+	.num_boxes	= 8,
 	.perf_ctr_bits	= 44,
 	.fixed_ctr_bits	= 48,
 	.perf_ctr	= SNB_UNC_CBO_0_PER_CTR0,
@@ -393,13 +397,7 @@ static int snb_uncore_imc_event_init(struct perf_event *event)
 		return -EINVAL;
 
 	/* unsupported modes and filters */
-	if (event->attr.exclude_user   ||
-	    event->attr.exclude_kernel ||
-	    event->attr.exclude_hv     ||
-	    event->attr.exclude_idle   ||
-	    event->attr.exclude_host   ||
-	    event->attr.exclude_guest  ||
-	    event->attr.sample_period) /* no sampling */
+	if (event->attr.sample_period) /* no sampling */
 		return -EINVAL;
 
 	/*
@@ -495,6 +493,7 @@ static struct pmu snb_uncore_imc_pmu = {
 	.start		= uncore_pmu_event_start,
 	.stop		= uncore_pmu_event_stop,
 	.read		= uncore_pmu_event_read,
+	.capabilities	= PERF_PMU_CAP_NO_EXCLUDE,
 };
 
 static struct intel_uncore_ops snb_uncore_imc_ops = {

@@ -17,11 +17,9 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
-#include <drm/drm_crtc_helper.h>
-#include <drm/drm_plane_helper.h>
-#include <drm/drm_fb_helper.h>
-#include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_plane_helper.h>
+#include <drm/drm_probe_helper.h>
 #include "vc4_drv.h"
 #include "vc4_regs.h"
 
@@ -400,7 +398,6 @@ vc4_atomic_check(struct drm_device *dev, struct drm_atomic_state *state)
 }
 
 static const struct drm_mode_config_funcs vc4_mode_funcs = {
-	.output_poll_changed = drm_fb_helper_output_poll_changed,
 	.atomic_check = vc4_atomic_check,
 	.atomic_commit = vc4_atomic_commit,
 	.fb_create = vc4_fb_create,
@@ -435,13 +432,11 @@ int vc4_kms_load(struct drm_device *dev)
 	ctm_state = kzalloc(sizeof(*ctm_state), GFP_KERNEL);
 	if (!ctm_state)
 		return -ENOMEM;
-	drm_atomic_private_obj_init(&vc4->ctm_manager, &ctm_state->base,
+
+	drm_atomic_private_obj_init(dev, &vc4->ctm_manager, &ctm_state->base,
 				    &vc4_ctm_state_funcs);
 
 	drm_mode_config_reset(dev);
-
-	if (dev->mode_config.num_connector)
-		drm_fb_cma_fbdev_init(dev, 32, 0);
 
 	drm_kms_helper_poll_init(dev);
 

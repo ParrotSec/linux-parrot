@@ -191,8 +191,7 @@ out:
 	spin_unlock(&qp->q.lock);
 out_rcu_unlock:
 	rcu_read_unlock();
-	if (head)
-		kfree_skb(head);
+	kfree_skb(head);
 	ipq_put(qp);
 }
 
@@ -262,7 +261,6 @@ static int ip_frag_reinit(struct ipq *qp)
 	qp->q.flags = 0;
 	qp->q.len = 0;
 	qp->q.meat = 0;
-	qp->q.fragments = NULL;
 	qp->q.rb_fragments = RB_ROOT;
 	qp->q.fragments_tail = NULL;
 	qp->q.last_run_head = NULL;
@@ -452,7 +450,6 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *skb,
 	ip_send_check(iph);
 
 	__IP_INC_STATS(net, IPSTATS_MIB_REASMOKS);
-	qp->q.fragments = NULL;
 	qp->q.rb_fragments = RB_ROOT;
 	qp->q.fragments_tail = NULL;
 	qp->q.last_run_head = NULL;
@@ -605,7 +602,6 @@ static int __net_init ip4_frags_ns_ctl_register(struct net *net)
 
 		table[0].data = &net->ipv4.frags.high_thresh;
 		table[0].extra1 = &net->ipv4.frags.low_thresh;
-		table[0].extra2 = &init_net.ipv4.frags.high_thresh;
 		table[1].data = &net->ipv4.frags.low_thresh;
 		table[1].extra2 = &net->ipv4.frags.high_thresh;
 		table[2].data = &net->ipv4.frags.timeout;

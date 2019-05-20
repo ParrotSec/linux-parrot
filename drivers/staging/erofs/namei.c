@@ -149,7 +149,7 @@ static struct page *find_target_block_classic(struct inode *dir,
 				head = mid + 1;
 				startprfx = matched;
 
-				if (likely(!IS_ERR(candidate)))
+				if (!IS_ERR(candidate))
 					put_page(candidate);
 				candidate = page;
 				*_ndirents = ndirents;
@@ -188,7 +188,7 @@ int erofs_namei(struct inode *dir,
 	ndirents = 0;
 	page = find_target_block_classic(dir, &qn, &ndirents);
 
-	if (unlikely(IS_ERR(page)))
+	if (IS_ERR(page))
 		return PTR_ERR(page);
 
 	data = kmap_atomic(page);
@@ -198,7 +198,7 @@ int erofs_namei(struct inode *dir,
 	else
 		de = (struct erofs_dirent *)data;
 
-	if (likely(!IS_ERR(de))) {
+	if (!IS_ERR(de)) {
 		*nid = le64_to_cpu(de->nid);
 		*d_type = de->file_type;
 	}
@@ -215,7 +215,7 @@ static struct dentry *erofs_lookup(struct inode *dir,
 {
 	int err;
 	erofs_nid_t nid;
-	unsigned d_type;
+	unsigned int d_type;
 	struct inode *inode;
 
 	DBG_BUGON(!d_really_is_negative(dentry));
@@ -234,29 +234,21 @@ static struct dentry *erofs_lookup(struct inode *dir,
 	if (err == -ENOENT) {
 		/* negative dentry */
 		inode = NULL;
-		goto negative_out;
-	} else if (unlikely(err))
-		return ERR_PTR(err);
-
-	debugln("%s, %s (nid %llu) found, d_type %u", __func__,
-		dentry->d_name.name, nid, d_type);
-
-	inode = erofs_iget(dir->i_sb, nid, d_type == EROFS_FT_DIR);
-	if (IS_ERR(inode))
-		return ERR_CAST(inode);
-
-negative_out:
+	} else if (unlikely(err)) {
+		inode = ERR_PTR(err);
+	} else {
+		debugln("%s, %s (nid %llu) found, d_type %u", __func__,
+			dentry->d_name.name, nid, d_type);
+		inode = erofs_iget(dir->i_sb, nid, d_type == EROFS_FT_DIR);
+	}
 	return d_splice_alias(inode, dentry);
 }
 
 const struct inode_operations erofs_dir_iops = {
 	.lookup = erofs_lookup,
-};
-
-const struct inode_operations erofs_dir_xattr_iops = {
-	.lookup = erofs_lookup,
 #ifdef CONFIG_EROFS_FS_XATTR
 	.listxattr = erofs_listxattr,
 #endif
+	.get_acl = erofs_get_acl,
 };
 

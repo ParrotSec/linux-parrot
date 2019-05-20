@@ -1060,16 +1060,16 @@ static int hid_debug_rdesc_show(struct seq_file *f, void *p)
 	seq_printf(f, "\n\n");
 
 	/* dump parsed data and input mappings */
+	if (down_interruptible(&hdev->driver_input_lock))
+		return 0;
+
 	hid_dump_device(hdev, f);
 	seq_printf(f, "\n");
 	hid_dump_input_mapping(hdev, f);
 
-	return 0;
-}
+	up(&hdev->driver_input_lock);
 
-static int hid_debug_rdesc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, hid_debug_rdesc_show, inode->i_private);
+	return 0;
 }
 
 static int hid_debug_events_open(struct inode *inode, struct file *file)
@@ -1186,12 +1186,7 @@ static int hid_debug_events_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static const struct file_operations hid_debug_rdesc_fops = {
-	.open           = hid_debug_rdesc_open,
-	.read           = seq_read,
-	.llseek         = seq_lseek,
-	.release        = single_release,
-};
+DEFINE_SHOW_ATTRIBUTE(hid_debug_rdesc);
 
 static const struct file_operations hid_debug_events_fops = {
 	.owner =        THIS_MODULE,

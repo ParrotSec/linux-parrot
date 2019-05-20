@@ -27,7 +27,6 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/acpi.h>
-#include <linux/bootmem.h>
 #include <linux/memblock.h>
 #include <linux/numa.h>
 #include <linux/nodemask.h>
@@ -85,6 +84,7 @@ int acpi_map_pxm_to_node(int pxm)
 
 	return node;
 }
+EXPORT_SYMBOL(acpi_map_pxm_to_node);
 
 /**
  * acpi_map_pxm_to_online_node - Map proximity ID to online node

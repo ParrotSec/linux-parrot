@@ -31,8 +31,6 @@
 #include <asm/alternative.h>
 #include <asm/cpufeature.h>
 
-#include <xen/xen.h>
-
 /*
  * Generic IO read/write.  These perform native-endian accesses.
  */
@@ -123,6 +121,7 @@ static inline u64 __raw_readq(const volatile void __iomem *addr)
 		     : "memory");					\
 })
 
+#define __io_par(v)		__iormb(v)
 #define __iowmb()		wmb()
 
 #define mmiowb()		do { } while (0)
@@ -220,13 +219,6 @@ extern int valid_phys_addr_range(phys_addr_t addr, size_t size);
 extern int valid_mmap_phys_addr_range(unsigned long pfn, size_t size);
 
 extern int devmem_is_allowed(unsigned long pfn);
-
-struct bio_vec;
-extern bool xen_biovec_phys_mergeable(const struct bio_vec *vec1,
-				      const struct bio_vec *vec2);
-#define BIOVEC_PHYS_MERGEABLE(vec1, vec2)				\
-	(__BIOVEC_PHYS_MERGEABLE(vec1, vec2) &&				\
-	 (!xen_domain() || xen_biovec_phys_mergeable(vec1, vec2)))
 
 #endif	/* __KERNEL__ */
 #endif	/* __ASM_IO_H */

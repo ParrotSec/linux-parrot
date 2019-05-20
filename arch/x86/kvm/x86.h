@@ -183,7 +183,7 @@ static inline void vcpu_cache_mmio_info(struct kvm_vcpu *vcpu,
 {
 	u64 gen = kvm_memslots(vcpu->kvm)->generation;
 
-	if (unlikely(gen & 1))
+	if (unlikely(gen & KVM_MEMSLOT_GEN_UPDATE_IN_PROGRESS))
 		return;
 
 	/*
@@ -271,6 +271,8 @@ int kvm_write_guest_virt_system(struct kvm_vcpu *vcpu,
 
 int handle_ud(struct kvm_vcpu *vcpu);
 
+void kvm_deliver_exception_payload(struct kvm_vcpu *vcpu);
+
 void kvm_vcpu_mtrr_init(struct kvm_vcpu *vcpu);
 u8 kvm_mtrr_get_guest_memory_type(struct kvm_vcpu *vcpu, gfn_t gfn);
 bool kvm_mtrr_valid(struct kvm_vcpu *vcpu, u32 msr, u64 data);
@@ -291,8 +293,6 @@ extern u64 host_xcr0;
 extern u64 kvm_supported_xcr0(void);
 
 extern unsigned int min_timer_period_us;
-
-extern unsigned int lapic_timer_advance_ns;
 
 extern bool enable_vmware_backdoor;
 
@@ -345,4 +345,6 @@ static inline void kvm_after_interrupt(struct kvm_vcpu *vcpu)
 	__this_cpu_write(current_vcpu, NULL);
 }
 
+void kvm_load_guest_xcr0(struct kvm_vcpu *vcpu);
+void kvm_put_guest_xcr0(struct kvm_vcpu *vcpu);
 #endif

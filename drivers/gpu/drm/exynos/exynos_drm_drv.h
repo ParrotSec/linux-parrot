@@ -92,6 +92,8 @@ struct exynos_drm_plane {
 #define EXYNOS_DRM_PLANE_CAP_SCALE	(1 << 1)
 #define EXYNOS_DRM_PLANE_CAP_ZPOS	(1 << 2)
 #define EXYNOS_DRM_PLANE_CAP_TILE	(1 << 3)
+#define EXYNOS_DRM_PLANE_CAP_PIX_BLEND	(1 << 4)
+#define EXYNOS_DRM_PLANE_CAP_WIN_BLEND	(1 << 5)
 
 /*
  * Exynos DRM plane configuration structure.
@@ -194,7 +196,6 @@ struct drm_exynos_file_private {
  */
 struct exynos_drm_private {
 	struct drm_fb_helper *fb_helper;
-	struct drm_atomic_state *suspend_state;
 
 	struct device *g2d_dev;
 	struct device *dma_dev;
@@ -212,6 +213,17 @@ static inline struct device *to_dma_dev(struct drm_device *dev)
 
 	return priv->dma_dev;
 }
+
+static inline bool is_drm_iommu_supported(struct drm_device *drm_dev)
+{
+	struct exynos_drm_private *priv = drm_dev->dev_private;
+
+	return priv->mapping ? true : false;
+}
+
+int exynos_drm_register_dma(struct drm_device *drm, struct device *dev);
+void exynos_drm_unregister_dma(struct drm_device *drm, struct device *dev);
+void exynos_drm_cleanup_dma(struct drm_device *drm);
 
 #ifdef CONFIG_DRM_EXYNOS_DPI
 struct drm_encoder *exynos_dpi_probe(struct device *dev);

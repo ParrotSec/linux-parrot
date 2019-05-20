@@ -34,7 +34,6 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/semaphore.h>
-#include <linux/compat.h>
 #include <linux/refcount.h>
 
 #define SIXPACK_VERSION    "Revision: 0.3.0"
@@ -121,7 +120,7 @@ struct sixpack {
 	struct timer_list	tx_t;
 	struct timer_list	resync_t;
 	refcount_t		refcnt;
-	struct semaphore	dead_sem;
+	struct completion	dead;
 	spinlock_t		lock;
 };
 
@@ -390,7 +389,7 @@ static struct sixpack *sp_get(struct tty_struct *tty)
 static void sp_put(struct sixpack *sp)
 {
 	if (refcount_dec_and_test(&sp->refcnt))
-		up(&sp->dead_sem);
+		complete(&sp->dead);
 }
 
 /*
@@ -572,7 +571,7 @@ static int sixpack_open(struct tty_struct *tty)
 
 	spin_lock_init(&sp->lock);
 	refcount_set(&sp->refcnt, 1);
-	sema_init(&sp->dead_sem, 0);
+	init_completion(&sp->dead);
 
 	/* !!! length of the buffers. MTU is IP MTU, not PACLEN!  */
 
@@ -666,10 +665,10 @@ static void sixpack_close(struct tty_struct *tty)
 	 * we have to wait for all existing users to finish.
 	 */
 	if (!refcount_dec_and_test(&sp->refcnt))
-		down(&sp->dead_sem);
+		wait_for_completion(&sp->dead);
 
 	/* We must stop the queue to avoid potentially scribbling
-	 * on the free buffers. The sp->dead_sem is not sufficient
+	 * on the free buffers. The sp->dead completion is not sufficient
 	 * to protect us from sp->xbuff access.
 	 */
 	netif_stop_queue(sp->dev);
@@ -747,23 +746,6 @@ static int sixpack_ioctl(struct tty_struct *tty, struct file *file,
 	return err;
 }
 
-#ifdef CONFIG_COMPAT
-static long sixpack_compat_ioctl(struct tty_struct * tty, struct file * file,
-				unsigned int cmd, unsigned long arg)
-{
-	switch (cmd) {
-	case SIOCGIFNAME:
-	case SIOCGIFENCAP:
-	case SIOCSIFENCAP:
-	case SIOCSIFHWADDR:
-		return sixpack_ioctl(tty, file, cmd,
-				(unsigned long)compat_ptr(arg));
-	}
-
-	return -ENOIOCTLCMD;
-}
-#endif
-
 static struct tty_ldisc_ops sp_ldisc = {
 	.owner		= THIS_MODULE,
 	.magic		= TTY_LDISC_MAGIC,
@@ -771,9 +753,6 @@ static struct tty_ldisc_ops sp_ldisc = {
 	.open		= sixpack_open,
 	.close		= sixpack_close,
 	.ioctl		= sixpack_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl	= sixpack_compat_ioctl,
-#endif
 	.receive_buf	= sixpack_receive_buf,
 	.write_wakeup	= sixpack_write_wakeup,
 };

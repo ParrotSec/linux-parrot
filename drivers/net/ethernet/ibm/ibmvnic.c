@@ -773,11 +773,8 @@ static void release_napi(struct ibmvnic_adapter *adapter)
 		return;
 
 	for (i = 0; i < adapter->num_active_rx_napi; i++) {
-		if (&adapter->napi[i]) {
-			netdev_dbg(adapter->netdev,
-				   "Releasing napi[%d]\n", i);
-			netif_napi_del(&adapter->napi[i]);
-		}
+		netdev_dbg(adapter->netdev, "Releasing napi[%d]\n", i);
+		netif_napi_del(&adapter->napi[i]);
 	}
 
 	kfree(adapter->napi);
@@ -1419,7 +1416,7 @@ static int ibmvnic_xmit_workarounds(struct sk_buff *skb,
 	return 0;
 }
 
-static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
+static netdev_tx_t ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
 {
 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
 	int queue_num = skb_get_queue_mapping(skb);
@@ -1443,7 +1440,7 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
 	u64 *handle_array;
 	int index = 0;
 	u8 proto = 0;
-	int ret = 0;
+	netdev_tx_t ret = NETDEV_TX_OK;
 
 	if (adapter->resetting) {
 		if (!netif_subqueue_stopped(netdev, skb))
@@ -1859,7 +1856,7 @@ static int do_reset(struct ibmvnic_adapter *adapter,
 
 	if (adapter->reset_reason != VNIC_RESET_FAILOVER &&
 	    adapter->reset_reason != VNIC_RESET_CHANGE_PARAM)
-		netdev_notify_peers(netdev);
+		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, netdev);
 
 	netif_carrier_on(netdev);
 
@@ -2342,8 +2339,13 @@ static void ibmvnic_get_ringparam(struct net_device *netdev,
 {
 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
 
-	ring->rx_max_pending = adapter->max_rx_add_entries_per_subcrq;
-	ring->tx_max_pending = adapter->max_tx_entries_per_subcrq;
+	if (adapter->priv_flags & IBMVNIC_USE_SERVER_MAXES) {
+		ring->rx_max_pending = adapter->max_rx_add_entries_per_subcrq;
+		ring->tx_max_pending = adapter->max_tx_entries_per_subcrq;
+	} else {
+		ring->rx_max_pending = IBMVNIC_MAX_QUEUE_SZ;
+		ring->tx_max_pending = IBMVNIC_MAX_QUEUE_SZ;
+	}
 	ring->rx_mini_max_pending = 0;
 	ring->rx_jumbo_max_pending = 0;
 	ring->rx_pending = adapter->req_rx_add_entries_per_subcrq;
@@ -2356,21 +2358,23 @@ static int ibmvnic_set_ringparam(struct net_device *netdev,
 				 struct ethtool_ringparam *ring)
 {
 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+	int ret;
 
-	if (ring->rx_pending > adapter->max_rx_add_entries_per_subcrq  ||
-	    ring->tx_pending > adapter->max_tx_entries_per_subcrq) {
-		netdev_err(netdev, "Invalid request.\n");
-		netdev_err(netdev, "Max tx buffers = %llu\n",
-			   adapter->max_rx_add_entries_per_subcrq);
-		netdev_err(netdev, "Max rx buffers = %llu\n",
-			   adapter->max_tx_entries_per_subcrq);
-		return -EINVAL;
-	}
-
+	ret = 0;
 	adapter->desired.rx_entries = ring->rx_pending;
 	adapter->desired.tx_entries = ring->tx_pending;
 
-	return wait_for_reset(adapter);
+	ret = wait_for_reset(adapter);
+
+	if (!ret &&
+	    (adapter->req_rx_add_entries_per_subcrq != ring->rx_pending ||
+	     adapter->req_tx_entries_per_subcrq != ring->tx_pending))
+		netdev_info(netdev,
+			    "Could not match full ringsize request. Requested: RX %d, TX %d; Allowed: RX %llu, TX %llu\n",
+			    ring->rx_pending, ring->tx_pending,
+			    adapter->req_rx_add_entries_per_subcrq,
+			    adapter->req_tx_entries_per_subcrq);
+	return ret;
 }
 
 static void ibmvnic_get_channels(struct net_device *netdev,
@@ -2378,8 +2382,14 @@ static void ibmvnic_get_channels(struct net_device *netdev,
 {
 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
 
-	channels->max_rx = adapter->max_rx_queues;
-	channels->max_tx = adapter->max_tx_queues;
+	if (adapter->priv_flags & IBMVNIC_USE_SERVER_MAXES) {
+		channels->max_rx = adapter->max_rx_queues;
+		channels->max_tx = adapter->max_tx_queues;
+	} else {
+		channels->max_rx = IBMVNIC_MAX_QUEUES;
+		channels->max_tx = IBMVNIC_MAX_QUEUES;
+	}
+
 	channels->max_other = 0;
 	channels->max_combined = 0;
 	channels->rx_count = adapter->req_rx_queues;
@@ -2392,11 +2402,23 @@ static int ibmvnic_set_channels(struct net_device *netdev,
 				struct ethtool_channels *channels)
 {
 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+	int ret;
 
+	ret = 0;
 	adapter->desired.rx_queues = channels->rx_count;
 	adapter->desired.tx_queues = channels->tx_count;
 
-	return wait_for_reset(adapter);
+	ret = wait_for_reset(adapter);
+
+	if (!ret &&
+	    (adapter->req_rx_queues != channels->rx_count ||
+	     adapter->req_tx_queues != channels->tx_count))
+		netdev_info(netdev,
+			    "Could not match full channels request. Requested: RX %d, TX %d; Allowed: RX %llu, TX %llu\n",
+			    channels->rx_count, channels->tx_count,
+			    adapter->req_rx_queues, adapter->req_tx_queues);
+	return ret;
+
 }
 
 static void ibmvnic_get_strings(struct net_device *dev, u32 stringset, u8 *data)
@@ -2404,32 +2426,43 @@ static void ibmvnic_get_strings(struct net_device *dev, u32 stringset, u8 *data)
 	struct ibmvnic_adapter *adapter = netdev_priv(dev);
 	int i;
 
-	if (stringset != ETH_SS_STATS)
+	switch (stringset) {
+	case ETH_SS_STATS:
+		for (i = 0; i < ARRAY_SIZE(ibmvnic_stats);
+				i++, data += ETH_GSTRING_LEN)
+			memcpy(data, ibmvnic_stats[i].name, ETH_GSTRING_LEN);
+
+		for (i = 0; i < adapter->req_tx_queues; i++) {
+			snprintf(data, ETH_GSTRING_LEN, "tx%d_packets", i);
+			data += ETH_GSTRING_LEN;
+
+			snprintf(data, ETH_GSTRING_LEN, "tx%d_bytes", i);
+			data += ETH_GSTRING_LEN;
+
+			snprintf(data, ETH_GSTRING_LEN,
+				 "tx%d_dropped_packets", i);
+			data += ETH_GSTRING_LEN;
+		}
+
+		for (i = 0; i < adapter->req_rx_queues; i++) {
+			snprintf(data, ETH_GSTRING_LEN, "rx%d_packets", i);
+			data += ETH_GSTRING_LEN;
+
+			snprintf(data, ETH_GSTRING_LEN, "rx%d_bytes", i);
+			data += ETH_GSTRING_LEN;
+
+			snprintf(data, ETH_GSTRING_LEN, "rx%d_interrupts", i);
+			data += ETH_GSTRING_LEN;
+		}
+		break;
+
+	case ETH_SS_PRIV_FLAGS:
+		for (i = 0; i < ARRAY_SIZE(ibmvnic_priv_flags); i++)
+			strcpy(data + i * ETH_GSTRING_LEN,
+			       ibmvnic_priv_flags[i]);
+		break;
+	default:
 		return;
-
-	for (i = 0; i < ARRAY_SIZE(ibmvnic_stats); i++, data += ETH_GSTRING_LEN)
-		memcpy(data, ibmvnic_stats[i].name, ETH_GSTRING_LEN);
-
-	for (i = 0; i < adapter->req_tx_queues; i++) {
-		snprintf(data, ETH_GSTRING_LEN, "tx%d_packets", i);
-		data += ETH_GSTRING_LEN;
-
-		snprintf(data, ETH_GSTRING_LEN, "tx%d_bytes", i);
-		data += ETH_GSTRING_LEN;
-
-		snprintf(data, ETH_GSTRING_LEN, "tx%d_dropped_packets", i);
-		data += ETH_GSTRING_LEN;
-	}
-
-	for (i = 0; i < adapter->req_rx_queues; i++) {
-		snprintf(data, ETH_GSTRING_LEN, "rx%d_packets", i);
-		data += ETH_GSTRING_LEN;
-
-		snprintf(data, ETH_GSTRING_LEN, "rx%d_bytes", i);
-		data += ETH_GSTRING_LEN;
-
-		snprintf(data, ETH_GSTRING_LEN, "rx%d_interrupts", i);
-		data += ETH_GSTRING_LEN;
 	}
 }
 
@@ -2442,6 +2475,8 @@ static int ibmvnic_get_sset_count(struct net_device *dev, int sset)
 		return ARRAY_SIZE(ibmvnic_stats) +
 		       adapter->req_tx_queues * NUM_TX_STATS +
 		       adapter->req_rx_queues * NUM_RX_STATS;
+	case ETH_SS_PRIV_FLAGS:
+		return ARRAY_SIZE(ibmvnic_priv_flags);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -2492,6 +2527,25 @@ static void ibmvnic_get_ethtool_stats(struct net_device *dev,
 	}
 }
 
+static u32 ibmvnic_get_priv_flags(struct net_device *netdev)
+{
+	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+
+	return adapter->priv_flags;
+}
+
+static int ibmvnic_set_priv_flags(struct net_device *netdev, u32 flags)
+{
+	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+	bool which_maxes = !!(flags & IBMVNIC_USE_SERVER_MAXES);
+
+	if (which_maxes)
+		adapter->priv_flags |= IBMVNIC_USE_SERVER_MAXES;
+	else
+		adapter->priv_flags &= ~IBMVNIC_USE_SERVER_MAXES;
+
+	return 0;
+}
 static const struct ethtool_ops ibmvnic_ethtool_ops = {
 	.get_drvinfo		= ibmvnic_get_drvinfo,
 	.get_msglevel		= ibmvnic_get_msglevel,
@@ -2505,6 +2559,8 @@ static const struct ethtool_ops ibmvnic_ethtool_ops = {
 	.get_sset_count         = ibmvnic_get_sset_count,
 	.get_ethtool_stats	= ibmvnic_get_ethtool_stats,
 	.get_link_ksettings	= ibmvnic_get_link_ksettings,
+	.get_priv_flags		= ibmvnic_get_priv_flags,
+	.set_priv_flags		= ibmvnic_set_priv_flags,
 };
 
 /* Routines for managing CRQs/sCRQs  */
@@ -3706,6 +3762,7 @@ static void handle_query_ip_offload_rsp(struct ibmvnic_adapter *adapter)
 {
 	struct device *dev = &adapter->vdev->dev;
 	struct ibmvnic_query_ip_offload_buffer *buf = &adapter->ip_offload_buf;
+	netdev_features_t old_hw_features = 0;
 	union ibmvnic_crq crq;
 	int i;
 
@@ -3781,24 +3838,41 @@ static void handle_query_ip_offload_rsp(struct ibmvnic_adapter *adapter)
 	adapter->ip_offload_ctrl.large_rx_ipv4 = 0;
 	adapter->ip_offload_ctrl.large_rx_ipv6 = 0;
 
-	adapter->netdev->features = NETIF_F_SG | NETIF_F_GSO;
+	if (adapter->state != VNIC_PROBING) {
+		old_hw_features = adapter->netdev->hw_features;
+		adapter->netdev->hw_features = 0;
+	}
+
+	adapter->netdev->hw_features = NETIF_F_SG | NETIF_F_GSO | NETIF_F_GRO;
 
 	if (buf->tcp_ipv4_chksum || buf->udp_ipv4_chksum)
-		adapter->netdev->features |= NETIF_F_IP_CSUM;
+		adapter->netdev->hw_features |= NETIF_F_IP_CSUM;
 
 	if (buf->tcp_ipv6_chksum || buf->udp_ipv6_chksum)
-		adapter->netdev->features |= NETIF_F_IPV6_CSUM;
+		adapter->netdev->hw_features |= NETIF_F_IPV6_CSUM;
 
 	if ((adapter->netdev->features &
 	    (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)))
-		adapter->netdev->features |= NETIF_F_RXCSUM;
+		adapter->netdev->hw_features |= NETIF_F_RXCSUM;
 
 	if (buf->large_tx_ipv4)
-		adapter->netdev->features |= NETIF_F_TSO;
+		adapter->netdev->hw_features |= NETIF_F_TSO;
 	if (buf->large_tx_ipv6)
-		adapter->netdev->features |= NETIF_F_TSO6;
+		adapter->netdev->hw_features |= NETIF_F_TSO6;
 
-	adapter->netdev->hw_features |= adapter->netdev->features;
+	if (adapter->state == VNIC_PROBING) {
+		adapter->netdev->features |= adapter->netdev->hw_features;
+	} else if (old_hw_features != adapter->netdev->hw_features) {
+		netdev_features_t tmp = 0;
+
+		/* disable features no longer supported */
+		adapter->netdev->features &= adapter->netdev->hw_features;
+		/* turn on features now supported if previously enabled */
+		tmp = (old_hw_features ^ adapter->netdev->hw_features) &
+			adapter->netdev->hw_features;
+		adapter->netdev->features |=
+				tmp & adapter->netdev->wanted_features;
+	}
 
 	memset(&crq, 0, sizeof(crq));
 	crq.control_ip_offload.first = IBMVNIC_CRQ_CMD;
