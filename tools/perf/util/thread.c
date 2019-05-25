@@ -12,8 +12,6 @@
 #include "debug.h"
 #include "namespaces.h"
 #include "comm.h"
-#include "map.h"
-#include "symbol.h"
 #include "unwind.h"
 
 #include <api/fs/fs.h>
@@ -66,7 +64,6 @@ struct thread *thread__new(pid_t pid, pid_t tid)
 		RB_CLEAR_NODE(&thread->rb_node);
 		/* Thread holds first ref to nsdata. */
 		thread->nsinfo = nsinfo__new(pid);
-		srccode_state_init(&thread->srccode_state);
 	}
 
 	return thread;
@@ -106,7 +103,6 @@ void thread__delete(struct thread *thread)
 
 	unwind__finish_access(thread);
 	nsinfo__zput(thread->nsinfo);
-	srccode_state_free(&thread->srccode_state);
 
 	exit_rwsem(&thread->namespaces_lock);
 	exit_rwsem(&thread->comm_lock);
@@ -334,8 +330,7 @@ static int thread__prepare_access(struct thread *thread)
 }
 
 static int thread__clone_map_groups(struct thread *thread,
-				    struct thread *parent,
-				    bool do_maps_clone)
+				    struct thread *parent)
 {
 	/* This is new thread, we share map groups for process. */
 	if (thread->pid_ == parent->pid_)
@@ -346,11 +341,15 @@ static int thread__clone_map_groups(struct thread *thread,
 			 thread->pid_, thread->tid, parent->pid_, parent->tid);
 		return 0;
 	}
+
 	/* But this one is new process, copy maps. */
-	return do_maps_clone ? map_groups__clone(thread, parent->mg) : 0;
+	if (map_groups__clone(thread, parent->mg) < 0)
+		return -ENOMEM;
+
+	return 0;
 }
 
-int thread__fork(struct thread *thread, struct thread *parent, u64 timestamp, bool do_maps_clone)
+int thread__fork(struct thread *thread, struct thread *parent, u64 timestamp)
 {
 	if (parent->comm_set) {
 		const char *comm = thread__comm_str(parent);
@@ -363,7 +362,7 @@ int thread__fork(struct thread *thread, struct thread *parent, u64 timestamp, bo
 	}
 
 	thread->ppid = parent->tid;
-	return thread__clone_map_groups(thread, parent, do_maps_clone);
+	return thread__clone_map_groups(thread, parent);
 }
 
 void thread__find_cpumode_addr_location(struct thread *thread, u64 addr,
@@ -393,26 +392,4 @@ struct thread *thread__main_thread(struct machine *machine, struct thread *threa
 		return NULL;
 
 	return machine__find_thread(machine, thread->pid_, thread->pid_);
-}
-
-int thread__memcpy(struct thread *thread, struct machine *machine,
-		   void *buf, u64 ip, int len, bool *is64bit)
-{
-       u8 cpumode = PERF_RECORD_MISC_USER;
-       struct addr_location al;
-       long offset;
-
-       if (machine__kernel_ip(machine, ip))
-               cpumode = PERF_RECORD_MISC_KERNEL;
-
-       if (!thread__find_map(thread, cpumode, ip, &al) || !al.map->dso ||
-	   al.map->dso->data.status == DSO_DATA_STATUS_ERROR ||
-	   map__load(al.map) < 0)
-               return -1;
-
-       offset = al.map->map_ip(al.map, ip);
-       if (is64bit)
-               *is64bit = al.map->dso->is_64_bit;
-
-       return dso__data_read_offset(al.map->dso, machine, offset, buf, len);
 }

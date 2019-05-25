@@ -22,11 +22,6 @@ struct ms_hyperv_info {
 
 extern struct ms_hyperv_info ms_hyperv;
 
-
-typedef int (*hyperv_fill_flush_list_func)(
-		struct hv_guest_mapping_flush_list *flush,
-		void *data);
-
 /*
  * Generate the guest ID.
  */
@@ -237,7 +232,7 @@ static inline u64 hv_do_fast_hypercall16(u16 code, u64 input1, u64 input2)
 				      : "cc");
 	}
 #endif
-	return hv_status;
+		return hv_status;
 }
 
 /*
@@ -353,16 +348,9 @@ void set_hv_tscchange_cb(void (*cb)(void));
 void clear_hv_tscchange_cb(void);
 void hyperv_stop_tsc_emulation(void);
 int hyperv_flush_guest_mapping(u64 as);
-int hyperv_flush_guest_mapping_range(u64 as,
-		hyperv_fill_flush_list_func fill_func, void *data);
-int hyperv_fill_flush_guest_mapping_list(
-		struct hv_guest_mapping_flush_list *flush,
-		u64 start_gfn, u64 end_gfn);
 
 #ifdef CONFIG_X86_64
 void hv_apic_init(void);
-void __init hv_init_spinlocks(void);
-bool hv_vcpu_is_preempted(int vcpu);
 #else
 static inline void hv_apic_init(void) {}
 #endif
@@ -380,11 +368,6 @@ static inline struct hv_vp_assist_page *hv_get_vp_assist_page(unsigned int cpu)
 	return NULL;
 }
 static inline int hyperv_flush_guest_mapping(u64 as) { return -1; }
-static inline int hyperv_flush_guest_mapping_range(u64 as,
-		hyperv_fill_flush_list_func fill_func, void *data)
-{
-	return -1;
-}
 #endif /* CONFIG_HYPERV */
 
 #ifdef CONFIG_HYPERV_TSCPAGE

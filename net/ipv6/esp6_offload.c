@@ -68,27 +68,26 @@ static struct sk_buff *esp6_gro_receive(struct list_head *head,
 
 	xo = xfrm_offload(skb);
 	if (!xo || !(xo->flags & CRYPTO_DONE)) {
-		struct sec_path *sp = secpath_set(skb);
-
-		if (!sp)
+		err = secpath_set(skb);
+		if (err)
 			goto out;
 
-		if (sp->len == XFRM_MAX_DEPTH)
-			goto out_reset;
+		if (skb->sp->len == XFRM_MAX_DEPTH)
+			goto out;
 
 		x = xfrm_state_lookup(dev_net(skb->dev), skb->mark,
 				      (xfrm_address_t *)&ipv6_hdr(skb)->daddr,
 				      spi, IPPROTO_ESP, AF_INET6);
 		if (!x)
-			goto out_reset;
+			goto out;
 
-		sp->xvec[sp->len++] = x;
-		sp->olen++;
+		skb->sp->xvec[skb->sp->len++] = x;
+		skb->sp->olen++;
 
 		xo = xfrm_offload(skb);
 		if (!xo) {
 			xfrm_state_put(x);
-			goto out_reset;
+			goto out;
 		}
 	}
 
@@ -109,8 +108,6 @@ static struct sk_buff *esp6_gro_receive(struct list_head *head,
 	xfrm_input(skb, IPPROTO_ESP, spi, -2);
 
 	return ERR_PTR(-EINPROGRESS);
-out_reset:
-	secpath_reset(skb);
 out:
 	skb_push(skb, offset);
 	NAPI_GRO_CB(skb)->same_flow = 0;
@@ -144,7 +141,6 @@ static struct sk_buff *esp6_gso_segment(struct sk_buff *skb,
 	struct crypto_aead *aead;
 	netdev_features_t esp_features = features;
 	struct xfrm_offload *xo = xfrm_offload(skb);
-	struct sec_path *sp;
 
 	if (!xo)
 		return ERR_PTR(-EINVAL);
@@ -152,8 +148,7 @@ static struct sk_buff *esp6_gso_segment(struct sk_buff *skb,
 	if (!(skb_shinfo(skb)->gso_type & SKB_GSO_ESP))
 		return ERR_PTR(-EINVAL);
 
-	sp = skb_sec_path(skb);
-	x = sp->xvec[sp->len - 1];
+	x = skb->sp->xvec[skb->sp->len - 1];
 	aead = x->data;
 	esph = ip_esp_hdr(skb);
 

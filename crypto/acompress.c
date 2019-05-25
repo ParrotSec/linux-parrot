@@ -33,11 +33,15 @@ static int crypto_acomp_report(struct sk_buff *skb, struct crypto_alg *alg)
 {
 	struct crypto_report_acomp racomp;
 
-	memset(&racomp, 0, sizeof(racomp));
+	strncpy(racomp.type, "acomp", sizeof(racomp.type));
 
-	strscpy(racomp.type, "acomp", sizeof(racomp.type));
+	if (nla_put(skb, CRYPTOCFGA_REPORT_ACOMP,
+		    sizeof(struct crypto_report_acomp), &racomp))
+		goto nla_put_failure;
+	return 0;
 
-	return nla_put(skb, CRYPTOCFGA_REPORT_ACOMP, sizeof(racomp), &racomp);
+nla_put_failure:
+	return -EMSGSIZE;
 }
 #else
 static int crypto_acomp_report(struct sk_buff *skb, struct crypto_alg *alg)

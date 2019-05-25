@@ -288,7 +288,8 @@ static int ptp_dte_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int ptp_dte_suspend(struct device *dev)
 {
-	struct ptp_dte *ptp_dte = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ptp_dte *ptp_dte = platform_get_drvdata(pdev);
 	u8 i;
 
 	for (i = 0; i < DTE_NUM_REGS_TO_RESTORE; i++) {
@@ -304,7 +305,8 @@ static int ptp_dte_suspend(struct device *dev)
 
 static int ptp_dte_resume(struct device *dev)
 {
-	struct ptp_dte *ptp_dte = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ptp_dte *ptp_dte = platform_get_drvdata(pdev);
 	u8 i;
 
 	for (i = 0; i < DTE_NUM_REGS_TO_RESTORE; i++) {

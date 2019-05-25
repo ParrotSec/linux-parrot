@@ -223,6 +223,8 @@ static int cio2_fbpt_init(struct cio2_device *cio2, struct cio2_queue *q)
 	if (!q->fbpt)
 		return -ENOMEM;
 
+	memset(q->fbpt, 0, CIO2_FBPT_SIZE);
+
 	return 0;
 }
 
@@ -264,7 +266,7 @@ static void cio2_fbpt_exit(struct cio2_queue *q, struct device *dev)
  */
 
 /*
- * shift for keeping value range suitable for 32-bit integer arithmetic
+ * shift for keeping value range suitable for 32-bit integer arithmetics
  */
 #define LIMIT_SHIFT	8
 
@@ -846,7 +848,7 @@ static int cio2_vb2_buf_init(struct vb2_buffer *vb)
 	unsigned int pages = DIV_ROUND_UP(vb->planes[0].length, CIO2_PAGE_SIZE);
 	unsigned int lops = DIV_ROUND_UP(pages + 1, entries_per_page);
 	struct sg_table *sg;
-	struct sg_dma_page_iter sg_iter;
+	struct sg_page_iter sg_iter;
 	int i, j;
 
 	if (lops <= 0 || lops > CIO2_MAX_LOPS) {
@@ -873,7 +875,7 @@ static int cio2_vb2_buf_init(struct vb2_buffer *vb)
 		b->offset = sg->sgl->offset;
 
 	i = j = 0;
-	for_each_sg_dma_page (sg->sgl, &sg_iter, sg->nents, 0) {
+	for_each_sg_page(sg->sgl, &sg_iter, sg->nents, 0) {
 		if (!pages--)
 			break;
 		b->lop[i][j] = sg_page_iter_dma_address(&sg_iter) >> PAGE_SHIFT;
@@ -1064,8 +1066,8 @@ static int cio2_v4l2_querycap(struct file *file, void *fh,
 {
 	struct cio2_device *cio2 = video_drvdata(file);
 
-	strscpy(cap->driver, CIO2_NAME, sizeof(cap->driver));
-	strscpy(cap->card, CIO2_DEVICE_NAME, sizeof(cap->card));
+	strlcpy(cap->driver, CIO2_NAME, sizeof(cap->driver));
+	strlcpy(cap->card, CIO2_DEVICE_NAME, sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "PCI:%s", pci_name(cio2->pci_dev));
 
@@ -1143,7 +1145,7 @@ cio2_video_enum_input(struct file *file, void *fh, struct v4l2_input *input)
 	if (input->index > 0)
 		return -EINVAL;
 
-	strscpy(input->name, "camera", sizeof(input->name));
+	strlcpy(input->name, "camera", sizeof(input->name));
 	input->type = V4L2_INPUT_TYPE_CAMERA;
 
 	return 0;
@@ -1433,13 +1435,13 @@ static int cio2_notifier_complete(struct v4l2_async_notifier *notifier)
 	struct cio2_device *cio2 = container_of(notifier, struct cio2_device,
 						notifier);
 	struct sensor_async_subdev *s_asd;
-	struct v4l2_async_subdev *asd;
 	struct cio2_queue *q;
-	unsigned int pad;
+	unsigned int i, pad;
 	int ret;
 
-	list_for_each_entry(asd, &cio2->notifier.asd_list, asd_list) {
-		s_asd = container_of(asd, struct sensor_async_subdev, asd);
+	for (i = 0; i < notifier->num_subdevs; i++) {
+		s_asd = container_of(cio2->notifier.subdevs[i],
+				     struct sensor_async_subdev, asd);
 		q = &cio2->queue[s_asd->csi2.port];
 
 		for (pad = 0; pad < q->sensor->entity.num_pads; pad++)
@@ -1461,7 +1463,7 @@ static int cio2_notifier_complete(struct v4l2_async_notifier *notifier)
 		if (ret) {
 			dev_err(&cio2->pci_dev->dev,
 				"failed to create link for %s\n",
-				q->sensor->name);
+				cio2->queue[i].sensor->name);
 			return ret;
 		}
 	}
@@ -1482,7 +1484,7 @@ static int cio2_fwnode_parse(struct device *dev,
 	struct sensor_async_subdev *s_asd =
 			container_of(asd, struct sensor_async_subdev, asd);
 
-	if (vep->bus_type != V4L2_MBUS_CSI2_DPHY) {
+	if (vep->bus_type != V4L2_MBUS_CSI2) {
 		dev_err(dev, "Only CSI2 bus type is currently supported\n");
 		return -EINVAL;
 	}
@@ -1497,8 +1499,6 @@ static int cio2_notifier_init(struct cio2_device *cio2)
 {
 	int ret;
 
-	v4l2_async_notifier_init(&cio2->notifier);
-
 	ret = v4l2_async_notifier_parse_fwnode_endpoints(
 		&cio2->pci_dev->dev, &cio2->notifier,
 		sizeof(struct sensor_async_subdev),
@@ -1506,7 +1506,7 @@ static int cio2_notifier_init(struct cio2_device *cio2)
 	if (ret < 0)
 		return ret;
 
-	if (list_empty(&cio2->notifier.asd_list))
+	if (!cio2->notifier.num_subdevs)
 		return -ENODEV;	/* no endpoint */
 
 	cio2->notifier.ops = &cio2_async_ops;
@@ -1785,7 +1785,7 @@ static int cio2_pci_probe(struct pci_dev *pci_dev,
 	mutex_init(&cio2->lock);
 
 	cio2->media_dev.dev = &cio2->pci_dev->dev;
-	strscpy(cio2->media_dev.model, CIO2_DEVICE_NAME,
+	strlcpy(cio2->media_dev.model, CIO2_DEVICE_NAME,
 		sizeof(cio2->media_dev.model));
 	snprintf(cio2->media_dev.bus_info, sizeof(cio2->media_dev.bus_info),
 		 "PCI:%s", pci_name(cio2->pci_dev));
@@ -1810,8 +1810,7 @@ static int cio2_pci_probe(struct pci_dev *pci_dev,
 
 	/* Register notifier for subdevices we care */
 	r = cio2_notifier_init(cio2);
-	/* Proceed without sensors connected to allow the device to suspend. */
-	if (r && r != -ENODEV)
+	if (r)
 		goto fail_cio2_queue_exit;
 
 	r = devm_request_irq(&pci_dev->dev, pci_dev->irq, cio2_irq,
@@ -1845,10 +1844,12 @@ fail_mutex_destroy:
 static void cio2_pci_remove(struct pci_dev *pci_dev)
 {
 	struct cio2_device *cio2 = pci_get_drvdata(pci_dev);
+	unsigned int i;
 
 	media_device_unregister(&cio2->media_dev);
 	cio2_notifier_exit(cio2);
-	cio2_queues_exit(cio2);
+	for (i = 0; i < CIO2_QUEUES; i++)
+		cio2_queue_exit(cio2, &cio2->queue[i]);
 	cio2_fbpt_exit_dummy(cio2);
 	v4l2_device_unregister(&cio2->v4l2_dev);
 	media_device_cleanup(&cio2->media_dev);
@@ -2048,7 +2049,7 @@ module_pci_driver(cio2_pci_driver);
 
 MODULE_AUTHOR("Tuukka Toivonen <tuukka.toivonen@intel.com>");
 MODULE_AUTHOR("Tianshu Qiu <tian.shu.qiu@intel.com>");
-MODULE_AUTHOR("Jian Xu Zheng");
+MODULE_AUTHOR("Jian Xu Zheng <jian.xu.zheng@intel.com>");
 MODULE_AUTHOR("Yuning Pu <yuning.pu@intel.com>");
 MODULE_AUTHOR("Yong Zhi <yong.zhi@intel.com>");
 MODULE_LICENSE("GPL v2");

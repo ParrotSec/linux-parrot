@@ -16,8 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#include <linux/interrupt.h>
-#include <linux/of_irq.h>
+#include <asm/prom.h>
 
 #include "pseries.h"
 
@@ -25,19 +24,34 @@ void request_event_sources_irqs(struct device_node *np,
 				irq_handler_t handler,
 				const char *name)
 {
-	int i, virq, rc;
+	int i, index, count = 0;
+	struct of_phandle_args oirq;
+	unsigned int virqs[16];
 
-	for (i = 0; i < 16; i++) {
-		virq = of_irq_get(np, i);
-		if (virq < 0)
-			return;
-		if (WARN(!virq, "event-sources: Unable to allocate "
-			        "interrupt number for %pOF\n", np))
-			continue;
+	/* First try to do a proper OF tree parsing */
+	for (index = 0; of_irq_parse_one(np, index, &oirq) == 0;
+	     index++) {
+		if (count > 15)
+			break;
+		virqs[count] = irq_create_of_mapping(&oirq);
+		if (!virqs[count]) {
+			pr_err("event-sources: Unable to allocate "
+			       "interrupt number for %pOF\n",
+			       np);
+			WARN_ON(1);
+		} else {
+			count++;
+		}
+	}
 
-		rc = request_irq(virq, handler, 0, name, NULL);
-		if (WARN(rc, "event-sources: Unable to request interrupt %d for %pOF\n",
-		    virq, np))
+	/* Now request them */
+	for (i = 0; i < count; i++) {
+		if (request_irq(virqs[i], handler, 0, name, NULL)) {
+			pr_err("event-sources: Unable to request interrupt "
+			       "%d for %pOF\n", virqs[i], np);
+			WARN_ON(1);
 			return;
+		}
 	}
 }
+

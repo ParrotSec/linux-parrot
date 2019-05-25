@@ -723,7 +723,6 @@ int blk_trace_ioctl(struct block_device *bdev, unsigned cmd, char __user *arg)
 #endif
 	case BLKTRACESTART:
 		start = 1;
-		/* fall through */
 	case BLKTRACESTOP:
 		ret = __blk_trace_startstop(q, start);
 		break;
@@ -765,9 +764,9 @@ blk_trace_bio_get_cgid(struct request_queue *q, struct bio *bio)
 	if (!bt || !(blk_tracer_flags.val & TRACE_BLK_OPT_CGROUP))
 		return NULL;
 
-	if (!bio->bi_blkg)
+	if (!bio->bi_css)
 		return NULL;
-	return cgroup_get_kernfs_id(bio_blkcg(bio)->css.cgroup);
+	return cgroup_get_kernfs_id(bio->bi_css->cgroup);
 }
 #else
 static union kernfs_node_id *

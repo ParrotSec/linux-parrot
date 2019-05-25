@@ -349,19 +349,19 @@ static umode_t lm95241_is_visible(const void *data,
 	case hwmon_chip:
 		switch (attr) {
 		case hwmon_chip_update_interval:
-			return 0644;
+			return S_IRUGO | S_IWUSR;
 		}
 		break;
 	case hwmon_temp:
 		switch (attr) {
 		case hwmon_temp_input:
-			return 0444;
+			return S_IRUGO;
 		case hwmon_temp_fault:
-			return 0444;
+			return S_IRUGO;
 		case hwmon_temp_min:
 		case hwmon_temp_max:
 		case hwmon_temp_type:
-			return 0644;
+			return S_IRUGO | S_IWUSR;
 		}
 		break;
 	default:

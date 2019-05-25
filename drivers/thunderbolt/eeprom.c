@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Thunderbolt driver - eeprom access
+ * Thunderbolt Cactus Ridge driver - eeprom access
  *
  * Copyright (c) 2014 Andreas Noever <andreas.noever@gmail.com>
- * Copyright (C) 2018, Intel Corporation
  */
 
 #include <linux/crc32.h>
@@ -541,7 +540,7 @@ int tb_drom_read(struct tb_switch *sw)
 		return res;
 	size &= 0x3ff;
 	size += TB_DROM_DATA_START;
-	tb_sw_dbg(sw, "reading drom (length: %#x)\n", size);
+	tb_sw_info(sw, "reading drom (length: %#x)\n", size);
 	if (size < sizeof(*header)) {
 		tb_sw_warn(sw, "drom too small, aborting\n");
 		return -EIO;

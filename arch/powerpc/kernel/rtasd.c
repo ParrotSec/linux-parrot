@@ -91,8 +91,6 @@ static char *rtas_event_type(int type)
 			return "Dump Notification Event";
 		case RTAS_TYPE_PRRN:
 			return "Platform Resource Reassignment Event";
-		case RTAS_TYPE_HOTPLUG:
-			return "Hotplug Event";
 	}
 
 	return rtas_type[0];
@@ -152,10 +150,8 @@ static void printk_log_rtas(char *buf, int len)
 	} else {
 		struct rtas_error_log *errlog = (struct rtas_error_log *)buf;
 
-		printk(RTAS_DEBUG "event: %d, Type: %s (%d), Severity: %d\n",
-		       error_log_cnt,
-		       rtas_event_type(rtas_error_type(errlog)),
-		       rtas_error_type(errlog),
+		printk(RTAS_DEBUG "event: %d, Type: %s, Severity: %d\n",
+		       error_log_cnt, rtas_event_type(rtas_error_type(errlog)),
 		       rtas_error_severity(errlog));
 	}
 }
@@ -335,7 +331,7 @@ static ssize_t rtas_log_read(struct file * file, char __user * buf,
 
 	count = rtas_error_log_buffer_max;
 
-	if (!access_ok(buf, count))
+	if (!access_ok(VERIFY_WRITE, buf, count))
 		return -EFAULT;
 
 	tmp = kmalloc(count, GFP_KERNEL);

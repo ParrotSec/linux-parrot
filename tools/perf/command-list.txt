@@ -30,4 +30,3 @@ perf-test			mainporcelain common
 perf-timechart			mainporcelain common
 perf-top			mainporcelain common
 perf-trace			mainporcelain audit
-perf-version			mainporcelain common

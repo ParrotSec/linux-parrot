@@ -7,7 +7,7 @@
 #include <linux/ata.h>
 #include <linux/slab.h>
 #include <linux/hdreg.h>
-#include <linux/blk-mq.h>
+#include <linux/blkdev.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include <linux/genhd.h>
@@ -813,13 +813,24 @@ rexmit_timer(struct timer_list *timer)
 out:
 	if ((d->flags & DEVFL_KICKME) && d->blkq) {
 		d->flags &= ~DEVFL_KICKME;
-		blk_mq_run_hw_queues(d->blkq, true);
+		d->blkq->request_fn(d->blkq);
 	}
 
 	d->timer.expires = jiffies + TIMERTICK;
 	add_timer(&d->timer);
 
 	spin_unlock_irqrestore(&d->lock, flags);
+}
+
+static unsigned long
+rqbiocnt(struct request *r)
+{
+	struct bio *bio;
+	unsigned long n = 0;
+
+	__rq_for_each_bio(bio, r)
+		n++;
+	return n;
 }
 
 static void
@@ -836,7 +847,6 @@ nextbuf(struct aoedev *d)
 {
 	struct request *rq;
 	struct request_queue *q;
-	struct aoe_req *req;
 	struct buf *buf;
 	struct bio *bio;
 
@@ -847,19 +857,13 @@ nextbuf(struct aoedev *d)
 		return d->ip.buf;
 	rq = d->ip.rq;
 	if (rq == NULL) {
-		rq = list_first_entry_or_null(&d->rq_list, struct request,
-						queuelist);
+		rq = blk_peek_request(q);
 		if (rq == NULL)
 			return NULL;
-		list_del_init(&rq->queuelist);
-		blk_mq_start_request(rq);
+		blk_start_request(rq);
 		d->ip.rq = rq;
 		d->ip.nxbio = rq->bio;
-
-		req = blk_mq_rq_to_pdu(rq);
-		req->nr_bios = 0;
-		__rq_for_each_bio(bio, rq)
-			req->nr_bios++;
+		rq->special = (void *) rqbiocnt(rq);
 	}
 	buf = mempool_alloc(d->bufpool, GFP_ATOMIC);
 	if (buf == NULL) {
@@ -1041,7 +1045,6 @@ aoe_end_request(struct aoedev *d, struct request *rq, int fastfail)
 	struct bio *bio;
 	int bok;
 	struct request_queue *q;
-	blk_status_t err = BLK_STS_OK;
 
 	q = d->blkq;
 	if (rq == d->ip.rq)
@@ -1049,27 +1052,26 @@ aoe_end_request(struct aoedev *d, struct request *rq, int fastfail)
 	do {
 		bio = rq->bio;
 		bok = !fastfail && !bio->bi_status;
-		if (!bok)
-			err = BLK_STS_IOERR;
-	} while (blk_update_request(rq, bok ? BLK_STS_OK : BLK_STS_IOERR, bio->bi_iter.bi_size));
-
-	__blk_mq_end_request(rq, err);
+	} while (__blk_end_request(rq, bok ? BLK_STS_OK : BLK_STS_IOERR, bio->bi_iter.bi_size));
 
 	/* cf. http://lkml.org/lkml/2006/10/31/28 */
 	if (!fastfail)
-		blk_mq_run_hw_queues(q, true);
+		__blk_run_queue(q);
 }
 
 static void
 aoe_end_buf(struct aoedev *d, struct buf *buf)
 {
-	struct request *rq = buf->rq;
-	struct aoe_req *req = blk_mq_rq_to_pdu(rq);
+	struct request *rq;
+	unsigned long n;
 
 	if (buf == d->ip.buf)
 		d->ip.buf = NULL;
+	rq = buf->rq;
 	mempool_free(buf, d->bufpool);
-	if (--req->nr_bios == 0)
+	n = (unsigned long) rq->special;
+	rq->special = (void *) --n;
+	if (n == 0)
 		aoe_end_request(d, rq, 0);
 }
 

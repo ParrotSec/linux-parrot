@@ -1134,6 +1134,8 @@ static void i5000_get_mc_regs(struct mem_ctl_info *mci)
 	u32 actual_tolm;
 	u16 limit;
 	int slot_row;
+	int maxch;
+	int maxdimmperch;
 	int way0, way1;
 
 	pvt = mci->pvt_info;
@@ -1142,6 +1144,9 @@ static void i5000_get_mc_regs(struct mem_ctl_info *mci)
 			&pvt->u.ambase_bottom);
 	pci_read_config_dword(pvt->system_address, AMBASE + sizeof(u32),
 			&pvt->u.ambase_top);
+
+	maxdimmperch = pvt->maxdimmperch;
+	maxch = pvt->maxch;
 
 	edac_dbg(2, "AMBASE= 0x%lx  MAXCH= %d  MAX-DIMM-Per-CH= %d\n",
 		 (long unsigned int)pvt->ambase, pvt->maxch, pvt->maxdimmperch);
@@ -1248,7 +1253,7 @@ static int i5000_init_csrows(struct mem_ctl_info *mci)
 {
 	struct i5000_pvt *pvt;
 	struct dimm_info *dimm;
-	int empty;
+	int empty, channel_count;
 	int max_csrows;
 	int mtr;
 	int csrow_megs;
@@ -1256,6 +1261,8 @@ static int i5000_init_csrows(struct mem_ctl_info *mci)
 	int slot;
 
 	pvt = mci->pvt_info;
+
+	channel_count = pvt->maxch;
 	max_csrows = pvt->maxdimmperch * 2;
 
 	empty = 1;		/* Assume NO memory */
@@ -1552,8 +1559,8 @@ static int __init i5000_init(void)
 
 	edac_dbg(2, "MC:\n");
 
-	/* Ensure that the OPSTATE is set correctly for POLL or NMI */
-	opstate_init();
+       /* Ensure that the OPSTATE is set correctly for POLL or NMI */
+       opstate_init();
 
 	pci_rc = pci_register_driver(&i5000_driver);
 

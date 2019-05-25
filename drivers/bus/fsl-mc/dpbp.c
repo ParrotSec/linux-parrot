@@ -5,6 +5,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/fsl/mc.h>
+#include <linux/fsl/mc.h>
 
 #include "fsl-mc-private.h"
 

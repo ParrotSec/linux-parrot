@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
+/* Hey EMACS -*- linux-c -*- */
 /*
+ *
  * Copyright (C) 2002-2003 Romain Lievin <roms@tilp.info>
+ * Released under the terms of the GNU GPL v2.0.
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -9,7 +12,7 @@
 
 #include <stdlib.h>
 #include "lkc.h"
-#include "images.h"
+#include "images.c"
 
 #include <glade/glade.h>
 #include <gtk/gtk.h>
@@ -75,8 +78,8 @@ static gchar **fill_row(struct menu *menu);
 static void conf_changed(void);
 
 /* Helping/Debugging Functions */
-#ifdef DEBUG
-static const char *dbg_sym_flags(int val)
+
+const char *dbg_sym_flags(int val)
 {
 	static char buf[256];
 
@@ -105,10 +108,9 @@ static const char *dbg_sym_flags(int val)
 
 	return buf;
 }
-#endif
 
-static void replace_button_icon(GladeXML *xml, GdkDrawable *window,
-				GtkStyle *style, gchar *btn_name, gchar **xpm)
+void replace_button_icon(GladeXML * xml, GdkDrawable * window,
+			 GtkStyle * style, gchar * btn_name, gchar ** xpm)
 {
 	GdkPixmap *pixmap;
 	GdkBitmap *mask;
@@ -126,7 +128,7 @@ static void replace_button_icon(GladeXML *xml, GdkDrawable *window,
 }
 
 /* Main Window Initialization */
-static void init_main_window(const gchar *glade_file)
+void init_main_window(const gchar * glade_file)
 {
 	GladeXML *xml;
 	GtkWidget *widget;
@@ -188,7 +190,7 @@ static void init_main_window(const gchar *glade_file)
 	gtk_widget_show(main_wnd);
 }
 
-static void init_tree_model(void)
+void init_tree_model(void)
 {
 	gint i;
 
@@ -218,7 +220,7 @@ static void init_tree_model(void)
 	model1 = GTK_TREE_MODEL(tree1);
 }
 
-static void init_left_tree(void)
+void init_left_tree(void)
 {
 	GtkTreeView *view = GTK_TREE_VIEW(tree1_w);
 	GtkCellRenderer *renderer;
@@ -260,7 +262,7 @@ static void renderer_edited(GtkCellRendererText * cell,
 			    const gchar * path_string,
 			    const gchar * new_text, gpointer user_data);
 
-static void init_right_tree(void)
+void init_right_tree(void)
 {
 	GtkTreeView *view = GTK_TREE_VIEW(tree2_w);
 	GtkCellRenderer *renderer;
@@ -1210,8 +1212,8 @@ static GtkTreeIter found;
 /*
  * Find a menu in the GtkTree starting at parent.
  */
-static GtkTreeIter *gtktree_iter_find_node(GtkTreeIter *parent,
-					   struct menu *tofind)
+GtkTreeIter *gtktree_iter_find_node(GtkTreeIter * parent,
+				    struct menu *tofind)
 {
 	GtkTreeIter iter;
 	GtkTreeIter *child = &iter;
@@ -1422,7 +1424,7 @@ static void display_list(void)
 	tree = tree2;
 }
 
-static void fixup_rootmenu(struct menu *menu)
+void fixup_rootmenu(struct menu *menu)
 {
 	struct menu *child;
 	static int menu_cnt = 0;

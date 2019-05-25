@@ -40,7 +40,7 @@ static inline int cpu_has_vmx(void)
  */
 static inline void cpu_vmxoff(void)
 {
-	asm volatile ("vmxoff");
+	asm volatile (ASM_VMX_VMXOFF : : : "cc");
 	cr4_clear_bits(X86_CR4_VMXE);
 }
 
@@ -83,10 +83,9 @@ static inline void cpu_emergency_vmxoff(void)
  */
 static inline int cpu_has_svm(const char **msg)
 {
-	if (boot_cpu_data.x86_vendor != X86_VENDOR_AMD &&
-	    boot_cpu_data.x86_vendor != X86_VENDOR_HYGON) {
+	if (boot_cpu_data.x86_vendor != X86_VENDOR_AMD) {
 		if (msg)
-			*msg = "not amd or hygon";
+			*msg = "not amd";
 		return 0;
 	}
 

@@ -21,11 +21,12 @@
  * Register with the rdma cgroup. Should be called before
  * exposing rdma device to user space applications to avoid
  * resource accounting leak.
+ * Returns 0 on success or otherwise failure code.
  */
-void ib_device_register_rdmacg(struct ib_device *device)
+int ib_device_register_rdmacg(struct ib_device *device)
 {
 	device->cg_device.name = device->name;
-	rdmacg_register_device(&device->cg_device);
+	return rdmacg_register_device(&device->cg_device);
 }
 
 /**

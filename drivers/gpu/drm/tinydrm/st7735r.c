@@ -14,8 +14,7 @@
 #include <linux/spi/spi.h>
 #include <video/mipi_display.h>
 
-#include <drm/drm_drv.h>
-#include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/tinydrm/mipi-dbi.h>
 #include <drm/tinydrm/tinydrm-helpers.h>
@@ -106,7 +105,7 @@ static void jd_t18003_t01_pipe_enable(struct drm_simple_display_pipe *pipe,
 static const struct drm_simple_display_pipe_funcs jd_t18003_t01_pipe_funcs = {
 	.enable		= jd_t18003_t01_pipe_enable,
 	.disable	= mipi_dbi_pipe_disable,
-	.update		= mipi_dbi_pipe_update,
+	.update		= tinydrm_display_pipe_update,
 	.prepare_fb	= drm_gem_fb_simple_display_pipe_prepare_fb,
 };
 
@@ -120,7 +119,7 @@ static struct drm_driver st7735r_driver = {
 	.driver_features	= DRIVER_GEM | DRIVER_MODESET | DRIVER_PRIME |
 				  DRIVER_ATOMIC,
 	.fops			= &st7735r_fops,
-	DRM_GEM_CMA_VMAP_DRIVER_OPS,
+	TINYDRM_GEM_DRIVER_OPS,
 	.debugfs_init		= mipi_dbi_debugfs_init,
 	.name			= "st7735r",
 	.desc			= "Sitronix ST7735R",

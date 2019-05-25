@@ -19,6 +19,7 @@
 #include <linux/interrupt.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
+#include <linux/qcom_scm.h>
 #include <linux/slab.h>
 
 #include "core.h"
@@ -26,7 +27,6 @@
 #include "hfi_msgs.h"
 #include "hfi_venus.h"
 #include "hfi_venus_io.h"
-#include "firmware.h"
 
 #define HFI_MASK_QHDR_TX_TYPE		0xff000000
 #define HFI_MASK_QHDR_RX_TYPE		0x00ff0000
@@ -54,6 +54,11 @@
 #define IFACEQ_VAR_SMALL_PKT_SIZE	100
 #define IFACEQ_VAR_LARGE_PKT_SIZE	512
 #define IFACEQ_VAR_HUGE_PKT_SIZE	(1024 * 12)
+
+enum tzbsp_video_state {
+	TZBSP_VIDEO_STATE_SUSPEND = 0,
+	TZBSP_VIDEO_STATE_RESUME
+};
 
 struct hfi_queue_table_header {
 	u32 version;
@@ -570,7 +575,7 @@ static int venus_power_off(struct venus_hfi_device *hdev)
 	if (!hdev->power_enabled)
 		return 0;
 
-	ret = venus_set_hw_state_suspend(hdev->core);
+	ret = qcom_scm_set_remote_state(TZBSP_VIDEO_STATE_SUSPEND, 0);
 	if (ret)
 		return ret;
 
@@ -590,7 +595,7 @@ static int venus_power_on(struct venus_hfi_device *hdev)
 	if (hdev->power_enabled)
 		return 0;
 
-	ret = venus_set_hw_state_resume(hdev->core);
+	ret = qcom_scm_set_remote_state(TZBSP_VIDEO_STATE_RESUME, 0);
 	if (ret)
 		goto err;
 
@@ -603,7 +608,7 @@ static int venus_power_on(struct venus_hfi_device *hdev)
 	return 0;
 
 err_suspend:
-	venus_set_hw_state_suspend(hdev->core);
+	qcom_scm_set_remote_state(TZBSP_VIDEO_STATE_SUSPEND, 0);
 err:
 	hdev->power_enabled = false;
 	return ret;
@@ -1350,8 +1355,6 @@ static int venus_session_set_property(struct venus_inst *inst, u32 ptype,
 	pkt = (struct hfi_session_set_property_pkt *)packet;
 
 	ret = pkt_session_set_property(pkt, inst, ptype, pdata);
-	if (ret == -ENOTSUPP)
-		return 0;
 	if (ret)
 		return ret;
 

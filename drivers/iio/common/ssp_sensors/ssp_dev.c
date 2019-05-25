@@ -462,35 +462,43 @@ static struct ssp_data *ssp_parse_dt(struct device *dev)
 
 	data->mcu_ap_gpio = of_get_named_gpio(node, "mcu-ap-gpios", 0);
 	if (data->mcu_ap_gpio < 0)
-		return NULL;
+		goto err_free_pd;
 
 	data->ap_mcu_gpio = of_get_named_gpio(node, "ap-mcu-gpios", 0);
 	if (data->ap_mcu_gpio < 0)
-		return NULL;
+		goto err_free_pd;
 
 	data->mcu_reset_gpio = of_get_named_gpio(node, "mcu-reset-gpios", 0);
 	if (data->mcu_reset_gpio < 0)
-		return NULL;
+		goto err_free_pd;
 
 	ret = devm_gpio_request_one(dev, data->ap_mcu_gpio, GPIOF_OUT_INIT_HIGH,
 				    "ap-mcu-gpios");
 	if (ret)
-		return NULL;
+		goto err_free_pd;
 
 	ret = devm_gpio_request_one(dev, data->mcu_reset_gpio,
 				    GPIOF_OUT_INIT_HIGH, "mcu-reset-gpios");
 	if (ret)
-		return NULL;
+		goto err_ap_mcu;
 
 	match = of_match_node(ssp_of_match, node);
 	if (!match)
-		return NULL;
+		goto err_mcu_reset_gpio;
 
 	data->sensorhub_info = match->data;
 
 	dev_set_drvdata(dev, data);
 
 	return data;
+
+err_mcu_reset_gpio:
+	devm_gpio_free(dev, data->mcu_reset_gpio);
+err_ap_mcu:
+	devm_gpio_free(dev, data->ap_mcu_gpio);
+err_free_pd:
+	devm_kfree(dev, data);
+	return NULL;
 }
 #else
 static struct ssp_data *ssp_parse_dt(struct device *pdev)

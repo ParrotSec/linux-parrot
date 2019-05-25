@@ -197,14 +197,15 @@ static const struct wf_sensor_ops smu_slotspow_ops = {
 static struct smu_ad_sensor *smu_ads_create(struct device_node *node)
 {
 	struct smu_ad_sensor *ads;
-	const char *l;
+	const char *c, *l;
 	const u32 *v;
 
 	ads = kmalloc(sizeof(struct smu_ad_sensor), GFP_KERNEL);
 	if (ads == NULL)
 		return NULL;
+	c = of_get_property(node, "device_type", NULL);
 	l = of_get_property(node, "location", NULL);
-	if (l == NULL)
+	if (c == NULL || l == NULL)
 		goto fail;
 
 	/* We currently pick the sensors based on the OF name and location
@@ -214,7 +215,7 @@ static struct smu_ad_sensor *smu_ads_create(struct device_node *node)
 	 * the names and locations consistents so I'll stick with the names
 	 * and locations for now.
 	 */
-	if (of_node_is_type(node, "temp-sensor") &&
+	if (!strcmp(c, "temp-sensor") &&
 	    !strcmp(l, "CPU T-Diode")) {
 		ads->sens.ops = &smu_cputemp_ops;
 		ads->sens.name = "cpu-temp";
@@ -223,7 +224,7 @@ static struct smu_ad_sensor *smu_ads_create(struct device_node *node)
 			    SMU_SDB_CPUDIODE_ID);
 			goto fail;
 		}
-	} else if (of_node_is_type(node, "current-sensor") &&
+	} else if (!strcmp(c, "current-sensor") &&
 		   !strcmp(l, "CPU Current")) {
 		ads->sens.ops = &smu_cpuamp_ops;
 		ads->sens.name = "cpu-current";
@@ -232,7 +233,7 @@ static struct smu_ad_sensor *smu_ads_create(struct device_node *node)
 			    SMU_SDB_CPUVCP_ID);
 			goto fail;
 		}
-	} else if (of_node_is_type(node, "voltage-sensor") &&
+	} else if (!strcmp(c, "voltage-sensor") &&
 		   !strcmp(l, "CPU Voltage")) {
 		ads->sens.ops = &smu_cpuvolt_ops;
 		ads->sens.name = "cpu-voltage";
@@ -241,7 +242,7 @@ static struct smu_ad_sensor *smu_ads_create(struct device_node *node)
 			    SMU_SDB_CPUVCP_ID);
 			goto fail;
 		}
-	} else if (of_node_is_type(node, "power-sensor") &&
+	} else if (!strcmp(c, "power-sensor") &&
 		   !strcmp(l, "Slots Power")) {
 		ads->sens.ops = &smu_slotspow_ops;
 		ads->sens.name = "slots-power";
@@ -424,7 +425,7 @@ static int __init smu_sensors_init(void)
 	/* Look for sensors subdir */
 	for (sensors = NULL;
 	     (sensors = of_get_next_child(smu, sensors)) != NULL;)
-		if (of_node_name_eq(sensors, "sensors"))
+		if (!strcmp(sensors->name, "sensors"))
 			break;
 
 	of_node_put(smu);

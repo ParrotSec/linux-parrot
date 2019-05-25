@@ -347,7 +347,7 @@ static void ehci_iaa_watchdog(struct ehci_hcd *ehci)
 	 */
 	status = ehci_readl(ehci, &ehci->regs->status);
 	if ((status & STS_IAA) || !(cmd & CMD_IAAD)) {
-		INCR(ehci->stats.lost_iaa);
+		COUNT(ehci->stats.lost_iaa);
 		ehci_writel(ehci, STS_IAA, &ehci->regs->status);
 	}
 

@@ -38,7 +38,6 @@
 #include <rdma/ib_verbs.h>
 #include <linux/mlx5/cq.h>
 #include "mlx5_core.h"
-#include "lib/eq.h"
 
 #define TASKLET_MAX_TIME 2
 #define TASKLET_MAX_TIME_JIFFIES msecs_to_jiffies(TASKLET_MAX_TIME)
@@ -93,10 +92,10 @@ int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 	u32 dout[MLX5_ST_SZ_DW(destroy_cq_out)];
 	u32 out[MLX5_ST_SZ_DW(create_cq_out)];
 	u32 din[MLX5_ST_SZ_DW(destroy_cq_in)];
-	struct mlx5_eq_comp *eq;
+	struct mlx5_eq *eq;
 	int err;
 
-	eq = mlx5_eqn2comp_eq(dev, eqn);
+	eq = mlx5_eqn2eq(dev, eqn);
 	if (IS_ERR(eq))
 		return PTR_ERR(eq);
 
@@ -110,7 +109,6 @@ int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 	cq->cons_index = 0;
 	cq->arm_sn     = 0;
 	cq->eq         = eq;
-	cq->uid = MLX5_GET(create_cq_in, in, uid);
 	refcount_set(&cq->refcount, 1);
 	init_completion(&cq->free);
 	if (!cq->comp)
@@ -120,12 +118,12 @@ int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 	INIT_LIST_HEAD(&cq->tasklet_ctx.list);
 
 	/* Add to comp EQ CQ tree to recv comp events */
-	err = mlx5_eq_add_cq(&eq->core, cq);
+	err = mlx5_eq_add_cq(eq, cq);
 	if (err)
 		goto err_cmd;
 
 	/* Add to async EQ CQ tree to recv async events */
-	err = mlx5_eq_add_cq(mlx5_get_async_eq(dev), cq);
+	err = mlx5_eq_add_cq(&dev->priv.eq_table.async_eq, cq);
 	if (err)
 		goto err_cq_add;
 
@@ -140,13 +138,12 @@ int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 	return 0;
 
 err_cq_add:
-	mlx5_eq_del_cq(&eq->core, cq);
+	mlx5_eq_del_cq(eq, cq);
 err_cmd:
 	memset(din, 0, sizeof(din));
 	memset(dout, 0, sizeof(dout));
 	MLX5_SET(destroy_cq_in, din, opcode, MLX5_CMD_OP_DESTROY_CQ);
 	MLX5_SET(destroy_cq_in, din, cqn, cq->cqn);
-	MLX5_SET(destroy_cq_in, din, uid, cq->uid);
 	mlx5_cmd_exec(dev, din, sizeof(din), dout, sizeof(dout));
 	return err;
 }
@@ -158,17 +155,16 @@ int mlx5_core_destroy_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq)
 	u32 in[MLX5_ST_SZ_DW(destroy_cq_in)] = {0};
 	int err;
 
-	err = mlx5_eq_del_cq(mlx5_get_async_eq(dev), cq);
+	err = mlx5_eq_del_cq(&dev->priv.eq_table.async_eq, cq);
 	if (err)
 		return err;
 
-	err = mlx5_eq_del_cq(&cq->eq->core, cq);
+	err = mlx5_eq_del_cq(cq->eq, cq);
 	if (err)
 		return err;
 
 	MLX5_SET(destroy_cq_in, in, opcode, MLX5_CMD_OP_DESTROY_CQ);
 	MLX5_SET(destroy_cq_in, in, cqn, cq->cqn);
-	MLX5_SET(destroy_cq_in, in, uid, cq->uid);
 	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 	if (err)
 		return err;
@@ -200,7 +196,6 @@ int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
 	u32 out[MLX5_ST_SZ_DW(modify_cq_out)] = {0};
 
 	MLX5_SET(modify_cq_in, in, opcode, MLX5_CMD_OP_MODIFY_CQ);
-	MLX5_SET(modify_cq_in, in, uid, cq->uid);
 	return mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
 }
 EXPORT_SYMBOL(mlx5_core_modify_cq);

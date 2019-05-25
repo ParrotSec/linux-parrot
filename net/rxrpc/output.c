@@ -335,6 +335,7 @@ int rxrpc_send_data_packet(struct rxrpc_call *call, struct sk_buff *skb,
 	struct kvec iov[2];
 	rxrpc_serial_t serial;
 	size_t len;
+	bool lost = false;
 	int ret, opt;
 
 	_enter(",{%d}", skb->len);
@@ -392,14 +393,12 @@ int rxrpc_send_data_packet(struct rxrpc_call *call, struct sk_buff *skb,
 		static int lose;
 		if ((lose++ & 7) == 7) {
 			ret = 0;
-			trace_rxrpc_tx_data(call, sp->hdr.seq, serial,
-					    whdr.flags, retrans, true);
+			lost = true;
 			goto done;
 		}
 	}
 
-	trace_rxrpc_tx_data(call, sp->hdr.seq, serial, whdr.flags, retrans,
-			    false);
+	_proto("Tx DATA %%%u { #%u }", serial, sp->hdr.seq);
 
 	/* send the packet with the don't fragment bit set if we currently
 	 * think it's small enough */
@@ -433,6 +432,8 @@ int rxrpc_send_data_packet(struct rxrpc_call *call, struct sk_buff *skb,
 		goto send_fragmentable;
 
 done:
+	trace_rxrpc_tx_data(call, sp->hdr.seq, serial, whdr.flags,
+			    retrans, lost);
 	if (ret >= 0) {
 		if (whdr.flags & RXRPC_REQUEST_ACK) {
 			call->peer->rtt_last_req = skb->tstamp;
@@ -587,7 +588,7 @@ void rxrpc_reject_packets(struct rxrpc_local *local)
 			continue;
 		}
 
-		if (rxrpc_extract_addr_from_skb(&srx, skb) == 0) {
+		if (rxrpc_extract_addr_from_skb(local, &srx, skb) == 0) {
 			msg.msg_namelen = srx.transport_len;
 
 			whdr.epoch	= htonl(sp->hdr.epoch);

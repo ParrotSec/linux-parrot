@@ -52,6 +52,8 @@
 extern void ret_from_fork(void);
 extern void ret_from_kernel_thread(void);
 
+struct task_struct *current_set[NR_CPUS] = {&init_task, };
+
 void (*pm_power_off)(void) = NULL;
 EXPORT_SYMBOL(pm_power_off);
 
@@ -85,8 +87,7 @@ void coprocessor_release_all(struct thread_info *ti)
 	}
 
 	ti->cpenable = cpenable;
-	if (ti == current_thread_info())
-		xtensa_set_sr(0, cpenable);
+	coprocessor_clear_cpenable();
 
 	preempt_enable();
 }
@@ -98,16 +99,16 @@ void coprocessor_flush_all(struct thread_info *ti)
 
 	preempt_disable();
 
-	old_cpenable = xtensa_get_sr(cpenable);
+	RSR_CPENABLE(old_cpenable);
 	cpenable = ti->cpenable;
-	xtensa_set_sr(cpenable, cpenable);
+	WSR_CPENABLE(cpenable);
 
 	for (i = 0; i < XCHAL_CP_MAX; i++) {
 		if ((cpenable & 1) != 0 && coprocessor_owner[i] == ti)
 			coprocessor_flush(ti, i);
 		cpenable >>= 1;
 	}
-	xtensa_set_sr(old_cpenable, cpenable);
+	WSR_CPENABLE(old_cpenable);
 
 	preempt_enable();
 }
@@ -322,5 +323,51 @@ unsigned long get_wchan(struct task_struct *p)
 		pc = MAKE_PC_FROM_RA(SPILL_SLOT(sp, 0), sp);
 		sp = SPILL_SLOT(sp, 1);
 	} while (count++ < 16);
+	return 0;
+}
+
+/*
+ * xtensa_gregset_t and 'struct pt_regs' are vastly different formats
+ * of processor registers.  Besides different ordering,
+ * xtensa_gregset_t contains non-live register information that
+ * 'struct pt_regs' does not.  Exception handling (primarily) uses
+ * 'struct pt_regs'.  Core files and ptrace use xtensa_gregset_t.
+ *
+ */
+
+void xtensa_elf_core_copy_regs (xtensa_gregset_t *elfregs, struct pt_regs *regs)
+{
+	unsigned long wb, ws, wm;
+	int live, last;
+
+	wb = regs->windowbase;
+	ws = regs->windowstart;
+	wm = regs->wmask;
+	ws = ((ws >> wb) | (ws << (WSBITS - wb))) & ((1 << WSBITS) - 1);
+
+	/* Don't leak any random bits. */
+
+	memset(elfregs, 0, sizeof(*elfregs));
+
+	/* Note:  PS.EXCM is not set while user task is running; its
+	 * being set in regs->ps is for exception handling convenience.
+	 */
+
+	elfregs->pc		= regs->pc;
+	elfregs->ps		= (regs->ps & ~(1 << PS_EXCM_BIT));
+	elfregs->lbeg		= regs->lbeg;
+	elfregs->lend		= regs->lend;
+	elfregs->lcount		= regs->lcount;
+	elfregs->sar		= regs->sar;
+	elfregs->windowstart	= ws;
+
+	live = (wm & 2) ? 4 : (wm & 4) ? 8 : (wm & 8) ? 12 : 16;
+	last = XCHAL_NUM_AREGS - (wm >> 4) * 4;
+	memcpy(elfregs->a, regs->areg, live * 4);
+	memcpy(elfregs->a + last, regs->areg + last, (wm >> 4) * 16);
+}
+
+int dump_fpu(void)
+{
 	return 0;
 }

@@ -13,7 +13,6 @@
 #include <variant/core.h>
 
 #include <linux/compiler.h>
-#include <linux/stringify.h>
 #include <asm/ptrace.h>
 #include <asm/types.h>
 #include <asm/regs.h>
@@ -157,6 +156,14 @@ struct thread_struct {
 	int align[0] __attribute__ ((aligned(16)));
 };
 
+
+/*
+ * Default implementation of macro that returns current
+ * instruction pointer ("program counter").
+ */
+#define current_text_addr()  ({ __label__ _l; _l: &&_l;})
+
+
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */
@@ -187,18 +194,15 @@ struct thread_struct {
 
 /* Clearing a0 terminates the backtrace. */
 #define start_thread(regs, new_pc, new_sp) \
-	do { \
-		memset((regs), 0, sizeof(*(regs))); \
-		(regs)->pc = (new_pc); \
-		(regs)->ps = USER_PS_VALUE; \
-		(regs)->areg[1] = (new_sp); \
-		(regs)->areg[0] = 0; \
-		(regs)->wmask = 1; \
-		(regs)->depc = 0; \
-		(regs)->windowbase = 0; \
-		(regs)->windowstart = 1; \
-		(regs)->syscall = NO_SYSCALL; \
-	} while (0)
+	memset(regs, 0, sizeof(*regs)); \
+	regs->pc = new_pc; \
+	regs->ps = USER_PS_VALUE; \
+	regs->areg[1] = new_sp; \
+	regs->areg[0] = 0; \
+	regs->wmask = 1; \
+	regs->depc = 0; \
+	regs->windowbase = 0; \
+	regs->windowstart = 1;
 
 /* Forward declaration */
 struct task_struct;
@@ -216,18 +220,11 @@ extern unsigned long get_wchan(struct task_struct *p);
 
 /* Special register access. */
 
-#define xtensa_set_sr(x, sr) \
-	({ \
-	 unsigned int v = (unsigned int)(x); \
-	 __asm__ __volatile__ ("wsr %0, "__stringify(sr) :: "a"(v)); \
-	 })
+#define WSR(v,sr) __asm__ __volatile__ ("wsr %0,"__stringify(sr) :: "a"(v));
+#define RSR(v,sr) __asm__ __volatile__ ("rsr %0,"__stringify(sr) : "=a"(v));
 
-#define xtensa_get_sr(sr) \
-	({ \
-	 unsigned int v; \
-	 __asm__ __volatile__ ("rsr %0, "__stringify(sr) : "=a"(v)); \
-	 v; \
-	 })
+#define set_sr(x,sr) ({unsigned int v=(unsigned int)x; WSR(v,sr);})
+#define get_sr(sr) ({unsigned int v; RSR(v,sr); v; })
 
 #ifndef XCHAL_HAVE_EXTERN_REGS
 #define XCHAL_HAVE_EXTERN_REGS 0

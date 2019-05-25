@@ -68,7 +68,9 @@ static const struct xattr_handler *xattr_handler_map[] = {
 }
 
 #ifdef CONFIG_EROFS_FS_XATTR
-extern const struct xattr_handler *erofs_xattr_handlers[];
+
+extern const struct inode_operations erofs_generic_xattr_iops;
+extern const struct inode_operations erofs_dir_xattr_iops;
 
 int erofs_getxattr(struct inode *, int, const char *, void *, size_t);
 ssize_t erofs_listxattr(struct dentry *, char *, size_t);
@@ -85,12 +87,6 @@ static ssize_t __maybe_unused erofs_listxattr(struct dentry *dentry,
 {
 	return -ENOTSUPP;
 }
-#endif
-
-#ifdef CONFIG_EROFS_FS_POSIX_ACL
-struct posix_acl *erofs_get_acl(struct inode *inode, int type);
-#else
-#define erofs_get_acl	(NULL)
 #endif
 
 #endif

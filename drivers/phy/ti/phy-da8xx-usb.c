@@ -93,8 +93,7 @@ static int da8xx_usb20_phy_power_off(struct phy *phy)
 	return 0;
 }
 
-static int da8xx_usb20_phy_set_mode(struct phy *phy,
-				    enum phy_mode mode, int submode)
+static int da8xx_usb20_phy_set_mode(struct phy *phy, enum phy_mode mode)
 {
 	struct da8xx_usb_phy *d_phy = phy_get_drvdata(phy);
 	u32 val;

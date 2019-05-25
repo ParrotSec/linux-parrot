@@ -163,7 +163,7 @@ void btext_map(void)
 	offset = ((unsigned long) dispDeviceBase) - base;
 	size = dispDeviceRowBytes * dispDeviceRect[3] + offset
 		+ dispDeviceRect[0];
-	vbase = ioremap_wc(base, size);
+	vbase = __ioremap(base, size, pgprot_val(pgprot_noncached_wc(__pgprot(0))));
 	if (!vbase)
 		return;
 	logicalDisplayBase = vbase + offset;
@@ -232,12 +232,20 @@ static int btext_initialize(struct device_node *np)
 
 int __init btext_find_display(int allow_nonstdout)
 {
-	struct device_node *np = of_stdout;
+	const char *name;
+	struct device_node *np = NULL; 
 	int rc = -ENODEV;
 
-	if (!of_node_is_type(np, "display")) {
-		printk("boot stdout isn't a display !\n");
-		np = NULL;
+	name = of_get_property(of_chosen, "linux,stdout-path", NULL);
+	if (name != NULL) {
+		np = of_find_node_by_path(name);
+		if (np != NULL) {
+			if (strcmp(np->type, "display") != 0) {
+				printk("boot stdout isn't a display !\n");
+				of_node_put(np);
+				np = NULL;
+			}
+		}
 	}
 	if (np)
 		rc = btext_initialize(np);

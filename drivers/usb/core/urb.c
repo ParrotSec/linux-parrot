@@ -70,8 +70,9 @@ struct urb *usb_alloc_urb(int iso_packets, gfp_t mem_flags)
 {
 	struct urb *urb;
 
-	urb = kmalloc(struct_size(urb, iso_frame_desc, iso_packets),
-		      mem_flags);
+	urb = kmalloc(sizeof(struct urb) +
+		iso_packets * sizeof(struct usb_iso_packet_descriptor),
+		mem_flags);
 	if (!urb)
 		return NULL;
 	usb_init_urb(urb);

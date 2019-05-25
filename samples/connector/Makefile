@@ -14,4 +14,4 @@ HOSTCFLAGS_ucon.o += -I$(objtree)/usr/include
 all: modules
 
 modules clean:
-	$(MAKE) -C ../.. M=$(CURDIR) $@
+	$(MAKE) -C ../.. SUBDIRS=$(CURDIR) $@

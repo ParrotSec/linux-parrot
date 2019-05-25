@@ -80,6 +80,7 @@ struct xhci_regset {
 	char			name[DEBUGFS_NAMELEN];
 	struct debugfs_regset32	regset;
 	size_t			nregs;
+	struct dentry		*parent;
 	struct list_head	list;
 };
 

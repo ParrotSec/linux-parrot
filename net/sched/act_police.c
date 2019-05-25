@@ -21,29 +21,21 @@
 #include <linux/slab.h>
 #include <net/act_api.h>
 #include <net/netlink.h>
-#include <net/pkt_cls.h>
 
-struct tcf_police_params {
+struct tcf_police {
+	struct tc_action	common;
 	int			tcfp_result;
 	u32			tcfp_ewma_rate;
 	s64			tcfp_burst;
 	u32			tcfp_mtu;
+	s64			tcfp_toks;
+	s64			tcfp_ptoks;
 	s64			tcfp_mtu_ptoks;
+	s64			tcfp_t_c;
 	struct psched_ratecfg	rate;
 	bool			rate_present;
 	struct psched_ratecfg	peak;
 	bool			peak_present;
-	struct rcu_head rcu;
-};
-
-struct tcf_police {
-	struct tc_action	common;
-	struct tcf_police_params __rcu *params;
-
-	spinlock_t		tcfp_lock ____cacheline_aligned_in_smp;
-	s64			tcfp_toks;
-	s64			tcfp_ptoks;
-	s64			tcfp_t_c;
 };
 
 #define to_police(pc) ((struct tcf_police *)pc)
@@ -84,18 +76,16 @@ static const struct nla_policy police_policy[TCA_POLICE_MAX + 1] = {
 static int tcf_police_init(struct net *net, struct nlattr *nla,
 			       struct nlattr *est, struct tc_action **a,
 			       int ovr, int bind, bool rtnl_held,
-			       struct tcf_proto *tp,
 			       struct netlink_ext_ack *extack)
 {
-	int ret = 0, tcfp_result = TC_ACT_OK, err, size;
+	int ret = 0, err;
 	struct nlattr *tb[TCA_POLICE_MAX + 1];
-	struct tcf_chain *goto_ch = NULL;
 	struct tc_police *parm;
 	struct tcf_police *police;
 	struct qdisc_rate_table *R_tab = NULL, *P_tab = NULL;
 	struct tc_action_net *tn = net_generic(net, police_net_id);
-	struct tcf_police_params *new;
 	bool exists = false;
+	int size;
 
 	if (nla == NULL)
 		return -EINVAL;
@@ -120,20 +110,16 @@ static int tcf_police_init(struct net *net, struct nlattr *nla,
 
 	if (!exists) {
 		ret = tcf_idr_create(tn, parm->index, NULL, a,
-				     &act_police_ops, bind, true);
+				     &act_police_ops, bind, false);
 		if (ret) {
 			tcf_idr_cleanup(tn, parm->index);
 			return ret;
 		}
 		ret = ACT_P_CREATED;
-		spin_lock_init(&(to_police(*a)->tcfp_lock));
 	} else if (!ovr) {
 		tcf_idr_release(*a, bind);
 		return -EEXIST;
 	}
-	err = tcf_action_check_ctrlact(parm->action, tp, &goto_ch, extack);
-	if (err < 0)
-		goto release_idr;
 
 	police = to_police(*a);
 	if (parm->rate.rate) {
@@ -151,8 +137,7 @@ static int tcf_police_init(struct net *net, struct nlattr *nla,
 	}
 
 	if (est) {
-		err = gen_replace_estimator(&police->tcf_bstats,
-					    police->common.cpu_bstats,
+		err = gen_replace_estimator(&police->tcf_bstats, NULL,
 					    &police->tcf_rate_est,
 					    &police->tcf_lock,
 					    NULL, est);
@@ -165,81 +150,55 @@ static int tcf_police_init(struct net *net, struct nlattr *nla,
 		goto failure;
 	}
 
-	if (tb[TCA_POLICE_RESULT]) {
-		tcfp_result = nla_get_u32(tb[TCA_POLICE_RESULT]);
-		if (TC_ACT_EXT_CMP(tcfp_result, TC_ACT_GOTO_CHAIN)) {
-			NL_SET_ERR_MSG(extack,
-				       "goto chain not allowed on fallback");
-			err = -EINVAL;
-			goto failure;
-		}
-	}
-
-	new = kzalloc(sizeof(*new), GFP_KERNEL);
-	if (unlikely(!new)) {
-		err = -ENOMEM;
-		goto failure;
-	}
-
+	spin_lock_bh(&police->tcf_lock);
 	/* No failure allowed after this point */
-	new->tcfp_result = tcfp_result;
-	new->tcfp_mtu = parm->mtu;
-	if (!new->tcfp_mtu) {
-		new->tcfp_mtu = ~0;
+	police->tcfp_mtu = parm->mtu;
+	if (police->tcfp_mtu == 0) {
+		police->tcfp_mtu = ~0;
 		if (R_tab)
-			new->tcfp_mtu = 255 << R_tab->rate.cell_log;
+			police->tcfp_mtu = 255 << R_tab->rate.cell_log;
 	}
 	if (R_tab) {
-		new->rate_present = true;
-		psched_ratecfg_precompute(&new->rate, &R_tab->rate, 0);
+		police->rate_present = true;
+		psched_ratecfg_precompute(&police->rate, &R_tab->rate, 0);
 		qdisc_put_rtab(R_tab);
 	} else {
-		new->rate_present = false;
+		police->rate_present = false;
 	}
 	if (P_tab) {
-		new->peak_present = true;
-		psched_ratecfg_precompute(&new->peak, &P_tab->rate, 0);
+		police->peak_present = true;
+		psched_ratecfg_precompute(&police->peak, &P_tab->rate, 0);
 		qdisc_put_rtab(P_tab);
 	} else {
-		new->peak_present = false;
+		police->peak_present = false;
 	}
 
-	new->tcfp_burst = PSCHED_TICKS2NS(parm->burst);
-	if (new->peak_present)
-		new->tcfp_mtu_ptoks = (s64)psched_l2t_ns(&new->peak,
-							 new->tcfp_mtu);
+	if (tb[TCA_POLICE_RESULT])
+		police->tcfp_result = nla_get_u32(tb[TCA_POLICE_RESULT]);
+	police->tcfp_burst = PSCHED_TICKS2NS(parm->burst);
+	police->tcfp_toks = police->tcfp_burst;
+	if (police->peak_present) {
+		police->tcfp_mtu_ptoks = (s64) psched_l2t_ns(&police->peak,
+							     police->tcfp_mtu);
+		police->tcfp_ptoks = police->tcfp_mtu_ptoks;
+	}
+	police->tcf_action = parm->action;
 
 	if (tb[TCA_POLICE_AVRATE])
-		new->tcfp_ewma_rate = nla_get_u32(tb[TCA_POLICE_AVRATE]);
+		police->tcfp_ewma_rate = nla_get_u32(tb[TCA_POLICE_AVRATE]);
 
-	spin_lock_bh(&police->tcf_lock);
-	spin_lock_bh(&police->tcfp_lock);
-	police->tcfp_t_c = ktime_get_ns();
-	police->tcfp_toks = new->tcfp_burst;
-	if (new->peak_present)
-		police->tcfp_ptoks = new->tcfp_mtu_ptoks;
-	spin_unlock_bh(&police->tcfp_lock);
-	goto_ch = tcf_action_set_ctrlact(*a, parm->action, goto_ch);
-	rcu_swap_protected(police->params,
-			   new,
-			   lockdep_is_held(&police->tcf_lock));
 	spin_unlock_bh(&police->tcf_lock);
+	if (ret != ACT_P_CREATED)
+		return ret;
 
-	if (goto_ch)
-		tcf_chain_put_by_act(goto_ch);
-	if (new)
-		kfree_rcu(new, rcu);
+	police->tcfp_t_c = ktime_get_ns();
+	tcf_idr_insert(tn, *a);
 
-	if (ret == ACT_P_CREATED)
-		tcf_idr_insert(tn, *a);
 	return ret;
 
 failure:
 	qdisc_put_rtab(P_tab);
 	qdisc_put_rtab(R_tab);
-	if (goto_ch)
-		tcf_chain_put_by_act(goto_ch);
-release_idr:
 	tcf_idr_release(*a, bind);
 	return err;
 }
@@ -248,72 +207,64 @@ static int tcf_police_act(struct sk_buff *skb, const struct tc_action *a,
 			  struct tcf_result *res)
 {
 	struct tcf_police *police = to_police(a);
-	struct tcf_police_params *p;
-	s64 now, toks, ptoks = 0;
-	int ret;
+	s64 now;
+	s64 toks;
+	s64 ptoks = 0;
 
+	spin_lock(&police->tcf_lock);
+
+	bstats_update(&police->tcf_bstats, skb);
 	tcf_lastuse_update(&police->tcf_tm);
-	bstats_cpu_update(this_cpu_ptr(police->common.cpu_bstats), skb);
 
-	ret = READ_ONCE(police->tcf_action);
-	p = rcu_dereference_bh(police->params);
-
-	if (p->tcfp_ewma_rate) {
+	if (police->tcfp_ewma_rate) {
 		struct gnet_stats_rate_est64 sample;
 
 		if (!gen_estimator_read(&police->tcf_rate_est, &sample) ||
-		    sample.bps >= p->tcfp_ewma_rate)
-			goto inc_overlimits;
+		    sample.bps >= police->tcfp_ewma_rate) {
+			police->tcf_qstats.overlimits++;
+			if (police->tcf_action == TC_ACT_SHOT)
+				police->tcf_qstats.drops++;
+			spin_unlock(&police->tcf_lock);
+			return police->tcf_action;
+		}
 	}
 
-	if (qdisc_pkt_len(skb) <= p->tcfp_mtu) {
-		if (!p->rate_present) {
-			ret = p->tcfp_result;
-			goto end;
+	if (qdisc_pkt_len(skb) <= police->tcfp_mtu) {
+		if (!police->rate_present) {
+			spin_unlock(&police->tcf_lock);
+			return police->tcfp_result;
 		}
 
 		now = ktime_get_ns();
-		spin_lock_bh(&police->tcfp_lock);
-		toks = min_t(s64, now - police->tcfp_t_c, p->tcfp_burst);
-		if (p->peak_present) {
+		toks = min_t(s64, now - police->tcfp_t_c,
+			     police->tcfp_burst);
+		if (police->peak_present) {
 			ptoks = toks + police->tcfp_ptoks;
-			if (ptoks > p->tcfp_mtu_ptoks)
-				ptoks = p->tcfp_mtu_ptoks;
-			ptoks -= (s64)psched_l2t_ns(&p->peak,
-						    qdisc_pkt_len(skb));
+			if (ptoks > police->tcfp_mtu_ptoks)
+				ptoks = police->tcfp_mtu_ptoks;
+			ptoks -= (s64) psched_l2t_ns(&police->peak,
+						     qdisc_pkt_len(skb));
 		}
 		toks += police->tcfp_toks;
-		if (toks > p->tcfp_burst)
-			toks = p->tcfp_burst;
-		toks -= (s64)psched_l2t_ns(&p->rate, qdisc_pkt_len(skb));
+		if (toks > police->tcfp_burst)
+			toks = police->tcfp_burst;
+		toks -= (s64) psched_l2t_ns(&police->rate, qdisc_pkt_len(skb));
 		if ((toks|ptoks) >= 0) {
 			police->tcfp_t_c = now;
 			police->tcfp_toks = toks;
 			police->tcfp_ptoks = ptoks;
-			spin_unlock_bh(&police->tcfp_lock);
-			ret = p->tcfp_result;
-			goto inc_drops;
+			if (police->tcfp_result == TC_ACT_SHOT)
+				police->tcf_qstats.drops++;
+			spin_unlock(&police->tcf_lock);
+			return police->tcfp_result;
 		}
-		spin_unlock_bh(&police->tcfp_lock);
 	}
 
-inc_overlimits:
-	qstats_overlimit_inc(this_cpu_ptr(police->common.cpu_qstats));
-inc_drops:
-	if (ret == TC_ACT_SHOT)
-		qstats_drop_inc(this_cpu_ptr(police->common.cpu_qstats));
-end:
-	return ret;
-}
-
-static void tcf_police_cleanup(struct tc_action *a)
-{
-	struct tcf_police *police = to_police(a);
-	struct tcf_police_params *p;
-
-	p = rcu_dereference_protected(police->params, 1);
-	if (p)
-		kfree_rcu(p, rcu);
+	police->tcf_qstats.overlimits++;
+	if (police->tcf_action == TC_ACT_SHOT)
+		police->tcf_qstats.drops++;
+	spin_unlock(&police->tcf_lock);
+	return police->tcf_action;
 }
 
 static int tcf_police_dump(struct sk_buff *skb, struct tc_action *a,
@@ -321,7 +272,6 @@ static int tcf_police_dump(struct sk_buff *skb, struct tc_action *a,
 {
 	unsigned char *b = skb_tail_pointer(skb);
 	struct tcf_police *police = to_police(a);
-	struct tcf_police_params *p;
 	struct tc_police opt = {
 		.index = police->tcf_index,
 		.refcnt = refcount_read(&police->tcf_refcnt) - ref,
@@ -331,21 +281,19 @@ static int tcf_police_dump(struct sk_buff *skb, struct tc_action *a,
 
 	spin_lock_bh(&police->tcf_lock);
 	opt.action = police->tcf_action;
-	p = rcu_dereference_protected(police->params,
-				      lockdep_is_held(&police->tcf_lock));
-	opt.mtu = p->tcfp_mtu;
-	opt.burst = PSCHED_NS2TICKS(p->tcfp_burst);
-	if (p->rate_present)
-		psched_ratecfg_getrate(&opt.rate, &p->rate);
-	if (p->peak_present)
-		psched_ratecfg_getrate(&opt.peakrate, &p->peak);
+	opt.mtu = police->tcfp_mtu;
+	opt.burst = PSCHED_NS2TICKS(police->tcfp_burst);
+	if (police->rate_present)
+		psched_ratecfg_getrate(&opt.rate, &police->rate);
+	if (police->peak_present)
+		psched_ratecfg_getrate(&opt.peakrate, &police->peak);
 	if (nla_put(skb, TCA_POLICE_TBF, sizeof(opt), &opt))
 		goto nla_put_failure;
-	if (p->tcfp_result &&
-	    nla_put_u32(skb, TCA_POLICE_RESULT, p->tcfp_result))
+	if (police->tcfp_result &&
+	    nla_put_u32(skb, TCA_POLICE_RESULT, police->tcfp_result))
 		goto nla_put_failure;
-	if (p->tcfp_ewma_rate &&
-	    nla_put_u32(skb, TCA_POLICE_AVRATE, p->tcfp_ewma_rate))
+	if (police->tcfp_ewma_rate &&
+	    nla_put_u32(skb, TCA_POLICE_AVRATE, police->tcfp_ewma_rate))
 		goto nla_put_failure;
 
 	t.install = jiffies_to_clock_t(jiffies - police->tcf_tm.install);
@@ -364,7 +312,8 @@ nla_put_failure:
 	return -1;
 }
 
-static int tcf_police_search(struct net *net, struct tc_action **a, u32 index)
+static int tcf_police_search(struct net *net, struct tc_action **a, u32 index,
+			     struct netlink_ext_ack *extack)
 {
 	struct tc_action_net *tn = net_generic(net, police_net_id);
 
@@ -377,14 +326,13 @@ MODULE_LICENSE("GPL");
 
 static struct tc_action_ops act_police_ops = {
 	.kind		=	"police",
-	.id		=	TCA_ID_POLICE,
+	.type		=	TCA_ID_POLICE,
 	.owner		=	THIS_MODULE,
 	.act		=	tcf_police_act,
 	.dump		=	tcf_police_dump,
 	.init		=	tcf_police_init,
 	.walk		=	tcf_police_walker,
 	.lookup		=	tcf_police_search,
-	.cleanup	=	tcf_police_cleanup,
 	.size		=	sizeof(struct tcf_police),
 };
 

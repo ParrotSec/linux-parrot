@@ -860,7 +860,7 @@ static int rmi_create_function(struct rmi_device *rmi_dev,
 
 	error = rmi_register_function(fn);
 	if (error)
-		return error;
+		goto err_put_fn;
 
 	if (pdt->function_number == 0x01)
 		data->f01_container = fn;
@@ -870,6 +870,10 @@ static int rmi_create_function(struct rmi_device *rmi_dev,
 	list_add_tail(&fn->node, &data->function_list);
 
 	return RMI_SCAN_CONTINUE;
+
+err_put_fn:
+	put_device(&fn->dev);
+	return error;
 }
 
 void rmi_enable_irq(struct rmi_device *rmi_dev, bool clear_wake)

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /dts-v1/;
+/include/ "skeleton.dtsi"
 
 / {
 	model = "ARM Versatile AB";
@@ -20,7 +21,6 @@
 	};
 
 	memory {
-		device_type = "memory";
 		reg = <0x0 0x08000000>;
 	};
 
@@ -373,7 +373,7 @@
 			clock-names = "apb_pclk";
 		};
 
-		spi@101f4000 {
+		ssp@101f4000 {
 			compatible = "arm,pl022", "arm,primecell";
 			reg = <0x101f4000 0x1000>;
 			interrupts = <11>;

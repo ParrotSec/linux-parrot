@@ -117,16 +117,14 @@ extern int npmem_ranges;
 /* This governs the relationship between virtual and physical addresses.
  * If you alter it, make sure to take care of our various fixed mapping
  * segments in fixmap.h */
-#ifdef CONFIG_64BIT
-#define __PAGE_OFFSET_DEFAULT	(0x40000000)	/* 1GB */
-#else
-#define __PAGE_OFFSET_DEFAULT	(0x10000000)	/* 256MB */
-#endif
-
 #if defined(BOOTLOADER)
-#define __PAGE_OFFSET	(0)	/* bootloader uses physical addresses */
+#define __PAGE_OFFSET	(0)		/* bootloader uses physical addresses */
 #else
-#define __PAGE_OFFSET	__PAGE_OFFSET_DEFAULT
+#ifdef CONFIG_64BIT
+#define __PAGE_OFFSET	(0x40000000)	/* 1GB */
+#else
+#define __PAGE_OFFSET	(0x10000000)	/* 256MB */
+#endif
 #endif /* BOOTLOADER */
 
 #define PAGE_OFFSET		((unsigned long)__PAGE_OFFSET)

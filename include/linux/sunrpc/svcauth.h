@@ -82,7 +82,6 @@ struct auth_domain {
 	struct hlist_node	hash;
 	char			*name;
 	struct auth_ops		*flavour;
-	struct rcu_head		rcu_head;
 };
 
 /*

@@ -18,7 +18,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <linux/acpi.h>
 #include <linux/extable.h>
 #include <linux/signal.h>
 #include <linux/mm.h>
@@ -34,20 +33,19 @@
 #include <linux/preempt.h>
 #include <linux/hugetlb.h>
 
-#include <asm/acpi.h>
 #include <asm/bug.h>
 #include <asm/cmpxchg.h>
 #include <asm/cpufeature.h>
 #include <asm/exception.h>
-#include <asm/daifflags.h>
 #include <asm/debug-monitors.h>
 #include <asm/esr.h>
-#include <asm/kasan.h>
 #include <asm/sysreg.h>
 #include <asm/system_misc.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 #include <asm/traps.h>
+
+#include <acpi/ghes.h>
 
 struct fault_info {
 	int	(*fn)(unsigned long addr, unsigned int esr,
@@ -58,16 +56,10 @@ struct fault_info {
 };
 
 static const struct fault_info fault_info[];
-static struct fault_info debug_fault_info[];
 
 static inline const struct fault_info *esr_to_fault_info(unsigned int esr)
 {
-	return fault_info + (esr & ESR_ELx_FSC);
-}
-
-static inline const struct fault_info *esr_to_debug_fault_info(unsigned int esr)
-{
-	return debug_fault_info + DBG_ESR_EVT(esr);
+	return fault_info + (esr & 63);
 }
 
 #ifdef CONFIG_KPROBES
@@ -133,18 +125,6 @@ static void mem_abort_decode(unsigned int esr)
 		data_abort_decode(esr);
 }
 
-static inline bool is_ttbr0_addr(unsigned long addr)
-{
-	/* entry assembly clears tags for TTBR0 addrs */
-	return addr < TASK_SIZE;
-}
-
-static inline bool is_ttbr1_addr(unsigned long addr)
-{
-	/* TTBR1 addresses may have a tag if KASAN_SW_TAGS is in use */
-	return arch_kasan_reset_tag(addr) >= VA_START;
-}
-
 /*
  * Dump out the page tables associated with 'addr' in the currently active mm.
  */
@@ -154,7 +134,7 @@ void show_pte(unsigned long addr)
 	pgd_t *pgdp;
 	pgd_t pgd;
 
-	if (is_ttbr0_addr(addr)) {
+	if (addr < TASK_SIZE) {
 		/* TTBR0 */
 		mm = current->active_mm;
 		if (mm == &init_mm) {
@@ -162,7 +142,7 @@ void show_pte(unsigned long addr)
 				 addr);
 			return;
 		}
-	} else if (is_ttbr1_addr(addr)) {
+	} else if (addr >= VA_START) {
 		/* TTBR1 */
 		mm = &init_mm;
 	} else {
@@ -173,7 +153,7 @@ void show_pte(unsigned long addr)
 
 	pr_alert("%s pgtable: %luk pages, %u-bit VAs, pgdp = %p\n",
 		 mm == &init_mm ? "swapper" : "user", PAGE_SIZE / SZ_1K,
-		 mm == &init_mm ? VA_BITS : (int) vabits_user, mm->pgd);
+		 VA_BITS, mm->pgd);
 	pgdp = pgd_offset(mm, addr);
 	pgd = READ_ONCE(*pgdp);
 	pr_alert("[%016lx] pgd=%016llx", addr, pgd_val(pgd));
@@ -255,8 +235,9 @@ static bool is_el1_instruction_abort(unsigned int esr)
 	return ESR_ELx_EC(esr) == ESR_ELx_EC_IABT_CUR;
 }
 
-static inline bool is_el1_permission_fault(unsigned long addr, unsigned int esr,
-					   struct pt_regs *regs)
+static inline bool is_el1_permission_fault(unsigned int esr,
+					   struct pt_regs *regs,
+					   unsigned long addr)
 {
 	unsigned int ec       = ESR_ELx_EC(esr);
 	unsigned int fsc_type = esr & ESR_ELx_FSC_TYPE;
@@ -267,7 +248,7 @@ static inline bool is_el1_permission_fault(unsigned long addr, unsigned int esr,
 	if (fsc_type == ESR_ELx_FSC_PERM)
 		return true;
 
-	if (is_ttbr0_addr(addr) && system_uses_ttbr0_pan())
+	if (addr < TASK_SIZE && system_uses_ttbr0_pan())
 		return fsc_type == ESR_ELx_FSC_FAULT &&
 			(regs->pstate & PSR_PAN_BIT);
 
@@ -302,7 +283,7 @@ static void __do_kernel_fault(unsigned long addr, unsigned int esr,
 	if (!is_el1_instruction_abort(esr) && fixup_exception(regs))
 		return;
 
-	if (is_el1_permission_fault(addr, esr, regs)) {
+	if (is_el1_permission_fault(esr, regs, addr)) {
 		if (esr & ESR_ELx_WNR)
 			msg = "write to read-only memory";
 		else
@@ -316,9 +297,9 @@ static void __do_kernel_fault(unsigned long addr, unsigned int esr,
 	die_kernel_fault(msg, addr, esr, regs);
 }
 
-static void set_thread_esr(unsigned long address, unsigned int esr)
+static void __do_user_fault(struct siginfo *info, unsigned int esr)
 {
-	current->thread.fault_address = address;
+	current->thread.fault_address = (unsigned long)info->si_addr;
 
 	/*
 	 * If the faulting address is in the kernel, we must sanitize the ESR.
@@ -332,7 +313,7 @@ static void set_thread_esr(unsigned long address, unsigned int esr)
 	 * type", so we ignore this wrinkle and just return the translation
 	 * fault.)
 	 */
-	if (!is_ttbr0_addr(current->thread.fault_address)) {
+	if (current->thread.fault_address >= TASK_SIZE) {
 		switch (ESR_ELx_EC(esr)) {
 		case ESR_ELx_EC_DABT_LOW:
 			/*
@@ -371,6 +352,7 @@ static void set_thread_esr(unsigned long address, unsigned int esr)
 	}
 
 	current->thread.fault_code = esr;
+	arm64_force_sig_info(info, esr_to_fault_info(esr)->name, current);
 }
 
 static void do_bad_area(unsigned long addr, unsigned int esr, struct pt_regs *regs)
@@ -381,10 +363,14 @@ static void do_bad_area(unsigned long addr, unsigned int esr, struct pt_regs *re
 	 */
 	if (user_mode(regs)) {
 		const struct fault_info *inf = esr_to_fault_info(esr);
+		struct siginfo si;
 
-		set_thread_esr(addr, esr);
-		arm64_force_sig_fault(inf->sig, inf->code, (void __user *)addr,
-				      inf->name);
+		clear_siginfo(&si);
+		si.si_signo	= inf->sig;
+		si.si_code	= inf->code;
+		si.si_addr	= (void __user *)addr;
+
+		__do_user_fault(&si, esr);
 	} else {
 		__do_kernel_fault(addr, esr, regs);
 	}
@@ -438,9 +424,9 @@ static bool is_el0_instruction_abort(unsigned int esr)
 static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 				   struct pt_regs *regs)
 {
-	const struct fault_info *inf;
 	struct task_struct *tsk;
 	struct mm_struct *mm;
+	struct siginfo si;
 	vm_fault_t fault, major = 0;
 	unsigned long vm_flags = VM_READ | VM_WRITE;
 	unsigned int mm_flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
@@ -468,7 +454,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 		mm_flags |= FAULT_FLAG_WRITE;
 	}
 
-	if (is_ttbr0_addr(addr) && is_el1_permission_fault(addr, esr, regs)) {
+	if (addr < TASK_SIZE && is_el1_permission_fault(esr, regs, addr)) {
 		/* regs->orig_addr_limit may be 0 if we entered from EL0 */
 		if (regs->orig_addr_limit == KERNEL_DS)
 			die_kernel_fault("access to user memory with fs=KERNEL_DS",
@@ -576,35 +562,37 @@ retry:
 		return 0;
 	}
 
-	inf = esr_to_fault_info(esr);
-	set_thread_esr(addr, esr);
+	clear_siginfo(&si);
+	si.si_addr = (void __user *)addr;
+
 	if (fault & VM_FAULT_SIGBUS) {
 		/*
 		 * We had some memory, but were unable to successfully fix up
 		 * this page fault.
 		 */
-		arm64_force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *)addr,
-				      inf->name);
-	} else if (fault & (VM_FAULT_HWPOISON_LARGE | VM_FAULT_HWPOISON)) {
-		unsigned int lsb;
+		si.si_signo	= SIGBUS;
+		si.si_code	= BUS_ADRERR;
+	} else if (fault & VM_FAULT_HWPOISON_LARGE) {
+		unsigned int hindex = VM_FAULT_GET_HINDEX(fault);
 
-		lsb = PAGE_SHIFT;
-		if (fault & VM_FAULT_HWPOISON_LARGE)
-			lsb = hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
-
-		arm64_force_sig_mceerr(BUS_MCEERR_AR, (void __user *)addr, lsb,
-				       inf->name);
+		si.si_signo	= SIGBUS;
+		si.si_code	= BUS_MCEERR_AR;
+		si.si_addr_lsb	= hstate_index_to_shift(hindex);
+	} else if (fault & VM_FAULT_HWPOISON) {
+		si.si_signo	= SIGBUS;
+		si.si_code	= BUS_MCEERR_AR;
+		si.si_addr_lsb	= PAGE_SHIFT;
 	} else {
 		/*
 		 * Something tried to access memory that isn't in our memory
 		 * map.
 		 */
-		arm64_force_sig_fault(SIGSEGV,
-				      fault == VM_FAULT_BADACCESS ? SEGV_ACCERR : SEGV_MAPERR,
-				      (void __user *)addr,
-				      inf->name);
+		si.si_signo	= SIGSEGV;
+		si.si_code	= fault == VM_FAULT_BADACCESS ?
+				  SEGV_ACCERR : SEGV_MAPERR;
 	}
 
+	__do_user_fault(&si, esr);
 	return 0;
 
 no_context:
@@ -616,7 +604,7 @@ static int __kprobes do_translation_fault(unsigned long addr,
 					  unsigned int esr,
 					  struct pt_regs *regs)
 {
-	if (is_ttbr0_addr(addr))
+	if (addr < TASK_SIZE)
 		return do_page_fault(addr, esr, regs);
 
 	do_bad_area(addr, esr, regs);
@@ -637,22 +625,35 @@ static int do_bad(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 
 static int do_sea(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
+	struct siginfo info;
 	const struct fault_info *inf;
-	void __user *siaddr;
 
 	inf = esr_to_fault_info(esr);
 
 	/*
-	 * Return value ignored as we rely on signal merging.
-	 * Future patches will make this more robust.
+	 * Synchronous aborts may interrupt code which had interrupts masked.
+	 * Before calling out into the wider kernel tell the interested
+	 * subsystems.
 	 */
-	apei_claim_sea(regs);
+	if (IS_ENABLED(CONFIG_ACPI_APEI_SEA)) {
+		if (interrupts_enabled(regs))
+			nmi_enter();
 
+		ghes_notify_sea();
+
+		if (interrupts_enabled(regs))
+			nmi_exit();
+	}
+
+	clear_siginfo(&info);
+	info.si_signo = inf->sig;
+	info.si_errno = 0;
+	info.si_code  = inf->code;
 	if (esr & ESR_ELx_FnV)
-		siaddr = NULL;
+		info.si_addr = NULL;
 	else
-		siaddr  = (void __user *)addr;
-	arm64_notify_die(inf->name, regs, inf->sig, inf->code, siaddr, esr);
+		info.si_addr  = (void __user *)addr;
+	arm64_notify_die(inf->name, regs, &info, esr);
 
 	return 0;
 }
@@ -724,10 +725,16 @@ static const struct fault_info fault_info[] = {
 	{ do_bad,		SIGKILL, SI_KERNEL,	"unknown 63"			},
 };
 
+int handle_guest_sea(phys_addr_t addr, unsigned int esr)
+{
+	return ghes_notify_sea();
+}
+
 asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 					 struct pt_regs *regs)
 {
 	const struct fault_info *inf = esr_to_fault_info(esr);
+	struct siginfo info;
 
 	if (!inf->fn(addr, esr, regs))
 		return;
@@ -738,8 +745,12 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 		show_pte(addr);
 	}
 
-	arm64_notify_die(inf->name, regs,
-			 inf->sig, inf->code, (void __user *)addr, esr);
+	clear_siginfo(&info);
+	info.si_signo = inf->sig;
+	info.si_errno = 0;
+	info.si_code  = inf->code;
+	info.si_addr  = (void __user *)addr;
+	arm64_notify_die(inf->name, regs, &info, esr);
 }
 
 asmlinkage void __exception do_el0_irq_bp_hardening(void)
@@ -757,10 +768,10 @@ asmlinkage void __exception do_el0_ia_bp_hardening(unsigned long addr,
 	 * re-enabled IRQs. If the address is a kernel address, apply
 	 * BP hardening prior to enabling IRQs and pre-emption.
 	 */
-	if (!is_ttbr0_addr(addr))
+	if (addr > TASK_SIZE)
 		arm64_apply_bp_hardening();
 
-	local_daif_restore(DAIF_PROCCTX);
+	local_irq_enable();
 	do_mem_abort(addr, esr, regs);
 }
 
@@ -769,14 +780,20 @@ asmlinkage void __exception do_sp_pc_abort(unsigned long addr,
 					   unsigned int esr,
 					   struct pt_regs *regs)
 {
+	struct siginfo info;
+
 	if (user_mode(regs)) {
-		if (!is_ttbr0_addr(instruction_pointer(regs)))
+		if (instruction_pointer(regs) > TASK_SIZE)
 			arm64_apply_bp_hardening();
-		local_daif_restore(DAIF_PROCCTX);
+		local_irq_enable();
 	}
 
-	arm64_notify_die("SP/PC alignment exception", regs,
-			 SIGBUS, BUS_ADRALN, (void __user *)addr, esr);
+	clear_siginfo(&info);
+	info.si_signo = SIGBUS;
+	info.si_errno = 0;
+	info.si_code  = BUS_ADRALN;
+	info.si_addr  = (void __user *)addr;
+	arm64_notify_die("SP/PC alignment exception", regs, &info, esr);
 }
 
 int __init early_brk64(unsigned long addr, unsigned int esr,
@@ -814,7 +831,7 @@ asmlinkage int __exception do_debug_exception(unsigned long addr_if_watchpoint,
 					      unsigned int esr,
 					      struct pt_regs *regs)
 {
-	const struct fault_info *inf = esr_to_debug_fault_info(esr);
+	const struct fault_info *inf = debug_fault_info + DBG_ESR_EVT(esr);
 	unsigned long pc = instruction_pointer(regs);
 	int rv;
 
@@ -825,14 +842,20 @@ asmlinkage int __exception do_debug_exception(unsigned long addr_if_watchpoint,
 	if (interrupts_enabled(regs))
 		trace_hardirqs_off();
 
-	if (user_mode(regs) && !is_ttbr0_addr(pc))
+	if (user_mode(regs) && pc > TASK_SIZE)
 		arm64_apply_bp_hardening();
 
 	if (!inf->fn(addr_if_watchpoint, esr, regs)) {
 		rv = 1;
 	} else {
-		arm64_notify_die(inf->name, regs,
-				 inf->sig, inf->code, (void __user *)pc, esr);
+		struct siginfo info;
+
+		clear_siginfo(&info);
+		info.si_signo = inf->sig;
+		info.si_errno = 0;
+		info.si_code  = inf->code;
+		info.si_addr  = (void __user *)pc;
+		arm64_notify_die(inf->name, regs, &info, esr);
 		rv = 0;
 	}
 
@@ -842,3 +865,17 @@ asmlinkage int __exception do_debug_exception(unsigned long addr_if_watchpoint,
 	return rv;
 }
 NOKPROBE_SYMBOL(do_debug_exception);
+
+#ifdef CONFIG_ARM64_PAN
+void cpu_enable_pan(const struct arm64_cpu_capabilities *__unused)
+{
+	/*
+	 * We modify PSTATE. This won't work from irq context as the PSTATE
+	 * is discarded once we return from the exception.
+	 */
+	WARN_ON_ONCE(in_interrupt());
+
+	sysreg_clear_set(sctlr_el1, SCTLR_EL1_SPAN, 0);
+	asm(SET_PSTATE_PAN(1));
+}
+#endif /* CONFIG_ARM64_PAN */

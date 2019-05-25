@@ -1,5 +1,3 @@
-.. SPDX-License-Identifier: GPL-2.0
-
 SAA7134 cards list
 ==================
 

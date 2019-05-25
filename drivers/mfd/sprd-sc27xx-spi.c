@@ -53,67 +53,67 @@ static const struct sprd_pmic_data sc2731_data = {
 static const struct mfd_cell sprd_pmic_devs[] = {
 	{
 		.name = "sc27xx-wdt",
-		.of_compatible = "sprd,sc2731-wdt",
+		.of_compatible = "sprd,sc27xx-wdt",
 	}, {
 		.name = "sc27xx-rtc",
-		.of_compatible = "sprd,sc2731-rtc",
+		.of_compatible = "sprd,sc27xx-rtc",
 	}, {
 		.name = "sc27xx-charger",
-		.of_compatible = "sprd,sc2731-charger",
+		.of_compatible = "sprd,sc27xx-charger",
 	}, {
 		.name = "sc27xx-chg-timer",
-		.of_compatible = "sprd,sc2731-chg-timer",
+		.of_compatible = "sprd,sc27xx-chg-timer",
 	}, {
 		.name = "sc27xx-fast-chg",
-		.of_compatible = "sprd,sc2731-fast-chg",
+		.of_compatible = "sprd,sc27xx-fast-chg",
 	}, {
 		.name = "sc27xx-chg-wdt",
-		.of_compatible = "sprd,sc2731-chg-wdt",
+		.of_compatible = "sprd,sc27xx-chg-wdt",
 	}, {
 		.name = "sc27xx-typec",
-		.of_compatible = "sprd,sc2731-typec",
+		.of_compatible = "sprd,sc27xx-typec",
 	}, {
 		.name = "sc27xx-flash",
-		.of_compatible = "sprd,sc2731-flash",
+		.of_compatible = "sprd,sc27xx-flash",
 	}, {
 		.name = "sc27xx-eic",
-		.of_compatible = "sprd,sc2731-eic",
+		.of_compatible = "sprd,sc27xx-eic",
 	}, {
 		.name = "sc27xx-efuse",
-		.of_compatible = "sprd,sc2731-efuse",
+		.of_compatible = "sprd,sc27xx-efuse",
 	}, {
 		.name = "sc27xx-thermal",
-		.of_compatible = "sprd,sc2731-thermal",
+		.of_compatible = "sprd,sc27xx-thermal",
 	}, {
 		.name = "sc27xx-adc",
-		.of_compatible = "sprd,sc2731-adc",
+		.of_compatible = "sprd,sc27xx-adc",
 	}, {
 		.name = "sc27xx-audio-codec",
-		.of_compatible = "sprd,sc2731-audio-codec",
+		.of_compatible = "sprd,sc27xx-audio-codec",
 	}, {
 		.name = "sc27xx-regulator",
-		.of_compatible = "sprd,sc2731-regulator",
+		.of_compatible = "sprd,sc27xx-regulator",
 	}, {
 		.name = "sc27xx-vibrator",
-		.of_compatible = "sprd,sc2731-vibrator",
+		.of_compatible = "sprd,sc27xx-vibrator",
 	}, {
 		.name = "sc27xx-keypad-led",
-		.of_compatible = "sprd,sc2731-keypad-led",
+		.of_compatible = "sprd,sc27xx-keypad-led",
 	}, {
 		.name = "sc27xx-bltc",
-		.of_compatible = "sprd,sc2731-bltc",
+		.of_compatible = "sprd,sc27xx-bltc",
 	}, {
 		.name = "sc27xx-fgu",
-		.of_compatible = "sprd,sc2731-fgu",
+		.of_compatible = "sprd,sc27xx-fgu",
 	}, {
 		.name = "sc27xx-7sreset",
-		.of_compatible = "sprd,sc2731-7sreset",
+		.of_compatible = "sprd,sc27xx-7sreset",
 	}, {
 		.name = "sc27xx-poweroff",
-		.of_compatible = "sprd,sc2731-poweroff",
+		.of_compatible = "sprd,sc27xx-poweroff",
 	}, {
 		.name = "sc27xx-syscon",
-		.of_compatible = "sprd,sc2731-syscon",
+		.of_compatible = "sprd,sc27xx-syscon",
 	},
 };
 

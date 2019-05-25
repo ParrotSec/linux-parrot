@@ -19,6 +19,8 @@
 
 #define LTQ_DMA_CH0_INT		(INT_NUM_IM2_IRL0)
 
+#define MIPS_CPU_TIMER_IRQ	7
+
 #define MAX_IM			5
 
 #endif

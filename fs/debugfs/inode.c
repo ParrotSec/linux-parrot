@@ -163,24 +163,19 @@ static int debugfs_show_options(struct seq_file *m, struct dentry *root)
 	return 0;
 }
 
-static void debugfs_i_callback(struct rcu_head *head)
+static void debugfs_evict_inode(struct inode *inode)
 {
-	struct inode *inode = container_of(head, struct inode, i_rcu);
+	truncate_inode_pages_final(&inode->i_data);
+	clear_inode(inode);
 	if (S_ISLNK(inode->i_mode))
 		kfree(inode->i_link);
-	free_inode_nonrcu(inode);
-}
-
-static void debugfs_destroy_inode(struct inode *inode)
-{
-	call_rcu(&inode->i_rcu, debugfs_i_callback);
 }
 
 static const struct super_operations debugfs_super_operations = {
 	.statfs		= simple_statfs,
 	.remount_fs	= debugfs_remount,
 	.show_options	= debugfs_show_options,
-	.destroy_inode	= debugfs_destroy_inode,
+	.evict_inode	= debugfs_evict_inode,
 };
 
 static void debugfs_release_dentry(struct dentry *dentry)
@@ -329,7 +324,7 @@ static struct dentry *failed_creating(struct dentry *dentry)
 	inode_unlock(d_inode(dentry->d_parent));
 	dput(dentry);
 	simple_release_fs(&debugfs_mount, &debugfs_mount_count);
-	return ERR_PTR(-ENOMEM);
+	return NULL;
 }
 
 static struct dentry *end_creating(struct dentry *dentry)
@@ -352,7 +347,7 @@ static struct dentry *__debugfs_create_file(const char *name, umode_t mode,
 	dentry = start_creating(name, parent);
 
 	if (IS_ERR(dentry))
-		return dentry;
+		return NULL;
 
 	inode = debugfs_get_inode(dentry->d_sb);
 	if (unlikely(!inode))
@@ -391,8 +386,7 @@ static struct dentry *__debugfs_create_file(const char *name, umode_t mode,
  * This function will return a pointer to a dentry if it succeeds.  This
  * pointer must be passed to the debugfs_remove() function when the file is
  * to be removed (no automatic cleanup happens if your module is unloaded,
- * you are responsible here.)  If an error occurs, %ERR_PTR(-ERROR) will be
- * returned.
+ * you are responsible here.)  If an error occurs, %NULL will be returned.
  *
  * If debugfs is not enabled in the kernel, the value -%ENODEV will be
  * returned.
@@ -428,8 +422,8 @@ EXPORT_SYMBOL_GPL(debugfs_create_file);
  * debugfs core.
  *
  * It is your responsibility to protect your struct file_operation
- * methods against file removals by means of debugfs_file_get()
- * and debugfs_file_put(). ->open() is still protected by
+ * methods against file removals by means of debugfs_use_file_start()
+ * and debugfs_use_file_finish(). ->open() is still protected by
  * debugfs though.
  *
  * Any struct file_operations defined by means of
@@ -470,8 +464,7 @@ EXPORT_SYMBOL_GPL(debugfs_create_file_unsafe);
  * This function will return a pointer to a dentry if it succeeds.  This
  * pointer must be passed to the debugfs_remove() function when the file is
  * to be removed (no automatic cleanup happens if your module is unloaded,
- * you are responsible here.)  If an error occurs, %ERR_PTR(-ERROR) will be
- * returned.
+ * you are responsible here.)  If an error occurs, %NULL will be returned.
  *
  * If debugfs is not enabled in the kernel, the value -%ENODEV will be
  * returned.
@@ -502,8 +495,7 @@ EXPORT_SYMBOL_GPL(debugfs_create_file_size);
  * This function will return a pointer to a dentry if it succeeds.  This
  * pointer must be passed to the debugfs_remove() function when the file is
  * to be removed (no automatic cleanup happens if your module is unloaded,
- * you are responsible here.)  If an error occurs, %ERR_PTR(-ERROR) will be
- * returned.
+ * you are responsible here.)  If an error occurs, %NULL will be returned.
  *
  * If debugfs is not enabled in the kernel, the value -%ENODEV will be
  * returned.
@@ -514,7 +506,7 @@ struct dentry *debugfs_create_dir(const char *name, struct dentry *parent)
 	struct inode *inode;
 
 	if (IS_ERR(dentry))
-		return dentry;
+		return NULL;
 
 	inode = debugfs_get_inode(dentry->d_sb);
 	if (unlikely(!inode))
@@ -553,7 +545,7 @@ struct dentry *debugfs_create_automount(const char *name,
 	struct inode *inode;
 
 	if (IS_ERR(dentry))
-		return dentry;
+		return NULL;
 
 	inode = debugfs_get_inode(dentry->d_sb);
 	if (unlikely(!inode))
@@ -589,8 +581,8 @@ EXPORT_SYMBOL(debugfs_create_automount);
  * This function will return a pointer to a dentry if it succeeds.  This
  * pointer must be passed to the debugfs_remove() function when the symbolic
  * link is to be removed (no automatic cleanup happens if your module is
- * unloaded, you are responsible here.)  If an error occurs, %ERR_PTR(-ERROR)
- * will be returned.
+ * unloaded, you are responsible here.)  If an error occurs, %NULL will be
+ * returned.
  *
  * If debugfs is not enabled in the kernel, the value -%ENODEV will be
  * returned.
@@ -602,12 +594,12 @@ struct dentry *debugfs_create_symlink(const char *name, struct dentry *parent,
 	struct inode *inode;
 	char *link = kstrdup(target, GFP_KERNEL);
 	if (!link)
-		return ERR_PTR(-ENOMEM);
+		return NULL;
 
 	dentry = start_creating(name, parent);
 	if (IS_ERR(dentry)) {
 		kfree(link);
-		return dentry;
+		return NULL;
 	}
 
 	inode = debugfs_get_inode(dentry->d_sb);
@@ -835,9 +827,7 @@ exit:
 	if (dentry && !IS_ERR(dentry))
 		dput(dentry);
 	unlock_rename(new_dir, old_dir);
-	if (IS_ERR(dentry))
-		return dentry;
-	return ERR_PTR(-EINVAL);
+	return NULL;
 }
 EXPORT_SYMBOL_GPL(debugfs_rename);
 

@@ -68,8 +68,7 @@ const struct regmap_config tsc200x_regmap_config = {
 	.read_flag_mask = TSC200X_REG_READ,
 	.write_flag_mask = TSC200X_REG_PND0,
 	.wr_table = &tsc200x_writable_table,
-	.use_single_read = true,
-	.use_single_write = true,
+	.use_single_rw = true,
 };
 EXPORT_SYMBOL_GPL(tsc200x_regmap_config);
 

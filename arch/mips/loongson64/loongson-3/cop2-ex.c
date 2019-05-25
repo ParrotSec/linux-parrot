@@ -43,8 +43,11 @@ static int loongson_cu2_call(struct notifier_block *nfb, unsigned long action,
 		/* If FPU is owned, we needn't init or restore fp */
 		if (!fpu_owned) {
 			set_thread_flag(TIF_USEDFPU);
-			init_fp_ctx(current);
-			_restore_fp(current);
+			if (!used_math()) {
+				_init_fpu(current->thread.fpu.fcr31);
+				set_used_math();
+			} else
+				_restore_fp(current);
 		}
 		preempt_enable();
 

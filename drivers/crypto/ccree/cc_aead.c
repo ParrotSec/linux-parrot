@@ -58,7 +58,6 @@ struct cc_aead_ctx {
 	unsigned int enc_keylen;
 	unsigned int auth_keylen;
 	unsigned int authsize; /* Actual (reduced?) size of the MAC/ICv */
-	unsigned int hash_len;
 	enum drv_cipher_mode cipher_mode;
 	enum cc_flow_mode flow_mode;
 	enum drv_hash_mode auth_mode;
@@ -121,13 +120,6 @@ static void cc_aead_exit(struct crypto_aead *tfm)
 			hmac->padded_authkey = NULL;
 		}
 	}
-}
-
-static unsigned int cc_get_aead_hash_len(struct crypto_aead *tfm)
-{
-	struct cc_aead_ctx *ctx = crypto_aead_ctx(tfm);
-
-	return cc_get_default_hash_len(ctx->drvdata);
 }
 
 static int cc_aead_init(struct crypto_aead *tfm)
@@ -204,7 +196,6 @@ static int cc_aead_init(struct crypto_aead *tfm)
 		ctx->auth_state.hmac.ipad_opad = NULL;
 		ctx->auth_state.hmac.padded_authkey = NULL;
 	}
-	ctx->hash_len = cc_get_aead_hash_len(tfm);
 
 	return 0;
 
@@ -336,7 +327,7 @@ static int hmac_setkey(struct cc_hw_desc *desc, struct cc_aead_ctx *ctx)
 		/* Load the hash current length*/
 		hw_desc_init(&desc[idx]);
 		set_cipher_mode(&desc[idx], hash_mode);
-		set_din_const(&desc[idx], 0, ctx->hash_len);
+		set_din_const(&desc[idx], 0, ctx->drvdata->hash_len_sz);
 		set_flow_mode(&desc[idx], S_DIN_to_HASH);
 		set_setup_mode(&desc[idx], SETUP_LOAD_KEY0);
 		idx++;
@@ -474,7 +465,7 @@ static int cc_get_plain_hmac_key(struct crypto_aead *tfm, const u8 *key,
 			/* Load the hash current length*/
 			hw_desc_init(&desc[idx]);
 			set_cipher_mode(&desc[idx], hashmode);
-			set_din_const(&desc[idx], 0, ctx->hash_len);
+			set_din_const(&desc[idx], 0, ctx->drvdata->hash_len_sz);
 			set_cipher_config1(&desc[idx], HASH_PADDING_ENABLED);
 			set_flow_mode(&desc[idx], S_DIN_to_HASH);
 			set_setup_mode(&desc[idx], SETUP_LOAD_KEY0);
@@ -1008,7 +999,7 @@ static void cc_set_hmac_desc(struct aead_request *req, struct cc_hw_desc desc[],
 	hw_desc_init(&desc[idx]);
 	set_cipher_mode(&desc[idx], hash_mode);
 	set_din_sram(&desc[idx], cc_digest_len_addr(ctx->drvdata, hash_mode),
-		     ctx->hash_len);
+		     ctx->drvdata->hash_len_sz);
 	set_flow_mode(&desc[idx], S_DIN_to_HASH);
 	set_setup_mode(&desc[idx], SETUP_LOAD_KEY0);
 	idx++;
@@ -1105,7 +1096,7 @@ static void cc_proc_scheme_desc(struct aead_request *req,
 	hw_desc_init(&desc[idx]);
 	set_cipher_mode(&desc[idx], hash_mode);
 	set_dout_sram(&desc[idx], aead_handle->sram_workspace_addr,
-		      ctx->hash_len);
+		      ctx->drvdata->hash_len_sz);
 	set_flow_mode(&desc[idx], S_HASH_to_DOUT);
 	set_setup_mode(&desc[idx], SETUP_WRITE_STATE1);
 	set_cipher_do(&desc[idx], DO_PAD);
@@ -1135,7 +1126,7 @@ static void cc_proc_scheme_desc(struct aead_request *req,
 	hw_desc_init(&desc[idx]);
 	set_cipher_mode(&desc[idx], hash_mode);
 	set_din_sram(&desc[idx], cc_digest_len_addr(ctx->drvdata, hash_mode),
-		     ctx->hash_len);
+		     ctx->drvdata->hash_len_sz);
 	set_cipher_config1(&desc[idx], HASH_PADDING_ENABLED);
 	set_flow_mode(&desc[idx], S_DIN_to_HASH);
 	set_setup_mode(&desc[idx], SETUP_LOAD_KEY0);
@@ -2365,7 +2356,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_SHA1,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "authenc(hmac(sha1),cbc(des3_ede))",
@@ -2385,7 +2375,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_DES,
 		.auth_mode = DRV_HASH_SHA1,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "authenc(hmac(sha256),cbc(aes))",
@@ -2405,7 +2394,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_SHA256,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "authenc(hmac(sha256),cbc(des3_ede))",
@@ -2425,7 +2413,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_DES,
 		.auth_mode = DRV_HASH_SHA256,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "authenc(xcbc(aes),cbc(aes))",
@@ -2445,7 +2432,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_XCBC_MAC,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "authenc(hmac(sha1),rfc3686(ctr(aes)))",
@@ -2465,7 +2451,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_SHA1,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "authenc(hmac(sha256),rfc3686(ctr(aes)))",
@@ -2485,7 +2470,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_SHA256,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "authenc(xcbc(aes),rfc3686(ctr(aes)))",
@@ -2505,7 +2489,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_XCBC_MAC,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "ccm(aes)",
@@ -2525,7 +2508,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_NULL,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "rfc4309(ccm(aes))",
@@ -2545,7 +2527,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_NULL,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "gcm(aes)",
@@ -2565,7 +2546,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_NULL,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "rfc4106(gcm(aes))",
@@ -2585,7 +2565,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_NULL,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 	{
 		.name = "rfc4543(gcm(aes))",
@@ -2605,7 +2584,6 @@ static struct cc_alg_template aead_algs[] = {
 		.flow_mode = S_DIN_to_AES,
 		.auth_mode = DRV_HASH_NULL,
 		.min_hw_rev = CC_HW_REV_630,
-		.std_body = CC_STD_NIST,
 	},
 };
 
@@ -2690,8 +2668,7 @@ int cc_aead_alloc(struct cc_drvdata *drvdata)
 
 	/* Linux crypto */
 	for (alg = 0; alg < ARRAY_SIZE(aead_algs); alg++) {
-		if ((aead_algs[alg].min_hw_rev > drvdata->hw_rev) ||
-		    !(drvdata->std_bodies & aead_algs[alg].std_body))
+		if (aead_algs[alg].min_hw_rev > drvdata->hw_rev)
 			continue;
 
 		t_alg = cc_create_aead_alg(&aead_algs[alg], dev);

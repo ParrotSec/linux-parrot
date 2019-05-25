@@ -447,15 +447,13 @@ static int comp_probe(struct most_interface *iface, int channel_id,
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c) {
 		retval = -ENOMEM;
-		goto err_remove_ida;
+		goto error_alloc_channel;
 	}
 
 	c->devno = MKDEV(comp.major, current_minor);
 	cdev_init(&c->cdev, &channel_fops);
 	c->cdev.owner = THIS_MODULE;
-	retval = cdev_add(&c->cdev, c->devno, 1);
-	if (retval < 0)
-		goto err_free_c;
+	cdev_add(&c->cdev, c->devno, 1);
 	c->iface = iface;
 	c->cfg = cfg;
 	c->channel_id = channel_id;
@@ -465,7 +463,7 @@ static int comp_probe(struct most_interface *iface, int channel_id,
 	retval = kfifo_alloc(&c->fifo, cfg->num_buffers, GFP_KERNEL);
 	if (retval) {
 		pr_info("failed to alloc channel kfifo");
-		goto err_del_cdev_and_free_channel;
+		goto error_alloc_kfifo;
 	}
 	init_waitqueue_head(&c->wq);
 	mutex_init(&c->io_mutex);
@@ -477,19 +475,18 @@ static int comp_probe(struct most_interface *iface, int channel_id,
 	if (IS_ERR(c->dev)) {
 		retval = PTR_ERR(c->dev);
 		pr_info("failed to create new device node %s\n", name);
-		goto err_free_kfifo_and_del_list;
+		goto error_create_device;
 	}
 	kobject_uevent(&c->dev->kobj, KOBJ_ADD);
 	return 0;
 
-err_free_kfifo_and_del_list:
+error_create_device:
 	kfifo_free(&c->fifo);
 	list_del(&c->list);
-err_del_cdev_and_free_channel:
+error_alloc_kfifo:
 	cdev_del(&c->cdev);
-err_free_c:
 	kfree(c);
-err_remove_ida:
+error_alloc_channel:
 	ida_simple_remove(&comp.minor_id, current_minor);
 	return retval;
 }
@@ -549,7 +546,7 @@ static void __exit mod_exit(void)
 		destroy_cdev(c);
 		destroy_channel(c);
 	}
-	unregister_chrdev_region(comp.devno, CHRDEV_REGION_SIZE);
+	unregister_chrdev_region(comp.devno, 1);
 	ida_destroy(&comp.minor_id);
 	class_destroy(comp.class);
 }

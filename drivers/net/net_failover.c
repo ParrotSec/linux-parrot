@@ -19,6 +19,7 @@
 #include <linux/ethtool.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/netdevice.h>
 #include <linux/netpoll.h>
 #include <linux/rtnetlink.h>
 #include <linux/if_vlan.h>
@@ -40,14 +41,14 @@ static int net_failover_open(struct net_device *dev)
 
 	primary_dev = rtnl_dereference(nfo_info->primary_dev);
 	if (primary_dev) {
-		err = dev_open(primary_dev, NULL);
+		err = dev_open(primary_dev);
 		if (err)
 			goto err_primary_open;
 	}
 
 	standby_dev = rtnl_dereference(nfo_info->standby_dev);
 	if (standby_dev) {
-		err = dev_open(standby_dev, NULL);
+		err = dev_open(standby_dev);
 		if (err)
 			goto err_standby_open;
 	}
@@ -517,7 +518,7 @@ static int net_failover_slave_register(struct net_device *slave_dev,
 	dev_hold(slave_dev);
 
 	if (netif_running(failover_dev)) {
-		err = dev_open(slave_dev, NULL);
+		err = dev_open(slave_dev);
 		if (err && (err != -EBUSY)) {
 			netdev_err(failover_dev, "Opening slave %s failed err:%d\n",
 				   slave_dev->name, err);
@@ -680,7 +681,7 @@ static int net_failover_slave_name_change(struct net_device *slave_dev,
 	/* We need to bring up the slave after the rename by udev in case
 	 * open failed with EBUSY when it was registered.
 	 */
-	dev_open(slave_dev, NULL);
+	dev_open(slave_dev);
 
 	return 0;
 }
@@ -764,10 +765,8 @@ struct failover *net_failover_create(struct net_device *standby_dev)
 	netif_carrier_off(failover_dev);
 
 	failover = failover_register(failover_dev, &net_failover_ops);
-	if (IS_ERR(failover)) {
-		err = PTR_ERR(failover);
+	if (IS_ERR(failover))
 		goto err_failover_register;
-	}
 
 	return failover;
 

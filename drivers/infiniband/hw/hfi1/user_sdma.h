@@ -204,12 +204,12 @@ struct user_sdma_request {
 	s8 ahg_idx;
 
 	/* Writeable fields shared with interrupt */
-	u16 seqcomp ____cacheline_aligned_in_smp;
-	u16 seqsubmitted;
+	u64 seqcomp ____cacheline_aligned_in_smp;
+	u64 seqsubmitted;
 
 	/* Send side fields */
 	struct list_head txps ____cacheline_aligned_in_smp;
-	u16 seqnum;
+	u64 seqnum;
 	/*
 	 * KDETH.OFFSET (TID) field
 	 * The offset can cover multiple packets, depending on the
@@ -246,7 +246,7 @@ struct user_sdma_txreq {
 	struct user_sdma_request *req;
 	u16 flags;
 	unsigned int busycount;
-	u16 seqnum;
+	u64 seqnum;
 };
 
 int hfi1_user_sdma_alloc_queues(struct hfi1_ctxtdata *uctxt,

@@ -28,7 +28,6 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
-#include <sound/soc-acpi.h>
 #include <sound/jack.h>
 #include "../../codecs/max98090.h"
 #include "../atom/sst-atom-controls.h"
@@ -43,7 +42,6 @@ struct cht_mc_private {
 	struct clk *mclk;
 	struct snd_soc_jack jack;
 	bool ts3a227e_present;
-	int quirks;
 };
 
 static int platform_clock_control(struct snd_soc_dapm_widget *w,
@@ -54,10 +52,6 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 	struct snd_soc_dai *codec_dai;
 	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(card);
 	int ret;
-
-	/* See the comment in snd_cht_mc_probe() */
-	if (ctx->quirks & QUIRK_PMC_PLT_CLK_0)
-		return 0;
 
 	codec_dai = snd_soc_card_get_codec_dai(card, CHT_CODEC_DAI);
 	if (!codec_dai) {
@@ -227,10 +221,6 @@ static int cht_codec_init(struct snd_soc_pcm_runtime *runtime)
 		dev_err(runtime->dev,
 			"jack detection gpios not added, error %d\n", ret);
 	}
-
-	/* See the comment in snd_cht_mc_probe() */
-	if (ctx->quirks & QUIRK_PMC_PLT_CLK_0)
-		return 0;
 
 	/*
 	 * The firmware might enable the clock at
@@ -430,16 +420,15 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 	int ret_val = 0;
 	struct cht_mc_private *drv;
 	const char *mclk_name;
-	struct snd_soc_acpi_mach *mach;
-	const char *platform_name;
+	int quirks = 0;
+
+	dmi_id = dmi_first_match(cht_max98090_quirk_table);
+	if (dmi_id)
+		quirks = (unsigned long)dmi_id->driver_data;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
-
-	dmi_id = dmi_first_match(cht_max98090_quirk_table);
-	if (dmi_id)
-		drv->quirks = (unsigned long)dmi_id->driver_data;
 
 	drv->ts3a227e_present = acpi_dev_found("104C227E");
 	if (!drv->ts3a227e_present) {
@@ -453,20 +442,11 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 			dev_dbg(dev, "Unable to add GPIO mapping table\n");
 	}
 
-	/* override plaform name, if required */
-	mach = (&pdev->dev)->platform_data;
-	platform_name = mach->mach_params.platform;
-
-	ret_val = snd_soc_fixup_dai_links_platform_name(&snd_soc_card_cht,
-							platform_name);
-	if (ret_val)
-		return ret_val;
-
 	/* register the soc card */
 	snd_soc_card_cht.dev = &pdev->dev;
 	snd_soc_card_set_drvdata(&snd_soc_card_cht, drv);
 
-	if (drv->quirks & QUIRK_PMC_PLT_CLK_0)
+	if (quirks & QUIRK_PMC_PLT_CLK_0)
 		mclk_name = "pmc_plt_clk_0";
 	else
 		mclk_name = "pmc_plt_clk_3";
@@ -479,21 +459,6 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 		return PTR_ERR(drv->mclk);
 	}
 
-	/*
-	 * Boards which have the MAX98090's clk connected to clk_0 do not seem
-	 * to like it if we muck with the clock. If we disable the clock when
-	 * it is unused we get "max98090 i2c-193C9890:00: PLL unlocked" errors
-	 * and the PLL never seems to lock again.
-	 * So for these boards we enable it here once and leave it at that.
-	 */
-	if (drv->quirks & QUIRK_PMC_PLT_CLK_0) {
-		ret_val = clk_prepare_enable(drv->mclk);
-		if (ret_val < 0) {
-			dev_err(&pdev->dev, "MCLK enable error: %d\n", ret_val);
-			return ret_val;
-		}
-	}
-
 	ret_val = devm_snd_soc_register_card(&pdev->dev, &snd_soc_card_cht);
 	if (ret_val) {
 		dev_err(&pdev->dev,
@@ -504,23 +469,11 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 	return ret_val;
 }
 
-static int snd_cht_mc_remove(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(card);
-
-	if (ctx->quirks & QUIRK_PMC_PLT_CLK_0)
-		clk_disable_unprepare(ctx->mclk);
-
-	return 0;
-}
-
 static struct platform_driver snd_cht_mc_driver = {
 	.driver = {
 		.name = "cht-bsw-max98090",
 	},
 	.probe = snd_cht_mc_probe,
-	.remove = snd_cht_mc_remove,
 };
 
 module_platform_driver(snd_cht_mc_driver)

@@ -10,6 +10,7 @@
 
 #include <asm/hwcap.h>
 #include <asm/neon.h>
+#include <asm/hwcap.h>
 #include <crypto/aes.h>
 #include <crypto/internal/simd.h>
 #include <crypto/internal/skcipher.h>

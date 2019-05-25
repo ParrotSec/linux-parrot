@@ -166,6 +166,7 @@ void jfs_evict_inode(struct inode *inode)
 			/*
 			 * Free the inode from the quota allocation.
 			 */
+			dquot_initialize(inode);
 			dquot_free_inode(inode);
 		}
 	} else {

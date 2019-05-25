@@ -1,5 +1,27 @@
-// SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 2009-2012  Realtek Corporation.*/
+/******************************************************************************
+ *
+ * Copyright(c) 2009-2012  Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * The full GNU General Public License is included in this distribution in the
+ * file called LICENSE.
+ *
+ * Contact Information:
+ * wlanfae <wlanfae@realtek.com>
+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
+ * Hsinchu 300, Taiwan.
+ *
+ * Larry Finger <Larry.Finger@lwfinger.net>
+ *
+ *****************************************************************************/
 
 #include "../wifi.h"
 #include "../efuse.h"
@@ -102,12 +124,12 @@ void rtl92de_get_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
 		*((enum rf_pwrstate *)(val)) = ppsc->rfpwr_state;
 		break;
 	case HW_VAR_FWLPS_RF_ON:{
-		enum rf_pwrstate rfstate;
+		enum rf_pwrstate rfState;
 		u32 val_rcr;
 
 		rtlpriv->cfg->ops->get_hw_reg(hw, HW_VAR_RF_STATE,
-					      (u8 *)(&rfstate));
-		if (rfstate == ERFOFF) {
+					      (u8 *) (&rfState));
+		if (rfState == ERFOFF) {
 			*((bool *) (val)) = true;
 		} else {
 			val_rcr = rtl_read_dword(rtlpriv, REG_RCR);
@@ -258,23 +280,23 @@ void rtl92de_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
 	}
 	case HW_VAR_AMPDU_FACTOR: {
 		u8 factor_toset;
-		u32 regtoset;
+		u32 regtoSet;
 		u8 *ptmp_byte = NULL;
 		u8 index;
 
 		if (rtlhal->macphymode == DUALMAC_DUALPHY)
-			regtoset = 0xb9726641;
+			regtoSet = 0xb9726641;
 		else if (rtlhal->macphymode == DUALMAC_SINGLEPHY)
-			regtoset = 0x66626641;
+			regtoSet = 0x66626641;
 		else
-			regtoset = 0xb972a841;
+			regtoSet = 0xb972a841;
 		factor_toset = *val;
 		if (factor_toset <= 3) {
 			factor_toset = (1 << (factor_toset + 2));
 			if (factor_toset > 0xf)
 				factor_toset = 0xf;
 			for (index = 0; index < 4; index++) {
-				ptmp_byte = (u8 *)(&regtoset) + index;
+				ptmp_byte = (u8 *) (&regtoSet) + index;
 				if ((*ptmp_byte & 0xf0) >
 				    (factor_toset << 4))
 					*ptmp_byte = (*ptmp_byte & 0x0f)
@@ -283,7 +305,7 @@ void rtl92de_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
 					*ptmp_byte = (*ptmp_byte & 0xf0)
 						     | (factor_toset);
 			}
-			rtl_write_dword(rtlpriv, REG_AGGLEN_LMT, regtoset);
+			rtl_write_dword(rtlpriv, REG_AGGLEN_LMT, regtoSet);
 			RT_TRACE(rtlpriv, COMP_MLME, DBG_LOUD,
 				 "Set HW_VAR_AMPDU_FACTOR: %#x\n",
 				 factor_toset);
@@ -509,18 +531,18 @@ static bool _rtl92de_llt_table_init(struct ieee80211_hw *hw)
 	struct rtl_priv *rtlpriv = rtl_priv(hw);
 	unsigned short i;
 	u8 txpktbuf_bndy;
-	u8 maxpage;
+	u8 maxPage;
 	bool status;
 	u32 value32; /* High+low page number */
 	u8 value8;	 /* normal page number */
 
 	if (rtlpriv->rtlhal.macphymode == SINGLEMAC_SINGLEPHY) {
-		maxpage = 255;
+		maxPage = 255;
 		txpktbuf_bndy = 246;
 		value8 = 0;
 		value32 = 0x80bf0d29;
 	} else {
-		maxpage = 127;
+		maxPage = 127;
 		txpktbuf_bndy = 123;
 		value8 = 0;
 		value32 = 0x80750005;
@@ -576,14 +598,14 @@ static bool _rtl92de_llt_table_init(struct ieee80211_hw *hw)
 	/* This ring buffer is used as beacon buffer if we */
 	/* config this MAC as two MAC transfer. */
 	/* Otherwise used as local loopback buffer.  */
-	for (i = txpktbuf_bndy; i < maxpage; i++) {
+	for (i = txpktbuf_bndy; i < maxPage; i++) {
 		status = _rtl92de_llt_write(hw, i, (i + 1));
 		if (true != status)
 			return status;
 	}
 
 	/* Let last entry point to the start entry of ring buffer */
-	status = _rtl92de_llt_write(hw, maxpage, txpktbuf_bndy);
+	status = _rtl92de_llt_write(hw, maxPage, txpktbuf_bndy);
 	if (true != status)
 		return status;
 
@@ -1393,13 +1415,13 @@ void rtl92de_update_interrupt_mask(struct ieee80211_hw *hw,
 }
 
 static void _rtl92de_readpowervalue_fromprom(struct txpower_info *pwrinfo,
-				 u8 *rom_content, bool autoloadfail)
+				 u8 *rom_content, bool autoLoadfail)
 {
 	u32 rfpath, eeaddr, group, offset1, offset2;
 	u8 i;
 
 	memset(pwrinfo, 0, sizeof(struct txpower_info));
-	if (autoloadfail) {
+	if (autoLoadfail) {
 		for (group = 0; group < CHANNEL_GROUP_MAX; group++) {
 			for (rfpath = 0; rfpath < RF6052_MAX_PATH; rfpath++) {
 				if (group < CHANNEL_GROUP_MAX_2G) {
@@ -1541,7 +1563,7 @@ static void _rtl92de_read_txpower_info(struct ieee80211_hw *hw,
 	struct rtl_efuse *rtlefuse = rtl_efuse(rtl_priv(hw));
 	struct txpower_info pwrinfo;
 	u8 tempval[2], i, pwr, diff;
-	u32 ch, rfpath, group;
+	u32 ch, rfPath, group;
 
 	_rtl92de_readpowervalue_fromprom(&pwrinfo, hwinfo, autoload_fail);
 	if (!autoload_fail) {
@@ -1621,25 +1643,25 @@ static void _rtl92de_read_txpower_info(struct ieee80211_hw *hw,
 		 "Delta_IQK = 0x%x Delta_LCK = 0x%x\n",
 		 rtlefuse->delta_iqk, rtlefuse->delta_lck);
 
-	for (rfpath = 0; rfpath < RF6052_MAX_PATH; rfpath++) {
+	for (rfPath = 0; rfPath < RF6052_MAX_PATH; rfPath++) {
 		for (ch = 0; ch < CHANNEL_MAX_NUMBER; ch++) {
 			group = rtl92d_get_chnlgroup_fromarray((u8) ch);
 			if (ch < CHANNEL_MAX_NUMBER_2G)
-				rtlefuse->txpwrlevel_cck[rfpath][ch] =
-				    pwrinfo.cck_index[rfpath][group];
-			rtlefuse->txpwrlevel_ht40_1s[rfpath][ch] =
-				    pwrinfo.ht40_1sindex[rfpath][group];
-			rtlefuse->txpwr_ht20diff[rfpath][ch] =
-				    pwrinfo.ht20indexdiff[rfpath][group];
-			rtlefuse->txpwr_legacyhtdiff[rfpath][ch] =
-				    pwrinfo.ofdmindexdiff[rfpath][group];
-			rtlefuse->pwrgroup_ht20[rfpath][ch] =
-				    pwrinfo.ht20maxoffset[rfpath][group];
-			rtlefuse->pwrgroup_ht40[rfpath][ch] =
-				    pwrinfo.ht40maxoffset[rfpath][group];
-			pwr = pwrinfo.ht40_1sindex[rfpath][group];
-			diff = pwrinfo.ht40_2sindexdiff[rfpath][group];
-			rtlefuse->txpwrlevel_ht40_2s[rfpath][ch] =
+				rtlefuse->txpwrlevel_cck[rfPath][ch] =
+				    pwrinfo.cck_index[rfPath][group];
+			rtlefuse->txpwrlevel_ht40_1s[rfPath][ch] =
+				    pwrinfo.ht40_1sindex[rfPath][group];
+			rtlefuse->txpwr_ht20diff[rfPath][ch] =
+				    pwrinfo.ht20indexdiff[rfPath][group];
+			rtlefuse->txpwr_legacyhtdiff[rfPath][ch] =
+				    pwrinfo.ofdmindexdiff[rfPath][group];
+			rtlefuse->pwrgroup_ht20[rfPath][ch] =
+				    pwrinfo.ht20maxoffset[rfPath][group];
+			rtlefuse->pwrgroup_ht40[rfPath][ch] =
+				    pwrinfo.ht40maxoffset[rfPath][group];
+			pwr = pwrinfo.ht40_1sindex[rfPath][group];
+			diff = pwrinfo.ht40_2sindexdiff[rfPath][group];
+			rtlefuse->txpwrlevel_ht40_2s[rfPath][ch] =
 				    (pwr > diff) ? (pwr - diff) : 0;
 		}
 	}

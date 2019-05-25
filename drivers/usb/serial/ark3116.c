@@ -397,16 +397,38 @@ err_free:
 	return result;
 }
 
-static int ark3116_get_serial_info(struct tty_struct *tty,
-			struct serial_struct *ss)
+static int ark3116_get_serial_info(struct usb_serial_port *port,
+			struct serial_struct __user *retinfo)
+{
+	struct serial_struct tmp;
+
+	memset(&tmp, 0, sizeof(tmp));
+
+	tmp.type = PORT_16654;
+	tmp.line = port->minor;
+	tmp.port = port->port_number;
+	tmp.baud_base = 460800;
+
+	if (copy_to_user(retinfo, &tmp, sizeof(tmp)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int ark3116_ioctl(struct tty_struct *tty,
+			 unsigned int cmd, unsigned long arg)
 {
 	struct usb_serial_port *port = tty->driver_data;
+	void __user *user_arg = (void __user *)arg;
 
-	ss->type = PORT_16654;
-	ss->line = port->minor;
-	ss->port = port->port_number;
-	ss->baud_base = 460800;
-	return 0;
+	switch (cmd) {
+	case TIOCGSERIAL:
+		return ark3116_get_serial_info(port, user_arg);
+	default:
+		break;
+	}
+
+	return -ENOIOCTLCMD;
 }
 
 static int ark3116_tiocmget(struct tty_struct *tty)
@@ -646,7 +668,7 @@ static struct usb_serial_driver ark3116_device = {
 	.port_remove =		ark3116_port_remove,
 	.set_termios =		ark3116_set_termios,
 	.init_termios =		ark3116_init_termios,
-	.get_serial =		ark3116_get_serial_info,
+	.ioctl =		ark3116_ioctl,
 	.tiocmget =		ark3116_tiocmget,
 	.tiocmset =		ark3116_tiocmset,
 	.tiocmiwait =		usb_serial_generic_tiocmiwait,

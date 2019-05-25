@@ -38,7 +38,7 @@
 #define PAGELIST_READ 1
 #define PAGELIST_READ_WITH_FRAGMENTS 2
 
-struct pagelist {
+typedef struct pagelist_struct {
 	u32 length;
 	u16 type;
 	u16 offset;
@@ -46,6 +46,6 @@ struct pagelist {
 			 * of following pages at consecutive
 			 * addresses.
 			 */
-};
+} PAGELIST_T;
 
 #endif /* VCHIQ_PAGELIST_H */

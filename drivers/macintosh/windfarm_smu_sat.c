@@ -22,6 +22,14 @@
 
 #define VERSION "1.0"
 
+#define DEBUG
+
+#ifdef DEBUG
+#define DBG(args...)	printk(args)
+#else
+#define DBG(args...)	do { } while(0)
+#endif
+
 /* If the cache is older than 800ms we'll refetch it */
 #define MAX_AGE		msecs_to_jiffies(800)
 
@@ -98,10 +106,13 @@ struct smu_sdbp_header *smu_sat_get_sdb_partition(unsigned int sat_id, int id,
 		buf[i+2] = data[3];
 		buf[i+3] = data[2];
 	}
+#ifdef DEBUG
+	DBG(KERN_DEBUG "sat %d partition %x:", sat_id, id);
+	for (i = 0; i < len; ++i)
+		DBG(" %x", buf[i]);
+	DBG("\n");
+#endif
 
-	printk(KERN_DEBUG "sat %d partition %x:", sat_id, id);
-	print_hex_dump(KERN_DEBUG, "  ", DUMP_PREFIX_OFFSET,
-		       16, 1, buf, len, false);
 	if (size)
 		*size = len;
 	return (struct smu_sdbp_header *) buf;
@@ -121,13 +132,13 @@ static int wf_sat_read_cache(struct wf_sat *sat)
 	if (err < 0)
 		return err;
 	sat->last_read = jiffies;
-
 #ifdef LOTSA_DEBUG
 	{
 		int i;
-		printk(KERN_DEBUG "wf_sat_get: data is");
-		print_hex_dump(KERN_DEBUG, "  ", DUMP_PREFIX_OFFSET,
-			       16, 1, sat->cache, 16, false);
+		DBG(KERN_DEBUG "wf_sat_get: data is");
+		for (i = 0; i < 16; ++i)
+			DBG(" %.2x", sat->cache[i]);
+		DBG("\n");
 	}
 #endif
 	return 0;
@@ -197,7 +208,7 @@ static int wf_sat_probe(struct i2c_client *client,
 	struct wf_sat *sat;
 	struct wf_sat_sensor *sens;
 	const u32 *reg;
-	const char *loc;
+	const char *loc, *type;
 	u8 chip, core;
 	struct device_node *child;
 	int shift, cpu, index;
@@ -220,6 +231,7 @@ static int wf_sat_probe(struct i2c_client *client,
 	child = NULL;
 	while ((child = of_get_next_child(dev, child)) != NULL) {
 		reg = of_get_property(child, "reg", NULL);
+		type = of_get_property(child, "device_type", NULL);
 		loc = of_get_property(child, "location", NULL);
 		if (reg == NULL || loc == NULL)
 			continue;
@@ -248,15 +260,15 @@ static int wf_sat_probe(struct i2c_client *client,
 			continue;
 		}
 
-		if (of_node_is_type(child, "voltage-sensor")) {
+		if (strcmp(type, "voltage-sensor") == 0) {
 			name = "cpu-voltage";
 			shift = 4;
 			vsens[core] = index;
-		} else if (of_node_is_type(child, "current-sensor")) {
+		} else if (strcmp(type, "current-sensor") == 0) {
 			name = "cpu-current";
 			shift = 8;
 			isens[core] = index;
-		} else if (of_node_is_type(child, "temp-sensor")) {
+		} else if (strcmp(type, "temp-sensor") == 0) {
 			name = "cpu-temp";
 			shift = 10;
 		} else

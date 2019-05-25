@@ -45,8 +45,6 @@
 #include <asm/eisa_bus.h>
 #include <asm/eisa_eeprom.h>
 
-#include "iommu.h"
-
 #if 0
 #define EISA_DBG(msg, arg...) printk(KERN_DEBUG "eisa: " msg, ## arg)
 #else

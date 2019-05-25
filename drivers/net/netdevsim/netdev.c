@@ -22,6 +22,7 @@
 #include <net/netlink.h>
 #include <net/pkt_cls.h>
 #include <net/rtnetlink.h>
+#include <net/switchdev.h>
 
 #include "netdevsim.h"
 
@@ -147,15 +148,25 @@ static struct device_type nsim_dev_type = {
 	.release = nsim_dev_release,
 };
 
-static int nsim_get_port_parent_id(struct net_device *dev,
-				   struct netdev_phys_item_id *ppid)
+static int
+nsim_port_attr_get(struct net_device *dev, struct switchdev_attr *attr)
 {
 	struct netdevsim *ns = netdev_priv(dev);
 
-	ppid->id_len = sizeof(ns->sdev->switch_id);
-	memcpy(&ppid->id, &ns->sdev->switch_id, ppid->id_len);
-	return 0;
+	switch (attr->id) {
+	case SWITCHDEV_ATTR_ID_PORT_PARENT_ID:
+		attr->u.ppid.id_len = sizeof(ns->sdev->switch_id);
+		memcpy(&attr->u.ppid.id, &ns->sdev->switch_id,
+		       attr->u.ppid.id_len);
+		return 0;
+	default:
+		return -EOPNOTSUPP;
+	}
 }
+
+static const struct switchdev_ops nsim_switchdev_ops = {
+	.switchdev_port_attr_get	= nsim_port_attr_get,
+};
 
 static int nsim_init(struct net_device *dev)
 {
@@ -203,6 +214,7 @@ static int nsim_init(struct net_device *dev)
 		goto err_bpf_uninit;
 
 	SET_NETDEV_DEV(dev, &ns->dev);
+	SWITCHDEV_SET_OPS(dev, &nsim_switchdev_ops);
 
 	err = nsim_devlink_setup(ns);
 	if (err)
@@ -481,7 +493,6 @@ static const struct net_device_ops nsim_netdev_ops = {
 	.ndo_setup_tc		= nsim_setup_tc,
 	.ndo_set_features	= nsim_set_features,
 	.ndo_bpf		= nsim_bpf,
-	.ndo_get_port_parent_id	= nsim_get_port_parent_id,
 };
 
 static void nsim_setup(struct net_device *dev)

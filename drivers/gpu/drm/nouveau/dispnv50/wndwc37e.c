@@ -61,10 +61,9 @@ wndwc37e_ilut(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw)
 	asyw->xlut.i.size = 0;
 	asyw->xlut.i.range = 0;
 	asyw->xlut.i.output_mode = 1;
-	asyw->xlut.i.load = head907d_olut_load;
 }
 
-void
+static void
 wndwc37e_image_clr(struct nv50_wndw *wndw)
 {
 	u32 *push;
@@ -77,7 +76,7 @@ wndwc37e_image_clr(struct nv50_wndw *wndw)
 	}
 }
 
-void
+static void
 wndwc37e_image_set(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw)
 {
 	u32 *push;
@@ -118,7 +117,7 @@ wndwc37e_image_set(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw)
 	evo_kick(push, &wndw->wndw);
 }
 
-void
+static void
 wndwc37e_ntfy_clr(struct nv50_wndw *wndw)
 {
 	u32 *push;
@@ -129,7 +128,7 @@ wndwc37e_ntfy_clr(struct nv50_wndw *wndw)
 	}
 }
 
-void
+static void
 wndwc37e_ntfy_set(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw)
 {
 	u32 *push;
@@ -141,7 +140,7 @@ wndwc37e_ntfy_set(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw)
 	}
 }
 
-void
+static void
 wndwc37e_sema_clr(struct nv50_wndw *wndw)
 {
 	u32 *push;
@@ -152,7 +151,7 @@ wndwc37e_sema_clr(struct nv50_wndw *wndw)
 	}
 }
 
-void
+static void
 wndwc37e_sema_set(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw)
 {
 	u32 *push;
@@ -166,7 +165,7 @@ wndwc37e_sema_set(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw)
 	}
 }
 
-void
+static void
 wndwc37e_update(struct nv50_wndw *wndw, u32 *interlock)
 {
 	u32 *push;
@@ -184,13 +183,13 @@ wndwc37e_update(struct nv50_wndw *wndw, u32 *interlock)
 	}
 }
 
-void
+static void
 wndwc37e_release(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw,
 		 struct nv50_head_atom *asyh)
 {
 }
 
-int
+static int
 wndwc37e_acquire(struct nv50_wndw *wndw, struct nv50_wndw_atom *asyw,
 		 struct nv50_head_atom *asyh)
 {
@@ -237,7 +236,7 @@ wndwc37e = {
 	.update = wndwc37e_update,
 };
 
-int
+static int
 wndwc37e_new_(const struct nv50_wndw_func *func, struct nouveau_drm *drm,
 	      enum drm_plane_type type, int index, s32 oclass, u32 heads,
 	      struct nv50_wndw **pwndw)

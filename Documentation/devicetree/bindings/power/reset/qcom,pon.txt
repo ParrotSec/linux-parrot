@@ -6,10 +6,7 @@ and resin along with the Android reboot-mode.
 This DT node has pwrkey and resin as sub nodes.
 
 Required Properties:
--compatible: Must be one of:
-	"qcom,pm8916-pon"
-	"qcom,pms405-pon"
-
+-compatible: "qcom,pm8916-pon"
 -reg: Specifies the physical address of the pon register
 
 Optional subnode:

@@ -159,7 +159,7 @@ static int salsa20_crypt(struct skcipher_request *req)
 	u32 state[16];
 	int err;
 
-	err = skcipher_walk_virt(&walk, req, false);
+	err = skcipher_walk_virt(&walk, req, true);
 
 	salsa20_init(state, ctx, walk.iv);
 

@@ -151,7 +151,7 @@ int mei_reset(struct mei_device *dev)
 
 	mei_hbm_reset(dev);
 
-	memset(dev->rd_msg_hdr, 0, sizeof(dev->rd_msg_hdr));
+	dev->rd_msg_hdr = 0;
 
 	if (ret) {
 		dev_err(dev->dev, "hw_reset failed ret = %d\n", ret);

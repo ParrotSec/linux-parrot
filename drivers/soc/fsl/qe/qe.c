@@ -588,7 +588,11 @@ struct qe_firmware_info *qe_get_firmware_info(void)
 	}
 
 	/* Find the 'firmware' child node */
-	fw = of_get_child_by_name(qe, "firmware");
+	for_each_child_of_node(qe, fw) {
+		if (strcmp(fw->name, "firmware") == 0)
+			break;
+	}
+
 	of_node_put(qe);
 
 	/* Did we find the 'firmware' node? */

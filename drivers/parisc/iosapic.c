@@ -126,10 +126,21 @@
 **   o disable IRdT - call disable_irq(vector[line]->processor_irq)
 */
 
-#include <linux/pci.h>
 
+/* FIXME: determine which include files are really needed */
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/spinlock.h>
+#include <linux/pci.h>
+#include <linux/init.h>
+#include <linux/slab.h>
+#include <linux/interrupt.h>
+
+#include <asm/byteorder.h>	/* get in-line asm for swab */
 #include <asm/pdc.h>
 #include <asm/pdcpat.h>
+#include <asm/page.h>
+#include <asm/io.h>		/* read/write functions */
 #ifdef CONFIG_SUPERIO
 #include <asm/superio.h>
 #endif

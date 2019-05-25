@@ -86,7 +86,6 @@ vostre modifiche molto più semplice
 .. toctree::
    :maxdepth: 2
 
-   process/index
    doc-guide/index
    kernel-hacking/index
 

@@ -11,8 +11,6 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
-#include <linux/property.h>
-#include <linux/slab.h>
 #include <linux/usb/typec_mux.h>
 
 static DEFINE_MUTEX(switch_lock);
@@ -25,25 +23,15 @@ static void *typec_switch_match(struct device_connection *con, int ep,
 {
 	struct typec_switch *sw;
 
-	if (!con->fwnode) {
-		list_for_each_entry(sw, &switch_list, entry)
-			if (!strcmp(con->endpoint[ep], dev_name(sw->dev)))
-				return sw;
-		return ERR_PTR(-EPROBE_DEFER);
-	}
-
-	/*
-	 * With OF graph the mux node must have a boolean device property named
-	 * "orientation-switch".
-	 */
-	if (con->id && !fwnode_property_present(con->fwnode, con->id))
-		return NULL;
-
 	list_for_each_entry(sw, &switch_list, entry)
-		if (dev_fwnode(sw->dev) == con->fwnode)
+		if (!strcmp(con->endpoint[ep], dev_name(sw->dev)))
 			return sw;
 
-	return con->id ? ERR_PTR(-EPROBE_DEFER) : NULL;
+	/*
+	 * We only get called if a connection was found, tell the caller to
+	 * wait for the switch to show up.
+	 */
+	return ERR_PTR(-EPROBE_DEFER);
 }
 
 /**
@@ -60,7 +48,7 @@ struct typec_switch *typec_switch_get(struct device *dev)
 	struct typec_switch *sw;
 
 	mutex_lock(&switch_lock);
-	sw = device_connection_find_match(dev, "orientation-switch", NULL,
+	sw = device_connection_find_match(dev, "typec-switch", NULL,
 					  typec_switch_match);
 	if (!IS_ERR_OR_NULL(sw)) {
 		WARN_ON(!try_module_get(sw->dev->driver->owner));
@@ -124,87 +112,35 @@ EXPORT_SYMBOL_GPL(typec_switch_unregister);
 
 static void *typec_mux_match(struct device_connection *con, int ep, void *data)
 {
-	const struct typec_altmode_desc *desc = data;
 	struct typec_mux *mux;
-	int nval;
-	bool match;
-	u16 *val;
-	int i;
 
-	if (!con->fwnode) {
-		list_for_each_entry(mux, &mux_list, entry)
-			if (!strcmp(con->endpoint[ep], dev_name(mux->dev)))
-				return mux;
-		return ERR_PTR(-EPROBE_DEFER);
-	}
-
-	/*
-	 * Check has the identifier already been "consumed". If it
-	 * has, no need to do any extra connection identification.
-	 */
-	match = !con->id;
-	if (match)
-		goto find_mux;
-
-	/* Accessory Mode muxes */
-	if (!desc) {
-		match = fwnode_property_present(con->fwnode, "accessory");
-		if (match)
-			goto find_mux;
-		return NULL;
-	}
-
-	/* Alternate Mode muxes */
-	nval = fwnode_property_read_u16_array(con->fwnode, "svid", NULL, 0);
-	if (nval <= 0)
-		return NULL;
-
-	val = kcalloc(nval, sizeof(*val), GFP_KERNEL);
-	if (!val)
-		return ERR_PTR(-ENOMEM);
-
-	nval = fwnode_property_read_u16_array(con->fwnode, "svid", val, nval);
-	if (nval < 0) {
-		kfree(val);
-		return ERR_PTR(nval);
-	}
-
-	for (i = 0; i < nval; i++) {
-		match = val[i] == desc->svid;
-		if (match) {
-			kfree(val);
-			goto find_mux;
-		}
-	}
-	kfree(val);
-	return NULL;
-
-find_mux:
 	list_for_each_entry(mux, &mux_list, entry)
-		if (dev_fwnode(mux->dev) == con->fwnode)
+		if (!strcmp(con->endpoint[ep], dev_name(mux->dev)))
 			return mux;
 
+	/*
+	 * We only get called if a connection was found, tell the caller to
+	 * wait for the switch to show up.
+	 */
 	return ERR_PTR(-EPROBE_DEFER);
 }
 
 /**
  * typec_mux_get - Find USB Type-C Multiplexer
  * @dev: The caller device
- * @desc: Alt Mode description
+ * @name: Mux identifier
  *
  * Finds a mux linked to the caller. This function is primarily meant for the
  * Type-C drivers. Returns a reference to the mux on success, NULL if no
  * matching connection was found, or ERR_PTR(-EPROBE_DEFER) when a connection
  * was found but the mux has not been enumerated yet.
  */
-struct typec_mux *typec_mux_get(struct device *dev,
-				const struct typec_altmode_desc *desc)
+struct typec_mux *typec_mux_get(struct device *dev, const char *name)
 {
 	struct typec_mux *mux;
 
 	mutex_lock(&mux_lock);
-	mux = device_connection_find_match(dev, "mode-switch", (void *)desc,
-					   typec_mux_match);
+	mux = device_connection_find_match(dev, name, NULL, typec_mux_match);
 	if (!IS_ERR_OR_NULL(mux)) {
 		WARN_ON(!try_module_get(mux->dev->driver->owner));
 		get_device(mux->dev);

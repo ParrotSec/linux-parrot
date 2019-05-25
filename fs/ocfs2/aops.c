@@ -30,7 +30,6 @@
 #include <linux/quotaops.h>
 #include <linux/blkdev.h>
 #include <linux/uio.h>
-#include <linux/mm.h>
 
 #include <cluster/masklog.h>
 
@@ -398,7 +397,7 @@ static int ocfs2_readpages(struct file *filp, struct address_space *mapping,
 	 * Check whether a remote node truncated this file - we just
 	 * drop out in that case as it's not worth handling here.
 	 */
-	last = lru_to_page(pages);
+	last = list_entry(pages->prev, struct page, lru);
 	start = (loff_t)last->index << PAGE_SHIFT;
 	if (start >= i_size_read(inode))
 		goto out_unlock;
@@ -1393,7 +1392,8 @@ retry:
 unlock:
 	spin_unlock(&oi->ip_lock);
 out:
-	kfree(new);
+	if (new)
+		kfree(new);
 	return ret;
 }
 

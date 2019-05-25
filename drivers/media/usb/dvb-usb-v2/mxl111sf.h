@@ -52,12 +52,6 @@ struct mxl111sf_adap_state {
 	int (*fe_sleep)(struct dvb_frontend *);
 };
 
-enum mxl111sf_pads {
-	MXL111SF_PAD_RF_INPUT,
-	MXL111SF_PAD_OUTPUT,
-	MXL111SF_NUM_PADS
-};
-
 struct mxl111sf_state {
 	struct dvb_usb_device *d;
 
@@ -100,7 +94,7 @@ struct mxl111sf_state {
 	struct mutex msg_lock;
 #ifdef CONFIG_MEDIA_CONTROLLER_DVB
 	struct media_entity tuner;
-	struct media_pad tuner_pads[MXL111SF_NUM_PADS];
+	struct media_pad tuner_pads[2];
 #endif
 };
 

@@ -272,17 +272,19 @@ static ssize_t lpp_dest_store(struct device *dev, struct device_attribute *attr,
 			      const char *buf, size_t size)
 {
 	struct pti_device *pti = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
 	int i;
 
-	i = sysfs_match_string(lpp_dest_str, buf);
-	if (i < 0)
-		return i;
+	for (i = 0; i < ARRAY_SIZE(lpp_dest_str); i++)
+		if (sysfs_streq(buf, lpp_dest_str[i]))
+			break;
 
-	if (!(pti->lpp_dest_mask & BIT(i)))
-		return -EINVAL;
+	if (i < ARRAY_SIZE(lpp_dest_str) && pti->lpp_dest_mask & BIT(i)) {
+		pti->lpp_dest = i;
+		ret = size;
+	}
 
-	pti->lpp_dest = i;
-	return size;
+	return ret;
 }
 
 static DEVICE_ATTR_RW(lpp_dest);

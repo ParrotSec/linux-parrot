@@ -3756,7 +3756,10 @@ il3945_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (err)
 		goto out_remove_sysfs;
 
-	il_dbgfs_register(il, DRV_NAME);
+	err = il_dbgfs_register(il, DRV_NAME);
+	if (err)
+		IL_ERR("failed to create debugfs files. Ignoring error: %d\n",
+		       err);
 
 	/* Start monitoring the killswitch */
 	queue_delayed_work(il->workqueue, &il->_3945.rfkill_poll, 2 * HZ);

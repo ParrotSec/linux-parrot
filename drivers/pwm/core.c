@@ -472,10 +472,7 @@ int pwm_apply_state(struct pwm_device *pwm, struct pwm_state *state)
 	    state->duty_cycle > state->period)
 		return -EINVAL;
 
-	if (state->period == pwm->state.period &&
-	    state->duty_cycle == pwm->state.duty_cycle &&
-	    state->polarity == pwm->state.polarity &&
-	    state->enabled == pwm->state.enabled)
+	if (!memcmp(state, &pwm->state, sizeof(*state)))
 		return 0;
 
 	if (pwm->chip->ops->apply) {
@@ -1036,7 +1033,10 @@ static int pwm_seq_show(struct seq_file *s, void *v)
 		   dev_name(chip->dev), chip->npwm,
 		   (chip->npwm != 1) ? "s" : "");
 
-	pwm_dbg_show(chip, s);
+	if (chip->ops->dbg_show)
+		chip->ops->dbg_show(chip, s);
+	else
+		pwm_dbg_show(chip, s);
 
 	return 0;
 }

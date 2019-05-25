@@ -51,7 +51,7 @@ static int get_attention_status(struct hotplug_slot *slot, u8 *value);
 static int get_latch_status(struct hotplug_slot *slot, u8 *value);
 static int get_adapter_status(struct hotplug_slot *slot, u8 *value);
 
-static const struct hotplug_slot_ops shpchp_hotplug_slot_ops = {
+static struct hotplug_slot_ops shpchp_hotplug_slot_ops = {
 	.set_attention_status =	set_attention_status,
 	.enable_slot =		enable_slot,
 	.disable_slot =		disable_slot,
@@ -65,6 +65,7 @@ static int init_slots(struct controller *ctrl)
 {
 	struct slot *slot;
 	struct hotplug_slot *hotplug_slot;
+	struct hotplug_slot_info *info;
 	char name[SLOT_NAME_SIZE];
 	int retval;
 	int i;
@@ -76,7 +77,19 @@ static int init_slots(struct controller *ctrl)
 			goto error;
 		}
 
-		hotplug_slot = &slot->hotplug_slot;
+		hotplug_slot = kzalloc(sizeof(*hotplug_slot), GFP_KERNEL);
+		if (!hotplug_slot) {
+			retval = -ENOMEM;
+			goto error_slot;
+		}
+		slot->hotplug_slot = hotplug_slot;
+
+		info = kzalloc(sizeof(*info), GFP_KERNEL);
+		if (!info) {
+			retval = -ENOMEM;
+			goto error_hpslot;
+		}
+		hotplug_slot->info = info;
 
 		slot->hp_slot = i;
 		slot->ctrl = ctrl;
@@ -88,13 +101,14 @@ static int init_slots(struct controller *ctrl)
 		slot->wq = alloc_workqueue("shpchp-%d", 0, 0, slot->number);
 		if (!slot->wq) {
 			retval = -ENOMEM;
-			goto error_slot;
+			goto error_info;
 		}
 
 		mutex_init(&slot->lock);
 		INIT_DELAYED_WORK(&slot->work, shpchp_queue_pushbutton_work);
 
 		/* register this slot with the hotplug pci core */
+		hotplug_slot->private = slot;
 		snprintf(name, SLOT_NAME_SIZE, "%d", slot->number);
 		hotplug_slot->ops = &shpchp_hotplug_slot_ops;
 
@@ -102,7 +116,7 @@ static int init_slots(struct controller *ctrl)
 			 pci_domain_nr(ctrl->pci_dev->subordinate),
 			 slot->bus, slot->device, slot->hp_slot, slot->number,
 			 ctrl->slot_device_offset);
-		retval = pci_hp_register(hotplug_slot,
+		retval = pci_hp_register(slot->hotplug_slot,
 				ctrl->pci_dev->subordinate, slot->device, name);
 		if (retval) {
 			ctrl_err(ctrl, "pci_hp_register failed with error %d\n",
@@ -110,10 +124,10 @@ static int init_slots(struct controller *ctrl)
 			goto error_slotwq;
 		}
 
-		get_power_status(hotplug_slot, &slot->pwr_save);
-		get_attention_status(hotplug_slot, &slot->attention_save);
-		get_latch_status(hotplug_slot, &slot->latch_save);
-		get_adapter_status(hotplug_slot, &slot->presence_save);
+		get_power_status(hotplug_slot, &info->power_status);
+		get_attention_status(hotplug_slot, &info->attention_status);
+		get_latch_status(hotplug_slot, &info->latch_status);
+		get_adapter_status(hotplug_slot, &info->adapter_status);
 
 		list_add(&slot->slot_list, &ctrl->slot_list);
 	}
@@ -121,6 +135,10 @@ static int init_slots(struct controller *ctrl)
 	return 0;
 error_slotwq:
 	destroy_workqueue(slot->wq);
+error_info:
+	kfree(info);
+error_hpslot:
+	kfree(hotplug_slot);
 error_slot:
 	kfree(slot);
 error:
@@ -135,7 +153,9 @@ void cleanup_slots(struct controller *ctrl)
 		list_del(&slot->slot_list);
 		cancel_delayed_work(&slot->work);
 		destroy_workqueue(slot->wq);
-		pci_hp_deregister(&slot->hotplug_slot);
+		pci_hp_deregister(slot->hotplug_slot);
+		kfree(slot->hotplug_slot->info);
+		kfree(slot->hotplug_slot);
 		kfree(slot);
 	}
 }
@@ -150,7 +170,7 @@ static int set_attention_status(struct hotplug_slot *hotplug_slot, u8 status)
 	ctrl_dbg(slot->ctrl, "%s: physical_slot = %s\n",
 		 __func__, slot_name(slot));
 
-	slot->attention_save = status;
+	hotplug_slot->info->attention_status = status;
 	slot->hpc_ops->set_attention_status(slot, status);
 
 	return 0;
@@ -186,7 +206,7 @@ static int get_power_status(struct hotplug_slot *hotplug_slot, u8 *value)
 
 	retval = slot->hpc_ops->get_power_status(slot, value);
 	if (retval < 0)
-		*value = slot->pwr_save;
+		*value = hotplug_slot->info->power_status;
 
 	return 0;
 }
@@ -201,7 +221,7 @@ static int get_attention_status(struct hotplug_slot *hotplug_slot, u8 *value)
 
 	retval = slot->hpc_ops->get_attention_status(slot, value);
 	if (retval < 0)
-		*value = slot->attention_save;
+		*value = hotplug_slot->info->attention_status;
 
 	return 0;
 }
@@ -216,7 +236,7 @@ static int get_latch_status(struct hotplug_slot *hotplug_slot, u8 *value)
 
 	retval = slot->hpc_ops->get_latch_status(slot, value);
 	if (retval < 0)
-		*value = slot->latch_save;
+		*value = hotplug_slot->info->latch_status;
 
 	return 0;
 }
@@ -231,7 +251,7 @@ static int get_adapter_status(struct hotplug_slot *hotplug_slot, u8 *value)
 
 	retval = slot->hpc_ops->get_adapter_status(slot, value);
 	if (retval < 0)
-		*value = slot->presence_save;
+		*value = hotplug_slot->info->adapter_status;
 
 	return 0;
 }

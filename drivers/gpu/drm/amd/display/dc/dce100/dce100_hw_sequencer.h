@@ -33,13 +33,10 @@ struct dc_state;
 
 void dce100_hw_sequencer_construct(struct dc *dc);
 
-void dce100_prepare_bandwidth(
+void dce100_set_bandwidth(
 		struct dc *dc,
-		struct dc_state *context);
-
-void dce100_optimize_bandwidth(
-		struct dc *dc,
-		struct dc_state *context);
+		struct dc_state *context,
+		bool decrease_allowed);
 
 bool dce100_enable_display_power_gating(struct dc *dc, uint8_t controller_id,
 					struct dc_bios *dcb,

@@ -22,7 +22,7 @@
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
-#include <linux/property.h>
+#include <linux/platform_data/at24.h>
 #include <linux/platform_data/pcf857x.h>
 #include <linux/platform_data/ti-aemif.h>
 
@@ -32,7 +32,6 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/rawnand.h>
 #include <linux/mtd/partitions.h>
-#include <linux/nvmem-provider.h>
 #include <linux/clk.h>
 #include <linux/export.h>
 #include <linux/platform_data/gpio-davinci.h>
@@ -44,10 +43,10 @@
 #include <asm/mach/arch.h>
 
 #include <mach/common.h>
+#include <mach/irqs.h>
 #include <mach/serial.h>
 
 #include "davinci.h"
-#include "irqs.h"
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
@@ -343,30 +342,12 @@ static struct pcf857x_platform_data pcf_data = {
  *  - ... newer boards may have more
  */
 
-static struct nvmem_cell_info dm646x_evm_nvmem_cells[] = {
-	{
-		.name		= "macaddr",
-		.offset		= 0x7f00,
-		.bytes		= ETH_ALEN,
-	}
-};
-
-static struct nvmem_cell_table dm646x_evm_nvmem_cell_table = {
-	.nvmem_name	= "1-00500",
-	.cells		= dm646x_evm_nvmem_cells,
-	.ncells		= ARRAY_SIZE(dm646x_evm_nvmem_cells),
-};
-
-static struct nvmem_cell_lookup dm646x_evm_nvmem_cell_lookup = {
-	.nvmem_name	= "1-00500",
-	.cell_name	= "macaddr",
-	.dev_id		= "davinci_emac.1",
-	.con_id		= "mac-address",
-};
-
-static const struct property_entry eeprom_properties[] = {
-	PROPERTY_ENTRY_U32("pagesize", 64),
-	{ }
+static struct at24_platform_data eeprom_info = {
+	.byte_len       = (256*1024) / 8,
+	.page_size      = 64,
+	.flags          = AT24_FLAG_ADDR16,
+	.setup          = davinci_get_mac_addr,
+	.context	= (void *)0x7f00,
 };
 #endif
 
@@ -437,7 +418,7 @@ static void evm_init_cpld(void)
 static struct i2c_board_info __initdata i2c_info[] =  {
 	{
 		I2C_BOARD_INFO("24c256", 0x50),
-		.properties  = eeprom_properties,
+		.platform_data  = &eeprom_info,
 	},
 	{
 		I2C_BOARD_INFO("pcf8574a", 0x38),
@@ -834,8 +815,6 @@ static __init void evm_init(void)
 		pr_warn("%s: GPIO init failed: %d\n", __func__, ret);
 
 #ifdef CONFIG_I2C
-	nvmem_add_cell_table(&dm646x_evm_nvmem_cell_table);
-	nvmem_add_cell_lookups(&dm646x_evm_nvmem_cell_lookup, 1);
 	evm_init_i2c();
 #endif
 
@@ -860,7 +839,7 @@ static __init void evm_init(void)
 MACHINE_START(DAVINCI_DM6467_EVM, "DaVinci DM646x EVM")
 	.atag_offset  = 0x100,
 	.map_io       = davinci_map_io,
-	.init_irq     = dm646x_init_irq,
+	.init_irq     = davinci_irq_init,
 	.init_time	= dm646x_evm_init_time,
 	.init_machine = evm_init,
 	.init_late	= davinci_init_late,
@@ -870,7 +849,7 @@ MACHINE_END
 MACHINE_START(DAVINCI_DM6467TEVM, "DaVinci DM6467T EVM")
 	.atag_offset  = 0x100,
 	.map_io       = davinci_map_io,
-	.init_irq     = dm646x_init_irq,
+	.init_irq     = davinci_irq_init,
 	.init_time	= dm6467t_evm_init_time,
 	.init_machine = evm_init,
 	.init_late	= davinci_init_late,

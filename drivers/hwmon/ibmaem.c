@@ -101,7 +101,7 @@ static struct platform_driver aem_driver = {
 struct aem_ipmi_data {
 	struct completion	read_complete;
 	struct ipmi_addr	address;
-	struct ipmi_user	*user;
+	ipmi_user_t		user;
 	int			interface;
 
 	struct kernel_ipmi_msg	tx_message;
@@ -813,24 +813,25 @@ static void aem_bmc_gone(int iface)
 /* sysfs support functions */
 
 /* AEM device name */
-static ssize_t name_show(struct device *dev, struct device_attribute *devattr,
+static ssize_t show_name(struct device *dev, struct device_attribute *devattr,
 			 char *buf)
 {
 	struct aem_data *data = dev_get_drvdata(dev);
 
 	return sprintf(buf, "%s%d\n", DRVNAME, data->ver_major);
 }
-static SENSOR_DEVICE_ATTR_RO(name, name, 0);
+static SENSOR_DEVICE_ATTR(name, S_IRUGO, show_name, NULL, 0);
 
 /* AEM device version */
-static ssize_t version_show(struct device *dev,
-			    struct device_attribute *devattr, char *buf)
+static ssize_t show_version(struct device *dev,
+			    struct device_attribute *devattr,
+			    char *buf)
 {
 	struct aem_data *data = dev_get_drvdata(dev);
 
 	return sprintf(buf, "%d.%d\n", data->ver_major, data->ver_minor);
 }
-static SENSOR_DEVICE_ATTR_RO(version, version, 0);
+static SENSOR_DEVICE_ATTR(version, S_IRUGO, show_version, NULL, 0);
 
 /* Display power use */
 static ssize_t aem_show_power(struct device *dev,
@@ -930,7 +931,7 @@ static int aem_register_sensors(struct aem_data *data,
 	while (ro->label) {
 		sysfs_attr_init(&sensors->dev_attr.attr);
 		sensors->dev_attr.attr.name = ro->label;
-		sensors->dev_attr.attr.mode = 0444;
+		sensors->dev_attr.attr.mode = S_IRUGO;
 		sensors->dev_attr.show = ro->show;
 		sensors->index = ro->index;
 
@@ -947,7 +948,7 @@ static int aem_register_sensors(struct aem_data *data,
 	while (rw->label) {
 		sysfs_attr_init(&sensors->dev_attr.attr);
 		sensors->dev_attr.attr.name = rw->label;
-		sensors->dev_attr.attr.mode = 0644;
+		sensors->dev_attr.attr.mode = S_IRUGO | S_IWUSR;
 		sensors->dev_attr.show = rw->show;
 		sensors->dev_attr.store = rw->set;
 		sensors->index = rw->index;

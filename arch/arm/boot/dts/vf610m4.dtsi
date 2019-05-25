@@ -50,6 +50,7 @@
 	#size-cells = <1>;
 	chosen { };
 	aliases { };
+	memory { device_type = "memory"; };
 };
 
 &mscm_ir {

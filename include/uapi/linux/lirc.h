@@ -192,9 +192,6 @@ struct lirc_scancode {
  * @RC_PROTO_XMP: XMP protocol
  * @RC_PROTO_CEC: CEC protocol
  * @RC_PROTO_IMON: iMon Pad protocol
- * @RC_PROTO_RCMM12: RC-MM protocol 12 bits
- * @RC_PROTO_RCMM24: RC-MM protocol 24 bits
- * @RC_PROTO_RCMM32: RC-MM protocol 32 bits
  */
 enum rc_proto {
 	RC_PROTO_UNKNOWN	= 0,
@@ -221,9 +218,6 @@ enum rc_proto {
 	RC_PROTO_XMP		= 21,
 	RC_PROTO_CEC		= 22,
 	RC_PROTO_IMON		= 23,
-	RC_PROTO_RCMM12		= 24,
-	RC_PROTO_RCMM24		= 25,
-	RC_PROTO_RCMM32		= 26,
 };
 
 #endif

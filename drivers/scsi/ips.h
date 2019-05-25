@@ -96,6 +96,15 @@
       #define __iomem
    #endif
 
+   #define pci_dma_hi32(a)         ((a >> 16) >> 16)
+   #define pci_dma_lo32(a)         (a & 0xffffffff)
+
+   #if (BITS_PER_LONG > 32) || defined(CONFIG_HIGHMEM64G)
+      #define IPS_ENABLE_DMA64        (1)
+   #else
+      #define IPS_ENABLE_DMA64        (0)
+   #endif
+
    /*
     * Adapter address map equates
     */

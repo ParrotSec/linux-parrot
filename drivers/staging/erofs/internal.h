@@ -42,12 +42,12 @@
 #define DBG_BUGON(x)            ((void)(x))
 #endif
 
+#ifdef CONFIG_EROFS_FAULT_INJECTION
 enum {
 	FAULT_KMALLOC,
 	FAULT_MAX,
 };
 
-#ifdef CONFIG_EROFS_FAULT_INJECTION
 extern char *erofs_fault_name[FAULT_MAX];
 #define IS_FAULT_SET(fi, type) ((fi)->inject_type & (1 << (type)))
 
@@ -94,9 +94,6 @@ struct erofs_sb_info {
 
 	/* the dedicated workstation for compression */
 	struct radix_tree_root workstn_tree;
-
-	/* threshold for decompression synchronously */
-	unsigned int max_sync_decompress_pages;
 
 #ifdef EROFS_FS_HAS_MANAGED_CACHE
 	struct inode *managed_cache;
@@ -146,24 +143,17 @@ static inline bool time_to_inject(struct erofs_sb_info *sbi, int type)
 	}
 	return false;
 }
-#else
-static inline bool time_to_inject(struct erofs_sb_info *sbi, int type)
-{
-	return false;
-}
-
-static inline void erofs_show_injection_info(int type)
-{
-}
 #endif
 
 static inline void *erofs_kmalloc(struct erofs_sb_info *sbi,
 					size_t size, gfp_t flags)
 {
+#ifdef CONFIG_EROFS_FAULT_INJECTION
 	if (time_to_inject(sbi, FAULT_KMALLOC)) {
 		erofs_show_injection_info(FAULT_KMALLOC);
 		return NULL;
 	}
+#endif
 	return kmalloc(size, flags);
 }
 
@@ -252,40 +242,51 @@ static inline int erofs_wait_on_workgroup_freezed(struct erofs_workgroup *grp)
 }
 #endif
 
-int erofs_workgroup_put(struct erofs_workgroup *grp);
-struct erofs_workgroup *erofs_find_workgroup(struct super_block *sb,
-					     pgoff_t index, bool *tag);
-int erofs_register_workgroup(struct super_block *sb,
-			     struct erofs_workgroup *grp, bool tag);
-unsigned long erofs_shrink_workstation(struct erofs_sb_info *sbi,
-				       unsigned long nr_shrink, bool cleanup);
-void erofs_workgroup_free_rcu(struct erofs_workgroup *grp);
-
-#ifdef EROFS_FS_HAS_MANAGED_CACHE
-int erofs_try_to_free_all_cached_pages(struct erofs_sb_info *sbi,
-				       struct erofs_workgroup *egrp);
-int erofs_try_to_free_cached_page(struct address_space *mapping,
-				  struct page *page);
-
-#define MNGD_MAPPING(sbi)	((sbi)->managed_cache->i_mapping)
-#else
-#define MNGD_MAPPING(sbi)	(NULL)
-#endif
-
-#define DEFAULT_MAX_SYNC_DECOMPRESS_PAGES	3
-
-static inline bool __should_decompress_synchronously(struct erofs_sb_info *sbi,
-						     unsigned int nr)
+static inline bool erofs_workgroup_get(struct erofs_workgroup *grp, int *ocnt)
 {
-	return nr <= sbi->max_sync_decompress_pages;
+	int o;
+
+repeat:
+	o = erofs_wait_on_workgroup_freezed(grp);
+
+	if (unlikely(o <= 0))
+		return -1;
+
+	if (unlikely(atomic_cmpxchg(&grp->refcount, o, o + 1) != o))
+		goto repeat;
+
+	*ocnt = o;
+	return 0;
 }
 
-int __init z_erofs_init_zip_subsystem(void);
-void z_erofs_exit_zip_subsystem(void);
-#else
-/* dummy initializer/finalizer for the decompression subsystem */
-static inline int z_erofs_init_zip_subsystem(void) { return 0; }
-static inline void z_erofs_exit_zip_subsystem(void) {}
+#define __erofs_workgroup_get(grp)	atomic_inc(&(grp)->refcount)
+#define __erofs_workgroup_put(grp)	atomic_dec(&(grp)->refcount)
+
+extern int erofs_workgroup_put(struct erofs_workgroup *grp);
+
+extern struct erofs_workgroup *erofs_find_workgroup(
+	struct super_block *sb, pgoff_t index, bool *tag);
+
+extern int erofs_register_workgroup(struct super_block *sb,
+	struct erofs_workgroup *grp, bool tag);
+
+extern unsigned long erofs_shrink_workstation(struct erofs_sb_info *sbi,
+	unsigned long nr_shrink, bool cleanup);
+
+static inline void erofs_workstation_cleanup_all(struct super_block *sb)
+{
+	erofs_shrink_workstation(EROFS_SB(sb), ~0UL, true);
+}
+
+#ifdef EROFS_FS_HAS_MANAGED_CACHE
+#define EROFS_UNALLOCATED_CACHED_PAGE	((void *)0x5F0EF00D)
+
+extern int erofs_try_to_free_all_cached_pages(struct erofs_sb_info *sbi,
+	struct erofs_workgroup *egrp);
+extern int erofs_try_to_free_cached_page(struct address_space *mapping,
+	struct page *page);
+#endif
+
 #endif
 
 /* we strictly follow PAGE_SIZE and no buffer head yet */
@@ -390,6 +391,8 @@ static inline bool is_inode_layout_inline(struct inode *inode)
 }
 
 extern const struct super_operations erofs_sops;
+extern const struct inode_operations erofs_dir_iops;
+extern const struct file_operations erofs_dir_fops;
 
 extern const struct address_space_operations erofs_raw_access_aops;
 #ifdef CONFIG_EROFS_FS_ZIP
@@ -437,51 +440,36 @@ struct erofs_map_blocks {
 	u64 m_plen, m_llen;
 
 	unsigned int m_flags;
-
-	struct page *mpage;
 };
 
 /* Flags used by erofs_map_blocks() */
 #define EROFS_GET_BLOCKS_RAW    0x0001
 
-#ifdef CONFIG_EROFS_FS_ZIP
-int z_erofs_map_blocks_iter(struct inode *inode,
-			    struct erofs_map_blocks *map,
-			    int flags);
-#else
-static inline int z_erofs_map_blocks_iter(struct inode *inode,
-					  struct erofs_map_blocks *map,
-					  int flags)
-{
-	return -ENOTSUPP;
-}
-#endif
-
 /* data.c */
-static inline struct bio *
-erofs_grab_bio(struct super_block *sb,
-	       erofs_blk_t blkaddr, unsigned int nr_pages,
-	       bio_end_io_t endio, bool nofail)
+static inline struct bio *prepare_bio(
+	struct super_block *sb,
+	erofs_blk_t blkaddr, unsigned nr_pages,
+	bio_end_io_t endio)
 {
-	const gfp_t gfp = GFP_NOIO;
-	struct bio *bio;
+	gfp_t gfp = GFP_NOIO;
+	struct bio *bio = bio_alloc(gfp, nr_pages);
 
-	do {
-		if (nr_pages == 1) {
-			bio = bio_alloc(gfp | (nofail ? __GFP_NOFAIL : 0), 1);
-			if (unlikely(bio == NULL)) {
-				DBG_BUGON(nofail);
-				return ERR_PTR(-ENOMEM);
+	if (unlikely(bio == NULL) &&
+		(current->flags & PF_MEMALLOC)) {
+		do {
+			nr_pages /= 2;
+			if (unlikely(!nr_pages)) {
+				bio = bio_alloc(gfp | __GFP_NOFAIL, 1);
+				BUG_ON(bio == NULL);
+				break;
 			}
-			break;
-		}
-		bio = bio_alloc(gfp, nr_pages);
-		nr_pages /= 2;
-	} while (unlikely(bio == NULL));
+			bio = bio_alloc(gfp, nr_pages);
+		} while (bio == NULL);
+	}
 
 	bio->bi_end_io = endio;
 	bio_set_dev(bio, sb->s_bdev);
-	bio->bi_iter.bi_sector = (sector_t)blkaddr << LOG_SECTORS_PER_BLOCK;
+	bio->bi_iter.bi_sector = blkaddr << LOG_SECTORS_PER_BLOCK;
 	return bio;
 }
 
@@ -491,28 +479,17 @@ static inline void __submit_bio(struct bio *bio, unsigned op, unsigned op_flags)
 	submit_bio(bio);
 }
 
-#ifndef CONFIG_EROFS_FS_IO_MAX_RETRIES
-#define EROFS_IO_MAX_RETRIES_NOFAIL	0
-#else
-#define EROFS_IO_MAX_RETRIES_NOFAIL	CONFIG_EROFS_FS_IO_MAX_RETRIES
-#endif
+extern struct page *erofs_get_meta_page(struct super_block *sb,
+	erofs_blk_t blkaddr, bool prio);
+extern int erofs_map_blocks(struct inode *, struct erofs_map_blocks *, int);
+extern int erofs_map_blocks_iter(struct inode *, struct erofs_map_blocks *,
+	struct page **, int);
 
-struct page *__erofs_get_meta_page(struct super_block *sb, erofs_blk_t blkaddr,
-				   bool prio, bool nofail);
+struct erofs_map_blocks_iter {
+	struct erofs_map_blocks map;
+	struct page *mpage;
+};
 
-static inline struct page *erofs_get_meta_page(struct super_block *sb,
-	erofs_blk_t blkaddr, bool prio)
-{
-	return __erofs_get_meta_page(sb, blkaddr, prio, false);
-}
-
-static inline struct page *erofs_get_meta_page_nofail(struct super_block *sb,
-	erofs_blk_t blkaddr, bool prio)
-{
-	return __erofs_get_meta_page(sb, blkaddr, prio, true);
-}
-
-int erofs_map_blocks(struct inode *, struct erofs_map_blocks *, int);
 
 static inline struct page *
 erofs_get_inline_page(struct inode *inode,
@@ -523,39 +500,42 @@ erofs_get_inline_page(struct inode *inode,
 }
 
 /* inode.c */
-static inline unsigned long erofs_inode_hash(erofs_nid_t nid)
-{
-#if BITS_PER_LONG == 32
-	return (nid >> 32) ^ (nid & 0xffffffff);
-#else
-	return nid;
-#endif
-}
+extern struct inode *erofs_iget(struct super_block *sb,
+	erofs_nid_t nid, bool dir);
 
-extern const struct inode_operations erofs_generic_iops;
-extern const struct inode_operations erofs_symlink_iops;
-extern const struct inode_operations erofs_fast_symlink_iops;
+/* dir.c */
+int erofs_namei(struct inode *dir, struct qstr *name,
+	erofs_nid_t *nid, unsigned *d_type);
+
+/* xattr.c */
+#ifdef CONFIG_EROFS_FS_XATTR
+extern const struct xattr_handler *erofs_xattr_handlers[];
+#endif
+
+/* symlink */
+#ifdef CONFIG_EROFS_FS_XATTR
+extern const struct inode_operations erofs_symlink_xattr_iops;
+extern const struct inode_operations erofs_fast_symlink_xattr_iops;
+extern const struct inode_operations erofs_special_inode_operations;
+#endif
 
 static inline void set_inode_fast_symlink(struct inode *inode)
 {
-	inode->i_op = &erofs_fast_symlink_iops;
+#ifdef CONFIG_EROFS_FS_XATTR
+	inode->i_op = &erofs_fast_symlink_xattr_iops;
+#else
+	inode->i_op = &simple_symlink_inode_operations;
+#endif
 }
 
 static inline bool is_inode_fast_symlink(struct inode *inode)
 {
-	return inode->i_op == &erofs_fast_symlink_iops;
+#ifdef CONFIG_EROFS_FS_XATTR
+	return inode->i_op == &erofs_fast_symlink_xattr_iops;
+#else
+	return inode->i_op == &simple_symlink_inode_operations;
+#endif
 }
-
-struct inode *erofs_iget(struct super_block *sb, erofs_nid_t nid, bool dir);
-
-/* namei.c */
-extern const struct inode_operations erofs_dir_iops;
-
-int erofs_namei(struct inode *dir, struct qstr *name,
-		erofs_nid_t *nid, unsigned int *d_type);
-
-/* dir.c */
-extern const struct file_operations erofs_dir_fops;
 
 static inline void *erofs_vmap(struct page **pages, unsigned int count)
 {
@@ -585,11 +565,15 @@ static inline void erofs_vunmap(const void *mem, unsigned int count)
 }
 
 /* utils.c */
-extern struct shrinker erofs_shrinker_info;
+extern struct page *erofs_allocpage(struct list_head *pool, gfp_t gfp);
 
-struct page *erofs_allocpage(struct list_head *pool, gfp_t gfp);
-void erofs_register_super(struct super_block *sb);
-void erofs_unregister_super(struct super_block *sb);
+extern void erofs_register_super(struct super_block *sb);
+extern void erofs_unregister_super(struct super_block *sb);
+
+extern unsigned long erofs_shrink_count(struct shrinker *shrink,
+	struct shrink_control *sc);
+extern unsigned long erofs_shrink_scan(struct shrinker *shrink,
+	struct shrink_control *sc);
 
 #ifndef lru_to_page
 #define lru_to_page(head) (list_entry((head)->prev, struct page, lru))

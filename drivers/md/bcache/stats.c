@@ -111,7 +111,7 @@ void bch_cache_accounting_clear(struct cache_accounting *acc)
 {
 	memset(&acc->total.cache_hits,
 	       0,
-	       sizeof(struct cache_stats));
+	       sizeof(unsigned long) * 7);
 }
 
 void bch_cache_accounting_destroy(struct cache_accounting *acc)

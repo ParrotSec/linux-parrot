@@ -73,10 +73,9 @@ static void gpio_nand_dosync(struct gpiomtd *gpiomtd)
 static inline void gpio_nand_dosync(struct gpiomtd *gpiomtd) {}
 #endif
 
-static void gpio_nand_cmd_ctrl(struct nand_chip *chip, int cmd,
-			       unsigned int ctrl)
+static void gpio_nand_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 {
-	struct gpiomtd *gpiomtd = gpio_nand_getpriv(nand_to_mtd(chip));
+	struct gpiomtd *gpiomtd = gpio_nand_getpriv(mtd);
 
 	gpio_nand_dosync(gpiomtd);
 
@@ -90,13 +89,13 @@ static void gpio_nand_cmd_ctrl(struct nand_chip *chip, int cmd,
 	if (cmd == NAND_CMD_NONE)
 		return;
 
-	writeb(cmd, gpiomtd->nand_chip.legacy.IO_ADDR_W);
+	writeb(cmd, gpiomtd->nand_chip.IO_ADDR_W);
 	gpio_nand_dosync(gpiomtd);
 }
 
-static int gpio_nand_devready(struct nand_chip *chip)
+static int gpio_nand_devready(struct mtd_info *mtd)
 {
-	struct gpiomtd *gpiomtd = gpio_nand_getpriv(nand_to_mtd(chip));
+	struct gpiomtd *gpiomtd = gpio_nand_getpriv(mtd);
 
 	return gpiod_get_value(gpiomtd->rdy);
 }
@@ -195,7 +194,7 @@ static int gpio_nand_remove(struct platform_device *pdev)
 {
 	struct gpiomtd *gpiomtd = platform_get_drvdata(pdev);
 
-	nand_release(&gpiomtd->nand_chip);
+	nand_release(nand_to_mtd(&gpiomtd->nand_chip));
 
 	/* Enable write protection and disable the chip */
 	if (gpiomtd->nwp && !IS_ERR(gpiomtd->nwp))
@@ -225,9 +224,9 @@ static int gpio_nand_probe(struct platform_device *pdev)
 	chip = &gpiomtd->nand_chip;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	chip->legacy.IO_ADDR_R = devm_ioremap_resource(dev, res);
-	if (IS_ERR(chip->legacy.IO_ADDR_R))
-		return PTR_ERR(chip->legacy.IO_ADDR_R);
+	chip->IO_ADDR_R = devm_ioremap_resource(dev, res);
+	if (IS_ERR(chip->IO_ADDR_R))
+		return PTR_ERR(chip->IO_ADDR_R);
 
 	res = gpio_nand_get_io_sync(pdev);
 	if (res) {
@@ -271,15 +270,15 @@ static int gpio_nand_probe(struct platform_device *pdev)
 	}
 	/* Using RDY pin */
 	if (gpiomtd->rdy)
-		chip->legacy.dev_ready = gpio_nand_devready;
+		chip->dev_ready = gpio_nand_devready;
 
 	nand_set_flash_node(chip, pdev->dev.of_node);
-	chip->legacy.IO_ADDR_W	= chip->legacy.IO_ADDR_R;
+	chip->IO_ADDR_W		= chip->IO_ADDR_R;
 	chip->ecc.mode		= NAND_ECC_SOFT;
 	chip->ecc.algo		= NAND_ECC_HAMMING;
 	chip->options		= gpiomtd->plat.options;
-	chip->legacy.chip_delay	= gpiomtd->plat.chip_delay;
-	chip->legacy.cmd_ctrl	= gpio_nand_cmd_ctrl;
+	chip->chip_delay	= gpiomtd->plat.chip_delay;
+	chip->cmd_ctrl		= gpio_nand_cmd_ctrl;
 
 	mtd			= nand_to_mtd(chip);
 	mtd->dev.parent		= dev;
@@ -290,7 +289,7 @@ static int gpio_nand_probe(struct platform_device *pdev)
 	if (gpiomtd->nwp && !IS_ERR(gpiomtd->nwp))
 		gpiod_direction_output(gpiomtd->nwp, 1);
 
-	ret = nand_scan(chip, 1);
+	ret = nand_scan(mtd, 1);
 	if (ret)
 		goto err_wp;
 

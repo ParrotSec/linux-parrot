@@ -20,12 +20,11 @@ static int udplitev6_rcv(struct sk_buff *skb)
 	return __udp6_lib_rcv(skb, &udplite_table, IPPROTO_UDPLITE);
 }
 
-static int udplitev6_err(struct sk_buff *skb,
+static void udplitev6_err(struct sk_buff *skb,
 			  struct inet6_skb_parm *opt,
 			  u8 type, u8 code, int offset, __be32 info)
 {
-	return __udp6_lib_err(skb, opt, type, code, offset, info,
-			      &udplite_table);
+	__udp6_lib_err(skb, opt, type, code, offset, info, &udplite_table);
 }
 
 static const struct inet6_protocol udplitev6_protocol = {
@@ -49,7 +48,6 @@ struct proto udplitev6_prot = {
 	.recvmsg	   = udpv6_recvmsg,
 	.hash		   = udp_lib_hash,
 	.unhash		   = udp_lib_unhash,
-	.rehash		   = udp_v6_rehash,
 	.get_port	   = udp_v6_get_port,
 	.memory_allocated  = &udp_memory_allocated,
 	.sysctl_mem	   = sysctl_udp_mem,

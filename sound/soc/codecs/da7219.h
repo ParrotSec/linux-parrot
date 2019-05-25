@@ -809,7 +809,6 @@ struct da7219_aad_priv;
 
 /* Private data */
 struct da7219_priv {
-	struct snd_soc_component *component;
 	struct da7219_aad_priv *aad;
 	struct da7219_pdata *pdata;
 
@@ -830,7 +829,6 @@ struct da7219_priv {
 	int clk_src;
 
 	bool master;
-	bool tdm_en;
 	bool alc_en;
 	bool micbias_on_event;
 	unsigned int mic_pga_delay;

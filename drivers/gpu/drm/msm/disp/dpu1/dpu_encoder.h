@@ -32,36 +32,45 @@
 /**
  * Encoder functions and data types
  * @intfs:	Interfaces this encoder is using, INTF_MODE_NONE if unused
+ * @needs_cdm:	Encoder requests a CDM based on pixel format conversion needs
+ * @display_num_of_h_tiles: Number of horizontal tiles in case of split
+ *                          interface
+ * @topology:   Topology of the display
  */
 struct dpu_encoder_hw_resources {
 	enum dpu_intf_mode intfs[INTF_MAX];
+	bool needs_cdm;
+	u32 display_num_of_h_tiles;
+};
+
+/**
+ * dpu_encoder_kickoff_params - info encoder requires at kickoff
+ * @affected_displays:  bitmask, bit set means the ROI of the commit lies within
+ *                      the bounds of the physical display at the bit index
+ */
+struct dpu_encoder_kickoff_params {
+	unsigned long affected_displays;
 };
 
 /**
  * dpu_encoder_get_hw_resources - Populate table of required hardware resources
  * @encoder:	encoder pointer
  * @hw_res:	resource table to populate with encoder required resources
+ * @conn_state:	report hw reqs based on this proposed connector state
  */
 void dpu_encoder_get_hw_resources(struct drm_encoder *encoder,
-				  struct dpu_encoder_hw_resources *hw_res);
+		struct dpu_encoder_hw_resources *hw_res,
+		struct drm_connector_state *conn_state);
 
 /**
- * dpu_encoder_assign_crtc - Link the encoder to the crtc it's assigned to
+ * dpu_encoder_register_vblank_callback - provide callback to encoder that
+ *	will be called on the next vblank.
  * @encoder:	encoder pointer
- * @crtc:	crtc pointer
+ * @cb:		callback pointer, provide NULL to deregister and disable IRQs
+ * @data:	user data provided to callback
  */
-void dpu_encoder_assign_crtc(struct drm_encoder *encoder,
-			     struct drm_crtc *crtc);
-
-/**
- * dpu_encoder_toggle_vblank_for_crtc - Toggles vblank interrupts on or off if
- *	the encoder is assigned to the given crtc
- * @encoder:	encoder pointer
- * @crtc:	crtc pointer
- * @enable:	true if vblank should be enabled
- */
-void dpu_encoder_toggle_vblank_for_crtc(struct drm_encoder *encoder,
-					struct drm_crtc *crtc, bool enable);
+void dpu_encoder_register_vblank_callback(struct drm_encoder *encoder,
+		void (*cb)(void *), void *data);
 
 /**
  * dpu_encoder_register_frame_event_callback - provide callback to encoder that
@@ -79,9 +88,10 @@ void dpu_encoder_register_frame_event_callback(struct drm_encoder *encoder,
  *	Immediately: if no previous commit is outstanding.
  *	Delayed: Block until next trigger can be issued.
  * @encoder:	encoder pointer
- * @async:	true if this is an asynchronous commit
+ * @params:	kickoff time parameters
  */
-void dpu_encoder_prepare_for_kickoff(struct drm_encoder *encoder,  bool async);
+void dpu_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
+		struct dpu_encoder_kickoff_params *params);
 
 /**
  * dpu_encoder_trigger_kickoff_pending - Clear the flush bits from previous
@@ -94,9 +104,8 @@ void dpu_encoder_trigger_kickoff_pending(struct drm_encoder *encoder);
  * dpu_encoder_kickoff - trigger a double buffer flip of the ctl path
  *	(i.e. ctl flush and start) immediately.
  * @encoder:	encoder pointer
- * @async:	true if this is an asynchronous commit
  */
-void dpu_encoder_kickoff(struct drm_encoder *encoder, bool async);
+void dpu_encoder_kickoff(struct drm_encoder *encoder);
 
 /**
  * dpu_encoder_wait_for_event - Waits for encoder events
@@ -125,10 +134,10 @@ int dpu_encoder_wait_for_event(struct drm_encoder *drm_encoder,
 enum dpu_intf_mode dpu_encoder_get_intf_mode(struct drm_encoder *encoder);
 
 /**
- * dpu_encoder_virt_runtime_resume - pm runtime resume the encoder configs
+ * dpu_encoder_virt_restore - restore the encoder configs
  * @encoder:	encoder pointer
  */
-void dpu_encoder_virt_runtime_resume(struct drm_encoder *encoder);
+void dpu_encoder_virt_restore(struct drm_encoder *encoder);
 
 /**
  * dpu_encoder_init - initialize virtual encoder object

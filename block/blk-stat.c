@@ -130,6 +130,7 @@ blk_stat_alloc_callback(void (*timer_fn)(struct blk_stat_callback *),
 
 	return cb;
 }
+EXPORT_SYMBOL_GPL(blk_stat_alloc_callback);
 
 void blk_stat_add_callback(struct request_queue *q,
 			   struct blk_stat_callback *cb)
@@ -150,6 +151,7 @@ void blk_stat_add_callback(struct request_queue *q,
 	blk_queue_flag_set(QUEUE_FLAG_STATS, q);
 	spin_unlock(&q->stats->lock);
 }
+EXPORT_SYMBOL_GPL(blk_stat_add_callback);
 
 void blk_stat_remove_callback(struct request_queue *q,
 			      struct blk_stat_callback *cb)
@@ -162,6 +164,7 @@ void blk_stat_remove_callback(struct request_queue *q,
 
 	del_timer_sync(&cb->timer);
 }
+EXPORT_SYMBOL_GPL(blk_stat_remove_callback);
 
 static void blk_stat_free_callback_rcu(struct rcu_head *head)
 {
@@ -178,6 +181,7 @@ void blk_stat_free_callback(struct blk_stat_callback *cb)
 	if (cb)
 		call_rcu(&cb->rcu, blk_stat_free_callback_rcu);
 }
+EXPORT_SYMBOL_GPL(blk_stat_free_callback);
 
 void blk_stat_enable_accounting(struct request_queue *q)
 {
@@ -186,7 +190,6 @@ void blk_stat_enable_accounting(struct request_queue *q)
 	blk_queue_flag_set(QUEUE_FLAG_STATS, q);
 	spin_unlock(&q->stats->lock);
 }
-EXPORT_SYMBOL_GPL(blk_stat_enable_accounting);
 
 struct blk_queue_stats *blk_alloc_queue_stats(void)
 {

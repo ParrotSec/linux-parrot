@@ -203,9 +203,13 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
 	int __user *sioc_len;
 	int __user *iobuf_len;
 
+#ifndef CONFIG_COMPAT
+	compat = 0; /* Just so the compiler _knows_ */
+#endif
+
 	switch (cmd) {
 	case ATM_GETNAMES:
-		if (IS_ENABLED(CONFIG_COMPAT) && compat) {
+		if (compat) {
 #ifdef CONFIG_COMPAT
 			struct compat_atm_iobuf __user *ciobuf = arg;
 			compat_uptr_t cbuf;
@@ -249,7 +253,7 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
 		break;
 	}
 
-	if (IS_ENABLED(CONFIG_COMPAT) && compat) {
+	if (compat) {
 #ifdef CONFIG_COMPAT
 		struct compat_atmif_sioc __user *csioc = arg;
 		compat_uptr_t carg;
@@ -413,7 +417,7 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
 		}
 		/* fall through */
 	default:
-		if (IS_ENABLED(CONFIG_COMPAT) && compat) {
+		if (compat) {
 #ifdef CONFIG_COMPAT
 			if (!dev->ops->compat_ioctl) {
 				error = -EINVAL;

@@ -1,6 +1,5 @@
+#! /usr/bin/python
 # SPDX-License-Identifier: GPL-2.0
-
-from __future__ import print_function
 
 import os
 import sys
@@ -9,11 +8,7 @@ import optparse
 import tempfile
 import logging
 import shutil
-
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
+import ConfigParser
 
 def data_equal(a, b):
     # Allow multiple values in assignment separated by '|'
@@ -105,20 +100,20 @@ class Event(dict):
     def equal(self, other):
         for t in Event.terms:
             log.debug("      [%s] %s %s" % (t, self[t], other[t]));
-            if t not in self or t not in other:
+            if not self.has_key(t) or not other.has_key(t):
                 return False
             if not data_equal(self[t], other[t]):
                 return False
         return True
 
     def optional(self):
-        if 'optional' in self and self['optional'] == '1':
+        if self.has_key('optional') and self['optional'] == '1':
             return True
         return False
 
     def diff(self, other):
         for t in Event.terms:
-            if t not in self or t not in other:
+            if not self.has_key(t) or not other.has_key(t):
                 continue
             if not data_equal(self[t], other[t]):
                 log.warning("expected %s=%s, got %s" % (t, self[t], other[t]))
@@ -139,7 +134,7 @@ class Event(dict):
 #   - expected values assignments
 class Test(object):
     def __init__(self, path, options):
-        parser = configparser.SafeConfigParser()
+        parser = ConfigParser.SafeConfigParser()
         parser.read(path)
 
         log.warning("running '%s'" % path)
@@ -198,7 +193,7 @@ class Test(object):
         return True
 
     def load_events(self, path, events):
-        parser_event = configparser.SafeConfigParser()
+        parser_event = ConfigParser.SafeConfigParser()
         parser_event.read(path)
 
         # The event record section header contains 'event' word,
@@ -212,7 +207,7 @@ class Test(object):
             # Read parent event if there's any
             if (':' in section):
                 base = section[section.index(':') + 1:]
-                parser_base = configparser.SafeConfigParser()
+                parser_base = ConfigParser.SafeConfigParser()
                 parser_base.read(self.test_dir + '/' + base)
                 base_items = parser_base.items('event')
 
@@ -327,9 +322,9 @@ def run_tests(options):
     for f in glob.glob(options.test_dir + '/' + options.test):
         try:
             Test(f, options).run()
-        except Unsup as obj:
+        except Unsup, obj:
             log.warning("unsupp  %s" % obj.getMsg())
-        except Notest as obj:
+        except Notest, obj:
             log.warning("skipped %s" % obj.getMsg())
 
 def setup_log(verbose):
@@ -368,7 +363,7 @@ def main():
     parser.add_option("-p", "--perf",
                       action="store", type="string", dest="perf")
     parser.add_option("-v", "--verbose",
-                      default=0, action="count", dest="verbose")
+                      action="count", dest="verbose")
 
     options, args = parser.parse_args()
     if args:
@@ -378,7 +373,7 @@ def main():
     setup_log(options.verbose)
 
     if not options.test_dir:
-        print('FAILED no -d option specified')
+        print 'FAILED no -d option specified'
         sys.exit(-1)
 
     if not options.test:
@@ -387,8 +382,8 @@ def main():
     try:
         run_tests(options)
 
-    except Fail as obj:
-        print("FAILED %s" % obj.getMsg())
+    except Fail, obj:
+        print "FAILED %s" % obj.getMsg();
         sys.exit(-1)
 
     sys.exit(0)

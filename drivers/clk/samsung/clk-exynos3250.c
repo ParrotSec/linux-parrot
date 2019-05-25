@@ -12,6 +12,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
+#include <linux/syscore_ops.h>
 
 #include <dt-bindings/clock/exynos3250.h>
 

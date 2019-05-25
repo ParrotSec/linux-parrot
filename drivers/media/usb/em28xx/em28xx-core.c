@@ -777,7 +777,6 @@ EXPORT_SYMBOL_GPL(em28xx_set_mode);
 static void em28xx_irq_callback(struct urb *urb)
 {
 	struct em28xx *dev = urb->context;
-	unsigned long flags;
 	int i;
 
 	switch (urb->status) {
@@ -794,9 +793,9 @@ static void em28xx_irq_callback(struct urb *urb)
 	}
 
 	/* Copy data from URB */
-	spin_lock_irqsave(&dev->slock, flags);
+	spin_lock(&dev->slock);
 	dev->usb_ctl.urb_data_copy(dev, urb);
-	spin_unlock_irqrestore(&dev->slock, flags);
+	spin_unlock(&dev->slock);
 
 	/* Reset urb buffers */
 	for (i = 0; i < urb->number_of_packets; i++) {

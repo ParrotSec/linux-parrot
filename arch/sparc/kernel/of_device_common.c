@@ -151,8 +151,8 @@ int of_bus_sbus_match(struct device_node *np)
 	struct device_node *dp = np;
 
 	while (dp) {
-		if (of_node_name_eq(dp, "sbus") ||
-		    of_node_name_eq(dp, "sbi"))
+		if (!strcmp(dp->name, "sbus") ||
+		    !strcmp(dp->name, "sbi"))
 			return 1;
 
 		/* Have a look at use_1to1_mapping().  We're trying

@@ -96,7 +96,8 @@ static struct linear_conf *linear_conf(struct mddev *mddev, int raid_disks)
 	int i, cnt;
 	bool discard_supported = false;
 
-	conf = kzalloc(struct_size(conf, disks, raid_disks), GFP_KERNEL);
+	conf = kzalloc (sizeof (*conf) + raid_disks*sizeof(struct dev_info),
+			GFP_KERNEL);
 	if (!conf)
 		return NULL;
 

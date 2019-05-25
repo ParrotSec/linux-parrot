@@ -19,7 +19,6 @@
 #include <asm/pci_x86.h>
 #include <asm/reboot.h>
 #include <asm/setup.h>
-#include <asm/jailhouse_para.h>
 
 static __initdata struct jailhouse_setup_data setup_data;
 static unsigned int precalibrated_tsc_khz;

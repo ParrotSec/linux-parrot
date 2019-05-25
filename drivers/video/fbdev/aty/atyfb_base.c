@@ -1480,28 +1480,24 @@ static int atyfb_set_par(struct fb_info *info)
 	base = 0x2000;
 	printk("debug atyfb: Mach64 non-shadow register values:");
 	for (i = 0; i < 256; i = i+4) {
-		if (i % 16 == 0) {
-			pr_cont("\n");
-			printk("debug atyfb: 0x%04X: ", base + i);
-		}
-		pr_cont(" %08X", aty_ld_le32(i, par));
+		if (i % 16 == 0)
+			printk("\ndebug atyfb: 0x%04X: ", base + i);
+		printk(" %08X", aty_ld_le32(i, par));
 	}
-	pr_cont("\n\n");
+	printk("\n\n");
 
 #ifdef CONFIG_FB_ATY_CT
 	/* PLL registers */
 	base = 0x00;
 	printk("debug atyfb: Mach64 PLL register values:");
 	for (i = 0; i < 64; i++) {
-		if (i % 16 == 0) {
-			pr_cont("\n");
-			printk("debug atyfb: 0x%02X: ", base + i);
-		}
+		if (i % 16 == 0)
+			printk("\ndebug atyfb: 0x%02X: ", base + i);
 		if (i % 4 == 0)
-			pr_cont(" ");
-		pr_cont("%02X", aty_ld_pll_ct(i, par));
+			printk(" ");
+		printk("%02X", aty_ld_pll_ct(i, par));
 	}
-	pr_cont("\n\n");
+	printk("\n\n");
 #endif	/* CONFIG_FB_ATY_CT */
 
 #ifdef CONFIG_FB_ATY_GENERIC_LCD
@@ -1513,19 +1509,19 @@ static int atyfb_set_par(struct fb_info *info)
 			for (i = 0; i <= POWER_MANAGEMENT; i++) {
 				if (i == EXT_VERT_STRETCH)
 					continue;
-				pr_cont("\ndebug atyfb: 0x%04X: ",
+				printk("\ndebug atyfb: 0x%04X: ",
 				       lt_lcd_regs[i]);
-				pr_cont(" %08X", aty_ld_lcd(i, par));
+				printk(" %08X", aty_ld_lcd(i, par));
 			}
 		} else {
 			for (i = 0; i < 64; i++) {
 				if (i % 4 == 0)
-					pr_cont("\ndebug atyfb: 0x%02X: ",
+					printk("\ndebug atyfb: 0x%02X: ",
 					       base + i);
-				pr_cont(" %08X", aty_ld_lcd(i, par));
+				printk(" %08X", aty_ld_lcd(i, par));
 			}
 		}
-		pr_cont("\n\n");
+		printk("\n\n");
 	}
 #endif /* CONFIG_FB_ATY_GENERIC_LCD */
 }
@@ -2601,8 +2597,8 @@ static int aty_init(struct fb_info *info)
 		       aty_ld_le32(DSP_ON_OFF, par),
 		       aty_ld_le32(CLOCK_CNTL, par));
 		for (i = 0; i < 40; i++)
-			pr_cont(" %02x", aty_ld_pll_ct(i, par));
-		pr_cont("\n");
+			printk(" %02x", aty_ld_pll_ct(i, par));
+		printk("\n");
 	}
 #endif
 	if (par->pll_ops->init_pll)

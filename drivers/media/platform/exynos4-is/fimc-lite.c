@@ -654,8 +654,8 @@ static int fimc_lite_querycap(struct file *file, void *priv,
 {
 	struct fimc_lite *fimc = video_drvdata(file);
 
-	strscpy(cap->driver, FIMC_LITE_DRV_NAME, sizeof(cap->driver));
-	strscpy(cap->card, FIMC_LITE_DRV_NAME, sizeof(cap->card));
+	strlcpy(cap->driver, FIMC_LITE_DRV_NAME, sizeof(cap->driver));
+	strlcpy(cap->card, FIMC_LITE_DRV_NAME, sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
 					dev_name(&fimc->pdev->dev));
 
@@ -673,7 +673,7 @@ static int fimc_lite_enum_fmt_mplane(struct file *file, void *priv,
 		return -EINVAL;
 
 	fmt = &fimc_lite_formats[f->index];
-	strscpy(f->description, fmt->name, sizeof(f->description));
+	strlcpy(f->description, fmt->name, sizeof(f->description));
 	f->pixelformat = fmt->fourcc;
 
 	return 0;

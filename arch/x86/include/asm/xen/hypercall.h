@@ -335,11 +335,15 @@ HYPERVISOR_update_va_mapping(unsigned long va, pte_t new_val,
 		return _hypercall4(int, update_va_mapping, va,
 				   new_val.pte, new_val.pte >> 32, flags);
 }
+extern int __must_check xen_event_channel_op_compat(int, void *);
 
 static inline int
 HYPERVISOR_event_channel_op(int cmd, void *arg)
 {
-	return _hypercall2(int, event_channel_op, cmd, arg);
+	int rc = _hypercall2(int, event_channel_op, cmd, arg);
+	if (unlikely(rc == -ENOSYS))
+		rc = xen_event_channel_op_compat(cmd, arg);
+	return rc;
 }
 
 static inline int
@@ -354,10 +358,15 @@ HYPERVISOR_console_io(int cmd, int count, char *str)
 	return _hypercall3(int, console_io, cmd, count, str);
 }
 
+extern int __must_check xen_physdev_op_compat(int, void *);
+
 static inline int
 HYPERVISOR_physdev_op(int cmd, void *arg)
 {
-	return _hypercall2(int, physdev_op, cmd, arg);
+	int rc = _hypercall2(int, physdev_op, cmd, arg);
+	if (unlikely(rc == -ENOSYS))
+		rc = xen_physdev_op_compat(cmd, arg);
+	return rc;
 }
 
 static inline int

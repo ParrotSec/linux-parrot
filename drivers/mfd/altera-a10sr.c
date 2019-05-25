@@ -108,8 +108,7 @@ static const struct regmap_config altr_a10sr_regmap_config = {
 
 	.cache_type = REGCACHE_NONE,
 
-	.use_single_read = true,
-	.use_single_write = true,
+	.use_single_rw = true,
 	.read_flag_mask = 1,
 	.write_flag_mask = 0,
 

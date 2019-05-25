@@ -775,7 +775,7 @@ static int solo_enc_querycap(struct file *file, void  *priv,
 	struct solo_enc_dev *solo_enc = video_drvdata(file);
 	struct solo_dev *solo_dev = solo_enc->solo_dev;
 
-	strscpy(cap->driver, SOLO6X10_NAME, sizeof(cap->driver));
+	strcpy(cap->driver, SOLO6X10_NAME);
 	snprintf(cap->card, sizeof(cap->card), "Softlogic 6x10 Enc %d",
 		 solo_enc->ch);
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "PCI:%s",
@@ -834,18 +834,17 @@ static int solo_enc_enum_fmt_cap(struct file *file, void *priv,
 		switch (dev_type) {
 		case SOLO_DEV_6010:
 			f->pixelformat = V4L2_PIX_FMT_MPEG4;
-			strscpy(f->description, "MPEG-4 part 2",
-				sizeof(f->description));
+			strcpy(f->description, "MPEG-4 part 2");
 			break;
 		case SOLO_DEV_6110:
 			f->pixelformat = V4L2_PIX_FMT_H264;
-			strscpy(f->description, "H.264", sizeof(f->description));
+			strcpy(f->description, "H.264");
 			break;
 		}
 		break;
 	case 1:
 		f->pixelformat = V4L2_PIX_FMT_MJPEG;
-		strscpy(f->description, "MJPEG", sizeof(f->description));
+		strcpy(f->description, "MJPEG");
 		break;
 	default:
 		return -EINVAL;
@@ -1127,8 +1126,7 @@ static int solo_s_ctrl(struct v4l2_ctrl *ctrl)
 					solo_enc->md_thresholds->p_new.p_u16);
 		break;
 	case V4L2_CID_OSD_TEXT:
-		strscpy(solo_enc->osd_text, ctrl->p_new.p_char,
-			sizeof(solo_enc->osd_text));
+		strcpy(solo_enc->osd_text, ctrl->p_new.p_char);
 		return solo_osd_print(solo_enc);
 	default:
 		return -EINVAL;

@@ -11,7 +11,7 @@
 #include <drv_types.h>
 
 struct sreset_priv {
-	u8 wifi_error_status;
+	u8	Wifi_Error_Status;
 };
 
 #include <rtl8188e_hal.h>

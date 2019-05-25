@@ -83,23 +83,28 @@ static void cxgb4_process_flow_match(struct net_device *dev,
 				     struct tc_cls_flower_offload *cls,
 				     struct ch_filter_specification *fs)
 {
-	struct flow_rule *rule = tc_cls_flower_offload_flow_rule(cls);
 	u16 addr_type = 0;
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_CONTROL)) {
-		struct flow_match_control match;
+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_CONTROL)) {
+		struct flow_dissector_key_control *key =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_CONTROL,
+						  cls->key);
 
-		flow_rule_match_control(rule, &match);
-		addr_type = match.key->addr_type;
+		addr_type = key->addr_type;
 	}
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_BASIC)) {
-		struct flow_match_basic match;
-		u16 ethtype_key, ethtype_mask;
-
-		flow_rule_match_basic(rule, &match);
-		ethtype_key = ntohs(match.key->n_proto);
-		ethtype_mask = ntohs(match.mask->n_proto);
+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
+		struct flow_dissector_key_basic *key =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_BASIC,
+						  cls->key);
+		struct flow_dissector_key_basic *mask =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_BASIC,
+						  cls->mask);
+		u16 ethtype_key = ntohs(key->n_proto);
+		u16 ethtype_mask = ntohs(mask->n_proto);
 
 		if (ethtype_key == ETH_P_ALL) {
 			ethtype_key = 0;
@@ -111,89 +116,115 @@ static void cxgb4_process_flow_match(struct net_device *dev,
 
 		fs->val.ethtype = ethtype_key;
 		fs->mask.ethtype = ethtype_mask;
-		fs->val.proto = match.key->ip_proto;
-		fs->mask.proto = match.mask->ip_proto;
+		fs->val.proto = key->ip_proto;
+		fs->mask.proto = mask->ip_proto;
 	}
 
 	if (addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS) {
-		struct flow_match_ipv4_addrs match;
-
-		flow_rule_match_ipv4_addrs(rule, &match);
+		struct flow_dissector_key_ipv4_addrs *key =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_IPV4_ADDRS,
+						  cls->key);
+		struct flow_dissector_key_ipv4_addrs *mask =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_IPV4_ADDRS,
+						  cls->mask);
 		fs->type = 0;
-		memcpy(&fs->val.lip[0], &match.key->dst, sizeof(match.key->dst));
-		memcpy(&fs->val.fip[0], &match.key->src, sizeof(match.key->src));
-		memcpy(&fs->mask.lip[0], &match.mask->dst, sizeof(match.mask->dst));
-		memcpy(&fs->mask.fip[0], &match.mask->src, sizeof(match.mask->src));
+		memcpy(&fs->val.lip[0], &key->dst, sizeof(key->dst));
+		memcpy(&fs->val.fip[0], &key->src, sizeof(key->src));
+		memcpy(&fs->mask.lip[0], &mask->dst, sizeof(mask->dst));
+		memcpy(&fs->mask.fip[0], &mask->src, sizeof(mask->src));
 
 		/* also initialize nat_lip/fip to same values */
-		memcpy(&fs->nat_lip[0], &match.key->dst, sizeof(match.key->dst));
-		memcpy(&fs->nat_fip[0], &match.key->src, sizeof(match.key->src));
+		memcpy(&fs->nat_lip[0], &key->dst, sizeof(key->dst));
+		memcpy(&fs->nat_fip[0], &key->src, sizeof(key->src));
+
 	}
 
 	if (addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS) {
-		struct flow_match_ipv6_addrs match;
+		struct flow_dissector_key_ipv6_addrs *key =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_IPV6_ADDRS,
+						  cls->key);
+		struct flow_dissector_key_ipv6_addrs *mask =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_IPV6_ADDRS,
+						  cls->mask);
 
-		flow_rule_match_ipv6_addrs(rule, &match);
 		fs->type = 1;
-		memcpy(&fs->val.lip[0], match.key->dst.s6_addr,
-		       sizeof(match.key->dst));
-		memcpy(&fs->val.fip[0], match.key->src.s6_addr,
-		       sizeof(match.key->src));
-		memcpy(&fs->mask.lip[0], match.mask->dst.s6_addr,
-		       sizeof(match.mask->dst));
-		memcpy(&fs->mask.fip[0], match.mask->src.s6_addr,
-		       sizeof(match.mask->src));
+		memcpy(&fs->val.lip[0], key->dst.s6_addr, sizeof(key->dst));
+		memcpy(&fs->val.fip[0], key->src.s6_addr, sizeof(key->src));
+		memcpy(&fs->mask.lip[0], mask->dst.s6_addr, sizeof(mask->dst));
+		memcpy(&fs->mask.fip[0], mask->src.s6_addr, sizeof(mask->src));
 
 		/* also initialize nat_lip/fip to same values */
-		memcpy(&fs->nat_lip[0], match.key->dst.s6_addr,
-		       sizeof(match.key->dst));
-		memcpy(&fs->nat_fip[0], match.key->src.s6_addr,
-		       sizeof(match.key->src));
+		memcpy(&fs->nat_lip[0], key->dst.s6_addr, sizeof(key->dst));
+		memcpy(&fs->nat_fip[0], key->src.s6_addr, sizeof(key->src));
 	}
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_PORTS)) {
-		struct flow_match_ports match;
+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
+		struct flow_dissector_key_ports *key, *mask;
 
-		flow_rule_match_ports(rule, &match);
-		fs->val.lport = cpu_to_be16(match.key->dst);
-		fs->mask.lport = cpu_to_be16(match.mask->dst);
-		fs->val.fport = cpu_to_be16(match.key->src);
-		fs->mask.fport = cpu_to_be16(match.mask->src);
+		key = skb_flow_dissector_target(cls->dissector,
+						FLOW_DISSECTOR_KEY_PORTS,
+						cls->key);
+		mask = skb_flow_dissector_target(cls->dissector,
+						 FLOW_DISSECTOR_KEY_PORTS,
+						 cls->mask);
+		fs->val.lport = cpu_to_be16(key->dst);
+		fs->mask.lport = cpu_to_be16(mask->dst);
+		fs->val.fport = cpu_to_be16(key->src);
+		fs->mask.fport = cpu_to_be16(mask->src);
 
 		/* also initialize nat_lport/fport to same values */
-		fs->nat_lport = cpu_to_be16(match.key->dst);
-		fs->nat_fport = cpu_to_be16(match.key->src);
+		fs->nat_lport = cpu_to_be16(key->dst);
+		fs->nat_fport = cpu_to_be16(key->src);
 	}
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_IP)) {
-		struct flow_match_ip match;
+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_IP)) {
+		struct flow_dissector_key_ip *key, *mask;
 
-		flow_rule_match_ip(rule, &match);
-		fs->val.tos = match.key->tos;
-		fs->mask.tos = match.mask->tos;
+		key = skb_flow_dissector_target(cls->dissector,
+						FLOW_DISSECTOR_KEY_IP,
+						cls->key);
+		mask = skb_flow_dissector_target(cls->dissector,
+						 FLOW_DISSECTOR_KEY_IP,
+						 cls->mask);
+		fs->val.tos = key->tos;
+		fs->mask.tos = mask->tos;
 	}
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_ENC_KEYID)) {
-		struct flow_match_enc_keyid match;
+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_ENC_KEYID)) {
+		struct flow_dissector_key_keyid *key, *mask;
 
-		flow_rule_match_enc_keyid(rule, &match);
-		fs->val.vni = be32_to_cpu(match.key->keyid);
-		fs->mask.vni = be32_to_cpu(match.mask->keyid);
+		key = skb_flow_dissector_target(cls->dissector,
+						FLOW_DISSECTOR_KEY_ENC_KEYID,
+						cls->key);
+		mask = skb_flow_dissector_target(cls->dissector,
+						 FLOW_DISSECTOR_KEY_ENC_KEYID,
+						 cls->mask);
+		fs->val.vni = be32_to_cpu(key->keyid);
+		fs->mask.vni = be32_to_cpu(mask->keyid);
 		if (fs->mask.vni) {
 			fs->val.encap_vld = 1;
 			fs->mask.encap_vld = 1;
 		}
 	}
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_VLAN)) {
-		struct flow_match_vlan match;
+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_VLAN)) {
+		struct flow_dissector_key_vlan *key, *mask;
 		u16 vlan_tci, vlan_tci_mask;
 
-		flow_rule_match_vlan(rule, &match);
-		vlan_tci = match.key->vlan_id | (match.key->vlan_priority <<
-					       VLAN_PRIO_SHIFT);
-		vlan_tci_mask = match.mask->vlan_id | (match.mask->vlan_priority <<
-						     VLAN_PRIO_SHIFT);
+		key = skb_flow_dissector_target(cls->dissector,
+						FLOW_DISSECTOR_KEY_VLAN,
+						cls->key);
+		mask = skb_flow_dissector_target(cls->dissector,
+						 FLOW_DISSECTOR_KEY_VLAN,
+						 cls->mask);
+		vlan_tci = key->vlan_id | (key->vlan_priority <<
+					   VLAN_PRIO_SHIFT);
+		vlan_tci_mask = mask->vlan_id | (mask->vlan_priority <<
+						 VLAN_PRIO_SHIFT);
 		fs->val.ivlan = vlan_tci;
 		fs->mask.ivlan = vlan_tci_mask;
 
@@ -224,12 +255,10 @@ static void cxgb4_process_flow_match(struct net_device *dev,
 static int cxgb4_validate_flow_match(struct net_device *dev,
 				     struct tc_cls_flower_offload *cls)
 {
-	struct flow_rule *rule = tc_cls_flower_offload_flow_rule(cls);
-	struct flow_dissector *dissector = rule->match.dissector;
 	u16 ethtype_mask = 0;
 	u16 ethtype_key = 0;
 
-	if (dissector->used_keys &
+	if (cls->dissector->used_keys &
 	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
 	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
 	      BIT(FLOW_DISSECTOR_KEY_IPV4_ADDRS) |
@@ -239,29 +268,36 @@ static int cxgb4_validate_flow_match(struct net_device *dev,
 	      BIT(FLOW_DISSECTOR_KEY_VLAN) |
 	      BIT(FLOW_DISSECTOR_KEY_IP))) {
 		netdev_warn(dev, "Unsupported key used: 0x%x\n",
-			    dissector->used_keys);
+			    cls->dissector->used_keys);
 		return -EOPNOTSUPP;
 	}
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_BASIC)) {
-		struct flow_match_basic match;
-
-		flow_rule_match_basic(rule, &match);
-		ethtype_key = ntohs(match.key->n_proto);
-		ethtype_mask = ntohs(match.mask->n_proto);
+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
+		struct flow_dissector_key_basic *key =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_BASIC,
+						  cls->key);
+		struct flow_dissector_key_basic *mask =
+			skb_flow_dissector_target(cls->dissector,
+						  FLOW_DISSECTOR_KEY_BASIC,
+						  cls->mask);
+		ethtype_key = ntohs(key->n_proto);
+		ethtype_mask = ntohs(mask->n_proto);
 	}
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_IP)) {
+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_IP)) {
 		u16 eth_ip_type = ethtype_key & ethtype_mask;
-		struct flow_match_ip match;
+		struct flow_dissector_key_ip *mask;
 
 		if (eth_ip_type != ETH_P_IP && eth_ip_type != ETH_P_IPV6) {
 			netdev_err(dev, "IP Key supported only with IPv4/v6");
 			return -EINVAL;
 		}
 
-		flow_rule_match_ip(rule, &match);
-		if (match.mask->ttl) {
+		mask = skb_flow_dissector_target(cls->dissector,
+						 FLOW_DISSECTOR_KEY_IP,
+						 cls->mask);
+		if (mask->ttl) {
 			netdev_warn(dev, "ttl match unsupported for offload");
 			return -EOPNOTSUPP;
 		}
@@ -292,7 +328,7 @@ static void process_pedit_field(struct ch_filter_specification *fs, u32 val,
 				u32 mask, u32 offset, u8 htype)
 {
 	switch (htype) {
-	case FLOW_ACT_MANGLE_HDR_TYPE_ETH:
+	case TCA_PEDIT_KEY_EX_HDR_TYPE_ETH:
 		switch (offset) {
 		case PEDIT_ETH_DMAC_31_0:
 			fs->newdmac = 1;
@@ -310,7 +346,7 @@ static void process_pedit_field(struct ch_filter_specification *fs, u32 val,
 			offload_pedit(fs, val, mask, ETH_SMAC_47_16);
 		}
 		break;
-	case FLOW_ACT_MANGLE_HDR_TYPE_IP4:
+	case TCA_PEDIT_KEY_EX_HDR_TYPE_IP4:
 		switch (offset) {
 		case PEDIT_IP4_SRC:
 			offload_pedit(fs, val, mask, IP4_SRC);
@@ -320,7 +356,7 @@ static void process_pedit_field(struct ch_filter_specification *fs, u32 val,
 		}
 		fs->nat_mode = NAT_MODE_ALL;
 		break;
-	case FLOW_ACT_MANGLE_HDR_TYPE_IP6:
+	case TCA_PEDIT_KEY_EX_HDR_TYPE_IP6:
 		switch (offset) {
 		case PEDIT_IP6_SRC_31_0:
 			offload_pedit(fs, val, mask, IP6_SRC_31_0);
@@ -348,7 +384,7 @@ static void process_pedit_field(struct ch_filter_specification *fs, u32 val,
 		}
 		fs->nat_mode = NAT_MODE_ALL;
 		break;
-	case FLOW_ACT_MANGLE_HDR_TYPE_TCP:
+	case TCA_PEDIT_KEY_EX_HDR_TYPE_TCP:
 		switch (offset) {
 		case PEDIT_TCP_SPORT_DPORT:
 			if (~mask & PEDIT_TCP_UDP_SPORT_MASK)
@@ -361,7 +397,7 @@ static void process_pedit_field(struct ch_filter_specification *fs, u32 val,
 		}
 		fs->nat_mode = NAT_MODE_ALL;
 		break;
-	case FLOW_ACT_MANGLE_HDR_TYPE_UDP:
+	case TCA_PEDIT_KEY_EX_HDR_TYPE_UDP:
 		switch (offset) {
 		case PEDIT_UDP_SPORT_DPORT:
 			if (~mask & PEDIT_TCP_UDP_SPORT_MASK)
@@ -380,63 +416,56 @@ static void cxgb4_process_flow_actions(struct net_device *in,
 				       struct tc_cls_flower_offload *cls,
 				       struct ch_filter_specification *fs)
 {
-	struct flow_rule *rule = tc_cls_flower_offload_flow_rule(cls);
-	struct flow_action_entry *act;
+	const struct tc_action *a;
 	int i;
 
-	flow_action_for_each(i, act, &rule->action) {
-		switch (act->id) {
-		case FLOW_ACTION_ACCEPT:
+	tcf_exts_for_each_action(i, a, cls->exts) {
+		if (is_tcf_gact_ok(a)) {
 			fs->action = FILTER_PASS;
-			break;
-		case FLOW_ACTION_DROP:
+		} else if (is_tcf_gact_shot(a)) {
 			fs->action = FILTER_DROP;
-			break;
-		case FLOW_ACTION_REDIRECT: {
-			struct net_device *out = act->dev;
+		} else if (is_tcf_mirred_egress_redirect(a)) {
+			struct net_device *out = tcf_mirred_dev(a);
 			struct port_info *pi = netdev_priv(out);
 
 			fs->action = FILTER_SWITCH;
 			fs->eport = pi->port_id;
-			}
-			break;
-		case FLOW_ACTION_VLAN_POP:
-		case FLOW_ACTION_VLAN_PUSH:
-		case FLOW_ACTION_VLAN_MANGLE: {
-			u8 prio = act->vlan.prio;
-			u16 vid = act->vlan.vid;
+		} else if (is_tcf_vlan(a)) {
+			u32 vlan_action = tcf_vlan_action(a);
+			u8 prio = tcf_vlan_push_prio(a);
+			u16 vid = tcf_vlan_push_vid(a);
 			u16 vlan_tci = (prio << VLAN_PRIO_SHIFT) | vid;
-			switch (act->id) {
-			case FLOW_ACTION_VLAN_POP:
+
+			switch (vlan_action) {
+			case TCA_VLAN_ACT_POP:
 				fs->newvlan |= VLAN_REMOVE;
 				break;
-			case FLOW_ACTION_VLAN_PUSH:
+			case TCA_VLAN_ACT_PUSH:
 				fs->newvlan |= VLAN_INSERT;
 				fs->vlan = vlan_tci;
 				break;
-			case FLOW_ACTION_VLAN_MANGLE:
+			case TCA_VLAN_ACT_MODIFY:
 				fs->newvlan |= VLAN_REWRITE;
 				fs->vlan = vlan_tci;
 				break;
 			default:
 				break;
 			}
-			}
-			break;
-		case FLOW_ACTION_MANGLE: {
+		} else if (is_tcf_pedit(a)) {
 			u32 mask, val, offset;
+			int nkeys, i;
 			u8 htype;
 
-			htype = act->mangle.htype;
-			mask = act->mangle.mask;
-			val = act->mangle.val;
-			offset = act->mangle.offset;
+			nkeys = tcf_pedit_nkeys(a);
+			for (i = 0; i < nkeys; i++) {
+				htype = tcf_pedit_htype(a, i);
+				mask = tcf_pedit_mask(a, i);
+				val = tcf_pedit_val(a, i);
+				offset = tcf_pedit_offset(a, i);
 
-			process_pedit_field(fs, val, mask, offset, htype);
+				process_pedit_field(fs, val, mask, offset,
+						    htype);
 			}
-			break;
-		default:
-			break;
 		}
 	}
 }
@@ -455,89 +484,101 @@ static bool valid_l4_mask(u32 mask)
 }
 
 static bool valid_pedit_action(struct net_device *dev,
-			       const struct flow_action_entry *act)
+			       const struct tc_action *a)
 {
 	u32 mask, offset;
-	u8 htype;
+	u8 cmd, htype;
+	int nkeys, i;
 
-	htype = act->mangle.htype;
-	mask = act->mangle.mask;
-	offset = act->mangle.offset;
+	nkeys = tcf_pedit_nkeys(a);
+	for (i = 0; i < nkeys; i++) {
+		htype = tcf_pedit_htype(a, i);
+		cmd = tcf_pedit_cmd(a, i);
+		mask = tcf_pedit_mask(a, i);
+		offset = tcf_pedit_offset(a, i);
 
-	switch (htype) {
-	case FLOW_ACT_MANGLE_HDR_TYPE_ETH:
-		switch (offset) {
-		case PEDIT_ETH_DMAC_31_0:
-		case PEDIT_ETH_DMAC_47_32_SMAC_15_0:
-		case PEDIT_ETH_SMAC_47_16:
-			break;
-		default:
-			netdev_err(dev, "%s: Unsupported pedit field\n",
+		if (cmd != TCA_PEDIT_KEY_EX_CMD_SET) {
+			netdev_err(dev, "%s: Unsupported pedit cmd\n",
 				   __func__);
 			return false;
 		}
-		break;
-	case FLOW_ACT_MANGLE_HDR_TYPE_IP4:
-		switch (offset) {
-		case PEDIT_IP4_SRC:
-		case PEDIT_IP4_DST:
+
+		switch (htype) {
+		case TCA_PEDIT_KEY_EX_HDR_TYPE_ETH:
+			switch (offset) {
+			case PEDIT_ETH_DMAC_31_0:
+			case PEDIT_ETH_DMAC_47_32_SMAC_15_0:
+			case PEDIT_ETH_SMAC_47_16:
+				break;
+			default:
+				netdev_err(dev, "%s: Unsupported pedit field\n",
+					   __func__);
+				return false;
+			}
 			break;
-		default:
-			netdev_err(dev, "%s: Unsupported pedit field\n",
-				   __func__);
-			return false;
-		}
-		break;
-	case FLOW_ACT_MANGLE_HDR_TYPE_IP6:
-		switch (offset) {
-		case PEDIT_IP6_SRC_31_0:
-		case PEDIT_IP6_SRC_63_32:
-		case PEDIT_IP6_SRC_95_64:
-		case PEDIT_IP6_SRC_127_96:
-		case PEDIT_IP6_DST_31_0:
-		case PEDIT_IP6_DST_63_32:
-		case PEDIT_IP6_DST_95_64:
-		case PEDIT_IP6_DST_127_96:
+		case TCA_PEDIT_KEY_EX_HDR_TYPE_IP4:
+			switch (offset) {
+			case PEDIT_IP4_SRC:
+			case PEDIT_IP4_DST:
+				break;
+			default:
+				netdev_err(dev, "%s: Unsupported pedit field\n",
+					   __func__);
+				return false;
+			}
 			break;
-		default:
-			netdev_err(dev, "%s: Unsupported pedit field\n",
-				   __func__);
-			return false;
-		}
-		break;
-	case FLOW_ACT_MANGLE_HDR_TYPE_TCP:
-		switch (offset) {
-		case PEDIT_TCP_SPORT_DPORT:
-			if (!valid_l4_mask(~mask)) {
-				netdev_err(dev, "%s: Unsupported mask for TCP L4 ports\n",
+		case TCA_PEDIT_KEY_EX_HDR_TYPE_IP6:
+			switch (offset) {
+			case PEDIT_IP6_SRC_31_0:
+			case PEDIT_IP6_SRC_63_32:
+			case PEDIT_IP6_SRC_95_64:
+			case PEDIT_IP6_SRC_127_96:
+			case PEDIT_IP6_DST_31_0:
+			case PEDIT_IP6_DST_63_32:
+			case PEDIT_IP6_DST_95_64:
+			case PEDIT_IP6_DST_127_96:
+				break;
+			default:
+				netdev_err(dev, "%s: Unsupported pedit field\n",
+					   __func__);
+				return false;
+			}
+			break;
+		case TCA_PEDIT_KEY_EX_HDR_TYPE_TCP:
+			switch (offset) {
+			case PEDIT_TCP_SPORT_DPORT:
+				if (!valid_l4_mask(~mask)) {
+					netdev_err(dev, "%s: Unsupported mask for TCP L4 ports\n",
+						   __func__);
+					return false;
+				}
+				break;
+			default:
+				netdev_err(dev, "%s: Unsupported pedit field\n",
+					   __func__);
+				return false;
+			}
+			break;
+		case TCA_PEDIT_KEY_EX_HDR_TYPE_UDP:
+			switch (offset) {
+			case PEDIT_UDP_SPORT_DPORT:
+				if (!valid_l4_mask(~mask)) {
+					netdev_err(dev, "%s: Unsupported mask for UDP L4 ports\n",
+						   __func__);
+					return false;
+				}
+				break;
+			default:
+				netdev_err(dev, "%s: Unsupported pedit field\n",
 					   __func__);
 				return false;
 			}
 			break;
 		default:
-			netdev_err(dev, "%s: Unsupported pedit field\n",
+			netdev_err(dev, "%s: Unsupported pedit type\n",
 				   __func__);
 			return false;
 		}
-		break;
-	case FLOW_ACT_MANGLE_HDR_TYPE_UDP:
-		switch (offset) {
-		case PEDIT_UDP_SPORT_DPORT:
-			if (!valid_l4_mask(~mask)) {
-				netdev_err(dev, "%s: Unsupported mask for UDP L4 ports\n",
-					   __func__);
-				return false;
-			}
-			break;
-		default:
-			netdev_err(dev, "%s: Unsupported pedit field\n",
-				   __func__);
-			return false;
-		}
-		break;
-	default:
-		netdev_err(dev, "%s: Unsupported pedit type\n", __func__);
-		return false;
 	}
 	return true;
 }
@@ -545,26 +586,24 @@ static bool valid_pedit_action(struct net_device *dev,
 static int cxgb4_validate_flow_actions(struct net_device *dev,
 				       struct tc_cls_flower_offload *cls)
 {
-	struct flow_rule *rule = tc_cls_flower_offload_flow_rule(cls);
-	struct flow_action_entry *act;
+	const struct tc_action *a;
 	bool act_redir = false;
 	bool act_pedit = false;
 	bool act_vlan = false;
 	int i;
 
-	flow_action_for_each(i, act, &rule->action) {
-		switch (act->id) {
-		case FLOW_ACTION_ACCEPT:
-		case FLOW_ACTION_DROP:
+	tcf_exts_for_each_action(i, a, cls->exts) {
+		if (is_tcf_gact_ok(a)) {
 			/* Do nothing */
-			break;
-		case FLOW_ACTION_REDIRECT: {
+		} else if (is_tcf_gact_shot(a)) {
+			/* Do nothing */
+		} else if (is_tcf_mirred_egress_redirect(a)) {
 			struct adapter *adap = netdev2adap(dev);
 			struct net_device *n_dev, *target_dev;
 			unsigned int i;
 			bool found = false;
 
-			target_dev = act->dev;
+			target_dev = tcf_mirred_dev(a);
 			for_each_port(adap, i) {
 				n_dev = adap->port[i];
 				if (target_dev == n_dev) {
@@ -582,18 +621,15 @@ static int cxgb4_validate_flow_actions(struct net_device *dev,
 				return -EINVAL;
 			}
 			act_redir = true;
-			}
-			break;
-		case FLOW_ACTION_VLAN_POP:
-		case FLOW_ACTION_VLAN_PUSH:
-		case FLOW_ACTION_VLAN_MANGLE: {
-			u16 proto = be16_to_cpu(act->vlan.proto);
+		} else if (is_tcf_vlan(a)) {
+			u16 proto = be16_to_cpu(tcf_vlan_push_proto(a));
+			u32 vlan_action = tcf_vlan_action(a);
 
-			switch (act->id) {
-			case FLOW_ACTION_VLAN_POP:
+			switch (vlan_action) {
+			case TCA_VLAN_ACT_POP:
 				break;
-			case FLOW_ACTION_VLAN_PUSH:
-			case FLOW_ACTION_VLAN_MANGLE:
+			case TCA_VLAN_ACT_PUSH:
+			case TCA_VLAN_ACT_MODIFY:
 				if (proto != ETH_P_8021Q) {
 					netdev_err(dev, "%s: Unsupported vlan proto\n",
 						   __func__);
@@ -606,17 +642,13 @@ static int cxgb4_validate_flow_actions(struct net_device *dev,
 				return -EOPNOTSUPP;
 			}
 			act_vlan = true;
-			}
-			break;
-		case FLOW_ACTION_MANGLE: {
-			bool pedit_valid = valid_pedit_action(dev, act);
+		} else if (is_tcf_pedit(a)) {
+			bool pedit_valid = valid_pedit_action(dev, a);
 
 			if (!pedit_valid)
 				return -EOPNOTSUPP;
 			act_pedit = true;
-			}
-			break;
-		default:
+		} else {
 			netdev_err(dev, "%s: Unsupported action\n", __func__);
 			return -EOPNOTSUPP;
 		}
@@ -811,9 +843,9 @@ int cxgb4_tc_flower_stats(struct net_device *dev,
 	if (ofld_stats->packet_count != packets) {
 		if (ofld_stats->prev_packet_count != packets)
 			ofld_stats->last_used = jiffies;
-		flow_stats_update(&cls->stats, bytes - ofld_stats->byte_count,
-				  packets - ofld_stats->packet_count,
-				  ofld_stats->last_used);
+		tcf_exts_stats_update(cls->exts, bytes - ofld_stats->byte_count,
+				      packets - ofld_stats->packet_count,
+				      ofld_stats->last_used);
 
 		ofld_stats->packet_count = packets;
 		ofld_stats->byte_count = bytes;

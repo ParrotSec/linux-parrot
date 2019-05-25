@@ -17,8 +17,8 @@ SYNOPSIS
 	*COMMANDS* :=
 	{ **show** | **list** | **tree** | **attach** | **detach** | **help** }
 
-CGROUP COMMANDS
-===============
+MAP COMMANDS
+=============
 
 |	**bpftool** **cgroup { show | list }** *CGROUP*
 |	**bpftool** **cgroup tree** [*CGROUP_ROOT*]
@@ -137,11 +137,4 @@ EXAMPLES
 
 SEE ALSO
 ========
-	**bpf**\ (2),
-	**bpf-helpers**\ (7),
-	**bpftool**\ (8),
-	**bpftool-prog**\ (8),
-	**bpftool-map**\ (8),
-	**bpftool-feature**\ (8),
-	**bpftool-net**\ (8),
-	**bpftool-perf**\ (8)
+	**bpftool**\ (8), **bpftool-prog**\ (8), **bpftool-map**\ (8)

@@ -7,6 +7,7 @@
  */
 
 #include <linux/acpi.h>
+#include <linux/bootmem.h>
 #include <linux/memblock.h>
 #include <linux/dmi.h>
 #include <linux/cpumask.h>

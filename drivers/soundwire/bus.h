@@ -4,8 +4,6 @@
 #ifndef __SDW_BUS_H
 #define __SDW_BUS_H
 
-#define DEFAULT_BANK_SWITCH_TIMEOUT 3000
-
 #if IS_ENABLED(CONFIG_ACPI)
 int sdw_acpi_find_slaves(struct sdw_bus *bus);
 #else
@@ -101,7 +99,6 @@ struct sdw_slave_runtime {
  * this stream, can be zero.
  * @slave_rt_list: Slave runtime list
  * @port_list: List of Master Ports configured for this stream, can be zero.
- * @stream_node: sdw_stream_runtime master_list node
  * @bus_node: sdw_bus m_rt_list node
  */
 struct sdw_master_runtime {
@@ -111,7 +108,6 @@ struct sdw_master_runtime {
 	unsigned int ch_count;
 	struct list_head slave_rt_list;
 	struct list_head port_list;
-	struct list_head stream_node;
 	struct list_head bus_node;
 };
 

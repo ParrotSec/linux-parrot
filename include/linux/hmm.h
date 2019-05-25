@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * Authors: Jérôme Glisse <jglisse@redhat.com>
+ * Authors: JÃ©rÃ´me Glisse <jglisse@redhat.com>
  */
 /*
  * Heterogeneous Memory Management (HMM)
@@ -69,7 +69,6 @@
 #define LINUX_HMM_H
 
 #include <linux/kconfig.h>
-#include <asm/pgtable.h>
 
 #if IS_ENABLED(CONFIG_HMM)
 
@@ -108,7 +107,7 @@ enum hmm_pfn_flag_e {
  * HMM_PFN_ERROR: corresponding CPU page table entry points to poisoned memory
  * HMM_PFN_NONE: corresponding CPU page table entry is pte_none()
  * HMM_PFN_SPECIAL: corresponding CPU page table entry is special; i.e., the
- *      result of vmf_insert_pfn() or vm_insert_page(). Therefore, it should not
+ *      result of vm_insert_pfn() or vm_insert_page(). Therefore, it should not
  *      be mirrored by a device, because the entry will never have HMM_PFN_VALID
  *      set and the pfn value is undefined.
  *
@@ -275,26 +274,11 @@ static inline uint64_t hmm_pfn_from_pfn(const struct hmm_range *range,
 struct hmm_mirror;
 
 /*
- * enum hmm_update_event - type of update
+ * enum hmm_update_type - type of update
  * @HMM_UPDATE_INVALIDATE: invalidate range (no indication as to why)
  */
-enum hmm_update_event {
+enum hmm_update_type {
 	HMM_UPDATE_INVALIDATE,
-};
-
-/*
- * struct hmm_update - HMM update informations for callback
- *
- * @start: virtual start address of the range to update
- * @end: virtual end address of the range to update
- * @event: event triggering the update (what is happening)
- * @blockable: can the callback block/sleep ?
- */
-struct hmm_update {
-	unsigned long start;
-	unsigned long end;
-	enum hmm_update_event event;
-	bool blockable;
 };
 
 /*
@@ -316,9 +300,9 @@ struct hmm_mirror_ops {
 	/* sync_cpu_device_pagetables() - synchronize page tables
 	 *
 	 * @mirror: pointer to struct hmm_mirror
-	 * @update: update informations (see struct hmm_update)
-	 * Returns: -EAGAIN if update.blockable false and callback need to
-	 *          block, 0 otherwise.
+	 * @update_type: type of update that occurred to the CPU page table
+	 * @start: virtual start address of the range to update
+	 * @end: virtual end address of the range to update
 	 *
 	 * This callback ultimately originates from mmu_notifiers when the CPU
 	 * page table is updated. The device driver must update its page table
@@ -329,8 +313,10 @@ struct hmm_mirror_ops {
 	 * page tables are completely updated (TLBs flushed, etc); this is a
 	 * synchronous call.
 	 */
-	int (*sync_cpu_device_pagetables)(struct hmm_mirror *mirror,
-					  const struct hmm_update *update);
+	void (*sync_cpu_device_pagetables)(struct hmm_mirror *mirror,
+					   enum hmm_update_type update_type,
+					   unsigned long start,
+					   unsigned long end);
 };
 
 /*
@@ -468,7 +454,7 @@ struct hmm_devmem_ops {
 	 * Note that mmap semaphore is held in read mode at least when this
 	 * callback occurs, hence the vma is valid upon callback entry.
 	 */
-	vm_fault_t (*fault)(struct hmm_devmem *devmem,
+	int (*fault)(struct hmm_devmem *devmem,
 		     struct vm_area_struct *vma,
 		     unsigned long addr,
 		     const struct page *page,
@@ -487,7 +473,6 @@ struct hmm_devmem_ops {
  * @device: device to bind resource to
  * @ops: memory operations callback
  * @ref: per CPU refcount
- * @page_fault: callback when CPU fault on an unaddressable device page
  *
  * This an helper structure for device drivers that do not wish to implement
  * the gory details related to hotplugging new memoy and allocating struct
@@ -495,28 +480,7 @@ struct hmm_devmem_ops {
  *
  * Device drivers can directly use ZONE_DEVICE memory on their own if they
  * wish to do so.
- *
- * The page_fault() callback must migrate page back, from device memory to
- * system memory, so that the CPU can access it. This might fail for various
- * reasons (device issues,  device have been unplugged, ...). When such error
- * conditions happen, the page_fault() callback must return VM_FAULT_SIGBUS and
- * set the CPU page table entry to "poisoned".
- *
- * Note that because memory cgroup charges are transferred to the device memory,
- * this should never fail due to memory restrictions. However, allocation
- * of a regular system page might still fail because we are out of memory. If
- * that happens, the page_fault() callback must return VM_FAULT_OOM.
- *
- * The page_fault() callback can also try to migrate back multiple pages in one
- * chunk, as an optimization. It must, however, prioritize the faulting address
- * over all the others.
  */
-typedef vm_fault_t (*dev_page_fault_t)(struct vm_area_struct *vma,
-				unsigned long addr,
-				const struct page *page,
-				unsigned int flags,
-				pmd_t *pmdp);
-
 struct hmm_devmem {
 	struct completion		completion;
 	unsigned long			pfn_first;
@@ -526,7 +490,6 @@ struct hmm_devmem {
 	struct dev_pagemap		pagemap;
 	const struct hmm_devmem_ops	*ops;
 	struct percpu_ref		ref;
-	dev_page_fault_t		page_fault;
 };
 
 /*

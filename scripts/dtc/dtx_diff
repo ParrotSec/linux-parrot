@@ -21,7 +21,6 @@ Usage:
         diff DTx_1 and DTx_2
 
 
-      --annotate    synonym for -T
        -f           print full dts in diff (--unified=99999)
        -h           synonym for --help
        -help        synonym for --help
@@ -29,7 +28,6 @@ Usage:
        -s SRCTREE   linux kernel source tree is at path SRCTREE
                         (default is current directory)
        -S           linux kernel source tree is at root of current git repo
-       -T           Annotate output .dts with input source file and line (-T -T for more details)
        -u           unsorted, do not sort DTx
 
 
@@ -176,7 +174,6 @@ compile_to_dts() {
 
 # -----  start of script
 
-annotate=""
 cmd_diff=0
 diff_flags="-u"
 dtx_file_1=""
@@ -211,14 +208,6 @@ while [ $# -gt 0 ] ; do
 		shift
 		;;
 
-	-T | --annotate )
-		if [ "${annotate}"  = "" ] ; then
-			annotate="-T"
-		elif [ "${annotate}"  = "-T" ] ; then
-			annotate="-T -T"
-		fi
-		shift
-		;;
 	-u )
 		dtc_sort=""
 		shift
@@ -338,7 +327,7 @@ cpp_flags="\
 DTC="\
 	${DTC}                                     \
 	-i ${srctree}/scripts/dtc/include-prefixes \
-	-O dts -qq -f ${dtc_sort} ${annotate} -o -"
+	-O dts -qq -f ${dtc_sort} -o -"
 
 
 # -----  do the diff or decompile

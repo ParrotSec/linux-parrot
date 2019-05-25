@@ -316,8 +316,6 @@ struct octdev_props {
 	 * device pointer (used for OS specific calls).
 	 */
 	int    rx_on;
-	int    fec;
-	int    fec_boot;
 	int    napi_enabled;
 	int    gmxport;
 	struct net_device *netdev;
@@ -398,8 +396,6 @@ struct octeon_sriov_info {
 	u16	vf_vlantci[MAX_POSSIBLE_VFS];
 
 	int	vf_linkstate[MAX_POSSIBLE_VFS];
-
-	bool    vf_spoofchk[MAX_POSSIBLE_VFS];
 
 	u64	vf_drv_loaded_mask;
 };
@@ -611,9 +607,6 @@ struct octeon_device {
 	u8  speed_boot;
 	u8  speed_setting;
 	u8  no_speed_setting;
-
-	u32    vfstats_poll;
-#define LIO_VFSTATS_POLL 10
 };
 
 #define  OCT_DRV_ONLINE 1

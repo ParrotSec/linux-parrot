@@ -71,7 +71,7 @@ static u64 tc_get_cycles32(struct clocksource *cs)
 	return readl_relaxed(tcaddr + ATMEL_TC_REG(0, CV));
 }
 
-static void tc_clksrc_suspend(struct clocksource *cs)
+void tc_clksrc_suspend(struct clocksource *cs)
 {
 	int i;
 
@@ -86,7 +86,7 @@ static void tc_clksrc_suspend(struct clocksource *cs)
 	bmr_cache = readl(tcaddr + ATMEL_TC_BMR);
 }
 
-static void tc_clksrc_resume(struct clocksource *cs)
+void tc_clksrc_resume(struct clocksource *cs)
 {
 	int i;
 

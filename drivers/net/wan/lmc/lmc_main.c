@@ -1320,7 +1320,8 @@ static irqreturn_t lmc_interrupt (int irq, void *dev_instance) /*fold00*/
 			sc->lmc_device->stats.tx_packets++;
                 }
 
-		dev_consume_skb_irq(sc->lmc_txq[i]);
+                //                dev_kfree_skb(sc->lmc_txq[i]);
+                dev_kfree_skb_irq(sc->lmc_txq[i]);
                 sc->lmc_txq[i] = NULL;
 
                 badtx++;

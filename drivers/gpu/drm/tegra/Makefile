@@ -10,7 +10,6 @@ tegra-drm-y := \
 	dc.o \
 	output.o \
 	rgb.o \
-	hda.o \
 	hdmi.o \
 	mipi-phy.o \
 	dsi.o \

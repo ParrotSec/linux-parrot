@@ -27,10 +27,6 @@
 
 #define GUEST_MAPPINGS_TRIES	5
 
-#define VBG_KERNEL_REQUEST \
-	(VMMDEV_REQUESTOR_KERNEL | VMMDEV_REQUESTOR_USR_DRV | \
-	 VMMDEV_REQUESTOR_CON_DONT_KNOW | VMMDEV_REQUESTOR_TRUST_NOT_GIVEN)
-
 /**
  * Reserves memory in which the VMM can relocate any guest mappings
  * that are floating around.
@@ -52,8 +48,7 @@ static void vbg_guest_mappings_init(struct vbg_dev *gdev)
 	int i, rc;
 
 	/* Query the required space. */
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_GET_HYPERVISOR_INFO,
-			    VBG_KERNEL_REQUEST);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_GET_HYPERVISOR_INFO);
 	if (!req)
 		return;
 
@@ -140,8 +135,7 @@ static void vbg_guest_mappings_exit(struct vbg_dev *gdev)
 	 * Tell the host that we're going to free the memory we reserved for
 	 * it, the free it up. (Leak the memory if anything goes wrong here.)
 	 */
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_SET_HYPERVISOR_INFO,
-			    VBG_KERNEL_REQUEST);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_SET_HYPERVISOR_INFO);
 	if (!req)
 		return;
 
@@ -178,10 +172,8 @@ static int vbg_report_guest_info(struct vbg_dev *gdev)
 	struct vmmdev_guest_info2 *req2 = NULL;
 	int rc, ret = -ENOMEM;
 
-	req1 = vbg_req_alloc(sizeof(*req1), VMMDEVREQ_REPORT_GUEST_INFO,
-			     VBG_KERNEL_REQUEST);
-	req2 = vbg_req_alloc(sizeof(*req2), VMMDEVREQ_REPORT_GUEST_INFO2,
-			     VBG_KERNEL_REQUEST);
+	req1 = vbg_req_alloc(sizeof(*req1), VMMDEVREQ_REPORT_GUEST_INFO);
+	req2 = vbg_req_alloc(sizeof(*req2), VMMDEVREQ_REPORT_GUEST_INFO2);
 	if (!req1 || !req2)
 		goto out_free;
 
@@ -195,8 +187,8 @@ static int vbg_report_guest_info(struct vbg_dev *gdev)
 	req2->additions_minor = VBG_VERSION_MINOR;
 	req2->additions_build = VBG_VERSION_BUILD;
 	req2->additions_revision = VBG_SVN_REV;
-	req2->additions_features =
-		VMMDEV_GUEST_INFO2_ADDITIONS_FEATURES_REQUESTOR_INFO;
+	/* (no features defined yet) */
+	req2->additions_features = 0;
 	strlcpy(req2->name, VBG_VERSION_STRING,
 		sizeof(req2->name));
 
@@ -238,8 +230,7 @@ static int vbg_report_driver_status(struct vbg_dev *gdev, bool active)
 	struct vmmdev_guest_status *req;
 	int rc;
 
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_REPORT_GUEST_STATUS,
-			    VBG_KERNEL_REQUEST);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_REPORT_GUEST_STATUS);
 	if (!req)
 		return -ENOMEM;
 
@@ -432,8 +423,7 @@ static int vbg_heartbeat_host_config(struct vbg_dev *gdev, bool enabled)
 	struct vmmdev_heartbeat *req;
 	int rc;
 
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_HEARTBEAT_CONFIGURE,
-			    VBG_KERNEL_REQUEST);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_HEARTBEAT_CONFIGURE);
 	if (!req)
 		return -ENOMEM;
 
@@ -467,8 +457,7 @@ static int vbg_heartbeat_init(struct vbg_dev *gdev)
 
 	gdev->guest_heartbeat_req = vbg_req_alloc(
 					sizeof(*gdev->guest_heartbeat_req),
-					VMMDEVREQ_GUEST_HEARTBEAT,
-					VBG_KERNEL_REQUEST);
+					VMMDEVREQ_GUEST_HEARTBEAT);
 	if (!gdev->guest_heartbeat_req)
 		return -ENOMEM;
 
@@ -539,8 +528,7 @@ static int vbg_reset_host_event_filter(struct vbg_dev *gdev,
 	struct vmmdev_mask *req;
 	int rc;
 
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_CTL_GUEST_FILTER_MASK,
-			    VBG_KERNEL_REQUEST);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_CTL_GUEST_FILTER_MASK);
 	if (!req)
 		return -ENOMEM;
 
@@ -579,14 +567,8 @@ static int vbg_set_session_event_filter(struct vbg_dev *gdev,
 	u32 changed, previous;
 	int rc, ret = 0;
 
-	/*
-	 * Allocate a request buffer before taking the spinlock, when
-	 * the session is being terminated the requestor is the kernel,
-	 * as we're cleaning up.
-	 */
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_CTL_GUEST_FILTER_MASK,
-			    session_termination ? VBG_KERNEL_REQUEST :
-						  session->requestor);
+	/* Allocate a request buffer before taking the spinlock */
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_CTL_GUEST_FILTER_MASK);
 	if (!req) {
 		if (!session_termination)
 			return -ENOMEM;
@@ -645,8 +627,7 @@ static int vbg_reset_host_capabilities(struct vbg_dev *gdev)
 	struct vmmdev_mask *req;
 	int rc;
 
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_SET_GUEST_CAPABILITIES,
-			    VBG_KERNEL_REQUEST);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_SET_GUEST_CAPABILITIES);
 	if (!req)
 		return -ENOMEM;
 
@@ -681,14 +662,8 @@ static int vbg_set_session_capabilities(struct vbg_dev *gdev,
 	u32 changed, previous;
 	int rc, ret = 0;
 
-	/*
-	 * Allocate a request buffer before taking the spinlock, when
-	 * the session is being terminated the requestor is the kernel,
-	 * as we're cleaning up.
-	 */
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_SET_GUEST_CAPABILITIES,
-			    session_termination ? VBG_KERNEL_REQUEST :
-						  session->requestor);
+	/* Allocate a request buffer before taking the spinlock */
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_SET_GUEST_CAPABILITIES);
 	if (!req) {
 		if (!session_termination)
 			return -ENOMEM;
@@ -747,8 +722,7 @@ static int vbg_query_host_version(struct vbg_dev *gdev)
 	struct vmmdev_host_version *req;
 	int rc, ret;
 
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_GET_HOST_VERSION,
-			    VBG_KERNEL_REQUEST);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_GET_HOST_VERSION);
 	if (!req)
 		return -ENOMEM;
 
@@ -809,24 +783,19 @@ int vbg_core_init(struct vbg_dev *gdev, u32 fixed_events)
 
 	gdev->mem_balloon.get_req =
 		vbg_req_alloc(sizeof(*gdev->mem_balloon.get_req),
-			      VMMDEVREQ_GET_MEMBALLOON_CHANGE_REQ,
-			      VBG_KERNEL_REQUEST);
+			      VMMDEVREQ_GET_MEMBALLOON_CHANGE_REQ);
 	gdev->mem_balloon.change_req =
 		vbg_req_alloc(sizeof(*gdev->mem_balloon.change_req),
-			      VMMDEVREQ_CHANGE_MEMBALLOON,
-			      VBG_KERNEL_REQUEST);
+			      VMMDEVREQ_CHANGE_MEMBALLOON);
 	gdev->cancel_req =
 		vbg_req_alloc(sizeof(*(gdev->cancel_req)),
-			      VMMDEVREQ_HGCM_CANCEL2,
-			      VBG_KERNEL_REQUEST);
+			      VMMDEVREQ_HGCM_CANCEL2);
 	gdev->ack_events_req =
 		vbg_req_alloc(sizeof(*gdev->ack_events_req),
-			      VMMDEVREQ_ACKNOWLEDGE_EVENTS,
-			      VBG_KERNEL_REQUEST);
+			      VMMDEVREQ_ACKNOWLEDGE_EVENTS);
 	gdev->mouse_status_req =
 		vbg_req_alloc(sizeof(*gdev->mouse_status_req),
-			      VMMDEVREQ_GET_MOUSE_STATUS,
-			      VBG_KERNEL_REQUEST);
+			      VMMDEVREQ_GET_MOUSE_STATUS);
 
 	if (!gdev->mem_balloon.get_req || !gdev->mem_balloon.change_req ||
 	    !gdev->cancel_req || !gdev->ack_events_req ||
@@ -923,9 +892,9 @@ void vbg_core_exit(struct vbg_dev *gdev)
  * vboxguest_linux.c calls this when userspace opens the char-device.
  * Return: A pointer to the new session or an ERR_PTR on error.
  * @gdev:		The Guest extension device.
- * @requestor:		VMMDEV_REQUESTOR_* flags
+ * @user:		Set if this is a session for the vboxuser device.
  */
-struct vbg_session *vbg_core_open_session(struct vbg_dev *gdev, u32 requestor)
+struct vbg_session *vbg_core_open_session(struct vbg_dev *gdev, bool user)
 {
 	struct vbg_session *session;
 
@@ -934,7 +903,7 @@ struct vbg_session *vbg_core_open_session(struct vbg_dev *gdev, u32 requestor)
 		return ERR_PTR(-ENOMEM);
 
 	session->gdev = gdev;
-	session->requestor = requestor;
+	session->user_session = user;
 
 	return session;
 }
@@ -955,9 +924,7 @@ void vbg_core_close_session(struct vbg_session *session)
 		if (!session->hgcm_client_ids[i])
 			continue;
 
-		/* requestor is kernel here, as we're cleaning up. */
-		vbg_hgcm_disconnect(gdev, VBG_KERNEL_REQUEST,
-				    session->hgcm_client_ids[i], &rc);
+		vbg_hgcm_disconnect(gdev, session->hgcm_client_ids[i], &rc);
 	}
 
 	kfree(session);
@@ -1185,8 +1152,7 @@ static int vbg_req_allowed(struct vbg_dev *gdev, struct vbg_session *session,
 		return -EPERM;
 	}
 
-	if (trusted_apps_only &&
-	    (session->requestor & VMMDEV_REQUESTOR_USER_DEVICE)) {
+	if (trusted_apps_only && session->user_session) {
 		vbg_err("Denying userspace vmm call type %#08x through vboxuser device node\n",
 			req->request_type);
 		return -EPERM;
@@ -1243,8 +1209,8 @@ static int vbg_ioctl_hgcm_connect(struct vbg_dev *gdev,
 	if (i >= ARRAY_SIZE(session->hgcm_client_ids))
 		return -EMFILE;
 
-	ret = vbg_hgcm_connect(gdev, session->requestor, &conn->u.in.loc,
-			       &client_id, &conn->hdr.rc);
+	ret = vbg_hgcm_connect(gdev, &conn->u.in.loc, &client_id,
+			       &conn->hdr.rc);
 
 	mutex_lock(&gdev->session_mutex);
 	if (ret == 0 && conn->hdr.rc >= 0) {
@@ -1285,8 +1251,7 @@ static int vbg_ioctl_hgcm_disconnect(struct vbg_dev *gdev,
 	if (i >= ARRAY_SIZE(session->hgcm_client_ids))
 		return -EINVAL;
 
-	ret = vbg_hgcm_disconnect(gdev, session->requestor, client_id,
-				  &disconn->hdr.rc);
+	ret = vbg_hgcm_disconnect(gdev, client_id, &disconn->hdr.rc);
 
 	mutex_lock(&gdev->session_mutex);
 	if (ret == 0 && disconn->hdr.rc >= 0)
@@ -1296,20 +1261,6 @@ static int vbg_ioctl_hgcm_disconnect(struct vbg_dev *gdev,
 	mutex_unlock(&gdev->session_mutex);
 
 	return ret;
-}
-
-static bool vbg_param_valid(enum vmmdev_hgcm_function_parameter_type type)
-{
-	switch (type) {
-	case VMMDEV_HGCM_PARM_TYPE_32BIT:
-	case VMMDEV_HGCM_PARM_TYPE_64BIT:
-	case VMMDEV_HGCM_PARM_TYPE_LINADDR:
-	case VMMDEV_HGCM_PARM_TYPE_LINADDR_IN:
-	case VMMDEV_HGCM_PARM_TYPE_LINADDR_OUT:
-		return true;
-	default:
-		return false;
-	}
 }
 
 static int vbg_ioctl_hgcm_call(struct vbg_dev *gdev,
@@ -1347,23 +1298,6 @@ static int vbg_ioctl_hgcm_call(struct vbg_dev *gdev,
 	}
 	call->hdr.size_out = actual_size;
 
-	/* Validate parameter types */
-	if (f32bit) {
-		struct vmmdev_hgcm_function_parameter32 *parm =
-			VBG_IOCTL_HGCM_CALL_PARMS32(call);
-
-		for (i = 0; i < call->parm_count; i++)
-			if (!vbg_param_valid(parm[i].type))
-				return -EINVAL;
-	} else {
-		struct vmmdev_hgcm_function_parameter *parm =
-			VBG_IOCTL_HGCM_CALL_PARMS(call);
-
-		for (i = 0; i < call->parm_count; i++)
-			if (!vbg_param_valid(parm[i].type))
-				return -EINVAL;
-	}
-
 	/*
 	 * Validate the client id.
 	 */
@@ -1379,12 +1313,12 @@ static int vbg_ioctl_hgcm_call(struct vbg_dev *gdev,
 	}
 
 	if (IS_ENABLED(CONFIG_COMPAT) && f32bit)
-		ret = vbg_hgcm_call32(gdev, session->requestor, client_id,
+		ret = vbg_hgcm_call32(gdev, client_id,
 				      call->function, call->timeout_ms,
 				      VBG_IOCTL_HGCM_CALL_PARMS32(call),
 				      call->parm_count, &call->hdr.rc);
 	else
-		ret = vbg_hgcm_call(gdev, session->requestor, client_id,
+		ret = vbg_hgcm_call(gdev, client_id,
 				    call->function, call->timeout_ms,
 				    VBG_IOCTL_HGCM_CALL_PARMS(call),
 				    call->parm_count, &call->hdr.rc);
@@ -1474,7 +1408,6 @@ static int vbg_ioctl_check_balloon(struct vbg_dev *gdev,
 }
 
 static int vbg_ioctl_write_core_dump(struct vbg_dev *gdev,
-				     struct vbg_session *session,
 				     struct vbg_ioctl_write_coredump *dump)
 {
 	struct vmmdev_write_core_dump *req;
@@ -1482,8 +1415,7 @@ static int vbg_ioctl_write_core_dump(struct vbg_dev *gdev,
 	if (vbg_ioctl_chk(&dump->hdr, sizeof(dump->u.in), 0))
 		return -EINVAL;
 
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_WRITE_COREDUMP,
-			    session->requestor);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_WRITE_COREDUMP);
 	if (!req)
 		return -ENOMEM;
 
@@ -1544,7 +1476,7 @@ int vbg_core_ioctl(struct vbg_session *session, unsigned int req, void *data)
 	case VBG_IOCTL_CHECK_BALLOON:
 		return vbg_ioctl_check_balloon(gdev, data);
 	case VBG_IOCTL_WRITE_CORE_DUMP:
-		return vbg_ioctl_write_core_dump(gdev, session, data);
+		return vbg_ioctl_write_core_dump(gdev, data);
 	}
 
 	/* Variable sized requests. */
@@ -1552,8 +1484,8 @@ int vbg_core_ioctl(struct vbg_session *session, unsigned int req, void *data)
 #ifdef CONFIG_COMPAT
 	case VBG_IOCTL_HGCM_CALL_32(0):
 		f32bit = true;
-#endif
 		/* Fall through */
+#endif
 	case VBG_IOCTL_HGCM_CALL(0):
 		return vbg_ioctl_hgcm_call(gdev, session, f32bit, data);
 	case VBG_IOCTL_LOG(0):
@@ -1576,8 +1508,7 @@ int vbg_core_set_mouse_status(struct vbg_dev *gdev, u32 features)
 	struct vmmdev_mouse_status *req;
 	int rc;
 
-	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_SET_MOUSE_STATUS,
-			    VBG_KERNEL_REQUEST);
+	req = vbg_req_alloc(sizeof(*req), VMMDEVREQ_SET_MOUSE_STATUS);
 	if (!req)
 		return -ENOMEM;
 

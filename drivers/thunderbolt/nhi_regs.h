@@ -3,7 +3,6 @@
  * Thunderbolt driver - NHI registers
  *
  * Copyright (c) 2014 Andreas Noever <andreas.noever@gmail.com>
- * Copyright (C) 2018, Intel Corporation
  */
 
 #ifndef NHI_REGS_H_

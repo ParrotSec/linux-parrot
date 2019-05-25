@@ -403,7 +403,6 @@ struct dsi_data {
 	struct {
 		struct dss_debugfs_entry *irqs;
 		struct dss_debugfs_entry *regs;
-		struct dss_debugfs_entry *clks;
 	} debugfs;
 
 #ifdef CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS
@@ -441,6 +440,27 @@ module_param(dsi_perf, bool, 0644);
 static inline struct dsi_data *to_dsi_data(struct omap_dss_device *dssdev)
 {
 	return dev_get_drvdata(dssdev->dev);
+}
+
+static struct dsi_data *dsi_get_dsi_from_id(int module)
+{
+	struct omap_dss_device *out;
+	enum omap_dss_output_id	id;
+
+	switch (module) {
+	case 0:
+		id = OMAP_DSS_OUTPUT_DSI1;
+		break;
+	case 1:
+		id = OMAP_DSS_OUTPUT_DSI2;
+		break;
+	default:
+		return NULL;
+	}
+
+	out = omap_dss_get_output(id);
+
+	return out ? to_dsi_data(out) : NULL;
 }
 
 static inline void dsi_write_reg(struct dsi_data *dsi,
@@ -1137,6 +1157,26 @@ static void dsi_runtime_put(struct dsi_data *dsi)
 	WARN_ON(r < 0 && r != -ENOSYS);
 }
 
+static int dsi_regulator_init(struct dsi_data *dsi)
+{
+	struct regulator *vdds_dsi;
+
+	if (dsi->vdds_dsi_reg != NULL)
+		return 0;
+
+	vdds_dsi = devm_regulator_get(dsi->dev, "vdd");
+
+	if (IS_ERR(vdds_dsi)) {
+		if (PTR_ERR(vdds_dsi) != -EPROBE_DEFER)
+			DSSERR("can't get DSI VDD regulator\n");
+		return PTR_ERR(vdds_dsi);
+	}
+
+	dsi->vdds_dsi_reg = vdds_dsi;
+
+	return 0;
+}
+
 static void _dsi_print_reset_status(struct dsi_data *dsi)
 {
 	u32 l;
@@ -1333,6 +1373,10 @@ static int dsi_pll_enable(struct dss_pll *pll)
 
 	DSSDBG("PLL init\n");
 
+	r = dsi_regulator_init(dsi);
+	if (r)
+		return r;
+
 	r = dsi_runtime_get(dsi);
 	if (r)
 		return r;
@@ -1404,9 +1448,8 @@ static void dsi_pll_disable(struct dss_pll *pll)
 	dsi_pll_uninit(dsi, true);
 }
 
-static int dsi_dump_dsi_clocks(struct seq_file *s, void *p)
+static void dsi_dump_dsi_clocks(struct dsi_data *dsi, struct seq_file *s)
 {
-	struct dsi_data *dsi = s->private;
 	struct dss_pll_clock_info *cinfo = &dsi->pll.cinfo;
 	enum dss_clk_source dispc_clk_src, dsi_clk_src;
 	int dsi_module = dsi->module_id;
@@ -1416,7 +1459,7 @@ static int dsi_dump_dsi_clocks(struct seq_file *s, void *p)
 	dsi_clk_src = dss_get_dsi_clk_source(dsi->dss, dsi_module);
 
 	if (dsi_runtime_get(dsi))
-		return 0;
+		return;
 
 	seq_printf(s,	"- DSI%d PLL -\n", dsi_module + 1);
 
@@ -1460,14 +1503,23 @@ static int dsi_dump_dsi_clocks(struct seq_file *s, void *p)
 	seq_printf(s,	"LP_CLK\t\t%lu\n", dsi->current_lp_cinfo.lp_clk);
 
 	dsi_runtime_put(dsi);
+}
 
-	return 0;
+void dsi_dump_clocks(struct seq_file *s)
+{
+	struct dsi_data *dsi;
+	int i;
+
+	for  (i = 0; i < MAX_NUM_DSI; i++) {
+		dsi = dsi_get_dsi_from_id(i);
+		if (dsi)
+			dsi_dump_dsi_clocks(dsi, s);
+	}
 }
 
 #ifdef CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS
-static int dsi_dump_dsi_irqs(struct seq_file *s, void *p)
+static void dsi_dump_dsi_irqs(struct dsi_data *dsi, struct seq_file *s)
 {
-	struct dsi_data *dsi = s->private;
 	unsigned long flags;
 	struct dsi_irq_stats stats;
 
@@ -1551,20 +1603,33 @@ static int dsi_dump_dsi_irqs(struct seq_file *s, void *p)
 	PIS(ULPSACTIVENOT_ALL0);
 	PIS(ULPSACTIVENOT_ALL1);
 #undef PIS
+}
 
+static int dsi1_dump_irqs(struct seq_file *s, void *p)
+{
+	struct dsi_data *dsi = dsi_get_dsi_from_id(0);
+
+	dsi_dump_dsi_irqs(dsi, s);
+	return 0;
+}
+
+static int dsi2_dump_irqs(struct seq_file *s, void *p)
+{
+	struct dsi_data *dsi = dsi_get_dsi_from_id(1);
+
+	dsi_dump_dsi_irqs(dsi, s);
 	return 0;
 }
 #endif
 
-static int dsi_dump_dsi_regs(struct seq_file *s, void *p)
+static void dsi_dump_dsi_regs(struct dsi_data *dsi, struct seq_file *s)
 {
-	struct dsi_data *dsi = s->private;
+#define DUMPREG(r) seq_printf(s, "%-35s %08x\n", #r, dsi_read_reg(dsi, r))
 
 	if (dsi_runtime_get(dsi))
-		return 0;
+		return;
 	dsi_enable_scp_clk(dsi);
 
-#define DUMPREG(r) seq_printf(s, "%-35s %08x\n", #r, dsi_read_reg(dsi, r))
 	DUMPREG(DSI_REVISION);
 	DUMPREG(DSI_SYSCONFIG);
 	DUMPREG(DSI_SYSSTATUS);
@@ -1634,11 +1699,25 @@ static int dsi_dump_dsi_regs(struct seq_file *s, void *p)
 	DUMPREG(DSI_PLL_GO);
 	DUMPREG(DSI_PLL_CONFIGURATION1);
 	DUMPREG(DSI_PLL_CONFIGURATION2);
-#undef DUMPREG
 
 	dsi_disable_scp_clk(dsi);
 	dsi_runtime_put(dsi);
+#undef DUMPREG
+}
 
+static int dsi1_dump_regs(struct seq_file *s, void *p)
+{
+	struct dsi_data *dsi = dsi_get_dsi_from_id(0);
+
+	dsi_dump_dsi_regs(dsi, s);
+	return 0;
+}
+
+static int dsi2_dump_regs(struct seq_file *s, void *p)
+{
+	struct dsi_data *dsi = dsi_get_dsi_from_id(1);
+
+	dsi_dump_dsi_regs(dsi, s);
 	return 0;
 }
 
@@ -3265,7 +3344,7 @@ static void dsi_config_vp_num_line_buffers(struct dsi_data *dsi)
 
 	if (dsi->mode == OMAP_DSS_DSI_VIDEO_MODE) {
 		int bpp = dsi_get_pixel_size(dsi->pix_fmt);
-		const struct videomode *vm = &dsi->vm;
+		struct videomode *vm = &dsi->vm;
 		/*
 		 * Don't use line buffers if width is greater than the video
 		 * port's line buffer size
@@ -3394,7 +3473,7 @@ static void dsi_config_cmd_mode_interleaving(struct dsi_data *dsi)
 	int ddr_clk_pre, ddr_clk_post, enter_hs_mode_lat, exit_hs_mode_lat;
 	int tclk_trail, ths_exit, exiths_clk;
 	bool ddr_alwon;
-	const struct videomode *vm = &dsi->vm;
+	struct videomode *vm = &dsi->vm;
 	int bpp = dsi_get_pixel_size(dsi->pix_fmt);
 	int ndl = dsi->num_lanes_used - 1;
 	int dsi_fclk_hsdiv = dsi->user_dsi_cinfo.mX[HSDIV_DSI] + 1;
@@ -3644,7 +3723,7 @@ static void dsi_proto_timings(struct dsi_data *dsi)
 		int vbp = dsi->vm_timings.vbp;
 		int window_sync = dsi->vm_timings.window_sync;
 		bool hsync_end;
-		const struct videomode *vm = &dsi->vm;
+		struct videomode *vm = &dsi->vm;
 		int bpp = dsi_get_pixel_size(dsi->pix_fmt);
 		int tl, t_he, width_bytes;
 
@@ -3901,6 +3980,8 @@ static void dsi_update_screen_dispc(struct dsi_data *dsi)
 		msecs_to_jiffies(250));
 	BUG_ON(r == 0);
 
+	dss_mgr_set_timings(&dsi->output, &dsi->vm);
+
 	dss_mgr_start_update(&dsi->output);
 
 	if (dsi->te_enabled) {
@@ -4041,6 +4122,24 @@ static int dsi_display_init_dispc(struct dsi_data *dsi)
 		dsi->mgr_config.stallmode = false;
 		dsi->mgr_config.fifohandcheck = false;
 	}
+
+	/*
+	 * override interlace, logic level and edge related parameters in
+	 * videomode with default values
+	 */
+	dsi->vm.flags &= ~DISPLAY_FLAGS_INTERLACED;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_HSYNC_LOW;
+	dsi->vm.flags |= DISPLAY_FLAGS_HSYNC_HIGH;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_VSYNC_LOW;
+	dsi->vm.flags |= DISPLAY_FLAGS_VSYNC_HIGH;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_PIXDATA_NEGEDGE;
+	dsi->vm.flags |= DISPLAY_FLAGS_PIXDATA_POSEDGE;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_DE_LOW;
+	dsi->vm.flags |= DISPLAY_FLAGS_DE_HIGH;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_SYNC_POSEDGE;
+	dsi->vm.flags |= DISPLAY_FLAGS_SYNC_NEGEDGE;
+
+	dss_mgr_set_timings(&dsi->output, &dsi->vm);
 
 	r = dsi_configure_dispc_clocks(dsi);
 	if (r)
@@ -4741,30 +4840,6 @@ static int dsi_set_config(struct omap_dss_device *dssdev,
 	dsi->user_dispc_cinfo = ctx.dispc_cinfo;
 
 	dsi->vm = ctx.vm;
-
-	/*
-	 * override interlace, logic level and edge related parameters in
-	 * videomode with default values
-	 */
-	dsi->vm.flags &= ~DISPLAY_FLAGS_INTERLACED;
-	dsi->vm.flags &= ~DISPLAY_FLAGS_HSYNC_LOW;
-	dsi->vm.flags |= DISPLAY_FLAGS_HSYNC_HIGH;
-	dsi->vm.flags &= ~DISPLAY_FLAGS_VSYNC_LOW;
-	dsi->vm.flags |= DISPLAY_FLAGS_VSYNC_HIGH;
-	/*
-	 * HACK: These flags should be handled through the omap_dss_device bus
-	 * flags, but this will only be possible when the DSI encoder will be
-	 * converted to the omapdrm-managed encoder model.
-	 */
-	dsi->vm.flags &= ~DISPLAY_FLAGS_PIXDATA_NEGEDGE;
-	dsi->vm.flags |= DISPLAY_FLAGS_PIXDATA_POSEDGE;
-	dsi->vm.flags &= ~DISPLAY_FLAGS_DE_LOW;
-	dsi->vm.flags |= DISPLAY_FLAGS_DE_HIGH;
-	dsi->vm.flags &= ~DISPLAY_FLAGS_SYNC_POSEDGE;
-	dsi->vm.flags |= DISPLAY_FLAGS_SYNC_NEGEDGE;
-
-	dss_mgr_set_timings(&dsi->output, &dsi->vm);
-
 	dsi->vm_timings = ctx.dsi_vm;
 
 	mutex_unlock(&dsi->lock);
@@ -4885,71 +4960,163 @@ static int dsi_get_clocks(struct dsi_data *dsi)
 	return 0;
 }
 
-static int dsi_connect(struct omap_dss_device *src,
-		       struct omap_dss_device *dst)
+static int dsi_connect(struct omap_dss_device *dssdev,
+		struct omap_dss_device *dst)
 {
+	struct dsi_data *dsi = to_dsi_data(dssdev);
 	int r;
 
-	r = omapdss_device_connect(dst->dss, dst, dst->next);
+	r = dsi_regulator_init(dsi);
 	if (r)
 		return r;
 
-	dst->dispc_channel_connected = true;
+	r = dss_mgr_connect(&dsi->output, dssdev);
+	if (r)
+		return r;
+
+	r = omapdss_output_set_device(dssdev, dst);
+	if (r) {
+		DSSERR("failed to connect output to new device: %s\n",
+				dssdev->name);
+		dss_mgr_disconnect(&dsi->output, dssdev);
+		return r;
+	}
+
 	return 0;
 }
 
-static void dsi_disconnect(struct omap_dss_device *src,
-			   struct omap_dss_device *dst)
+static void dsi_disconnect(struct omap_dss_device *dssdev,
+		struct omap_dss_device *dst)
 {
-	dst->dispc_channel_connected = false;
+	struct dsi_data *dsi = to_dsi_data(dssdev);
 
-	omapdss_device_disconnect(dst, dst->next);
+	WARN_ON(dst != dssdev->dst);
+
+	if (dst != dssdev->dst)
+		return;
+
+	omapdss_output_unset_device(dssdev);
+
+	dss_mgr_disconnect(&dsi->output, dssdev);
 }
 
-static const struct omap_dss_device_ops dsi_ops = {
+static const struct omapdss_dsi_ops dsi_ops = {
 	.connect = dsi_connect,
 	.disconnect = dsi_disconnect,
+
+	.bus_lock = dsi_bus_lock,
+	.bus_unlock = dsi_bus_unlock,
+
 	.enable = dsi_display_enable,
+	.disable = dsi_display_disable,
 
-	.dsi = {
-		.bus_lock = dsi_bus_lock,
-		.bus_unlock = dsi_bus_unlock,
+	.enable_hs = dsi_vc_enable_hs,
 
-		.disable = dsi_display_disable,
+	.configure_pins = dsi_configure_pins,
+	.set_config = dsi_set_config,
 
-		.enable_hs = dsi_vc_enable_hs,
+	.enable_video_output = dsi_enable_video_output,
+	.disable_video_output = dsi_disable_video_output,
 
-		.configure_pins = dsi_configure_pins,
-		.set_config = dsi_set_config,
+	.update = dsi_update,
 
-		.enable_video_output = dsi_enable_video_output,
-		.disable_video_output = dsi_disable_video_output,
+	.enable_te = dsi_enable_te,
 
-		.update = dsi_update,
+	.request_vc = dsi_request_vc,
+	.set_vc_id = dsi_set_vc_id,
+	.release_vc = dsi_release_vc,
 
-		.enable_te = dsi_enable_te,
+	.dcs_write = dsi_vc_dcs_write,
+	.dcs_write_nosync = dsi_vc_dcs_write_nosync,
+	.dcs_read = dsi_vc_dcs_read,
 
-		.request_vc = dsi_request_vc,
-		.set_vc_id = dsi_set_vc_id,
-		.release_vc = dsi_release_vc,
+	.gen_write = dsi_vc_generic_write,
+	.gen_write_nosync = dsi_vc_generic_write_nosync,
+	.gen_read = dsi_vc_generic_read,
 
-		.dcs_write = dsi_vc_dcs_write,
-		.dcs_write_nosync = dsi_vc_dcs_write_nosync,
-		.dcs_read = dsi_vc_dcs_read,
+	.bta_sync = dsi_vc_send_bta_sync,
 
-		.gen_write = dsi_vc_generic_write,
-		.gen_write_nosync = dsi_vc_generic_write_nosync,
-		.gen_read = dsi_vc_generic_read,
-
-		.bta_sync = dsi_vc_send_bta_sync,
-
-		.set_max_rx_packet_size = dsi_vc_set_max_rx_packet_size,
-	},
+	.set_max_rx_packet_size = dsi_vc_set_max_rx_packet_size,
 };
 
-/* -----------------------------------------------------------------------------
- * PLL
- */
+static void dsi_init_output(struct dsi_data *dsi)
+{
+	struct omap_dss_device *out = &dsi->output;
+
+	out->dev = dsi->dev;
+	out->id = dsi->module_id == 0 ?
+			OMAP_DSS_OUTPUT_DSI1 : OMAP_DSS_OUTPUT_DSI2;
+
+	out->output_type = OMAP_DISPLAY_TYPE_DSI;
+	out->name = dsi->module_id == 0 ? "dsi.0" : "dsi.1";
+	out->dispc_channel = dsi_get_channel(dsi);
+	out->ops.dsi = &dsi_ops;
+	out->owner = THIS_MODULE;
+
+	omapdss_register_output(out);
+}
+
+static void dsi_uninit_output(struct dsi_data *dsi)
+{
+	struct omap_dss_device *out = &dsi->output;
+
+	omapdss_unregister_output(out);
+}
+
+static int dsi_probe_of(struct dsi_data *dsi)
+{
+	struct device_node *node = dsi->dev->of_node;
+	struct property *prop;
+	u32 lane_arr[10];
+	int len, num_pins;
+	int r, i;
+	struct device_node *ep;
+	struct omap_dsi_pin_config pin_cfg;
+
+	ep = of_graph_get_endpoint_by_regs(node, 0, 0);
+	if (!ep)
+		return 0;
+
+	prop = of_find_property(ep, "lanes", &len);
+	if (prop == NULL) {
+		dev_err(dsi->dev, "failed to find lane data\n");
+		r = -EINVAL;
+		goto err;
+	}
+
+	num_pins = len / sizeof(u32);
+
+	if (num_pins < 4 || num_pins % 2 != 0 ||
+		num_pins > dsi->num_lanes_supported * 2) {
+		dev_err(dsi->dev, "bad number of lanes\n");
+		r = -EINVAL;
+		goto err;
+	}
+
+	r = of_property_read_u32_array(ep, "lanes", lane_arr, num_pins);
+	if (r) {
+		dev_err(dsi->dev, "failed to read lane data\n");
+		goto err;
+	}
+
+	pin_cfg.num_pins = num_pins;
+	for (i = 0; i < num_pins; ++i)
+		pin_cfg.pins[i] = (int)lane_arr[i];
+
+	r = dsi_configure_pins(&dsi->output, &pin_cfg);
+	if (r) {
+		dev_err(dsi->dev, "failed to configure pins");
+		goto err;
+	}
+
+	of_node_put(ep);
+
+	return 0;
+
+err:
+	of_node_put(ep);
+	return r;
+}
 
 static const struct dss_pll_ops dsi_pll_ops = {
 	.enable = dsi_pll_enable,
@@ -5064,173 +5231,7 @@ static int dsi_init_pll_data(struct dss_device *dss, struct dsi_data *dsi)
 	return 0;
 }
 
-/* -----------------------------------------------------------------------------
- * Component Bind & Unbind
- */
-
-static int dsi_bind(struct device *dev, struct device *master, void *data)
-{
-	struct dss_device *dss = dss_get_device(master);
-	struct dsi_data *dsi = dev_get_drvdata(dev);
-	char name[10];
-	u32 rev;
-	int r;
-
-	dsi->dss = dss;
-
-	dsi_init_pll_data(dss, dsi);
-
-	r = dsi_runtime_get(dsi);
-	if (r)
-		return r;
-
-	rev = dsi_read_reg(dsi, DSI_REVISION);
-	dev_dbg(dev, "OMAP DSI rev %d.%d\n",
-	       FLD_GET(rev, 7, 4), FLD_GET(rev, 3, 0));
-
-	dsi->line_buffer_size = dsi_get_line_buf_size(dsi);
-
-	dsi_runtime_put(dsi);
-
-	snprintf(name, sizeof(name), "dsi%u_regs", dsi->module_id + 1);
-	dsi->debugfs.regs = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_regs, dsi);
-#ifdef CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS
-	snprintf(name, sizeof(name), "dsi%u_irqs", dsi->module_id + 1);
-	dsi->debugfs.irqs = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_irqs, dsi);
-#endif
-	snprintf(name, sizeof(name), "dsi%u_clks", dsi->module_id + 1);
-	dsi->debugfs.clks = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_clocks, dsi);
-
-	return 0;
-}
-
-static void dsi_unbind(struct device *dev, struct device *master, void *data)
-{
-	struct dsi_data *dsi = dev_get_drvdata(dev);
-
-	dss_debugfs_remove_file(dsi->debugfs.clks);
-	dss_debugfs_remove_file(dsi->debugfs.irqs);
-	dss_debugfs_remove_file(dsi->debugfs.regs);
-
-	WARN_ON(dsi->scp_clk_refcount > 0);
-
-	dss_pll_unregister(&dsi->pll);
-}
-
-static const struct component_ops dsi_component_ops = {
-	.bind	= dsi_bind,
-	.unbind	= dsi_unbind,
-};
-
-/* -----------------------------------------------------------------------------
- * Probe & Remove, Suspend & Resume
- */
-
-static int dsi_init_output(struct dsi_data *dsi)
-{
-	struct omap_dss_device *out = &dsi->output;
-	int r;
-
-	out->dev = dsi->dev;
-	out->id = dsi->module_id == 0 ?
-			OMAP_DSS_OUTPUT_DSI1 : OMAP_DSS_OUTPUT_DSI2;
-
-	out->output_type = OMAP_DISPLAY_TYPE_DSI;
-	out->name = dsi->module_id == 0 ? "dsi.0" : "dsi.1";
-	out->dispc_channel = dsi_get_channel(dsi);
-	out->ops = &dsi_ops;
-	out->owner = THIS_MODULE;
-	out->of_ports = BIT(0);
-	out->bus_flags = DRM_BUS_FLAG_PIXDATA_POSEDGE
-		       | DRM_BUS_FLAG_DE_HIGH
-		       | DRM_BUS_FLAG_SYNC_NEGEDGE;
-
-	out->next = omapdss_of_find_connected_device(out->dev->of_node, 0);
-	if (IS_ERR(out->next)) {
-		if (PTR_ERR(out->next) != -EPROBE_DEFER)
-			dev_err(out->dev, "failed to find video sink\n");
-		return PTR_ERR(out->next);
-	}
-
-	r = omapdss_output_validate(out);
-	if (r) {
-		omapdss_device_put(out->next);
-		out->next = NULL;
-		return r;
-	}
-
-	omapdss_device_register(out);
-
-	return 0;
-}
-
-static void dsi_uninit_output(struct dsi_data *dsi)
-{
-	struct omap_dss_device *out = &dsi->output;
-
-	if (out->next)
-		omapdss_device_put(out->next);
-	omapdss_device_unregister(out);
-}
-
-static int dsi_probe_of(struct dsi_data *dsi)
-{
-	struct device_node *node = dsi->dev->of_node;
-	struct property *prop;
-	u32 lane_arr[10];
-	int len, num_pins;
-	int r, i;
-	struct device_node *ep;
-	struct omap_dsi_pin_config pin_cfg;
-
-	ep = of_graph_get_endpoint_by_regs(node, 0, 0);
-	if (!ep)
-		return 0;
-
-	prop = of_find_property(ep, "lanes", &len);
-	if (prop == NULL) {
-		dev_err(dsi->dev, "failed to find lane data\n");
-		r = -EINVAL;
-		goto err;
-	}
-
-	num_pins = len / sizeof(u32);
-
-	if (num_pins < 4 || num_pins % 2 != 0 ||
-		num_pins > dsi->num_lanes_supported * 2) {
-		dev_err(dsi->dev, "bad number of lanes\n");
-		r = -EINVAL;
-		goto err;
-	}
-
-	r = of_property_read_u32_array(ep, "lanes", lane_arr, num_pins);
-	if (r) {
-		dev_err(dsi->dev, "failed to read lane data\n");
-		goto err;
-	}
-
-	pin_cfg.num_pins = num_pins;
-	for (i = 0; i < num_pins; ++i)
-		pin_cfg.pins[i] = (int)lane_arr[i];
-
-	r = dsi_configure_pins(&dsi->output, &pin_cfg);
-	if (r) {
-		dev_err(dsi->dev, "failed to configure pins");
-		goto err;
-	}
-
-	of_node_put(ep);
-
-	return 0;
-
-err:
-	of_node_put(ep);
-	return r;
-}
-
+/* DSI1 HW IP initialisation */
 static const struct dsi_of_data dsi_of_data_omap34xx = {
 	.model = DSI_MODEL_OMAP3,
 	.pll_hw = &dss_omap3_dsi_pll_hw,
@@ -5296,21 +5297,23 @@ static const struct soc_device_attribute dsi_soc_devices[] = {
 	{ /* sentinel */ }
 };
 
-static int dsi_probe(struct platform_device *pdev)
+static int dsi_bind(struct device *dev, struct device *master, void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dss_device *dss = dss_get_device(master);
 	const struct soc_device_attribute *soc;
 	const struct dsi_module_id_data *d;
-	struct device *dev = &pdev->dev;
+	u32 rev;
+	int r, i;
 	struct dsi_data *dsi;
 	struct resource *dsi_mem;
 	struct resource *res;
-	unsigned int i;
-	int r;
 
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
 	if (!dsi)
 		return -ENOMEM;
 
+	dsi->dss = dss;
 	dsi->dev = dev;
 	dev_set_drvdata(dev, dsi);
 
@@ -5361,13 +5364,6 @@ static int dsi_probe(struct platform_device *pdev)
 		return r;
 	}
 
-	dsi->vdds_dsi_reg = devm_regulator_get(dev, "vdd");
-	if (IS_ERR(dsi->vdds_dsi_reg)) {
-		if (PTR_ERR(dsi->vdds_dsi_reg) != -EPROBE_DEFER)
-			DSSERR("can't get DSI VDD regulator\n");
-		return PTR_ERR(dsi->vdds_dsi_reg);
-	}
-
 	soc = soc_device_match(dsi_soc_devices);
 	if (soc)
 		dsi->data = soc->data;
@@ -5414,67 +5410,108 @@ static int dsi_probe(struct platform_device *pdev)
 	if (r)
 		return r;
 
+	dsi_init_pll_data(dss, dsi);
+
 	pm_runtime_enable(dev);
+
+	r = dsi_runtime_get(dsi);
+	if (r)
+		goto err_runtime_get;
+
+	rev = dsi_read_reg(dsi, DSI_REVISION);
+	dev_dbg(dev, "OMAP DSI rev %d.%d\n",
+	       FLD_GET(rev, 7, 4), FLD_GET(rev, 3, 0));
 
 	/* DSI on OMAP3 doesn't have register DSI_GNQ, set number
 	 * of data to 3 by default */
-	if (dsi->data->quirks & DSI_QUIRK_GNQ) {
-		dsi_runtime_get(dsi);
+	if (dsi->data->quirks & DSI_QUIRK_GNQ)
 		/* NB_DATA_LANES */
 		dsi->num_lanes_supported = 1 + REG_GET(dsi, DSI_GNQ, 11, 9);
-		dsi_runtime_put(dsi);
-	} else {
+	else
 		dsi->num_lanes_supported = 3;
-	}
 
-	r = of_platform_populate(dev->of_node, NULL, NULL, dev);
-	if (r) {
-		DSSERR("Failed to populate DSI child devices: %d\n", r);
-		goto err_pm_disable;
-	}
+	dsi->line_buffer_size = dsi_get_line_buf_size(dsi);
 
-	r = dsi_init_output(dsi);
-	if (r)
-		goto err_of_depopulate;
+	dsi_init_output(dsi);
 
 	r = dsi_probe_of(dsi);
 	if (r) {
 		DSSERR("Invalid DSI DT data\n");
-		goto err_uninit_output;
+		goto err_probe_of;
 	}
 
-	r = component_add(&pdev->dev, &dsi_component_ops);
+	r = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (r)
-		goto err_uninit_output;
+		DSSERR("Failed to populate DSI child devices: %d\n", r);
+
+	dsi_runtime_put(dsi);
+
+	if (dsi->module_id == 0)
+		dsi->debugfs.regs = dss_debugfs_create_file(dss, "dsi1_regs",
+							    dsi1_dump_regs,
+							    &dsi);
+	else
+		dsi->debugfs.regs = dss_debugfs_create_file(dss, "dsi2_regs",
+							    dsi2_dump_regs,
+							    &dsi);
+#ifdef CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS
+	if (dsi->module_id == 0)
+		dsi->debugfs.irqs = dss_debugfs_create_file(dss, "dsi1_irqs",
+							    dsi1_dump_irqs,
+							    &dsi);
+	else
+		dsi->debugfs.irqs = dss_debugfs_create_file(dss, "dsi2_irqs",
+							    dsi2_dump_irqs,
+							    &dsi);
+#endif
 
 	return 0;
 
-err_uninit_output:
+err_probe_of:
 	dsi_uninit_output(dsi);
-err_of_depopulate:
-	of_platform_depopulate(dev);
-err_pm_disable:
+	dsi_runtime_put(dsi);
+
+err_runtime_get:
 	pm_runtime_disable(dev);
 	return r;
 }
 
-static int dsi_remove(struct platform_device *pdev)
+static void dsi_unbind(struct device *dev, struct device *master, void *data)
 {
-	struct dsi_data *dsi = platform_get_drvdata(pdev);
+	struct dsi_data *dsi = dev_get_drvdata(dev);
 
-	component_del(&pdev->dev, &dsi_component_ops);
+	dss_debugfs_remove_file(dsi->debugfs.irqs);
+	dss_debugfs_remove_file(dsi->debugfs.regs);
+
+	of_platform_depopulate(dev);
+
+	WARN_ON(dsi->scp_clk_refcount > 0);
+
+	dss_pll_unregister(&dsi->pll);
 
 	dsi_uninit_output(dsi);
 
-	of_platform_depopulate(&pdev->dev);
-
-	pm_runtime_disable(&pdev->dev);
+	pm_runtime_disable(dev);
 
 	if (dsi->vdds_dsi_reg != NULL && dsi->vdds_dsi_enabled) {
 		regulator_disable(dsi->vdds_dsi_reg);
 		dsi->vdds_dsi_enabled = false;
 	}
+}
 
+static const struct component_ops dsi_component_ops = {
+	.bind	= dsi_bind,
+	.unbind	= dsi_unbind,
+};
+
+static int dsi_probe(struct platform_device *pdev)
+{
+	return component_add(&pdev->dev, &dsi_component_ops);
+}
+
+static int dsi_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &dsi_component_ops);
 	return 0;
 }
 
@@ -5488,12 +5525,19 @@ static int dsi_runtime_suspend(struct device *dev)
 	/* wait for current handler to finish before turning the DSI off */
 	synchronize_irq(dsi->irq);
 
+	dispc_runtime_put(dsi->dss->dispc);
+
 	return 0;
 }
 
 static int dsi_runtime_resume(struct device *dev)
 {
 	struct dsi_data *dsi = dev_get_drvdata(dev);
+	int r;
+
+	r = dispc_runtime_get(dsi->dss->dispc);
+	if (r)
+		return r;
 
 	dsi->is_enabled = true;
 	/* ensure the irq handler sees the is_enabled value */

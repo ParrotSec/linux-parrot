@@ -1,10 +1,14 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
 #
-# clang-version clang-command
+# clang-version [-p] clang-command
 #
-# Print the compiler version of `clang-command' in a 5 or 6-digit form
-# such as `50001' for clang-5.0.1 etc.
+# Prints the compiler version of `clang-command' in a canonical 4-digit form
+# such as `0500' for clang-5.0 etc.
+#
+# With the -p option, prints the patchlevel as well, for example `050001' for
+# clang-5.0.1 etc.
+#
 
 compiler="$*"
 

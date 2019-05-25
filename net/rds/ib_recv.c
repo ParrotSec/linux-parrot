@@ -346,8 +346,8 @@ static int rds_ib_recv_refill_one(struct rds_connection *conn,
 	sge->length = sizeof(struct rds_header);
 
 	sge = &recv->r_sge[1];
-	sge->addr = sg_dma_address(&recv->r_frag->f_sg);
-	sge->length = sg_dma_len(&recv->r_frag->f_sg);
+	sge->addr = ib_sg_dma_address(ic->i_cm_id->device, &recv->r_frag->f_sg);
+	sge->length = ib_sg_dma_len(ic->i_cm_id->device, &recv->r_frag->f_sg);
 
 	ret = 0;
 out:
@@ -409,7 +409,9 @@ void rds_ib_recv_refill(struct rds_connection *conn, int prefill, gfp_t gfp)
 
 		rdsdebug("recv %p ibinc %p page %p addr %lu\n", recv,
 			 recv->r_ibinc, sg_page(&recv->r_frag->f_sg),
-			 (long)sg_dma_address(&recv->r_frag->f_sg));
+			 (long) ib_sg_dma_address(
+				ic->i_cm_id->device,
+				&recv->r_frag->f_sg));
 
 		/* XXX when can this fail? */
 		ret = ib_post_recv(ic->i_cm_id->qp, &recv->r_wr, NULL);
@@ -772,7 +774,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
 	unsigned long frag_off;
 	unsigned long to_copy;
 	unsigned long copied;
-	__le64 uncongested = 0;
+	uint64_t uncongested = 0;
 	void *addr;
 
 	/* catch completely corrupt packets */
@@ -789,7 +791,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
 	copied = 0;
 
 	while (copied < RDS_CONG_MAP_BYTES) {
-		__le64 *src, *dst;
+		uint64_t *src, *dst;
 		unsigned int k;
 
 		to_copy = min(RDS_FRAG_SIZE - frag_off, PAGE_SIZE - map_off);
@@ -824,7 +826,9 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
 	}
 
 	/* the congestion map is in little endian order */
-	rds_cong_map_updated(map, le64_to_cpu(uncongested));
+	uncongested = le64_to_cpu(uncongested);
+
+	rds_cong_map_updated(map, uncongested);
 }
 
 static void rds_ib_process_recv(struct rds_connection *conn,
@@ -982,9 +986,9 @@ void rds_ib_recv_cqe_handler(struct rds_ib_connection *ic,
 	} else {
 		/* We expect errors as the qp is drained during shutdown */
 		if (rds_conn_up(conn) || rds_conn_connecting(conn))
-			rds_ib_conn_error(conn, "recv completion on <%pI6c,%pI6c, %d> had status %u (%s), disconnecting and reconnecting\n",
+			rds_ib_conn_error(conn, "recv completion on <%pI6c,%pI6c> had status %u (%s), disconnecting and reconnecting\n",
 					  &conn->c_laddr, &conn->c_faddr,
-					  conn->c_tos, wc->status,
+					  wc->status,
 					  ib_wc_status_msg(wc->status));
 	}
 

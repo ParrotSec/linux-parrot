@@ -49,11 +49,8 @@ static void amdgpu_bo_list_free(struct kref *ref)
 						   refcount);
 	struct amdgpu_bo_list_entry *e;
 
-	amdgpu_bo_list_for_each_entry(e, list) {
-		struct amdgpu_bo *bo = ttm_to_amdgpu_bo(e->tv.bo);
-
-		amdgpu_bo_unref(&bo);
-	}
+	amdgpu_bo_list_for_each_entry(e, list)
+		amdgpu_bo_unref(&e->robj);
 
 	call_rcu(&list->rhead, amdgpu_bo_list_free_rcu);
 }
@@ -115,19 +112,21 @@ int amdgpu_bo_list_create(struct amdgpu_device *adev, struct drm_file *filp,
 			entry = &array[last_entry++];
 		}
 
+		entry->robj = bo;
 		entry->priority = min(info[i].bo_priority,
 				      AMDGPU_BO_LIST_MAX_PRIORITY);
-		entry->tv.bo = &bo->tbo;
+		entry->tv.bo = &entry->robj->tbo;
+		entry->tv.shared = !entry->robj->prime_shared_count;
 
-		if (bo->preferred_domains == AMDGPU_GEM_DOMAIN_GDS)
-			list->gds_obj = bo;
-		if (bo->preferred_domains == AMDGPU_GEM_DOMAIN_GWS)
-			list->gws_obj = bo;
-		if (bo->preferred_domains == AMDGPU_GEM_DOMAIN_OA)
-			list->oa_obj = bo;
+		if (entry->robj->preferred_domains == AMDGPU_GEM_DOMAIN_GDS)
+			list->gds_obj = entry->robj;
+		if (entry->robj->preferred_domains == AMDGPU_GEM_DOMAIN_GWS)
+			list->gws_obj = entry->robj;
+		if (entry->robj->preferred_domains == AMDGPU_GEM_DOMAIN_OA)
+			list->oa_obj = entry->robj;
 
-		total_size += amdgpu_bo_size(bo);
-		trace_amdgpu_bo_list_set(list, bo);
+		total_size += amdgpu_bo_size(entry->robj);
+		trace_amdgpu_bo_list_set(list, entry->robj);
 	}
 
 	list->first_userptr = first_userptr;
@@ -139,11 +138,8 @@ int amdgpu_bo_list_create(struct amdgpu_device *adev, struct drm_file *filp,
 	return 0;
 
 error_free:
-	while (i--) {
-		struct amdgpu_bo *bo = ttm_to_amdgpu_bo(array[i].tv.bo);
-
-		amdgpu_bo_unref(&bo);
-	}
+	while (i--)
+		amdgpu_bo_unref(&array[i].robj);
 	kvfree(list);
 	return r;
 
@@ -195,10 +191,9 @@ void amdgpu_bo_list_get_list(struct amdgpu_bo_list *list,
 	 * with the same priority, i.e. it must be stable.
 	 */
 	amdgpu_bo_list_for_each_entry(e, list) {
-		struct amdgpu_bo *bo = ttm_to_amdgpu_bo(e->tv.bo);
 		unsigned priority = e->priority;
 
-		if (!bo->parent)
+		if (!e->robj->parent)
 			list_add_tail(&e->tv.head, &bucket[priority]);
 
 		e->user_pages = NULL;

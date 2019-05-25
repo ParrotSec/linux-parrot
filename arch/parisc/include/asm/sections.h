@@ -5,8 +5,6 @@
 /* nothing to see, move along */
 #include <asm-generic/sections.h>
 
-extern char __alt_instructions[], __alt_instructions_end[];
-
 #ifdef CONFIG_64BIT
 
 #define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1

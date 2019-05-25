@@ -541,9 +541,15 @@ static int siu_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		if (ret < 0)
 			return ret;
 
-		snd_pcm_lib_preallocate_pages_for_all(pcm,
-				SNDRV_DMA_TYPE_DEV, card->dev,
+		ret = snd_pcm_lib_preallocate_pages_for_all(pcm,
+				SNDRV_DMA_TYPE_DEV, NULL,
 				SIU_BUFFER_BYTES_MAX, SIU_BUFFER_BYTES_MAX);
+		if (ret < 0) {
+			dev_err(card->dev,
+			       "snd_pcm_lib_preallocate_pages_for_all() err=%d",
+				ret);
+			goto fail;
+		}
 
 		(*port_info)->pcm = pcm;
 
@@ -556,6 +562,11 @@ static int siu_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 	dev_info(card->dev, "SuperH SIU driver initialized.\n");
 	return 0;
+
+fail:
+	siu_free_port(siu_ports[pdev->id]);
+	dev_err(card->dev, "SIU: failed to initialize.\n");
+	return ret;
 }
 
 static void siu_pcm_free(struct snd_pcm *pcm)

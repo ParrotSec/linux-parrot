@@ -22,6 +22,7 @@
 	#include <asm/byteorder.h>
 	#include <linux/atomic.h>
 	#include <linux/io.h>
+	#include <linux/semaphore.h>
 	#include <linux/sem.h>
 	#include <linux/sched.h>
 	#include <linux/etherdevice.h>
@@ -40,6 +41,7 @@
         #include <net/ieee80211_radiotap.h>
 	#include <net/cfg80211.h>
 
+	typedef struct	semaphore _sema;
 	typedef	spinlock_t	_lock;
 	typedef struct mutex		_mutex;
 	typedef struct timer_list _timer;

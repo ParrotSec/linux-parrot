@@ -12,11 +12,6 @@
  * buffer contains the data of all the enabled FIFO data sets
  * (e.g. Gx, Gy, Gz, Ax, Ay, Az), then data are repeated depending on the
  * value of the decimation factor and ODR set for each FIFO data set.
- *
- * LSM6DSO: The FIFO buffer can be configured to store data from gyroscope and
- * accelerometer. Each sample is queued with a tag (1B) indicating data source
- * (gyroscope, accelerometer, hw timer).
- *
  * FIFO supported modes:
  *  - BYPASS: FIFO disabled
  *  - CONTINUOUS: FIFO enabled. When the buffer is full, the FIFO index
@@ -51,7 +46,6 @@
 #define ST_LSM6DSX_FIFO_ODR_MASK		GENMASK(6, 3)
 #define ST_LSM6DSX_FIFO_EMPTY_MASK		BIT(12)
 #define ST_LSM6DSX_REG_FIFO_OUTL_ADDR		0x3e
-#define ST_LSM6DSX_REG_FIFO_OUT_TAG_ADDR	0x78
 #define ST_LSM6DSX_REG_TS_RESET_ADDR		0x42
 
 #define ST_LSM6DSX_MAX_FIFO_ODR_VAL		0x08
@@ -62,15 +56,6 @@
 struct st_lsm6dsx_decimator_entry {
 	u8 decimator;
 	u8 val;
-};
-
-enum st_lsm6dsx_fifo_tag {
-	ST_LSM6DSX_GYRO_TAG = 0x01,
-	ST_LSM6DSX_ACC_TAG = 0x02,
-	ST_LSM6DSX_TS_TAG = 0x04,
-	ST_LSM6DSX_EXT0_TAG = 0x0f,
-	ST_LSM6DSX_EXT1_TAG = 0x10,
-	ST_LSM6DSX_EXT2_TAG = 0x11,
 };
 
 static const
@@ -105,9 +90,6 @@ static void st_lsm6dsx_get_max_min_odr(struct st_lsm6dsx_hw *hw,
 
 	*max_odr = 0, *min_odr = ~0;
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
-		if (!hw->iio_devs[i])
-			continue;
-
 		sensor = iio_priv(hw->iio_devs[i]);
 
 		if (!(hw->enable_mask & BIT(sensor->id)))
@@ -131,9 +113,6 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		const struct st_lsm6dsx_reg *dec_reg;
 
-		if (!hw->iio_devs[i])
-			continue;
-
 		sensor = iio_priv(hw->iio_devs[i]);
 		/* update fifo decimators and sample in pattern */
 		if (hw->enable_mask & BIT(sensor->id)) {
@@ -151,9 +130,8 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 		if (dec_reg->addr) {
 			int val = ST_LSM6DSX_SHIFT_VAL(data, dec_reg->mask);
 
-			err = st_lsm6dsx_update_bits_locked(hw, dec_reg->addr,
-							    dec_reg->mask,
-							    val);
+			err = regmap_update_bits(hw->regmap, dec_reg->addr,
+						 dec_reg->mask, val);
 			if (err < 0)
 				return err;
 		}
@@ -172,8 +150,8 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 		int val, ts_dec = !!hw->ts_sip;
 
 		val = ST_LSM6DSX_SHIFT_VAL(ts_dec, ts_dec_reg->mask);
-		err = st_lsm6dsx_update_bits_locked(hw, ts_dec_reg->addr,
-						    ts_dec_reg->mask, val);
+		err = regmap_update_bits(hw->regmap, ts_dec_reg->addr,
+					 ts_dec_reg->mask, val);
 	}
 	return err;
 }
@@ -181,12 +159,12 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 			     enum st_lsm6dsx_fifo_mode fifo_mode)
 {
-	unsigned int data;
 	int err;
 
-	data = FIELD_PREP(ST_LSM6DSX_FIFO_MODE_MASK, fifo_mode);
-	err = st_lsm6dsx_update_bits_locked(hw, ST_LSM6DSX_REG_FIFO_MODE_ADDR,
-					    ST_LSM6DSX_FIFO_MODE_MASK, data);
+	err = regmap_update_bits(hw->regmap, ST_LSM6DSX_REG_FIFO_MODE_ADDR,
+				 ST_LSM6DSX_FIFO_MODE_MASK,
+				 FIELD_PREP(ST_LSM6DSX_FIFO_MODE_MASK,
+					    fifo_mode));
 	if (err < 0)
 		return err;
 
@@ -199,34 +177,12 @@ static int st_lsm6dsx_set_fifo_odr(struct st_lsm6dsx_sensor *sensor,
 				   bool enable)
 {
 	struct st_lsm6dsx_hw *hw = sensor->hw;
-	const struct st_lsm6dsx_reg *batch_reg;
 	u8 data;
 
-	batch_reg = &hw->settings->batch[sensor->id];
-	if (batch_reg->addr) {
-		int val;
-
-		if (enable) {
-			int err;
-
-			err = st_lsm6dsx_check_odr(sensor, sensor->odr,
-						   &data);
-			if (err < 0)
-				return err;
-		} else {
-			data = 0;
-		}
-		val = ST_LSM6DSX_SHIFT_VAL(data, batch_reg->mask);
-		return st_lsm6dsx_update_bits_locked(hw, batch_reg->addr,
-						     batch_reg->mask, val);
-	} else {
-		data = hw->enable_mask ? ST_LSM6DSX_MAX_FIFO_ODR_VAL : 0;
-		return st_lsm6dsx_update_bits_locked(hw,
-					ST_LSM6DSX_REG_FIFO_MODE_ADDR,
-					ST_LSM6DSX_FIFO_ODR_MASK,
-					FIELD_PREP(ST_LSM6DSX_FIFO_ODR_MASK,
-						   data));
-	}
+	data = hw->enable_mask ? ST_LSM6DSX_MAX_FIFO_ODR_VAL : 0;
+	return regmap_update_bits(hw->regmap, ST_LSM6DSX_REG_FIFO_MODE_ADDR,
+				 ST_LSM6DSX_FIFO_ODR_MASK,
+				 FIELD_PREP(ST_LSM6DSX_FIFO_ODR_MASK, data));
 }
 
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
@@ -241,9 +197,6 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 		return 0;
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
-		if (!hw->iio_devs[i])
-			continue;
-
 		cur_sensor = iio_priv(hw->iio_devs[i]);
 
 		if (!(hw->enable_mask & BIT(cur_sensor->id)))
@@ -259,23 +212,19 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 	fifo_watermark = (fifo_watermark / hw->sip) * hw->sip;
 	fifo_watermark = fifo_watermark * hw->settings->fifo_ops.th_wl;
 
-	mutex_lock(&hw->page_lock);
 	err = regmap_read(hw->regmap, hw->settings->fifo_ops.fifo_th.addr + 1,
 			  &data);
 	if (err < 0)
-		goto out;
+		return err;
 
 	fifo_th_mask = hw->settings->fifo_ops.fifo_th.mask;
 	fifo_watermark = ((data << 8) & ~fifo_th_mask) |
 			 (fifo_watermark & fifo_th_mask);
 
 	wdata = cpu_to_le16(fifo_watermark);
-	err = regmap_bulk_write(hw->regmap,
-				hw->settings->fifo_ops.fifo_th.addr,
-				&wdata, sizeof(wdata));
-out:
-	mutex_unlock(&hw->page_lock);
-	return err;
+	return regmap_bulk_write(hw->regmap,
+				 hw->settings->fifo_ops.fifo_th.addr,
+				 &wdata, sizeof(wdata));
 }
 
 static int st_lsm6dsx_reset_hw_ts(struct st_lsm6dsx_hw *hw)
@@ -284,15 +233,12 @@ static int st_lsm6dsx_reset_hw_ts(struct st_lsm6dsx_hw *hw)
 	int i, err;
 
 	/* reset hw ts counter */
-	err = st_lsm6dsx_write_locked(hw, ST_LSM6DSX_REG_TS_RESET_ADDR,
-				      ST_LSM6DSX_TS_RESET_VAL);
+	err = regmap_write(hw->regmap, ST_LSM6DSX_REG_TS_RESET_ADDR,
+			   ST_LSM6DSX_TS_RESET_VAL);
 	if (err < 0)
 		return err;
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
-		if (!hw->iio_devs[i])
-			continue;
-
 		sensor = iio_priv(hw->iio_devs[i]);
 		/*
 		 * store enable buffer timestamp as reference for
@@ -304,21 +250,21 @@ static int st_lsm6dsx_reset_hw_ts(struct st_lsm6dsx_hw *hw)
 }
 
 /*
- * Set max bulk read to ST_LSM6DSX_MAX_WORD_LEN/ST_LSM6DSX_MAX_TAGGED_WORD_LEN
- * in order to avoid a kmalloc for each bus access
+ * Set max bulk read to ST_LSM6DSX_MAX_WORD_LEN in order to avoid
+ * a kmalloc for each bus access
  */
-static inline int st_lsm6dsx_read_block(struct st_lsm6dsx_hw *hw, u8 addr,
-					u8 *data, unsigned int data_len,
-					unsigned int max_word_len)
+static inline int st_lsm6dsx_read_block(struct st_lsm6dsx_hw *hw, u8 *data,
+					unsigned int data_len)
 {
 	unsigned int word_len, read_len = 0;
 	int err;
 
 	while (read_len < data_len) {
 		word_len = min_t(unsigned int, data_len - read_len,
-				 max_word_len);
-		err = st_lsm6dsx_read_locked(hw, addr, data + read_len,
-					     word_len);
+				 ST_LSM6DSX_MAX_WORD_LEN);
+		err = regmap_bulk_read(hw->regmap,
+				       ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
+				       data + read_len, word_len);
 		if (err < 0)
 			return err;
 		read_len += word_len;
@@ -336,7 +282,7 @@ static inline int st_lsm6dsx_read_block(struct st_lsm6dsx_hw *hw, u8 addr,
  *
  * Return: Number of bytes read from the FIFO
  */
-int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
+static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
 	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
 	u16 fifo_diff_mask = hw->settings->fifo_ops.fifo_diff.mask;
@@ -348,9 +294,9 @@ int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	__le16 fifo_status;
 	s64 ts = 0;
 
-	err = st_lsm6dsx_read_locked(hw,
-				     hw->settings->fifo_ops.fifo_diff.addr,
-				     &fifo_status, sizeof(fifo_status));
+	err = regmap_bulk_read(hw->regmap,
+			       hw->settings->fifo_ops.fifo_diff.addr,
+			       &fifo_status, sizeof(fifo_status));
 	if (err < 0) {
 		dev_err(hw->dev, "failed to read fifo status (err=%d)\n",
 			err);
@@ -368,9 +314,7 @@ int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	gyro_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_GYRO]);
 
 	for (read_len = 0; read_len < fifo_len; read_len += pattern_len) {
-		err = st_lsm6dsx_read_block(hw, ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
-					    hw->buff, pattern_len,
-					    ST_LSM6DSX_MAX_WORD_LEN);
+		err = st_lsm6dsx_read_block(hw, hw->buff, pattern_len);
 		if (err < 0) {
 			dev_err(hw->dev,
 				"failed to read pattern from fifo (err=%d)\n",
@@ -456,149 +400,13 @@ int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	return read_len;
 }
 
-static int
-st_lsm6dsx_push_tagged_data(struct st_lsm6dsx_hw *hw, u8 tag,
-			    u8 *data, s64 ts)
-{
-	struct st_lsm6dsx_sensor *sensor;
-	struct iio_dev *iio_dev;
-
-	/*
-	 * EXT_TAG are managed in FIFO fashion so ST_LSM6DSX_EXT0_TAG
-	 * corresponds to the first enabled channel, ST_LSM6DSX_EXT1_TAG
-	 * to the second one and ST_LSM6DSX_EXT2_TAG to the last enabled
-	 * channel
-	 */
-	switch (tag) {
-	case ST_LSM6DSX_GYRO_TAG:
-		iio_dev = hw->iio_devs[ST_LSM6DSX_ID_GYRO];
-		break;
-	case ST_LSM6DSX_ACC_TAG:
-		iio_dev = hw->iio_devs[ST_LSM6DSX_ID_ACC];
-		break;
-	case ST_LSM6DSX_EXT0_TAG:
-		if (hw->enable_mask & BIT(ST_LSM6DSX_ID_EXT0))
-			iio_dev = hw->iio_devs[ST_LSM6DSX_ID_EXT0];
-		else if (hw->enable_mask & BIT(ST_LSM6DSX_ID_EXT1))
-			iio_dev = hw->iio_devs[ST_LSM6DSX_ID_EXT1];
-		else
-			iio_dev = hw->iio_devs[ST_LSM6DSX_ID_EXT2];
-		break;
-	case ST_LSM6DSX_EXT1_TAG:
-		if ((hw->enable_mask & BIT(ST_LSM6DSX_ID_EXT0)) &&
-		    (hw->enable_mask & BIT(ST_LSM6DSX_ID_EXT1)))
-			iio_dev = hw->iio_devs[ST_LSM6DSX_ID_EXT1];
-		else
-			iio_dev = hw->iio_devs[ST_LSM6DSX_ID_EXT2];
-		break;
-	case ST_LSM6DSX_EXT2_TAG:
-		iio_dev = hw->iio_devs[ST_LSM6DSX_ID_EXT2];
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	sensor = iio_priv(iio_dev);
-	iio_push_to_buffers_with_timestamp(iio_dev, data,
-					   ts + sensor->ts_ref);
-
-	return 0;
-}
-
-/**
- * st_lsm6dsx_read_tagged_fifo() - LSM6DSO read FIFO routine
- * @hw: Pointer to instance of struct st_lsm6dsx_hw.
- *
- * Read samples from the hw FIFO and push them to IIO buffers.
- *
- * Return: Number of bytes read from the FIFO
- */
-int st_lsm6dsx_read_tagged_fifo(struct st_lsm6dsx_hw *hw)
-{
-	u16 pattern_len = hw->sip * ST_LSM6DSX_TAGGED_SAMPLE_SIZE;
-	u16 fifo_len, fifo_diff_mask;
-	struct st_lsm6dsx_sensor *acc_sensor, *gyro_sensor;
-	u8 iio_buff[ST_LSM6DSX_IIO_BUFF_SIZE], tag;
-	bool reset_ts = false;
-	int i, err, read_len;
-	__le16 fifo_status;
-	s64 ts = 0;
-
-	err = st_lsm6dsx_read_locked(hw,
-				     hw->settings->fifo_ops.fifo_diff.addr,
-				     &fifo_status, sizeof(fifo_status));
-	if (err < 0) {
-		dev_err(hw->dev, "failed to read fifo status (err=%d)\n",
-			err);
-		return err;
-	}
-
-	fifo_diff_mask = hw->settings->fifo_ops.fifo_diff.mask;
-	fifo_len = (le16_to_cpu(fifo_status) & fifo_diff_mask) *
-		   ST_LSM6DSX_TAGGED_SAMPLE_SIZE;
-	if (!fifo_len)
-		return 0;
-
-	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
-	gyro_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_GYRO]);
-
-	for (read_len = 0; read_len < fifo_len; read_len += pattern_len) {
-		err = st_lsm6dsx_read_block(hw,
-					    ST_LSM6DSX_REG_FIFO_OUT_TAG_ADDR,
-					    hw->buff, pattern_len,
-					    ST_LSM6DSX_MAX_TAGGED_WORD_LEN);
-		if (err < 0) {
-			dev_err(hw->dev,
-				"failed to read pattern from fifo (err=%d)\n",
-				err);
-			return err;
-		}
-
-		for (i = 0; i < pattern_len;
-		     i += ST_LSM6DSX_TAGGED_SAMPLE_SIZE) {
-			memcpy(iio_buff, &hw->buff[i + ST_LSM6DSX_TAG_SIZE],
-			       ST_LSM6DSX_SAMPLE_SIZE);
-
-			tag = hw->buff[i] >> 3;
-			if (tag == ST_LSM6DSX_TS_TAG) {
-				/*
-				 * hw timestamp is 4B long and it is stored
-				 * in FIFO according to this schema:
-				 * B0 = ts[7:0], B1 = ts[15:8], B2 = ts[23:16],
-				 * B3 = ts[31:24]
-				 */
-				ts = le32_to_cpu(*((__le32 *)iio_buff));
-				/*
-				 * check if hw timestamp engine is going to
-				 * reset (the sensor generates an interrupt
-				 * to signal the hw timestamp will reset in
-				 * 1.638s)
-				 */
-				if (!reset_ts && ts >= 0xffff0000)
-					reset_ts = true;
-				ts *= ST_LSM6DSX_TS_SENSITIVITY;
-			} else {
-				st_lsm6dsx_push_tagged_data(hw, tag, iio_buff,
-							    ts);
-			}
-		}
-	}
-
-	if (unlikely(reset_ts)) {
-		err = st_lsm6dsx_reset_hw_ts(hw);
-		if (err < 0)
-			return err;
-	}
-	return read_len;
-}
-
 int st_lsm6dsx_flush_fifo(struct st_lsm6dsx_hw *hw)
 {
 	int err;
 
 	mutex_lock(&hw->fifo_lock);
 
-	hw->settings->fifo_ops.read_fifo(hw);
+	st_lsm6dsx_read_fifo(hw);
 	err = st_lsm6dsx_set_fifo_mode(hw, ST_LSM6DSX_FIFO_BYPASS);
 
 	mutex_unlock(&hw->fifo_lock);
@@ -620,21 +428,19 @@ static int st_lsm6dsx_update_fifo(struct iio_dev *iio_dev, bool enable)
 			goto out;
 	}
 
-	if (sensor->id == ST_LSM6DSX_ID_EXT0 ||
-	    sensor->id == ST_LSM6DSX_ID_EXT1 ||
-	    sensor->id == ST_LSM6DSX_ID_EXT2) {
-		err = st_lsm6dsx_shub_set_enable(sensor, enable);
+	if (enable) {
+		err = st_lsm6dsx_sensor_enable(sensor);
 		if (err < 0)
 			goto out;
 	} else {
-		err = st_lsm6dsx_sensor_set_enable(sensor, enable);
-		if (err < 0)
-			goto out;
-
-		err = st_lsm6dsx_set_fifo_odr(sensor, enable);
+		err = st_lsm6dsx_sensor_disable(sensor);
 		if (err < 0)
 			goto out;
 	}
+
+	err = st_lsm6dsx_set_fifo_odr(sensor, enable);
+	if (err < 0)
+		goto out;
 
 	err = st_lsm6dsx_update_decimators(hw);
 	if (err < 0)
@@ -672,7 +478,7 @@ static irqreturn_t st_lsm6dsx_handler_thread(int irq, void *private)
 	int count;
 
 	mutex_lock(&hw->fifo_lock);
-	count = hw->settings->fifo_ops.read_fifo(hw);
+	count = st_lsm6dsx_read_fifo(hw);
 	mutex_unlock(&hw->fifo_lock);
 
 	return !count ? IRQ_NONE : IRQ_HANDLED;
@@ -750,9 +556,6 @@ int st_lsm6dsx_fifo_setup(struct st_lsm6dsx_hw *hw)
 	}
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
-		if (!hw->iio_devs[i])
-			continue;
-
 		buffer = devm_iio_kfifo_allocate(hw->dev);
 		if (!buffer)
 			return -ENOMEM;

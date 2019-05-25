@@ -34,7 +34,7 @@
 
 static LIST_HEAD(klp_ops);
 
-struct klp_ops *klp_find_ops(void *old_func)
+struct klp_ops *klp_find_ops(unsigned long old_addr)
 {
 	struct klp_ops *ops;
 	struct klp_func *func;
@@ -42,7 +42,7 @@ struct klp_ops *klp_find_ops(void *old_func)
 	list_for_each_entry(ops, &klp_ops, node) {
 		func = list_first_entry(&ops->func_stack, struct klp_func,
 					stack_node);
-		if (func->old_func == old_func)
+		if (func->old_addr == old_addr)
 			return ops;
 	}
 
@@ -61,7 +61,7 @@ static void notrace klp_ftrace_handler(unsigned long ip,
 	ops = container_of(fops, struct klp_ops, fops);
 
 	/*
-	 * A variant of synchronize_rcu() is used to allow patching functions
+	 * A variant of synchronize_sched() is used to allow patching functions
 	 * where RCU is not watching, see klp_synchronize_transition().
 	 */
 	preempt_disable_notrace();
@@ -72,7 +72,7 @@ static void notrace klp_ftrace_handler(unsigned long ip,
 	/*
 	 * func should never be NULL because preemption should be disabled here
 	 * and unregister_ftrace_function() does the equivalent of a
-	 * synchronize_rcu() before the func_stack removal.
+	 * synchronize_sched() before the func_stack removal.
 	 */
 	if (WARN_ON_ONCE(!func))
 		goto unlock;
@@ -118,15 +118,7 @@ static void notrace klp_ftrace_handler(unsigned long ip,
 		}
 	}
 
-	/*
-	 * NOPs are used to replace existing patches with original code.
-	 * Do nothing! Setting pc would cause an infinite loop.
-	 */
-	if (func->nop)
-		goto unlock;
-
 	klp_arch_set_pc(regs, (unsigned long)func->new_func);
-
 unlock:
 	preempt_enable_notrace();
 }
@@ -150,18 +142,17 @@ static void klp_unpatch_func(struct klp_func *func)
 
 	if (WARN_ON(!func->patched))
 		return;
-	if (WARN_ON(!func->old_func))
+	if (WARN_ON(!func->old_addr))
 		return;
 
-	ops = klp_find_ops(func->old_func);
+	ops = klp_find_ops(func->old_addr);
 	if (WARN_ON(!ops))
 		return;
 
 	if (list_is_singular(&ops->func_stack)) {
 		unsigned long ftrace_loc;
 
-		ftrace_loc =
-			klp_get_ftrace_location((unsigned long)func->old_func);
+		ftrace_loc = klp_get_ftrace_location(func->old_addr);
 		if (WARN_ON(!ftrace_loc))
 			return;
 
@@ -183,18 +174,17 @@ static int klp_patch_func(struct klp_func *func)
 	struct klp_ops *ops;
 	int ret;
 
-	if (WARN_ON(!func->old_func))
+	if (WARN_ON(!func->old_addr))
 		return -EINVAL;
 
 	if (WARN_ON(func->patched))
 		return -EINVAL;
 
-	ops = klp_find_ops(func->old_func);
+	ops = klp_find_ops(func->old_addr);
 	if (!ops) {
 		unsigned long ftrace_loc;
 
-		ftrace_loc =
-			klp_get_ftrace_location((unsigned long)func->old_func);
+		ftrace_loc = klp_get_ftrace_location(func->old_addr);
 		if (!ftrace_loc) {
 			pr_err("failed to find location for function '%s'\n",
 				func->old_name);
@@ -246,26 +236,15 @@ err:
 	return ret;
 }
 
-static void __klp_unpatch_object(struct klp_object *obj, bool nops_only)
+void klp_unpatch_object(struct klp_object *obj)
 {
 	struct klp_func *func;
 
-	klp_for_each_func(obj, func) {
-		if (nops_only && !func->nop)
-			continue;
-
+	klp_for_each_func(obj, func)
 		if (func->patched)
 			klp_unpatch_func(func);
-	}
 
-	if (obj->dynamic || !nops_only)
-		obj->patched = false;
-}
-
-
-void klp_unpatch_object(struct klp_object *obj)
-{
-	__klp_unpatch_object(obj, false);
+	obj->patched = false;
 }
 
 int klp_patch_object(struct klp_object *obj)
@@ -288,21 +267,11 @@ int klp_patch_object(struct klp_object *obj)
 	return 0;
 }
 
-static void __klp_unpatch_objects(struct klp_patch *patch, bool nops_only)
+void klp_unpatch_objects(struct klp_patch *patch)
 {
 	struct klp_object *obj;
 
 	klp_for_each_object(patch, obj)
 		if (obj->patched)
-			__klp_unpatch_object(obj, nops_only);
-}
-
-void klp_unpatch_objects(struct klp_patch *patch)
-{
-	__klp_unpatch_objects(patch, false);
-}
-
-void klp_unpatch_objects_dynamic(struct klp_patch *patch)
-{
-	__klp_unpatch_objects(patch, true);
+			klp_unpatch_object(obj);
 }

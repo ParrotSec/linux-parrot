@@ -372,8 +372,10 @@ static int brcm_usb_phy_probe(struct platform_device *pdev)
 	clk_disable(priv->usb_30_clk);
 
 	phy_provider = devm_of_phy_provider_register(dev, brcm_usb_phy_xlate);
+	if (IS_ERR(phy_provider))
+		return PTR_ERR(phy_provider);
 
-	return PTR_ERR_OR_ZERO(phy_provider);
+	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

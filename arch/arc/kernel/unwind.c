@@ -15,7 +15,7 @@
 
 #include <linux/sched.h>
 #include <linux/module.h>
-#include <linux/memblock.h>
+#include <linux/bootmem.h>
 #include <linux/sort.h>
 #include <linux/slab.h>
 #include <linux/stop_machine.h>
@@ -181,7 +181,8 @@ static void init_unwind_hdr(struct unwind_table *table,
  */
 static void *__init unw_hdr_alloc_early(unsigned long sz)
 {
-	return memblock_alloc_from(sz, sizeof(unsigned int), MAX_DMA_ADDRESS);
+	return __alloc_bootmem_nopanic(sz, sizeof(unsigned int),
+				       MAX_DMA_ADDRESS);
 }
 
 static void *unw_hdr_alloc(unsigned long sz)

@@ -167,6 +167,19 @@ static void dce_virtual_crtc_disable(struct drm_crtc *crtc)
 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
 
 	dce_virtual_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
+	if (crtc->primary->fb) {
+		int r;
+		struct amdgpu_bo *abo;
+
+		abo = gem_to_amdgpu_bo(crtc->primary->fb->obj[0]);
+		r = amdgpu_bo_reserve(abo, true);
+		if (unlikely(r))
+			DRM_ERROR("failed to reserve abo before unpin\n");
+		else {
+			amdgpu_bo_unpin(abo);
+			amdgpu_bo_unreserve(abo);
+		}
+	}
 
 	amdgpu_crtc->pll_id = ATOM_PPLL_INVALID;
 	amdgpu_crtc->encoder = NULL;
@@ -359,7 +372,7 @@ static int dce_virtual_sw_init(void *handle)
 	int r, i;
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 
-	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, VISLANDS30_IV_SRCID_SMU_DISP_TIMER2_TRIGGER, &adev->crtc_irq);
+	r = amdgpu_irq_add_id(adev, AMDGPU_IH_CLIENTID_LEGACY, VISLANDS30_IV_SRCID_SMU_DISP_TIMER2_TRIGGER, &adev->crtc_irq);
 	if (r)
 		return r;
 
@@ -636,7 +649,8 @@ static const struct amdgpu_display_funcs dce_virtual_display_funcs = {
 
 static void dce_virtual_set_display_funcs(struct amdgpu_device *adev)
 {
-	adev->mode_info.funcs = &dce_virtual_display_funcs;
+	if (adev->mode_info.funcs == NULL)
+		adev->mode_info.funcs = &dce_virtual_display_funcs;
 }
 
 static int dce_virtual_pageflip(struct amdgpu_device *adev,
@@ -679,9 +693,7 @@ static int dce_virtual_pageflip(struct amdgpu_device *adev,
 	spin_unlock_irqrestore(&adev->ddev->event_lock, flags);
 
 	drm_crtc_vblank_put(&amdgpu_crtc->base);
-	amdgpu_bo_unref(&works->old_abo);
-	kfree(works->shared);
-	kfree(works);
+	schedule_work(&works->unpin_work);
 
 	return 0;
 }

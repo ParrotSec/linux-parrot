@@ -2,7 +2,6 @@
 //
 // Copyright (C) 2018 Masahiro Yamada <yamada.masahiro@socionext.com>
 
-#include <ctype.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -10,7 +9,6 @@
 #include <string.h>
 
 #include "list.h"
-#include "lkc.h"
 
 #define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
 
@@ -557,7 +555,8 @@ char *expand_string(const char *in)
 
 static bool is_end_of_token(char c)
 {
-	return !(isalnum(c) || c == '_' || c == '-');
+	/* Why are '.' and '/' valid characters for symbols? */
+	return !(isalnum(c) || c == '_' || c == '-' || c == '.' || c == '/');
 }
 
 /*

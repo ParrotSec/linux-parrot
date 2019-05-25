@@ -50,9 +50,10 @@ static ssize_t wusb_cdid_show(struct device *dev,
 	wusb_dev = wusb_dev_get_by_usb_dev(to_usb_device(dev));
 	if (wusb_dev == NULL)
 		return -ENODEV;
-	result = sprintf(buf, "%16ph\n", wusb_dev->cdid.data);
+	result = ckhdid_printf(buf, PAGE_SIZE, &wusb_dev->cdid);
+	strcat(buf, "\n");
 	wusb_dev_put(wusb_dev);
-	return result;
+	return result + 1;
 }
 static DEVICE_ATTR_RO(wusb_cdid);
 

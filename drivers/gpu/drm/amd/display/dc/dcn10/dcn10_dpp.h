@@ -1374,8 +1374,7 @@ void dpp1_set_cursor_position(
 		struct dpp *dpp_base,
 		const struct dc_cursor_position *pos,
 		const struct dc_cursor_mi_param *param,
-		uint32_t width,
-		uint32_t height);
+		uint32_t width);
 
 void dpp1_cnv_set_optional_cursor_attributes(
 			struct dpp *dpp_base,

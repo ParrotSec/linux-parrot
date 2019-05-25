@@ -34,6 +34,7 @@ aic79xx-y					+= aic79xx_osm.o	\
 						   aic79xx_proc.o	\
 						   aic79xx_osm_pci.o
 
+ccflags-y += -Idrivers/scsi
 ifdef WARNINGS_BECOME_ERRORS
 ccflags-y += -Werror
 endif

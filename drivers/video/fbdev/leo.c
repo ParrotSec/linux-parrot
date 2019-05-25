@@ -434,7 +434,7 @@ static int leo_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 static void
 leo_init_fix(struct fb_info *info, struct device_node *dp)
 {
-	snprintf(info->fix.id, sizeof(info->fix.id), "%pOFn", dp);
+	strlcpy(info->fix.id, dp->name, sizeof(info->fix.id));
 
 	info->fix.type = FB_TYPE_PACKED_PIXELS;
 	info->fix.visual = FB_VISUAL_TRUECOLOR;

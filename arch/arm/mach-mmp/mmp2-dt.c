@@ -26,12 +26,12 @@ static void __init mmp_init_time(void)
 #ifdef CONFIG_CACHE_TAUROS2
 	tauros2_init(0);
 #endif
-	of_clk_init(NULL);
 	mmp_dt_init_timer();
+	of_clk_init(NULL);
 }
 
 static const char *const mmp2_dt_board_compat[] __initconst = {
-	"mrvl,mmp2",
+	"mrvl,mmp2-brownstone",
 	NULL,
 };
 

@@ -6,9 +6,8 @@
 #include <linux/compiler.h>
 #include <linux/perf_event.h>
 #include <stdbool.h>
+#include "evsel.h"
 #include "parse-events.h"
-
-struct perf_evsel_config_term;
 
 enum {
 	PERF_PMU_FORMAT_VALUE_CONFIG,
@@ -17,7 +16,6 @@ enum {
 };
 
 #define PERF_PMU_FORMAT_BITS 64
-#define EVENT_SOURCE_DEVICE_PATH "/bus/event_source/devices/"
 
 struct perf_event_attr;
 
@@ -26,12 +24,12 @@ struct perf_pmu {
 	__u32 type;
 	bool selectable;
 	bool is_uncore;
-	int max_precise;
 	struct perf_event_attr *default_config;
 	struct cpu_map *cpus;
 	struct list_head format;  /* HEAD struct perf_pmu_format -> list */
 	struct list_head aliases; /* HEAD struct perf_pmu_alias -> list */
 	struct list_head list;    /* ELEM */
+	int (*set_drv_config)	(struct perf_evsel_config_term *term);
 };
 
 struct perf_pmu_info {

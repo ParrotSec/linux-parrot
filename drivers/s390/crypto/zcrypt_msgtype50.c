@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
+ *  zcrypt 2.1.0
+ *
  *  Copyright IBM Corp. 2001, 2012
  *  Author(s): Robert Burroughs
  *	       Eric Rossman (edrossma@us.ibm.com)
@@ -25,13 +27,13 @@
 #include "zcrypt_error.h"
 #include "zcrypt_msgtype50.h"
 
-/* >= CEX3A: 4096 bits */
+/* 4096 bits */
 #define CEX3A_MAX_MOD_SIZE 512
 
-/* CEX2A: max outputdatalength + type80_hdr */
+/* max outputdatalength + type80_hdr */
 #define CEX2A_MAX_RESPONSE_SIZE 0x110
 
-/* >= CEX3A: 512 bit modulus, (max outputdatalength) + type80_hdr */
+/* 512 bit modulus, (max outputdatalength) + type80_hdr */
 #define CEX3A_MAX_RESPONSE_SIZE 0x210
 
 MODULE_AUTHOR("IBM Corporation");
@@ -40,7 +42,7 @@ MODULE_DESCRIPTION("Cryptographic Accelerator (message type 50), " \
 MODULE_LICENSE("GPL");
 
 /**
- * The type 50 message family is associated with a CEXxA cards.
+ * The type 50 message family is associated with a CEX2A card.
  *
  * The four members of the family are described below.
  *
@@ -137,7 +139,7 @@ struct type50_crb3_msg {
 } __packed;
 
 /**
- * The type 80 response family is associated with a CEXxA cards.
+ * The type 80 response family is associated with a CEX2A card.
  *
  * Note that all unsigned char arrays are right-justified and left-padded
  * with zeroes.
@@ -271,7 +273,7 @@ static int ICACRT_msg_to_type50CRT_msg(struct zcrypt_queue *zq,
 	/*
 	 * CEX2A and CEX3A w/o FW update can handle requests up to
 	 * 256 byte modulus (2k keys).
-	 * CEX3A with FW update and newer CEXxA cards are able to handle
+	 * CEX3A with FW update and CEX4A cards are able to handle
 	 * 512 byte modulus (4k keys).
 	 */
 	if (mod_len <= 128) {		/* up to 1024 bit key size */
@@ -354,7 +356,7 @@ static int convert_type80(struct zcrypt_queue *zq,
 	unsigned char *data;
 
 	if (t80h->len < sizeof(*t80h) + outputdatalength) {
-		/* The result is too short, the CEXxA card may not do that.. */
+		/* The result is too short, the CEX2A card may not do that.. */
 		zq->online = 0;
 		pr_err("Cryptographic device %02x.%04x failed and was set offline\n",
 		       AP_QID_CARD(zq->queue->qid),
@@ -445,10 +447,10 @@ out:
 static atomic_t zcrypt_step = ATOMIC_INIT(0);
 
 /**
- * The request distributor calls this function if it picked the CEXxA
+ * The request distributor calls this function if it picked the CEX2A
  * device to handle a modexpo request.
  * @zq: pointer to zcrypt_queue structure that identifies the
- *	CEXxA device to the request distributor
+ *	  CEX2A device to the request distributor
  * @mex: pointer to the modexpo request buffer
  */
 static long zcrypt_cex2a_modexpo(struct zcrypt_queue *zq,
@@ -491,10 +493,10 @@ out_free:
 }
 
 /**
- * The request distributor calls this function if it picked the CEXxA
+ * The request distributor calls this function if it picked the CEX2A
  * device to handle a modexpo_crt request.
  * @zq: pointer to zcrypt_queue structure that identifies the
- *	CEXxA device to the request distributor
+ *	  CEX2A device to the request distributor
  * @crt: pointer to the modexpoc_crt request buffer
  */
 static long zcrypt_cex2a_modexpo_crt(struct zcrypt_queue *zq,

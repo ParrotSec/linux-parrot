@@ -72,12 +72,12 @@ void trace_event__cleanup(struct trace_event *t)
 /*
  * Returns pointer with encoded error via <linux/err.h> interface.
  */
-static struct tep_event*
+static struct event_format*
 tp_format(const char *sys, const char *name)
 {
 	char *tp_dir = get_events_file(sys);
 	struct tep_handle *pevent = tevent.pevent;
-	struct tep_event *event = NULL;
+	struct event_format *event = NULL;
 	char path[PATH_MAX];
 	size_t size;
 	char *data;
@@ -102,7 +102,7 @@ tp_format(const char *sys, const char *name)
 /*
  * Returns pointer with encoded error via <linux/err.h> interface.
  */
-struct tep_event*
+struct event_format*
 trace_event__tp_format(const char *sys, const char *name)
 {
 	if (!tevent_initialized && trace_event__init2())
@@ -111,7 +111,7 @@ trace_event__tp_format(const char *sys, const char *name)
 	return tp_format(sys, name);
 }
 
-struct tep_event *trace_event__tp_format_id(int id)
+struct event_format *trace_event__tp_format_id(int id)
 {
 	if (!tevent_initialized && trace_event__init2())
 		return ERR_PTR(-ENOMEM);

@@ -20,7 +20,6 @@
 #include <linux/irqflags.h>
 
 #include <asm/addrspace.h>
-#include <asm/barrier.h>
 #include <asm/bug.h>
 #include <asm/byteorder.h>
 #include <asm/cpu.h>
@@ -35,6 +34,11 @@
 #include <mangle-port.h>
 
 /*
+ * Slowdown I/O port space accesses for antique hardware.
+ */
+#undef CONF_SLOWDOWN_IO
+
+/*
  * Raw operations are never swapped in software.  OTOH values that raw
  * operations are working on may or may not have been swapped by the bus
  * hardware.  An example use would be for flash memory that's used for
@@ -45,11 +49,6 @@
 # define __raw_ioswabl(a, x)	(x)
 # define __raw_ioswabq(a, x)	(x)
 # define ____raw_ioswabq(a, x)	(x)
-
-# define __relaxed_ioswabb ioswabb
-# define __relaxed_ioswabw ioswabw
-# define __relaxed_ioswabl ioswabl
-# define __relaxed_ioswabq ioswabq
 
 /* ioswab[bwlq], __mem_ioswab[bwlq] are defined in mangle-port.h */
 
@@ -81,29 +80,31 @@ static inline void set_io_port_base(unsigned long base)
 }
 
 /*
- * Provide the necessary definitions for generic iomap. We make use of
- * mips_io_port_base for iomap(), but we don't reserve any low addresses for
- * use with I/O ports.
+ * Thanks to James van Artsdalen for a better timing-fix than
+ * the two short jumps: using outb's to a nonexistent port seems
+ * to guarantee better timings even on fast machines.
+ *
+ * On the other hand, I'd like to be sure of a non-existent port:
+ * I feel a bit unsafe about using 0x80 (should be safe, though)
+ *
+ *		Linus
+ *
  */
 
-#define HAVE_ARCH_PIO_SIZE
-#define PIO_OFFSET	mips_io_port_base
-#define PIO_MASK	IO_SPACE_LIMIT
-#define PIO_RESERVED	0x0UL
+#define __SLOW_DOWN_IO \
+	__asm__ __volatile__( \
+		"sb\t$0,0x80(%0)" \
+		: : "r" (mips_io_port_base));
 
-/*
- * Enforce in-order execution of data I/O.  In the MIPS architecture
- * these are equivalent to corresponding platform-specific memory
- * barriers defined in <asm/barrier.h>.  API pinched from PowerPC,
- * with sync additionally defined.
- */
-#define iobarrier_rw() mb()
-#define iobarrier_r() rmb()
-#define iobarrier_w() wmb()
-#define iobarrier_sync() iob()
-
-/* Some callers use this older API instead.  */
-#define mmiowb() iobarrier_w()
+#ifdef CONF_SLOWDOWN_IO
+#ifdef REALLY_SLOW_IO
+#define SLOW_DOWN_IO { __SLOW_DOWN_IO; __SLOW_DOWN_IO; __SLOW_DOWN_IO; __SLOW_DOWN_IO; }
+#else
+#define SLOW_DOWN_IO __SLOW_DOWN_IO
+#endif
+#else
+#define SLOW_DOWN_IO
+#endif
 
 /*
  *     virt_to_phys    -       map virtual addresses to physical
@@ -171,6 +172,11 @@ static inline void *isa_bus_to_virt(unsigned long address)
 extern void __iomem * __ioremap(phys_addr_t offset, phys_addr_t size, unsigned long flags);
 extern void __iounmap(const volatile void __iomem *addr);
 
+#ifndef CONFIG_PCI
+struct pci_dev;
+static inline void pci_iounmap(struct pci_dev *dev, void __iomem *addr) {}
+#endif
+
 static inline void __iomem * __ioremap_mode(phys_addr_t offset, unsigned long size,
 	unsigned long flags)
 {
@@ -215,18 +221,6 @@ static inline void __iomem * __ioremap_mode(phys_addr_t offset, unsigned long si
 	return __ioremap(offset, size, flags);
 
 #undef __IS_LOW512
-}
-
-/*
- * ioremap_prot     -   map bus memory into CPU space
- * @offset:    bus address of the memory
- * @size:      size of the resource to map
-
- * ioremap_prot gives the caller control over cache coherency attributes (CCA)
- */
-static inline void __iomem *ioremap_prot(phys_addr_t offset,
-		unsigned long size, unsigned long prot_val) {
-	return __ioremap_mode(offset, size, prot_val & _CACHE_MASK);
 }
 
 /*
@@ -322,13 +316,13 @@ static inline void iounmap(const volatile void __iomem *addr)
 #undef __IS_KSEG1
 }
 
-#if defined(CONFIG_CPU_CAVIUM_OCTEON) || defined(CONFIG_CPU_LOONGSON3)
+#if defined(CONFIG_CPU_CAVIUM_OCTEON) || defined(CONFIG_LOONGSON3_ENHANCEMENT)
 #define war_io_reorder_wmb()		wmb()
 #else
 #define war_io_reorder_wmb()		barrier()
 #endif
 
-#define __BUILD_MEMORY_SINGLE(pfx, bwlq, type, barrier, relax, irq)	\
+#define __BUILD_MEMORY_SINGLE(pfx, bwlq, type, irq)			\
 									\
 static inline void pfx##write##bwlq(type val,				\
 				    volatile void __iomem *mem)		\
@@ -336,10 +330,7 @@ static inline void pfx##write##bwlq(type val,				\
 	volatile type *__mem;						\
 	type __val;							\
 									\
-	if (barrier)							\
-		iobarrier_rw();						\
-	else								\
-		war_io_reorder_wmb();					\
+	war_io_reorder_wmb();					\
 									\
 	__mem = (void *)__swizzle_addr_##bwlq((unsigned long)(mem));	\
 									\
@@ -354,14 +345,13 @@ static inline void pfx##write##bwlq(type val,				\
 		if (irq)						\
 			local_irq_save(__flags);			\
 		__asm__ __volatile__(					\
-			".set	push"		"\t\t# __writeq""\n\t"	\
-			".set	arch=r4000"			"\n\t"	\
+			".set	arch=r4000"	"\t\t# __writeq""\n\t"	\
 			"dsll32 %L0, %L0, 0"			"\n\t"	\
 			"dsrl32 %L0, %L0, 0"			"\n\t"	\
 			"dsll32 %M0, %M0, 0"			"\n\t"	\
 			"or	%L0, %L0, %M0"			"\n\t"	\
 			"sd	%L0, %2"			"\n\t"	\
-			".set	pop"				"\n"	\
+			".set	mips0"				"\n"	\
 			: "=r" (__tmp)					\
 			: "0" (__val), "m" (*__mem));			\
 		if (irq)						\
@@ -377,9 +367,6 @@ static inline type pfx##read##bwlq(const volatile void __iomem *mem)	\
 									\
 	__mem = (void *)__swizzle_addr_##bwlq((unsigned long)(mem));	\
 									\
-	if (barrier)							\
-		iobarrier_rw();						\
-									\
 	if (sizeof(type) != sizeof(u64) || sizeof(u64) == sizeof(long)) \
 		__val = *__mem;						\
 	else if (cpu_has_64bits) {					\
@@ -388,12 +375,11 @@ static inline type pfx##read##bwlq(const volatile void __iomem *mem)	\
 		if (irq)						\
 			local_irq_save(__flags);			\
 		__asm__ __volatile__(					\
-			".set	push"		"\t\t# __readq" "\n\t"	\
-			".set	arch=r4000"			"\n\t"	\
+			".set	arch=r4000"	"\t\t# __readq" "\n\t"	\
 			"ld	%L0, %1"			"\n\t"	\
 			"dsra32 %M0, %L0, 0"			"\n\t"	\
 			"sll	%L0, %L0, 0"			"\n\t"	\
-			".set	pop"				"\n"	\
+			".set	mips0"				"\n"	\
 			: "=r" (__val)					\
 			: "m" (*__mem));				\
 		if (irq)						\
@@ -404,22 +390,18 @@ static inline type pfx##read##bwlq(const volatile void __iomem *mem)	\
 	}								\
 									\
 	/* prevent prefetching of coherent DMA data prematurely */	\
-	if (!relax)							\
-		rmb();							\
+	rmb();								\
 	return pfx##ioswab##bwlq(__mem, __val);				\
 }
 
-#define __BUILD_IOPORT_SINGLE(pfx, bwlq, type, barrier, relax, p)	\
+#define __BUILD_IOPORT_SINGLE(pfx, bwlq, type, p, slow)			\
 									\
 static inline void pfx##out##bwlq##p(type val, unsigned long port)	\
 {									\
 	volatile type *__addr;						\
 	type __val;							\
 									\
-	if (barrier)							\
-		iobarrier_rw();						\
-	else								\
-		war_io_reorder_wmb();					\
+	war_io_reorder_wmb();					\
 									\
 	__addr = (void *)__swizzle_addr_##bwlq(mips_io_port_base + port); \
 									\
@@ -429,6 +411,7 @@ static inline void pfx##out##bwlq##p(type val, unsigned long port)	\
 	BUILD_BUG_ON(sizeof(type) > sizeof(unsigned long));		\
 									\
 	*__addr = __val;						\
+	slow;								\
 }									\
 									\
 static inline type pfx##in##bwlq##p(unsigned long port)			\
@@ -440,27 +423,23 @@ static inline type pfx##in##bwlq##p(unsigned long port)			\
 									\
 	BUILD_BUG_ON(sizeof(type) > sizeof(unsigned long));		\
 									\
-	if (barrier)							\
-		iobarrier_rw();						\
-									\
 	__val = *__addr;						\
+	slow;								\
 									\
 	/* prevent prefetching of coherent DMA data prematurely */	\
-	if (!relax)							\
-		rmb();							\
+	rmb();								\
 	return pfx##ioswab##bwlq(__addr, __val);			\
 }
 
-#define __BUILD_MEMORY_PFX(bus, bwlq, type, relax)			\
+#define __BUILD_MEMORY_PFX(bus, bwlq, type)				\
 									\
-__BUILD_MEMORY_SINGLE(bus, bwlq, type, 1, relax, 1)
+__BUILD_MEMORY_SINGLE(bus, bwlq, type, 1)
 
 #define BUILDIO_MEM(bwlq, type)						\
 									\
-__BUILD_MEMORY_PFX(__raw_, bwlq, type, 0)				\
-__BUILD_MEMORY_PFX(__relaxed_, bwlq, type, 1)				\
-__BUILD_MEMORY_PFX(__mem_, bwlq, type, 0)				\
-__BUILD_MEMORY_PFX(, bwlq, type, 0)
+__BUILD_MEMORY_PFX(__raw_, bwlq, type)					\
+__BUILD_MEMORY_PFX(, bwlq, type)					\
+__BUILD_MEMORY_PFX(__mem_, bwlq, type)					\
 
 BUILDIO_MEM(b, u8)
 BUILDIO_MEM(w, u16)
@@ -468,8 +447,8 @@ BUILDIO_MEM(l, u32)
 BUILDIO_MEM(q, u64)
 
 #define __BUILD_IOPORT_PFX(bus, bwlq, type)				\
-	__BUILD_IOPORT_SINGLE(bus, bwlq, type, 1, 0,)			\
-	__BUILD_IOPORT_SINGLE(bus, bwlq, type, 1, 0, _p)
+	__BUILD_IOPORT_SINGLE(bus, bwlq, type, ,)			\
+	__BUILD_IOPORT_SINGLE(bus, bwlq, type, _p, SLOW_DOWN_IO)
 
 #define BUILDIO_IOPORT(bwlq, type)					\
 	__BUILD_IOPORT_PFX(, bwlq, type)				\
@@ -484,19 +463,19 @@ BUILDIO_IOPORT(q, u64)
 
 #define __BUILDIO(bwlq, type)						\
 									\
-__BUILD_MEMORY_SINGLE(____raw_, bwlq, type, 1, 0, 0)
+__BUILD_MEMORY_SINGLE(____raw_, bwlq, type, 0)
 
 __BUILDIO(q, u64)
 
-#define readb_relaxed			__relaxed_readb
-#define readw_relaxed			__relaxed_readw
-#define readl_relaxed			__relaxed_readl
-#define readq_relaxed			__relaxed_readq
+#define readb_relaxed			readb
+#define readw_relaxed			readw
+#define readl_relaxed			readl
+#define readq_relaxed			readq
 
-#define writeb_relaxed			__relaxed_writeb
-#define writew_relaxed			__relaxed_writew
-#define writel_relaxed			__relaxed_writel
-#define writeq_relaxed			__relaxed_writeq
+#define writeb_relaxed			writeb
+#define writew_relaxed			writew
+#define writel_relaxed			writel
+#define writeq_relaxed			writeq
 
 #define readb_be(addr)							\
 	__raw_readb((__force unsigned *)(addr))
@@ -580,6 +559,14 @@ BUILDSTRING(w, u16)
 BUILDSTRING(l, u32)
 #ifdef CONFIG_64BIT
 BUILDSTRING(q, u64)
+#endif
+
+
+#ifdef CONFIG_CPU_CAVIUM_OCTEON
+#define mmiowb() wmb()
+#else
+/* Depends on MIPS II instruction set */
+#define mmiowb() asm volatile ("sync" ::: "memory")
 #endif
 
 static inline void memset_io(volatile void __iomem *addr, unsigned char val, int count)

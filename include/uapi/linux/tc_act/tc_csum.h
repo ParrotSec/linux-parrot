@@ -5,6 +5,8 @@
 #include <linux/types.h>
 #include <linux/pkt_cls.h>
 
+#define TCA_ACT_CSUM 16
+
 enum {
 	TCA_CSUM_UNSPEC,
 	TCA_CSUM_PARMS,

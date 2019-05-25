@@ -32,15 +32,12 @@
 #include "inc/hw/link_encoder.h"
 #include "core_status.h"
 
+#define EDP_BACKLIGHT_RAMP_DISABLE_LEVEL 0xFFFFFFFF
+
 enum pipe_gating_control {
 	PIPE_GATING_CONTROL_DISABLE = 0,
 	PIPE_GATING_CONTROL_ENABLE,
 	PIPE_GATING_CONTROL_INIT
-};
-
-enum vline_select {
-	VLINE0,
-	VLINE1
 };
 
 struct dce_hwseq_wa {
@@ -73,13 +70,7 @@ struct stream_resource;
 
 struct hw_sequencer_funcs {
 
-	void (*disable_stream_gating)(struct dc *dc, struct pipe_ctx *pipe_ctx);
-
-	void (*enable_stream_gating)(struct dc *dc, struct pipe_ctx *pipe_ctx);
-
 	void (*init_hw)(struct dc *dc);
-
-	void (*init_pipes)(struct dc *dc, struct dc_state *context);
 
 	enum dc_status (*apply_ctx_to_hw)(
 			struct dc *dc, struct dc_state *context);
@@ -95,6 +86,11 @@ struct hw_sequencer_funcs {
 
 	void (*program_gamut_remap)(
 			struct pipe_ctx *pipe_ctx);
+
+	void (*program_csc_matrix)(
+			struct pipe_ctx *pipe_ctx,
+			enum dc_color_space colorspace,
+			uint16_t *matrix);
 
 	void (*program_output_csc)(struct dc *dc,
 			struct pipe_ctx *pipe_ctx,
@@ -181,12 +177,10 @@ struct hw_sequencer_funcs {
 			struct pipe_ctx *pipe_ctx,
 			bool blank);
 
-	void (*prepare_bandwidth)(
+	void (*set_bandwidth)(
 			struct dc *dc,
-			struct dc_state *context);
-	void (*optimize_bandwidth)(
-			struct dc *dc,
-			struct dc_state *context);
+			struct dc_state *context,
+			bool safe_to_lower);
 
 	void (*set_drr)(struct pipe_ctx **pipe_ctx, int num_pipes,
 			int vmin, int vmax);
@@ -208,15 +202,17 @@ struct hw_sequencer_funcs {
 
 	void (*set_avmute)(struct pipe_ctx *pipe_ctx, bool enable);
 
-	void (*log_hw_state)(struct dc *dc,
-		struct dc_log_buffer_ctx *log_ctx);
-	void (*get_hw_state)(struct dc *dc, char *pBuf, unsigned int bufSize, unsigned int mask);
-	void (*clear_status_bits)(struct dc *dc, unsigned int mask);
+	void (*log_hw_state)(struct dc *dc);
 
 	void (*wait_for_mpcc_disconnect)(struct dc *dc,
 			struct resource_pool *res_pool,
 			struct pipe_ctx *pipe_ctx);
 
+	void (*ready_shared_resources)(struct dc *dc, struct dc_state *context);
+	void (*optimize_shared_resources)(struct dc *dc);
+	void (*pplib_apply_display_requirements)(
+			struct dc *dc,
+			struct dc_state *context);
 	void (*edp_power_control)(
 			struct dc_link *link,
 			bool enable);
@@ -228,9 +224,6 @@ struct hw_sequencer_funcs {
 	void (*set_cursor_position)(struct pipe_ctx *pipe);
 	void (*set_cursor_attribute)(struct pipe_ctx *pipe);
 	void (*set_cursor_sdr_white_level)(struct pipe_ctx *pipe);
-
-	void (*setup_periodic_interrupt)(struct pipe_ctx *pipe_ctx, enum vline_select vline);
-	void (*setup_vupdate_interrupt)(struct pipe_ctx *pipe_ctx);
 
 };
 

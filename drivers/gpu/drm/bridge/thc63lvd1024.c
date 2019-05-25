@@ -45,23 +45,6 @@ static int thc63_attach(struct drm_bridge *bridge)
 	return drm_bridge_attach(bridge->encoder, thc63->next, bridge);
 }
 
-static enum drm_mode_status thc63_mode_valid(struct drm_bridge *bridge,
-					const struct drm_display_mode *mode)
-{
-	/*
-	 * The THC63LVD1024 clock frequency range is 8 to 135 MHz in single-in
-	 * mode. Note that the limits are different in dual-in, single-out mode,
-	 * and will need to be adjusted accordingly.
-	 */
-	if (mode->clock < 8000)
-		return MODE_CLOCK_LOW;
-
-	if (mode->clock > 135000)
-		return MODE_CLOCK_HIGH;
-
-	return MODE_OK;
-}
-
 static void thc63_enable(struct drm_bridge *bridge)
 {
 	struct thc63_dev *thc63 = to_thc63(bridge);
@@ -94,7 +77,6 @@ static void thc63_disable(struct drm_bridge *bridge)
 
 static const struct drm_bridge_funcs thc63_bridge_func = {
 	.attach	= thc63_attach,
-	.mode_valid = thc63_mode_valid,
 	.enable = thc63_enable,
 	.disable = thc63_disable,
 };

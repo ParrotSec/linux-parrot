@@ -82,7 +82,6 @@ static struct device_node *get_gpio(char *name,
 			if (altname && (strcmp(audio_gpio, altname) == 0))
 				break;
 		}
-		of_node_put(gpio);
 		/* still not found, assume not there */
 		if (!np)
 			return NULL;

@@ -28,7 +28,6 @@
 
 #include "mock_gem_device.h"
 #include "mock_context.h"
-#include "mock_gtt.h"
 
 static bool assert_vma(struct i915_vma *vma,
 		       struct drm_i915_gem_object *obj,
@@ -142,8 +141,7 @@ static int create_vmas(struct drm_i915_private *i915,
 
 static int igt_vma_create(void *arg)
 {
-	struct i915_ggtt *ggtt = arg;
-	struct drm_i915_private *i915 = ggtt->vm.i915;
+	struct drm_i915_private *i915 = arg;
 	struct drm_i915_gem_object *obj, *on;
 	struct i915_gem_context *ctx, *cn;
 	unsigned long num_obj, num_ctx;
@@ -247,7 +245,7 @@ static bool assert_pin_einval(const struct i915_vma *vma,
 
 static int igt_vma_pin1(void *arg)
 {
-	struct i915_ggtt *ggtt = arg;
+	struct drm_i915_private *i915 = arg;
 	const struct pin_mode modes[] = {
 #define VALID(sz, fl) { .size = (sz), .flags = (fl), .assert = assert_pin_valid, .string = #sz ", " #fl ", (valid) " }
 #define __INVALID(sz, fl, check, eval) { .size = (sz), .flags = (fl), .assert = (check), .string = #sz ", " #fl ", (invalid " #eval ")" }
@@ -258,30 +256,30 @@ static int igt_vma_pin1(void *arg)
 
 		VALID(0, PIN_GLOBAL | PIN_OFFSET_BIAS | 4096),
 		VALID(0, PIN_GLOBAL | PIN_OFFSET_BIAS | 8192),
-		VALID(0, PIN_GLOBAL | PIN_OFFSET_BIAS | (ggtt->mappable_end - 4096)),
-		VALID(0, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_BIAS | (ggtt->mappable_end - 4096)),
-		VALID(0, PIN_GLOBAL | PIN_OFFSET_BIAS | (ggtt->vm.total - 4096)),
+		VALID(0, PIN_GLOBAL | PIN_OFFSET_BIAS | (i915->ggtt.mappable_end - 4096)),
+		VALID(0, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_BIAS | (i915->ggtt.mappable_end - 4096)),
+		VALID(0, PIN_GLOBAL | PIN_OFFSET_BIAS | (i915->ggtt.vm.total - 4096)),
 
-		VALID(0, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_FIXED | (ggtt->mappable_end - 4096)),
-		INVALID(0, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_FIXED | ggtt->mappable_end),
-		VALID(0, PIN_GLOBAL | PIN_OFFSET_FIXED | (ggtt->vm.total - 4096)),
-		INVALID(0, PIN_GLOBAL | PIN_OFFSET_FIXED | ggtt->vm.total),
+		VALID(0, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_FIXED | (i915->ggtt.mappable_end - 4096)),
+		INVALID(0, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_FIXED | i915->ggtt.mappable_end),
+		VALID(0, PIN_GLOBAL | PIN_OFFSET_FIXED | (i915->ggtt.vm.total - 4096)),
+		INVALID(0, PIN_GLOBAL | PIN_OFFSET_FIXED | i915->ggtt.vm.total),
 		INVALID(0, PIN_GLOBAL | PIN_OFFSET_FIXED | round_down(U64_MAX, PAGE_SIZE)),
 
 		VALID(4096, PIN_GLOBAL),
 		VALID(8192, PIN_GLOBAL),
-		VALID(ggtt->mappable_end - 4096, PIN_GLOBAL | PIN_MAPPABLE),
-		VALID(ggtt->mappable_end, PIN_GLOBAL | PIN_MAPPABLE),
-		NOSPACE(ggtt->mappable_end + 4096, PIN_GLOBAL | PIN_MAPPABLE),
-		VALID(ggtt->vm.total - 4096, PIN_GLOBAL),
-		VALID(ggtt->vm.total, PIN_GLOBAL),
-		NOSPACE(ggtt->vm.total + 4096, PIN_GLOBAL),
+		VALID(i915->ggtt.mappable_end - 4096, PIN_GLOBAL | PIN_MAPPABLE),
+		VALID(i915->ggtt.mappable_end, PIN_GLOBAL | PIN_MAPPABLE),
+		NOSPACE(i915->ggtt.mappable_end + 4096, PIN_GLOBAL | PIN_MAPPABLE),
+		VALID(i915->ggtt.vm.total - 4096, PIN_GLOBAL),
+		VALID(i915->ggtt.vm.total, PIN_GLOBAL),
+		NOSPACE(i915->ggtt.vm.total + 4096, PIN_GLOBAL),
 		NOSPACE(round_down(U64_MAX, PAGE_SIZE), PIN_GLOBAL),
-		INVALID(8192, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_FIXED | (ggtt->mappable_end - 4096)),
-		INVALID(8192, PIN_GLOBAL | PIN_OFFSET_FIXED | (ggtt->vm.total - 4096)),
+		INVALID(8192, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_FIXED | (i915->ggtt.mappable_end - 4096)),
+		INVALID(8192, PIN_GLOBAL | PIN_OFFSET_FIXED | (i915->ggtt.vm.total - 4096)),
 		INVALID(8192, PIN_GLOBAL | PIN_OFFSET_FIXED | (round_down(U64_MAX, PAGE_SIZE) - 4096)),
 
-		VALID(8192, PIN_GLOBAL | PIN_OFFSET_BIAS | (ggtt->mappable_end - 4096)),
+		VALID(8192, PIN_GLOBAL | PIN_OFFSET_BIAS | (i915->ggtt.mappable_end - 4096)),
 
 #if !IS_ENABLED(CONFIG_DRM_I915_DEBUG_GEM)
 		/* Misusing BIAS is a programming error (it is not controllable
@@ -289,10 +287,10 @@ static int igt_vma_pin1(void *arg)
 		 * However, the tests are still quite interesting for checking
 		 * variable start, end and size.
 		 */
-		NOSPACE(0, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_BIAS | ggtt->mappable_end),
-		NOSPACE(0, PIN_GLOBAL | PIN_OFFSET_BIAS | ggtt->vm.total),
-		NOSPACE(8192, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_BIAS | (ggtt->mappable_end - 4096)),
-		NOSPACE(8192, PIN_GLOBAL | PIN_OFFSET_BIAS | (ggtt->vm.total - 4096)),
+		NOSPACE(0, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_BIAS | i915->ggtt.mappable_end),
+		NOSPACE(0, PIN_GLOBAL | PIN_OFFSET_BIAS | i915->ggtt.vm.total),
+		NOSPACE(8192, PIN_GLOBAL | PIN_MAPPABLE | PIN_OFFSET_BIAS | (i915->ggtt.mappable_end - 4096)),
+		NOSPACE(8192, PIN_GLOBAL | PIN_OFFSET_BIAS | (i915->ggtt.vm.total - 4096)),
 #endif
 		{ },
 #undef NOSPACE
@@ -308,13 +306,13 @@ static int igt_vma_pin1(void *arg)
 	 * focusing on error handling of boundary conditions.
 	 */
 
-	GEM_BUG_ON(!drm_mm_clean(&ggtt->vm.mm));
+	GEM_BUG_ON(!drm_mm_clean(&i915->ggtt.vm.mm));
 
-	obj = i915_gem_object_create_internal(ggtt->vm.i915, PAGE_SIZE);
+	obj = i915_gem_object_create_internal(i915, PAGE_SIZE);
 	if (IS_ERR(obj))
 		return PTR_ERR(obj);
 
-	vma = checked_vma_instance(obj, &ggtt->vm, NULL);
+	vma = checked_vma_instance(obj, &i915->ggtt.vm, NULL);
 	if (IS_ERR(vma))
 		goto out;
 
@@ -405,8 +403,8 @@ static unsigned int rotated_size(const struct intel_rotation_plane_info *a,
 
 static int igt_vma_rotate(void *arg)
 {
-	struct i915_ggtt *ggtt = arg;
-	struct i915_address_space *vm = &ggtt->vm;
+	struct drm_i915_private *i915 = arg;
+	struct i915_address_space *vm = &i915->ggtt.vm;
 	struct drm_i915_gem_object *obj;
 	const struct intel_rotation_plane_info planes[] = {
 		{ .width = 1, .height = 1, .stride = 1 },
@@ -433,7 +431,7 @@ static int igt_vma_rotate(void *arg)
 	 * that the page layout within the rotated VMA match our expectations.
 	 */
 
-	obj = i915_gem_object_create_internal(vm->i915, max_pages * PAGE_SIZE);
+	obj = i915_gem_object_create_internal(i915, max_pages * PAGE_SIZE);
 	if (IS_ERR(obj))
 		goto out;
 
@@ -604,8 +602,8 @@ static bool assert_pin(struct i915_vma *vma,
 
 static int igt_vma_partial(void *arg)
 {
-	struct i915_ggtt *ggtt = arg;
-	struct i915_address_space *vm = &ggtt->vm;
+	struct drm_i915_private *i915 = arg;
+	struct i915_address_space *vm = &i915->ggtt.vm;
 	const unsigned int npages = 1021; /* prime! */
 	struct drm_i915_gem_object *obj;
 	const struct phase {
@@ -623,7 +621,7 @@ static int igt_vma_partial(void *arg)
 	 * we are returned the same VMA when we later request the same range.
 	 */
 
-	obj = i915_gem_object_create_internal(vm->i915, npages * PAGE_SIZE);
+	obj = i915_gem_object_create_internal(i915, npages*PAGE_SIZE);
 	if (IS_ERR(obj))
 		goto out;
 
@@ -672,7 +670,7 @@ static int igt_vma_partial(void *arg)
 		}
 
 		count = 0;
-		list_for_each_entry(vma, &obj->vma.list, obj_link)
+		list_for_each_entry(vma, &obj->vma_list, obj_link)
 			count++;
 		if (count != nvma) {
 			pr_err("(%s) All partial vma were not recorded on the obj->vma_list: found %u, expected %u\n",
@@ -701,7 +699,7 @@ static int igt_vma_partial(void *arg)
 		i915_vma_unpin(vma);
 
 		count = 0;
-		list_for_each_entry(vma, &obj->vma.list, obj_link)
+		list_for_each_entry(vma, &obj->vma_list, obj_link)
 			count++;
 		if (count != nvma) {
 			pr_err("(%s) allocated an extra full vma!\n", p->name);
@@ -725,24 +723,17 @@ int i915_vma_mock_selftests(void)
 		SUBTEST(igt_vma_partial),
 	};
 	struct drm_i915_private *i915;
-	struct i915_ggtt ggtt;
 	int err;
 
 	i915 = mock_gem_device();
 	if (!i915)
 		return -ENOMEM;
 
-	mock_init_ggtt(i915, &ggtt);
-
 	mutex_lock(&i915->drm.struct_mutex);
-	err = i915_subtests(tests, &ggtt);
-	mock_device_flush(i915);
+	err = i915_subtests(tests, i915);
 	mutex_unlock(&i915->drm.struct_mutex);
 
-	i915_gem_drain_freed_objects(i915);
-
-	mock_fini_ggtt(&ggtt);
 	drm_dev_put(&i915->drm);
-
 	return err;
 }
+

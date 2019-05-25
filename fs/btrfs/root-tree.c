@@ -21,12 +21,12 @@ static void btrfs_read_root_item(struct extent_buffer *eb, int slot,
 				struct btrfs_root_item *item)
 {
 	uuid_le uuid;
-	u32 len;
+	int len;
 	int need_reset = 0;
 
 	len = btrfs_item_size_nr(eb, slot);
 	read_extent_buffer(eb, item, btrfs_item_ptr_offset(eb, slot),
-			   min_t(u32, len, sizeof(*item)));
+			min_t(int, len, (int)sizeof(*item)));
 	if (len < sizeof(*item))
 		need_reset = 1;
 	if (!need_reset && btrfs_root_generation(item)
@@ -263,10 +263,8 @@ int btrfs_find_orphan_roots(struct btrfs_fs_info *fs_info)
 		if (root) {
 			WARN_ON(!test_bit(BTRFS_ROOT_ORPHAN_ITEM_INSERTED,
 					  &root->state));
-			if (btrfs_root_refs(&root->root_item) == 0) {
-				set_bit(BTRFS_ROOT_DEAD_TREE, &root->state);
+			if (btrfs_root_refs(&root->root_item) == 0)
 				btrfs_add_dead_root(root);
-			}
 			continue;
 		}
 
@@ -312,10 +310,8 @@ int btrfs_find_orphan_roots(struct btrfs_fs_info *fs_info)
 			break;
 		}
 
-		if (btrfs_root_refs(&root->root_item) == 0) {
-			set_bit(BTRFS_ROOT_DEAD_TREE, &root->state);
+		if (btrfs_root_refs(&root->root_item) == 0)
 			btrfs_add_dead_root(root);
-		}
 	}
 
 	btrfs_free_path(path);

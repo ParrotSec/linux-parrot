@@ -22,7 +22,6 @@
 
 #include <linux/atomic.h>
 #include <linux/bitops.h>
-#include <linux/io-pgtable.h>
 #include <linux/iommu.h>
 #include <linux/kernel.h>
 #include <linux/sizes.h>
@@ -31,6 +30,8 @@
 #include <linux/dma-mapping.h>
 
 #include <asm/barrier.h>
+
+#include "io-pgtable.h"
 
 #define ARM_LPAE_MAX_ADDR_BITS		52
 #define ARM_LPAE_S2_MAX_CONCAT_PAGES	16
@@ -573,13 +574,13 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 			return 0;
 
 		tablep = iopte_deref(pte, data);
-	} else if (unmap_idx >= 0) {
-		io_pgtable_tlb_add_flush(&data->iop, iova, size, size, true);
-		io_pgtable_tlb_sync(&data->iop);
-		return size;
 	}
 
-	return __arm_lpae_unmap(data, iova, size, lvl, tablep);
+	if (unmap_idx < 0)
+		return __arm_lpae_unmap(data, iova, size, lvl, tablep);
+
+	io_pgtable_tlb_add_flush(&data->iop, iova, size, size, true);
+	return size;
 }
 
 static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
@@ -609,13 +610,6 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			io_pgtable_tlb_sync(iop);
 			ptep = iopte_deref(pte, data);
 			__arm_lpae_free_pgtable(data, lvl + 1, ptep);
-		} else if (iop->cfg.quirks & IO_PGTABLE_QUIRK_NON_STRICT) {
-			/*
-			 * Order the PTE update against queueing the IOVA, to
-			 * guarantee that a flush callback from a different CPU
-			 * has observed it before the TLBIALL can be issued.
-			 */
-			smp_wmb();
 		} else {
 			io_pgtable_tlb_add_flush(iop, iova, size, size, true);
 		}
@@ -778,8 +772,7 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	u64 reg;
 	struct arm_lpae_io_pgtable *data;
 
-	if (cfg->quirks & ~(IO_PGTABLE_QUIRK_ARM_NS | IO_PGTABLE_QUIRK_NO_DMA |
-			    IO_PGTABLE_QUIRK_NON_STRICT))
+	if (cfg->quirks & ~(IO_PGTABLE_QUIRK_ARM_NS | IO_PGTABLE_QUIRK_NO_DMA))
 		return NULL;
 
 	data = arm_lpae_alloc_pgtable(cfg);
@@ -871,8 +864,7 @@ arm_64_lpae_alloc_pgtable_s2(struct io_pgtable_cfg *cfg, void *cookie)
 	struct arm_lpae_io_pgtable *data;
 
 	/* The NS quirk doesn't apply at stage 2 */
-	if (cfg->quirks & ~(IO_PGTABLE_QUIRK_NO_DMA |
-			    IO_PGTABLE_QUIRK_NON_STRICT))
+	if (cfg->quirks & ~IO_PGTABLE_QUIRK_NO_DMA)
 		return NULL;
 
 	data = arm_lpae_alloc_pgtable(cfg);

@@ -56,7 +56,7 @@
  * vector that will be called by the ROM on wakeup
  */
 _GLOBAL(low_sleep_handler)
-#ifndef CONFIG_PPC_BOOK3S_32
+#ifndef CONFIG_6xx
 	blr
 #else
 	mflr	r0
@@ -394,5 +394,5 @@ sleep_storage:
 	.long 0
 	.balign	L1_CACHE_BYTES, 0
 
-#endif /* CONFIG_PPC_BOOK3S_32 */
+#endif /* CONFIG_6xx */
 	.section .text

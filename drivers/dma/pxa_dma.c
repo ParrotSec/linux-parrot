@@ -179,7 +179,7 @@ static unsigned int pxad_drcmr(unsigned int line)
 	return 0x1000 + line * 4;
 }
 
-static bool pxad_filter_fn(struct dma_chan *chan, void *param);
+bool pxad_filter_fn(struct dma_chan *chan, void *param);
 
 /*
  * Debug fs
@@ -189,7 +189,7 @@ static bool pxad_filter_fn(struct dma_chan *chan, void *param);
 #include <linux/uaccess.h>
 #include <linux/seq_file.h>
 
-static int requester_chan_show(struct seq_file *s, void *p)
+static int dbg_show_requester_chan(struct seq_file *s, void *p)
 {
 	struct pxad_phy *phy = s->private;
 	int i;
@@ -220,7 +220,7 @@ static int is_phys_valid(unsigned long addr)
 #define PXA_DCSR_STR(flag) (dcsr & PXA_DCSR_##flag ? #flag" " : "")
 #define PXA_DCMD_STR(flag) (dcmd & PXA_DCMD_##flag ? #flag" " : "")
 
-static int descriptors_show(struct seq_file *s, void *p)
+static int dbg_show_descriptors(struct seq_file *s, void *p)
 {
 	struct pxad_phy *phy = s->private;
 	int i, max_show = 20, burst, width;
@@ -263,7 +263,7 @@ static int descriptors_show(struct seq_file *s, void *p)
 	return 0;
 }
 
-static int chan_state_show(struct seq_file *s, void *p)
+static int dbg_show_chan_state(struct seq_file *s, void *p)
 {
 	struct pxad_phy *phy = s->private;
 	u32 dcsr, dcmd;
@@ -306,7 +306,7 @@ static int chan_state_show(struct seq_file *s, void *p)
 	return 0;
 }
 
-static int state_show(struct seq_file *s, void *p)
+static int dbg_show_state(struct seq_file *s, void *p)
 {
 	struct pxad_device *pdev = s->private;
 
@@ -317,10 +317,22 @@ static int state_show(struct seq_file *s, void *p)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(state);
-DEFINE_SHOW_ATTRIBUTE(chan_state);
-DEFINE_SHOW_ATTRIBUTE(descriptors);
-DEFINE_SHOW_ATTRIBUTE(requester_chan);
+#define DBGFS_FUNC_DECL(name) \
+static int dbg_open_##name(struct inode *inode, struct file *file) \
+{ \
+	return single_open(file, dbg_show_##name, inode->i_private); \
+} \
+static const struct file_operations dbg_fops_##name = { \
+	.open		= dbg_open_##name, \
+	.llseek		= seq_lseek, \
+	.read		= seq_read, \
+	.release	= single_release, \
+}
+
+DBGFS_FUNC_DECL(state);
+DBGFS_FUNC_DECL(chan_state);
+DBGFS_FUNC_DECL(descriptors);
+DBGFS_FUNC_DECL(requester_chan);
 
 static struct dentry *pxad_dbg_alloc_chan(struct pxad_device *pdev,
 					     int ch, struct dentry *chandir)
@@ -336,13 +348,13 @@ static struct dentry *pxad_dbg_alloc_chan(struct pxad_device *pdev,
 
 	if (chan)
 		chan_state = debugfs_create_file("state", 0400, chan, dt,
-						 &chan_state_fops);
+						 &dbg_fops_chan_state);
 	if (chan_state)
 		chan_descr = debugfs_create_file("descriptors", 0400, chan, dt,
-						 &descriptors_fops);
+						 &dbg_fops_descriptors);
 	if (chan_descr)
 		chan_reqs = debugfs_create_file("requesters", 0400, chan, dt,
-						&requester_chan_fops);
+						&dbg_fops_requester_chan);
 	if (!chan_reqs)
 		goto err_state;
 
@@ -363,7 +375,7 @@ static void pxad_init_debugfs(struct pxad_device *pdev)
 		goto err_root;
 
 	pdev->dbgfs_state = debugfs_create_file("state", 0400, pdev->dbgfs_root,
-						pdev, &state_fops);
+						pdev, &dbg_fops_state);
 	if (!pdev->dbgfs_state)
 		goto err_state;
 
@@ -1273,6 +1285,7 @@ static int pxad_remove(struct platform_device *op)
 
 	pxad_cleanup_debugfs(pdev);
 	pxad_free_channels(&pdev->slave);
+	dma_async_device_unregister(&pdev->slave);
 	return 0;
 }
 
@@ -1383,7 +1396,7 @@ static int pxad_init_dmadev(struct platform_device *op,
 		init_waitqueue_head(&c->wq_state);
 	}
 
-	return dmaenginem_async_device_register(&pdev->slave);
+	return dma_async_device_register(&pdev->slave);
 }
 
 static int pxad_probe(struct platform_device *op)
@@ -1420,7 +1433,7 @@ static int pxad_probe(struct platform_device *op)
 				 "#dma-requests set to default 32 as missing in OF: %d",
 				 ret);
 			nb_requestors = 32;
-		}
+		};
 	} else if (pdata && pdata->dma_channels) {
 		dma_channels = pdata->dma_channels;
 		nb_requestors = pdata->nb_requestors;
@@ -1488,7 +1501,7 @@ static struct platform_driver pxad_driver = {
 	.remove		= pxad_remove,
 };
 
-static bool pxad_filter_fn(struct dma_chan *chan, void *param)
+bool pxad_filter_fn(struct dma_chan *chan, void *param)
 {
 	struct pxad_chan *c = to_pxad_chan(chan);
 	struct pxad_param *p = param;
@@ -1501,6 +1514,7 @@ static bool pxad_filter_fn(struct dma_chan *chan, void *param)
 
 	return true;
 }
+EXPORT_SYMBOL_GPL(pxad_filter_fn);
 
 module_platform_driver(pxad_driver);
 

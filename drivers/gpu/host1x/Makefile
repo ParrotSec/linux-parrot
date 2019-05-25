@@ -13,7 +13,6 @@ host1x-y = \
 	hw/host1x02.o \
 	hw/host1x04.o \
 	hw/host1x05.o \
-	hw/host1x06.o \
-	hw/host1x07.o
+	hw/host1x06.o
 
 obj-$(CONFIG_TEGRA_HOST1X) += host1x.o

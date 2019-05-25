@@ -2,6 +2,7 @@
 ## file: arch/riscv/Kconfig
 ##
 CONFIG_SMP=y
+CONFIG_PCI=y
 
 ##
 ## file: drivers/ata/Kconfig
@@ -23,11 +24,6 @@ CONFIG_SIFIVE_PLIC=y
 ## file: drivers/net/ethernet/cadence/Kconfig
 ##
 CONFIG_MACB=m
-
-##
-## file: drivers/pci/Kconfig
-##
-CONFIG_PCI=y
 
 ##
 ## file: drivers/pci/controller/Kconfig

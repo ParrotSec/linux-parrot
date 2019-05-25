@@ -30,10 +30,10 @@
 
 #else
 
-.macro PREALLOC_INSTR	reg, off
+.macro PREALLOC_INSTR
 .endm
 
-.macro PREFETCHW_INSTR	reg, off
+.macro PREFETCHW_INSTR
 .endm
 
 #endif

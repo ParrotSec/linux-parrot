@@ -1,6 +1,17 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2016 Broadcom
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License, version 2, as
+ * published by the Free Software Foundation (the "GPL").
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License version 2 (GPLv2) for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * version 2 (GPLv2) along with this source code.
  */
 #include <linux/clk.h>
 #include <linux/platform_device.h>
@@ -278,7 +289,8 @@ static int mdio_mux_iproc_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int mdio_mux_iproc_suspend(struct device *dev)
 {
-	struct iproc_mdiomux_desc *md = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct iproc_mdiomux_desc *md = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(md->core_clk);
 
@@ -287,7 +299,8 @@ static int mdio_mux_iproc_suspend(struct device *dev)
 
 static int mdio_mux_iproc_resume(struct device *dev)
 {
-	struct iproc_mdiomux_desc *md = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct iproc_mdiomux_desc *md = platform_get_drvdata(pdev);
 
 	clk_prepare_enable(md->core_clk);
 	mdio_mux_iproc_config(md);

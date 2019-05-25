@@ -1,15 +1,23 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Intel CrystalCove PMIC operation region driver
+ * intel_pmic_crc.c - Intel CrystalCove PMIC operation region driver
  *
  * Copyright (C) 2014 Intel Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version
+ * 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
-#include <linux/acpi.h>
 #include <linux/init.h>
+#include <linux/acpi.h>
 #include <linux/mfd/intel_soc_pmic.h>
-#include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/platform_device.h>
 #include "intel_pmic.h"
 
 #define PWR_SOURCE_SELECT	BIT(1)

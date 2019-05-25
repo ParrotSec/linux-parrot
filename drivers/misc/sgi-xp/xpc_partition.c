@@ -98,7 +98,8 @@ xpc_get_rsvd_page_pa(int nasid)
 			len = L1_CACHE_ALIGN(len);
 
 		if (len > buf_len) {
-			kfree(buf_base);
+			if (buf_base != NULL)
+				kfree(buf_base);
 			buf_len = L1_CACHE_ALIGN(len);
 			buf = xpc_kmalloc_cacheline_aligned(buf_len, GFP_KERNEL,
 							    &buf_base);

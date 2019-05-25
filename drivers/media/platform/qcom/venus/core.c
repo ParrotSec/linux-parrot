@@ -76,7 +76,7 @@ static void venus_sys_error_handler(struct work_struct *work)
 	hfi_core_deinit(core, true);
 	hfi_destroy(core);
 	mutex_lock(&core->lock);
-	venus_shutdown(core);
+	venus_shutdown(core->dev);
 
 	pm_runtime_put_sync(core->dev);
 
@@ -84,7 +84,7 @@ static void venus_sys_error_handler(struct work_struct *work)
 
 	pm_runtime_get_sync(core->dev);
 
-	ret |= venus_boot(core);
+	ret |= venus_boot(core->dev, core->res->fwname);
 
 	ret |= hfi_core_resume(core, true);
 
@@ -292,15 +292,7 @@ static int venus_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_runtime_disable;
 
-	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
-	if (ret)
-		goto err_runtime_disable;
-
-	ret = venus_firmware_init(core);
-	if (ret)
-		goto err_runtime_disable;
-
-	ret = venus_boot(core);
+	ret = venus_boot(dev, core->res->fwname);
 	if (ret)
 		goto err_runtime_disable;
 
@@ -324,6 +316,10 @@ static int venus_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_core_deinit;
 
+	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
+	if (ret)
+		goto err_dev_unregister;
+
 	ret = pm_runtime_put_sync(dev);
 	if (ret)
 		goto err_dev_unregister;
@@ -335,7 +331,7 @@ err_dev_unregister:
 err_core_deinit:
 	hfi_core_deinit(core, false);
 err_venus_shutdown:
-	venus_shutdown(core);
+	venus_shutdown(dev);
 err_runtime_disable:
 	pm_runtime_set_suspended(dev);
 	pm_runtime_disable(dev);
@@ -356,10 +352,8 @@ static int venus_remove(struct platform_device *pdev)
 	WARN_ON(ret);
 
 	hfi_destroy(core);
-	venus_shutdown(core);
+	venus_shutdown(dev);
 	of_platform_depopulate(dev);
-
-	venus_firmware_deinit(core);
 
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
@@ -455,7 +449,7 @@ static const struct venus_resources msm8996_res = {
 	.reg_tbl_size = ARRAY_SIZE(msm8996_reg_preset),
 	.clks = {"core", "iface", "bus", "mbus" },
 	.clks_num = 4,
-	.max_load = 3110400,	/* 4096x2160@90 */
+	.max_load = 2563200,
 	.hfi_version = HFI_VERSION_3XX,
 	.vmem_id = VIDC_RESOURCE_NONE,
 	.vmem_size = 0,
@@ -465,12 +459,10 @@ static const struct venus_resources msm8996_res = {
 };
 
 static const struct freq_tbl sdm845_freq_table[] = {
-	{ 3110400, 533000000 },	/* 4096x2160@90 */
-	{ 2073600, 444000000 },	/* 4096x2160@60 */
-	{ 1944000, 404000000 },	/* 3840x2160@60 */
-	{  972000, 330000000 },	/* 3840x2160@30 */
-	{  489600, 200000000 },	/* 1920x1080@60 */
-	{  244800, 100000000 },	/* 1920x1080@30 */
+	{ 1944000, 380000000 },	/* 4k UHD @ 60 */
+	{  972000, 320000000 },	/* 4k UHD @ 30 */
+	{  489600, 200000000 },	/* 1080p @ 60 */
+	{  244800, 100000000 },	/* 1080p @ 30 */
 };
 
 static const struct venus_resources sdm845_res = {

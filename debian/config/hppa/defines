@@ -1,5 +1,5 @@
 [base]
-flavours: parisc parisc64
+flavours: parisc parisc-smp parisc64-smp
 kernel-arch: parisc
 
 [build]
@@ -15,13 +15,17 @@ install-stem: vmlinuz
 hardware: 32-bit PA-RISC
 hardware-long: HP PA-RISC 32-bit systems with max 4 GB RAM
 
-[parisc64_base]
+[parisc-smp_description]
+hardware: multiprocessor 32-bit PA-RISC
+hardware-long: HP PA-RISC 32-bit SMP systems with max 4 GB RAM
+
+[parisc64-smp_base]
 cflags: -fno-cse-follow-jumps
 override-host-type: hppa64-linux-gnu
 
-[parisc64_description]
-hardware: 64-bit PA-RISC
-hardware-long: HP PA-RISC 64-bit systems with support for more than 4 GB RAM
+[parisc64-smp_description]
+hardware: multiprocessor 64-bit PA-RISC
+hardware-long: HP PA-RISC 64-bit SMP systems with support for more than 4 GB RAM
 
 [relations]
 gcc-8: gcc-8 <!stage1 !cross !pkg.linux.nokernel>, gcc-8-hppa-linux-gnu <!stage1 cross !pkg.linux.nokernel>, binutils-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>, gcc-8-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>

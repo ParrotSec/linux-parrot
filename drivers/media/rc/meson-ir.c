@@ -86,7 +86,7 @@ static irqreturn_t meson_ir_irq(int irqno, void *dev_id)
 {
 	struct meson_ir *ir = dev_id;
 	u32 duration, status;
-	struct ir_raw_event rawir = {};
+	DEFINE_IR_RAW_EVENT(rawir);
 
 	spin_lock(&ir->lock);
 

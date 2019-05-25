@@ -24,9 +24,6 @@
 #include <linux/string.h>
 #include <linux/thermal.h>
 
-#define CREATE_TRACE_POINTS
-#include <trace/events/hwmon.h>
-
 #define HWMON_ID_PREFIX "hwmon"
 #define HWMON_ID_FORMAT HWMON_ID_PREFIX "%d"
 
@@ -174,13 +171,6 @@ static int hwmon_thermal_add_sensor(struct device *dev,
 }
 #endif /* IS_REACHABLE(CONFIG_THERMAL) && ... */
 
-static int hwmon_attr_base(enum hwmon_sensor_types type)
-{
-	if (type == hwmon_in)
-		return 0;
-	return 1;
-}
-
 /* sysfs attribute management */
 
 static ssize_t hwmon_attr_show(struct device *dev,
@@ -195,9 +185,6 @@ static ssize_t hwmon_attr_show(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	trace_hwmon_attr_show(hattr->index + hwmon_attr_base(hattr->type),
-			      hattr->name, val);
-
 	return sprintf(buf, "%ld\n", val);
 }
 
@@ -206,7 +193,6 @@ static ssize_t hwmon_attr_show_string(struct device *dev,
 				      char *buf)
 {
 	struct hwmon_device_attribute *hattr = to_hwmon_attr(devattr);
-	enum hwmon_sensor_types type = hattr->type;
 	const char *s;
 	int ret;
 
@@ -214,9 +200,6 @@ static ssize_t hwmon_attr_show_string(struct device *dev,
 				      hattr->index, &s);
 	if (ret < 0)
 		return ret;
-
-	trace_hwmon_attr_show_string(hattr->index + hwmon_attr_base(type),
-				     hattr->name, s);
 
 	return sprintf(buf, "%s\n", s);
 }
@@ -238,10 +221,14 @@ static ssize_t hwmon_attr_store(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	trace_hwmon_attr_store(hattr->index + hwmon_attr_base(hattr->type),
-			       hattr->name, val);
-
 	return count;
+}
+
+static int hwmon_attr_base(enum hwmon_sensor_types type)
+{
+	if (type == hwmon_in)
+		return 0;
+	return 1;
 }
 
 static bool is_string_attr(enum hwmon_sensor_types type, u32 attr)
@@ -267,7 +254,7 @@ static struct attribute *hwmon_genattr(struct device *dev,
 	struct device_attribute *dattr;
 	struct attribute *a;
 	umode_t mode;
-	const char *name;
+	char *name;
 	bool is_string = is_string_attr(type, attr);
 
 	/* The attribute is invisible if there is no template string */
@@ -278,10 +265,10 @@ static struct attribute *hwmon_genattr(struct device *dev,
 	if (!mode)
 		return ERR_PTR(-ENOENT);
 
-	if ((mode & 0444) && ((is_string && !ops->read_string) ||
+	if ((mode & S_IRUGO) && ((is_string && !ops->read_string) ||
 				 (!is_string && !ops->read)))
 		return ERR_PTR(-EINVAL);
-	if ((mode & 0222) && !ops->write)
+	if ((mode & S_IWUGO) && !ops->write)
 		return ERR_PTR(-EINVAL);
 
 	hattr = devm_kzalloc(dev, sizeof(*hattr), GFP_KERNEL);
@@ -289,7 +276,7 @@ static struct attribute *hwmon_genattr(struct device *dev,
 		return ERR_PTR(-ENOMEM);
 
 	if (type == hwmon_chip) {
-		name = template;
+		name = (char *)template;
 	} else {
 		scnprintf(hattr->name, sizeof(hattr->name), template,
 			  index + hwmon_attr_base(type));
@@ -369,7 +356,6 @@ static const char * const hwmon_in_attr_templates[] = {
 	[hwmon_in_max_alarm] = "in%d_max_alarm",
 	[hwmon_in_lcrit_alarm] = "in%d_lcrit_alarm",
 	[hwmon_in_crit_alarm] = "in%d_crit_alarm",
-	[hwmon_in_enable] = "in%d_enable",
 };
 
 static const char * const hwmon_curr_attr_templates[] = {

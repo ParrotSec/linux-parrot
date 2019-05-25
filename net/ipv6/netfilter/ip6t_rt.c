@@ -137,10 +137,7 @@ static bool rt_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 							sizeof(_addr),
 							&_addr);
 
-				if (ap == NULL) {
-					par->hotdrop = true;
-					return false;
-				}
+				BUG_ON(ap == NULL);
 
 				if (ipv6_addr_equal(ap, &rtinfo->addrs[i])) {
 					pr_debug("i=%d temp=%d;\n", i, temp);
@@ -169,10 +166,7 @@ static bool rt_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 							+ temp * sizeof(_addr),
 							sizeof(_addr),
 							&_addr);
-				if (ap == NULL) {
-					par->hotdrop = true;
-					return false;
-				}
+				BUG_ON(ap == NULL);
 
 				if (!ipv6_addr_equal(ap, &rtinfo->addrs[temp]))
 					break;

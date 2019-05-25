@@ -21,7 +21,9 @@
 #include <linux/netfilter/nf_tables.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_nat.h>
+#include <net/netfilter/nf_nat_core.h>
 #include <net/netfilter/nf_tables.h>
+#include <net/netfilter/nf_nat_l3proto.h>
 #include <net/ip.h>
 
 struct nft_nat {

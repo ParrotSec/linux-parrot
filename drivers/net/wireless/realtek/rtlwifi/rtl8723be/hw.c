@@ -1,5 +1,27 @@
-// SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 2009-2014  Realtek Corporation.*/
+/******************************************************************************
+ *
+ * Copyright(c) 2009-2014  Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * The full GNU General Public License is included in this distribution in the
+ * file called LICENSE.
+ *
+ * Contact Information:
+ * wlanfae <wlanfae@realtek.com>
+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
+ * Hsinchu 300, Taiwan.
+ *
+ * Larry Finger <Larry.Finger@lwfinger.net>
+ *
+ *****************************************************************************/
 
 #include "../wifi.h"
 #include "../efuse.h"
@@ -297,12 +319,12 @@ void rtl8723be_get_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
 		*((enum rf_pwrstate *)(val)) = ppsc->rfpwr_state;
 		break;
 	case HW_VAR_FWLPS_RF_ON:{
-		enum rf_pwrstate rfstate;
+		enum rf_pwrstate rfState;
 		u32 val_rcr;
 
 		rtlpriv->cfg->ops->get_hw_reg(hw, HW_VAR_RF_STATE,
-					      (u8 *)(&rfstate));
-		if (rfstate == ERFOFF) {
+					      (u8 *)(&rfState));
+		if (rfState == ERFOFF) {
 			*((bool *)(val)) = true;
 		} else {
 			val_rcr = rtl_read_dword(rtlpriv, REG_RCR);
@@ -742,10 +764,10 @@ static bool _rtl8723be_llt_table_init(struct ieee80211_hw *hw)
 	struct rtl_priv *rtlpriv = rtl_priv(hw);
 	unsigned short i;
 	u8 txpktbuf_bndy;
-	u8 maxpage;
+	u8 maxPage;
 	bool status;
 
-	maxpage = 255;
+	maxPage = 255;
 	txpktbuf_bndy = 245;
 
 	rtl_write_dword(rtlpriv, REG_TRXFF_BNDY,
@@ -770,13 +792,13 @@ static bool _rtl8723be_llt_table_init(struct ieee80211_hw *hw)
 	if (!status)
 		return status;
 
-	for (i = txpktbuf_bndy; i < maxpage; i++) {
+	for (i = txpktbuf_bndy; i < maxPage; i++) {
 		status = _rtl8723be_llt_write(hw, i, (i + 1));
 		if (!status)
 			return status;
 	}
 
-	status = _rtl8723be_llt_write(hw, maxpage, txpktbuf_bndy);
+	status = _rtl8723be_llt_write(hw, maxPage, txpktbuf_bndy);
 	if (!status)
 		return status;
 

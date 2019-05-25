@@ -61,16 +61,11 @@
 #define SPEAKUP_HELP		0x2d
 #define TOGGLE_CURSORING	0x2e
 #define READ_ALL_DOC		0x2f
-
-/* one greater than the last func handler */
-#define SPKUP_MAX_FUNC		0x30
-
+#define SPKUP_MAX_FUNC		0x30 /* one greater than the last func handler */
 #define SPK_KEY		0x80
 #define FIRST_EDIT_BITS	0x22
 #define FIRST_SET_VAR SPELL_DELAY
-
-/* increase if adding more than 0x3f functions */
-#define VAR_START		0x40
+#define VAR_START		0x40 /* increase if adding more than 0x3f functions */
 
 /* keys for setting variables, must be ordered same as the enum for var_ids */
 /* with dec being even and inc being 1 greater */

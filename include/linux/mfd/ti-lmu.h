@@ -16,7 +16,6 @@
 #include <linux/gpio.h>
 #include <linux/notifier.h>
 #include <linux/regmap.h>
-#include <linux/gpio/consumer.h>
 
 /* Notifier event */
 #define LMU_EVENT_MONITOR_DONE		0x01
@@ -82,7 +81,7 @@ enum lm363x_regulator_id {
 struct ti_lmu {
 	struct device *dev;
 	struct regmap *regmap;
-	struct gpio_desc *en_gpio;
+	int en_gpio;
 	struct blocking_notifier_head notifier;
 };
 #endif

@@ -915,7 +915,7 @@ static void map_prom_timers(void)
 	dp = of_find_node_by_path("/");
 	dp = dp->child;
 	while (dp) {
-		if (of_node_name_eq(dp, "counter-timer"))
+		if (!strcmp(dp->name, "counter-timer"))
 			break;
 		dp = dp->sibling;
 	}

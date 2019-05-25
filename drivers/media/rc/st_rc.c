@@ -67,7 +67,8 @@ struct st_rc_device {
 
 static void st_rc_send_lirc_timeout(struct rc_dev *rdev)
 {
-	struct ir_raw_event ev = { .timeout = true, .duration = rdev->timeout };
+	DEFINE_IR_RAW_EVENT(ev);
+	ev.timeout = true;
 	ir_raw_event_store(rdev, &ev);
 }
 
@@ -100,7 +101,7 @@ static irqreturn_t st_rc_rx_interrupt(int irq, void *data)
 	struct st_rc_device *dev = data;
 	int last_symbol = 0;
 	u32 status, int_status;
-	struct ir_raw_event ev = {};
+	DEFINE_IR_RAW_EVENT(ev);
 
 	if (dev->irq_wake)
 		pm_wakeup_event(dev->dev, 0);

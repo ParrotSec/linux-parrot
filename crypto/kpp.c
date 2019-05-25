@@ -30,11 +30,15 @@ static int crypto_kpp_report(struct sk_buff *skb, struct crypto_alg *alg)
 {
 	struct crypto_report_kpp rkpp;
 
-	memset(&rkpp, 0, sizeof(rkpp));
+	strncpy(rkpp.type, "kpp", sizeof(rkpp.type));
 
-	strscpy(rkpp.type, "kpp", sizeof(rkpp.type));
+	if (nla_put(skb, CRYPTOCFGA_REPORT_KPP,
+		    sizeof(struct crypto_report_kpp), &rkpp))
+		goto nla_put_failure;
+	return 0;
 
-	return nla_put(skb, CRYPTOCFGA_REPORT_KPP, sizeof(rkpp), &rkpp);
+nla_put_failure:
+	return -EMSGSIZE;
 }
 #else
 static int crypto_kpp_report(struct sk_buff *skb, struct crypto_alg *alg)

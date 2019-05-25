@@ -18,7 +18,6 @@
 
 #include <linux/device.h>
 #include <linux/acpi.h>
-#include <linux/mod_devicetable.h>
 #include <uapi/linux/wmi.h>
 
 struct wmi_device {
@@ -39,6 +38,10 @@ extern union acpi_object *wmidev_block_query(struct wmi_device *wdev,
 					     u8 instance);
 
 extern int set_required_buffer_size(struct wmi_device *wdev, u64 length);
+
+struct wmi_device_id {
+	const char *guid_string;
+};
 
 struct wmi_driver {
 	struct device_driver driver;

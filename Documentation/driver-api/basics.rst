@@ -121,9 +121,6 @@ Kernel utility functions
 .. kernel-doc:: kernel/rcu/update.c
    :export:
 
-.. kernel-doc:: include/linux/overflow.h
-   :internal:
-
 Device Resource Management
 --------------------------
 

@@ -106,7 +106,6 @@ struct ucc_hdlc_private {
 
 	unsigned short encoding;
 	unsigned short parity;
-	unsigned short hmask;
 	u32 clocking;
 	spinlock_t lock;	/* lock for Tx BD and Tx buffer */
 #ifdef CONFIG_PM

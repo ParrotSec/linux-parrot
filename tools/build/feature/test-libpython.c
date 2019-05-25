@@ -7,4 +7,3 @@ int main(void)
 
 	return 0;
 }
-#undef _GNU_SOURCE

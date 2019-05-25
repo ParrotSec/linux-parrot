@@ -656,7 +656,7 @@ static int fimc_is_hw_open_sensor(struct fimc_is *is,
 
 int fimc_is_hw_initialize(struct fimc_is *is)
 {
-	static const int config_ids[] = {
+	const int config_ids[] = {
 		IS_SC_PREVIEW_STILL, IS_SC_PREVIEW_VIDEO,
 		IS_SC_CAPTURE_STILL, IS_SC_CAPTURE_VIDEO
 	};
@@ -738,7 +738,7 @@ int fimc_is_hw_initialize(struct fimc_is *is)
 	return 0;
 }
 
-static int fimc_is_show(struct seq_file *s, void *data)
+static int fimc_is_log_show(struct seq_file *s, void *data)
 {
 	struct fimc_is *is = s->private;
 	const u8 *buf = is->memory.vaddr + FIMC_IS_DEBUG_REGION_OFFSET;
@@ -752,7 +752,17 @@ static int fimc_is_show(struct seq_file *s, void *data)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(fimc_is);
+static int fimc_is_debugfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, fimc_is_log_show, inode->i_private);
+}
+
+static const struct file_operations fimc_is_debugfs_fops = {
+	.open		= fimc_is_debugfs_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 static void fimc_is_debugfs_remove(struct fimc_is *is)
 {
@@ -767,7 +777,7 @@ static int fimc_is_debugfs_create(struct fimc_is *is)
 	is->debugfs_entry = debugfs_create_dir("fimc_is", NULL);
 
 	dentry = debugfs_create_file("fw_log", S_IRUGO, is->debugfs_entry,
-				     is, &fimc_is_fops);
+				     is, &fimc_is_debugfs_fops);
 	if (!dentry)
 		fimc_is_debugfs_remove(is);
 

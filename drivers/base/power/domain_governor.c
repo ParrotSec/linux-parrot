@@ -128,6 +128,7 @@ static bool __default_power_down_ok(struct dev_pm_domain *pd,
 	off_on_time_ns = genpd->states[state].power_off_latency_ns +
 		genpd->states[state].power_on_latency_ns;
 
+
 	min_off_time_ns = -1;
 	/*
 	 * Check if subdomains can be off for enough time.

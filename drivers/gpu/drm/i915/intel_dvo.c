@@ -26,6 +26,7 @@
  */
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <drm/drmP.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
 #include "intel_drv.h"
@@ -234,9 +235,9 @@ intel_dvo_mode_valid(struct drm_connector *connector,
 	return intel_dvo->dev.dev_ops->mode_valid(&intel_dvo->dev, mode);
 }
 
-static int intel_dvo_compute_config(struct intel_encoder *encoder,
-				    struct intel_crtc_state *pipe_config,
-				    struct drm_connector_state *conn_state)
+static bool intel_dvo_compute_config(struct intel_encoder *encoder,
+				     struct intel_crtc_state *pipe_config,
+				     struct drm_connector_state *conn_state)
 {
 	struct intel_dvo *intel_dvo = enc_to_dvo(encoder);
 	const struct drm_display_mode *fixed_mode =
@@ -253,11 +254,9 @@ static int intel_dvo_compute_config(struct intel_encoder *encoder,
 		intel_fixed_panel_mode(fixed_mode, adjusted_mode);
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
-		return -EINVAL;
+		return false;
 
-	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
-
-	return 0;
+	return true;
 }
 
 static void intel_dvo_pre_enable(struct intel_encoder *encoder,
@@ -334,11 +333,18 @@ static int intel_dvo_get_modes(struct drm_connector *connector)
 	return 0;
 }
 
+static void intel_dvo_destroy(struct drm_connector *connector)
+{
+	drm_connector_cleanup(connector);
+	intel_panel_fini(&to_intel_connector(connector)->panel);
+	kfree(connector);
+}
+
 static const struct drm_connector_funcs intel_dvo_connector_funcs = {
 	.detect = intel_dvo_detect,
 	.late_register = intel_connector_register,
 	.early_unregister = intel_connector_unregister,
-	.destroy = intel_connector_destroy,
+	.destroy = intel_dvo_destroy,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,

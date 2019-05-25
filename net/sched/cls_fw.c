@@ -139,8 +139,7 @@ static void fw_delete_filter_work(struct work_struct *work)
 	rtnl_unlock();
 }
 
-static void fw_destroy(struct tcf_proto *tp, bool rtnl_held,
-		       struct netlink_ext_ack *extack)
+static void fw_destroy(struct tcf_proto *tp, struct netlink_ext_ack *extack)
 {
 	struct fw_head *head = rtnl_dereference(tp->root);
 	struct fw_filter *f;
@@ -164,7 +163,7 @@ static void fw_destroy(struct tcf_proto *tp, bool rtnl_held,
 }
 
 static int fw_delete(struct tcf_proto *tp, void *arg, bool *last,
-		     bool rtnl_held, struct netlink_ext_ack *extack)
+		     struct netlink_ext_ack *extack)
 {
 	struct fw_head *head = rtnl_dereference(tp->root);
 	struct fw_filter *f = arg;
@@ -218,7 +217,7 @@ static int fw_set_parms(struct net *net, struct tcf_proto *tp,
 	int err;
 
 	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &f->exts, ovr,
-				true, extack);
+				extack);
 	if (err < 0)
 		return err;
 
@@ -251,8 +250,7 @@ static int fw_set_parms(struct net *net, struct tcf_proto *tp,
 static int fw_change(struct net *net, struct sk_buff *in_skb,
 		     struct tcf_proto *tp, unsigned long base,
 		     u32 handle, struct nlattr **tca, void **arg,
-		     bool ovr, bool rtnl_held,
-		     struct netlink_ext_ack *extack)
+		     bool ovr, struct netlink_ext_ack *extack)
 {
 	struct fw_head *head = rtnl_dereference(tp->root);
 	struct fw_filter *f = *arg;
@@ -285,8 +283,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
 #endif /* CONFIG_NET_CLS_IND */
 		fnew->tp = f->tp;
 
-		err = tcf_exts_init(&fnew->exts, net, TCA_FW_ACT,
-				    TCA_FW_POLICE);
+		err = tcf_exts_init(&fnew->exts, TCA_FW_ACT, TCA_FW_POLICE);
 		if (err < 0) {
 			kfree(fnew);
 			return err;
@@ -335,7 +332,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
 	if (f == NULL)
 		return -ENOBUFS;
 
-	err = tcf_exts_init(&f->exts, net, TCA_FW_ACT, TCA_FW_POLICE);
+	err = tcf_exts_init(&f->exts, TCA_FW_ACT, TCA_FW_POLICE);
 	if (err < 0)
 		goto errout;
 	f->id = handle;
@@ -357,8 +354,7 @@ errout:
 	return err;
 }
 
-static void fw_walk(struct tcf_proto *tp, struct tcf_walker *arg,
-		    bool rtnl_held)
+static void fw_walk(struct tcf_proto *tp, struct tcf_walker *arg)
 {
 	struct fw_head *head = rtnl_dereference(tp->root);
 	int h;
@@ -388,7 +384,7 @@ static void fw_walk(struct tcf_proto *tp, struct tcf_walker *arg,
 }
 
 static int fw_dump(struct net *net, struct tcf_proto *tp, void *fh,
-		   struct sk_buff *skb, struct tcmsg *t, bool rtnl_held)
+		   struct sk_buff *skb, struct tcmsg *t)
 {
 	struct fw_head *head = rtnl_dereference(tp->root);
 	struct fw_filter *f = fh;

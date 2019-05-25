@@ -1,9 +1,12 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * R-Car SYSC Power management support
  *
  * Copyright (C) 2014  Magnus Damm
  * Copyright (C) 2015-2017 Glider bvba
+ *
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License.  See the file "COPYING" in the main directory of this archive
+ * for more details.
  */
 
 #include <linux/clk/renesas.h>
@@ -105,15 +108,6 @@ static int rcar_sysc_power(const struct rcar_sysc_ch *sysc_ch, bool on)
 
 	spin_lock_irqsave(&rcar_sysc_lock, flags);
 
-	/*
-	 * The interrupt source needs to be enabled, but masked, to prevent the
-	 * CPU from receiving it.
-	 */
-	iowrite32(ioread32(rcar_sysc_base + SYSCIMR) | isr_mask,
-		  rcar_sysc_base + SYSCIMR);
-	iowrite32(ioread32(rcar_sysc_base + SYSCIER) | isr_mask,
-		  rcar_sysc_base + SYSCIER);
-
 	iowrite32(isr_mask, rcar_sysc_base + SYSCISCR);
 
 	/* Submit power shutoff or resume request until it was accepted */
@@ -155,6 +149,16 @@ static int rcar_sysc_power(const struct rcar_sysc_ch *sysc_ch, bool on)
 	return ret;
 }
 
+static int rcar_sysc_power_down(const struct rcar_sysc_ch *sysc_ch)
+{
+	return rcar_sysc_power(sysc_ch, false);
+}
+
+static int rcar_sysc_power_up(const struct rcar_sysc_ch *sysc_ch)
+{
+	return rcar_sysc_power(sysc_ch, true);
+}
+
 static bool rcar_sysc_power_is_off(const struct rcar_sysc_ch *sysc_ch)
 {
 	unsigned int st;
@@ -183,7 +187,7 @@ static int rcar_sysc_pd_power_off(struct generic_pm_domain *genpd)
 	struct rcar_sysc_pd *pd = to_rcar_pd(genpd);
 
 	pr_debug("%s: %s\n", __func__, genpd->name);
-	return rcar_sysc_power(&pd->ch, false);
+	return rcar_sysc_power_down(&pd->ch);
 }
 
 static int rcar_sysc_pd_power_on(struct generic_pm_domain *genpd)
@@ -191,7 +195,7 @@ static int rcar_sysc_pd_power_on(struct generic_pm_domain *genpd)
 	struct rcar_sysc_pd *pd = to_rcar_pd(genpd);
 
 	pr_debug("%s: %s\n", __func__, genpd->name);
-	return rcar_sysc_power(&pd->ch, true);
+	return rcar_sysc_power_up(&pd->ch);
 }
 
 static bool has_cpg_mstp;
@@ -251,7 +255,7 @@ static int __init rcar_sysc_pd_setup(struct rcar_sysc_pd *pd)
 		goto finalize;
 	}
 
-	rcar_sysc_power(&pd->ch, true);
+	rcar_sysc_power_up(&pd->ch);
 
 finalize:
 	error = pm_genpd_init(genpd, gov, false);
@@ -264,20 +268,12 @@ finalize:
 static const struct of_device_id rcar_sysc_matches[] __initconst = {
 #ifdef CONFIG_SYSC_R8A7743
 	{ .compatible = "renesas,r8a7743-sysc", .data = &r8a7743_sysc_info },
-	/* RZ/G1N is identical to RZ/G2M w.r.t. power domains. */
-	{ .compatible = "renesas,r8a7744-sysc", .data = &r8a7743_sysc_info },
 #endif
 #ifdef CONFIG_SYSC_R8A7745
 	{ .compatible = "renesas,r8a7745-sysc", .data = &r8a7745_sysc_info },
 #endif
 #ifdef CONFIG_SYSC_R8A77470
 	{ .compatible = "renesas,r8a77470-sysc", .data = &r8a77470_sysc_info },
-#endif
-#ifdef CONFIG_SYSC_R8A774A1
-	{ .compatible = "renesas,r8a774a1-sysc", .data = &r8a774a1_sysc_info },
-#endif
-#ifdef CONFIG_SYSC_R8A774C0
-	{ .compatible = "renesas,r8a774c0-sysc", .data = &r8a774c0_sysc_info },
 #endif
 #ifdef CONFIG_SYSC_R8A7779
 	{ .compatible = "renesas,r8a7779-sysc", .data = &r8a7779_sysc_info },
@@ -333,6 +329,7 @@ static int __init rcar_sysc_pd_init(void)
 	const struct of_device_id *match;
 	struct rcar_pm_domains *domains;
 	struct device_node *np;
+	u32 syscier, syscimr;
 	void __iomem *base;
 	unsigned int i;
 	int error;
@@ -371,6 +368,27 @@ static int __init rcar_sysc_pd_init(void)
 	domains->onecell_data.num_domains = ARRAY_SIZE(domains->domains);
 	rcar_sysc_onecell_data = &domains->onecell_data;
 
+	for (i = 0, syscier = 0; i < info->num_areas; i++)
+		syscier |= BIT(info->areas[i].isr_bit);
+
+	/*
+	 * Mask all interrupt sources to prevent the CPU from receiving them.
+	 * Make sure not to clear reserved bits that were set before.
+	 */
+	syscimr = ioread32(base + SYSCIMR);
+	syscimr |= syscier;
+	pr_debug("%pOF: syscimr = 0x%08x\n", np, syscimr);
+	iowrite32(syscimr, base + SYSCIMR);
+
+	/*
+	 * SYSC needs all interrupt sources enabled to control power.
+	 */
+	pr_debug("%pOF: syscier = 0x%08x\n", np, syscier);
+	iowrite32(syscier, base + SYSCIER);
+
+	/*
+	 * First, create all PM domains
+	 */
 	for (i = 0; i < info->num_areas; i++) {
 		const struct rcar_sysc_area *area = &info->areas[i];
 		struct rcar_sysc_pd *pd;
@@ -398,17 +416,22 @@ static int __init rcar_sysc_pd_init(void)
 			goto out_put;
 
 		domains->domains[area->isr_bit] = &pd->genpd;
+	}
 
-		if (area->parent < 0)
+	/*
+	 * Second, link all PM domains to their parents
+	 */
+	for (i = 0; i < info->num_areas; i++) {
+		const struct rcar_sysc_area *area = &info->areas[i];
+
+		if (!area->name || area->parent < 0)
 			continue;
 
 		error = pm_genpd_add_subdomain(domains->domains[area->parent],
-					       &pd->genpd);
-		if (error) {
+					       domains->domains[area->isr_bit]);
+		if (error)
 			pr_warn("Failed to add PM subdomain %s to parent %u\n",
 				area->name, area->parent);
-			goto out_put;
-		}
 	}
 
 	error = of_genpd_add_provider_onecell(np, &domains->onecell_data);
@@ -450,7 +473,8 @@ static int rcar_sysc_power_cpu(unsigned int idx, bool on)
 		if (!(pd->flags & PD_CPU) || pd->ch.chan_bit != idx)
 			continue;
 
-		return rcar_sysc_power(&pd->ch, on);
+		return on ? rcar_sysc_power_up(&pd->ch)
+			  : rcar_sysc_power_down(&pd->ch);
 	}
 
 	return -ENOENT;

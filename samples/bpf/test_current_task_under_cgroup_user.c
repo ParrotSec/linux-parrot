@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <bpf/bpf.h>
 #include "bpf_load.h"
+#include <linux/bpf.h>
 #include "cgroup_helpers.h"
 
 #define CGROUP_PATH		"/my-cgroup"
@@ -32,7 +33,7 @@ int main(int argc, char **argv)
 
 	cg2 = create_and_get_cgroup(CGROUP_PATH);
 
-	if (cg2 < 0)
+	if (!cg2)
 		goto err;
 
 	if (bpf_map_update_elem(map_fd[0], &idx, &cg2, BPF_ANY)) {

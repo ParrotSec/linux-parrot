@@ -1,11 +1,4 @@
-.. Permission is granted to copy, distribute and/or modify this
-.. document under the terms of the GNU Free Documentation License,
-.. Version 1.1 or any later version published by the Free Software
-.. Foundation, with no Invariant Sections, no Front-Cover Texts
-.. and no Back-Cover Texts. A copy of the license is included at
-.. Documentation/media/uapi/fdl-appendix.rst.
-..
-.. TODO: replace it to GFDL-1.1-or-later WITH no-invariant-sections
+.. -*- coding: utf-8; mode: rst -*-
 
 .. _media-controller-types:
 
@@ -164,7 +157,7 @@ Types and flags used to represent the media graph elements
 
     *  -  ``MEDIA_ENT_F_PROC_VIDEO_PIXEL_ENC_CONV``
        -  Video pixel encoding converter. An entity capable of pixel
-	  encoding conversion must have at least one sink pad and one
+	  enconding conversion must have at least one sink pad and one
 	  source pad, and convert the encoding of pixels received on
 	  its sink pad(s) to a different encoding output on its source
 	  pad(s). Pixel encoding conversion includes but isn't limited

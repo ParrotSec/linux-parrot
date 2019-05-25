@@ -214,7 +214,6 @@ nouveau_abi16_ioctl_getparam(ABI16_IOCTL_ARGS)
 			WARN_ON(1);
 			break;
 		}
-		break;
 	case NOUVEAU_GETPARAM_FB_SIZE:
 		getparam->value = drm->gem.vram_available;
 		break;
@@ -307,7 +306,7 @@ nouveau_abi16_ioctl_channel_alloc(ABI16_IOCTL_ARGS)
 
 	/* create channel object and initialise dma and fence management */
 	ret = nouveau_channel_new(drm, device, init->fb_ctxdma_handle,
-				  init->tt_ctxdma_handle, false, &chan->chan);
+				  init->tt_ctxdma_handle, &chan->chan);
 	if (ret)
 		goto done;
 
@@ -339,8 +338,7 @@ nouveau_abi16_ioctl_channel_alloc(ABI16_IOCTL_ARGS)
 		goto done;
 
 	if (device->info.family >= NV_DEVICE_INFO_V0_TESLA) {
-		ret = nouveau_vma_new(chan->ntfy, chan->chan->vmm,
-				      &chan->ntfy_vma);
+		ret = nouveau_vma_new(chan->ntfy, &cli->vmm, &chan->ntfy_vma);
 		if (ret)
 			goto done;
 	}

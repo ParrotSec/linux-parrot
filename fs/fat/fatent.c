@@ -290,17 +290,19 @@ void fat_ent_access_init(struct super_block *sb)
 
 	mutex_init(&sbi->fat_lock);
 
-	if (is_fat32(sbi)) {
+	switch (sbi->fat_bits) {
+	case 32:
 		sbi->fatent_shift = 2;
 		sbi->fatent_ops = &fat32_ops;
-	} else if (is_fat16(sbi)) {
+		break;
+	case 16:
 		sbi->fatent_shift = 1;
 		sbi->fatent_ops = &fat16_ops;
-	} else if (is_fat12(sbi)) {
+		break;
+	case 12:
 		sbi->fatent_shift = -1;
 		sbi->fatent_ops = &fat12_ops;
-	} else {
-		fat_fs_error(sb, "invalid FAT variant, %u bits", sbi->fat_bits);
+		break;
 	}
 }
 
@@ -308,7 +310,7 @@ static void mark_fsinfo_dirty(struct super_block *sb)
 {
 	struct msdos_sb_info *sbi = MSDOS_SB(sb);
 
-	if (sb_rdonly(sb) || !is_fat32(sbi))
+	if (sb_rdonly(sb) || sbi->fat_bits != 32)
 		return;
 
 	__mark_inode_dirty(sbi->fsinfo_inode, I_DIRTY_SYNC);
@@ -325,7 +327,7 @@ static inline int fat_ent_update_ptr(struct super_block *sb,
 	/* Is this fatent's blocks including this entry? */
 	if (!fatent->nr_bhs || bhs[0]->b_blocknr != blocknr)
 		return 0;
-	if (is_fat12(sbi)) {
+	if (sbi->fat_bits == 12) {
 		if ((offset + 1) < sb->s_blocksize) {
 			/* This entry is on bhs[0]. */
 			if (fatent->nr_bhs == 2) {

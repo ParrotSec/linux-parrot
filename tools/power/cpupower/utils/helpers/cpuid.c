@@ -8,7 +8,7 @@
 #include "helpers/helpers.h"
 
 static const char *cpu_vendor_table[X86_VENDOR_MAX] = {
-	"Unknown", "GenuineIntel", "AuthenticAMD", "HygonGenuine",
+	"Unknown", "GenuineIntel", "AuthenticAMD",
 };
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -109,7 +109,6 @@ out:
 	fclose(fp);
 	/* Get some useful CPU capabilities from cpuid */
 	if (cpu_info->vendor != X86_VENDOR_AMD &&
-	    cpu_info->vendor != X86_VENDOR_HYGON &&
 	    cpu_info->vendor != X86_VENDOR_INTEL)
 		return ret;
 
@@ -125,9 +124,8 @@ out:
 	if (cpuid_level >= 6 && (cpuid_ecx(6) & 0x1))
 		cpu_info->caps |= CPUPOWER_CAP_APERF;
 
-	/* AMD or Hygon Boost state enable/disable register */
-	if (cpu_info->vendor == X86_VENDOR_AMD ||
-	    cpu_info->vendor == X86_VENDOR_HYGON) {
+	/* AMD Boost state enable/disable register */
+	if (cpu_info->vendor == X86_VENDOR_AMD) {
 		if (ext_cpuid_level >= 0x80000007 &&
 		    (cpuid_edx(0x80000007) & (1 << 9)))
 			cpu_info->caps |= CPUPOWER_CAP_AMD_CBP;

@@ -39,6 +39,8 @@ struct ims_pcu_gamepad {
 
 struct ims_pcu_backlight {
 	struct led_classdev cdev;
+	struct work_struct work;
+	enum led_brightness desired_brightness;
 	char name[32];
 };
 
@@ -947,14 +949,14 @@ out:
 
 #define IMS_PCU_MAX_BRIGHTNESS		31998
 
-static int ims_pcu_backlight_set_brightness(struct led_classdev *cdev,
-					    enum led_brightness value)
+static void ims_pcu_backlight_work(struct work_struct *work)
 {
 	struct ims_pcu_backlight *backlight =
-			container_of(cdev, struct ims_pcu_backlight, cdev);
+			container_of(work, struct ims_pcu_backlight, work);
 	struct ims_pcu *pcu =
 			container_of(backlight, struct ims_pcu, backlight);
-	__le16 br_val = cpu_to_le16(value);
+	int desired_brightness = backlight->desired_brightness;
+	__le16 br_val = cpu_to_le16(desired_brightness);
 	int error;
 
 	mutex_lock(&pcu->cmd_mutex);
@@ -964,11 +966,19 @@ static int ims_pcu_backlight_set_brightness(struct led_classdev *cdev,
 	if (error && error != -ENODEV)
 		dev_warn(pcu->dev,
 			 "Failed to set desired brightness %u, error: %d\n",
-			 value, error);
+			 desired_brightness, error);
 
 	mutex_unlock(&pcu->cmd_mutex);
+}
 
-	return error;
+static void ims_pcu_backlight_set_brightness(struct led_classdev *cdev,
+					     enum led_brightness value)
+{
+	struct ims_pcu_backlight *backlight =
+			container_of(cdev, struct ims_pcu_backlight, cdev);
+
+	backlight->desired_brightness = value;
+	schedule_work(&backlight->work);
 }
 
 static enum led_brightness
@@ -1005,14 +1015,14 @@ static int ims_pcu_setup_backlight(struct ims_pcu *pcu)
 	struct ims_pcu_backlight *backlight = &pcu->backlight;
 	int error;
 
+	INIT_WORK(&backlight->work, ims_pcu_backlight_work);
 	snprintf(backlight->name, sizeof(backlight->name),
 		 "pcu%d::kbd_backlight", pcu->device_no);
 
 	backlight->cdev.name = backlight->name;
 	backlight->cdev.max_brightness = IMS_PCU_MAX_BRIGHTNESS;
 	backlight->cdev.brightness_get = ims_pcu_backlight_get_brightness;
-	backlight->cdev.brightness_set_blocking =
-					 ims_pcu_backlight_set_brightness;
+	backlight->cdev.brightness_set = ims_pcu_backlight_set_brightness;
 
 	error = led_classdev_register(pcu->dev, &backlight->cdev);
 	if (error) {
@@ -1030,6 +1040,7 @@ static void ims_pcu_destroy_backlight(struct ims_pcu *pcu)
 	struct ims_pcu_backlight *backlight = &pcu->backlight;
 
 	led_classdev_unregister(&backlight->cdev);
+	cancel_work_sync(&backlight->work);
 }
 
 

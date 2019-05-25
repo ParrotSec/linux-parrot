@@ -2,9 +2,7 @@ Actions Semiconductor Owl I2C controller
 
 Required properties:
 
-- compatible        : Should be one of the following:
-		      - "actions,s700-i2c" for S700 SoC
-		      - "actions,s900-i2c" for S900 SoC
+- compatible        : Should be "actions,s900-i2c".
 - reg               : Offset and length of the register set for the device.
 - #address-cells    : Should be 1.
 - #size-cells       : Should be 0.

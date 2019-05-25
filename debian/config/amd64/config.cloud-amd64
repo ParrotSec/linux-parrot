@@ -17,6 +17,7 @@
 # CONFIG_AMD_NUMA is not set
 # CONFIG_ISA_DMA_API is not set
 # CONFIG_ISA is not set
+# CONFIG_EISA is not set
 # CONFIG_X86_X32 is not set
 
 ##
@@ -32,6 +33,11 @@
 ##
 ## file: block/Kconfig.iosched
 ##
+CONFIG_IOSCHED_CFQ=m
+## choice: Default I/O scheduler
+# CONFIG_DEFAULT_CFQ is not set
+CONFIG_DEFAULT_NOOP=y
+## end choice
 CONFIG_MQ_IOSCHED_DEADLINE=m
 
 ##
@@ -139,6 +145,7 @@ CONFIG_ATA_PIIX=m
 ## file: drivers/block/Kconfig
 ##
 # CONFIG_BLK_DEV_FD is not set
+# CONFIG_BLK_DEV_DAC960 is not set
 # CONFIG_BLK_DEV_UMEM is not set
 # CONFIG_BLK_DEV_SKD is not set
 # CONFIG_BLK_DEV_SX8 is not set
@@ -221,11 +228,6 @@ CONFIG_XEN_BLKDEV_FRONTEND=m
 # CONFIG_EDAC is not set
 
 ##
-## file: drivers/eisa/Kconfig
-##
-# CONFIG_EISA is not set
-
-##
 ## file: drivers/extcon/Kconfig
 ##
 # CONFIG_EXTCON is not set
@@ -235,6 +237,12 @@ CONFIG_XEN_BLKDEV_FRONTEND=m
 ##
 # CONFIG_FIREWIRE is not set
 # CONFIG_FIREWIRE_NOSY is not set
+
+##
+## file: drivers/firmware/Kconfig
+##
+# CONFIG_DELL_RBU is not set
+# CONFIG_DCDBAS is not set
 
 ##
 ## file: drivers/fmc/Kconfig
@@ -893,8 +901,6 @@ CONFIG_HYPERV_NET=m
 ## file: drivers/platform/x86/Kconfig
 ##
 # CONFIG_X86_PLATFORM_DEVICES is not set
-# CONFIG_DCDBAS is not set
-# CONFIG_DELL_RBU is not set
 
 ##
 ## file: drivers/pnp/Kconfig
@@ -948,8 +954,6 @@ CONFIG_SCSI_FC_ATTRS=m
 # CONFIG_SCSI_ADVANSYS is not set
 # CONFIG_SCSI_ARCMSR is not set
 # CONFIG_SCSI_HPTIOP is not set
-# CONFIG_SCSI_MYRB is not set
-# CONFIG_SCSI_MYRS is not set
 CONFIG_HYPERV_STORAGE=m
 # CONFIG_LIBFC is not set
 # CONFIG_SCSI_SNIC is not set

@@ -11,5 +11,3 @@ FPGA Subsystem
    fpga-mgr
    fpga-bridge
    fpga-region
-   fpga-programming
-

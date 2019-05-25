@@ -80,9 +80,9 @@ static int __init pps_ktimer_init(void)
 {
 	pps = pps_register_source(&pps_ktimer_info,
 				PPS_CAPTUREASSERT | PPS_OFFSETASSERT);
-	if (IS_ERR(pps)) {
+	if (pps == NULL) {
 		pr_err("cannot register PPS source\n");
-		return PTR_ERR(pps);
+		return -ENOMEM;
 	}
 
 	timer_setup(&ktimer, pps_ktimer_event, 0);

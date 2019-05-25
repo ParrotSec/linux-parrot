@@ -79,6 +79,8 @@
 
 	mmc0_pwrseq: mmc0_pwrseq {
 		compatible = "mmc-pwrseq-simple";
+		pinctrl-names = "default";
+		pinctrl-0 = <&chip_wifi_reg_on_pin>;
 		reset-gpios = <&pio 2 19 GPIO_ACTIVE_LOW>; /* PC19 */
 	};
 
@@ -107,6 +109,8 @@
 };
 
 &i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins_a>;
 	status = "okay";
 
 	axp209: pmic@34 {
@@ -133,10 +137,14 @@
 };
 
 &i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins_a>;
 	status = "disabled";
 };
 
 &i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins_a>;
 	status = "okay";
 
 	xio: gpio@38 {
@@ -153,11 +161,13 @@
 	};
 };
 
-&mmc0_pins {
+&mmc0_pins_a {
 	bias-pull-up;
 };
 
 &mmc0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc0_pins_a>;
 	vmmc-supply = <&reg_vcc3v3>;
 	mmc-pwrseq = <&mmc0_pwrseq>;
 	bus-width = <4>;
@@ -174,7 +184,22 @@
 };
 
 &pio {
-	chip_w1_pin: chip-w1-pin {
+	chip_vbus_pin: chip_vbus_pin@0 {
+		pins = "PB10";
+		function = "gpio_out";
+	};
+
+	chip_wifi_reg_on_pin: chip_wifi_reg_on_pin@0 {
+	        pins = "PC19";
+	        function = "gpio_out";
+	};
+
+	chip_id_det_pin: chip_id_det_pin@0 {
+		pins = "PG2";
+		function = "gpio_in";
+	};
+
+	chip_w1_pin: chip_w1_pin@0 {
 		pins = "PD2";
 		function = "gpio_in";
 	        bias-pull-up;
@@ -235,6 +260,7 @@
 };
 
 &reg_usb0_vbus {
+	pinctrl-0 = <&chip_vbus_pin>;
 	vin-supply = <&reg_vcc5v0>;
 	gpio = <&pio 1 10 GPIO_ACTIVE_HIGH>; /* PB10 */
 	status = "okay";
@@ -242,7 +268,7 @@
 
 &spi2 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&spi2_pe_pins>;
+	pinctrl-0 = <&spi2_pins_a>;
 	status = "disabled";
 };
 
@@ -256,14 +282,14 @@
 
 &uart1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart1_pg_pins>;
+	pinctrl-0 = <&uart1_pins_b>;
 	status = "okay";
 };
 
 &uart3 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart3_pg_pins>,
-		    <&uart3_cts_rts_pg_pins>;
+	pinctrl-0 = <&uart3_pins_a>,
+		    <&uart3_cts_rts_pins_a>;
 	status = "okay";
 };
 
@@ -277,6 +303,8 @@
 };
 
 &usbphy {
+	pinctrl-names = "default";
+	pinctrl-0 = <&chip_id_det_pin>;
 	status = "okay";
 
 	usb0_id_det-gpio = <&pio 6 2 GPIO_ACTIVE_HIGH>; /* PG2 */

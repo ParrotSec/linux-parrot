@@ -5,7 +5,6 @@
 
 #include <linux/component.h>
 #include <linux/module.h>
-#include <linux/of_device.h>
 #include <linux/platform_device.h>
 
 #include <drm/drm_of.h>
@@ -21,8 +20,7 @@ static void sun8i_dw_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 {
 	struct sun8i_dw_hdmi *hdmi = encoder_to_sun8i_dw_hdmi(encoder);
 
-	if (hdmi->quirks->set_rate)
-		clk_set_rate(hdmi->clk_tmds, mode->crtc_clock * 1000);
+	clk_set_rate(hdmi->clk_tmds, mode->crtc_clock * 1000);
 }
 
 static const struct drm_encoder_helper_funcs
@@ -35,26 +33,10 @@ static const struct drm_encoder_funcs sun8i_dw_hdmi_encoder_funcs = {
 };
 
 static enum drm_mode_status
-sun8i_dw_hdmi_mode_valid_a83t(struct drm_connector *connector,
-			      const struct drm_display_mode *mode)
+sun8i_dw_hdmi_mode_valid(struct drm_connector *connector,
+			 const struct drm_display_mode *mode)
 {
 	if (mode->clock > 297000)
-		return MODE_CLOCK_HIGH;
-
-	return MODE_OK;
-}
-
-static enum drm_mode_status
-sun8i_dw_hdmi_mode_valid_h6(struct drm_connector *connector,
-			    const struct drm_display_mode *mode)
-{
-	/*
-	 * Controller support maximum of 594 MHz, which correlates to
-	 * 4K@60Hz 4:4:4 or RGB. However, for frequencies greater than
-	 * 340 MHz scrambling has to be enabled. Because scrambling is
-	 * not yet implemented, just limit to 340 MHz for now.
-	 */
-	if (mode->clock > 340000)
 		return MODE_CLOCK_HIGH;
 
 	return MODE_OK;
@@ -120,8 +102,6 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
 	hdmi->dev = &pdev->dev;
 	encoder = &hdmi->encoder;
 
-	hdmi->quirks = of_device_get_match_data(dev);
-
 	encoder->possible_crtcs =
 		sun8i_dw_hdmi_find_possible_crtcs(drm, dev->of_node);
 	/*
@@ -145,22 +125,10 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
 		return PTR_ERR(hdmi->clk_tmds);
 	}
 
-	hdmi->regulator = devm_regulator_get(dev, "hvcc");
-	if (IS_ERR(hdmi->regulator)) {
-		dev_err(dev, "Couldn't get regulator\n");
-		return PTR_ERR(hdmi->regulator);
-	}
-
-	ret = regulator_enable(hdmi->regulator);
-	if (ret) {
-		dev_err(dev, "Failed to enable regulator\n");
-		return ret;
-	}
-
 	ret = reset_control_deassert(hdmi->rst_ctrl);
 	if (ret) {
 		dev_err(dev, "Could not deassert ctrl reset control\n");
-		goto err_disable_regulator;
+		return ret;
 	}
 
 	ret = clk_prepare_enable(hdmi->clk_tmds);
@@ -188,8 +156,10 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
 
 	sun8i_hdmi_phy_init(hdmi->phy);
 
-	plat_data->mode_valid = hdmi->quirks->mode_valid;
-	sun8i_hdmi_phy_set_ops(hdmi->phy, plat_data);
+	plat_data->mode_valid = &sun8i_dw_hdmi_mode_valid;
+	plat_data->phy_ops = sun8i_hdmi_phy_get_ops();
+	plat_data->phy_name = "sun8i_dw_hdmi_phy";
+	plat_data->phy_data = hdmi->phy;
 
 	platform_set_drvdata(pdev, hdmi);
 
@@ -213,8 +183,6 @@ err_disable_clk_tmds:
 	clk_disable_unprepare(hdmi->clk_tmds);
 err_assert_ctrl_reset:
 	reset_control_assert(hdmi->rst_ctrl);
-err_disable_regulator:
-	regulator_disable(hdmi->regulator);
 
 	return ret;
 }
@@ -228,7 +196,6 @@ static void sun8i_dw_hdmi_unbind(struct device *dev, struct device *master,
 	sun8i_hdmi_phy_remove(hdmi);
 	clk_disable_unprepare(hdmi->clk_tmds);
 	reset_control_assert(hdmi->rst_ctrl);
-	regulator_disable(hdmi->regulator);
 }
 
 static const struct component_ops sun8i_dw_hdmi_ops = {
@@ -248,24 +215,8 @@ static int sun8i_dw_hdmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct sun8i_dw_hdmi_quirks sun8i_a83t_quirks = {
-	.mode_valid = sun8i_dw_hdmi_mode_valid_a83t,
-	.set_rate = true,
-};
-
-static const struct sun8i_dw_hdmi_quirks sun50i_h6_quirks = {
-	.mode_valid = sun8i_dw_hdmi_mode_valid_h6,
-};
-
 static const struct of_device_id sun8i_dw_hdmi_dt_ids[] = {
-	{
-		.compatible = "allwinner,sun8i-a83t-dw-hdmi",
-		.data = &sun8i_a83t_quirks,
-	},
-	{
-		.compatible = "allwinner,sun50i-h6-dw-hdmi",
-		.data = &sun50i_h6_quirks,
-	},
+	{ .compatible = "allwinner,sun8i-a83t-dw-hdmi" },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, sun8i_dw_hdmi_dt_ids);

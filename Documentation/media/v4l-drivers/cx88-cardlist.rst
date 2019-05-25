@@ -1,5 +1,3 @@
-.. SPDX-License-Identifier: GPL-2.0
-
 CX88 cards list
 ===============
 

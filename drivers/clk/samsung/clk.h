@@ -26,7 +26,7 @@ struct samsung_clk_provider {
 	void __iomem *reg_base;
 	struct device *dev;
 	spinlock_t lock;
-	/* clk_data must be the last entry due to variable length 'hws' array */
+	/* clk_data must be the last entry due to variable lenght 'hws' array */
 	struct clk_hw_onecell_data clk_data;
 };
 
@@ -279,8 +279,6 @@ struct samsung_clock_reg_cache {
 	void __iomem *reg_base;
 	struct samsung_clk_reg_dump *rdump;
 	unsigned int rd_num;
-	const struct samsung_clk_reg_dump *rsuspend;
-	unsigned int rsuspend_num;
 };
 
 struct samsung_cmu_info {
@@ -360,21 +358,9 @@ extern struct samsung_clk_provider __init *samsung_cmu_register_one(
 
 extern unsigned long _get_rate(const char *clk_name);
 
-#ifdef CONFIG_PM_SLEEP
-extern void samsung_clk_extended_sleep_init(void __iomem *reg_base,
+extern void samsung_clk_sleep_init(void __iomem *reg_base,
 			const unsigned long *rdump,
-			unsigned long nr_rdump,
-			const struct samsung_clk_reg_dump *rsuspend,
-			unsigned long nr_rsuspend);
-#else
-static inline void samsung_clk_extended_sleep_init(void __iomem *reg_base,
-			const unsigned long *rdump,
-			unsigned long nr_rdump,
-			const struct samsung_clk_reg_dump *rsuspend,
-			unsigned long nr_rsuspend) {}
-#endif
-#define samsung_clk_sleep_init(reg_base, rdump, nr_rdump) \
-	samsung_clk_extended_sleep_init(reg_base, rdump, nr_rdump, NULL, 0)
+			unsigned long nr_rdump);
 
 extern void samsung_clk_save(void __iomem *base,
 			struct samsung_clk_reg_dump *rd,

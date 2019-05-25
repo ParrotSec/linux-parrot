@@ -19,7 +19,6 @@
 #include "gfs2.h"
 #include "incore.h"
 #include "glock.h"
-#include "rgrp.h"
 #include "util.h"
 
 struct kmem_cache *gfs2_glock_cachep __read_mostly;
@@ -182,8 +181,6 @@ int gfs2_consist_rgrpd_i(struct gfs2_rgrpd *rgd, int cluster_wide,
 {
 	struct gfs2_sbd *sdp = rgd->rd_sbd;
 	int rv;
-
-	gfs2_rgrp_dump(NULL, rgd->rd_gl);
 	rv = gfs2_lm_withdraw(sdp,
 			      "fatal: filesystem consistency error\n"
 			      "  RG = %llu\n"
@@ -259,13 +256,12 @@ void gfs2_io_error_bh_i(struct gfs2_sbd *sdp, struct buffer_head *bh,
 			const char *function, char *file, unsigned int line,
 			bool withdraw)
 {
-	if (!test_bit(SDF_SHUTDOWN, &sdp->sd_flags))
-		fs_err(sdp,
-		       "fatal: I/O error\n"
-		       "  block = %llu\n"
-		       "  function = %s, file = %s, line = %u\n",
-		       (unsigned long long)bh->b_blocknr,
-		       function, file, line);
+	fs_err(sdp,
+	       "fatal: I/O error\n"
+	       "  block = %llu\n"
+	       "  function = %s, file = %s, line = %u\n",
+	       (unsigned long long)bh->b_blocknr,
+	       function, file, line);
 	if (withdraw)
 		gfs2_lm_withdraw(sdp, NULL);
 }

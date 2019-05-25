@@ -23,8 +23,6 @@
 #include <asm/hardware.h>
 #include <asm/parisc-device.h>
 
-#include "iommu.h"
-
 struct hppb_card {
 	unsigned long hpa;
 	struct resource mmio_region;

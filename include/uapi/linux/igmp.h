@@ -93,7 +93,6 @@ struct igmpv3_query {
 #define IGMP_MTRACE_RESP		0x1e
 #define IGMP_MTRACE			0x1f
 
-#define IGMP_MRDISC_ADV			0x30	/* From RFC4286 */
 
 /*
  *	Use the BSD names for these for compatibility

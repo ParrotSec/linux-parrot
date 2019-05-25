@@ -216,6 +216,4 @@ ENTRY(memset)
 	b.ne	.Ltail_maybe_long
 	ret
 ENDPIPROC(memset)
-EXPORT_SYMBOL(memset)
 ENDPROC(__memset)
-EXPORT_SYMBOL(__memset)

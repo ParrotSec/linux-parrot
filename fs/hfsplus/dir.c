@@ -565,7 +565,6 @@ const struct inode_operations hfsplus_dir_inode_operations = {
 	.symlink		= hfsplus_symlink,
 	.mknod			= hfsplus_mknod,
 	.rename			= hfsplus_rename,
-	.getattr		= hfsplus_getattr,
 	.listxattr		= hfsplus_listxattr,
 };
 

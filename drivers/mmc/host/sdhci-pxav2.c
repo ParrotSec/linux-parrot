@@ -23,6 +23,7 @@
 #include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/io.h>
+#include <linux/gpio.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 #include <linux/platform_data/pxa_sdhci.h>

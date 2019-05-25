@@ -19,7 +19,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/pinctrl/machine.h>
 
-#include <linux/gpio/driver.h>
+#include <linux/gpio.h>
 
 /**
  * enum pincfg_type - possible pin configuration types supported.

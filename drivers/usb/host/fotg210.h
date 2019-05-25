@@ -177,13 +177,10 @@ struct fotg210_hcd {			/* one per controller */
 	/* irq statistics */
 #ifdef FOTG210_STATS
 	struct fotg210_stats	stats;
-#	define INCR(x) ((x)++)
+#	define COUNT(x) ((x)++)
 #else
-#	define INCR(x) do {} while (0)
+#	define COUNT(x)
 #endif
-
-	/* silicon clock */
-	struct clk		*pclk;
 
 	/* debug files */
 	struct dentry		*debug_dir;

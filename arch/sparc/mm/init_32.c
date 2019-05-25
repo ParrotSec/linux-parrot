@@ -22,6 +22,7 @@
 #include <linux/initrd.h>
 #include <linux/init.h>
 #include <linux/highmem.h>
+#include <linux/bootmem.h>
 #include <linux/memblock.h>
 #include <linux/pagemap.h>
 #include <linux/poison.h>
@@ -264,7 +265,7 @@ void __init mem_init(void)
 	i = last_valid_pfn >> ((20 - PAGE_SHIFT) + 5);
 	i += 1;
 	sparc_valid_addr_bitmap = (unsigned long *)
-		memblock_alloc(i << 2, SMP_CACHE_BYTES);
+		__alloc_bootmem(i << 2, SMP_CACHE_BYTES, 0UL);
 
 	if (sparc_valid_addr_bitmap == NULL) {
 		prom_printf("mem_init: Cannot alloc valid_addr_bitmap.\n");
@@ -276,7 +277,7 @@ void __init mem_init(void)
 
 	max_mapnr = last_valid_pfn - pfn_base;
 	high_memory = __va(max_low_pfn << PAGE_SHIFT);
-	memblock_free_all();
+	free_all_bootmem();
 
 	for (i = 0; sp_banks[i].num_bytes != 0; i++) {
 		unsigned long start_pfn = sp_banks[i].base_addr >> PAGE_SHIFT;

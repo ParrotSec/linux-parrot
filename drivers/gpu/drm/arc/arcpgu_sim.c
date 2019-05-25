@@ -14,9 +14,8 @@
  *
  */
 
+#include <drm/drm_crtc_helper.h>
 #include <drm/drm_atomic_helper.h>
-#include <drm/drm_device.h>
-#include <drm/drm_probe_helper.h>
 
 #include "arcpgu.h"
 
@@ -52,6 +51,7 @@ arcpgu_drm_connector_helper_funcs = {
 };
 
 static const struct drm_connector_funcs arcpgu_drm_connector_funcs = {
+	.dpms = drm_helper_connector_dpms,
 	.reset = drm_atomic_helper_connector_reset,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = arcpgu_drm_connector_destroy,

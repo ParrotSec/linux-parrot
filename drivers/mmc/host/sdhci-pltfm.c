@@ -30,7 +30,6 @@
 
 #include <linux/err.h>
 #include <linux/module.h>
-#include <linux/property.h>
 #include <linux/of.h>
 #ifdef CONFIG_PPC
 #include <asm/machdep.h>
@@ -52,10 +51,11 @@ static const struct sdhci_ops sdhci_pltfm_ops = {
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
 };
 
-static bool sdhci_wp_inverted(struct device *dev)
+#ifdef CONFIG_OF
+static bool sdhci_of_wp_inverted(struct device_node *np)
 {
-	if (device_property_present(dev, "sdhci,wp-inverted") ||
-	    device_property_present(dev, "wp-inverted"))
+	if (of_get_property(np, "sdhci,wp-inverted", NULL) ||
+	    of_get_property(np, "wp-inverted", NULL))
 		return true;
 
 	/* Old device trees don't have the wp-inverted property. */
@@ -66,14 +66,29 @@ static bool sdhci_wp_inverted(struct device *dev)
 #endif /* CONFIG_PPC */
 }
 
-#ifdef CONFIG_OF
-static void sdhci_get_compatibility(struct platform_device *pdev)
+void sdhci_get_of_property(struct platform_device *pdev)
 {
-	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct device_node *np = pdev->dev.of_node;
+	struct sdhci_host *host = platform_get_drvdata(pdev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	u32 bus_width;
 
-	if (!np)
-		return;
+	if (of_get_property(np, "sdhci,auto-cmd12", NULL))
+		host->quirks |= SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12;
+
+	if (of_get_property(np, "sdhci,1-bit-only", NULL) ||
+	    (of_property_read_u32(np, "bus-width", &bus_width) == 0 &&
+	    bus_width == 1))
+		host->quirks |= SDHCI_QUIRK_FORCE_1_BIT_DATA;
+
+	if (sdhci_of_wp_inverted(np))
+		host->quirks |= SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
+
+	if (of_get_property(np, "broken-cd", NULL))
+		host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
+
+	if (of_get_property(np, "no-1-8-v", NULL))
+		host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
 
 	if (of_device_is_compatible(np, "fsl,p2020-rev1-esdhc"))
 		host->quirks |= SDHCI_QUIRK_BROKEN_DMA;
@@ -83,47 +98,20 @@ static void sdhci_get_compatibility(struct platform_device *pdev)
 	    of_device_is_compatible(np, "fsl,t4240-esdhc") ||
 	    of_device_is_compatible(np, "fsl,mpc8536-esdhc"))
 		host->quirks |= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL;
-}
-#else
-void sdhci_get_compatibility(struct platform_device *pdev) {}
-#endif /* CONFIG_OF */
 
-void sdhci_get_property(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	struct sdhci_host *host = platform_get_drvdata(pdev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	u32 bus_width;
+	of_property_read_u32(np, "clock-frequency", &pltfm_host->clock);
 
-	if (device_property_present(dev, "sdhci,auto-cmd12"))
-		host->quirks |= SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12;
-
-	if (device_property_present(dev, "sdhci,1-bit-only") ||
-	    (device_property_read_u32(dev, "bus-width", &bus_width) == 0 &&
-	    bus_width == 1))
-		host->quirks |= SDHCI_QUIRK_FORCE_1_BIT_DATA;
-
-	if (sdhci_wp_inverted(dev))
-		host->quirks |= SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
-
-	if (device_property_present(dev, "broken-cd"))
-		host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
-
-	if (device_property_present(dev, "no-1-8-v"))
-		host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
-
-	sdhci_get_compatibility(pdev);
-
-	device_property_read_u32(dev, "clock-frequency", &pltfm_host->clock);
-
-	if (device_property_present(dev, "keep-power-in-suspend"))
+	if (of_find_property(np, "keep-power-in-suspend", NULL))
 		host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
 
-	if (device_property_read_bool(dev, "wakeup-source") ||
-	    device_property_read_bool(dev, "enable-sdio-wakeup")) /* legacy */
+	if (of_property_read_bool(np, "wakeup-source") ||
+	    of_property_read_bool(np, "enable-sdio-wakeup")) /* legacy */
 		host->mmc->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
 }
-EXPORT_SYMBOL_GPL(sdhci_get_property);
+#else
+void sdhci_get_of_property(struct platform_device *pdev) {}
+#endif /* CONFIG_OF */
+EXPORT_SYMBOL_GPL(sdhci_get_of_property);
 
 struct sdhci_host *sdhci_pltfm_init(struct platform_device *pdev,
 				    const struct sdhci_pltfm_data *pdata,
@@ -196,7 +184,7 @@ int sdhci_pltfm_register(struct platform_device *pdev,
 	if (IS_ERR(host))
 		return PTR_ERR(host);
 
-	sdhci_get_property(pdev);
+	sdhci_get_of_property(pdev);
 
 	ret = sdhci_add_host(host);
 	if (ret)

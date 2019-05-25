@@ -60,9 +60,9 @@ struct mdev_device *mdev_from_dev(struct device *dev)
 }
 EXPORT_SYMBOL(mdev_from_dev);
 
-const guid_t *mdev_uuid(struct mdev_device *mdev)
+uuid_le mdev_uuid(struct mdev_device *mdev)
 {
-	return &mdev->uuid;
+	return mdev->uuid;
 }
 EXPORT_SYMBOL(mdev_uuid);
 
@@ -88,7 +88,8 @@ static void mdev_release_parent(struct kref *kref)
 	put_device(dev);
 }
 
-static inline struct mdev_parent *mdev_get_parent(struct mdev_parent *parent)
+static
+inline struct mdev_parent *mdev_get_parent(struct mdev_parent *parent)
 {
 	if (parent)
 		kref_get(&parent->ref);
@@ -275,8 +276,7 @@ static void mdev_device_release(struct device *dev)
 	kfree(mdev);
 }
 
-int mdev_device_create(struct kobject *kobj,
-		       struct device *dev, const guid_t *uuid)
+int mdev_device_create(struct kobject *kobj, struct device *dev, uuid_le uuid)
 {
 	int ret;
 	struct mdev_device *mdev, *tmp;
@@ -291,7 +291,7 @@ int mdev_device_create(struct kobject *kobj,
 
 	/* Check for duplicate */
 	list_for_each_entry(tmp, &mdev_list, next) {
-		if (guid_equal(&tmp->uuid, uuid)) {
+		if (!uuid_le_cmp(tmp->uuid, uuid)) {
 			mutex_unlock(&mdev_list_lock);
 			ret = -EEXIST;
 			goto mdev_fail;
@@ -305,7 +305,7 @@ int mdev_device_create(struct kobject *kobj,
 		goto mdev_fail;
 	}
 
-	guid_copy(&mdev->uuid, uuid);
+	memcpy(&mdev->uuid, &uuid, sizeof(uuid_le));
 	list_add(&mdev->next, &mdev_list);
 	mutex_unlock(&mdev_list_lock);
 
@@ -315,7 +315,7 @@ int mdev_device_create(struct kobject *kobj,
 	mdev->dev.parent  = dev;
 	mdev->dev.bus     = &mdev_bus_type;
 	mdev->dev.release = mdev_device_release;
-	dev_set_name(&mdev->dev, "%pUl", uuid);
+	dev_set_name(&mdev->dev, "%pUl", uuid.b);
 
 	ret = device_register(&mdev->dev);
 	if (ret) {

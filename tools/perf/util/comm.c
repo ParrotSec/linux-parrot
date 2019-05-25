@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <linux/refcount.h>
-#include <linux/rbtree.h>
 #include "rwsem.h"
 
 struct comm_str {

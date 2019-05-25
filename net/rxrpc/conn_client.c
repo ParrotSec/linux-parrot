@@ -562,7 +562,10 @@ static void rxrpc_activate_one_channel(struct rxrpc_connection *conn,
 	clear_bit(RXRPC_CONN_FINAL_ACK_0 + channel, &conn->flags);
 
 	write_lock_bh(&call->state_lock);
-	call->state = RXRPC_CALL_CLIENT_SEND_REQUEST;
+	if (!test_bit(RXRPC_CALL_TX_LASTQ, &call->flags))
+		call->state = RXRPC_CALL_CLIENT_SEND_REQUEST;
+	else
+		call->state = RXRPC_CALL_CLIENT_AWAIT_REPLY;
 	write_unlock_bh(&call->state_lock);
 
 	rxrpc_see_call(call);

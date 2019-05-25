@@ -257,7 +257,10 @@ static int handle_tx(struct ser_device *ser)
 		if (skb->len == 0) {
 			struct sk_buff *tmp = skb_dequeue(&ser->head);
 			WARN_ON(tmp != skb);
-			dev_consume_skb_any(skb);
+			if (in_interrupt())
+				dev_kfree_skb_irq(skb);
+			else
+				kfree_skb(skb);
 		}
 	}
 	/* Send flow off if queue is empty */

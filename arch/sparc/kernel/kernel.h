@@ -45,11 +45,7 @@ void __irq_entry smp_receive_signal_client(int irq, struct pt_regs *regs);
 void __irq_entry smp_kgdb_capture_client(int irq, struct pt_regs *regs);
 
 /* pci.c */
-#ifdef CONFIG_PCI
-int ali_sound_dma_hack(struct device *dev, u64 device_mask);
-#else
-#define ali_sound_dma_hack(dev, mask)	(0)
-#endif
+int pci64_dma_supported(struct pci_dev *pdev, u64 device_mask);
 
 /* signal32.c */
 void do_sigreturn32(struct pt_regs *regs);

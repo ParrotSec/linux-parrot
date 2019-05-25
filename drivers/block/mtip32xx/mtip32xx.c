@@ -40,7 +40,6 @@
 #include <linux/export.h>
 #include <linux/debugfs.h>
 #include <linux/prefetch.h>
-#include <linux/numa.h>
 #include "mtip32xx.h"
 
 #define HW_CMD_SLOT_SZ		(MTIP_MAX_COMMAND_SLOTS * 32)
@@ -167,6 +166,41 @@ static bool mtip_check_surprise_removal(struct pci_dev *pdev)
 	}
 
 	return false; /* device present */
+}
+
+/* we have to use runtime tag to setup command header */
+static void mtip_init_cmd_header(struct request *rq)
+{
+	struct driver_data *dd = rq->q->queuedata;
+	struct mtip_cmd *cmd = blk_mq_rq_to_pdu(rq);
+
+	/* Point the command headers at the command tables. */
+	cmd->command_header = dd->port->command_list +
+				(sizeof(struct mtip_cmd_hdr) * rq->tag);
+	cmd->command_header_dma = dd->port->command_list_dma +
+				(sizeof(struct mtip_cmd_hdr) * rq->tag);
+
+	if (test_bit(MTIP_PF_HOST_CAP_64, &dd->port->flags))
+		cmd->command_header->ctbau = __force_bit2int cpu_to_le32((cmd->command_dma >> 16) >> 16);
+
+	cmd->command_header->ctba = __force_bit2int cpu_to_le32(cmd->command_dma & 0xFFFFFFFF);
+}
+
+static struct mtip_cmd *mtip_get_int_command(struct driver_data *dd)
+{
+	struct request *rq;
+
+	if (mtip_check_surprise_removal(dd->pdev))
+		return NULL;
+
+	rq = blk_mq_alloc_request(dd->queue, REQ_OP_DRV_IN, BLK_MQ_REQ_RESERVED);
+	if (IS_ERR(rq))
+		return NULL;
+
+	/* Internal cmd isn't submitted via .queue_rq */
+	mtip_init_cmd_header(rq);
+
+	return blk_mq_rq_to_pdu(rq);
 }
 
 static struct mtip_cmd *mtip_cmd_from_tag(struct driver_data *dd,
@@ -989,14 +1023,13 @@ static int mtip_exec_internal_command(struct mtip_port *port,
 		return -EFAULT;
 	}
 
-	if (mtip_check_surprise_removal(dd->pdev))
-		return -EFAULT;
-
-	rq = blk_mq_alloc_request(dd->queue, REQ_OP_DRV_IN, BLK_MQ_REQ_RESERVED);
-	if (IS_ERR(rq)) {
+	int_cmd = mtip_get_int_command(dd);
+	if (!int_cmd) {
 		dbg_printk(MTIP_DRV_NAME "Unable to allocate tag for PIO cmd\n");
 		return -EFAULT;
 	}
+	rq = blk_mq_rq_from_pdu(int_cmd);
+	rq->special = &icmd;
 
 	set_bit(MTIP_PF_IC_ACTIVE_BIT, &port->flags);
 
@@ -1017,8 +1050,6 @@ static int mtip_exec_internal_command(struct mtip_port *port,
 	}
 
 	/* Copy the command to the command table */
-	int_cmd = blk_mq_rq_to_pdu(rq);
-	int_cmd->icmd = &icmd;
 	memcpy(int_cmd->command, fis, fis_len*4);
 
 	rq->timeout = timeout;
@@ -1392,19 +1423,23 @@ static int mtip_get_smart_attr(struct mtip_port *port, unsigned int id,
  * @dd		pointer to driver_data structure
  * @lba		starting lba
  * @len		# of 512b sectors to trim
+ *
+ * return value
+ *      -ENOMEM		Out of dma memory
+ *      -EINVAL		Invalid parameters passed in, trim not supported
+ *      -EIO		Error submitting trim request to hw
  */
-static blk_status_t mtip_send_trim(struct driver_data *dd, unsigned int lba,
-		unsigned int len)
+static int mtip_send_trim(struct driver_data *dd, unsigned int lba,
+				unsigned int len)
 {
+	int i, rv = 0;
 	u64 tlba, tlen, sect_left;
 	struct mtip_trim_entry *buf;
 	dma_addr_t dma_addr;
 	struct host_to_dev_fis fis;
-	blk_status_t ret = BLK_STS_OK;
-	int i;
 
 	if (!len || dd->trim_supp == false)
-		return BLK_STS_IOERR;
+		return -EINVAL;
 
 	/* Trim request too big */
 	WARN_ON(len > (MTIP_MAX_TRIM_ENTRY_LEN * MTIP_MAX_TRIM_ENTRIES));
@@ -1416,10 +1451,10 @@ static blk_status_t mtip_send_trim(struct driver_data *dd, unsigned int lba,
 	WARN_ON(sizeof(struct mtip_trim) > ATA_SECT_SIZE);
 
 	/* Allocate a DMA buffer for the trim structure */
-	buf = dma_alloc_coherent(&dd->pdev->dev, ATA_SECT_SIZE, &dma_addr,
+	buf = dmam_alloc_coherent(&dd->pdev->dev, ATA_SECT_SIZE, &dma_addr,
 								GFP_KERNEL);
 	if (!buf)
-		return BLK_STS_RESOURCE;
+		return -ENOMEM;
 	memset(buf, 0, ATA_SECT_SIZE);
 
 	for (i = 0, sect_left = len, tlba = lba;
@@ -1428,8 +1463,8 @@ static blk_status_t mtip_send_trim(struct driver_data *dd, unsigned int lba,
 		tlen = (sect_left >= MTIP_MAX_TRIM_ENTRY_LEN ?
 					MTIP_MAX_TRIM_ENTRY_LEN :
 					sect_left);
-		buf[i].lba = cpu_to_le32(tlba);
-		buf[i].range = cpu_to_le16(tlen);
+		buf[i].lba = __force_bit2int cpu_to_le32(tlba);
+		buf[i].range = __force_bit2int cpu_to_le16(tlen);
 		tlba += tlen;
 		sect_left -= tlen;
 	}
@@ -1451,10 +1486,10 @@ static blk_status_t mtip_send_trim(struct driver_data *dd, unsigned int lba,
 					ATA_SECT_SIZE,
 					0,
 					MTIP_TRIM_TIMEOUT_MS) < 0)
-		ret = BLK_STS_IOERR;
+		rv = -EIO;
 
-	dma_free_coherent(&dd->pdev->dev, ATA_SECT_SIZE, buf, dma_addr);
-	return ret;
+	dmam_free_coherent(&dd->pdev->dev, ATA_SECT_SIZE, buf, dma_addr);
+	return rv;
 }
 
 /*
@@ -1550,20 +1585,23 @@ static inline void fill_command_sg(struct driver_data *dd,
 	int n;
 	unsigned int dma_len;
 	struct mtip_cmd_sg *command_sg;
-	struct scatterlist *sg;
+	struct scatterlist *sg = command->sg;
 
 	command_sg = command->command + AHCI_CMD_TBL_HDR_SZ;
 
-	for_each_sg(command->sg, sg, nents, n) {
+	for (n = 0; n < nents; n++) {
 		dma_len = sg_dma_len(sg);
 		if (dma_len > 0x400000)
 			dev_err(&dd->pdev->dev,
 				"DMA segment length truncated\n");
-		command_sg->info = cpu_to_le32((dma_len-1) & 0x3FFFFF);
-		command_sg->dba	=  cpu_to_le32(sg_dma_address(sg));
-		command_sg->dba_upper =
+		command_sg->info = __force_bit2int
+			cpu_to_le32((dma_len-1) & 0x3FFFFF);
+		command_sg->dba	= __force_bit2int
+			cpu_to_le32(sg_dma_address(sg));
+		command_sg->dba_upper = __force_bit2int
 			cpu_to_le32((sg_dma_address(sg) >> 16) >> 16);
 		command_sg++;
+		sg++;
 	}
 }
 
@@ -1656,7 +1694,7 @@ static int exec_drive_command(struct mtip_port *port, u8 *command,
 		if (!user_buffer)
 			return -EFAULT;
 
-		buf = dma_alloc_coherent(&port->dd->pdev->dev,
+		buf = dmam_alloc_coherent(&port->dd->pdev->dev,
 				ATA_SECT_SIZE * xfer_sz,
 				&dma_addr,
 				GFP_KERNEL);
@@ -1734,7 +1772,7 @@ static int exec_drive_command(struct mtip_port *port, u8 *command,
 	}
 exit_drive_command:
 	if (buf)
-		dma_free_coherent(&port->dd->pdev->dev,
+		dmam_free_coherent(&port->dd->pdev->dev,
 				ATA_SECT_SIZE * xfer_sz, buf, dma_addr);
 	return rv;
 }
@@ -1824,9 +1862,11 @@ static int exec_drive_taskfile(struct driver_data *dd,
 		if (IS_ERR(outbuf))
 			return PTR_ERR(outbuf);
 
-		outbuf_dma = dma_map_single(&dd->pdev->dev, outbuf,
-					    taskout, DMA_TO_DEVICE);
-		if (dma_mapping_error(&dd->pdev->dev, outbuf_dma)) {
+		outbuf_dma = pci_map_single(dd->pdev,
+					 outbuf,
+					 taskout,
+					 DMA_TO_DEVICE);
+		if (pci_dma_mapping_error(dd->pdev, outbuf_dma)) {
 			err = -ENOMEM;
 			goto abort;
 		}
@@ -1840,9 +1880,10 @@ static int exec_drive_taskfile(struct driver_data *dd,
 			inbuf = NULL;
 			goto abort;
 		}
-		inbuf_dma = dma_map_single(&dd->pdev->dev, inbuf,
-					   taskin, DMA_FROM_DEVICE);
-		if (dma_mapping_error(&dd->pdev->dev, inbuf_dma)) {
+		inbuf_dma = pci_map_single(dd->pdev,
+					 inbuf,
+					 taskin, DMA_FROM_DEVICE);
+		if (pci_dma_mapping_error(dd->pdev, inbuf_dma)) {
 			err = -ENOMEM;
 			goto abort;
 		}
@@ -1904,8 +1945,8 @@ static int exec_drive_taskfile(struct driver_data *dd,
 				dev_warn(&dd->pdev->dev,
 					"data movement but "
 					"sect_count is 0\n");
-				err = -EINVAL;
-				goto abort;
+					err = -EINVAL;
+					goto abort;
 			}
 		}
 	}
@@ -1961,11 +2002,11 @@ static int exec_drive_taskfile(struct driver_data *dd,
 
 	/* reclaim the DMA buffers.*/
 	if (inbuf_dma)
-		dma_unmap_single(&dd->pdev->dev, inbuf_dma, taskin,
-				 DMA_FROM_DEVICE);
+		pci_unmap_single(dd->pdev, inbuf_dma,
+			taskin, DMA_FROM_DEVICE);
 	if (outbuf_dma)
-		dma_unmap_single(&dd->pdev->dev, outbuf_dma, taskout,
-				 DMA_TO_DEVICE);
+		pci_unmap_single(dd->pdev, outbuf_dma,
+			taskout, DMA_TO_DEVICE);
 	inbuf_dma  = 0;
 	outbuf_dma = 0;
 
@@ -2012,11 +2053,11 @@ static int exec_drive_taskfile(struct driver_data *dd,
 	}
 abort:
 	if (inbuf_dma)
-		dma_unmap_single(&dd->pdev->dev, inbuf_dma, taskin,
-				 DMA_FROM_DEVICE);
+		pci_unmap_single(dd->pdev, inbuf_dma,
+					taskin, DMA_FROM_DEVICE);
 	if (outbuf_dma)
-		dma_unmap_single(&dd->pdev->dev, outbuf_dma, taskout,
-				 DMA_TO_DEVICE);
+		pci_unmap_single(dd->pdev, outbuf_dma,
+					taskout, DMA_TO_DEVICE);
 	kfree(outbuf);
 	kfree(inbuf);
 
@@ -2133,6 +2174,7 @@ static int mtip_hw_ioctl(struct driver_data *dd, unsigned int cmd,
  * @dd       Pointer to the driver data structure.
  * @start    First sector to read.
  * @nsect    Number of sectors to read.
+ * @nents    Number of entries in scatter list for the read command.
  * @tag      The tag of this read command.
  * @callback Pointer to the function that should be called
  *	     when the read completes.
@@ -2144,20 +2186,16 @@ static int mtip_hw_ioctl(struct driver_data *dd, unsigned int cmd,
  *	None
  */
 static void mtip_hw_submit_io(struct driver_data *dd, struct request *rq,
-			      struct mtip_cmd *command,
+			      struct mtip_cmd *command, int nents,
 			      struct blk_mq_hw_ctx *hctx)
 {
-	struct mtip_cmd_hdr *hdr =
-		dd->port->command_list + sizeof(struct mtip_cmd_hdr) * rq->tag;
 	struct host_to_dev_fis	*fis;
 	struct mtip_port *port = dd->port;
 	int dma_dir = rq_data_dir(rq) == READ ? DMA_FROM_DEVICE : DMA_TO_DEVICE;
 	u64 start = blk_rq_pos(rq);
 	unsigned int nsect = blk_rq_sectors(rq);
-	unsigned int nents;
 
 	/* Map the scatter list for DMA access */
-	nents = blk_rq_map_sg(hctx->queue, rq, command->sg);
 	nents = dma_map_sg(&dd->pdev->dev, command->sg, nents, dma_dir);
 
 	prefetch(&port->flags);
@@ -2198,11 +2236,10 @@ static void mtip_hw_submit_io(struct driver_data *dd, struct request *rq,
 		fis->device |= 1 << 7;
 
 	/* Populate the command header */
-	hdr->ctba = cpu_to_le32(command->command_dma & 0xFFFFFFFF);
-	if (test_bit(MTIP_PF_HOST_CAP_64, &dd->port->flags))
-		hdr->ctbau = cpu_to_le32((command->command_dma >> 16) >> 16);
-	hdr->opts = cpu_to_le32((nents << 16) | 5 | AHCI_CMD_PREFETCH);
-	hdr->byte_count = 0;
+	command->command_header->opts =
+			__force_bit2int cpu_to_le32(
+				(nents << 16) | 5 | AHCI_CMD_PREFETCH);
+	command->command_header->byte_count = 0;
 
 	command->direction = dma_dir;
 
@@ -2681,12 +2718,12 @@ static void mtip_softirq_done_fn(struct request *rq)
 							cmd->direction);
 
 	if (unlikely(cmd->unaligned))
-		atomic_inc(&dd->port->cmd_slot_unal);
+		up(&dd->port->cmd_slot_unal);
 
 	blk_mq_end_request(rq, cmd->status);
 }
 
-static bool mtip_abort_cmd(struct request *req, void *data, bool reserved)
+static void mtip_abort_cmd(struct request *req, void *data, bool reserved)
 {
 	struct mtip_cmd *cmd = blk_mq_rq_to_pdu(req);
 	struct driver_data *dd = data;
@@ -2696,16 +2733,14 @@ static bool mtip_abort_cmd(struct request *req, void *data, bool reserved)
 	clear_bit(req->tag, dd->port->cmds_to_issue);
 	cmd->status = BLK_STS_IOERR;
 	mtip_softirq_done_fn(req);
-	return true;
 }
 
-static bool mtip_queue_cmd(struct request *req, void *data, bool reserved)
+static void mtip_queue_cmd(struct request *req, void *data, bool reserved)
 {
 	struct driver_data *dd = data;
 
 	set_bit(req->tag, dd->port->cmds_to_issue);
 	blk_abort_request(req);
-	return true;
 }
 
 /*
@@ -2771,7 +2806,10 @@ restart_eh:
 
 			blk_mq_quiesce_queue(dd->queue);
 
-			blk_mq_tagset_busy_iter(&dd->tags, mtip_queue_cmd, dd);
+			spin_lock(dd->queue->queue_lock);
+			blk_mq_tagset_busy_iter(&dd->tags,
+							mtip_queue_cmd, dd);
+			spin_unlock(dd->queue->queue_lock);
 
 			set_bit(MTIP_PF_ISSUE_CMDS_BIT, &dd->port->flags);
 
@@ -2838,11 +2876,11 @@ static void mtip_dma_free(struct driver_data *dd)
 	struct mtip_port *port = dd->port;
 
 	if (port->block1)
-		dma_free_coherent(&dd->pdev->dev, BLOCK_DMA_ALLOC_SZ,
+		dmam_free_coherent(&dd->pdev->dev, BLOCK_DMA_ALLOC_SZ,
 					port->block1, port->block1_dma);
 
 	if (port->command_list) {
-		dma_free_coherent(&dd->pdev->dev, AHCI_CMD_TBL_SZ,
+		dmam_free_coherent(&dd->pdev->dev, AHCI_CMD_TBL_SZ,
 				port->command_list, port->command_list_dma);
 	}
 }
@@ -2861,7 +2899,7 @@ static int mtip_dma_alloc(struct driver_data *dd)
 
 	/* Allocate dma memory for RX Fis, Identify, and Sector Bufffer */
 	port->block1 =
-		dma_alloc_coherent(&dd->pdev->dev, BLOCK_DMA_ALLOC_SZ,
+		dmam_alloc_coherent(&dd->pdev->dev, BLOCK_DMA_ALLOC_SZ,
 					&port->block1_dma, GFP_KERNEL);
 	if (!port->block1)
 		return -ENOMEM;
@@ -2869,10 +2907,10 @@ static int mtip_dma_alloc(struct driver_data *dd)
 
 	/* Allocate dma memory for command list */
 	port->command_list =
-		dma_alloc_coherent(&dd->pdev->dev, AHCI_CMD_TBL_SZ,
+		dmam_alloc_coherent(&dd->pdev->dev, AHCI_CMD_TBL_SZ,
 					&port->command_list_dma, GFP_KERNEL);
 	if (!port->command_list) {
-		dma_free_coherent(&dd->pdev->dev, BLOCK_DMA_ALLOC_SZ,
+		dmam_free_coherent(&dd->pdev->dev, BLOCK_DMA_ALLOC_SZ,
 					port->block1, port->block1_dma);
 		port->block1 = NULL;
 		port->block1_dma = 0;
@@ -2991,7 +3029,7 @@ static int mtip_hw_init(struct driver_data *dd)
 	else
 		dd->unal_qdepth = 0;
 
-	atomic_set(&dd->port->cmd_slot_unal, dd->unal_qdepth);
+	sema_init(&dd->port->cmd_slot_unal, dd->unal_qdepth);
 
 	/* Spinlock to prevent concurrent issue */
 	for (i = 0; i < MTIP_MAX_SLOT_GROUPS; i++)
@@ -3057,8 +3095,13 @@ static int mtip_hw_init(struct driver_data *dd)
 	mtip_start_port(dd->port);
 
 	/* Setup the ISR and enable interrupts. */
-	rv = request_irq(dd->pdev->irq, mtip_irq_handler, IRQF_SHARED,
-			 dev_driver_string(&dd->pdev->dev), dd);
+	rv = devm_request_irq(&dd->pdev->dev,
+				dd->pdev->irq,
+				mtip_irq_handler,
+				IRQF_SHARED,
+				dev_driver_string(&dd->pdev->dev),
+				dd);
+
 	if (rv) {
 		dev_err(&dd->pdev->dev,
 			"Unable to allocate IRQ %d\n", dd->pdev->irq);
@@ -3086,7 +3129,7 @@ out3:
 
 	/* Release the IRQ. */
 	irq_set_affinity_hint(dd->pdev->irq, NULL);
-	free_irq(dd->pdev->irq, dd);
+	devm_free_irq(&dd->pdev->dev, dd->pdev->irq, dd);
 
 out2:
 	mtip_deinit_port(dd->port);
@@ -3141,7 +3184,7 @@ static int mtip_hw_exit(struct driver_data *dd)
 
 	/* Release the IRQ. */
 	irq_set_affinity_hint(dd->pdev->irq, NULL);
-	free_irq(dd->pdev->irq, dd);
+	devm_free_irq(&dd->pdev->dev, dd->pdev->irq, dd);
 	msleep(1000);
 
 	/* Free dma regions */
@@ -3491,24 +3534,58 @@ static inline bool is_se_active(struct driver_data *dd)
 	return false;
 }
 
-static inline bool is_stopped(struct driver_data *dd, struct request *rq)
+/*
+ * Block layer make request function.
+ *
+ * This function is called by the kernel to process a BIO for
+ * the P320 device.
+ *
+ * @queue Pointer to the request queue. Unused other than to obtain
+ *              the driver data structure.
+ * @rq    Pointer to the request.
+ *
+ */
+static int mtip_submit_request(struct blk_mq_hw_ctx *hctx, struct request *rq)
 {
-	if (likely(!(dd->dd_flag & MTIP_DDF_STOP_IO)))
-		return false;
+	struct driver_data *dd = hctx->queue->queuedata;
+	struct mtip_cmd *cmd = blk_mq_rq_to_pdu(rq);
+	unsigned int nents;
 
-	if (test_bit(MTIP_DDF_REMOVE_PENDING_BIT, &dd->dd_flag))
-		return true;
-	if (test_bit(MTIP_DDF_OVER_TEMP_BIT, &dd->dd_flag))
-		return true;
-	if (test_bit(MTIP_DDF_WRITE_PROTECT_BIT, &dd->dd_flag) &&
-	    rq_data_dir(rq))
-		return true;
-	if (test_bit(MTIP_DDF_SEC_LOCK_BIT, &dd->dd_flag))
-		return true;
-	if (test_bit(MTIP_DDF_REBUILD_FAILED_BIT, &dd->dd_flag))
-		return true;
+	if (is_se_active(dd))
+		return -ENODATA;
 
-	return false;
+	if (unlikely(dd->dd_flag & MTIP_DDF_STOP_IO)) {
+		if (unlikely(test_bit(MTIP_DDF_REMOVE_PENDING_BIT,
+							&dd->dd_flag))) {
+			return -ENXIO;
+		}
+		if (unlikely(test_bit(MTIP_DDF_OVER_TEMP_BIT, &dd->dd_flag))) {
+			return -ENODATA;
+		}
+		if (unlikely(test_bit(MTIP_DDF_WRITE_PROTECT_BIT,
+							&dd->dd_flag) &&
+				rq_data_dir(rq))) {
+			return -ENODATA;
+		}
+		if (unlikely(test_bit(MTIP_DDF_SEC_LOCK_BIT, &dd->dd_flag) ||
+			test_bit(MTIP_DDF_REBUILD_FAILED_BIT, &dd->dd_flag)))
+			return -ENODATA;
+	}
+
+	if (req_op(rq) == REQ_OP_DISCARD) {
+		int err;
+
+		err = mtip_send_trim(dd, blk_rq_pos(rq), blk_rq_sectors(rq));
+		blk_mq_end_request(rq, err ? BLK_STS_IOERR : BLK_STS_OK);
+		return 0;
+	}
+
+	/* Create the scatter list for this request. */
+	nents = blk_rq_map_sg(hctx->queue, rq, cmd->sg);
+
+	/* Issue the read/write. */
+	mtip_hw_submit_io(dd, rq, cmd, nents, hctx);
+	return 0;
 }
 
 static bool mtip_check_unal_depth(struct blk_mq_hw_ctx *hctx,
@@ -3529,7 +3606,7 @@ static bool mtip_check_unal_depth(struct blk_mq_hw_ctx *hctx,
 			cmd->unaligned = 1;
 	}
 
-	if (cmd->unaligned && atomic_dec_if_positive(&dd->port->cmd_slot_unal) >= 0)
+	if (cmd->unaligned && down_trylock(&dd->port->cmd_slot_unal))
 		return true;
 
 	return false;
@@ -3539,33 +3616,32 @@ static blk_status_t mtip_issue_reserved_cmd(struct blk_mq_hw_ctx *hctx,
 		struct request *rq)
 {
 	struct driver_data *dd = hctx->queue->queuedata;
+	struct mtip_int_cmd *icmd = rq->special;
 	struct mtip_cmd *cmd = blk_mq_rq_to_pdu(rq);
-	struct mtip_int_cmd *icmd = cmd->icmd;
-	struct mtip_cmd_hdr *hdr =
-		dd->port->command_list + sizeof(struct mtip_cmd_hdr) * rq->tag;
 	struct mtip_cmd_sg *command_sg;
 
 	if (mtip_commands_active(dd->port))
-		return BLK_STS_DEV_RESOURCE;
+		return BLK_STS_RESOURCE;
 
-	hdr->ctba = cpu_to_le32(cmd->command_dma & 0xFFFFFFFF);
-	if (test_bit(MTIP_PF_HOST_CAP_64, &dd->port->flags))
-		hdr->ctbau = cpu_to_le32((cmd->command_dma >> 16) >> 16);
 	/* Populate the SG list */
-	hdr->opts = cpu_to_le32(icmd->opts | icmd->fis_len);
+	cmd->command_header->opts =
+		 __force_bit2int cpu_to_le32(icmd->opts | icmd->fis_len);
 	if (icmd->buf_len) {
 		command_sg = cmd->command + AHCI_CMD_TBL_HDR_SZ;
 
-		command_sg->info = cpu_to_le32((icmd->buf_len-1) & 0x3FFFFF);
-		command_sg->dba	= cpu_to_le32(icmd->buffer & 0xFFFFFFFF);
+		command_sg->info =
+			__force_bit2int cpu_to_le32((icmd->buf_len-1) & 0x3FFFFF);
+		command_sg->dba	=
+			__force_bit2int cpu_to_le32(icmd->buffer & 0xFFFFFFFF);
 		command_sg->dba_upper =
-			cpu_to_le32((icmd->buffer >> 16) >> 16);
+			__force_bit2int cpu_to_le32((icmd->buffer >> 16) >> 16);
 
-		hdr->opts |= cpu_to_le32((1 << 16));
+		cmd->command_header->opts |=
+			__force_bit2int cpu_to_le32((1 << 16));
 	}
 
 	/* Populate the command header */
-	hdr->byte_count = 0;
+	cmd->command_header->byte_count = 0;
 
 	blk_mq_start_request(rq);
 	mtip_issue_non_ncq_command(dd->port, rq->tag);
@@ -3575,25 +3651,23 @@ static blk_status_t mtip_issue_reserved_cmd(struct blk_mq_hw_ctx *hctx,
 static blk_status_t mtip_queue_rq(struct blk_mq_hw_ctx *hctx,
 			 const struct blk_mq_queue_data *bd)
 {
-	struct driver_data *dd = hctx->queue->queuedata;
 	struct request *rq = bd->rq;
-	struct mtip_cmd *cmd = blk_mq_rq_to_pdu(rq);
+	int ret;
+
+	mtip_init_cmd_header(rq);
 
 	if (blk_rq_is_passthrough(rq))
 		return mtip_issue_reserved_cmd(hctx, rq);
 
 	if (unlikely(mtip_check_unal_depth(hctx, rq)))
-		return BLK_STS_DEV_RESOURCE;
-
-	if (is_se_active(dd) || is_stopped(dd, rq))
-		return BLK_STS_IOERR;
+		return BLK_STS_RESOURCE;
 
 	blk_mq_start_request(rq);
 
-	if (req_op(rq) == REQ_OP_DISCARD)
-		return mtip_send_trim(dd, blk_rq_pos(rq), blk_rq_sectors(rq));
-	mtip_hw_submit_io(dd, rq, cmd, hctx);
-	return BLK_STS_OK;
+	ret = mtip_submit_request(hctx, rq);
+	if (likely(!ret))
+		return BLK_STS_OK;
+	return BLK_STS_IOERR;
 }
 
 static void mtip_free_cmd(struct blk_mq_tag_set *set, struct request *rq,
@@ -3605,8 +3679,8 @@ static void mtip_free_cmd(struct blk_mq_tag_set *set, struct request *rq,
 	if (!cmd->command)
 		return;
 
-	dma_free_coherent(&dd->pdev->dev, CMD_DMA_ALLOC_SZ, cmd->command,
-			  cmd->command_dma);
+	dmam_free_coherent(&dd->pdev->dev, CMD_DMA_ALLOC_SZ,
+				cmd->command, cmd->command_dma);
 }
 
 static int mtip_init_cmd(struct blk_mq_tag_set *set, struct request *rq,
@@ -3615,7 +3689,7 @@ static int mtip_init_cmd(struct blk_mq_tag_set *set, struct request *rq,
 	struct driver_data *dd = set->driver_data;
 	struct mtip_cmd *cmd = blk_mq_rq_to_pdu(rq);
 
-	cmd->command = dma_alloc_coherent(&dd->pdev->dev, CMD_DMA_ALLOC_SZ,
+	cmd->command = dmam_alloc_coherent(&dd->pdev->dev, CMD_DMA_ALLOC_SZ,
 			&cmd->command_dma, GFP_KERNEL);
 	if (!cmd->command)
 		return -ENOMEM;
@@ -3787,7 +3861,7 @@ skip_create_disk:
 	set_capacity(dd->disk, capacity);
 
 	/* Enable the block device and add it to /dev */
-	device_add_disk(&dd->pdev->dev, dd->disk, NULL);
+	device_add_disk(&dd->pdev->dev, dd->disk);
 
 	dd->bdev = bdget_disk(dd->disk, 0);
 	/*
@@ -3849,13 +3923,12 @@ protocol_init_error:
 	return rv;
 }
 
-static bool mtip_no_dev_cleanup(struct request *rq, void *data, bool reserv)
+static void mtip_no_dev_cleanup(struct request *rq, void *data, bool reserv)
 {
 	struct mtip_cmd *cmd = blk_mq_rq_to_pdu(rq);
 
 	cmd->status = BLK_STS_IOERR;
 	blk_mq_complete_request(rq);
-	return true;
 }
 
 /*
@@ -4014,9 +4087,9 @@ static int get_least_used_cpu_on_node(int node)
 /* Helper for selecting a node in round robin mode */
 static inline int mtip_get_next_rr_node(void)
 {
-	static int next_node = NUMA_NO_NODE;
+	static int next_node = -1;
 
-	if (next_node == NUMA_NO_NODE) {
+	if (next_node == -1) {
 		next_node = first_online_node;
 		return next_node;
 	}
@@ -4143,10 +4216,18 @@ static int mtip_pci_probe(struct pci_dev *pdev,
 		goto iomap_err;
 	}
 
-	rv = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-	if (rv) {
-		dev_warn(&pdev->dev, "64-bit DMA enable failed\n");
-		goto setmask_err;
+	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
+		rv = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
+
+		if (rv) {
+			rv = pci_set_consistent_dma_mask(pdev,
+						DMA_BIT_MASK(32));
+			if (rv) {
+				dev_warn(&pdev->dev,
+					"64-bit DMA enable failed\n");
+				goto setmask_err;
+			}
+		}
 	}
 
 	/* Copy the info we may need later into the private data structure. */

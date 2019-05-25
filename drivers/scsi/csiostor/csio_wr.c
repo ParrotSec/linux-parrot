@@ -124,8 +124,8 @@ csio_wr_fill_fl(struct csio_hw *hw, struct csio_q *flq)
 
 	while (n--) {
 		buf->len = sge->sge_fl_buf_size[sreg];
-		buf->vaddr = dma_alloc_coherent(&hw->pdev->dev, buf->len,
-						&buf->paddr, GFP_KERNEL);
+		buf->vaddr = pci_alloc_consistent(hw->pdev, buf->len,
+						  &buf->paddr);
 		if (!buf->vaddr) {
 			csio_err(hw, "Could only fill %d buffers!\n", n + 1);
 			return -ENOMEM;
@@ -233,8 +233,7 @@ csio_wr_alloc_q(struct csio_hw *hw, uint32_t qsize, uint32_t wrsize,
 
 	q = wrm->q_arr[free_idx];
 
-	q->vstart = dma_alloc_coherent(&hw->pdev->dev, qsz, &q->pstart,
-				       GFP_KERNEL);
+	q->vstart = pci_zalloc_consistent(hw->pdev, qsz, &q->pstart);
 	if (!q->vstart) {
 		csio_err(hw,
 			 "Failed to allocate DMA memory for "
@@ -1704,14 +1703,14 @@ csio_wrm_exit(struct csio_wrm *wrm, struct csio_hw *hw)
 					buf = &q->un.fl.bufs[j];
 					if (!buf->vaddr)
 						continue;
-					dma_free_coherent(&hw->pdev->dev,
-							buf->len, buf->vaddr,
-							buf->paddr);
+					pci_free_consistent(hw->pdev, buf->len,
+							    buf->vaddr,
+							    buf->paddr);
 				}
 				kfree(q->un.fl.bufs);
 			}
-			dma_free_coherent(&hw->pdev->dev, q->size,
-					q->vstart, q->pstart);
+			pci_free_consistent(hw->pdev, q->size,
+					    q->vstart, q->pstart);
 		}
 		kfree(q);
 	}

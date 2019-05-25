@@ -1013,7 +1013,8 @@ static int vsc73xx_port_enable(struct dsa_switch *ds, int port,
 	return 0;
 }
 
-static void vsc73xx_port_disable(struct dsa_switch *ds, int port)
+static void vsc73xx_port_disable(struct dsa_switch *ds, int port,
+				 struct phy_device *phy)
 {
 	struct vsc73xx *vsc = ds->priv;
 

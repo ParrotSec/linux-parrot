@@ -1439,10 +1439,8 @@ static int fsl_ssi_probe_from_dt(struct fsl_ssi *ssi)
 	 * different name to register the device.
 	 */
 	if (!ssi->card_name[0] && of_get_property(np, "codec-handle", NULL)) {
-		struct device_node *root = of_find_node_by_path("/");
-
-		sprop = of_get_property(root, "compatible", NULL);
-		of_node_put(root);
+		sprop = of_get_property(of_find_node_by_path("/"),
+					"compatible", NULL);
 		/* Strip "fsl," in the compatible name if applicable */
 		p = strrchr(sprop, ',');
 		if (p)

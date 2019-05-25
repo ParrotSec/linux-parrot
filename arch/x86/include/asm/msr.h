@@ -217,8 +217,6 @@ static __always_inline unsigned long long rdtsc(void)
  */
 static __always_inline unsigned long long rdtsc_ordered(void)
 {
-	DECLARE_ARGS(val, low, high);
-
 	/*
 	 * The RDTSC instruction is not ordered relative to memory
 	 * access.  The Intel SDM and the AMD APM are both vague on this
@@ -229,19 +227,9 @@ static __always_inline unsigned long long rdtsc_ordered(void)
 	 * ordering guarantees as reading from a global memory location
 	 * that some other imaginary CPU is updating continuously with a
 	 * time stamp.
-	 *
-	 * Thus, use the preferred barrier on the respective CPU, aiming for
-	 * RDTSCP as the default.
 	 */
-	asm volatile(ALTERNATIVE_3("rdtsc",
-				   "mfence; rdtsc", X86_FEATURE_MFENCE_RDTSC,
-				   "lfence; rdtsc", X86_FEATURE_LFENCE_RDTSC,
-				   "rdtscp", X86_FEATURE_RDTSCP)
-			: EAX_EDX_RET(val, low, high)
-			/* RDTSCP clobbers ECX with MSR_TSC_AUX. */
-			:: "ecx");
-
-	return EAX_EDX_VAL(val, low, high);
+	barrier_nospec();
+	return rdtsc();
 }
 
 static inline unsigned long long native_read_pmc(int counter)
@@ -254,7 +242,7 @@ static inline unsigned long long native_read_pmc(int counter)
 	return EAX_EDX_VAL(val, low, high);
 }
 
-#ifdef CONFIG_PARAVIRT_XXL
+#ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #else
 #include <linux/errno.h>
@@ -317,7 +305,7 @@ do {							\
 
 #define rdpmcl(counter, val) ((val) = native_read_pmc(counter))
 
-#endif	/* !CONFIG_PARAVIRT_XXL */
+#endif	/* !CONFIG_PARAVIRT */
 
 /*
  * 64-bit version of wrmsr_safe():

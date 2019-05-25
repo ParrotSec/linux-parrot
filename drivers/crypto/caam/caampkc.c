@@ -1,9 +1,7 @@
-// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
  * caam - Freescale FSL CAAM support for Public Key Cryptography
  *
  * Copyright 2016 Freescale Semiconductor, Inc.
- * Copyright 2018 NXP
  *
  * There is no Shared Descriptor for PKC so that the Job Descriptor must carry
  * all the desired key parameters, input and output pointers.
@@ -1018,7 +1016,7 @@ static int __init caam_pkc_init(void)
 	struct platform_device *pdev;
 	struct device *ctrldev;
 	struct caam_drv_private *priv;
-	u32 pk_inst;
+	u32 cha_inst, pk_inst;
 	int err;
 
 	dev_node = of_find_compatible_node(NULL, NULL, "fsl,sec-v4.0");
@@ -1042,23 +1040,16 @@ static int __init caam_pkc_init(void)
 	 * If priv is NULL, it's probably because the caam driver wasn't
 	 * properly initialized (e.g. RNG4 init failed). Thus, bail out here.
 	 */
-	if (!priv) {
-		err = -ENODEV;
-		goto out_put_dev;
-	}
+	if (!priv)
+		return -ENODEV;
 
 	/* Determine public key hardware accelerator presence. */
-	if (priv->era < 10)
-		pk_inst = (rd_reg32(&priv->ctrl->perfmon.cha_num_ls) &
-			   CHA_ID_LS_PK_MASK) >> CHA_ID_LS_PK_SHIFT;
-	else
-		pk_inst = rd_reg32(&priv->ctrl->vreg.pkha) & CHA_VER_NUM_MASK;
+	cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+	pk_inst = (cha_inst & CHA_ID_LS_PK_MASK) >> CHA_ID_LS_PK_SHIFT;
 
 	/* Do not register algorithms if PKHA is not present. */
-	if (!pk_inst) {
-		err =  -ENODEV;
-		goto out_put_dev;
-	}
+	if (!pk_inst)
+		return -ENODEV;
 
 	err = crypto_register_akcipher(&caam_rsa);
 	if (err)
@@ -1067,8 +1058,6 @@ static int __init caam_pkc_init(void)
 	else
 		dev_info(ctrldev, "caam pkc algorithms registered in /proc/crypto\n");
 
-out_put_dev:
-	put_device(ctrldev);
 	return err;
 }
 

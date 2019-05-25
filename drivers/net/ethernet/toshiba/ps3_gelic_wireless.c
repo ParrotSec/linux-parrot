@@ -1094,7 +1094,7 @@ static int gelic_wl_get_encode(struct net_device *netdev,
 	struct gelic_wl_info *wl = port_wl(netdev_priv(netdev));
 	struct iw_point *enc = &data->encoding;
 	unsigned long irqflag;
-	unsigned int key_index;
+	unsigned int key_index, index_specified;
 	int ret = 0;
 
 	pr_debug("%s: <-\n", __func__);
@@ -1105,10 +1105,13 @@ static int gelic_wl_get_encode(struct net_device *netdev,
 		return -EINVAL;
 
 	spin_lock_irqsave(&wl->lock, irqflag);
-	if (key_index)
+	if (key_index) {
+		index_specified = 1;
 		key_index--;
-	else
+	} else {
+		index_specified = 0;
 		key_index = wl->current_key;
+	}
 
 	if (wl->group_cipher_method == GELIC_WL_CIPHER_WEP) {
 		switch (wl->auth_method) {

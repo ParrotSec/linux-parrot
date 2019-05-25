@@ -10,7 +10,6 @@
  *	TCPv4 GSO/GRO support
  */
 
-#include <linux/indirect_call_wrapper.h>
 #include <linux/skbuff.h>
 #include <net/tcp.h>
 #include <net/protocol.h>
@@ -306,8 +305,7 @@ int tcp_gro_complete(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(tcp_gro_complete);
 
-INDIRECT_CALLABLE_SCOPE
-struct sk_buff *tcp4_gro_receive(struct list_head *head, struct sk_buff *skb)
+static struct sk_buff *tcp4_gro_receive(struct list_head *head, struct sk_buff *skb)
 {
 	/* Don't bother verifying checksum if we're going to flush anyway. */
 	if (!NAPI_GRO_CB(skb)->flush &&
@@ -320,7 +318,7 @@ struct sk_buff *tcp4_gro_receive(struct list_head *head, struct sk_buff *skb)
 	return tcp_gro_receive(head, skb);
 }
 
-INDIRECT_CALLABLE_SCOPE int tcp4_gro_complete(struct sk_buff *skb, int thoff)
+static int tcp4_gro_complete(struct sk_buff *skb, int thoff)
 {
 	const struct iphdr *iph = ip_hdr(skb);
 	struct tcphdr *th = tcp_hdr(skb);

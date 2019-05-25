@@ -19,31 +19,20 @@
 /***   Private data structures to represent thermal device tree data ***/
 
 /**
- * struct __thermal_cooling_bind_param - a cooling device for a trip point
+ * struct __thermal_bind_param - a match between trip and cooling device
  * @cooling_device: a pointer to identify the referred cooling device
+ * @trip_id: the trip point index
+ * @usage: the percentage (from 0 to 100) of cooling contribution
  * @min: minimum cooling state used at this trip point
  * @max: maximum cooling state used at this trip point
  */
 
-struct __thermal_cooling_bind_param {
-	struct device_node *cooling_device;
-	unsigned long min;
-	unsigned long max;
-};
-
-/**
- * struct __thermal_bind_param - a match between trip and cooling device
- * @tcbp: a pointer to an array of cooling devices
- * @count: number of elements in array
- * @trip_id: the trip point index
- * @usage: the percentage (from 0 to 100) of cooling contribution
- */
-
 struct __thermal_bind_params {
-	struct __thermal_cooling_bind_param *tcbp;
-	unsigned int count;
+	struct device_node *cooling_device;
 	unsigned int trip_id;
 	unsigned int usage;
+	unsigned long min;
+	unsigned long max;
 };
 
 /**
@@ -203,31 +192,25 @@ static int of_thermal_bind(struct thermal_zone_device *thermal,
 			   struct thermal_cooling_device *cdev)
 {
 	struct __thermal_zone *data = thermal->devdata;
-	struct __thermal_bind_params *tbp;
-	struct __thermal_cooling_bind_param *tcbp;
-	int i, j;
+	int i;
 
 	if (!data || IS_ERR(data))
 		return -ENODEV;
 
 	/* find where to bind */
 	for (i = 0; i < data->num_tbps; i++) {
-		tbp = data->tbps + i;
+		struct __thermal_bind_params *tbp = data->tbps + i;
 
-		for (j = 0; j < tbp->count; j++) {
-			tcbp = tbp->tcbp + j;
+		if (tbp->cooling_device == cdev->np) {
+			int ret;
 
-			if (tcbp->cooling_device == cdev->np) {
-				int ret;
-
-				ret = thermal_zone_bind_cooling_device(thermal,
+			ret = thermal_zone_bind_cooling_device(thermal,
 						tbp->trip_id, cdev,
-						tcbp->max,
-						tcbp->min,
+						tbp->max,
+						tbp->min,
 						tbp->usage);
-				if (ret)
-					return ret;
-			}
+			if (ret)
+				return ret;
 		}
 	}
 
@@ -238,28 +221,22 @@ static int of_thermal_unbind(struct thermal_zone_device *thermal,
 			     struct thermal_cooling_device *cdev)
 {
 	struct __thermal_zone *data = thermal->devdata;
-	struct __thermal_bind_params *tbp;
-	struct __thermal_cooling_bind_param *tcbp;
-	int i, j;
+	int i;
 
 	if (!data || IS_ERR(data))
 		return -ENODEV;
 
 	/* find where to unbind */
 	for (i = 0; i < data->num_tbps; i++) {
-		tbp = data->tbps + i;
+		struct __thermal_bind_params *tbp = data->tbps + i;
 
-		for (j = 0; j < tbp->count; j++) {
-			tcbp = tbp->tcbp + j;
+		if (tbp->cooling_device == cdev->np) {
+			int ret;
 
-			if (tcbp->cooling_device == cdev->np) {
-				int ret;
-
-				ret = thermal_zone_unbind_cooling_device(thermal,
-							tbp->trip_id, cdev);
-				if (ret)
-					return ret;
-			}
+			ret = thermal_zone_unbind_cooling_device(thermal,
+						tbp->trip_id, cdev);
+			if (ret)
+				return ret;
 		}
 	}
 
@@ -509,8 +486,8 @@ thermal_zone_of_sensor_register(struct device *dev, int sensor_id, void *data,
 		if (sensor_specs.args_count >= 1) {
 			id = sensor_specs.args[0];
 			WARN(sensor_specs.args_count > 1,
-			     "%pOFn: too many cells in sensor specifier %d\n",
-			     sensor_specs.np, sensor_specs.args_count);
+			     "%s: too many cells in sensor specifier %d\n",
+			     sensor_specs.np->name, sensor_specs.args_count);
 		} else {
 			id = 0;
 		}
@@ -678,9 +655,8 @@ static int thermal_of_populate_bind_params(struct device_node *np,
 					   int ntrips)
 {
 	struct of_phandle_args cooling_spec;
-	struct __thermal_cooling_bind_param *__tcbp;
 	struct device_node *trip;
-	int ret, i, count;
+	int ret, i;
 	u32 prop;
 
 	/* Default weight. Usage is optional */
@@ -707,44 +683,20 @@ static int thermal_of_populate_bind_params(struct device_node *np,
 		goto end;
 	}
 
-	count = of_count_phandle_with_args(np, "cooling-device",
-					   "#cooling-cells");
-	if (!count) {
-		pr_err("Add a cooling_device property with at least one device\n");
+	ret = of_parse_phandle_with_args(np, "cooling-device", "#cooling-cells",
+					 0, &cooling_spec);
+	if (ret < 0) {
+		pr_err("missing cooling_device property\n");
 		goto end;
 	}
-
-	__tcbp = kcalloc(count, sizeof(*__tcbp), GFP_KERNEL);
-	if (!__tcbp)
-		goto end;
-
-	for (i = 0; i < count; i++) {
-		ret = of_parse_phandle_with_args(np, "cooling-device",
-				"#cooling-cells", i, &cooling_spec);
-		if (ret < 0) {
-			pr_err("Invalid cooling-device entry\n");
-			goto free_tcbp;
-		}
-
-		__tcbp[i].cooling_device = cooling_spec.np;
-
-		if (cooling_spec.args_count >= 2) { /* at least min and max */
-			__tcbp[i].min = cooling_spec.args[0];
-			__tcbp[i].max = cooling_spec.args[1];
-		} else {
-			pr_err("wrong reference to cooling device, missing limits\n");
-		}
+	__tbp->cooling_device = cooling_spec.np;
+	if (cooling_spec.args_count >= 2) { /* at least min and max */
+		__tbp->min = cooling_spec.args[0];
+		__tbp->max = cooling_spec.args[1];
+	} else {
+		pr_err("wrong reference to cooling device, missing limits\n");
 	}
 
-	__tbp->tcbp = __tcbp;
-	__tbp->count = count;
-
-	goto end;
-
-free_tcbp:
-	for (i = i - 1; i >= 0; i--)
-		of_node_put(__tcbp[i].cooling_device);
-	kfree(__tcbp);
 end:
 	of_node_put(trip);
 
@@ -867,14 +819,14 @@ __init *thermal_of_build_thermal_zone(struct device_node *np)
 
 	ret = of_property_read_u32(np, "polling-delay-passive", &prop);
 	if (ret < 0) {
-		pr_err("%pOFn: missing polling-delay-passive property\n", np);
+		pr_err("missing polling-delay-passive property\n");
 		goto free_tz;
 	}
 	tz->passive_delay = prop;
 
 	ret = of_property_read_u32(np, "polling-delay", &prop);
 	if (ret < 0) {
-		pr_err("%pOFn: missing polling-delay property\n", np);
+		pr_err("missing polling-delay property\n");
 		goto free_tz;
 	}
 	tz->polling_delay = prop;
@@ -951,16 +903,8 @@ finish:
 	return tz;
 
 free_tbps:
-	for (i = i - 1; i >= 0; i--) {
-		struct __thermal_bind_params *tbp = tz->tbps + i;
-		int j;
-
-		for (j = 0; j < tbp->count; j++)
-			of_node_put(tbp->tcbp[j].cooling_device);
-
-		kfree(tbp->tcbp);
-	}
-
+	for (i = i - 1; i >= 0; i--)
+		of_node_put(tz->tbps[i].cooling_device);
 	kfree(tz->tbps);
 free_trips:
 	for (i = 0; i < tz->ntrips; i++)
@@ -976,18 +920,10 @@ free_tz:
 
 static inline void of_thermal_free_zone(struct __thermal_zone *tz)
 {
-	struct __thermal_bind_params *tbp;
-	int i, j;
+	int i;
 
-	for (i = 0; i < tz->num_tbps; i++) {
-		tbp = tz->tbps + i;
-
-		for (j = 0; j < tbp->count; j++)
-			of_node_put(tbp->tcbp[j].cooling_device);
-
-		kfree(tbp->tcbp);
-	}
-
+	for (i = 0; i < tz->num_tbps; i++)
+		of_node_put(tz->tbps[i].cooling_device);
 	kfree(tz->tbps);
 	for (i = 0; i < tz->ntrips; i++)
 		of_node_put(tz->trips[i].np);
@@ -1027,8 +963,8 @@ int __init of_parse_thermal_zones(void)
 
 		tz = thermal_of_build_thermal_zone(child);
 		if (IS_ERR(tz)) {
-			pr_err("failed to build thermal zone %pOFn: %ld\n",
-			       child,
+			pr_err("failed to build thermal zone %s: %ld\n",
+			       child->name,
 			       PTR_ERR(tz));
 			continue;
 		}
@@ -1062,7 +998,7 @@ int __init of_parse_thermal_zones(void)
 						    tz->passive_delay,
 						    tz->polling_delay);
 		if (IS_ERR(zone)) {
-			pr_err("Failed to build %pOFn zone %ld\n", child,
+			pr_err("Failed to build %s zone %ld\n", child->name,
 			       PTR_ERR(zone));
 			kfree(tzp);
 			kfree(ops);

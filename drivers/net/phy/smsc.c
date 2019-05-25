@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * drivers/net/phy/smsc.c
  *
@@ -7,6 +6,11 @@
  * Author: Herbert Valerio Riedel
  *
  * Copyright (c) 2006 Herbert Valerio Riedel <hvr@gnu.org>
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
  *
  * Support added for SMSC LAN8187 and LAN8700 by steve.glendinning@shawell.net
  *
@@ -215,6 +219,7 @@ static struct phy_driver smsc_phy_driver[] = {
 	.name		= "SMSC LAN83C185",
 
 	.features	= PHY_BASIC_FEATURES,
+	.flags		= PHY_HAS_INTERRUPT,
 
 	.probe		= smsc_phy_probe,
 
@@ -234,6 +239,7 @@ static struct phy_driver smsc_phy_driver[] = {
 	.name		= "SMSC LAN8187",
 
 	.features	= PHY_BASIC_FEATURES,
+	.flags		= PHY_HAS_INTERRUPT,
 
 	.probe		= smsc_phy_probe,
 
@@ -258,6 +264,7 @@ static struct phy_driver smsc_phy_driver[] = {
 	.name		= "SMSC LAN8700",
 
 	.features	= PHY_BASIC_FEATURES,
+	.flags		= PHY_HAS_INTERRUPT,
 
 	.probe		= smsc_phy_probe,
 
@@ -283,6 +290,7 @@ static struct phy_driver smsc_phy_driver[] = {
 	.name		= "SMSC LAN911x Internal PHY",
 
 	.features	= PHY_BASIC_FEATURES,
+	.flags		= PHY_HAS_INTERRUPT,
 
 	.probe		= smsc_phy_probe,
 
@@ -301,7 +309,7 @@ static struct phy_driver smsc_phy_driver[] = {
 	.name		= "SMSC LAN8710/LAN8720",
 
 	.features	= PHY_BASIC_FEATURES,
-	.flags		= PHY_RST_AFTER_CLK_EN,
+	.flags		= PHY_HAS_INTERRUPT | PHY_RST_AFTER_CLK_EN,
 
 	.probe		= smsc_phy_probe,
 
@@ -327,6 +335,7 @@ static struct phy_driver smsc_phy_driver[] = {
 	.name		= "SMSC LAN8740",
 
 	.features	= PHY_BASIC_FEATURES,
+	.flags		= PHY_HAS_INTERRUPT,
 
 	.probe		= smsc_phy_probe,
 

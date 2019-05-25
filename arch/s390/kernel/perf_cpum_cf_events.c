@@ -6,7 +6,6 @@
 
 #include <linux/slab.h>
 #include <linux/perf_event.h>
-#include <asm/cpu_mf.h>
 
 
 /* BEGIN: CPUM_CF COUNTER DEFINITIONS =================================== */

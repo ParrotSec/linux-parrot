@@ -391,9 +391,9 @@ static inline unsigned long __fls(unsigned long x)
 	return fls64(x) - 1;
 }
 
-static inline int fls(unsigned int x)
+static inline int fls(int x)
 {
-	return fls64(x);
+	return fls64((unsigned int) x);
 }
 
 /*

@@ -26,8 +26,6 @@
  */
 static struct gpio_desc *reset_gpio;
 static u32 timeout = DEFAULT_TIMEOUT_MS;
-static u32 active_delay = 100;
-static u32 inactive_delay = 100;
 
 static void gpio_poweroff_do_poweroff(void)
 {
@@ -35,11 +33,10 @@ static void gpio_poweroff_do_poweroff(void)
 
 	/* drive it active, also inactive->active edge */
 	gpiod_direction_output(reset_gpio, 1);
-	mdelay(active_delay);
-
+	mdelay(100);
 	/* drive inactive, also active->inactive edge */
 	gpiod_set_value_cansleep(reset_gpio, 0);
-	mdelay(inactive_delay);
+	mdelay(100);
 
 	/* drive it active, also inactive->active edge */
 	gpiod_set_value_cansleep(reset_gpio, 1);
@@ -69,9 +66,6 @@ static int gpio_poweroff_probe(struct platform_device *pdev)
 	else
 		flags = GPIOD_OUT_LOW;
 
-	device_property_read_u32(&pdev->dev, "active-delay-ms", &active_delay);
-	device_property_read_u32(&pdev->dev, "inactive-delay-ms",
-				 &inactive_delay);
 	device_property_read_u32(&pdev->dev, "timeout-ms", &timeout);
 
 	reset_gpio = devm_gpiod_get(&pdev->dev, NULL, flags);

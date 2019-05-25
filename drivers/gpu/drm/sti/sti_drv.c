@@ -14,12 +14,12 @@
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_crtc_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_of.h>
-#include <drm/drm_probe_helper.h>
 
 #include "sti_crtc.h"
 #include "sti_drv.h"
@@ -121,6 +121,7 @@ err:
 
 static const struct drm_mode_config_funcs sti_mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
+	.output_poll_changed = drm_fb_helper_output_poll_changed,
 	.atomic_check = drm_atomic_helper_check,
 	.atomic_commit = drm_atomic_helper_commit,
 };
@@ -205,9 +206,8 @@ static void sti_cleanup(struct drm_device *ddev)
 {
 	struct sti_private *private = ddev->dev_private;
 
+	drm_fb_cma_fbdev_fini(ddev);
 	drm_kms_helper_poll_fini(ddev);
-	drm_atomic_helper_shutdown(ddev);
-	drm_mode_config_cleanup(ddev);
 	component_unbind_all(ddev->dev, ddev);
 	kfree(private);
 	ddev->dev_private = NULL;
@@ -232,14 +232,20 @@ static int sti_bind(struct device *dev)
 
 	ret = drm_dev_register(ddev, 0);
 	if (ret)
-		goto err_cleanup;
+		goto err_register;
 
 	drm_mode_config_reset(ddev);
 
-	drm_fbdev_generic_setup(ddev, 32);
+	if (ddev->mode_config.num_connector) {
+		ret = drm_fb_cma_fbdev_init(ddev, 32, 0);
+		if (ret)
+			DRM_DEBUG_DRIVER("Warning: fails to create fbdev\n");
+	}
 
 	return 0;
 
+err_register:
+	drm_mode_config_cleanup(ddev);
 err_cleanup:
 	sti_cleanup(ddev);
 err_drm_dev_put:

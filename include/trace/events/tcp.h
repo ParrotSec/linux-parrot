@@ -56,7 +56,6 @@ DECLARE_EVENT_CLASS(tcp_event_sk_skb,
 	TP_STRUCT__entry(
 		__field(const void *, skbaddr)
 		__field(const void *, skaddr)
-		__field(int, state)
 		__field(__u16, sport)
 		__field(__u16, dport)
 		__array(__u8, saddr, 4)
@@ -71,7 +70,6 @@ DECLARE_EVENT_CLASS(tcp_event_sk_skb,
 
 		__entry->skbaddr = skb;
 		__entry->skaddr = sk;
-		__entry->state = sk->sk_state;
 
 		__entry->sport = ntohs(inet->inet_sport);
 		__entry->dport = ntohs(inet->inet_dport);
@@ -86,10 +84,9 @@ DECLARE_EVENT_CLASS(tcp_event_sk_skb,
 			      sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
 	),
 
-	TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c state=%s\n",
+	TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
 		  __entry->sport, __entry->dport, __entry->saddr, __entry->daddr,
-		  __entry->saddr_v6, __entry->daddr_v6,
-		  show_tcp_state_name(__entry->state))
+		  __entry->saddr_v6, __entry->daddr_v6)
 );
 
 DEFINE_EVENT(tcp_event_sk_skb, tcp_retransmit_skb,

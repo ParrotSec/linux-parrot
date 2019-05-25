@@ -295,8 +295,7 @@ struct xfrm_replay {
 };
 
 struct xfrm_if_cb {
-	struct xfrm_if	*(*decode_session)(struct sk_buff *skb,
-					   unsigned short family);
+	struct xfrm_if	*(*decode_session)(struct sk_buff *skb);
 };
 
 void xfrm_if_register_cb(const struct xfrm_if_cb *ifcb);
@@ -578,7 +577,6 @@ struct xfrm_policy {
 	/* This lock only affects elements except for entry. */
 	rwlock_t		lock;
 	refcount_t		refcnt;
-	u32			pos;
 	struct timer_list	timer;
 
 	atomic_t		genid;
@@ -591,7 +589,6 @@ struct xfrm_policy {
 	struct xfrm_lifetime_cur curlft;
 	struct xfrm_policy_walk_entry walk;
 	struct xfrm_policy_queue polq;
-	bool                    bydst_reinsert;
 	u8			type;
 	u8			action;
 	u8			flags;
@@ -599,7 +596,6 @@ struct xfrm_policy {
 	u16			family;
 	struct xfrm_sec_ctx	*security;
 	struct xfrm_tmpl       	xfrm_vec[XFRM_MAX_DEPTH];
-	struct hlist_node	bydst_inexact_list;
 	struct rcu_head		rcu;
 };
 
@@ -1103,6 +1099,7 @@ struct xfrm_offload {
 };
 
 struct sec_path {
+	refcount_t		refcnt;
 	int			len;
 	int			olen;
 
@@ -1110,13 +1107,41 @@ struct sec_path {
 	struct xfrm_offload	ovec[XFRM_MAX_OFFLOAD_DEPTH];
 };
 
-struct sec_path *secpath_set(struct sk_buff *skb);
+static inline int secpath_exists(struct sk_buff *skb)
+{
+#ifdef CONFIG_XFRM
+	return skb->sp != NULL;
+#else
+	return 0;
+#endif
+}
+
+static inline struct sec_path *
+secpath_get(struct sec_path *sp)
+{
+	if (sp)
+		refcount_inc(&sp->refcnt);
+	return sp;
+}
+
+void __secpath_destroy(struct sec_path *sp);
+
+static inline void
+secpath_put(struct sec_path *sp)
+{
+	if (sp && refcount_dec_and_test(&sp->refcnt))
+		__secpath_destroy(sp);
+}
+
+struct sec_path *secpath_dup(struct sec_path *src);
+int secpath_set(struct sk_buff *skb);
 
 static inline void
 secpath_reset(struct sk_buff *skb)
 {
 #ifdef CONFIG_XFRM
-	skb_ext_del(skb, SKB_EXT_SEC_PATH);
+	secpath_put(skb->sp);
+	skb->sp = NULL;
 #endif
 }
 
@@ -1172,7 +1197,7 @@ static inline int __xfrm_policy_check2(struct sock *sk, int dir,
 	if (sk && sk->sk_policy[XFRM_POLICY_IN])
 		return __xfrm_policy_check(sk, ndir, skb, family);
 
-	return	(!net->xfrm.policy_count[dir] && !secpath_exists(skb)) ||
+	return	(!net->xfrm.policy_count[dir] && !skb->sp) ||
 		(skb_dst(skb)->flags & DST_NOPOLICY) ||
 		__xfrm_policy_check(sk, ndir, skb, family);
 }
@@ -1405,23 +1430,6 @@ static inline int xfrm_state_kern(const struct xfrm_state *x)
 	return atomic_read(&x->tunnel_users);
 }
 
-static inline bool xfrm_id_proto_valid(u8 proto)
-{
-	switch (proto) {
-	case IPPROTO_AH:
-	case IPPROTO_ESP:
-	case IPPROTO_COMP:
-#if IS_ENABLED(CONFIG_IPV6)
-	case IPPROTO_ROUTING:
-	case IPPROTO_DSTOPTS:
-#endif
-		return true;
-	default:
-		return false;
-	}
-}
-
-/* IPSEC_PROTO_ANY only matches 3 IPsec protocols, 0 could match all. */
 static inline int xfrm_id_proto_match(u8 proto, u8 userproto)
 {
 	return (!userproto || proto == userproto ||
@@ -1901,16 +1909,14 @@ static inline void xfrm_states_delete(struct xfrm_state **states, int n)
 #ifdef CONFIG_XFRM
 static inline struct xfrm_state *xfrm_input_state(struct sk_buff *skb)
 {
-	struct sec_path *sp = skb_sec_path(skb);
-
-	return sp->xvec[sp->len - 1];
+	return skb->sp->xvec[skb->sp->len - 1];
 }
 #endif
 
 static inline struct xfrm_offload *xfrm_offload(struct sk_buff *skb)
 {
 #ifdef CONFIG_XFRM
-	struct sec_path *sp = skb_sec_path(skb);
+	struct sec_path *sp = skb->sp;
 
 	if (!sp || !sp->olen || sp->len != sp->olen)
 		return NULL;
@@ -1968,7 +1974,7 @@ static inline void xfrm_dev_state_delete(struct xfrm_state *x)
 static inline void xfrm_dev_state_free(struct xfrm_state *x)
 {
 	struct xfrm_state_offload *xso = &x->xso;
-	struct net_device *dev = xso->dev;
+	 struct net_device *dev = xso->dev;
 
 	if (dev && dev->xfrmdev_ops) {
 		if (dev->xfrmdev_ops->xdo_dev_state_free)

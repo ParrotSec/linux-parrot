@@ -46,24 +46,6 @@ void nf_unregister_queue_handler(struct net *net)
 }
 EXPORT_SYMBOL(nf_unregister_queue_handler);
 
-static void nf_queue_entry_release_br_nf_refs(struct sk_buff *skb)
-{
-#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-	struct nf_bridge_info *nf_bridge = nf_bridge_info_get(skb);
-
-	if (nf_bridge) {
-		struct net_device *physdev;
-
-		physdev = nf_bridge_get_physindev(skb);
-		if (physdev)
-			dev_put(physdev);
-		physdev = nf_bridge_get_physoutdev(skb);
-		if (physdev)
-			dev_put(physdev);
-	}
-#endif
-}
-
 void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
 {
 	struct nf_hook_state *state = &entry->state;
@@ -75,28 +57,20 @@ void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
 		dev_put(state->out);
 	if (state->sk)
 		sock_put(state->sk);
-
-	nf_queue_entry_release_br_nf_refs(entry->skb);
-}
-EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
-
-static void nf_queue_entry_get_br_nf_refs(struct sk_buff *skb)
-{
 #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-	struct nf_bridge_info *nf_bridge = nf_bridge_info_get(skb);
-
-	if (nf_bridge) {
+	if (entry->skb->nf_bridge) {
 		struct net_device *physdev;
 
-		physdev = nf_bridge_get_physindev(skb);
+		physdev = nf_bridge_get_physindev(entry->skb);
 		if (physdev)
-			dev_hold(physdev);
-		physdev = nf_bridge_get_physoutdev(skb);
+			dev_put(physdev);
+		physdev = nf_bridge_get_physoutdev(entry->skb);
 		if (physdev)
-			dev_hold(physdev);
+			dev_put(physdev);
 	}
 #endif
 }
+EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
 
 /* Bump dev refs so they don't vanish while packet is out */
 void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
@@ -109,8 +83,18 @@ void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 		dev_hold(state->out);
 	if (state->sk)
 		sock_hold(state->sk);
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	if (entry->skb->nf_bridge) {
+		struct net_device *physdev;
 
-	nf_queue_entry_get_br_nf_refs(entry->skb);
+		physdev = nf_bridge_get_physindev(entry->skb);
+		if (physdev)
+			dev_hold(physdev);
+		physdev = nf_bridge_get_physoutdev(entry->skb);
+		if (physdev)
+			dev_hold(physdev);
+	}
+#endif
 }
 EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
 

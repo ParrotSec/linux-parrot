@@ -1242,10 +1242,8 @@ set_size:
 		truncate_setsize(inode, newsize);
 		down_write(&iinfo->i_data_sem);
 		udf_clear_extent_cache(inode);
-		err = udf_truncate_extents(inode);
+		udf_truncate_extents(inode);
 		up_write(&iinfo->i_data_sem);
-		if (err)
-			return err;
 	}
 update_time:
 	inode->i_mtime = inode->i_ctime = current_time(inode);

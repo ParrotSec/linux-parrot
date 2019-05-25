@@ -39,7 +39,6 @@
 #include <asm/hw_breakpoint.h>
 #include <asm/traps.h>
 #include <asm/syscall.h>
-#include <asm/fsgsbase.h>
 
 #include "tls.h"
 
@@ -397,9 +396,9 @@ static int putreg(struct task_struct *child,
 		if (value >= TASK_SIZE_MAX)
 			return -EIO;
 		/*
-		 * When changing the FS base, use do_arch_prctl_64()
-		 * to set the index to zero and to set the base
-		 * as requested.
+		 * When changing the segment base, use do_arch_prctl_64
+		 * to set either thread.fs or thread.fsindex and the
+		 * corresponding GDT slot.
 		 */
 		if (child->thread.fsbase != value)
 			return do_arch_prctl_64(child, ARCH_SET_FS, value);
@@ -435,10 +434,20 @@ static unsigned long getreg(struct task_struct *task, unsigned long offset)
 		return get_flags(task);
 
 #ifdef CONFIG_X86_64
-	case offsetof(struct user_regs_struct, fs_base):
-		return x86_fsbase_read_task(task);
-	case offsetof(struct user_regs_struct, gs_base):
-		return x86_gsbase_read_task(task);
+	case offsetof(struct user_regs_struct, fs_base): {
+		/*
+		 * XXX: This will not behave as expected if called on
+		 * current or if fsindex != 0.
+		 */
+		return task->thread.fsbase;
+	}
+	case offsetof(struct user_regs_struct, gs_base): {
+		/*
+		 * XXX: This will not behave as expected if called on
+		 * current or if fsindex != 0.
+		 */
+		return task->thread.gsbase;
+	}
 #endif
 	}
 
@@ -1360,18 +1369,33 @@ const struct user_regset_view *task_user_regset_view(struct task_struct *task)
 #endif
 }
 
-void send_sigtrap(struct task_struct *tsk, struct pt_regs *regs,
-					 int error_code, int si_code)
+static void fill_sigtrap_info(struct task_struct *tsk,
+				struct pt_regs *regs,
+				int error_code, int si_code,
+				struct siginfo *info)
 {
 	tsk->thread.trap_nr = X86_TRAP_DB;
 	tsk->thread.error_code = error_code;
 
-	/* Send us the fake SIGTRAP */
-	force_sig_fault(SIGTRAP, si_code,
-			user_mode(regs) ? (void __user *)regs->ip : NULL, tsk);
+	info->si_signo = SIGTRAP;
+	info->si_code = si_code;
+	info->si_addr = user_mode(regs) ? (void __user *)regs->ip : NULL;
 }
 
-void user_single_step_report(struct pt_regs *regs)
+void user_single_step_siginfo(struct task_struct *tsk,
+				struct pt_regs *regs,
+				struct siginfo *info)
 {
-	send_sigtrap(current, regs, 0, TRAP_BRKPT);
+	fill_sigtrap_info(tsk, regs, 0, TRAP_BRKPT, info);
+}
+
+void send_sigtrap(struct task_struct *tsk, struct pt_regs *regs,
+					 int error_code, int si_code)
+{
+	struct siginfo info;
+
+	clear_siginfo(&info);
+	fill_sigtrap_info(tsk, regs, error_code, si_code, &info);
+	/* Send us the fake SIGTRAP */
+	force_sig_info(SIGTRAP, &info, tsk);
 }

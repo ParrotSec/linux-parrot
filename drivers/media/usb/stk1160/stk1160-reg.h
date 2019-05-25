@@ -23,7 +23,7 @@
 /* GPIO Control */
 #define STK1160_GCTRL			0x000
 
-/* Remote Wakeup Control */
+/* Remote Wakup Control */
 #define STK1160_RMCTL			0x00c
 
 /* Power-on Strapping Data */
@@ -104,7 +104,7 @@
 #define STK1160_SBUSR_RA		0x208
 #define STK1160_SBUSR_RD		0x209
 
-/* Alternate Serial Interface Control */
+/* Alternate Serial Inteface Control */
 #define STK1160_ASIC			0x2fc
 
 /* PLL Select Options */

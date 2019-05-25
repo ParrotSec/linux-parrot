@@ -40,7 +40,6 @@
 #include <asm/ptrace.h>
 #include <asm/synch.h>
 #include <asm/export.h>
-#include <asm/code-patching-asm.h>
 #include "head_booke.h"
 
 
@@ -383,9 +382,10 @@ interrupt_base:
 	/* Increment, rollover, and store TLB index */
 	addi	r13,r13,1
 
-	patch_site 0f, patch__tlb_44x_hwater_D
 	/* Compare with watermark (instruction gets patched) */
-0:	cmpwi	0,r13,1			/* reserve entries */
+	.globl tlb_44x_patch_hwater_D
+tlb_44x_patch_hwater_D:
+	cmpwi	0,r13,1			/* reserve entries */
 	ble	5f
 	li	r13,0
 5:
@@ -478,9 +478,10 @@ interrupt_base:
 	/* Increment, rollover, and store TLB index */
 	addi	r13,r13,1
 
-	patch_site 0f, patch__tlb_44x_hwater_I
 	/* Compare with watermark (instruction gets patched) */
-0:	cmpwi	0,r13,1			/* reserve entries */
+	.globl tlb_44x_patch_hwater_I
+tlb_44x_patch_hwater_I:
+	cmpwi	0,r13,1			/* reserve entries */
 	ble	5f
 	li	r13,0
 5:
@@ -1019,10 +1020,10 @@ _GLOBAL(start_secondary_47x)
 
 	/* Now we can get our task struct and real stack pointer */
 
-	/* Get current's stack and current */
-	lis	r2,secondary_current@ha
-	lwz	r2,secondary_current@l(r2)
-	lwz	r1,TASK_STACK(r2)
+	/* Get current_thread_info and current */
+	lis	r1,secondary_ti@ha
+	lwz	r1,secondary_ti@l(r1)
+	lwz	r2,TI_TASK(r1)
 
 	/* Current stack pointer */
 	addi	r1,r1,THREAD_SIZE-STACK_FRAME_OVERHEAD

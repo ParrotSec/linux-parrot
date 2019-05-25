@@ -46,6 +46,9 @@ struct nf_conn_acct *nf_ct_acct_ext_add(struct nf_conn *ct, gfp_t gfp)
 	return acct;
 };
 
+unsigned int seq_print_acct(struct seq_file *s, const struct nf_conn *ct,
+			    int dir);
+
 /* Check if connection tracking accounting is enabled */
 static inline bool nf_ct_acct_enabled(struct net *net)
 {
@@ -58,7 +61,8 @@ static inline void nf_ct_set_acct(struct net *net, bool enable)
 	net->ct.sysctl_acct = enable;
 }
 
-void nf_conntrack_acct_pernet_init(struct net *net);
+int nf_conntrack_acct_pernet_init(struct net *net);
+void nf_conntrack_acct_pernet_fini(struct net *net);
 
 int nf_conntrack_acct_init(void);
 void nf_conntrack_acct_fini(void);

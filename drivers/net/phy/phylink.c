@@ -1,9 +1,12 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * phylink models the MAC to optional PHY connection, supporting
  * technologies such as SFP cages where the PHY is hot-pluggable.
  *
  * Copyright (C) 2015 Russell King
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 #include <linux/ethtool.h>
 #include <linux/export.h>
@@ -64,6 +67,33 @@ struct phylink {
 
 	struct sfp_bus *sfp_bus;
 };
+
+static inline void linkmode_zero(unsigned long *dst)
+{
+	bitmap_zero(dst, __ETHTOOL_LINK_MODE_MASK_NBITS);
+}
+
+static inline void linkmode_copy(unsigned long *dst, const unsigned long *src)
+{
+	bitmap_copy(dst, src, __ETHTOOL_LINK_MODE_MASK_NBITS);
+}
+
+static inline void linkmode_and(unsigned long *dst, const unsigned long *a,
+				const unsigned long *b)
+{
+	bitmap_and(dst, a, b, __ETHTOOL_LINK_MODE_MASK_NBITS);
+}
+
+static inline void linkmode_or(unsigned long *dst, const unsigned long *a,
+				const unsigned long *b)
+{
+	bitmap_or(dst, a, b, __ETHTOOL_LINK_MODE_MASK_NBITS);
+}
+
+static inline bool linkmode_empty(const unsigned long *src)
+{
+	return bitmap_empty(src, __ETHTOOL_LINK_MODE_MASK_NBITS);
+}
 
 /**
  * phylink_set_port_modes() - set the port type modes in the ethtool mask
@@ -188,7 +218,8 @@ static int phylink_parse_fixedlink(struct phylink *pl,
 	phylink_validate(pl, pl->supported, &pl->link_config);
 
 	s = phy_lookup_setting(pl->link_config.speed, pl->link_config.duplex,
-			       pl->supported, true);
+			       pl->supported,
+			       __ETHTOOL_LINK_MODE_MASK_NBITS, true);
 	linkmode_zero(pl->supported);
 	phylink_set(pl->supported, MII);
 	if (s) {
@@ -302,13 +333,6 @@ static void phylink_mac_config(struct phylink *pl,
 	pl->ops->mac_config(pl->netdev, pl->link_an_mode, state);
 }
 
-static void phylink_mac_config_up(struct phylink *pl,
-				  const struct phylink_link_state *state)
-{
-	if (state->link)
-		phylink_mac_config(pl, state);
-}
-
 static void phylink_mac_an_restart(struct phylink *pl)
 {
 	if (pl->link_config.an_enabled &&
@@ -412,12 +436,12 @@ static void phylink_resolve(struct work_struct *w)
 		case MLO_AN_PHY:
 			link_state = pl->phy_state;
 			phylink_resolve_flow(pl, &link_state);
-			phylink_mac_config_up(pl, &link_state);
+			phylink_mac_config(pl, &link_state);
 			break;
 
 		case MLO_AN_FIXED:
 			phylink_get_fixed_state(pl, &link_state);
-			phylink_mac_config_up(pl, &link_state);
+			phylink_mac_config(pl, &link_state);
 			break;
 
 		case MLO_AN_INBAND:
@@ -652,11 +676,13 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy)
 {
 	struct phylink_link_state config;
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(supported);
+	u32 advertising;
 	int ret;
 
 	memset(&config, 0, sizeof(config));
-	linkmode_copy(supported, phy->supported);
-	linkmode_copy(config.advertising, phy->advertising);
+	ethtool_convert_legacy_u32_to_link_mode(supported, phy->supported);
+	ethtool_convert_legacy_u32_to_link_mode(config.advertising,
+						phy->advertising);
 	config.interface = pl->link_config.interface;
 
 	/*
@@ -689,17 +715,19 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy)
 	linkmode_copy(pl->link_config.advertising, config.advertising);
 
 	/* Restrict the phy advertisement according to the MAC support. */
-	linkmode_copy(phy->advertising, config.advertising);
+	ethtool_convert_link_mode_to_legacy_u32(&advertising, config.advertising);
+	phy->advertising = advertising;
 	mutex_unlock(&pl->state_mutex);
 	mutex_unlock(&phy->lock);
 
 	netdev_dbg(pl->netdev,
-		   "phy: setting supported %*pb advertising %*pb\n",
+		   "phy: setting supported %*pb advertising 0x%08x\n",
 		   __ETHTOOL_LINK_MODE_MASK_NBITS, pl->supported,
-		   __ETHTOOL_LINK_MODE_MASK_NBITS, phy->advertising);
+		   phy->advertising);
 
-	if (phy_interrupt_is_valid(phy))
-		phy_request_interrupt(phy);
+	phy_start_machine(phy);
+	if (phy->irq > 0)
+		phy_start_interrupts(phy);
 
 	return 0;
 }
@@ -1100,7 +1128,8 @@ int phylink_ethtool_ksettings_set(struct phylink *pl,
 		 * duplex.
 		 */
 		s = phy_lookup_setting(kset->base.speed, kset->base.duplex,
-				       pl->supported, false);
+				       pl->supported,
+				       __ETHTOOL_LINK_MODE_MASK_NBITS, false);
 		if (!s)
 			return -EINVAL;
 
@@ -1283,24 +1312,6 @@ int phylink_get_eee_err(struct phylink *pl)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(phylink_get_eee_err);
-
-/**
- * phylink_init_eee() - init and check the EEE features
- * @pl: a pointer to a &struct phylink returned from phylink_create()
- * @clk_stop_enable: allow PHY to stop receive clock
- *
- * Must be called either with RTNL held or within mac_link_up()
- */
-int phylink_init_eee(struct phylink *pl, bool clk_stop_enable)
-{
-	int ret = -EOPNOTSUPP;
-
-	if (pl->phydev)
-		ret = phy_init_eee(pl->phydev, clk_stop_enable);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(phylink_init_eee);
 
 /**
  * phylink_ethtool_get_eee() - read the energy efficient ethernet parameters
@@ -1729,4 +1740,4 @@ void phylink_helper_basex_speed(struct phylink_link_state *state)
 }
 EXPORT_SYMBOL_GPL(phylink_helper_basex_speed);
 
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

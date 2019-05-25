@@ -44,7 +44,7 @@
  * if multiple applications or operating systems are running, then it
  * is up to the user program to coordinate between them.
  */
-static cvmx_spinlock_t cvmx_l2c_spinlock;
+cvmx_spinlock_t cvmx_l2c_spinlock;
 
 int cvmx_l2c_get_core_way_partition(uint32_t core)
 {

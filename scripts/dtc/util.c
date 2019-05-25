@@ -46,52 +46,34 @@ char *xstrdup(const char *s)
 	return d;
 }
 
-int xavsprintf_append(char **strp, const char *fmt, va_list ap)
-{
-	int n, size = 0;	/* start with 128 bytes */
-	char *p;
-	va_list ap_copy;
-
-	p = *strp;
-	if (p)
-		size = strlen(p);
-
-	va_copy(ap_copy, ap);
-	n = vsnprintf(NULL, 0, fmt, ap_copy) + 1;
-	va_end(ap_copy);
-
-	p = xrealloc(p, size + n);
-
-	n = vsnprintf(p + size, n, fmt, ap);
-
-	*strp = p;
-	return strlen(p);
-}
-
-int xasprintf_append(char **strp, const char *fmt, ...)
-{
-	int n;
-	va_list ap;
-
-	va_start(ap, fmt);
-	n = xavsprintf_append(strp, fmt, ap);
-	va_end(ap);
-
-	return n;
-}
-
+/* based in part from (3) vsnprintf */
 int xasprintf(char **strp, const char *fmt, ...)
 {
-	int n;
+	int n, size = 128;	/* start with 128 bytes */
+	char *p;
 	va_list ap;
 
-	*strp = NULL;
+	/* initial pointer is NULL making the fist realloc to be malloc */
+	p = NULL;
+	while (1) {
+		p = xrealloc(p, size);
 
-	va_start(ap, fmt);
-	n = xavsprintf_append(strp, fmt, ap);
-	va_end(ap);
+		/* Try to print in the allocated space. */
+		va_start(ap, fmt);
+		n = vsnprintf(p, size, fmt, ap);
+		va_end(ap);
 
-	return n;
+		/* If that worked, return the string. */
+		if (n > -1 && n < size)
+			break;
+		/* Else try again with more space. */
+		if (n > -1)	/* glibc 2.1 */
+			size = n + 1; /* precisely what is needed */
+		else		/* glibc 2.0 */
+			size *= 2; /* twice the old size */
+	}
+	*strp = p;
+	return strlen(p);
 }
 
 char *join_path(const char *path, const char *name)
@@ -245,11 +227,11 @@ char get_escape_char(const char *s, int *i)
 	return val;
 }
 
-int utilfdt_read_err(const char *filename, char **buffp, size_t *len)
+int utilfdt_read_err_len(const char *filename, char **buffp, off_t *len)
 {
 	int fd = 0;	/* assume stdin */
 	char *buf = NULL;
-	size_t bufsize = 1024, offset = 0;
+	off_t bufsize = 1024, offset = 0;
 	int ret = 0;
 
 	*buffp = NULL;
@@ -282,15 +264,20 @@ int utilfdt_read_err(const char *filename, char **buffp, size_t *len)
 		free(buf);
 	else
 		*buffp = buf;
-	if (len)
-		*len = bufsize;
+	*len = bufsize;
 	return ret;
 }
 
-char *utilfdt_read(const char *filename, size_t *len)
+int utilfdt_read_err(const char *filename, char **buffp)
+{
+	off_t len;
+	return utilfdt_read_err_len(filename, buffp, &len);
+}
+
+char *utilfdt_read_len(const char *filename, off_t *len)
 {
 	char *buff;
-	int ret = utilfdt_read_err(filename, &buff, len);
+	int ret = utilfdt_read_err_len(filename, &buff, len);
 
 	if (ret) {
 		fprintf(stderr, "Couldn't open blob from '%s': %s\n", filename,
@@ -299,6 +286,12 @@ char *utilfdt_read(const char *filename, size_t *len)
 	}
 	/* Successful read */
 	return buff;
+}
+
+char *utilfdt_read(const char *filename)
+{
+	off_t len;
+	return utilfdt_read_len(filename, &len);
 }
 
 int utilfdt_write_err(const char *filename, const void *blob)

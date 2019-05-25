@@ -51,7 +51,7 @@ static const struct vivid_fmt formats_ovl[] = {
 };
 
 /* The number of discrete webcam framesizes */
-#define VIVID_WEBCAM_SIZES 6
+#define VIVID_WEBCAM_SIZES 5
 /* The number of discrete webcam frameintervals */
 #define VIVID_WEBCAM_IVALS (VIVID_WEBCAM_SIZES * 2)
 
@@ -59,7 +59,6 @@ static const struct vivid_fmt formats_ovl[] = {
 static const struct v4l2_frmsize_discrete webcam_sizes[VIVID_WEBCAM_SIZES] = {
 	{  320, 180 },
 	{  640, 360 },
-	{  640, 480 },
 	{ 1280, 720 },
 	{ 1920, 1080 },
 	{ 3840, 2160 },
@@ -75,11 +74,9 @@ static const struct v4l2_fract webcam_intervals[VIVID_WEBCAM_IVALS] = {
 	{  1, 4 },
 	{  1, 5 },
 	{  1, 10 },
-	{  2, 25 },
 	{  1, 15 },
 	{  1, 25 },
 	{  1, 30 },
-	{  1, 40 },
 	{  1, 50 },
 	{  1, 60 },
 };
@@ -124,8 +121,7 @@ static int vid_cap_queue_setup(struct vb2_queue *vq,
 		}
 	} else {
 		for (p = 0; p < buffers; p++)
-			sizes[p] = (tpg_g_line_width(&dev->tpg, p) * h) /
-					dev->fmt_cap->vdownsampling[p] +
+			sizes[p] = tpg_g_line_width(&dev->tpg, p) * h +
 					dev->fmt_cap->data_offset[p];
 	}
 
@@ -162,9 +158,7 @@ static int vid_cap_buf_prepare(struct vb2_buffer *vb)
 		return -EINVAL;
 	}
 	for (p = 0; p < buffers; p++) {
-		size = (tpg_g_line_width(&dev->tpg, p) *
-			dev->fmt_cap_rect.height) /
-			dev->fmt_cap->vdownsampling[p] +
+		size = tpg_g_line_width(&dev->tpg, p) * dev->fmt_cap_rect.height +
 			dev->fmt_cap->data_offset[p];
 
 		if (vb2_plane_size(vb, p) < size) {
@@ -263,13 +257,6 @@ static void vid_cap_stop_streaming(struct vb2_queue *vq)
 	dev->can_loop_video = false;
 }
 
-static void vid_cap_buf_request_complete(struct vb2_buffer *vb)
-{
-	struct vivid_dev *dev = vb2_get_drv_priv(vb->vb2_queue);
-
-	v4l2_ctrl_request_complete(vb->req_obj.req, &dev->ctrl_hdl_vid_cap);
-}
-
 const struct vb2_ops vivid_vid_cap_qops = {
 	.queue_setup		= vid_cap_queue_setup,
 	.buf_prepare		= vid_cap_buf_prepare,
@@ -277,7 +264,6 @@ const struct vb2_ops vivid_vid_cap_qops = {
 	.buf_queue		= vid_cap_buf_queue,
 	.start_streaming	= vid_cap_start_streaming,
 	.stop_streaming		= vid_cap_stop_streaming,
-	.buf_request_complete	= vid_cap_buf_request_complete,
 	.wait_prepare		= vb2_ops_wait_prepare,
 	.wait_finish		= vb2_ops_wait_finish,
 };
@@ -548,8 +534,7 @@ int vivid_g_fmt_vid_cap(struct file *file, void *priv,
 	for (p = 0; p < mp->num_planes; p++) {
 		mp->plane_fmt[p].bytesperline = tpg_g_bytesperline(&dev->tpg, p);
 		mp->plane_fmt[p].sizeimage =
-			(tpg_g_line_width(&dev->tpg, p) * mp->height) /
-			dev->fmt_cap->vdownsampling[p] +
+			tpg_g_line_width(&dev->tpg, p) * mp->height +
 			dev->fmt_cap->data_offset[p];
 	}
 	return 0;
@@ -1020,24 +1005,26 @@ int vivid_vid_cap_s_selection(struct file *file, void *fh, struct v4l2_selection
 	return 0;
 }
 
-int vivid_vid_cap_g_pixelaspect(struct file *file, void *priv,
-				int type, struct v4l2_fract *f)
+int vivid_vid_cap_cropcap(struct file *file, void *priv,
+			      struct v4l2_cropcap *cap)
 {
 	struct vivid_dev *dev = video_drvdata(file);
 
-	if (type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+	if (cap->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
 	switch (vivid_get_pixel_aspect(dev)) {
 	case TPG_PIXEL_ASPECT_NTSC:
-		f->numerator = 11;
-		f->denominator = 10;
+		cap->pixelaspect.numerator = 11;
+		cap->pixelaspect.denominator = 10;
 		break;
 	case TPG_PIXEL_ASPECT_PAL:
-		f->numerator = 54;
-		f->denominator = 59;
+		cap->pixelaspect.numerator = 54;
+		cap->pixelaspect.denominator = 59;
 		break;
-	default:
+	case TPG_PIXEL_ASPECT_SQUARE:
+		cap->pixelaspect.numerator = 1;
+		cap->pixelaspect.denominator = 1;
 		break;
 	}
 	return 0;
@@ -1520,7 +1507,7 @@ int vivid_video_g_tuner(struct file *file, void *fh, struct v4l2_tuner *vt)
 			break;
 		}
 	}
-	strscpy(vt->name, "TV Tuner", sizeof(vt->name));
+	strlcpy(vt->name, "TV Tuner", sizeof(vt->name));
 	return 0;
 }
 
@@ -1737,7 +1724,7 @@ int vidioc_s_edid(struct file *file, void *_fh,
 		return -E2BIG;
 	}
 	phys_addr = cec_get_edid_phys_addr(edid->edid, edid->blocks * 128, NULL);
-	ret = v4l2_phys_addr_validate(phys_addr, &phys_addr, NULL);
+	ret = cec_phys_addr_validate(phys_addr, &phys_addr, NULL);
 	if (ret)
 		return ret;
 
@@ -1753,7 +1740,7 @@ set_phys_addr:
 
 	for (i = 0; i < MAX_OUTPUTS && dev->cec_tx_adap[i]; i++)
 		cec_s_phys_addr(dev->cec_tx_adap[i],
-				v4l2_phys_addr_for_input(phys_addr, i + 1),
+				cec_phys_addr_for_input(phys_addr, i + 1),
 				false);
 	return 0;
 }
@@ -1839,6 +1826,9 @@ int vivid_vid_cap_g_parm(struct file *file, void *priv,
 	return 0;
 }
 
+#define FRACT_CMP(a, OP, b)	\
+	((u64)(a).numerator * (b).denominator  OP  (u64)(b).numerator * (a).denominator)
+
 int vivid_vid_cap_s_parm(struct file *file, void *priv,
 			  struct v4l2_streamparm *parm)
 {
@@ -1859,14 +1849,14 @@ int vivid_vid_cap_s_parm(struct file *file, void *priv,
 	if (tpf.denominator == 0)
 		tpf = webcam_intervals[ival_sz - 1];
 	for (i = 0; i < ival_sz; i++)
-		if (V4L2_FRACT_COMPARE(tpf, >=, webcam_intervals[i]))
+		if (FRACT_CMP(tpf, >=, webcam_intervals[i]))
 			break;
 	if (i == ival_sz)
 		i = ival_sz - 1;
 	dev->webcam_ival_idx = i;
 	tpf = webcam_intervals[dev->webcam_ival_idx];
-	tpf = V4L2_FRACT_COMPARE(tpf, <, tpf_min) ? tpf_min : tpf;
-	tpf = V4L2_FRACT_COMPARE(tpf, >, tpf_max) ? tpf_max : tpf;
+	tpf = FRACT_CMP(tpf, <, tpf_min) ? tpf_min : tpf;
+	tpf = FRACT_CMP(tpf, >, tpf_max) ? tpf_max : tpf;
 
 	/* resync the thread's timings */
 	dev->cap_seq_resync = true;

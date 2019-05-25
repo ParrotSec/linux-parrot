@@ -84,7 +84,6 @@ static const struct regulator_desc isl9305_regulators[] = {
 		.enable_mask =	ISL9305_DCD1_EN,
 		.supply_name =	"VINDCD1",
 		.ops =		&isl9305_ops,
-		.owner =	THIS_MODULE,
 	},
 	[ISL9305_DCD2] = {
 		.name =		"DCD2",
@@ -99,7 +98,6 @@ static const struct regulator_desc isl9305_regulators[] = {
 		.enable_mask =	ISL9305_DCD2_EN,
 		.supply_name =	"VINDCD2",
 		.ops =		&isl9305_ops,
-		.owner =	THIS_MODULE,
 	},
 	[ISL9305_LDO1] = {
 		.name =		"LDO1",
@@ -114,7 +112,6 @@ static const struct regulator_desc isl9305_regulators[] = {
 		.enable_mask =	ISL9305_LDO1_EN,
 		.supply_name =	"VINLDO1",
 		.ops =		&isl9305_ops,
-		.owner =	THIS_MODULE,
 	},
 	[ISL9305_LDO2] = {
 		.name =		"LDO2",
@@ -129,7 +126,6 @@ static const struct regulator_desc isl9305_regulators[] = {
 		.enable_mask =	ISL9305_LDO2_EN,
 		.supply_name =	"VINLDO2",
 		.ops =		&isl9305_ops,
-		.owner =	THIS_MODULE,
 	},
 };
 

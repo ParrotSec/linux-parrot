@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Neil Brown <neilb@cse.unsw.edu.au>
  * J. Bruce Fields <bfields@umich.edu>
@@ -77,7 +76,6 @@ struct rsi {
 	struct xdr_netobj	in_handle, in_token;
 	struct xdr_netobj	out_handle, out_token;
 	int			major_status, minor_status;
-	struct rcu_head		rcu_head;
 };
 
 static struct rsi *rsi_update(struct cache_detail *cd, struct rsi *new, struct rsi *old);
@@ -91,19 +89,11 @@ static void rsi_free(struct rsi *rsii)
 	kfree(rsii->out_token.data);
 }
 
-static void rsi_free_rcu(struct rcu_head *head)
-{
-	struct rsi *rsii = container_of(head, struct rsi, rcu_head);
-
-	rsi_free(rsii);
-	kfree(rsii);
-}
-
 static void rsi_put(struct kref *ref)
 {
 	struct rsi *rsii = container_of(ref, struct rsi, h.ref);
-
-	call_rcu(&rsii->rcu_head, rsi_free_rcu);
+	rsi_free(rsii);
+	kfree(rsii);
 }
 
 static inline int rsi_hash(struct rsi *item)
@@ -292,7 +282,7 @@ static struct rsi *rsi_lookup(struct cache_detail *cd, struct rsi *item)
 	struct cache_head *ch;
 	int hash = rsi_hash(item);
 
-	ch = sunrpc_cache_lookup_rcu(cd, &item->h, hash);
+	ch = sunrpc_cache_lookup(cd, &item->h, hash);
 	if (ch)
 		return container_of(ch, struct rsi, h);
 	else
@@ -340,7 +330,6 @@ struct rsc {
 	struct svc_cred		cred;
 	struct gss_svc_seq_data	seqdata;
 	struct gss_ctx		*mechctx;
-	struct rcu_head		rcu_head;
 };
 
 static struct rsc *rsc_update(struct cache_detail *cd, struct rsc *new, struct rsc *old);
@@ -354,22 +343,12 @@ static void rsc_free(struct rsc *rsci)
 	free_svc_cred(&rsci->cred);
 }
 
-static void rsc_free_rcu(struct rcu_head *head)
-{
-	struct rsc *rsci = container_of(head, struct rsc, rcu_head);
-
-	kfree(rsci->handle.data);
-	kfree(rsci);
-}
-
 static void rsc_put(struct kref *ref)
 {
 	struct rsc *rsci = container_of(ref, struct rsc, h.ref);
 
-	if (rsci->mechctx)
-		gss_delete_sec_context(&rsci->mechctx);
-	free_svc_cred(&rsci->cred);
-	call_rcu(&rsci->rcu_head, rsc_free_rcu);
+	rsc_free(rsci);
+	kfree(rsci);
 }
 
 static inline int
@@ -563,7 +542,7 @@ static struct rsc *rsc_lookup(struct cache_detail *cd, struct rsc *item)
 	struct cache_head *ch;
 	int hash = rsc_hash(item);
 
-	ch = sunrpc_cache_lookup_rcu(cd, &item->h, hash);
+	ch = sunrpc_cache_lookup(cd, &item->h, hash);
 	if (ch)
 		return container_of(ch, struct rsc, h);
 	else
@@ -897,7 +876,7 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
 	if (svc_getnl(&buf->head[0]) != seq)
 		goto out;
 	/* trim off the mic and padding at the end before returning */
-	buf->len -= 4 + round_up_to_quad(mic.len);
+	xdr_buf_trim(buf, round_up_to_quad(mic.len) + 4);
 	stat = 0;
 out:
 	kfree(mic.data);
@@ -1785,19 +1764,12 @@ out_err:
 }
 
 static void
-svcauth_gss_domain_release_rcu(struct rcu_head *head)
+svcauth_gss_domain_release(struct auth_domain *dom)
 {
-	struct auth_domain *dom = container_of(head, struct auth_domain, rcu_head);
 	struct gss_domain *gd = container_of(dom, struct gss_domain, h);
 
 	kfree(dom->name);
 	kfree(gd);
-}
-
-static void
-svcauth_gss_domain_release(struct auth_domain *dom)
-{
-	call_rcu(&dom->rcu_head, svcauth_gss_domain_release_rcu);
 }
 
 static struct auth_ops svcauthops_gss = {

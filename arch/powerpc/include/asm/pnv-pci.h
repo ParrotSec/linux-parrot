@@ -54,6 +54,7 @@ void pnv_cxl_release_hwirq_ranges(struct cxl_irq_ranges *irqs,
 
 struct pnv_php_slot {
 	struct hotplug_slot		slot;
+	struct hotplug_slot_info	slot_info;
 	uint64_t			id;
 	char				*name;
 	int				slot_no;
@@ -71,7 +72,6 @@ struct pnv_php_slot {
 	struct pci_dev			*pdev;
 	struct pci_bus			*bus;
 	bool				power_state_check;
-	u8				attention_state;
 	void				*fdt;
 	void				*dt;
 	struct of_changeset		ocs;

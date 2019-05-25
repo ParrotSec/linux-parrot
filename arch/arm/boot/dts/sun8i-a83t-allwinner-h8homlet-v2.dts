@@ -154,10 +154,6 @@
 
 #include "axp81x.dtsi"
 
-&ac_power_supply {
-	status = "okay";
-};
-
 &reg_aldo1 {
 	regulator-always-on;
 	regulator-min-microvolt = <1800000>;

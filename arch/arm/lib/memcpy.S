@@ -30,7 +30,7 @@
 	.endm
 
 	.macro ldr1b ptr reg cond=al abort
-	ldrb\cond \reg, [\ptr], #1
+	ldr\cond\()b \reg, [\ptr], #1
 	.endm
 
 	.macro str1w ptr reg abort
@@ -42,7 +42,7 @@
 	.endm
 
 	.macro str1b ptr reg cond=al abort
-	strb\cond \reg, [\ptr], #1
+	str\cond\()b \reg, [\ptr], #1
 	.endm
 
 	.macro enter reg1 reg2

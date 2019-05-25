@@ -6,6 +6,4 @@ typedef unsigned long long __u64;
 typedef struct {
         __u8 b[16];
 } uuid_le;
-typedef unsigned char uuid_t[16];
-#define UUID_STRING_LEN 36
 #define offsetof(a,b) __builtin_offsetof(a,b)

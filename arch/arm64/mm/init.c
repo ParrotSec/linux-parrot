@@ -22,6 +22,7 @@
 #include <linux/errno.h>
 #include <linux/swap.h>
 #include <linux/init.h>
+#include <linux/bootmem.h>
 #include <linux/cache.h>
 #include <linux/mman.h>
 #include <linux/nodemask.h>
@@ -59,9 +60,25 @@
  * that cannot be mistaken for a real physical address.
  */
 s64 memstart_addr __ro_after_init = -1;
-EXPORT_SYMBOL(memstart_addr);
-
 phys_addr_t arm64_dma_phys_limit __ro_after_init;
+
+#ifdef CONFIG_BLK_DEV_INITRD
+static int __init early_initrd(char *p)
+{
+	unsigned long start, size;
+	char *endp;
+
+	start = memparse(p, &endp);
+	if (*endp == ',') {
+		size = memparse(endp + 1, NULL);
+
+		initrd_start = start;
+		initrd_end = start + size;
+	}
+	return 0;
+}
+early_param("initrd", early_initrd);
+#endif
 
 #ifdef CONFIG_KEXEC_CORE
 /*
@@ -118,8 +135,33 @@ static void __init reserve_crashkernel(void)
 	crashk_res.start = crash_base;
 	crashk_res.end = crash_base + crash_size - 1;
 }
+
+static void __init kexec_reserve_crashkres_pages(void)
+{
+#ifdef CONFIG_HIBERNATION
+	phys_addr_t addr;
+	struct page *page;
+
+	if (!crashk_res.end)
+		return;
+
+	/*
+	 * To reduce the size of hibernation image, all the pages are
+	 * marked as Reserved initially.
+	 */
+	for (addr = crashk_res.start; addr < (crashk_res.end + 1);
+			addr += PAGE_SIZE) {
+		page = phys_to_page(addr);
+		SetPageReserved(page);
+	}
+#endif
+}
 #else
 static void __init reserve_crashkernel(void)
+{
+}
+
+static void __init kexec_reserve_crashkres_pages(void)
 {
 }
 #endif /* CONFIG_KEXEC_CORE */
@@ -242,23 +284,35 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 
 #endif /* CONFIG_NUMA */
 
+#ifdef CONFIG_HAVE_ARCH_PFN_VALID
 int pfn_valid(unsigned long pfn)
 {
 	phys_addr_t addr = pfn << PAGE_SHIFT;
 
 	if ((addr >> PAGE_SHIFT) != pfn)
 		return 0;
-
-#ifdef CONFIG_SPARSEMEM
-	if (pfn_to_section_nr(pfn) >= NR_MEM_SECTIONS)
-		return 0;
-
-	if (!valid_section(__nr_to_section(pfn_to_section_nr(pfn))))
-		return 0;
-#endif
 	return memblock_is_map_memory(addr);
 }
 EXPORT_SYMBOL(pfn_valid);
+#endif
+
+#ifndef CONFIG_SPARSEMEM
+static void __init arm64_memory_present(void)
+{
+}
+#else
+static void __init arm64_memory_present(void)
+{
+	struct memblock_region *reg;
+
+	for_each_memblock(memory, reg) {
+		int nid = memblock_get_region_node(reg);
+
+		memory_present(nid, memblock_region_memory_base_pfn(reg),
+				memblock_region_memory_end_pfn(reg));
+	}
+}
+#endif
 
 static phys_addr_t memory_limit = PHYS_ADDR_MAX;
 
@@ -356,14 +410,14 @@ void __init arm64_memblock_init(void)
 		memblock_add(__pa_symbol(_text), (u64)(_end - _text));
 	}
 
-	if (IS_ENABLED(CONFIG_BLK_DEV_INITRD) && phys_initrd_size) {
+	if (IS_ENABLED(CONFIG_BLK_DEV_INITRD) && initrd_start) {
 		/*
 		 * Add back the memory we just removed if it results in the
 		 * initrd to become inaccessible via the linear mapping.
 		 * Otherwise, this is a no-op
 		 */
-		u64 base = phys_initrd_start & PAGE_MASK;
-		u64 size = PAGE_ALIGN(phys_initrd_start + phys_initrd_size) - base;
+		u64 base = initrd_start & PAGE_MASK;
+		u64 size = PAGE_ALIGN(initrd_end) - base;
 
 		/*
 		 * We can only add back the initrd memory if we don't end up
@@ -407,11 +461,15 @@ void __init arm64_memblock_init(void)
 	 * pagetables with memblock.
 	 */
 	memblock_reserve(__pa_symbol(_text), _end - _text);
-	if (IS_ENABLED(CONFIG_BLK_DEV_INITRD) && phys_initrd_size) {
+#ifdef CONFIG_BLK_DEV_INITRD
+	if (initrd_start) {
+		memblock_reserve(initrd_start, initrd_end - initrd_start);
+
 		/* the generic initrd code expects virtual addresses */
-		initrd_start = __phys_to_virt(phys_initrd_start);
-		initrd_end = initrd_start + phys_initrd_size;
+		initrd_start = __phys_to_virt(initrd_start);
+		initrd_end = __phys_to_virt(initrd_end);
 	}
+#endif
 
 	early_init_fdt_scan_reserved_mem();
 
@@ -428,6 +486,8 @@ void __init arm64_memblock_init(void)
 	high_memory = __va(memblock_end_of_DRAM() - 1) + 1;
 
 	dma_contiguous_reserve(arm64_dma_phys_limit);
+
+	memblock_allow_resize();
 }
 
 void __init bootmem_init(void)
@@ -446,7 +506,7 @@ void __init bootmem_init(void)
 	 * Sparsemem tries to allocate bootmem in memory_present(), so must be
 	 * done after the fixed reservations.
 	 */
-	memblocks_present();
+	arm64_memory_present();
 
 	sparse_init();
 	zone_sizes_init(min, max);
@@ -478,7 +538,7 @@ static inline void free_memmap(unsigned long start_pfn, unsigned long end_pfn)
 	 * memmap array.
 	 */
 	if (pg < pgend)
-		memblock_free(pg, pgend - pg);
+		free_bootmem(pg, pgend - pg);
 }
 
 /*
@@ -541,7 +601,9 @@ void __init mem_init(void)
 	free_unused_memmap();
 #endif
 	/* this will put all unused low memory onto the freelists */
-	memblock_free_all();
+	free_all_bootmem();
+
+	kexec_reserve_crashkres_pages();
 
 	mem_init_print_info(NULL);
 
@@ -550,7 +612,15 @@ void __init mem_init(void)
 	 * detected at build time already.
 	 */
 #ifdef CONFIG_COMPAT
-	BUILD_BUG_ON(TASK_SIZE_32 > DEFAULT_MAP_WINDOW_64);
+	BUILD_BUG_ON(TASK_SIZE_32			> TASK_SIZE_64);
+#endif
+
+#ifdef CONFIG_SPARSEMEM_VMEMMAP
+	/*
+	 * Make sure we chose the upper bound of sizeof(struct page)
+	 * correctly when sizing the VMEMMAP array.
+	 */
+	BUILD_BUG_ON(sizeof(struct page) > (1 << STRUCT_PAGE_MAX_SHIFT));
 #endif
 
 	if (PAGE_SIZE >= 16384 && get_num_physpages() <= 128) {

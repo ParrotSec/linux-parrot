@@ -72,8 +72,7 @@ static void pps_echo_client_default(struct pps_device *pps, int event,
  * source is described by info's fields and it will have, as default PPS
  * parameters, the ones specified into default_params.
  *
- * The function returns, in case of success, the PPS device. Otherwise
- * ERR_PTR(errno).
+ * The function returns, in case of success, the PPS device. Otherwise NULL.
  */
 
 struct pps_device *pps_register_source(struct pps_source_info *info,
@@ -136,7 +135,7 @@ kfree_pps:
 pps_register_source_exit:
 	pr_err("%s: unable to register source\n", info->name);
 
-	return ERR_PTR(err);
+	return NULL;
 }
 EXPORT_SYMBOL(pps_register_source);
 

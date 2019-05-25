@@ -48,7 +48,6 @@
 #include <rdma/ib_addr.h>
 #include <rdma/ib_mad.h>
 #include <rdma/ib_cache.h>
-#include <rdma/uverbs_ioctl.h>
 
 #include "bnxt_ulp.h"
 
@@ -564,28 +563,40 @@ fail:
 }
 
 /* Protection Domains */
-void bnxt_re_dealloc_pd(struct ib_pd *ib_pd)
+int bnxt_re_dealloc_pd(struct ib_pd *ib_pd)
 {
 	struct bnxt_re_pd *pd = container_of(ib_pd, struct bnxt_re_pd, ib_pd);
 	struct bnxt_re_dev *rdev = pd->rdev;
+	int rc;
 
 	bnxt_re_destroy_fence_mr(pd);
 
-	if (pd->qplib_pd.id)
-		bnxt_qplib_dealloc_pd(&rdev->qplib_res, &rdev->qplib_res.pd_tbl,
-				      &pd->qplib_pd);
+	if (pd->qplib_pd.id) {
+		rc = bnxt_qplib_dealloc_pd(&rdev->qplib_res,
+					   &rdev->qplib_res.pd_tbl,
+					   &pd->qplib_pd);
+		if (rc)
+			dev_err(rdev_to_dev(rdev), "Failed to deallocate HW PD");
+	}
+
+	kfree(pd);
+	return 0;
 }
 
-int bnxt_re_alloc_pd(struct ib_pd *ibpd, struct ib_ucontext *ucontext,
-		     struct ib_udata *udata)
+struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
+			       struct ib_ucontext *ucontext,
+			       struct ib_udata *udata)
 {
-	struct ib_device *ibdev = ibpd->device;
 	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
 	struct bnxt_re_ucontext *ucntx = container_of(ucontext,
 						      struct bnxt_re_ucontext,
 						      ib_uctx);
-	struct bnxt_re_pd *pd = container_of(ibpd, struct bnxt_re_pd, ib_pd);
+	struct bnxt_re_pd *pd;
 	int rc;
+
+	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
+	if (!pd)
+		return ERR_PTR(-ENOMEM);
 
 	pd->rdev = rdev;
 	if (bnxt_qplib_alloc_pd(&rdev->qplib_res.pd_tbl, &pd->qplib_pd)) {
@@ -626,23 +637,23 @@ int bnxt_re_alloc_pd(struct ib_pd *ibpd, struct ib_ucontext *ucontext,
 		if (bnxt_re_create_fence_mr(pd))
 			dev_warn(rdev_to_dev(rdev),
 				 "Failed to create Fence-MR\n");
-	return 0;
+	return &pd->ib_pd;
 dbfail:
-	bnxt_qplib_dealloc_pd(&rdev->qplib_res, &rdev->qplib_res.pd_tbl,
-			      &pd->qplib_pd);
+	(void)bnxt_qplib_dealloc_pd(&rdev->qplib_res, &rdev->qplib_res.pd_tbl,
+				    &pd->qplib_pd);
 fail:
-	return rc;
+	kfree(pd);
+	return ERR_PTR(rc);
 }
 
 /* Address Handles */
-int bnxt_re_destroy_ah(struct ib_ah *ib_ah, u32 flags)
+int bnxt_re_destroy_ah(struct ib_ah *ib_ah)
 {
 	struct bnxt_re_ah *ah = container_of(ib_ah, struct bnxt_re_ah, ib_ah);
 	struct bnxt_re_dev *rdev = ah->rdev;
 	int rc;
 
-	rc = bnxt_qplib_destroy_ah(&rdev->qplib_res, &ah->qplib_ah,
-				   !(flags & RDMA_DESTROY_AH_SLEEPABLE));
+	rc = bnxt_qplib_destroy_ah(&rdev->qplib_res, &ah->qplib_ah);
 	if (rc) {
 		dev_err(rdev_to_dev(rdev), "Failed to destroy HW AH");
 		return rc;
@@ -651,36 +662,16 @@ int bnxt_re_destroy_ah(struct ib_ah *ib_ah, u32 flags)
 	return 0;
 }
 
-static u8 bnxt_re_stack_to_dev_nw_type(enum rdma_network_type ntype)
-{
-	u8 nw_type;
-
-	switch (ntype) {
-	case RDMA_NETWORK_IPV4:
-		nw_type = CMDQ_CREATE_AH_TYPE_V2IPV4;
-		break;
-	case RDMA_NETWORK_IPV6:
-		nw_type = CMDQ_CREATE_AH_TYPE_V2IPV6;
-		break;
-	default:
-		nw_type = CMDQ_CREATE_AH_TYPE_V1;
-		break;
-	}
-	return nw_type;
-}
-
 struct ib_ah *bnxt_re_create_ah(struct ib_pd *ib_pd,
 				struct rdma_ah_attr *ah_attr,
-				u32 flags,
 				struct ib_udata *udata)
 {
 	struct bnxt_re_pd *pd = container_of(ib_pd, struct bnxt_re_pd, ib_pd);
-	const struct ib_global_route *grh = rdma_ah_read_grh(ah_attr);
 	struct bnxt_re_dev *rdev = pd->rdev;
-	const struct ib_gid_attr *sgid_attr;
 	struct bnxt_re_ah *ah;
-	u8 nw_type;
+	const struct ib_global_route *grh = rdma_ah_read_grh(ah_attr);
 	int rc;
+	u8 nw_type;
 
 	if (!(rdma_ah_get_ah_flags(ah_attr) & IB_AH_GRH)) {
 		dev_err(rdev_to_dev(rdev), "Failed to alloc AH: GRH not set");
@@ -707,27 +698,44 @@ struct ib_ah *bnxt_re_create_ah(struct ib_pd *ib_pd,
 	ah->qplib_ah.flow_label = grh->flow_label;
 	ah->qplib_ah.hop_limit = grh->hop_limit;
 	ah->qplib_ah.sl = rdma_ah_get_sl(ah_attr);
+	if (ib_pd->uobject &&
+	    !rdma_is_multicast_addr((struct in6_addr *)
+				    grh->dgid.raw) &&
+	    !rdma_link_local_addr((struct in6_addr *)
+				  grh->dgid.raw)) {
+		const struct ib_gid_attr *sgid_attr;
 
-	sgid_attr = grh->sgid_attr;
-	/* Get network header type for this GID */
-	nw_type = rdma_gid_attr_network_type(sgid_attr);
-	ah->qplib_ah.nw_type = bnxt_re_stack_to_dev_nw_type(nw_type);
+		sgid_attr = grh->sgid_attr;
+		/* Get network header type for this GID */
+		nw_type = rdma_gid_attr_network_type(sgid_attr);
+		switch (nw_type) {
+		case RDMA_NETWORK_IPV4:
+			ah->qplib_ah.nw_type = CMDQ_CREATE_AH_TYPE_V2IPV4;
+			break;
+		case RDMA_NETWORK_IPV6:
+			ah->qplib_ah.nw_type = CMDQ_CREATE_AH_TYPE_V2IPV6;
+			break;
+		default:
+			ah->qplib_ah.nw_type = CMDQ_CREATE_AH_TYPE_V1;
+			break;
+		}
+	}
 
 	memcpy(ah->qplib_ah.dmac, ah_attr->roce.dmac, ETH_ALEN);
-	rc = bnxt_qplib_create_ah(&rdev->qplib_res, &ah->qplib_ah,
-				  !(flags & RDMA_CREATE_AH_SLEEPABLE));
+	rc = bnxt_qplib_create_ah(&rdev->qplib_res, &ah->qplib_ah);
 	if (rc) {
 		dev_err(rdev_to_dev(rdev), "Failed to allocate HW AH");
 		goto fail;
 	}
 
 	/* Write AVID to shared page. */
-	if (udata) {
-		struct bnxt_re_ucontext *uctx = rdma_udata_to_drv_context(
-			udata, struct bnxt_re_ucontext, ib_uctx);
+	if (ib_pd->uobject) {
+		struct ib_ucontext *ib_uctx = ib_pd->uobject->context;
+		struct bnxt_re_ucontext *uctx;
 		unsigned long flag;
 		u32 *wrptr;
 
+		uctx = container_of(ib_uctx, struct bnxt_re_ucontext, ib_uctx);
 		spin_lock_irqsave(&uctx->sh_lock, flag);
 		wrptr = (u32 *)(uctx->shpg + BNXT_RE_AVID_OFFT);
 		*wrptr = ah->qplib_ah.id;
@@ -793,8 +801,8 @@ int bnxt_re_destroy_qp(struct ib_qp *ib_qp)
 {
 	struct bnxt_re_qp *qp = container_of(ib_qp, struct bnxt_re_qp, ib_qp);
 	struct bnxt_re_dev *rdev = qp->rdev;
-	unsigned int flags;
 	int rc;
+	unsigned int flags;
 
 	bnxt_qplib_flush_cqn_wq(&qp->qplib_qp);
 	rc = bnxt_qplib_destroy_qp(&rdev->qplib_res, &qp->qplib_qp);
@@ -803,17 +811,14 @@ int bnxt_re_destroy_qp(struct ib_qp *ib_qp)
 		return rc;
 	}
 
-	if (rdma_is_kernel_res(&qp->ib_qp.res)) {
-		flags = bnxt_re_lock_cqs(qp);
-		bnxt_qplib_clean_qp(&qp->qplib_qp);
-		bnxt_re_unlock_cqs(qp, flags);
-	}
-
+	flags = bnxt_re_lock_cqs(qp);
+	bnxt_qplib_clean_qp(&qp->qplib_qp);
+	bnxt_re_unlock_cqs(qp, flags);
 	bnxt_qplib_free_qp_res(&rdev->qplib_res, &qp->qplib_qp);
 
 	if (ib_qp->qp_type == IB_QPT_GSI && rdev->qp1_sqp) {
 		rc = bnxt_qplib_destroy_ah(&rdev->qplib_res,
-					   &rdev->sqp_ah->qplib_ah, false);
+					   &rdev->sqp_ah->qplib_ah);
 		if (rc) {
 			dev_err(rdev_to_dev(rdev),
 				"Failed to destroy HW AH for shadow QP");
@@ -874,23 +879,21 @@ static int bnxt_re_init_user_qp(struct bnxt_re_dev *rdev, struct bnxt_re_pd *pd,
 	struct bnxt_re_qp_req ureq;
 	struct bnxt_qplib_qp *qplib_qp = &qp->qplib_qp;
 	struct ib_umem *umem;
-	int bytes = 0, psn_sz;
-	struct bnxt_re_ucontext *cntx = rdma_udata_to_drv_context(
-		udata, struct bnxt_re_ucontext, ib_uctx);
-
+	int bytes = 0;
+	struct ib_ucontext *context = pd->ib_pd.uobject->context;
+	struct bnxt_re_ucontext *cntx = container_of(context,
+						     struct bnxt_re_ucontext,
+						     ib_uctx);
 	if (ib_copy_from_udata(&ureq, udata, sizeof(ureq)))
 		return -EFAULT;
 
 	bytes = (qplib_qp->sq.max_wqe * BNXT_QPLIB_MAX_SQE_ENTRY_SIZE);
 	/* Consider mapping PSN search memory only for RC QPs. */
-	if (qplib_qp->type == CMDQ_CREATE_QP_TYPE_RC) {
-		psn_sz = bnxt_qplib_is_chip_gen_p5(&rdev->chip_ctx) ?
-					sizeof(struct sq_psn_search_ext) :
-					sizeof(struct sq_psn_search);
-		bytes += (qplib_qp->sq.max_wqe * psn_sz);
-	}
+	if (qplib_qp->type == CMDQ_CREATE_QP_TYPE_RC)
+		bytes += (qplib_qp->sq.max_wqe * sizeof(struct sq_psn_search));
 	bytes = PAGE_ALIGN(bytes);
-	umem = ib_umem_get(udata, ureq.qpsva, bytes, IB_ACCESS_LOCAL_WRITE, 1);
+	umem = ib_umem_get(context, ureq.qpsva, bytes,
+			   IB_ACCESS_LOCAL_WRITE, 1);
 	if (IS_ERR(umem))
 		return PTR_ERR(umem);
 
@@ -902,7 +905,7 @@ static int bnxt_re_init_user_qp(struct bnxt_re_dev *rdev, struct bnxt_re_pd *pd,
 	if (!qp->qplib_qp.srq) {
 		bytes = (qplib_qp->rq.max_wqe * BNXT_QPLIB_MAX_RQE_ENTRY_SIZE);
 		bytes = PAGE_ALIGN(bytes);
-		umem = ib_umem_get(udata, ureq.qprva, bytes,
+		umem = ib_umem_get(context, ureq.qprva, bytes,
 				   IB_ACCESS_LOCAL_WRITE, 1);
 		if (IS_ERR(umem))
 			goto rqfail;
@@ -955,7 +958,7 @@ static struct bnxt_re_ah *bnxt_re_create_shadow_qp_ah
 	/* Have DMAC same as SMAC */
 	ether_addr_copy(ah->qplib_ah.dmac, rdev->netdev->dev_addr);
 
-	rc = bnxt_qplib_create_ah(&rdev->qplib_res, &ah->qplib_ah, false);
+	rc = bnxt_qplib_create_ah(&rdev->qplib_res, &ah->qplib_ah);
 	if (rc) {
 		dev_err(rdev_to_dev(rdev),
 			"Failed to allocate HW AH for Shadow QP");
@@ -1060,17 +1063,12 @@ struct ib_qp *bnxt_re_create_qp(struct ib_pd *ib_pd,
 	qp->qplib_qp.pd = &pd->qplib_pd;
 	qp->qplib_qp.qp_handle = (u64)(unsigned long)(&qp->qplib_qp);
 	qp->qplib_qp.type = __from_ib_qp_type(qp_init_attr->qp_type);
-
-	if (qp_init_attr->qp_type == IB_QPT_GSI &&
-	    bnxt_qplib_is_chip_gen_p5(&rdev->chip_ctx))
-		qp->qplib_qp.type = CMDQ_CREATE_QP_TYPE_GSI;
 	if (qp->qplib_qp.type == IB_QPT_MAX) {
 		dev_err(rdev_to_dev(rdev), "QP type 0x%x not supported",
 			qp->qplib_qp.type);
 		rc = -EINVAL;
 		goto fail;
 	}
-
 	qp->qplib_qp.max_inline_data = qp_init_attr->cap.max_inline_data;
 	qp->qplib_qp.sig_type = ((qp_init_attr->sq_sig_type ==
 				  IB_SIGNAL_ALL_WR) ? true : false);
@@ -1131,8 +1129,7 @@ struct ib_qp *bnxt_re_create_qp(struct ib_pd *ib_pd,
 
 	qp->qplib_qp.mtu = ib_mtu_enum_to_int(iboe_get_mtu(rdev->netdev->mtu));
 
-	if (qp_init_attr->qp_type == IB_QPT_GSI &&
-	    !(bnxt_qplib_is_chip_gen_p5(&rdev->chip_ctx))) {
+	if (qp_init_attr->qp_type == IB_QPT_GSI) {
 		/* Allocate 1 more than what's provided */
 		entries = roundup_pow_of_two(qp_init_attr->cap.max_send_wr + 1);
 		qp->qplib_qp.sq.max_wqe = min_t(u32, entries,
@@ -1361,15 +1358,17 @@ static int bnxt_re_init_user_srq(struct bnxt_re_dev *rdev,
 	struct bnxt_qplib_srq *qplib_srq = &srq->qplib_srq;
 	struct ib_umem *umem;
 	int bytes = 0;
-	struct bnxt_re_ucontext *cntx = rdma_udata_to_drv_context(
-		udata, struct bnxt_re_ucontext, ib_uctx);
-
+	struct ib_ucontext *context = pd->ib_pd.uobject->context;
+	struct bnxt_re_ucontext *cntx = container_of(context,
+						     struct bnxt_re_ucontext,
+						     ib_uctx);
 	if (ib_copy_from_udata(&ureq, udata, sizeof(ureq)))
 		return -EFAULT;
 
 	bytes = (qplib_srq->max_wqe * BNXT_QPLIB_MAX_RQE_ENTRY_SIZE);
 	bytes = PAGE_ALIGN(bytes);
-	umem = ib_umem_get(udata, ureq.srqva, bytes, IB_ACCESS_LOCAL_WRITE, 1);
+	umem = ib_umem_get(context, ureq.srqva, bytes,
+			   IB_ACCESS_LOCAL_WRITE, 1);
 	if (IS_ERR(umem))
 		return PTR_ERR(umem);
 
@@ -1599,7 +1598,8 @@ int bnxt_re_modify_qp(struct ib_qp *ib_qp, struct ib_qp_attr *qp_attr,
 		curr_qp_state = __to_ib_qp_state(qp->qplib_qp.cur_qp_state);
 		new_qp_state = qp_attr->qp_state;
 		if (!ib_modify_qp_is_ok(curr_qp_state, new_qp_state,
-					ib_qp->qp_type, qp_attr_mask)) {
+					ib_qp->qp_type, qp_attr_mask,
+					IB_LINK_LAYER_ETHERNET)) {
 			dev_err(rdev_to_dev(rdev),
 				"Invalid attribute mask: %#x specified ",
 				qp_attr_mask);
@@ -1644,9 +1644,6 @@ int bnxt_re_modify_qp(struct ib_qp *ib_qp, struct ib_qp_attr *qp_attr,
 			__from_ib_access_flags(qp_attr->qp_access_flags);
 		/* LOCAL_WRITE access must be set to allow RC receive */
 		qp->qplib_qp.access |= BNXT_QPLIB_ACCESS_LOCAL_WRITE;
-		/* Temp: Set all params on QP as of now */
-		qp->qplib_qp.access |= CMDQ_MODIFY_QP_ACCESS_REMOTE_WRITE;
-		qp->qplib_qp.access |= CMDQ_MODIFY_QP_ACCESS_REMOTE_READ;
 	}
 	if (qp_attr_mask & IB_QP_PKEY_INDEX) {
 		qp->qplib_qp.modify_flags |= CMDQ_MODIFY_QP_MODIFY_MASK_PKEY;
@@ -2094,8 +2091,7 @@ static int bnxt_re_build_qp1_shadow_qp_recv(struct bnxt_re_qp *qp,
 
 static int is_ud_qp(struct bnxt_re_qp *qp)
 {
-	return (qp->qplib_qp.type == CMDQ_CREATE_QP_TYPE_UD ||
-		qp->qplib_qp.type == CMDQ_CREATE_QP_TYPE_GSI);
+	return qp->qplib_qp.type == CMDQ_CREATE_QP_TYPE_UD;
 }
 
 static int bnxt_re_build_send_wqe(struct bnxt_re_qp *qp,
@@ -2399,7 +2395,7 @@ int bnxt_re_post_send(struct ib_qp *ib_qp, const struct ib_send_wr *wr,
 		switch (wr->opcode) {
 		case IB_WR_SEND:
 		case IB_WR_SEND_WITH_IMM:
-			if (qp->qplib_qp.type == CMDQ_CREATE_QP1_TYPE_GSI) {
+			if (ib_qp->qp_type == IB_QPT_GSI) {
 				rc = bnxt_re_build_qp1_send_v2(qp, wr, &wqe,
 							       payload_sz);
 				if (rc)
@@ -2529,8 +2525,7 @@ int bnxt_re_post_recv(struct ib_qp *ib_qp, const struct ib_recv_wr *wr,
 		wqe.wr_id = wr->wr_id;
 		wqe.type = BNXT_QPLIB_SWQE_TYPE_RECV;
 
-		if (ib_qp->qp_type == IB_QPT_GSI &&
-		    qp->qplib_qp.type != CMDQ_CREATE_QP_TYPE_GSI)
+		if (ib_qp->qp_type == IB_QPT_GSI)
 			rc = bnxt_re_build_qp1_shadow_qp_recv(qp, wr, &wqe,
 							      payload_sz);
 		if (!rc)
@@ -2625,7 +2620,7 @@ struct ib_cq *bnxt_re_create_cq(struct ib_device *ibdev,
 			goto fail;
 		}
 
-		cq->umem = ib_umem_get(udata, req.cq_va,
+		cq->umem = ib_umem_get(context, req.cq_va,
 				       entries * sizeof(struct cq_base),
 				       IB_ACCESS_LOCAL_WRITE, 1);
 		if (IS_ERR(cq->umem)) {
@@ -2669,7 +2664,6 @@ struct ib_cq *bnxt_re_create_cq(struct ib_device *ibdev,
 	nq->budget++;
 
 	atomic_inc(&rdev->cq_count);
-	spin_lock_init(&cq->cq_lock);
 
 	if (context) {
 		struct bnxt_re_cq_resp resp;
@@ -3125,33 +3119,19 @@ static void bnxt_re_process_res_shadow_qp_wc(struct bnxt_re_qp *qp,
 	}
 }
 
-static void bnxt_re_process_res_ud_wc(struct bnxt_re_qp *qp,
-				      struct ib_wc *wc,
+static void bnxt_re_process_res_ud_wc(struct ib_wc *wc,
 				      struct bnxt_qplib_cqe *cqe)
 {
-	u8 nw_type;
-
 	wc->opcode = IB_WC_RECV;
 	wc->status = __rc_to_ib_wc_status(cqe->status);
 
-	if (cqe->flags & CQ_RES_UD_FLAGS_IMM)
+	if (cqe->flags & CQ_RES_RC_FLAGS_IMM)
 		wc->wc_flags |= IB_WC_WITH_IMM;
-	/* report only on GSI QP for Thor */
-	if (qp->qplib_qp.type == CMDQ_CREATE_QP_TYPE_GSI) {
-		wc->wc_flags |= IB_WC_GRH;
-		memcpy(wc->smac, cqe->smac, ETH_ALEN);
-		wc->wc_flags |= IB_WC_WITH_SMAC;
-		if (cqe->flags & CQ_RES_UD_FLAGS_META_FORMAT_VLAN) {
-			wc->vlan_id = (cqe->cfa_meta & 0xFFF);
-			if (wc->vlan_id < 0x1000)
-				wc->wc_flags |= IB_WC_WITH_VLAN;
-		}
-		nw_type = (cqe->flags & CQ_RES_UD_FLAGS_ROCE_IP_VER_MASK) >>
-			   CQ_RES_UD_FLAGS_ROCE_IP_VER_SFT;
-		wc->network_hdr_type = bnxt_re_to_ib_nw_type(nw_type);
-		wc->wc_flags |= IB_WC_WITH_NETWORK_HDR_TYPE;
-	}
-
+	if (cqe->flags & CQ_RES_RC_FLAGS_INV)
+		wc->wc_flags |= IB_WC_WITH_INVALIDATE;
+	if ((cqe->flags & (CQ_RES_RC_FLAGS_RDMA | CQ_RES_RC_FLAGS_IMM)) ==
+	    (CQ_RES_RC_FLAGS_RDMA | CQ_RES_RC_FLAGS_IMM))
+		wc->opcode = IB_WC_RECV_RDMA_WITH_IMM;
 }
 
 static int send_phantom_wqe(struct bnxt_re_qp *qp)
@@ -3243,7 +3223,7 @@ int bnxt_re_poll_cq(struct ib_cq *ib_cq, int num_entries, struct ib_wc *wc)
 
 			switch (cqe->opcode) {
 			case CQ_BASE_CQE_TYPE_REQ:
-				if (qp->rdev->qp1_sqp && qp->qplib_qp.id ==
+				if (qp->qplib_qp.id ==
 				    qp->rdev->qp1_sqp->qplib_qp.id) {
 					/* Handle this completion with
 					 * the stored completion
@@ -3278,7 +3258,7 @@ int bnxt_re_poll_cq(struct ib_cq *ib_cq, int num_entries, struct ib_wc *wc)
 				bnxt_re_process_res_rc_wc(wc, cqe);
 				break;
 			case CQ_BASE_CQE_TYPE_RES_UD:
-				if (qp->rdev->qp1_sqp && qp->qplib_qp.id ==
+				if (qp->qplib_qp.id ==
 				    qp->rdev->qp1_sqp->qplib_qp.id) {
 					/* Handle this completion with
 					 * the stored completion
@@ -3291,7 +3271,7 @@ int bnxt_re_poll_cq(struct ib_cq *ib_cq, int num_entries, struct ib_wc *wc)
 						break;
 					}
 				}
-				bnxt_re_process_res_ud_wc(qp, wc, cqe);
+				bnxt_re_process_res_ud_wc(wc, cqe);
 				break;
 			default:
 				dev_err(rdev_to_dev(cq->rdev),
@@ -3318,10 +3298,10 @@ int bnxt_re_req_notify_cq(struct ib_cq *ib_cq,
 	spin_lock_irqsave(&cq->cq_lock, flags);
 	/* Trigger on the very next completion */
 	if (ib_cqn_flags & IB_CQ_NEXT_COMP)
-		type = DBC_DBC_TYPE_CQ_ARMALL;
+		type = DBR_DBR_TYPE_CQ_ARMALL;
 	/* Trigger on the next solicited completion */
 	else if (ib_cqn_flags & IB_CQ_SOLICITED)
-		type = DBC_DBC_TYPE_CQ_ARMSE;
+		type = DBR_DBR_TYPE_CQ_ARMSE;
 
 	/* Poll to see if there are missed events */
 	if ((ib_cqn_flags & IB_CQ_REPORT_MISSED_EVENTS) &&
@@ -3554,14 +3534,19 @@ static int fill_umem_pbl_tbl(struct ib_umem *umem, u64 *pbl_tbl_orig,
 	u64 *pbl_tbl = pbl_tbl_orig;
 	u64 paddr;
 	u64 page_mask = (1ULL << page_shift) - 1;
-	struct sg_dma_page_iter sg_iter;
+	int i, pages;
+	struct scatterlist *sg;
+	int entry;
 
-	for_each_sg_dma_page (umem->sg_head.sgl, &sg_iter, umem->nmap, 0) {
-		paddr = sg_page_iter_dma_address(&sg_iter);
-		if (pbl_tbl == pbl_tbl_orig)
-			*pbl_tbl++ = paddr & ~page_mask;
-		else if ((paddr & page_mask) == 0)
-			*pbl_tbl++ = paddr;
+	for_each_sg(umem->sg_head.sgl, sg, umem->nmap, entry) {
+		pages = sg_dma_len(sg) >> PAGE_SHIFT;
+		for (i = 0; i < pages; i++) {
+			paddr = sg_dma_address(sg) + (i << PAGE_SHIFT);
+			if (pbl_tbl == pbl_tbl_orig)
+				*pbl_tbl++ = paddr & ~page_mask;
+			else if ((paddr & page_mask) == 0)
+				*pbl_tbl++ = paddr;
+		}
 	}
 	return pbl_tbl - pbl_tbl_orig;
 }
@@ -3601,7 +3586,8 @@ struct ib_mr *bnxt_re_reg_user_mr(struct ib_pd *ib_pd, u64 start, u64 length,
 	/* The fixed portion of the rkey is the same as the lkey */
 	mr->ib_mr.rkey = mr->qplib_mr.rkey;
 
-	umem = ib_umem_get(udata, start, length, mr_access_flags, 0);
+	umem = ib_umem_get(ib_pd->uobject->context, start, length,
+			   mr_access_flags, 0);
 	if (IS_ERR(umem)) {
 		dev_err(rdev_to_dev(rdev), "Failed to get umem");
 		rc = -EFAULT;
@@ -3624,7 +3610,7 @@ struct ib_mr *bnxt_re_reg_user_mr(struct ib_pd *ib_pd, u64 start, u64 length,
 		goto free_umem;
 	}
 
-	page_shift = PAGE_SHIFT;
+	page_shift = umem->page_shift;
 
 	if (!bnxt_re_page_size_ok(page_shift)) {
 		dev_err(rdev_to_dev(rdev), "umem page size unsupported!");
@@ -3671,15 +3657,13 @@ free_mr:
 	return ERR_PTR(rc);
 }
 
-int bnxt_re_alloc_ucontext(struct ib_ucontext *ctx, struct ib_udata *udata)
+struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
+					   struct ib_udata *udata)
 {
-	struct ib_device *ibdev = ctx->device;
-	struct bnxt_re_ucontext *uctx =
-		container_of(ctx, struct bnxt_re_ucontext, ib_uctx);
 	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-	struct bnxt_qplib_dev_attr *dev_attr = &rdev->dev_attr;
 	struct bnxt_re_uctx_resp resp;
-	u32 chip_met_rev_num = 0;
+	struct bnxt_re_ucontext *uctx;
+	struct bnxt_qplib_dev_attr *dev_attr = &rdev->dev_attr;
 	int rc;
 
 	dev_dbg(rdev_to_dev(rdev), "ABI version requested %d",
@@ -3688,8 +3672,12 @@ int bnxt_re_alloc_ucontext(struct ib_ucontext *ctx, struct ib_udata *udata)
 	if (ibdev->uverbs_abi_ver != BNXT_RE_ABI_VERSION) {
 		dev_dbg(rdev_to_dev(rdev), " is different from the device %d ",
 			BNXT_RE_ABI_VERSION);
-		return -EPERM;
+		return ERR_PTR(-EPERM);
 	}
+
+	uctx = kzalloc(sizeof(*uctx), GFP_KERNEL);
+	if (!uctx)
+		return ERR_PTR(-ENOMEM);
 
 	uctx->rdev = rdev;
 
@@ -3700,45 +3688,37 @@ int bnxt_re_alloc_ucontext(struct ib_ucontext *ctx, struct ib_udata *udata)
 	}
 	spin_lock_init(&uctx->sh_lock);
 
-	resp.comp_mask = BNXT_RE_UCNTX_CMASK_HAVE_CCTX;
-	chip_met_rev_num = rdev->chip_ctx.chip_num;
-	chip_met_rev_num |= ((u32)rdev->chip_ctx.chip_rev & 0xFF) <<
-			     BNXT_RE_CHIP_ID0_CHIP_REV_SFT;
-	chip_met_rev_num |= ((u32)rdev->chip_ctx.chip_metal & 0xFF) <<
-			     BNXT_RE_CHIP_ID0_CHIP_MET_SFT;
-	resp.chip_id0 = chip_met_rev_num;
-	/* Future extension of chip info */
-	resp.chip_id1 = 0;
-	/*Temp, Use idr_alloc instead */
-	resp.dev_id = rdev->en_dev->pdev->devfn;
+	resp.dev_id = rdev->en_dev->pdev->devfn; /*Temp, Use idr_alloc instead*/
 	resp.max_qp = rdev->qplib_ctx.qpc_count;
 	resp.pg_size = PAGE_SIZE;
 	resp.cqe_sz = sizeof(struct cq_base);
 	resp.max_cqd = dev_attr->max_cq_wqes;
 	resp.rsvd    = 0;
 
-	rc = ib_copy_to_udata(udata, &resp, min(udata->outlen, sizeof(resp)));
+	rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
 	if (rc) {
 		dev_err(rdev_to_dev(rdev), "Failed to copy user context");
 		rc = -EFAULT;
 		goto cfail;
 	}
 
-	return 0;
+	return &uctx->ib_uctx;
 cfail:
 	free_page((unsigned long)uctx->shpg);
 	uctx->shpg = NULL;
 fail:
-	return rc;
+	kfree(uctx);
+	return ERR_PTR(rc);
 }
 
-void bnxt_re_dealloc_ucontext(struct ib_ucontext *ib_uctx)
+int bnxt_re_dealloc_ucontext(struct ib_ucontext *ib_uctx)
 {
 	struct bnxt_re_ucontext *uctx = container_of(ib_uctx,
 						   struct bnxt_re_ucontext,
 						   ib_uctx);
 
 	struct bnxt_re_dev *rdev = uctx->rdev;
+	int rc = 0;
 
 	if (uctx->shpg)
 		free_page((unsigned long)uctx->shpg);
@@ -3747,10 +3727,17 @@ void bnxt_re_dealloc_ucontext(struct ib_ucontext *ib_uctx)
 		/* Free DPI only if this is the first PD allocated by the
 		 * application and mark the context dpi as NULL
 		 */
-		bnxt_qplib_dealloc_dpi(&rdev->qplib_res,
-				       &rdev->qplib_res.dpi_tbl, &uctx->dpi);
+		rc = bnxt_qplib_dealloc_dpi(&rdev->qplib_res,
+					    &rdev->qplib_res.dpi_tbl,
+					    &uctx->dpi);
+		if (rc)
+			dev_err(rdev_to_dev(rdev), "Deallocate HW DPI failed!");
+			/* Don't fail, continue*/
 		uctx->dpi.dbr = NULL;
 	}
+
+	kfree(uctx);
+	return 0;
 }
 
 /* Helper function to mmap the virtual memory from user app */

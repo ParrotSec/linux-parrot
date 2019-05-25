@@ -201,7 +201,6 @@ struct tx_desc {
 };
 
 struct pxa168_eth_private {
-	struct platform_device *pdev;
 	int port_num;		/* User Ethernet port number    */
 	int phy_addr;
 	int phy_speed;
@@ -332,7 +331,7 @@ static void rxq_refill(struct net_device *dev)
 		used_rx_desc = pep->rx_used_desc_q;
 		p_used_rx_desc = &pep->p_rx_desc_area[used_rx_desc];
 		size = skb_end_pointer(skb) - skb->data;
-		p_used_rx_desc->buf_ptr = dma_map_single(&pep->pdev->dev,
+		p_used_rx_desc->buf_ptr = dma_map_single(NULL,
 							 skb->data,
 							 size,
 							 DMA_FROM_DEVICE);
@@ -558,9 +557,9 @@ static int init_hash_table(struct pxa168_eth_private *pep)
 	 * table is full.
 	 */
 	if (!pep->htpr) {
-		pep->htpr = dma_alloc_coherent(pep->dev->dev.parent,
-					       HASH_ADDR_TABLE_SIZE,
-					       &pep->htpr_dma, GFP_KERNEL);
+		pep->htpr = dma_zalloc_coherent(pep->dev->dev.parent,
+						HASH_ADDR_TABLE_SIZE,
+						&pep->htpr_dma, GFP_KERNEL);
 		if (!pep->htpr)
 			return -ENOMEM;
 	} else {
@@ -744,7 +743,7 @@ static int txq_reclaim(struct net_device *dev, int force)
 				netdev_err(dev, "Error in TX\n");
 			dev->stats.tx_errors++;
 		}
-		dma_unmap_single(&pep->pdev->dev, addr, count, DMA_TO_DEVICE);
+		dma_unmap_single(NULL, addr, count, DMA_TO_DEVICE);
 		if (skb)
 			dev_kfree_skb_irq(skb);
 		released++;
@@ -806,7 +805,7 @@ static int rxq_process(struct net_device *dev, int budget)
 		if (rx_next_curr_desc == rx_used_desc)
 			pep->rx_resource_err = 1;
 		pep->rx_desc_count--;
-		dma_unmap_single(&pep->pdev->dev, rx_desc->buf_ptr,
+		dma_unmap_single(NULL, rx_desc->buf_ptr,
 				 rx_desc->buf_size,
 				 DMA_FROM_DEVICE);
 		received_packets++;
@@ -989,8 +988,8 @@ static int pxa168_init_phy(struct net_device *dev)
 	cmd.base.phy_address = pep->phy_addr;
 	cmd.base.speed = pep->phy_speed;
 	cmd.base.duplex = pep->phy_duplex;
-	bitmap_copy(cmd.link_modes.advertising, PHY_BASIC_FEATURES,
-		    __ETHTOOL_LINK_MODE_MASK_NBITS);
+	ethtool_convert_legacy_u32_to_link_mode(cmd.link_modes.advertising,
+						PHY_BASIC_FEATURES);
 	cmd.base.autoneg = AUTONEG_ENABLE;
 
 	if (cmd.base.speed != 0)
@@ -1045,9 +1044,9 @@ static int rxq_init(struct net_device *dev)
 	pep->rx_desc_count = 0;
 	size = pep->rx_ring_size * sizeof(struct rx_desc);
 	pep->rx_desc_area_size = size;
-	pep->p_rx_desc_area = dma_alloc_coherent(pep->dev->dev.parent, size,
-						 &pep->rx_desc_dma,
-						 GFP_KERNEL);
+	pep->p_rx_desc_area = dma_zalloc_coherent(pep->dev->dev.parent, size,
+						  &pep->rx_desc_dma,
+						  GFP_KERNEL);
 	if (!pep->p_rx_desc_area)
 		goto out;
 
@@ -1104,9 +1103,9 @@ static int txq_init(struct net_device *dev)
 	pep->tx_desc_count = 0;
 	size = pep->tx_ring_size * sizeof(struct tx_desc);
 	pep->tx_desc_area_size = size;
-	pep->p_tx_desc_area = dma_alloc_coherent(pep->dev->dev.parent, size,
-						 &pep->tx_desc_dma,
-						 GFP_KERNEL);
+	pep->p_tx_desc_area = dma_zalloc_coherent(pep->dev->dev.parent, size,
+						  &pep->tx_desc_dma,
+						  GFP_KERNEL);
 	if (!pep->p_tx_desc_area)
 		goto out;
 	/* Initialize the next_desc_ptr links in the Tx descriptors ring */
@@ -1261,8 +1260,7 @@ static int pxa168_rx_poll(struct napi_struct *napi, int budget)
 	return work_done;
 }
 
-static netdev_tx_t
-pxa168_eth_start_xmit(struct sk_buff *skb, struct net_device *dev)
+static int pxa168_eth_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct pxa168_eth_private *pep = netdev_priv(dev);
 	struct net_device_stats *stats = &dev->stats;
@@ -1275,8 +1273,7 @@ pxa168_eth_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	length = skb->len;
 	pep->tx_skb[tx_index] = skb;
 	desc->byte_cnt = length;
-	desc->buf_ptr = dma_map_single(&pep->pdev->dev, skb->data, length,
-					DMA_TO_DEVICE);
+	desc->buf_ptr = dma_map_single(NULL, skb->data, length, DMA_TO_DEVICE);
 
 	skb_tx_timestamp(skb);
 
@@ -1530,7 +1527,6 @@ static int pxa168_eth_probe(struct platform_device *pdev)
 	if (err)
 		goto err_free_mdio;
 
-	pep->pdev = pdev;
 	SET_NETDEV_DEV(dev, &pdev->dev);
 	pxa168_init_hw(pep);
 	err = register_netdev(dev);

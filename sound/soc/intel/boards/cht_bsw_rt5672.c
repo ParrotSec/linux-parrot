@@ -16,7 +16,6 @@
  *  General Public License for more details.
  */
 
-#include <linux/input.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -213,10 +212,6 @@ static int cht_codec_init(struct snd_soc_pcm_runtime *runtime)
         if (ret)
                 return ret;
 
-	snd_jack_set_key(ctx->headset.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(ctx->headset.jack, SND_JACK_BTN_1, KEY_VOLUMEUP);
-	snd_jack_set_key(ctx->headset.jack, SND_JACK_BTN_2, KEY_VOLUMEDOWN);
-
 	rt5670_set_jack_detect(component, &ctx->headset);
 	if (ctx->mclk) {
 		/*
@@ -347,7 +342,7 @@ static int cht_suspend_pre(struct snd_soc_card *card)
 	struct snd_soc_component *component;
 	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(card);
 
-	for_each_card_components(card, component) {
+	list_for_each_entry(component, &card->component_dev_list, card_list) {
 		if (!strncmp(component->name,
 			     ctx->codec_name, sizeof(ctx->codec_name))) {
 
@@ -364,7 +359,7 @@ static int cht_resume_post(struct snd_soc_card *card)
 	struct snd_soc_component *component;
 	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(card);
 
-	for_each_card_components(card, component) {
+	list_for_each_entry(component, &card->component_dev_list, card_list) {
 		if (!strncmp(component->name,
 			     ctx->codec_name, sizeof(ctx->codec_name))) {
 
@@ -400,37 +395,31 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 	int ret_val = 0;
 	struct cht_mc_private *drv;
 	struct snd_soc_acpi_mach *mach = pdev->dev.platform_data;
-	const char *platform_name;
 	const char *i2c_name;
 	int i;
 
-	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
+	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_ATOMIC);
 	if (!drv)
 		return -ENOMEM;
 
 	strcpy(drv->codec_name, RT5672_I2C_DEFAULT);
 
 	/* fixup codec name based on HID */
-	i2c_name = acpi_dev_get_first_match_name(mach->id, NULL, -1);
-	if (i2c_name) {
-		snprintf(drv->codec_name, sizeof(drv->codec_name),
-			 "i2c-%s", i2c_name);
-		for (i = 0; i < ARRAY_SIZE(cht_dailink); i++) {
-			if (!strcmp(cht_dailink[i].codec_name,
-				RT5672_I2C_DEFAULT)) {
-				cht_dailink[i].codec_name = drv->codec_name;
-				break;
+	if (mach) {
+		i2c_name = acpi_dev_get_first_match_name(mach->id, NULL, -1);
+		if (i2c_name) {
+			snprintf(drv->codec_name, sizeof(drv->codec_name),
+				 "i2c-%s", i2c_name);
+			for (i = 0; i < ARRAY_SIZE(cht_dailink); i++) {
+				if (!strcmp(cht_dailink[i].codec_name,
+					    RT5672_I2C_DEFAULT)) {
+					cht_dailink[i].codec_name =
+						drv->codec_name;
+					break;
+				}
 			}
 		}
 	}
-
-	/* override plaform name, if required */
-	platform_name = mach->mach_params.platform;
-
-	ret_val = snd_soc_fixup_dai_links_platform_name(&snd_soc_card_cht,
-							platform_name);
-	if (ret_val)
-		return ret_val;
 
 	drv->mclk = devm_clk_get(&pdev->dev, "pmc_plt_clk_3");
 	if (IS_ERR(drv->mclk)) {

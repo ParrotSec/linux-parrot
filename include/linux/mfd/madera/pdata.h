@@ -24,6 +24,7 @@
 
 struct gpio_desc;
 struct pinctrl_map;
+struct madera_irqchip_pdata;
 struct madera_codec_pdata;
 
 /**

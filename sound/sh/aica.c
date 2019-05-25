@@ -464,12 +464,14 @@ static int __init snd_aicapcmchip(struct snd_card_aica
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK,
 			&snd_aicapcm_playback_ops);
 	/* Allocate the DMA buffers */
-	snd_pcm_lib_preallocate_pages_for_all(pcm,
-					      SNDRV_DMA_TYPE_CONTINUOUS,
-					      snd_dma_continuous_data(GFP_KERNEL),
-					      AICA_BUFFER_SIZE,
-					      AICA_BUFFER_SIZE);
-	return 0;
+	err =
+	    snd_pcm_lib_preallocate_pages_for_all(pcm,
+						  SNDRV_DMA_TYPE_CONTINUOUS,
+						  snd_dma_continuous_data
+						  (GFP_KERNEL),
+						  AICA_BUFFER_SIZE,
+						  AICA_BUFFER_SIZE);
+	return err;
 }
 
 /* Mixer controls */

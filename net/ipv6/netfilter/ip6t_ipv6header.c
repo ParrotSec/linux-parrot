@@ -65,10 +65,7 @@ ipv6header_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 		}
 
 		hp = skb_header_pointer(skb, ptr, sizeof(_hdr), &_hdr);
-		if (!hp) {
-			par->hotdrop = true;
-			return false;
-		}
+		BUG_ON(hp == NULL);
 
 		/* Calculate the header length */
 		if (nexthdr == NEXTHDR_FRAGMENT)

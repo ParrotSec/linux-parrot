@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
+ *  zcrypt 2.1.0
+ *
  *  Copyright IBM Corp. 2001, 2012
  *  Author(s): Robert Burroughs
  *	       Eric Rossman (edrossma@us.ibm.com)
@@ -22,7 +24,7 @@
 #define MSGTYPE06_MAX_MSG_SIZE		(12*1024)
 
 /**
- * The type 6 message family is associated with CEXxC/CEXxP cards.
+ * The type 6 message family is associated with PCICC or PCIXCC cards.
  *
  * It contains a message header followed by a CPRB, both of which
  * are described below.
@@ -41,8 +43,13 @@ struct type6_hdr {
 	unsigned int  offset2;		/* 0x00000000			*/
 	unsigned int  offset3;		/* 0x00000000			*/
 	unsigned int  offset4;		/* 0x00000000			*/
-	unsigned char agent_id[16];	/* 0x4341000000000000		*/
-					/* 0x0000000000000000		*/
+	unsigned char agent_id[16];	/* PCICC:			*/
+					/*    0x0100			*/
+					/*    0x4343412d4150504c202020	*/
+					/*    0x010101			*/
+					/* PCIXCC:			*/
+					/*    0x4341000000000000	*/
+					/*    0x0000000000000000	*/
 	unsigned char rqid[2];		/* rqid.  internal to 603	*/
 	unsigned char reserved5[2];	/* 0x0000			*/
 	unsigned char function_code[2];	/* for PKD, 0x5044 (ascii 'PD')	*/
@@ -58,7 +65,7 @@ struct type6_hdr {
 } __packed;
 
 /**
- * The type 86 message family is associated with CEXxC/CEXxP cards.
+ * The type 86 message family is associated with PCICC and PCIXCC cards.
  *
  * It contains a message header followed by a CPRB.  The CPRB is
  * the same as the request CPRB, which is described above.

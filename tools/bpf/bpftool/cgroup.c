@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+// SPDX-License-Identifier: GPL-2.0+
 // Copyright (C) 2017 Facebook
 // Author: Roman Gushchin <guro@fb.com>
 

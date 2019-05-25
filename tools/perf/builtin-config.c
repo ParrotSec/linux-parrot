@@ -196,7 +196,6 @@ int cmd_config(int argc, const char **argv)
 			pr_err("Error: takes no arguments\n");
 			parse_options_usage(config_usage, config_options, "l", 1);
 		} else {
-do_action_list:
 			if (show_config(set) < 0) {
 				pr_err("Nothing configured, "
 				       "please check your %s \n", config_filename);
@@ -205,8 +204,10 @@ do_action_list:
 		}
 		break;
 	default:
-		if (!argc)
-			goto do_action_list;
+		if (!argc) {
+			usage_with_options(config_usage, config_options);
+			break;
+		}
 
 		for (i = 0; argv[i]; i++) {
 			char *var, *value;

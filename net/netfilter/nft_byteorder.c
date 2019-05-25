@@ -26,9 +26,9 @@ struct nft_byteorder {
 	u8			size;
 };
 
-void nft_byteorder_eval(const struct nft_expr *expr,
-			struct nft_regs *regs,
-			const struct nft_pktinfo *pkt)
+static void nft_byteorder_eval(const struct nft_expr *expr,
+			       struct nft_regs *regs,
+			       const struct nft_pktinfo *pkt)
 {
 	const struct nft_byteorder *priv = nft_expr_priv(expr);
 	u32 *src = &regs->data[priv->sreg];

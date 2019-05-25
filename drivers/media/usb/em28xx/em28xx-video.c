@@ -1678,7 +1678,7 @@ static int vidioc_enum_input(struct file *file, void *priv,
 
 	i->type = V4L2_INPUT_TYPE_CAMERA;
 
-	strscpy(i->name, iname[INPUT(n)->type], sizeof(i->name));
+	strcpy(i->name, iname[INPUT(n)->type]);
 
 	if (INPUT(n)->type == EM28XX_VMUX_TELEVISION)
 		i->type = V4L2_INPUT_TYPE_TUNER;
@@ -1738,28 +1738,28 @@ static int em28xx_fill_audio_input(struct em28xx *dev,
 
 	switch (idx) {
 	case EM28XX_AMUX_VIDEO:
-		strscpy(a->name, "Television", sizeof(a->name));
+		strcpy(a->name, "Television");
 		break;
 	case EM28XX_AMUX_LINE_IN:
-		strscpy(a->name, "Line In", sizeof(a->name));
+		strcpy(a->name, "Line In");
 		break;
 	case EM28XX_AMUX_VIDEO2:
-		strscpy(a->name, "Television alt", sizeof(a->name));
+		strcpy(a->name, "Television alt");
 		break;
 	case EM28XX_AMUX_PHONE:
-		strscpy(a->name, "Phone", sizeof(a->name));
+		strcpy(a->name, "Phone");
 		break;
 	case EM28XX_AMUX_MIC:
-		strscpy(a->name, "Mic", sizeof(a->name));
+		strcpy(a->name, "Mic");
 		break;
 	case EM28XX_AMUX_CD:
-		strscpy(a->name, "CD", sizeof(a->name));
+		strcpy(a->name, "CD");
 		break;
 	case EM28XX_AMUX_AUX:
-		strscpy(a->name, "Aux", sizeof(a->name));
+		strcpy(a->name, "Aux");
 		break;
 	case EM28XX_AMUX_PCM_OUT:
-		strscpy(a->name, "PCM", sizeof(a->name));
+		strcpy(a->name, "PCM");
 		break;
 	case EM28XX_AMUX_UNUSED:
 	default:
@@ -1845,7 +1845,7 @@ static int vidioc_g_tuner(struct file *file, void *priv,
 	if (t->index != 0)
 		return -EINVAL;
 
-	strscpy(t->name, "Tuner", sizeof(t->name));
+	strcpy(t->name, "Tuner");
 
 	v4l2_device_call_all(&dev->v4l2->v4l2_dev, 0, tuner, g_tuner, t);
 	return 0;
@@ -1902,9 +1902,9 @@ static int vidioc_g_chip_info(struct file *file, void *priv,
 	if (chip->match.addr > 1)
 		return -EINVAL;
 	if (chip->match.addr == 1)
-		strscpy(chip->name, "ac97", sizeof(chip->name));
+		strlcpy(chip->name, "ac97", sizeof(chip->name));
 	else
-		strscpy(chip->name,
+		strlcpy(chip->name,
 			dev->v4l2->v4l2_dev.name, sizeof(chip->name));
 	return 0;
 }
@@ -1989,8 +1989,8 @@ static int vidioc_querycap(struct file *file, void  *priv,
 	struct em28xx_v4l2    *v4l2 = dev->v4l2;
 	struct usb_device *udev = interface_to_usbdev(dev->intf);
 
-	strscpy(cap->driver, "em28xx", sizeof(cap->driver));
-	strscpy(cap->card, em28xx_boards[dev->model].name, sizeof(cap->card));
+	strlcpy(cap->driver, "em28xx", sizeof(cap->driver));
+	strlcpy(cap->card, em28xx_boards[dev->model].name, sizeof(cap->card));
 	usb_make_path(udev, cap->bus_info, sizeof(cap->bus_info));
 
 	if (vdev->vfl_type == VFL_TYPE_GRABBER)
@@ -2023,7 +2023,7 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void  *priv,
 	if (unlikely(f->index >= ARRAY_SIZE(format)))
 		return -EINVAL;
 
-	strscpy(f->description, format[f->index].name, sizeof(f->description));
+	strlcpy(f->description, format[f->index].name, sizeof(f->description));
 	f->pixelformat = format[f->index].fourcc;
 
 	return 0;
@@ -2114,7 +2114,7 @@ static int radio_g_tuner(struct file *file, void *priv,
 	if (unlikely(t->index > 0))
 		return -EINVAL;
 
-	strscpy(t->name, "Radio", sizeof(t->name));
+	strcpy(t->name, "Radio");
 
 	v4l2_device_call_all(&dev->v4l2->v4l2_dev, 0, tuner, g_tuner, t);
 

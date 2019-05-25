@@ -313,8 +313,8 @@ xchk_set_incomplete(
  */
 
 struct xchk_rmap_ownedby_info {
-	const struct xfs_owner_info	*oinfo;
-	xfs_filblks_t			*blocks;
+	struct xfs_owner_info	*oinfo;
+	xfs_filblks_t		*blocks;
 };
 
 STATIC int
@@ -347,15 +347,15 @@ int
 xchk_count_rmap_ownedby_ag(
 	struct xfs_scrub		*sc,
 	struct xfs_btree_cur		*cur,
-	const struct xfs_owner_info	*oinfo,
+	struct xfs_owner_info		*oinfo,
 	xfs_filblks_t			*blocks)
 {
-	struct xchk_rmap_ownedby_info	sroi = {
-		.oinfo			= oinfo,
-		.blocks			= blocks,
-	};
+	struct xchk_rmap_ownedby_info	sroi;
 
+	sroi.oinfo = oinfo;
 	*blocks = 0;
+	sroi.blocks = blocks;
+
 	return xfs_rmap_query_all(cur, xchk_count_rmap_ownedby_irec,
 			&sroi);
 }

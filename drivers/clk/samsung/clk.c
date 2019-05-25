@@ -290,12 +290,9 @@ static int samsung_clk_suspend(void)
 {
 	struct samsung_clock_reg_cache *reg_cache;
 
-	list_for_each_entry(reg_cache, &clock_reg_cache_list, node) {
+	list_for_each_entry(reg_cache, &clock_reg_cache_list, node)
 		samsung_clk_save(reg_cache->reg_base, reg_cache->rdump,
 				reg_cache->rd_num);
-		samsung_clk_restore(reg_cache->reg_base, reg_cache->rsuspend,
-				reg_cache->rsuspend_num);
-	}
 	return 0;
 }
 
@@ -313,11 +310,9 @@ static struct syscore_ops samsung_clk_syscore_ops = {
 	.resume = samsung_clk_resume,
 };
 
-void samsung_clk_extended_sleep_init(void __iomem *reg_base,
+void samsung_clk_sleep_init(void __iomem *reg_base,
 			const unsigned long *rdump,
-			unsigned long nr_rdump,
-			const struct samsung_clk_reg_dump *rsuspend,
-			unsigned long nr_rsuspend)
+			unsigned long nr_rdump)
 {
 	struct samsung_clock_reg_cache *reg_cache;
 
@@ -335,10 +330,13 @@ void samsung_clk_extended_sleep_init(void __iomem *reg_base,
 
 	reg_cache->reg_base = reg_base;
 	reg_cache->rd_num = nr_rdump;
-	reg_cache->rsuspend = rsuspend;
-	reg_cache->rsuspend_num = nr_rsuspend;
 	list_add_tail(&reg_cache->node, &clock_reg_cache_list);
 }
+
+#else
+void samsung_clk_sleep_init(void __iomem *reg_base,
+			const unsigned long *rdump,
+			unsigned long nr_rdump) {}
 #endif
 
 /*
@@ -382,9 +380,8 @@ struct samsung_clk_provider * __init samsung_cmu_register_one(
 		samsung_clk_register_fixed_factor(ctx, cmu->fixed_factor_clks,
 			cmu->nr_fixed_factor_clks);
 	if (cmu->clk_regs)
-		samsung_clk_extended_sleep_init(reg_base,
-			cmu->clk_regs, cmu->nr_clk_regs,
-			cmu->suspend_regs, cmu->nr_suspend_regs);
+		samsung_clk_sleep_init(reg_base, cmu->clk_regs,
+			cmu->nr_clk_regs);
 
 	samsung_clk_of_add_provider(np, ctx);
 

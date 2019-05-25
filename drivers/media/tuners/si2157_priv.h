@@ -21,13 +21,6 @@
 #include <media/v4l2-mc.h>
 #include "si2157.h"
 
-enum si2157_pads {
-	SI2157_PAD_RF_INPUT,
-	SI2157_PAD_VID_OUT,
-	SI2157_PAD_AUD_OUT,
-	SI2157_NUM_PADS
-};
-
 /* state struct */
 struct si2157_dev {
 	struct mutex i2c_mutex;
@@ -42,7 +35,7 @@ struct si2157_dev {
 #if defined(CONFIG_MEDIA_CONTROLLER)
 	struct media_device	*mdev;
 	struct media_entity	ent;
-	struct media_pad	pad[SI2157_NUM_PADS];
+	struct media_pad	pad[TUNER_NUM_PADS];
 #endif
 
 };

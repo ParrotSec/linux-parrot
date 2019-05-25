@@ -229,7 +229,7 @@ static int collect_garbage_slots(struct kprobe_insn_cache *c)
 	struct kprobe_insn_page *kip, *next;
 
 	/* Ensure no-one is interrupted on the garbages */
-	synchronize_rcu();
+	synchronize_sched();
 
 	list_for_each_entry_safe(kip, next, &c->pages, list) {
 		int i;
@@ -546,14 +546,8 @@ static void do_free_cleaned_kprobes(void)
 	struct optimized_kprobe *op, *tmp;
 
 	list_for_each_entry_safe(op, tmp, &freeing_list, list) {
+		BUG_ON(!kprobe_unused(&op->kp));
 		list_del_init(&op->list);
-		if (WARN_ON_ONCE(!kprobe_unused(&op->kp))) {
-			/*
-			 * This must not happen, but if there is a kprobe
-			 * still in use, keep it on kprobes hash list.
-			 */
-			continue;
-		}
 		free_aggr_kprobe(&op->kp);
 	}
 }
@@ -710,6 +704,7 @@ static int reuse_unused_kprobe(struct kprobe *ap)
 {
 	struct optimized_kprobe *op;
 
+	BUG_ON(!kprobe_unused(ap));
 	/*
 	 * Unused kprobe MUST be on the way of delayed unoptimizing (means
 	 * there is still a relative jump) and disabled.
@@ -1272,6 +1267,8 @@ NOKPROBE_SYMBOL(cleanup_rp_inst);
 /* Add the new probe to ap->list */
 static int add_new_kprobe(struct kprobe *ap, struct kprobe *p)
 {
+	BUG_ON(kprobe_gone(ap) || kprobe_gone(p));
+
 	if (p->post_handler)
 		unoptimize_kprobe(ap, true);	/* Fall back to normal kprobe */
 
@@ -1380,7 +1377,7 @@ out:
 			if (ret) {
 				ap->flags |= KPROBE_FLAG_DISABLED;
 				list_del_rcu(&p->list);
-				synchronize_rcu();
+				synchronize_sched();
 			}
 		}
 	}
@@ -1394,7 +1391,7 @@ bool __weak arch_within_kprobe_blacklist(unsigned long addr)
 	       addr < (unsigned long)__kprobes_text_end;
 }
 
-static bool __within_kprobe_blacklist(unsigned long addr)
+bool within_kprobe_blacklist(unsigned long addr)
 {
 	struct kprobe_blacklist_entry *ent;
 
@@ -1408,26 +1405,7 @@ static bool __within_kprobe_blacklist(unsigned long addr)
 		if (addr >= ent->start_addr && addr < ent->end_addr)
 			return true;
 	}
-	return false;
-}
 
-bool within_kprobe_blacklist(unsigned long addr)
-{
-	char symname[KSYM_NAME_LEN], *p;
-
-	if (__within_kprobe_blacklist(addr))
-		return true;
-
-	/* Check if the address is on a suffixed-symbol */
-	if (!lookup_symbol_name(addr, symname)) {
-		p = strchr(symname, '.');
-		if (!p)
-			return false;
-		*p = '\0';
-		addr = (unsigned long)kprobe_lookup_name(symname, 0);
-		if (addr)
-			return __within_kprobe_blacklist(addr);
-	}
 	return false;
 }
 
@@ -1614,7 +1592,7 @@ int register_kprobe(struct kprobe *p)
 		ret = arm_kprobe(p);
 		if (ret) {
 			hlist_del_rcu(&p->hlist);
-			synchronize_rcu();
+			synchronize_sched();
 			goto out;
 		}
 	}
@@ -1737,6 +1715,7 @@ noclean:
 	return 0;
 
 disarmed:
+	BUG_ON(!kprobe_disarmed(ap));
 	hlist_del_rcu(&ap->hlist);
 	return 0;
 }
@@ -1793,7 +1772,7 @@ void unregister_kprobes(struct kprobe **kps, int num)
 			kps[i]->addr = NULL;
 	mutex_unlock(&kprobe_mutex);
 
-	synchronize_rcu();
+	synchronize_sched();
 	for (i = 0; i < num; i++)
 		if (kps[i]->addr)
 			__unregister_kprobe_bottom(kps[i]);
@@ -1983,7 +1962,7 @@ void unregister_kretprobes(struct kretprobe **rps, int num)
 			rps[i]->kp.addr = NULL;
 	mutex_unlock(&kprobe_mutex);
 
-	synchronize_rcu();
+	synchronize_sched();
 	for (i = 0; i < num; i++) {
 		if (rps[i]->kp.addr) {
 			__unregister_kprobe_bottom(&rps[i]->kp);
@@ -2110,47 +2089,6 @@ void dump_kprobe(struct kprobe *kp)
 }
 NOKPROBE_SYMBOL(dump_kprobe);
 
-int kprobe_add_ksym_blacklist(unsigned long entry)
-{
-	struct kprobe_blacklist_entry *ent;
-	unsigned long offset = 0, size = 0;
-
-	if (!kernel_text_address(entry) ||
-	    !kallsyms_lookup_size_offset(entry, &size, &offset))
-		return -EINVAL;
-
-	ent = kmalloc(sizeof(*ent), GFP_KERNEL);
-	if (!ent)
-		return -ENOMEM;
-	ent->start_addr = entry;
-	ent->end_addr = entry + size;
-	INIT_LIST_HEAD(&ent->list);
-	list_add_tail(&ent->list, &kprobe_blacklist);
-
-	return (int)size;
-}
-
-/* Add all symbols in given area into kprobe blacklist */
-int kprobe_add_area_blacklist(unsigned long start, unsigned long end)
-{
-	unsigned long entry;
-	int ret = 0;
-
-	for (entry = start; entry < end; entry += ret) {
-		ret = kprobe_add_ksym_blacklist(entry);
-		if (ret < 0)
-			return ret;
-		if (ret == 0)	/* In case of alias symbol */
-			ret = 1;
-	}
-	return 0;
-}
-
-int __init __weak arch_populate_kprobe_blacklist(void)
-{
-	return 0;
-}
-
 /*
  * Lookup and populate the kprobe_blacklist.
  *
@@ -2162,24 +2100,26 @@ int __init __weak arch_populate_kprobe_blacklist(void)
 static int __init populate_kprobe_blacklist(unsigned long *start,
 					     unsigned long *end)
 {
-	unsigned long entry;
 	unsigned long *iter;
-	int ret;
+	struct kprobe_blacklist_entry *ent;
+	unsigned long entry, offset = 0, size = 0;
 
 	for (iter = start; iter < end; iter++) {
 		entry = arch_deref_entry_point((void *)*iter);
-		ret = kprobe_add_ksym_blacklist(entry);
-		if (ret == -EINVAL)
+
+		if (!kernel_text_address(entry) ||
+		    !kallsyms_lookup_size_offset(entry, &size, &offset))
 			continue;
-		if (ret < 0)
-			return ret;
+
+		ent = kmalloc(sizeof(*ent), GFP_KERNEL);
+		if (!ent)
+			return -ENOMEM;
+		ent->start_addr = entry;
+		ent->end_addr = entry + size;
+		INIT_LIST_HEAD(&ent->list);
+		list_add_tail(&ent->list, &kprobe_blacklist);
 	}
-
-	/* Symbols in __kprobes_text are blacklisted */
-	ret = kprobe_add_area_blacklist((unsigned long)__kprobes_text_start,
-					(unsigned long)__kprobes_text_end);
-
-	return ret ? : arch_populate_kprobe_blacklist();
+	return 0;
 }
 
 /* Module notifier call back, checking kprobes on the module */

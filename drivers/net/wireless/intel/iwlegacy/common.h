@@ -2974,11 +2974,13 @@ il_print_hex_dump(struct il_priv *il, int level, const void *p, u32 len)
 #endif /* CONFIG_IWLEGACY_DEBUG */
 
 #ifdef CONFIG_IWLEGACY_DEBUGFS
-void il_dbgfs_register(struct il_priv *il, const char *name);
+int il_dbgfs_register(struct il_priv *il, const char *name);
 void il_dbgfs_unregister(struct il_priv *il);
 #else
-static inline void il_dbgfs_register(struct il_priv *il, const char *name)
+static inline int
+il_dbgfs_register(struct il_priv *il, const char *name)
 {
+	return 0;
 }
 
 static inline void

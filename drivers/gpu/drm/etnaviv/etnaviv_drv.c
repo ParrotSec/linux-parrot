@@ -72,8 +72,14 @@ static void etnaviv_postclose(struct drm_device *dev, struct drm_file *file)
 	for (i = 0; i < ETNA_MAX_PIPES; i++) {
 		struct etnaviv_gpu *gpu = priv->gpu[i];
 
-		if (gpu)
+		if (gpu) {
+			mutex_lock(&gpu->lock);
+			if (gpu->lastctx == ctx)
+				gpu->lastctx = NULL;
+			mutex_unlock(&gpu->lock);
+
 			drm_sched_entity_destroy(&ctx->sched_entity[i]);
+		}
 	}
 
 	kfree(ctx);
@@ -339,6 +345,7 @@ static int etnaviv_ioctl_gem_userptr(struct drm_device *dev, void *data,
 	struct drm_file *file)
 {
 	struct drm_etnaviv_gem_userptr *args = data;
+	int access;
 
 	if (args->flags & ~(ETNA_USERPTR_READ|ETNA_USERPTR_WRITE) ||
 	    args->flags == 0)
@@ -350,7 +357,12 @@ static int etnaviv_ioctl_gem_userptr(struct drm_device *dev, void *data,
 	    args->user_ptr & ~PAGE_MASK)
 		return -EINVAL;
 
-	if (!access_ok((void __user *)(unsigned long)args->user_ptr,
+	if (args->flags & ETNA_USERPTR_WRITE)
+		access = VERIFY_WRITE;
+	else
+		access = VERIFY_READ;
+
+	if (!access_ok(access, (void __user *)(unsigned long)args->user_ptr,
 		       args->user_size))
 		return -EFAULT;
 
@@ -511,7 +523,7 @@ static int etnaviv_bind(struct device *dev)
 	if (!priv) {
 		dev_err(dev, "failed to allocate private data\n");
 		ret = -ENOMEM;
-		goto out_put;
+		goto out_unref;
 	}
 	drm->dev_private = priv;
 
@@ -537,8 +549,8 @@ out_register:
 	component_unbind_all(dev, drm);
 out_bind:
 	kfree(priv);
-out_put:
-	drm_dev_put(drm);
+out_unref:
+	drm_dev_unref(drm);
 
 	return ret;
 }
@@ -555,7 +567,7 @@ static void etnaviv_unbind(struct device *dev)
 	drm->dev_private = NULL;
 	kfree(priv);
 
-	drm_dev_put(drm);
+	drm_dev_unref(drm);
 }
 
 static const struct component_master_ops etnaviv_master_ops = {

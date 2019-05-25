@@ -1,11 +1,24 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Sleepable Read-Copy Update mechanism for mutual exclusion
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
  *
  * Copyright (C) IBM Corporation, 2006
  * Copyright (C) Fujitsu, 2012
  *
- * Author: Paul McKenney <paulmck@linux.ibm.com>
+ * Author: Paul McKenney <paulmck@us.ibm.com>
  *	   Lai Jiangshan <laijs@cn.fujitsu.com>
  *
  * For detailed explanation of Read-Copy Update mechanism see -
@@ -25,20 +38,20 @@ struct srcu_struct;
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 
-int __init_srcu_struct(struct srcu_struct *ssp, const char *name,
+int __init_srcu_struct(struct srcu_struct *sp, const char *name,
 		       struct lock_class_key *key);
 
-#define init_srcu_struct(ssp) \
+#define init_srcu_struct(sp) \
 ({ \
 	static struct lock_class_key __srcu_key; \
 	\
-	__init_srcu_struct((ssp), #ssp, &__srcu_key); \
+	__init_srcu_struct((sp), #sp, &__srcu_key); \
 })
 
 #define __SRCU_DEP_MAP_INIT(srcu_name)	.dep_map = { .name = #srcu_name },
 #else /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
 
-int init_srcu_struct(struct srcu_struct *ssp);
+int init_srcu_struct(struct srcu_struct *sp);
 
 #define __SRCU_DEP_MAP_INIT(srcu_name)
 #endif /* #else #ifdef CONFIG_DEBUG_LOCK_ALLOC */
@@ -54,28 +67,28 @@ int init_srcu_struct(struct srcu_struct *ssp);
 struct srcu_struct { };
 #endif
 
-void call_srcu(struct srcu_struct *ssp, struct rcu_head *head,
+void call_srcu(struct srcu_struct *sp, struct rcu_head *head,
 		void (*func)(struct rcu_head *head));
-void _cleanup_srcu_struct(struct srcu_struct *ssp, bool quiesced);
-int __srcu_read_lock(struct srcu_struct *ssp) __acquires(ssp);
-void __srcu_read_unlock(struct srcu_struct *ssp, int idx) __releases(ssp);
-void synchronize_srcu(struct srcu_struct *ssp);
+void _cleanup_srcu_struct(struct srcu_struct *sp, bool quiesced);
+int __srcu_read_lock(struct srcu_struct *sp) __acquires(sp);
+void __srcu_read_unlock(struct srcu_struct *sp, int idx) __releases(sp);
+void synchronize_srcu(struct srcu_struct *sp);
 
 /**
  * cleanup_srcu_struct - deconstruct a sleep-RCU structure
- * @ssp: structure to clean up.
+ * @sp: structure to clean up.
  *
  * Must invoke this after you are finished using a given srcu_struct that
  * was initialized via init_srcu_struct(), else you leak memory.
  */
-static inline void cleanup_srcu_struct(struct srcu_struct *ssp)
+static inline void cleanup_srcu_struct(struct srcu_struct *sp)
 {
-	_cleanup_srcu_struct(ssp, false);
+	_cleanup_srcu_struct(sp, false);
 }
 
 /**
  * cleanup_srcu_struct_quiesced - deconstruct a quiesced sleep-RCU structure
- * @ssp: structure to clean up.
+ * @sp: structure to clean up.
  *
  * Must invoke this after you are finished using a given srcu_struct that
  * was initialized via init_srcu_struct(), else you leak memory.  Also,
@@ -90,16 +103,16 @@ static inline void cleanup_srcu_struct(struct srcu_struct *ssp)
  * (with high probability, anyway), and will also cause the srcu_struct
  * to be leaked.
  */
-static inline void cleanup_srcu_struct_quiesced(struct srcu_struct *ssp)
+static inline void cleanup_srcu_struct_quiesced(struct srcu_struct *sp)
 {
-	_cleanup_srcu_struct(ssp, true);
+	_cleanup_srcu_struct(sp, true);
 }
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 
 /**
  * srcu_read_lock_held - might we be in SRCU read-side critical section?
- * @ssp: The srcu_struct structure to check
+ * @sp: The srcu_struct structure to check
  *
  * If CONFIG_DEBUG_LOCK_ALLOC is selected, returns nonzero iff in an SRCU
  * read-side critical section.  In absence of CONFIG_DEBUG_LOCK_ALLOC,
@@ -113,16 +126,16 @@ static inline void cleanup_srcu_struct_quiesced(struct srcu_struct *ssp)
  * relies on normal RCU, it can be called from the CPU which
  * is in the idle loop from an RCU point of view or offline.
  */
-static inline int srcu_read_lock_held(const struct srcu_struct *ssp)
+static inline int srcu_read_lock_held(const struct srcu_struct *sp)
 {
 	if (!debug_lockdep_rcu_enabled())
 		return 1;
-	return lock_is_held(&ssp->dep_map);
+	return lock_is_held(&sp->dep_map);
 }
 
 #else /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
 
-static inline int srcu_read_lock_held(const struct srcu_struct *ssp)
+static inline int srcu_read_lock_held(const struct srcu_struct *sp)
 {
 	return 1;
 }
@@ -132,7 +145,7 @@ static inline int srcu_read_lock_held(const struct srcu_struct *ssp)
 /**
  * srcu_dereference_check - fetch SRCU-protected pointer for later dereferencing
  * @p: the pointer to fetch and protect for later dereferencing
- * @ssp: pointer to the srcu_struct, which is used to check that we
+ * @sp: pointer to the srcu_struct, which is used to check that we
  *	really are in an SRCU read-side critical section.
  * @c: condition to check for update-side use
  *
@@ -141,32 +154,29 @@ static inline int srcu_read_lock_held(const struct srcu_struct *ssp)
  * to 1.  The @c argument will normally be a logical expression containing
  * lockdep_is_held() calls.
  */
-#define srcu_dereference_check(p, ssp, c) \
-	__rcu_dereference_check((p), (c) || srcu_read_lock_held(ssp), __rcu)
+#define srcu_dereference_check(p, sp, c) \
+	__rcu_dereference_check((p), (c) || srcu_read_lock_held(sp), __rcu)
 
 /**
  * srcu_dereference - fetch SRCU-protected pointer for later dereferencing
  * @p: the pointer to fetch and protect for later dereferencing
- * @ssp: pointer to the srcu_struct, which is used to check that we
+ * @sp: pointer to the srcu_struct, which is used to check that we
  *	really are in an SRCU read-side critical section.
  *
  * Makes rcu_dereference_check() do the dirty work.  If PROVE_RCU
  * is enabled, invoking this outside of an RCU read-side critical
  * section will result in an RCU-lockdep splat.
  */
-#define srcu_dereference(p, ssp) srcu_dereference_check((p), (ssp), 0)
+#define srcu_dereference(p, sp) srcu_dereference_check((p), (sp), 0)
 
 /**
  * srcu_dereference_notrace - no tracing and no lockdep calls from here
- * @p: the pointer to fetch and protect for later dereferencing
- * @ssp: pointer to the srcu_struct, which is used to check that we
- *	really are in an SRCU read-side critical section.
  */
-#define srcu_dereference_notrace(p, ssp) srcu_dereference_check((p), (ssp), 1)
+#define srcu_dereference_notrace(p, sp) srcu_dereference_check((p), (sp), 1)
 
 /**
  * srcu_read_lock - register a new reader for an SRCU-protected structure.
- * @ssp: srcu_struct in which to register the new reader.
+ * @sp: srcu_struct in which to register the new reader.
  *
  * Enter an SRCU read-side critical section.  Note that SRCU read-side
  * critical sections may be nested.  However, it is illegal to
@@ -181,45 +191,44 @@ static inline int srcu_read_lock_held(const struct srcu_struct *ssp)
  * srcu_read_unlock() in an irq handler if the matching srcu_read_lock()
  * was invoked in process context.
  */
-static inline int srcu_read_lock(struct srcu_struct *ssp) __acquires(ssp)
+static inline int srcu_read_lock(struct srcu_struct *sp) __acquires(sp)
 {
 	int retval;
 
-	retval = __srcu_read_lock(ssp);
-	rcu_lock_acquire(&(ssp)->dep_map);
+	retval = __srcu_read_lock(sp);
+	rcu_lock_acquire(&(sp)->dep_map);
 	return retval;
 }
 
 /* Used by tracing, cannot be traced and cannot invoke lockdep. */
 static inline notrace int
-srcu_read_lock_notrace(struct srcu_struct *ssp) __acquires(ssp)
+srcu_read_lock_notrace(struct srcu_struct *sp) __acquires(sp)
 {
 	int retval;
 
-	retval = __srcu_read_lock(ssp);
+	retval = __srcu_read_lock(sp);
 	return retval;
 }
 
 /**
  * srcu_read_unlock - unregister a old reader from an SRCU-protected structure.
- * @ssp: srcu_struct in which to unregister the old reader.
+ * @sp: srcu_struct in which to unregister the old reader.
  * @idx: return value from corresponding srcu_read_lock().
  *
  * Exit an SRCU read-side critical section.
  */
-static inline void srcu_read_unlock(struct srcu_struct *ssp, int idx)
-	__releases(ssp)
+static inline void srcu_read_unlock(struct srcu_struct *sp, int idx)
+	__releases(sp)
 {
-	WARN_ON_ONCE(idx & ~0x1);
-	rcu_lock_release(&(ssp)->dep_map);
-	__srcu_read_unlock(ssp, idx);
+	rcu_lock_release(&(sp)->dep_map);
+	__srcu_read_unlock(sp, idx);
 }
 
 /* Used by tracing, cannot be traced and cannot call lockdep. */
 static inline notrace void
-srcu_read_unlock_notrace(struct srcu_struct *ssp, int idx) __releases(ssp)
+srcu_read_unlock_notrace(struct srcu_struct *sp, int idx) __releases(sp)
 {
-	__srcu_read_unlock(ssp, idx);
+	__srcu_read_unlock(sp, idx);
 }
 
 /**

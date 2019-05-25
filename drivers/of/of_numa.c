@@ -24,9 +24,18 @@ static void __init of_numa_parse_cpu_nodes(void)
 {
 	u32 nid;
 	int r;
-	struct device_node *np;
+	struct device_node *cpus;
+	struct device_node *np = NULL;
 
-	for_each_of_cpu_node(np) {
+	cpus = of_find_node_by_path("/cpus");
+	if (!cpus)
+		return;
+
+	for_each_child_of_node(cpus, np) {
+		/* Skip things that are not CPUs */
+		if (of_node_cmp(np->type, "cpu") != 0)
+			continue;
+
 		r = of_property_read_u32(np, "numa-node-id", &nid);
 		if (r)
 			continue;
@@ -37,6 +46,8 @@ static void __init of_numa_parse_cpu_nodes(void)
 		else
 			node_set(nid, numa_nodes_parsed);
 	}
+
+	of_node_put(cpus);
 }
 
 static int __init of_numa_parse_memory_nodes(void)

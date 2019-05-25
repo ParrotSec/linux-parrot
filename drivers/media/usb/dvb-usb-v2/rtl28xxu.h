@@ -31,7 +31,6 @@
 #include "rtl2832_sdr.h"
 #include "mn88472.h"
 #include "mn88473.h"
-#include "cxd2841er.h"
 
 #include "qt1010.h"
 #include "mt2060.h"
@@ -88,8 +87,7 @@ struct rtl28xxu_dev {
 	#define SLAVE_DEMOD_MN88472        1
 	#define SLAVE_DEMOD_MN88473        2
 	#define SLAVE_DEMOD_SI2168         3
-	#define SLAVE_DEMOD_CXD2837ER      4
-	unsigned int slave_demod:3;
+	unsigned int slave_demod:2;
 	union {
 		struct rtl2830_platform_data rtl2830_platform_data;
 		struct rtl2832_platform_data rtl2832_platform_data;

@@ -8,7 +8,7 @@
 
 DECLARE_PER_CPU(unsigned long, cpu_dr7);
 
-#ifndef CONFIG_PARAVIRT_XXL
+#ifndef CONFIG_PARAVIRT
 /*
  * These special macros can be used to get or set a debugging register
  */

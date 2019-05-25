@@ -240,7 +240,7 @@ static const struct of_device_id wlcore_sdio_of_match_table[] = {
 	{ }
 };
 
-static int wlcore_probe_of(struct device *dev, int *irq, int *wakeirq,
+static int wlcore_probe_of(struct device *dev, int *irq,
 			   struct wlcore_platdev_data *pdev_data)
 {
 	struct device_node *np = dev->of_node;
@@ -258,8 +258,6 @@ static int wlcore_probe_of(struct device *dev, int *irq, int *wakeirq,
 		return -EINVAL;
 	}
 
-	*wakeirq = irq_of_parse_and_map(np, 1);
-
 	/* optional clock frequency params */
 	of_property_read_u32(np, "ref-clock-frequency",
 			     &pdev_data->ref_clock_freq);
@@ -269,7 +267,7 @@ static int wlcore_probe_of(struct device *dev, int *irq, int *wakeirq,
 	return 0;
 }
 #else
-static int wlcore_probe_of(struct device *dev, int *irq, int *wakeirq,
+static int wlcore_probe_of(struct device *dev, int *irq,
 			   struct wlcore_platdev_data *pdev_data)
 {
 	return -ENODATA;
@@ -281,10 +279,10 @@ static int wl1271_probe(struct sdio_func *func,
 {
 	struct wlcore_platdev_data *pdev_data;
 	struct wl12xx_sdio_glue *glue;
-	struct resource res[2];
+	struct resource res[1];
 	mmc_pm_flag_t mmcflags;
 	int ret = -ENOMEM;
-	int irq, wakeirq, num_irqs;
+	int irq;
 	const char *chip_family;
 
 	/* We are only able to handle the wlan function */
@@ -309,7 +307,7 @@ static int wl1271_probe(struct sdio_func *func,
 	/* Use block mode for transferring over one block size of data */
 	func->card->quirks |= MMC_QUIRK_BLKSZ_FOR_BYTE_MODE;
 
-	ret = wlcore_probe_of(&func->dev, &irq, &wakeirq, pdev_data);
+	ret = wlcore_probe_of(&func->dev, &irq, pdev_data);
 	if (ret)
 		goto out;
 
@@ -352,17 +350,7 @@ static int wl1271_probe(struct sdio_func *func,
 		       irqd_get_trigger_type(irq_get_irq_data(irq));
 	res[0].name = "irq";
 
-
-	if (wakeirq > 0) {
-		res[1].start = wakeirq;
-		res[1].flags = IORESOURCE_IRQ |
-			       irqd_get_trigger_type(irq_get_irq_data(wakeirq));
-		res[1].name = "wakeirq";
-		num_irqs = 2;
-	} else {
-		num_irqs = 1;
-	}
-	ret = platform_device_add_resources(glue->core, res, num_irqs);
+	ret = platform_device_add_resources(glue->core, res, ARRAY_SIZE(res));
 	if (ret) {
 		dev_err(glue->dev, "can't add resources\n");
 		goto out_dev_put;

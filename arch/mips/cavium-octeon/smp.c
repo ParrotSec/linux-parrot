@@ -15,7 +15,6 @@
 #include <linux/sched/task_stack.h>
 #include <linux/init.h>
 #include <linux/export.h>
-#include <linux/kexec.h>
 
 #include <asm/mmu_context.h>
 #include <asm/time.h>
@@ -284,7 +283,7 @@ static void octeon_smp_finish(void)
 #ifdef CONFIG_HOTPLUG_CPU
 
 /* State of each CPU. */
-static DEFINE_PER_CPU(int, cpu_state);
+DEFINE_PER_CPU(int, cpu_state);
 
 static int octeon_cpu_disable(void)
 {
@@ -413,7 +412,7 @@ late_initcall(register_cavium_notifier);
 
 #endif	/* CONFIG_HOTPLUG_CPU */
 
-static const struct plat_smp_ops octeon_smp_ops = {
+const struct plat_smp_ops octeon_smp_ops = {
 	.send_ipi_single	= octeon_send_ipi_single,
 	.send_ipi_mask		= octeon_send_ipi_mask,
 	.init_secondary		= octeon_init_secondary,
@@ -424,9 +423,6 @@ static const struct plat_smp_ops octeon_smp_ops = {
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_disable		= octeon_cpu_disable,
 	.cpu_die		= octeon_cpu_die,
-#endif
-#ifdef CONFIG_KEXEC
-	.kexec_nonboot_cpu	= kexec_nonboot_cpu_jump,
 #endif
 };
 
@@ -504,9 +500,6 @@ static const struct plat_smp_ops octeon_78xx_smp_ops = {
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_disable		= octeon_cpu_disable,
 	.cpu_die		= octeon_cpu_die,
-#endif
-#ifdef CONFIG_KEXEC
-	.kexec_nonboot_cpu	= kexec_nonboot_cpu_jump,
 #endif
 };
 

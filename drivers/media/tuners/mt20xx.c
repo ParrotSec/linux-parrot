@@ -636,7 +636,7 @@ struct dvb_frontend *microtune_attach(struct dvb_frontend *fe,
 		return NULL;
 	}
 
-	strscpy(fe->ops.tuner_ops.info.name, name,
+	strlcpy(fe->ops.tuner_ops.info.name, name,
 		sizeof(fe->ops.tuner_ops.info.name));
 	tuner_info("microtune %s found, OK\n",name);
 	return fe;

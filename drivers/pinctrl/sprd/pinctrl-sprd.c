@@ -159,8 +159,10 @@ struct sprd_pinctrl {
 	struct sprd_pinctrl_soc_info *info;
 };
 
-#define SPRD_PIN_CONFIG_CONTROL		(PIN_CONFIG_END + 1)
-#define SPRD_PIN_CONFIG_SLEEP_MODE	(PIN_CONFIG_END + 2)
+enum sprd_pinconf_params {
+	SPRD_PIN_CONFIG_CONTROL = PIN_CONFIG_END + 1,
+	SPRD_PIN_CONFIG_SLEEP_MODE = PIN_CONFIG_END + 2,
+};
 
 static int sprd_pinctrl_get_id_by_name(struct sprd_pinctrl *sprd_pctl,
 				       const char *name)
@@ -1057,12 +1059,6 @@ int sprd_pinctrl_core_probe(struct platform_device *pdev,
 		return ret;
 	}
 
-	ret = sprd_pinctrl_parse_dt(sprd_pctl);
-	if (ret) {
-		dev_err(&pdev->dev, "fail to parse dt properties\n");
-		return ret;
-	}
-
 	pin_desc = devm_kcalloc(&pdev->dev,
 				pinctrl_info->npins,
 				sizeof(struct pinctrl_pin_desc),
@@ -1085,6 +1081,13 @@ int sprd_pinctrl_core_probe(struct platform_device *pdev,
 	if (IS_ERR(sprd_pctl->pctl)) {
 		dev_err(&pdev->dev, "could not register pinctrl driver\n");
 		return PTR_ERR(sprd_pctl->pctl);
+	}
+
+	ret = sprd_pinctrl_parse_dt(sprd_pctl);
+	if (ret) {
+		dev_err(&pdev->dev, "fail to parse dt properties\n");
+		pinctrl_unregister(sprd_pctl->pctl);
+		return ret;
 	}
 
 	return 0;

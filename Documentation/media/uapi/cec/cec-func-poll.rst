@@ -1,11 +1,4 @@
-.. Permission is granted to copy, distribute and/or modify this
-.. document under the terms of the GNU Free Documentation License,
-.. Version 1.1 or any later version published by the Free Software
-.. Foundation, with no Invariant Sections, no Front-Cover Texts
-.. and no Back-Cover Texts. A copy of the license is included at
-.. Documentation/media/uapi/fdl-appendix.rst.
-..
-.. TODO: replace it to GFDL-1.1-or-later WITH no-invariant-sections
+.. -*- coding: utf-8; mode: rst -*-
 
 .. _cec-func-poll:
 
@@ -81,5 +74,4 @@ is returned, and the ``errno`` variable is set appropriately:
     The call was interrupted by a signal.
 
 ``EINVAL``
-    The ``nfds`` value exceeds the ``RLIMIT_NOFILE`` value. Use
-    ``getrlimit()`` to obtain this value.
+    The ``nfds`` argument is greater than ``OPEN_MAX``.

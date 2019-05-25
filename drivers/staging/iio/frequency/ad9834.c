@@ -6,7 +6,6 @@
  * Licensed under the GPL-2.
  */
 
-#include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/device.h>
@@ -72,7 +71,7 @@
 struct ad9834_state {
 	struct spi_device		*spi;
 	struct regulator		*reg;
-	struct clk			*mclk;
+	unsigned int			mclk;
 	unsigned short			control;
 	unsigned short			devid;
 	struct spi_transfer		xfer;
@@ -111,15 +110,12 @@ static unsigned int ad9834_calc_freqreg(unsigned long mclk, unsigned long fout)
 static int ad9834_write_frequency(struct ad9834_state *st,
 				  unsigned long addr, unsigned long fout)
 {
-	unsigned long clk_freq;
 	unsigned long regval;
 
-	clk_freq = clk_get_rate(st->mclk);
-
-	if (fout > (clk_freq / 2))
+	if (fout > (st->mclk / 2))
 		return -EINVAL;
 
-	regval = ad9834_calc_freqreg(clk_freq, fout);
+	regval = ad9834_calc_freqreg(st->mclk, fout);
 
 	st->freq_data[0] = cpu_to_be16(addr | (regval &
 				       RES_MASK(AD9834_FREQ_BITS / 2)));
@@ -393,11 +389,16 @@ static const struct iio_info ad9833_info = {
 
 static int ad9834_probe(struct spi_device *spi)
 {
+	struct ad9834_platform_data *pdata = dev_get_platdata(&spi->dev);
 	struct ad9834_state *st;
 	struct iio_dev *indio_dev;
 	struct regulator *reg;
 	int ret;
 
+	if (!pdata) {
+		dev_dbg(&spi->dev, "no platform data?\n");
+		return -ENODEV;
+	}
 
 	reg = devm_regulator_get(&spi->dev, "avdd");
 	if (IS_ERR(reg))
@@ -417,14 +418,7 @@ static int ad9834_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 	st = iio_priv(indio_dev);
 	mutex_init(&st->lock);
-	st->mclk = devm_clk_get(&spi->dev, NULL);
-
-	ret = clk_prepare_enable(st->mclk);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to enable master clock\n");
-		goto error_disable_reg;
-	}
-
+	st->mclk = pdata->mclk;
 	st->spi = spi;
 	st->devid = spi_get_device_id(spi)->driver_data;
 	st->reg = reg;
@@ -460,41 +454,42 @@ static int ad9834_probe(struct spi_device *spi)
 	spi_message_add_tail(&st->freq_xfer[1], &st->freq_msg);
 
 	st->control = AD9834_B28 | AD9834_RESET;
-	st->control |= AD9834_DIV2;
 
-	if (st->devid == ID_AD9834)
+	if (!pdata->en_div2)
+		st->control |= AD9834_DIV2;
+
+	if (!pdata->en_signbit_msb_out && (st->devid == ID_AD9834))
 		st->control |= AD9834_SIGN_PIB;
 
 	st->data = cpu_to_be16(AD9834_REG_CMD | st->control);
 	ret = spi_sync(st->spi, &st->msg);
 	if (ret) {
 		dev_err(&spi->dev, "device init failed\n");
-		goto error_clock_unprepare;
+		goto error_disable_reg;
 	}
 
-	ret = ad9834_write_frequency(st, AD9834_REG_FREQ0, 1000000);
+	ret = ad9834_write_frequency(st, AD9834_REG_FREQ0, pdata->freq0);
 	if (ret)
-		goto error_clock_unprepare;
+		goto error_disable_reg;
 
-	ret = ad9834_write_frequency(st, AD9834_REG_FREQ1, 5000000);
+	ret = ad9834_write_frequency(st, AD9834_REG_FREQ1, pdata->freq1);
 	if (ret)
-		goto error_clock_unprepare;
+		goto error_disable_reg;
 
-	ret = ad9834_write_phase(st, AD9834_REG_PHASE0, 512);
+	ret = ad9834_write_phase(st, AD9834_REG_PHASE0, pdata->phase0);
 	if (ret)
-		goto error_clock_unprepare;
+		goto error_disable_reg;
 
-	ret = ad9834_write_phase(st, AD9834_REG_PHASE1, 1024);
+	ret = ad9834_write_phase(st, AD9834_REG_PHASE1, pdata->phase1);
 	if (ret)
-		goto error_clock_unprepare;
+		goto error_disable_reg;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto error_clock_unprepare;
+		goto error_disable_reg;
 
 	return 0;
-error_clock_unprepare:
-	clk_disable_unprepare(st->mclk);
+
 error_disable_reg:
 	regulator_disable(reg);
 
@@ -507,7 +502,6 @@ static int ad9834_remove(struct spi_device *spi)
 	struct ad9834_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	clk_disable_unprepare(st->mclk);
 	regulator_disable(st->reg);
 
 	return 0;
@@ -532,6 +526,6 @@ static struct spi_driver ad9834_driver = {
 };
 module_spi_driver(ad9834_driver);
 
-MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
+MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
 MODULE_DESCRIPTION("Analog Devices AD9833/AD9834/AD9837/AD9838 DDS");
 MODULE_LICENSE("GPL v2");

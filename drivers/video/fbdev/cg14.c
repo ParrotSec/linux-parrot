@@ -355,7 +355,9 @@ static int cg14_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 static void cg14_init_fix(struct fb_info *info, int linebytes,
 			  struct device_node *dp)
 {
-	snprintf(info->fix.id, sizeof(info->fix.id), "%pOFn", dp);
+	const char *name = dp->name;
+
+	strlcpy(info->fix.id, name, sizeof(info->fix.id));
 
 	info->fix.type = FB_TYPE_PACKED_PIXELS;
 	info->fix.visual = FB_VISUAL_PSEUDOCOLOR;
@@ -486,8 +488,8 @@ static int cg14_probe(struct platform_device *op)
 					  info->var.xres);
 	info->fix.smem_len = PAGE_ALIGN(linebytes * info->var.yres);
 
-	if (of_node_name_eq(dp->parent, "sbus") ||
-	    of_node_name_eq(dp->parent, "sbi")) {
+	if (!strcmp(dp->parent->name, "sbus") ||
+	    !strcmp(dp->parent->name, "sbi")) {
 		info->fix.smem_start = op->resource[0].start;
 		par->iospace = op->resource[0].flags & IORESOURCE_BITS;
 	} else {

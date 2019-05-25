@@ -680,6 +680,7 @@ static struct scsi_host_template sym53c500_driver_template = {
      .can_queue			= 1,
      .this_id			= 7,
      .sg_tablesize		= 32,
+     .use_clustering		= ENABLE_CLUSTERING,
      .shost_attrs		= SYM53C500_shost_attrs
 };
 
@@ -879,4 +880,18 @@ static struct pcmcia_driver sym53c500_cs_driver = {
 	.id_table       = sym53c500_ids,
 	.resume		= sym53c500_resume,
 };
-module_pcmcia_driver(sym53c500_cs_driver);
+
+static int __init
+init_sym53c500_cs(void)
+{
+	return pcmcia_register_driver(&sym53c500_cs_driver);
+}
+
+static void __exit
+exit_sym53c500_cs(void)
+{
+	pcmcia_unregister_driver(&sym53c500_cs_driver);
+}
+
+module_init(init_sym53c500_cs);
+module_exit(exit_sym53c500_cs);

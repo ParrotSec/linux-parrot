@@ -8,5 +8,3 @@ int main(void)
 {
 	return sched_getcpu();
 }
-
-#undef _GNU_SOURCE

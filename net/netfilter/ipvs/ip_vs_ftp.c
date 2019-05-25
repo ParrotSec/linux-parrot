@@ -124,7 +124,7 @@ static int ip_vs_ftp_get_addrport(char *data, char *data_limit,
 	}
 	s = data + plen;
 	if (skip) {
-		bool found = false;
+		int found = 0;
 
 		for (;; s++) {
 			if (s == data_limit)
@@ -136,7 +136,7 @@ static int ip_vs_ftp_get_addrport(char *data, char *data_limit,
 				if (!ext && isdigit(*s))
 					break;
 				if (*s == skip)
-					found = true;
+					found = 1;
 			} else if (*s != skip) {
 				break;
 			}

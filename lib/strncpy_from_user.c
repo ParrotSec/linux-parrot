@@ -114,11 +114,10 @@ long strncpy_from_user(char *dst, const char __user *src, long count)
 
 		kasan_check_write(dst, count);
 		check_object_size(dst, count, false);
-		if (user_access_begin(src, max)) {
-			retval = do_strncpy_from_user(dst, src, count, max);
-			user_access_end();
-			return retval;
-		}
+		user_access_begin();
+		retval = do_strncpy_from_user(dst, src, count, max);
+		user_access_end();
+		return retval;
 	}
 	return -EFAULT;
 }

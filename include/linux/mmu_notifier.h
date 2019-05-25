@@ -2,6 +2,7 @@
 #ifndef _LINUX_MMU_NOTIFIER_H
 #define _LINUX_MMU_NOTIFIER_H
 
+#include <linux/types.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/mm_types.h>
@@ -9,6 +10,9 @@
 
 struct mmu_notifier;
 struct mmu_notifier_ops;
+
+/* mmu_notifier_ops flags */
+#define MMU_INVALIDATE_DOES_NOT_BLOCK	(0x01)
 
 #ifdef CONFIG_MMU_NOTIFIER
 
@@ -25,14 +29,16 @@ struct mmu_notifier_mm {
 	spinlock_t lock;
 };
 
-struct mmu_notifier_range {
-	struct mm_struct *mm;
-	unsigned long start;
-	unsigned long end;
-	bool blockable;
-};
-
 struct mmu_notifier_ops {
+	/*
+	 * Flags to specify behavior of callbacks for this MMU notifier.
+	 * Used to determine which context an operation may be called.
+	 *
+	 * MMU_INVALIDATE_DOES_NOT_BLOCK: invalidate_range_* callbacks do not
+	 *	block
+	 */
+	int flags;
+
 	/*
 	 * Called either by mmu_notifier_unregister or when the mm is
 	 * being destroyed by exit_mmap, always before all pages are
@@ -147,15 +153,16 @@ struct mmu_notifier_ops {
 	 *
 	 * If blockable argument is set to false then the callback cannot
 	 * sleep and has to return with -EAGAIN. 0 should be returned
-	 * otherwise. Please note that if invalidate_range_start approves
-	 * a non-blocking behavior then the same applies to
-	 * invalidate_range_end.
+	 * otherwise.
 	 *
 	 */
 	int (*invalidate_range_start)(struct mmu_notifier *mn,
-				      const struct mmu_notifier_range *range);
+				       struct mm_struct *mm,
+				       unsigned long start, unsigned long end,
+				       bool blockable);
 	void (*invalidate_range_end)(struct mmu_notifier *mn,
-				     const struct mmu_notifier_range *range);
+				     struct mm_struct *mm,
+				     unsigned long start, unsigned long end);
 
 	/*
 	 * invalidate_range() is either called between
@@ -174,6 +181,10 @@ struct mmu_notifier_ops {
 	 * Note that this function might be called with just a sub-range
 	 * of what was passed to invalidate_range_start()/end(), if
 	 * called between those functions.
+	 *
+	 * If this callback cannot block, and invalidate_range_{start,end}
+	 * cannot block, mmu_notifier_ops.flags should have
+	 * MMU_INVALIDATE_DOES_NOT_BLOCK set.
 	 */
 	void (*invalidate_range)(struct mmu_notifier *mn, struct mm_struct *mm,
 				 unsigned long start, unsigned long end);
@@ -220,11 +231,15 @@ extern int __mmu_notifier_test_young(struct mm_struct *mm,
 				     unsigned long address);
 extern void __mmu_notifier_change_pte(struct mm_struct *mm,
 				      unsigned long address, pte_t pte);
-extern int __mmu_notifier_invalidate_range_start(struct mmu_notifier_range *r);
-extern void __mmu_notifier_invalidate_range_end(struct mmu_notifier_range *r,
+extern int __mmu_notifier_invalidate_range_start(struct mm_struct *mm,
+				  unsigned long start, unsigned long end,
+				  bool blockable);
+extern void __mmu_notifier_invalidate_range_end(struct mm_struct *mm,
+				  unsigned long start, unsigned long end,
 				  bool only_end);
 extern void __mmu_notifier_invalidate_range(struct mm_struct *mm,
 				  unsigned long start, unsigned long end);
+extern bool mm_has_blockable_invalidate_notifiers(struct mm_struct *mm);
 
 static inline void mmu_notifier_release(struct mm_struct *mm)
 {
@@ -265,37 +280,33 @@ static inline void mmu_notifier_change_pte(struct mm_struct *mm,
 		__mmu_notifier_change_pte(mm, address, pte);
 }
 
-static inline void
-mmu_notifier_invalidate_range_start(struct mmu_notifier_range *range)
+static inline void mmu_notifier_invalidate_range_start(struct mm_struct *mm,
+				  unsigned long start, unsigned long end)
 {
-	if (mm_has_notifiers(range->mm)) {
-		range->blockable = true;
-		__mmu_notifier_invalidate_range_start(range);
-	}
+	if (mm_has_notifiers(mm))
+		__mmu_notifier_invalidate_range_start(mm, start, end, true);
 }
 
-static inline int
-mmu_notifier_invalidate_range_start_nonblock(struct mmu_notifier_range *range)
+static inline int mmu_notifier_invalidate_range_start_nonblock(struct mm_struct *mm,
+				  unsigned long start, unsigned long end)
 {
-	if (mm_has_notifiers(range->mm)) {
-		range->blockable = false;
-		return __mmu_notifier_invalidate_range_start(range);
-	}
+	if (mm_has_notifiers(mm))
+		return __mmu_notifier_invalidate_range_start(mm, start, end, false);
 	return 0;
 }
 
-static inline void
-mmu_notifier_invalidate_range_end(struct mmu_notifier_range *range)
+static inline void mmu_notifier_invalidate_range_end(struct mm_struct *mm,
+				  unsigned long start, unsigned long end)
 {
-	if (mm_has_notifiers(range->mm))
-		__mmu_notifier_invalidate_range_end(range, false);
+	if (mm_has_notifiers(mm))
+		__mmu_notifier_invalidate_range_end(mm, start, end, false);
 }
 
-static inline void
-mmu_notifier_invalidate_range_only_end(struct mmu_notifier_range *range)
+static inline void mmu_notifier_invalidate_range_only_end(struct mm_struct *mm,
+				  unsigned long start, unsigned long end)
 {
-	if (mm_has_notifiers(range->mm))
-		__mmu_notifier_invalidate_range_end(range, true);
+	if (mm_has_notifiers(mm))
+		__mmu_notifier_invalidate_range_end(mm, start, end, true);
 }
 
 static inline void mmu_notifier_invalidate_range(struct mm_struct *mm,
@@ -314,17 +325,6 @@ static inline void mmu_notifier_mm_destroy(struct mm_struct *mm)
 {
 	if (mm_has_notifiers(mm))
 		__mmu_notifier_mm_destroy(mm);
-}
-
-
-static inline void mmu_notifier_range_init(struct mmu_notifier_range *range,
-					   struct mm_struct *mm,
-					   unsigned long start,
-					   unsigned long end)
-{
-	range->mm = mm;
-	range->start = start;
-	range->end = end;
 }
 
 #define ptep_clear_flush_young_notify(__vma, __address, __ptep)		\
@@ -436,25 +436,9 @@ static inline void mmu_notifier_range_init(struct mmu_notifier_range *range,
 
 extern void mmu_notifier_call_srcu(struct rcu_head *rcu,
 				   void (*func)(struct rcu_head *rcu));
+extern void mmu_notifier_synchronize(void);
 
 #else /* CONFIG_MMU_NOTIFIER */
-
-struct mmu_notifier_range {
-	unsigned long start;
-	unsigned long end;
-};
-
-static inline void _mmu_notifier_range_init(struct mmu_notifier_range *range,
-					    unsigned long start,
-					    unsigned long end)
-{
-	range->start = start;
-	range->end = end;
-}
-
-#define mmu_notifier_range_init(range, mm, start, end) \
-	_mmu_notifier_range_init(range, start, end)
-
 
 static inline int mm_has_notifiers(struct mm_struct *mm)
 {
@@ -483,30 +467,35 @@ static inline void mmu_notifier_change_pte(struct mm_struct *mm,
 {
 }
 
-static inline void
-mmu_notifier_invalidate_range_start(struct mmu_notifier_range *range)
+static inline void mmu_notifier_invalidate_range_start(struct mm_struct *mm,
+				  unsigned long start, unsigned long end)
 {
 }
 
-static inline int
-mmu_notifier_invalidate_range_start_nonblock(struct mmu_notifier_range *range)
+static inline int mmu_notifier_invalidate_range_start_nonblock(struct mm_struct *mm,
+				  unsigned long start, unsigned long end)
 {
 	return 0;
 }
 
-static inline
-void mmu_notifier_invalidate_range_end(struct mmu_notifier_range *range)
+static inline void mmu_notifier_invalidate_range_end(struct mm_struct *mm,
+				  unsigned long start, unsigned long end)
 {
 }
 
-static inline void
-mmu_notifier_invalidate_range_only_end(struct mmu_notifier_range *range)
+static inline void mmu_notifier_invalidate_range_only_end(struct mm_struct *mm,
+				  unsigned long start, unsigned long end)
 {
 }
 
 static inline void mmu_notifier_invalidate_range(struct mm_struct *mm,
 				  unsigned long start, unsigned long end)
 {
+}
+
+static inline bool mm_has_blockable_invalidate_notifiers(struct mm_struct *mm)
+{
+	return false;
 }
 
 static inline void mmu_notifier_mm_init(struct mm_struct *mm)

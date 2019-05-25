@@ -35,6 +35,8 @@ $(LIBBPF)-clean:
 prefix ?= /usr/local
 bash_compdir ?= /usr/share/bash-completion/completions
 
+CC = gcc
+
 CFLAGS += -O2
 CFLAGS += -W -Wall -Wextra -Wno-unused-parameter -Wshadow -Wno-missing-field-initializers
 CFLAGS += -DPACKAGE='"bpftool"' -D__EXPORTED_HEADERS__ \
@@ -44,14 +46,7 @@ CFLAGS += -DPACKAGE='"bpftool"' -D__EXPORTED_HEADERS__ \
 	-I$(srctree)/tools/lib/bpf \
 	-I$(srctree)/tools/perf
 CFLAGS += -DBPFTOOL_VERSION='"$(BPFTOOL_VERSION)"'
-ifneq ($(EXTRA_CFLAGS),)
-CFLAGS += $(EXTRA_CFLAGS)
-endif
-ifneq ($(EXTRA_LDFLAGS),)
-LDFLAGS += $(EXTRA_LDFLAGS)
-endif
-
-LIBS = -lelf $(LIBBPF)
+LIBS = -lelf -lbfd -lopcodes $(LIBBPF)
 
 INSTALL ?= install
 RM ?= rm -f
@@ -88,30 +83,14 @@ include $(wildcard $(OUTPUT)*.d)
 
 all: $(OUTPUT)bpftool
 
-BFD_SRCS = jit_disasm.c
-
-SRCS = $(filter-out $(BFD_SRCS),$(wildcard *.c))
-
-ifeq ($(feature-libbfd),1)
-  LIBS += -lbfd -ldl -lopcodes
-else ifeq ($(feature-libbfd-liberty),1)
-  LIBS += -lbfd -ldl -lopcodes -liberty
-else ifeq ($(feature-libbfd-liberty-z),1)
-  LIBS += -lbfd -ldl -lopcodes -liberty -lz
-endif
-
-ifneq ($(filter -lbfd,$(LIBS)),)
-CFLAGS += -DHAVE_LIBBFD_SUPPORT
-SRCS += $(BFD_SRCS)
-endif
-
+SRCS = $(wildcard *.c)
 OBJS = $(patsubst %.c,$(OUTPUT)%.o,$(SRCS)) $(OUTPUT)disasm.o
 
 $(OUTPUT)disasm.o: $(srctree)/kernel/bpf/disasm.c
 	$(QUIET_CC)$(COMPILE.c) -MMD -o $@ $<
 
 $(OUTPUT)bpftool: $(OBJS) $(LIBBPF)
-	$(QUIET_LINK)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(QUIET_LINK)$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 $(OUTPUT)%.o: %.c
 	$(QUIET_CC)$(COMPILE.c) -MMD -o $@ $<

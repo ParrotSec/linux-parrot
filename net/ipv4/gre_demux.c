@@ -87,14 +87,13 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
 
 	options = (__be32 *)(greh + 1);
 	if (greh->flags & GRE_CSUM) {
-		if (!skb_checksum_simple_validate(skb)) {
-			skb_checksum_try_convert(skb, IPPROTO_GRE, 0,
-						 null_compute_pseudo);
-		} else if (csum_err) {
+		if (skb_checksum_simple_validate(skb)) {
 			*csum_err = true;
 			return -EINVAL;
 		}
 
+		skb_checksum_try_convert(skb, IPPROTO_GRE, 0,
+					 null_compute_pseudo);
 		options++;
 	}
 
@@ -168,25 +167,20 @@ drop:
 	return NET_RX_DROP;
 }
 
-static int gre_err(struct sk_buff *skb, u32 info)
+static void gre_err(struct sk_buff *skb, u32 info)
 {
 	const struct gre_protocol *proto;
 	const struct iphdr *iph = (const struct iphdr *)skb->data;
 	u8 ver = skb->data[(iph->ihl<<2) + 1]&0x7f;
-	int err = 0;
 
 	if (ver >= GREPROTO_MAX)
-		return -EINVAL;
+		return;
 
 	rcu_read_lock();
 	proto = rcu_dereference(gre_proto[ver]);
 	if (proto && proto->err_handler)
 		proto->err_handler(skb, info);
-	else
-		err = -EPROTONOSUPPORT;
 	rcu_read_unlock();
-
-	return err;
 }
 
 static const struct net_protocol net_gre_protocol = {

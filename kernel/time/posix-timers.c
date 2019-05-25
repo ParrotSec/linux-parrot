@@ -1,13 +1,34 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
+ * linux/kernel/posix-timers.c
+ *
+ *
  * 2002-10-15  Posix Clocks & timers
  *                           by George Anzinger george@mvista.com
+ *
  *			     Copyright (C) 2002 2003 by MontaVista Software.
  *
  * 2004-06-01  Fix CLOCK_REALTIME clock/timer TIMER_ABSTIME bug.
  *			     Copyright (C) 2004 Boris Hu
  *
- * These are all the functions necessary to implement POSIX clocks & timers
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ * MontaVista Software | 1237 East Arques Avenue | Sunnyvale | CA 94085 | USA
+ */
+
+/* These are all the functions necessary to implement
+ * POSIX clocks & timers
  */
 #include <linux/mm.h>
 #include <linux/interrupt.h>
@@ -179,7 +200,7 @@ static int posix_clock_realtime_set(const clockid_t which_clock,
 }
 
 static int posix_clock_realtime_adj(const clockid_t which_clock,
-				    struct __kernel_timex *t)
+				    struct timex *t)
 {
 	return do_adjtimex(t);
 }
@@ -284,7 +305,7 @@ static void common_hrtimer_rearm(struct k_itimer *timr)
  * To protect against the timer going away while the interrupt is queued,
  * we require that the it_requeue_pending flag be set.
  */
-void posixtimer_rearm(struct kernel_siginfo *info)
+void posixtimer_rearm(struct siginfo *info)
 {
 	struct k_itimer *timr;
 	unsigned long flags;
@@ -730,14 +751,14 @@ SYSCALL_DEFINE2(timer_gettime, timer_t, timer_id,
 
 #ifdef CONFIG_COMPAT_32BIT_TIME
 
-SYSCALL_DEFINE2(timer_gettime32, timer_t, timer_id,
-		struct old_itimerspec32 __user *, setting)
+COMPAT_SYSCALL_DEFINE2(timer_gettime, timer_t, timer_id,
+		       struct compat_itimerspec __user *, setting)
 {
 	struct itimerspec64 cur_setting;
 
 	int ret = do_timer_gettime(timer_id, &cur_setting);
 	if (!ret) {
-		if (put_old_itimerspec32(&cur_setting, setting))
+		if (put_compat_itimerspec64(&cur_setting, setting))
 			ret = -EFAULT;
 	}
 	return ret;
@@ -903,9 +924,9 @@ SYSCALL_DEFINE4(timer_settime, timer_t, timer_id, int, flags,
 }
 
 #ifdef CONFIG_COMPAT_32BIT_TIME
-SYSCALL_DEFINE4(timer_settime32, timer_t, timer_id, int, flags,
-		struct old_itimerspec32 __user *, new,
-		struct old_itimerspec32 __user *, old)
+COMPAT_SYSCALL_DEFINE4(timer_settime, timer_t, timer_id, int, flags,
+		       struct compat_itimerspec __user *, new,
+		       struct compat_itimerspec __user *, old)
 {
 	struct itimerspec64 new_spec, old_spec;
 	struct itimerspec64 *rtn = old ? &old_spec : NULL;
@@ -913,12 +934,12 @@ SYSCALL_DEFINE4(timer_settime32, timer_t, timer_id, int, flags,
 
 	if (!new)
 		return -EINVAL;
-	if (get_old_itimerspec32(&new_spec, new))
+	if (get_compat_itimerspec64(&new_spec, new))
 		return -EFAULT;
 
 	error = do_timer_settime(timer_id, flags, &new_spec, rtn);
 	if (!error && old) {
-		if (put_old_itimerspec32(&old_spec, old))
+		if (put_compat_itimerspec64(&old_spec, old))
 			error = -EFAULT;
 	}
 	return error;
@@ -1047,28 +1068,22 @@ SYSCALL_DEFINE2(clock_gettime, const clockid_t, which_clock,
 	return error;
 }
 
-int do_clock_adjtime(const clockid_t which_clock, struct __kernel_timex * ktx)
+SYSCALL_DEFINE2(clock_adjtime, const clockid_t, which_clock,
+		struct timex __user *, utx)
 {
 	const struct k_clock *kc = clockid_to_kclock(which_clock);
+	struct timex ktx;
+	int err;
 
 	if (!kc)
 		return -EINVAL;
 	if (!kc->clock_adj)
 		return -EOPNOTSUPP;
 
-	return kc->clock_adj(which_clock, ktx);
-}
-
-SYSCALL_DEFINE2(clock_adjtime, const clockid_t, which_clock,
-		struct __kernel_timex __user *, utx)
-{
-	struct __kernel_timex ktx;
-	int err;
-
 	if (copy_from_user(&ktx, utx, sizeof(ktx)))
 		return -EFAULT;
 
-	err = do_clock_adjtime(which_clock, &ktx);
+	err = kc->clock_adj(which_clock, &ktx);
 
 	if (err >= 0 && copy_to_user(utx, &ktx, sizeof(ktx)))
 		return -EFAULT;
@@ -1096,8 +1111,8 @@ SYSCALL_DEFINE2(clock_getres, const clockid_t, which_clock,
 
 #ifdef CONFIG_COMPAT_32BIT_TIME
 
-SYSCALL_DEFINE2(clock_settime32, clockid_t, which_clock,
-		struct old_timespec32 __user *, tp)
+COMPAT_SYSCALL_DEFINE2(clock_settime, clockid_t, which_clock,
+		       struct compat_timespec __user *, tp)
 {
 	const struct k_clock *kc = clockid_to_kclock(which_clock);
 	struct timespec64 ts;
@@ -1105,14 +1120,14 @@ SYSCALL_DEFINE2(clock_settime32, clockid_t, which_clock,
 	if (!kc || !kc->clock_set)
 		return -EINVAL;
 
-	if (get_old_timespec32(&ts, tp))
+	if (compat_get_timespec64(&ts, tp))
 		return -EFAULT;
 
 	return kc->clock_set(which_clock, &ts);
 }
 
-SYSCALL_DEFINE2(clock_gettime32, clockid_t, which_clock,
-		struct old_timespec32 __user *, tp)
+COMPAT_SYSCALL_DEFINE2(clock_gettime, clockid_t, which_clock,
+		       struct compat_timespec __user *, tp)
 {
 	const struct k_clock *kc = clockid_to_kclock(which_clock);
 	struct timespec64 ts;
@@ -1123,32 +1138,46 @@ SYSCALL_DEFINE2(clock_gettime32, clockid_t, which_clock,
 
 	err = kc->clock_get(which_clock, &ts);
 
-	if (!err && put_old_timespec32(&ts, tp))
+	if (!err && compat_put_timespec64(&ts, tp))
 		err = -EFAULT;
 
 	return err;
 }
 
-SYSCALL_DEFINE2(clock_adjtime32, clockid_t, which_clock,
-		struct old_timex32 __user *, utp)
+#endif
+
+#ifdef CONFIG_COMPAT
+
+COMPAT_SYSCALL_DEFINE2(clock_adjtime, clockid_t, which_clock,
+		       struct compat_timex __user *, utp)
 {
-	struct __kernel_timex ktx;
+	const struct k_clock *kc = clockid_to_kclock(which_clock);
+	struct timex ktx;
 	int err;
 
-	err = get_old_timex32(&ktx, utp);
+	if (!kc)
+		return -EINVAL;
+	if (!kc->clock_adj)
+		return -EOPNOTSUPP;
+
+	err = compat_get_timex(&ktx, utp);
 	if (err)
 		return err;
 
-	err = do_clock_adjtime(which_clock, &ktx);
+	err = kc->clock_adj(which_clock, &ktx);
 
 	if (err >= 0)
-		err = put_old_timex32(utp, &ktx);
+		err = compat_put_timex(utp, &ktx);
 
 	return err;
 }
 
-SYSCALL_DEFINE2(clock_getres_time32, clockid_t, which_clock,
-		struct old_timespec32 __user *, tp)
+#endif
+
+#ifdef CONFIG_COMPAT_32BIT_TIME
+
+COMPAT_SYSCALL_DEFINE2(clock_getres, clockid_t, which_clock,
+		       struct compat_timespec __user *, tp)
 {
 	const struct k_clock *kc = clockid_to_kclock(which_clock);
 	struct timespec64 ts;
@@ -1158,7 +1187,7 @@ SYSCALL_DEFINE2(clock_getres_time32, clockid_t, which_clock,
 		return -EINVAL;
 
 	err = kc->clock_getres(which_clock, &ts);
-	if (!err && tp && put_old_timespec32(&ts, tp))
+	if (!err && tp && compat_put_timespec64(&ts, tp))
 		return -EFAULT;
 
 	return err;
@@ -1204,9 +1233,9 @@ SYSCALL_DEFINE4(clock_nanosleep, const clockid_t, which_clock, int, flags,
 
 #ifdef CONFIG_COMPAT_32BIT_TIME
 
-SYSCALL_DEFINE4(clock_nanosleep_time32, clockid_t, which_clock, int, flags,
-		struct old_timespec32 __user *, rqtp,
-		struct old_timespec32 __user *, rmtp)
+COMPAT_SYSCALL_DEFINE4(clock_nanosleep, clockid_t, which_clock, int, flags,
+		       struct compat_timespec __user *, rqtp,
+		       struct compat_timespec __user *, rmtp)
 {
 	const struct k_clock *kc = clockid_to_kclock(which_clock);
 	struct timespec64 t;
@@ -1216,7 +1245,7 @@ SYSCALL_DEFINE4(clock_nanosleep_time32, clockid_t, which_clock, int, flags,
 	if (!kc->nsleep)
 		return -EOPNOTSUPP;
 
-	if (get_old_timespec32(&t, rqtp))
+	if (compat_get_timespec64(&t, rqtp))
 		return -EFAULT;
 
 	if (!timespec64_valid(&t))

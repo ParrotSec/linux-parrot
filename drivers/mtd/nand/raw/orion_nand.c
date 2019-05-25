@@ -26,9 +26,9 @@ struct orion_nand_info {
 	struct clk *clk;
 };
 
-static void orion_nand_cmd_ctrl(struct nand_chip *nc, int cmd,
-				unsigned int ctrl)
+static void orion_nand_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 {
+	struct nand_chip *nc = mtd_to_nand(mtd);
 	struct orion_nand_data *board = nand_get_controller_data(nc);
 	u32 offs;
 
@@ -45,12 +45,13 @@ static void orion_nand_cmd_ctrl(struct nand_chip *nc, int cmd,
 	if (nc->options & NAND_BUSWIDTH_16)
 		offs <<= 1;
 
-	writeb(cmd, nc->legacy.IO_ADDR_W + offs);
+	writeb(cmd, nc->IO_ADDR_W + offs);
 }
 
-static void orion_nand_read_buf(struct nand_chip *chip, uint8_t *buf, int len)
+static void orion_nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 {
-	void __iomem *io_base = chip->legacy.IO_ADDR_R;
+	struct nand_chip *chip = mtd_to_nand(mtd);
+	void __iomem *io_base = chip->IO_ADDR_R;
 #if defined(__LINUX_ARM_ARCH__) && __LINUX_ARM_ARCH__ >= 5
 	uint64_t *buf64;
 #endif
@@ -136,14 +137,14 @@ static int __init orion_nand_probe(struct platform_device *pdev)
 
 	nand_set_controller_data(nc, board);
 	nand_set_flash_node(nc, pdev->dev.of_node);
-	nc->legacy.IO_ADDR_R = nc->legacy.IO_ADDR_W = io_base;
-	nc->legacy.cmd_ctrl = orion_nand_cmd_ctrl;
-	nc->legacy.read_buf = orion_nand_read_buf;
+	nc->IO_ADDR_R = nc->IO_ADDR_W = io_base;
+	nc->cmd_ctrl = orion_nand_cmd_ctrl;
+	nc->read_buf = orion_nand_read_buf;
 	nc->ecc.mode = NAND_ECC_SOFT;
 	nc->ecc.algo = NAND_ECC_HAMMING;
 
 	if (board->chip_delay)
-		nc->legacy.chip_delay = board->chip_delay;
+		nc->chip_delay = board->chip_delay;
 
 	WARN(board->width > 16,
 		"%d bit bus width out of range",
@@ -173,14 +174,14 @@ static int __init orion_nand_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = nand_scan(nc, 1);
+	ret = nand_scan(mtd, 1);
 	if (ret)
 		goto no_dev;
 
 	mtd->name = "orion_nand";
 	ret = mtd_device_register(mtd, board->parts, board->nr_parts);
 	if (ret) {
-		nand_release(nc);
+		nand_release(mtd);
 		goto no_dev;
 	}
 
@@ -195,8 +196,9 @@ static int orion_nand_remove(struct platform_device *pdev)
 {
 	struct orion_nand_info *info = platform_get_drvdata(pdev);
 	struct nand_chip *chip = &info->chip;
+	struct mtd_info *mtd = nand_to_mtd(chip);
 
-	nand_release(chip);
+	nand_release(mtd);
 
 	clk_disable_unprepare(info->clk);
 

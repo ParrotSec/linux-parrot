@@ -71,6 +71,17 @@ static void nlm_compute_offsets(const struct nlm_lock *lock,
 }
 
 /*
+ * Handle decode buffer overflows out-of-line.
+ */
+static void print_overflow_msg(const char *func, const struct xdr_stream *xdr)
+{
+	dprintk("lockd: %s prematurely hit the end of our receive buffer. "
+		"Remaining buffer length is %tu words.\n",
+		func, xdr->end - xdr->p);
+}
+
+
+/*
  * Encode/decode NLMv3 basic data types
  *
  * Basic NLMv3 data types are not defined in an IETF standards
@@ -114,14 +125,24 @@ static void encode_netobj(struct xdr_stream *xdr,
 static int decode_netobj(struct xdr_stream *xdr,
 			 struct xdr_netobj *obj)
 {
-	ssize_t ret;
+	u32 length;
+	__be32 *p;
 
-	ret = xdr_stream_decode_opaque_inline(xdr, (void *)&obj->data,
-			XDR_MAX_NETOBJ);
-	if (unlikely(ret < 0))
-		return -EIO;
-	obj->len = ret;
+	p = xdr_inline_decode(xdr, 4);
+	if (unlikely(p == NULL))
+		goto out_overflow;
+	length = be32_to_cpup(p++);
+	if (unlikely(length > XDR_MAX_NETOBJ))
+		goto out_size;
+	obj->len = length;
+	obj->data = (u8 *)p;
 	return 0;
+out_size:
+	dprintk("NFS: returned netobj was too long: %u\n", length);
+	return -EIO;
+out_overflow:
+	print_overflow_msg(__func__, xdr);
+	return -EIO;
 }
 
 /*
@@ -162,6 +183,7 @@ out_size:
 	dprintk("NFS: returned cookie was too long: %u\n", length);
 	return -EIO;
 out_overflow:
+	print_overflow_msg(__func__, xdr);
 	return -EIO;
 }
 
@@ -219,6 +241,7 @@ out_enum:
 		__func__, be32_to_cpup(p));
 	return -EIO;
 out_overflow:
+	print_overflow_msg(__func__, xdr);
 	return -EIO;
 }
 
@@ -290,6 +313,7 @@ static int decode_nlm_holder(struct xdr_stream *xdr, struct nlm_res *result)
 out:
 	return error;
 out_overflow:
+	print_overflow_msg(__func__, xdr);
 	return -EIO;
 }
 

@@ -798,8 +798,10 @@ static int of_fsl_espi_suspend(struct device *dev)
 	int ret;
 
 	ret = spi_master_suspend(master);
-	if (ret)
+	if (ret) {
+		dev_warn(dev, "cannot suspend master\n");
 		return ret;
+	}
 
 	return pm_runtime_force_suspend(dev);
 }

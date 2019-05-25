@@ -166,9 +166,11 @@ isdn_wildmat(char *s, char *p)
 	for (; *p; s++, p++)
 		switch (*p) {
 		case '\\':
-			/* Literal match with following character. */
+			/*
+			 * Literal match with following character,
+			 * fall through.
+			 */
 			p++;
-			/* fall through */
 		default:
 			if (*s != *p)
 				return (*s == '\0') ? 2 : 1;
@@ -727,7 +729,6 @@ isdn_status_callback(isdn_ctrl *c)
 		if (divert_if)
 			return (divert_if->stat_callback(c));
 #endif /* CONFIG_ISDN_DIVERSION */
-		/* fall through */
 	default:
 		return -1;
 	}

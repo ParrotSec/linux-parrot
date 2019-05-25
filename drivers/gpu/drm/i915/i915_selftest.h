@@ -31,7 +31,6 @@ struct i915_selftest {
 	unsigned long timeout_jiffies;
 	unsigned int timeout_ms;
 	unsigned int random_seed;
-	char *filter;
 	int mock;
 	int live;
 };

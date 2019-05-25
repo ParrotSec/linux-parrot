@@ -311,6 +311,7 @@ static struct axxia_divclk clk_per_div = {
 			"clk_sm1_pll"
 		},
 		.num_parents = 1,
+		.flags = CLK_IS_BASIC,
 		.ops = &axxia_divclk_ops,
 	},
 	.reg   = 0x1000c,
@@ -325,6 +326,7 @@ static struct axxia_divclk clk_mmc_div = {
 			"clk_sm1_pll"
 		},
 		.num_parents = 1,
+		.flags = CLK_IS_BASIC,
 		.ops = &axxia_divclk_ops,
 	},
 	.reg   = 0x1000c,

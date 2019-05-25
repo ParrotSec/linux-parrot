@@ -19,7 +19,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/init.h>
-#include <linux/irqchip/irq-davinci-aintc.h>
 #include <linux/platform_data/edma.h>
 #include <linux/platform_data/gpio-davinci.h>
 #include <linux/platform_data/keyscan-davinci.h>
@@ -32,13 +31,13 @@
 
 #include <mach/common.h>
 #include <mach/cputype.h>
+#include <mach/irqs.h>
 #include <mach/mux.h>
 #include <mach/serial.h>
 #include <mach/time.h>
 
 #include "asp.h"
 #include "davinci.h"
-#include "irqs.h"
 #include "mux.h"
 
 #define DM365_REF_FREQ		24000000	/* 24 MHz on the DM365 EVM */
@@ -225,7 +224,7 @@ static struct resource dm365_spi0_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = DAVINCI_INTC_IRQ(IRQ_DM365_SPIINT0_0),
+		.start = IRQ_DM365_SPIINT0_0,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -267,50 +266,13 @@ static struct resource dm365_gpio_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{	/* interrupt */
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO0),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO0),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO1),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO1),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO2),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO2),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO3),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO3),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO4),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO4),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO5),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO5),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO6),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO6),
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO7),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_GPIO7),
+		.start	= IRQ_DM365_GPIO0,
+		.end	= IRQ_DM365_GPIO7,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
 
 static struct davinci_gpio_platform_data dm365_gpio_platform_data = {
-	.no_auto_base	= true,
-	.base		= 0,
 	.ngpio		= 104,
 	.gpio_unbanked	= 8,
 };
@@ -337,23 +299,23 @@ static struct resource dm365_emac_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_EMAC_RXTHRESH),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_EMAC_RXTHRESH),
+		.start	= IRQ_DM365_EMAC_RXTHRESH,
+		.end	= IRQ_DM365_EMAC_RXTHRESH,
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_EMAC_RXPULSE),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_EMAC_RXPULSE),
+		.start	= IRQ_DM365_EMAC_RXPULSE,
+		.end	= IRQ_DM365_EMAC_RXPULSE,
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_EMAC_TXPULSE),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_EMAC_TXPULSE),
+		.start	= IRQ_DM365_EMAC_TXPULSE,
+		.end	= IRQ_DM365_EMAC_TXPULSE,
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= DAVINCI_INTC_IRQ(IRQ_DM365_EMAC_MISCPULSE),
-		.end	= DAVINCI_INTC_IRQ(IRQ_DM365_EMAC_MISCPULSE),
+		.start	= IRQ_DM365_EMAC_MISCPULSE,
+		.end	= IRQ_DM365_EMAC_MISCPULSE,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -519,12 +481,12 @@ static struct resource edma_resources[] = {
 	},
 	{
 		.name	= "edma3_ccint",
-		.start	= DAVINCI_INTC_IRQ(IRQ_CCINT0),
+		.start	= IRQ_CCINT0,
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
 		.name	= "edma3_ccerrint",
-		.start	= DAVINCI_INTC_IRQ(IRQ_CCERRINT),
+		.start	= IRQ_CCERRINT,
 		.flags	= IORESOURCE_IRQ,
 	},
 	/* not using TC*_ERR */
@@ -598,7 +560,7 @@ static struct resource dm365_rtc_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = DAVINCI_INTC_IRQ(IRQ_DM365_RTCINT),
+		.start = IRQ_DM365_RTCINT,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -628,8 +590,8 @@ static struct resource dm365_ks_resources[] = {
 	},
 	{
 		/* interrupt */
-		.start = DAVINCI_INTC_IRQ(IRQ_DM365_KEYINT),
-		.end = DAVINCI_INTC_IRQ(IRQ_DM365_KEYINT),
+		.start = IRQ_DM365_KEYINT,
+		.end = IRQ_DM365_KEYINT,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -670,7 +632,7 @@ static struct davinci_timer_info dm365_timer_info = {
 static struct plat_serial8250_port dm365_serial0_platform_data[] = {
 	{
 		.mapbase	= DAVINCI_UART0_BASE,
-		.irq		= DAVINCI_INTC_IRQ(IRQ_UARTINT0),
+		.irq		= IRQ_UARTINT0,
 		.flags		= UPF_BOOT_AUTOCONF | UPF_SKIP_TEST |
 				  UPF_IOREMAP,
 		.iotype		= UPIO_MEM,
@@ -683,7 +645,7 @@ static struct plat_serial8250_port dm365_serial0_platform_data[] = {
 static struct plat_serial8250_port dm365_serial1_platform_data[] = {
 	{
 		.mapbase	= DM365_UART1_BASE,
-		.irq		= DAVINCI_INTC_IRQ(IRQ_UARTINT1),
+		.irq		= IRQ_UARTINT1,
 		.flags		= UPF_BOOT_AUTOCONF | UPF_SKIP_TEST |
 				  UPF_IOREMAP,
 		.iotype		= UPIO_MEM,
@@ -722,6 +684,10 @@ static const struct davinci_soc_info davinci_soc_info_dm365 = {
 	.pinmux_base		= DAVINCI_SYSTEM_MODULE_BASE,
 	.pinmux_pins		= dm365_pins,
 	.pinmux_pins_num	= ARRAY_SIZE(dm365_pins),
+	.intc_base		= DAVINCI_ARM_INTC_BASE,
+	.intc_type		= DAVINCI_INTC_TYPE_AINTC,
+	.intc_irq_prios		= dm365_default_priorities,
+	.intc_irq_num		= DAVINCI_N_AINTC_IRQ,
 	.timer_info		= &dm365_timer_info,
 	.emac_pdata		= &dm365_emac_pdata,
 	.sram_dma		= 0x00010000,
@@ -819,13 +785,13 @@ static struct platform_device dm365_vpss_device = {
 
 static struct resource vpfe_resources[] = {
 	{
-		.start          = DAVINCI_INTC_IRQ(IRQ_VDINT0),
-		.end            = DAVINCI_INTC_IRQ(IRQ_VDINT0),
+		.start          = IRQ_VDINT0,
+		.end            = IRQ_VDINT0,
 		.flags          = IORESOURCE_IRQ,
 	},
 	{
-		.start          = DAVINCI_INTC_IRQ(IRQ_VDINT1),
-		.end            = DAVINCI_INTC_IRQ(IRQ_VDINT1),
+		.start          = IRQ_VDINT1,
+		.end            = IRQ_VDINT1,
 		.flags          = IORESOURCE_IRQ,
 	},
 };
@@ -906,8 +872,8 @@ static struct platform_device dm365_osd_dev = {
 
 static struct resource dm365_venc_resources[] = {
 	{
-		.start = DAVINCI_INTC_IRQ(IRQ_VENCINT),
-		.end   = DAVINCI_INTC_IRQ(IRQ_VENCINT),
+		.start = IRQ_VENCINT,
+		.end   = IRQ_VENCINT,
 		.flags = IORESOURCE_IRQ,
 	},
 	/* venc registers io space */
@@ -926,8 +892,8 @@ static struct resource dm365_venc_resources[] = {
 
 static struct resource dm365_v4l2_disp_resources[] = {
 	{
-		.start = DAVINCI_INTC_IRQ(IRQ_VENCINT),
-		.end   = DAVINCI_INTC_IRQ(IRQ_VENCINT),
+		.start = IRQ_VENCINT,
+		.end   = IRQ_VENCINT,
 		.flags = IORESOURCE_IRQ,
 	},
 	/* venc registers io space */
@@ -1047,21 +1013,6 @@ int __init dm365_init_video(struct vpfe_config *vpfe_cfg,
 	}
 
 	return 0;
-}
-
-static const struct davinci_aintc_config dm365_aintc_config = {
-	.reg = {
-		.start		= DAVINCI_ARM_INTC_BASE,
-		.end		= DAVINCI_ARM_INTC_BASE + SZ_4K - 1,
-		.flags		= IORESOURCE_MEM,
-	},
-	.num_irqs		= 64,
-	.prios			= dm365_default_priorities,
-};
-
-void __init dm365_init_irq(void)
-{
-	davinci_aintc_init(&dm365_aintc_config);
 }
 
 static int __init dm365_init_devices(void)

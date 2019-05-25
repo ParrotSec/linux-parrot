@@ -317,27 +317,25 @@ ENTRY(ce_aes_ctr_encrypt)
 .Lctrloop:
 	vmov		q0, q6
 	bl		aes_encrypt
-
-	adds		r6, r6, #1		@ increment BE ctr
-	rev		ip, r6
-	vmov		s27, ip
-	bcs		.Lctrcarry
-
-.Lctrcarrydone:
 	subs		r4, r4, #1
 	bmi		.Lctrtailblock		@ blocks < 0 means tail block
 	vld1.8		{q3}, [r1]!
 	veor		q3, q0, q3
 	vst1.8		{q3}, [r0]!
-	bne		.Lctrloop
 
+	adds		r6, r6, #1		@ increment BE ctr
+	rev		ip, r6
+	vmov		s27, ip
+	bcs		.Lctrcarry
+	teq		r4, #0
+	bne		.Lctrloop
 .Lctrout:
-	vst1.8		{q6}, [r5]		@ return next CTR value
+	vst1.8		{q6}, [r5]
 	pop		{r4-r6, pc}
 
 .Lctrtailblock:
-	vst1.8		{q0}, [r0, :64]		@ return the key stream
-	b		.Lctrout
+	vst1.8		{q0}, [r0, :64]		@ return just the key stream
+	pop		{r4-r6, pc}
 
 .Lctrcarry:
 	.irp		sreg, s26, s25, s24
@@ -346,9 +344,11 @@ ENTRY(ce_aes_ctr_encrypt)
 	adds		ip, ip, #1
 	rev		ip, ip
 	vmov		\sreg, ip
-	bcc		.Lctrcarrydone
+	bcc		0f
 	.endr
-	b		.Lctrcarrydone
+0:	teq		r4, #0
+	beq		.Lctrout
+	b		.Lctrloop
 ENDPROC(ce_aes_ctr_encrypt)
 
 	/*

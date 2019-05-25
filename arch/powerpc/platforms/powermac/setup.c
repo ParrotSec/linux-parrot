@@ -243,9 +243,10 @@ static void __init l2cr_init(void)
 {
 	/* Checks "l2cr-value" property in the registry */
 	if (cpu_has_feature(CPU_FTR_L2CR)) {
-		struct device_node *np;
-
-		for_each_of_cpu_node(np) {
+		struct device_node *np = of_find_node_by_name(NULL, "cpus");
+		if (!np)
+			np = of_find_node_by_type(NULL, "cpu");
+		if (np) {
 			const unsigned int *l2cr =
 				of_get_property(np, "l2cr-value", NULL);
 			if (l2cr) {
@@ -255,7 +256,6 @@ static void __init l2cr_init(void)
 				_set_L2CR(ppc_override_l2cr_value);
 			}
 			of_node_put(np);
-			break;
 		}
 	}
 
@@ -279,8 +279,8 @@ static void __init pmac_setup_arch(void)
 	/* Set loops_per_jiffy to a half-way reasonable value,
 	   for use until calibrate_delay gets called. */
 	loops_per_jiffy = 50000000 / HZ;
-
-	for_each_of_cpu_node(cpu) {
+	cpu = of_find_node_by_type(NULL, "cpu");
+	if (cpu != NULL) {
 		fp = of_get_property(cpu, "clock-frequency", NULL);
 		if (fp != NULL) {
 			if (pvr >= 0x30 && pvr < 0x80)
@@ -292,9 +292,8 @@ static void __init pmac_setup_arch(void)
 			else
 				/* 601, 603, etc. */
 				loops_per_jiffy = *fp / (2 * HZ);
-			of_node_put(cpu);
-			break;
 		}
+		of_node_put(cpu);
 	}
 
 	/* See if newworld or oldworld */
@@ -316,7 +315,8 @@ static void __init pmac_setup_arch(void)
 	find_via_pmu();
 	smu_init();
 
-#if IS_ENABLED(CONFIG_NVRAM)
+#if defined(CONFIG_NVRAM) || defined(CONFIG_NVRAM_MODULE) || \
+    defined(CONFIG_PPC64)
 	pmac_nvram_init();
 #endif
 #ifdef CONFIG_PPC32
@@ -559,9 +559,15 @@ static int __init check_pmac_serial_console(void)
 	}
 	pr_debug("stdout is %pOF\n", prom_stdout);
 
-	if (of_node_name_eq(prom_stdout, "ch-a"))
+	name = of_get_property(prom_stdout, "name", NULL);
+	if (!name) {
+		pr_debug(" stdout package has no name !\n");
+		goto not_found;
+	}
+
+	if (strcmp(name, "ch-a") == 0)
 		offset = 0;
-	else if (of_node_name_eq(prom_stdout, "ch-b"))
+	else if (strcmp(name, "ch-b") == 0)
 		offset = 1;
 	else
 		goto not_found;

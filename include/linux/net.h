@@ -83,12 +83,6 @@ enum sock_type {
 
 #endif /* ARCH_HAS_SOCKET_TYPES */
 
-/**
- * enum sock_shutdown_cmd - Shutdown types
- * @SHUT_RD: shutdown receptions
- * @SHUT_WR: shutdown transmissions
- * @SHUT_RDWR: shutdown receptions/transmissions
- */
 enum sock_shutdown_cmd {
 	SHUT_RD,
 	SHUT_WR,
@@ -269,7 +263,7 @@ do {								\
 #define net_dbg_ratelimited(fmt, ...)					\
 do {									\
 	DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, fmt);			\
-	if (DYNAMIC_DEBUG_BRANCH(descriptor) &&				\
+	if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT) &&	\
 	    net_ratelimit())						\
 		__dynamic_pr_debug(&descriptor, pr_fmt(fmt),		\
 		                   ##__VA_ARGS__);			\

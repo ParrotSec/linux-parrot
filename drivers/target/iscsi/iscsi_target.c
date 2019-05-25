@@ -308,14 +308,15 @@ bool iscsit_check_np_match(
 	return false;
 }
 
+/*
+ * Called with mutex np_lock held
+ */
 static struct iscsi_np *iscsit_get_np(
 	struct sockaddr_storage *sockaddr,
 	int network_transport)
 {
 	struct iscsi_np *np;
 	bool match;
-
-	lockdep_assert_held(&np_lock);
 
 	list_for_each_entry(np, &g_np_list, np_list) {
 		spin_lock_bh(&np->np_thread_lock);
@@ -713,7 +714,7 @@ static int __init iscsi_target_init_module(void)
 			sizeof(struct iscsi_queue_req),
 			__alignof__(struct iscsi_queue_req), 0, NULL);
 	if (!lio_qr_cache) {
-		pr_err("Unable to kmem_cache_create() for"
+		pr_err("nable to kmem_cache_create() for"
 				" lio_qr_cache\n");
 		goto bitmap_out;
 	}
@@ -1194,7 +1195,7 @@ attach_cmd:
 }
 EXPORT_SYMBOL(iscsit_setup_scsi_cmd);
 
-void iscsit_set_unsolicited_dataout(struct iscsi_cmd *cmd)
+void iscsit_set_unsoliticed_dataout(struct iscsi_cmd *cmd)
 {
 	iscsit_set_dataout_sequence_values(cmd);
 
@@ -1202,7 +1203,7 @@ void iscsit_set_unsolicited_dataout(struct iscsi_cmd *cmd)
 	iscsit_start_dataout_timer(cmd, cmd->conn);
 	spin_unlock_bh(&cmd->dataout_timeout_lock);
 }
-EXPORT_SYMBOL(iscsit_set_unsolicited_dataout);
+EXPORT_SYMBOL(iscsit_set_unsoliticed_dataout);
 
 int iscsit_process_scsi_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 			    struct iscsi_scsi_req *hdr)
@@ -1236,7 +1237,7 @@ int iscsit_process_scsi_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 	 */
 	if (!cmd->immediate_data) {
 		if (!cmd->sense_reason && cmd->unsolicited_data)
-			iscsit_set_unsolicited_dataout(cmd);
+			iscsit_set_unsoliticed_dataout(cmd);
 		if (!cmd->sense_reason)
 			return 0;
 
@@ -1308,7 +1309,7 @@ after_immediate_data:
 			target_put_sess_cmd(&cmd->se_cmd);
 			return rc;
 		} else if (cmd->unsolicited_data)
-			iscsit_set_unsolicited_dataout(cmd);
+			iscsit_set_unsoliticed_dataout(cmd);
 
 	} else if (immed_ret == IMMEDIATE_DATA_ERL1_CRC_FAILURE) {
 		/*
@@ -1492,6 +1493,8 @@ __iscsit_check_dataout_hdr(struct iscsi_conn *conn, void *buf,
 			if (hdr->flags & ISCSI_FLAG_CMD_FINAL)
 				iscsit_stop_dataout_timer(cmd);
 
+			transport_check_aborted_status(se_cmd,
+					(hdr->flags & ISCSI_FLAG_CMD_FINAL));
 			return iscsit_dump_data_payload(conn, payload_length, 1);
 		}
 	} else {
@@ -1506,9 +1509,12 @@ __iscsit_check_dataout_hdr(struct iscsi_conn *conn, void *buf,
 		 * TASK_ABORTED status.
 		 */
 		if (se_cmd->transport_state & CMD_T_ABORTED) {
-			if (hdr->flags & ISCSI_FLAG_CMD_FINAL &&
-			    --cmd->outstanding_r2ts < 1)
-				iscsit_stop_dataout_timer(cmd);
+			if (hdr->flags & ISCSI_FLAG_CMD_FINAL)
+				if (--cmd->outstanding_r2ts < 1) {
+					iscsit_stop_dataout_timer(cmd);
+					transport_check_aborted_status(
+							se_cmd, 1);
+				}
 
 			return iscsit_dump_data_payload(conn, payload_length, 1);
 		}
@@ -2240,25 +2246,28 @@ iscsit_handle_text_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 	rx_size = payload_length;
 	if (payload_length) {
 		u32 checksum = 0, data_crc = 0;
-		u32 padding = 0;
+		u32 padding = 0, pad_bytes = 0;
 		int niov = 0, rx_got;
-		struct kvec iov[2];
+		struct kvec iov[3];
 
-		rx_size = ALIGN(payload_length, 4);
-		text_in = kzalloc(rx_size, GFP_KERNEL);
+		text_in = kzalloc(payload_length, GFP_KERNEL);
 		if (!text_in)
 			goto reject;
 
 		cmd->text_in_ptr = text_in;
 
-		memset(iov, 0, sizeof(iov));
+		memset(iov, 0, 3 * sizeof(struct kvec));
 		iov[niov].iov_base	= text_in;
-		iov[niov++].iov_len	= rx_size;
+		iov[niov++].iov_len	= payload_length;
 
-		padding = rx_size - payload_length;
-		if (padding)
+		padding = ((-payload_length) & 3);
+		if (padding != 0) {
+			iov[niov].iov_base = &pad_bytes;
+			iov[niov++].iov_len  = padding;
+			rx_size += padding;
 			pr_debug("Receiving %u additional bytes"
 					" for padding.\n", padding);
+		}
 		if (conn->conn_ops->DataDigest) {
 			iov[niov].iov_base	= &checksum;
 			iov[niov++].iov_len	= ISCSI_CRC_LEN;
@@ -2270,9 +2279,9 @@ iscsit_handle_text_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 			goto reject;
 
 		if (conn->conn_ops->DataDigest) {
-			iscsit_do_crypto_hash_buf(conn->conn_rx_hash,
-						  text_in, rx_size, 0, NULL,
-						  &data_crc);
+			iscsit_do_crypto_hash_buf(conn->conn_rx_hash, text_in,
+						  payload_length, padding,
+						  &pad_bytes, &data_crc);
 
 			if (checksum != data_crc) {
 				pr_err("Text data CRC32C DataDigest"
@@ -2651,6 +2660,9 @@ static int iscsit_handle_immediate_data(
 	return IMMEDIATE_DATA_NORMAL_OPERATION;
 }
 
+/*
+ *	Called with sess->conn_lock held.
+ */
 /* #warning iscsi_build_conn_drop_async_message() only sends out on connections
 	with active network interface */
 static void iscsit_build_conn_drop_async_message(struct iscsi_conn *conn)
@@ -2658,8 +2670,6 @@ static void iscsit_build_conn_drop_async_message(struct iscsi_conn *conn)
 	struct iscsi_cmd *cmd;
 	struct iscsi_conn *conn_p;
 	bool found = false;
-
-	lockdep_assert_held(&conn->sess->conn_lock);
 
 	/*
 	 * Only send a Asynchronous Message on connections whos network
@@ -4345,7 +4355,7 @@ int iscsit_close_session(struct iscsi_session *sess)
 	transport_deregister_session(sess->se_sess);
 
 	if (sess->sess_ops->ErrorRecoveryLevel == 2)
-		iscsit_free_connection_recovery_entries(sess);
+		iscsit_free_connection_recovery_entires(sess);
 
 	iscsit_free_all_ooo_cmdsns(sess);
 

@@ -604,8 +604,10 @@ void __init maple_pci_init(void)
 		printk(KERN_CRIT "maple_find_bridges: can't find root of device tree\n");
 		return;
 	}
-	for_each_child_of_node(root, np) {
-		if (!of_node_is_type(np, "pci") && !of_node_is_type(np, "ht"))
+	for (np = NULL; (np = of_get_next_child(root, np)) != NULL;) {
+		if (!np->type)
+			continue;
+		if (strcmp(np->type, "pci") && strcmp(np->type, "ht"))
 			continue;
 		if ((of_device_is_compatible(np, "u4-pcie") ||
 		     of_device_is_compatible(np, "u3-agp")) &&

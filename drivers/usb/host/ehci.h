@@ -235,9 +235,9 @@ struct ehci_hcd {			/* one per controller */
 	/* irq statistics */
 #ifdef EHCI_STATS
 	struct ehci_stats	stats;
-#	define INCR(x) ((x)++)
+#	define COUNT(x) ((x)++)
 #else
-#	define INCR(x) do {} while (0)
+#	define COUNT(x)
 #endif
 
 	/* debug files */

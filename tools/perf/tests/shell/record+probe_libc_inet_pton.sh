@@ -1,4 +1,3 @@
-#!/bin/sh
 # probe libc's inet_pton & backtrace it with ping
 
 # Installs a probe on libc's inet_pton function, that will use uprobes,

@@ -39,7 +39,7 @@ struct device_node *cpld_node;
  */
 static void t1042rdb_set_monitor_port(enum fsl_diu_monitor_port port)
 {
-	void __iomem *cpld_base;
+	static void __iomem *cpld_base;
 
 	cpld_base = of_iomap(cpld_node, 0);
 	if (!cpld_base) {

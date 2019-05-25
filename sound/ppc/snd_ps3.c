@@ -1024,11 +1024,15 @@ static int snd_ps3_driver_probe(struct ps3_system_bus_device *dev)
 
 	the_card.pcm->info_flags = SNDRV_PCM_INFO_NONINTERLEAVED;
 	/* pre-alloc PCM DMA buffer*/
-	snd_pcm_lib_preallocate_pages_for_all(the_card.pcm,
+	ret = snd_pcm_lib_preallocate_pages_for_all(the_card.pcm,
 					SNDRV_DMA_TYPE_DEV,
 					&dev->core,
 					SND_PS3_PCM_PREALLOC_SIZE,
 					SND_PS3_PCM_PREALLOC_SIZE);
+	if (ret < 0) {
+		pr_info("%s: prealloc failed\n", __func__);
+		goto clean_card;
+	}
 
 	/*
 	 * allocate null buffer

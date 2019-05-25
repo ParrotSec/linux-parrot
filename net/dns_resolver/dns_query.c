@@ -148,9 +148,12 @@ int dns_query(const char *type, const char *name, size_t namelen,
 
 	if (_result) {
 		ret = -ENOMEM;
-		*_result = kmemdup_nul(upayload->data, len, GFP_KERNEL);
+		*_result = kmalloc(len + 1, GFP_KERNEL);
 		if (!*_result)
 			goto put;
+
+		memcpy(*_result, upayload->data, len);
+		(*_result)[len] = '\0';
 	}
 
 	if (_expiry)

@@ -37,9 +37,9 @@
 static struct dentry *mic_dbg;
 
 /**
- * mic_intr_show - Send interrupts to host.
+ * mic_intr_test - Send interrupts to host.
  */
-static int mic_intr_show(struct seq_file *s, void *unused)
+static int mic_intr_test(struct seq_file *s, void *unused)
 {
 	struct mic_driver *mdrv = s->private;
 	struct mic_device *mdev = &mdrv->mdev;
@@ -56,7 +56,23 @@ static int mic_intr_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(mic_intr);
+static int mic_intr_test_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mic_intr_test, inode->i_private);
+}
+
+static int mic_intr_test_release(struct inode *inode, struct file *file)
+{
+	return single_release(inode, file);
+}
+
+static const struct file_operations intr_test_ops = {
+	.owner   = THIS_MODULE,
+	.open    = mic_intr_test_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = mic_intr_test_release
+};
 
 /**
  * mic_create_card_debug_dir - Initialize MIC debugfs entries.
@@ -75,7 +91,7 @@ void __init mic_create_card_debug_dir(struct mic_driver *mdrv)
 	}
 
 	d = debugfs_create_file("intr_test", 0444, mdrv->dbg_dir,
-		mdrv, &mic_intr_fops);
+		mdrv, &intr_test_ops);
 
 	if (!d) {
 		dev_err(mdrv->dev,

@@ -1,8 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Portions of this file
- * Copyright (C) 2018 Intel Corporation
- */
 #ifndef __NET_WIRELESS_NL80211_H
 #define __NET_WIRELESS_NL80211_H
 
@@ -10,30 +6,6 @@
 
 int nl80211_init(void);
 void nl80211_exit(void);
-
-extern const struct nla_policy nl80211_policy[NUM_NL80211_ATTR];
-
-void *nl80211hdr_put(struct sk_buff *skb, u32 portid, u32 seq,
-		     int flags, u8 cmd);
-bool nl80211_put_sta_rate(struct sk_buff *msg, struct rate_info *info,
-			  int attr);
-
-static inline u64 wdev_id(struct wireless_dev *wdev)
-{
-	return (u64)wdev->identifier |
-	       ((u64)wiphy_to_rdev(wdev->wiphy)->wiphy_idx << 32);
-}
-
-int nl80211_prepare_wdev_dump(struct netlink_callback *cb,
-			      struct cfg80211_registered_device **rdev,
-			      struct wireless_dev **wdev);
-
-int nl80211_parse_chandef(struct cfg80211_registered_device *rdev,
-			  struct genl_info *info,
-			  struct cfg80211_chan_def *chandef);
-int nl80211_parse_random_mac(struct nlattr **attrs,
-			     u8 *mac_addr, u8 *mac_addr_mask);
-
 void nl80211_notify_wiphy(struct cfg80211_registered_device *rdev,
 			  enum nl80211_commands cmd);
 void nl80211_notify_iface(struct cfg80211_registered_device *rdev,
@@ -67,8 +39,7 @@ void nl80211_send_rx_auth(struct cfg80211_registered_device *rdev,
 void nl80211_send_rx_assoc(struct cfg80211_registered_device *rdev,
 			   struct net_device *netdev,
 			   const u8 *buf, size_t len, gfp_t gfp,
-			   int uapsd_queues,
-			   const u8 *req_ies, size_t req_ies_len);
+			   int uapsd_queues);
 void nl80211_send_deauth(struct cfg80211_registered_device *rdev,
 			 struct net_device *netdev,
 			 const u8 *buf, size_t len, gfp_t gfp);
@@ -123,9 +94,5 @@ nl80211_radar_notify(struct cfg80211_registered_device *rdev,
 void nl80211_send_ap_stopped(struct wireless_dev *wdev);
 
 void cfg80211_rdev_free_coalesce(struct cfg80211_registered_device *rdev);
-
-/* peer measurement */
-int nl80211_pmsr_start(struct sk_buff *skb, struct genl_info *info);
-int nl80211_pmsr_dump_results(struct sk_buff *skb, struct netlink_callback *cb);
 
 #endif /* __NET_WIRELESS_NL80211_H */

@@ -501,7 +501,9 @@ static void __init init_p2pbridge(void)
 	/* XXX it would be better here to identify the specific
 	   PCI-PCI bridge chip we have. */
 	p2pbridge = of_find_node_by_name(NULL, "pci-bridge");
-	if (p2pbridge == NULL || !of_node_name_eq(p2pbridge->parent, "pci"))
+	if (p2pbridge == NULL
+	    || p2pbridge->parent == NULL
+	    || strcmp(p2pbridge->parent->name, "pci") != 0)
 		goto done;
 	if (pci_device_from_OF_node(p2pbridge, &bus, &devfn) < 0) {
 		DBG("Can't find PCI infos for PCI<->PCI bridge\n");
@@ -826,14 +828,14 @@ static int __init pmac_add_bridge(struct device_node *dev)
 	if (of_device_is_compatible(dev, "uni-north")) {
 		primary = setup_uninorth(hose, &rsrc);
 		disp_name = "UniNorth";
-	} else if (of_node_name_eq(dev, "pci")) {
+	} else if (strcmp(dev->name, "pci") == 0) {
 		/* XXX assume this is a mpc106 (grackle) */
 		setup_grackle(hose);
 		disp_name = "Grackle (MPC106)";
-	} else if (of_node_name_eq(dev, "bandit")) {
+	} else if (strcmp(dev->name, "bandit") == 0) {
 		setup_bandit(hose, &rsrc);
 		disp_name = "Bandit";
-	} else if (of_node_name_eq(dev, "chaos")) {
+	} else if (strcmp(dev->name, "chaos") == 0) {
 		setup_chaos(hose, &rsrc);
 		disp_name = "Chaos";
 		primary = 0;
@@ -912,14 +914,16 @@ void __init pmac_pci_init(void)
 		       "of device tree\n");
 		return;
 	}
-	for_each_child_of_node(root, np) {
-		if (of_node_name_eq(np, "bandit")
-		    || of_node_name_eq(np, "chaos")
-		    || of_node_name_eq(np, "pci")) {
+	for (np = NULL; (np = of_get_next_child(root, np)) != NULL;) {
+		if (np->name == NULL)
+			continue;
+		if (strcmp(np->name, "bandit") == 0
+		    || strcmp(np->name, "chaos") == 0
+		    || strcmp(np->name, "pci") == 0) {
 			if (pmac_add_bridge(np) == 0)
 				of_node_get(np);
 		}
-		if (of_node_name_eq(np, "ht")) {
+		if (strcmp(np->name, "ht") == 0) {
 			of_node_get(np);
 			ht = np;
 		}
@@ -979,7 +983,7 @@ static bool pmac_pci_enable_device_hook(struct pci_dev *dev)
 	/* Firewire & GMAC were disabled after PCI probe, the driver is
 	 * claiming them, we must re-enable them now.
 	 */
-	if (uninorth_child && of_node_name_eq(node, "firewire") &&
+	if (uninorth_child && !strcmp(node->name, "firewire") &&
 	    (of_device_is_compatible(node, "pci106b,18") ||
 	     of_device_is_compatible(node, "pci106b,30") ||
 	     of_device_is_compatible(node, "pci11c1,5811"))) {
@@ -987,7 +991,7 @@ static bool pmac_pci_enable_device_hook(struct pci_dev *dev)
 		pmac_call_feature(PMAC_FTR_1394_ENABLE, node, 0, 1);
 		updatecfg = 1;
 	}
-	if (uninorth_child && of_node_name_eq(node, "ethernet") &&
+	if (uninorth_child && !strcmp(node->name, "ethernet") &&
 	    of_device_is_compatible(node, "gmac")) {
 		pmac_call_feature(PMAC_FTR_GMAC_ENABLE, node, 0, 1);
 		updatecfg = 1;
@@ -1258,3 +1262,4 @@ struct pci_controller_ops pmac_pci_controller_ops = {
 	.enable_device_hook	= pmac_pci_enable_device_hook,
 #endif
 };
+

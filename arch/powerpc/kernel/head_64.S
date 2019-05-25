@@ -801,19 +801,21 @@ __secondary_start:
 	/* Set thread priority to MEDIUM */
 	HMT_MEDIUM
 
-	/*
-	 * Do early setup for this CPU, in particular initialising the MMU so we
-	 * can turn it on below. This is a call to C, which is OK, we're still
-	 * running on the emergency stack.
-	 */
+	/* Initialize the kernel stack */
+	LOAD_REG_ADDR(r3, current_set)
+	sldi	r28,r24,3		/* get current_set[cpu#]	 */
+	ldx	r14,r3,r28
+	addi	r14,r14,THREAD_SIZE-STACK_FRAME_OVERHEAD
+	std	r14,PACAKSAVE(r13)
+
+	/* Do early setup for that CPU (SLB and hash table pointer) */
 	bl	early_setup_secondary
 
 	/*
-	 * The primary has initialized our kernel stack for us in the paca, grab
-	 * it and put it in r1. We must *not* use it until we turn on the MMU
-	 * below, because it may not be inside the RMO.
+	 * setup the new stack pointer, but *don't* use this until
+	 * translation is on.
 	 */
-	ld	r1, PACAKSAVE(r13)
+	mr	r1, r14
 
 	/* Clear backchain so we get nice backtraces */
 	li	r7,0

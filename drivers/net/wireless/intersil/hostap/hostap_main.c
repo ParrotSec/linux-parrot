@@ -690,7 +690,7 @@ static int prism2_open(struct net_device *dev)
 		/* Master radio interface is needed for all operation, so open
 		 * it automatically when any virtual net_device is opened. */
 		local->master_dev_auto_open = 1;
-		dev_open(local->dev, NULL);
+		dev_open(local->dev);
 	}
 
 	netif_device_attach(dev);

@@ -241,7 +241,7 @@ static int enic_set_ringparam(struct net_device *netdev,
 	}
 	enic_init_vnic_resources(enic);
 	if (running) {
-		err = dev_open(netdev, NULL);
+		err = dev_open(netdev);
 		if (err)
 			goto err_out;
 	}

@@ -106,15 +106,13 @@ static int xfrm4_esp_rcv(struct sk_buff *skb)
 	return 0;
 }
 
-static int xfrm4_esp_err(struct sk_buff *skb, u32 info)
+static void xfrm4_esp_err(struct sk_buff *skb, u32 info)
 {
 	struct xfrm4_protocol *handler;
 
 	for_each_protocol_rcu(esp4_handlers, handler)
 		if (!handler->err_handler(skb, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 
 static int xfrm4_ah_rcv(struct sk_buff *skb)
@@ -134,15 +132,13 @@ static int xfrm4_ah_rcv(struct sk_buff *skb)
 	return 0;
 }
 
-static int xfrm4_ah_err(struct sk_buff *skb, u32 info)
+static void xfrm4_ah_err(struct sk_buff *skb, u32 info)
 {
 	struct xfrm4_protocol *handler;
 
 	for_each_protocol_rcu(ah4_handlers, handler)
 		if (!handler->err_handler(skb, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 
 static int xfrm4_ipcomp_rcv(struct sk_buff *skb)
@@ -162,15 +158,13 @@ static int xfrm4_ipcomp_rcv(struct sk_buff *skb)
 	return 0;
 }
 
-static int xfrm4_ipcomp_err(struct sk_buff *skb, u32 info)
+static void xfrm4_ipcomp_err(struct sk_buff *skb, u32 info)
 {
 	struct xfrm4_protocol *handler;
 
 	for_each_protocol_rcu(ipcomp4_handlers, handler)
 		if (!handler->err_handler(skb, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 
 static const struct net_protocol esp4_protocol = {

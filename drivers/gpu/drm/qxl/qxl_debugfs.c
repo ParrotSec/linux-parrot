@@ -34,6 +34,7 @@
 #include "qxl_drv.h"
 #include "qxl_object.h"
 
+
 #if defined(CONFIG_DEBUG_FS)
 static int
 qxl_debugfs_irq_received(struct seq_file *m, void *data)
@@ -101,9 +102,9 @@ qxl_debugfs_init(struct drm_minor *minor)
 
 int qxl_debugfs_add_files(struct qxl_device *qdev,
 			  struct drm_info_list *files,
-			  unsigned int nfiles)
+			  unsigned nfiles)
 {
-	unsigned int i;
+	unsigned i;
 
 	for (i = 0; i < qdev->debugfs_count; i++) {
 		if (qdev->debugfs[i].files == files) {

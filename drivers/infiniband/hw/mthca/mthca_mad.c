@@ -58,9 +58,8 @@ static int mthca_update_rate(struct mthca_dev *dev, u8 port_num)
 
 	ret = ib_query_port(&dev->ib_dev, port_num, tprops);
 	if (ret) {
-		dev_warn(&dev->ib_dev.dev,
-			 "ib_query_port failed (%d) forport %d\n", ret,
-			 port_num);
+		printk(KERN_WARNING "ib_query_port failed (%d) for %s port %d\n",
+		       ret, dev->ib_dev.name, port_num);
 		goto out;
 	}
 
@@ -89,13 +88,13 @@ static void update_sm_ah(struct mthca_dev *dev,
 	rdma_ah_set_port_num(&ah_attr, port_num);
 
 	new_ah = rdma_create_ah(dev->send_agent[port_num - 1][0]->qp->pd,
-				&ah_attr, 0);
+				&ah_attr);
 	if (IS_ERR(new_ah))
 		return;
 
 	spin_lock_irqsave(&dev->sm_lock, flags);
 	if (dev->sm_ah[port_num - 1])
-		rdma_destroy_ah(dev->sm_ah[port_num - 1], 0);
+		rdma_destroy_ah(dev->sm_ah[port_num - 1]);
 	dev->sm_ah[port_num - 1] = new_ah;
 	spin_unlock_irqrestore(&dev->sm_lock, flags);
 }
@@ -347,7 +346,6 @@ void mthca_free_agents(struct mthca_dev *dev)
 		}
 
 		if (dev->sm_ah[p])
-			rdma_destroy_ah(dev->sm_ah[p],
-					RDMA_DESTROY_AH_SLEEPABLE);
+			rdma_destroy_ah(dev->sm_ah[p]);
 	}
 }

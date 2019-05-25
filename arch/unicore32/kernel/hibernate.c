@@ -13,7 +13,7 @@
 
 #include <linux/gfp.h>
 #include <linux/suspend.h>
-#include <linux/memblock.h>
+#include <linux/bootmem.h>
 
 #include <asm/page.h>
 #include <asm/pgtable.h>

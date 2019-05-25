@@ -134,24 +134,15 @@ struct dc_crtc_timing;
 
 struct drr_params;
 
-
 struct timing_generator_funcs {
 	bool (*validate_timing)(struct timing_generator *tg,
 							const struct dc_crtc_timing *timing);
 	void (*program_timing)(struct timing_generator *tg,
 							const struct dc_crtc_timing *timing,
 							bool use_vbios);
-	void (*setup_vertical_interrupt0)(
-			struct timing_generator *optc,
-			uint32_t start_line,
-			uint32_t end_line);
-	void (*setup_vertical_interrupt1)(
-			struct timing_generator *optc,
-			uint32_t start_line);
-	void (*setup_vertical_interrupt2)(
-			struct timing_generator *optc,
-			uint32_t start_line);
-
+	void (*program_vline_interrupt)(struct timing_generator *optc,
+			const struct dc_crtc_timing *dc_crtc_timing,
+			unsigned long long vsync_delta);
 	bool (*enable_crtc)(struct timing_generator *tg);
 	bool (*disable_crtc)(struct timing_generator *tg);
 	bool (*is_counter_moving)(struct timing_generator *tg);
@@ -168,8 +159,6 @@ struct timing_generator_funcs {
 	bool (*get_otg_active_size)(struct timing_generator *optc,
 			uint32_t *otg_active_width,
 			uint32_t *otg_active_height);
-	bool (*is_matching_timing)(struct timing_generator *tg,
-			const struct dc_crtc_timing *otg_timing);
 	void (*set_early_control)(struct timing_generator *tg,
 							   uint32_t early_cntl);
 	void (*wait_for_state)(struct timing_generator *tg,

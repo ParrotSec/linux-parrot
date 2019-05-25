@@ -65,7 +65,7 @@ static unsigned cmd_loop(unsigned numbytes, struct inbuf_t *inbuf)
 				cs->respdata[0] = 0;
 				break;
 			}
-			/* fall through */
+			/* --v-- fall through --v-- */
 		case '\r':
 			/* end of message line, pass to response handler */
 			if (cbytes >= MAX_RESP_SIZE) {
@@ -100,7 +100,7 @@ static unsigned cmd_loop(unsigned numbytes, struct inbuf_t *inbuf)
 				goto exit;
 			}
 			/* quoted or not in DLE mode: treat as regular data */
-			/* fall through */
+			/* --v-- fall through --v-- */
 		default:
 			/* append to line buffer if possible */
 			if (cbytes < MAX_RESP_SIZE)

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * H8S interrupt controller driver
+ * H8S interrupt contoller driver
  *
  * Copyright 2015 Yoshinori Sato <ysato@users.sourceforge.jp>
  */

@@ -900,8 +900,8 @@ static int if_cs_probe(struct pcmcia_device *p_dev)
 
 	/* Make this card known to the libertas driver */
 	priv = lbs_add_card(card, &p_dev->dev);
-	if (IS_ERR(priv)) {
-		ret = PTR_ERR(priv);
+	if (!priv) {
+		ret = -ENOMEM;
 		goto out2;
 	}
 

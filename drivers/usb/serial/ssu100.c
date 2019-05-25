@@ -331,19 +331,39 @@ static int ssu100_open(struct tty_struct *tty, struct usb_serial_port *port)
 	return usb_serial_generic_open(tty, port);
 }
 
-static int get_serial_info(struct tty_struct *tty,
-			   struct serial_struct *ss)
+static int get_serial_info(struct usb_serial_port *port,
+			   struct serial_struct __user *retinfo)
+{
+	struct serial_struct tmp;
+
+	memset(&tmp, 0, sizeof(tmp));
+	tmp.line		= port->minor;
+	tmp.port		= 0;
+	tmp.irq			= 0;
+	tmp.xmit_fifo_size	= port->bulk_out_size;
+	tmp.baud_base		= 9600;
+	tmp.close_delay		= 5*HZ;
+	tmp.closing_wait	= 30*HZ;
+
+	if (copy_to_user(retinfo, &tmp, sizeof(*retinfo)))
+		return -EFAULT;
+	return 0;
+}
+
+static int ssu100_ioctl(struct tty_struct *tty,
+		    unsigned int cmd, unsigned long arg)
 {
 	struct usb_serial_port *port = tty->driver_data;
 
-	ss->line		= port->minor;
-	ss->port		= 0;
-	ss->irq			= 0;
-	ss->xmit_fifo_size	= port->bulk_out_size;
-	ss->baud_base		= 9600;
-	ss->close_delay		= 5*HZ;
-	ss->closing_wait	= 30*HZ;
-	return 0;
+	switch (cmd) {
+	case TIOCGSERIAL:
+		return get_serial_info(port,
+				       (struct serial_struct __user *) arg);
+	default:
+		break;
+	}
+
+	return -ENOIOCTLCMD;
 }
 
 static int ssu100_attach(struct usb_serial *serial)
@@ -546,7 +566,7 @@ static struct usb_serial_driver ssu100_device = {
 	.tiocmset            = ssu100_tiocmset,
 	.tiocmiwait          = usb_serial_generic_tiocmiwait,
 	.get_icount	     = usb_serial_generic_get_icount,
-	.get_serial          = get_serial_info,
+	.ioctl               = ssu100_ioctl,
 	.set_termios         = ssu100_set_termios,
 };
 

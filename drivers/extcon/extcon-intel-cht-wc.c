@@ -1,10 +1,18 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Extcon charger detection driver for Intel Cherrytrail Whiskey Cove PMIC
  * Copyright (C) 2017 Hans de Goede <hdegoede@redhat.com>
  *
  * Based on various non upstream patches to support the CHT Whiskey Cove PMIC:
  * Copyright (C) 2013-2015 Intel Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #include <linux/extcon-provider.h>
@@ -24,10 +32,10 @@
 #define CHT_WC_CHGRCTRL0_EMRGCHREN	BIT(1)
 #define CHT_WC_CHGRCTRL0_EXTCHRDIS	BIT(2)
 #define CHT_WC_CHGRCTRL0_SWCONTROL	BIT(3)
-#define CHT_WC_CHGRCTRL0_TTLCK		BIT(4)
-#define CHT_WC_CHGRCTRL0_CCSM_OFF	BIT(5)
-#define CHT_WC_CHGRCTRL0_DBPOFF		BIT(6)
-#define CHT_WC_CHGRCTRL0_CHR_WDT_NOKICK	BIT(7)
+#define CHT_WC_CHGRCTRL0_TTLCK_MASK	BIT(4)
+#define CHT_WC_CHGRCTRL0_CCSM_OFF_MASK	BIT(5)
+#define CHT_WC_CHGRCTRL0_DBPOFF_MASK	BIT(6)
+#define CHT_WC_CHGRCTRL0_WDT_NOKICK	BIT(7)
 
 #define CHT_WC_CHGRCTRL1		0x5e17
 
@@ -44,7 +52,7 @@
 #define CHT_WC_USBSRC_TYPE_ACA		4
 #define CHT_WC_USBSRC_TYPE_SE1		5
 #define CHT_WC_USBSRC_TYPE_MHL		6
-#define CHT_WC_USBSRC_TYPE_FLOATING	7
+#define CHT_WC_USBSRC_TYPE_FLOAT_DP_DN	7
 #define CHT_WC_USBSRC_TYPE_OTHER	8
 #define CHT_WC_USBSRC_TYPE_DCP_EXTPHY	9
 
@@ -53,12 +61,9 @@
 #define CHT_WC_PWRSRC_STS		0x6e1e
 #define CHT_WC_PWRSRC_VBUS		BIT(0)
 #define CHT_WC_PWRSRC_DC		BIT(1)
-#define CHT_WC_PWRSRC_BATT		BIT(2)
-#define CHT_WC_PWRSRC_USBID_MASK	GENMASK(4, 3)
-#define CHT_WC_PWRSRC_USBID_SHIFT	3
-#define CHT_WC_PWRSRC_RID_ACA		0
-#define CHT_WC_PWRSRC_RID_GND		1
-#define CHT_WC_PWRSRC_RID_FLOAT		2
+#define CHT_WC_PWRSRC_BAT		BIT(2)
+#define CHT_WC_PWRSRC_ID_GND		BIT(3)
+#define CHT_WC_PWRSRC_ID_FLOAT		BIT(4)
 
 #define CHT_WC_VBUS_GPIO_CTLO		0x6e2d
 #define CHT_WC_VBUS_GPIO_CTLO_OUTPUT	BIT(0)
@@ -99,20 +104,16 @@ struct cht_wc_extcon_data {
 
 static int cht_wc_extcon_get_id(struct cht_wc_extcon_data *ext, int pwrsrc_sts)
 {
-	switch ((pwrsrc_sts & CHT_WC_PWRSRC_USBID_MASK) >> CHT_WC_PWRSRC_USBID_SHIFT) {
-	case CHT_WC_PWRSRC_RID_GND:
+	if (pwrsrc_sts & CHT_WC_PWRSRC_ID_GND)
 		return USB_ID_GND;
-	case CHT_WC_PWRSRC_RID_FLOAT:
+	if (pwrsrc_sts & CHT_WC_PWRSRC_ID_FLOAT)
 		return USB_ID_FLOAT;
-	case CHT_WC_PWRSRC_RID_ACA:
-	default:
-		/*
-		 * Once we have IIO support for the GPADC we should read
-		 * the USBID GPADC channel here and determine ACA role
-		 * based on that.
-		 */
-		return USB_ID_FLOAT;
-	}
+
+	/*
+	 * Once we have iio support for the gpadc we should read the USBID
+	 * gpadc channel here and determine ACA role based on that.
+	 */
+	return USB_ID_FLOAT;
 }
 
 static int cht_wc_extcon_get_charger(struct cht_wc_extcon_data *ext,
@@ -155,9 +156,9 @@ static int cht_wc_extcon_get_charger(struct cht_wc_extcon_data *ext,
 		dev_warn(ext->dev,
 			"Unhandled charger type %d, defaulting to SDP\n",
 			 ret);
-		return EXTCON_CHG_USB_SDP;
+		/* Fall through, treat as SDP */
 	case CHT_WC_USBSRC_TYPE_SDP:
-	case CHT_WC_USBSRC_TYPE_FLOATING:
+	case CHT_WC_USBSRC_TYPE_FLOAT_DP_DN:
 	case CHT_WC_USBSRC_TYPE_OTHER:
 		return EXTCON_CHG_USB_SDP;
 	case CHT_WC_USBSRC_TYPE_CDP:
@@ -278,7 +279,7 @@ static int cht_wc_extcon_sw_control(struct cht_wc_extcon_data *ext, bool enable)
 {
 	int ret, mask, val;
 
-	mask = CHT_WC_CHGRCTRL0_SWCONTROL | CHT_WC_CHGRCTRL0_CCSM_OFF;
+	mask = CHT_WC_CHGRCTRL0_SWCONTROL | CHT_WC_CHGRCTRL0_CCSM_OFF_MASK;
 	val = enable ? mask : 0;
 	ret = regmap_update_bits(ext->regmap, CHT_WC_CHGRCTRL0, mask, val);
 	if (ret)
@@ -291,7 +292,6 @@ static int cht_wc_extcon_probe(struct platform_device *pdev)
 {
 	struct intel_soc_pmic *pmic = dev_get_drvdata(pdev->dev.parent);
 	struct cht_wc_extcon_data *ext;
-	unsigned long mask = ~(CHT_WC_PWRSRC_VBUS | CHT_WC_PWRSRC_USBID_MASK);
 	int irq, ret;
 
 	irq = platform_get_irq(pdev, 0);
@@ -352,7 +352,9 @@ static int cht_wc_extcon_probe(struct platform_device *pdev)
 	}
 
 	/* Unmask irqs */
-	ret = regmap_write(ext->regmap, CHT_WC_PWRSRC_IRQ_MASK, mask);
+	ret = regmap_write(ext->regmap, CHT_WC_PWRSRC_IRQ_MASK,
+			   (int)~(CHT_WC_PWRSRC_VBUS | CHT_WC_PWRSRC_ID_GND |
+				  CHT_WC_PWRSRC_ID_FLOAT));
 	if (ret) {
 		dev_err(ext->dev, "Error writing irq-mask: %d\n", ret);
 		goto disable_sw_control;

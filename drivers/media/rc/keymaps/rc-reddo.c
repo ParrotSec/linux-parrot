@@ -64,7 +64,7 @@ static struct rc_map_list reddo_map = {
 	.map = {
 		.scan     = reddo,
 		.size     = ARRAY_SIZE(reddo),
-		.rc_proto = RC_PROTO_NECX,
+		.rc_proto = RC_PROTO_NEC,
 		.name     = RC_MAP_REDDO,
 	}
 };

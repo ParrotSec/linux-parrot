@@ -187,9 +187,9 @@ static umode_t tmp421_is_visible(const void *data, enum hwmon_sensor_types type,
 	case hwmon_temp_fault:
 		if (channel == 0)
 			return 0;
-		return 0444;
+		return S_IRUGO;
 	case hwmon_temp_input:
-		return 0444;
+		return S_IRUGO;
 	default:
 		return 0;
 	}
@@ -226,10 +226,8 @@ static int tmp421_detect(struct i2c_client *client,
 {
 	enum chips kind;
 	struct i2c_adapter *adapter = client->adapter;
-	static const char * const names[] = {
-		"TMP421", "TMP422", "TMP423",
-		"TMP441", "TMP442"
-	};
+	const char * const names[] = { "TMP421", "TMP422", "TMP423",
+				       "TMP441", "TMP442" };
 	int addr = client->addr;
 	u8 reg;
 

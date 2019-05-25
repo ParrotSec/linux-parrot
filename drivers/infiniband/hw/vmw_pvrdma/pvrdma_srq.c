@@ -111,7 +111,7 @@ struct ib_srq *pvrdma_create_srq(struct ib_pd *pd,
 	unsigned long flags;
 	int ret;
 
-	if (!udata) {
+	if (!(pd->uobject && udata)) {
 		/* No support for kernel clients. */
 		dev_warn(&dev->pdev->dev,
 			 "no shared receive queue support for kernel client\n");
@@ -153,7 +153,9 @@ struct ib_srq *pvrdma_create_srq(struct ib_pd *pd,
 		goto err_srq;
 	}
 
-	srq->umem = ib_umem_get(udata, ucmd.buf_addr, ucmd.buf_size, 0, 0);
+	srq->umem = ib_umem_get(pd->uobject->context,
+				ucmd.buf_addr,
+				ucmd.buf_size, 0, 0);
 	if (IS_ERR(srq->umem)) {
 		ret = PTR_ERR(srq->umem);
 		goto err_srq;

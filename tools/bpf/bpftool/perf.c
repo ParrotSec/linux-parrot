@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+// SPDX-License-Identifier: GPL-2.0+
 // Copyright (C) 2018 Facebook
 // Author: Yonghong Song <yhs@fb.com>
 

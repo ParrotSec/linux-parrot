@@ -47,7 +47,7 @@
 
 static enum qed_resc_lock qed_ptcdev_to_resc(struct qed_hwfn *p_hwfn)
 {
-	switch (MFW_PORT(p_hwfn)) {
+	switch (qed_device_get_port_id(p_hwfn->cdev)) {
 	case 0:
 		return QED_RESC_LOCK_PTP_PORT0;
 	case 1:

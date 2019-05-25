@@ -5,7 +5,6 @@
 
 struct inotify_event_info {
 	struct fsnotify_event fse;
-	u32 mask;
 	int wd;
 	u32 sync_cookie;
 	int name_len;

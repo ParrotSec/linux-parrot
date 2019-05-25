@@ -80,16 +80,14 @@ static int xfrm6_esp_rcv(struct sk_buff *skb)
 	return 0;
 }
 
-static int xfrm6_esp_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+static void xfrm6_esp_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 			  u8 type, u8 code, int offset, __be32 info)
 {
 	struct xfrm6_protocol *handler;
 
 	for_each_protocol_rcu(esp6_handlers, handler)
 		if (!handler->err_handler(skb, opt, type, code, offset, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 
 static int xfrm6_ah_rcv(struct sk_buff *skb)
@@ -109,16 +107,14 @@ static int xfrm6_ah_rcv(struct sk_buff *skb)
 	return 0;
 }
 
-static int xfrm6_ah_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+static void xfrm6_ah_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 			 u8 type, u8 code, int offset, __be32 info)
 {
 	struct xfrm6_protocol *handler;
 
 	for_each_protocol_rcu(ah6_handlers, handler)
 		if (!handler->err_handler(skb, opt, type, code, offset, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 
 static int xfrm6_ipcomp_rcv(struct sk_buff *skb)
@@ -138,16 +134,14 @@ static int xfrm6_ipcomp_rcv(struct sk_buff *skb)
 	return 0;
 }
 
-static int xfrm6_ipcomp_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+static void xfrm6_ipcomp_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 			     u8 type, u8 code, int offset, __be32 info)
 {
 	struct xfrm6_protocol *handler;
 
 	for_each_protocol_rcu(ipcomp6_handlers, handler)
 		if (!handler->err_handler(skb, opt, type, code, offset, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 
 static const struct inet6_protocol esp6_protocol = {

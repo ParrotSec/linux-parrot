@@ -258,7 +258,8 @@ static void __init visstrim_analog_camera_init(void)
 		return;
 
 	dma_declare_coherent_memory(&pdev->dev, mx2_camera_base,
-				    mx2_camera_base, MX2_CAMERA_BUF_SIZE);
+				    mx2_camera_base, MX2_CAMERA_BUF_SIZE,
+				    DMA_MEMORY_EXCLUSIVE);
 }
 
 static void __init visstrim_reserve(void)
@@ -444,7 +445,8 @@ static void __init visstrim_coda_init(void)
 	dma_declare_coherent_memory(&pdev->dev,
 				    mx2_camera_base + MX2_CAMERA_BUF_SIZE,
 				    mx2_camera_base + MX2_CAMERA_BUF_SIZE,
-				    MX2_CAMERA_BUF_SIZE);
+				    MX2_CAMERA_BUF_SIZE,
+				    DMA_MEMORY_EXCLUSIVE);
 }
 
 /* DMA deinterlace */
@@ -463,7 +465,8 @@ static void __init visstrim_deinterlace_init(void)
 	dma_declare_coherent_memory(&pdev->dev,
 				    mx2_camera_base + 2 * MX2_CAMERA_BUF_SIZE,
 				    mx2_camera_base + 2 * MX2_CAMERA_BUF_SIZE,
-				    MX2_CAMERA_BUF_SIZE);
+				    MX2_CAMERA_BUF_SIZE,
+				    DMA_MEMORY_EXCLUSIVE);
 }
 
 /* Emma-PrP for format conversion */
@@ -482,7 +485,8 @@ static void __init visstrim_emmaprp_init(void)
 	 */
 	ret = dma_declare_coherent_memory(&pdev->dev,
 				mx2_camera_base, mx2_camera_base,
-				MX2_CAMERA_BUF_SIZE);
+				MX2_CAMERA_BUF_SIZE,
+				DMA_MEMORY_EXCLUSIVE);
 	if (ret)
 		pr_err("Failed to declare memory for emmaprp\n");
 }

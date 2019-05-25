@@ -143,15 +143,15 @@ static int at91_pm_config_ws(unsigned int pm_mode, bool set)
 
 			/* Check if enabled on SHDWC. */
 			if (wsi->shdwc_mr_bit && !(val & wsi->shdwc_mr_bit))
-				goto put_device;
+				goto put_node;
 
 			mode |= wsi->pmc_fsmr_bit;
 			if (wsi->set_polarity)
 				polarity |= wsi->pmc_fsmr_bit;
 		}
 
-put_device:
-		put_device(&pdev->dev);
+put_node:
+		of_node_put(np);
 	}
 
 	if (mode) {
@@ -580,6 +580,8 @@ static int __init at91_pm_backup_init(void)
 	if (!at91_is_pm_mode_active(AT91_PM_BACKUP))
 		return 0;
 
+	pm_bu = NULL;
+
 	np = of_find_compatible_node(NULL, NULL, "atmel,sama5d2-sfrbu");
 	if (!np) {
 		pr_warn("%s: failed to find sfrbu!\n", __func__);
@@ -588,16 +590,17 @@ static int __init at91_pm_backup_init(void)
 
 	pm_data.sfrbu = of_iomap(np, 0);
 	of_node_put(np);
+	pm_bu = NULL;
 
 	np = of_find_compatible_node(NULL, NULL, "atmel,sama5d2-securam");
 	if (!np)
-		goto securam_fail_no_ref_dev;
+		goto securam_fail;
 
 	pdev = of_find_device_by_node(np);
 	of_node_put(np);
 	if (!pdev) {
 		pr_warn("%s: failed to find securam device!\n", __func__);
-		goto securam_fail_no_ref_dev;
+		goto securam_fail;
 	}
 
 	sram_pool = gen_pool_get(&pdev->dev, NULL);
@@ -620,8 +623,6 @@ static int __init at91_pm_backup_init(void)
 	return 0;
 
 securam_fail:
-	put_device(&pdev->dev);
-securam_fail_no_ref_dev:
 	iounmap(pm_data.sfrbu);
 	pm_data.sfrbu = NULL;
 	return ret;

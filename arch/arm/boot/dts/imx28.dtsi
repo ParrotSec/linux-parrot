@@ -14,8 +14,10 @@
 	 * The decompressor and also some bootloaders rely on a
 	 * pre-existing /chosen node to be available to insert the
 	 * command line and merge other ATAGS info.
+	 * Also for U-Boot there must be a pre-existing /memory node.
 	 */
 	chosen {};
+	memory { device_type = "memory"; };
 
 	aliases {
 		ethernet0 = &mac0;
@@ -115,7 +117,7 @@
 				status = "disabled";
 			};
 
-			ssp0: spi@80010000 {
+			ssp0: ssp@80010000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0x80010000 0x2000>;
@@ -126,7 +128,7 @@
 				status = "disabled";
 			};
 
-			ssp1: spi@80012000 {
+			ssp1: ssp@80012000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0x80012000 0x2000>;
@@ -137,7 +139,7 @@
 				status = "disabled";
 			};
 
-			ssp2: spi@80014000 {
+			ssp2: ssp@80014000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0x80014000 0x2000>;
@@ -148,7 +150,7 @@
 				status = "disabled";
 			};
 
-			ssp3: spi@80016000 {
+			ssp3: ssp@80016000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0x80016000 0x2000>;

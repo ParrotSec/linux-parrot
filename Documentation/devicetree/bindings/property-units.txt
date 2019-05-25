@@ -31,7 +31,6 @@ Electricity
 -microwatt-hours: micro Watt-hours
 -microvolt	: micro volts
 -picofarads	: picofarads
--femtofarads	: femtofarads
 
 Temperature
 ----------------------------------------

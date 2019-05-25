@@ -1,4 +1,3 @@
-#!/bin/sh
 # Use vfs_getname probe to get syscall args filenames
 
 # Uses the 'perf test shell' library to add probe:vfs_getname to the system

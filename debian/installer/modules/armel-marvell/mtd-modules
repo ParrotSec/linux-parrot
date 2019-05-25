@@ -7,6 +7,6 @@ nand
 orion_nand
 ofpart
 mtdblock
-physmap
+physmap_of
 cmdlinepart
 spi-orion

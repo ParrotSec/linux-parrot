@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/mmc/slot-gpio.h>
 
 #include <plat/gpio-cfg.h>
@@ -1405,7 +1406,18 @@ static int s3cmci_state_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(s3cmci_state);
+static int s3cmci_state_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, s3cmci_state_show, inode->i_private);
+}
+
+static const struct file_operations s3cmci_fops_state = {
+	.owner		= THIS_MODULE,
+	.open		= s3cmci_state_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 #define DBG_REG(_r) { .addr = S3C2410_SDI##_r, .name = #_r }
 
@@ -1447,7 +1459,18 @@ static int s3cmci_regs_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(s3cmci_regs);
+static int s3cmci_regs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, s3cmci_regs_show, inode->i_private);
+}
+
+static const struct file_operations s3cmci_fops_regs = {
+	.owner		= THIS_MODULE,
+	.open		= s3cmci_regs_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 static void s3cmci_debugfs_attach(struct s3cmci_host *host)
 {
@@ -1461,14 +1484,14 @@ static void s3cmci_debugfs_attach(struct s3cmci_host *host)
 
 	host->debug_state = debugfs_create_file("state", 0444,
 						host->debug_root, host,
-						&s3cmci_state_fops);
+						&s3cmci_fops_state);
 
 	if (IS_ERR(host->debug_state))
 		dev_err(dev, "failed to create debug state file\n");
 
 	host->debug_regs = debugfs_create_file("regs", 0444,
 					       host->debug_root, host,
-					       &s3cmci_regs_fops);
+					       &s3cmci_fops_regs);
 
 	if (IS_ERR(host->debug_regs))
 		dev_err(dev, "failed to create debug regs file\n");
@@ -1522,19 +1545,25 @@ static int s3cmci_probe_pdata(struct s3cmci_host *host)
 	if (pdata->wprotect_invert)
 		mmc->caps2 |= MMC_CAP2_RO_ACTIVE_HIGH;
 
-	/* If we get -ENOENT we have no card detect GPIO line */
-	ret = mmc_gpiod_request_cd(mmc, "cd", 0, false, 0, NULL);
-	if (ret != -ENOENT) {
-		dev_err(&pdev->dev, "error requesting GPIO for CD %d\n",
-			ret);
-		return ret;
+	if (pdata->detect_invert)
+		 mmc->caps2 |= MMC_CAP2_CD_ACTIVE_HIGH;
+
+	if (gpio_is_valid(pdata->gpio_detect)) {
+		ret = mmc_gpio_request_cd(mmc, pdata->gpio_detect, 0);
+		if (ret) {
+			dev_err(&pdev->dev, "error requesting GPIO for CD %d\n",
+				ret);
+			return ret;
+		}
 	}
 
-	ret = mmc_gpiod_request_ro(host->mmc, "wp", 0, 0, NULL);
-	if (ret != -ENOENT) {
-		dev_err(&pdev->dev, "error requesting GPIO for WP %d\n",
-			ret);
-		return ret;
+	if (gpio_is_valid(pdata->gpio_wprotect)) {
+		ret = mmc_gpio_request_ro(mmc, pdata->gpio_wprotect);
+		if (ret) {
+			dev_err(&pdev->dev, "error requesting GPIO for WP %d\n",
+				ret);
+			return ret;
+		}
 	}
 
 	return 0;

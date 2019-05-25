@@ -37,5 +37,5 @@ pen:	ldr	r7, [r6]
 
 	.align
 1:	.long	.
-	.long	versatile_cpu_release
+	.long	pen_release
 ENDPROC(versatile_secondary_startup)

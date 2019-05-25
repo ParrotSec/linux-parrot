@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
-#include <linux/fs_parser.h>
 
 /*
  * Handling of filesystem drivers list.
@@ -73,9 +72,6 @@ int register_filesystem(struct file_system_type * fs)
 {
 	int res = 0;
 	struct file_system_type ** p;
-
-	if (fs->parameters && !fs_validate_description(fs->parameters))
-		return -EINVAL;
 
 	BUG_ON(strchr(fs->name, '.'));
 	if (fs->next)

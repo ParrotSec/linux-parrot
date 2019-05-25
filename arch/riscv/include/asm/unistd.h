@@ -13,11 +13,9 @@
 
 /*
  * There is explicitly no include guard here because this file is expected to
- * be included multiple times.
+ * be included multiple times.  See uapi/asm/syscalls.h for more info.
  */
 
 #define __ARCH_WANT_SYS_CLONE
-
 #include <uapi/asm/unistd.h>
-
-#define NR_syscalls (__NR_syscalls)
+#include <uapi/asm/syscalls.h>

@@ -179,8 +179,6 @@ static int resolve_default_seg(struct insn *insn, struct pt_regs *regs, int off)
 		if (insn->addr_bytes == 2)
 			return -EINVAL;
 
-		/* fall through */
-
 	case -EDOM:
 	case offsetof(struct pt_regs, bx):
 	case offsetof(struct pt_regs, si):

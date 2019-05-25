@@ -37,6 +37,66 @@
 #include <net/sctp/sm.h>
 #include <net/sctp/stream_sched.h>
 
+static struct flex_array *fa_alloc(size_t elem_size, size_t elem_count,
+				   gfp_t gfp)
+{
+	struct flex_array *result;
+	int err;
+
+	result = flex_array_alloc(elem_size, elem_count, gfp);
+	if (result) {
+		err = flex_array_prealloc(result, 0, elem_count, gfp);
+		if (err) {
+			flex_array_free(result);
+			result = NULL;
+		}
+	}
+
+	return result;
+}
+
+static void fa_free(struct flex_array *fa)
+{
+	if (fa)
+		flex_array_free(fa);
+}
+
+static void fa_copy(struct flex_array *fa, struct flex_array *from,
+		    size_t index, size_t count)
+{
+	void *elem;
+
+	while (count--) {
+		elem = flex_array_get(from, index);
+		flex_array_put(fa, index, elem, 0);
+		index++;
+	}
+}
+
+static void fa_zero(struct flex_array *fa, size_t index, size_t count)
+{
+	void *elem;
+
+	while (count--) {
+		elem = flex_array_get(fa, index);
+		memset(elem, 0, fa->element_size);
+		index++;
+	}
+}
+
+static size_t fa_index(struct flex_array *fa, void *elem, size_t count)
+{
+	size_t index = 0;
+
+	while (count--) {
+		if (elem == flex_array_get(fa, index))
+			break;
+		index++;
+	}
+
+	return index;
+}
+
 /* Migrates chunks from stream queues to new stream queues if needed,
  * but not across associations. Also, removes those chunks to streams
  * higher than the new max.
@@ -93,32 +153,53 @@ static void sctp_stream_outq_migrate(struct sctp_stream *stream,
 static int sctp_stream_alloc_out(struct sctp_stream *stream, __u16 outcnt,
 				 gfp_t gfp)
 {
-	int ret;
+	struct flex_array *out;
+	size_t elem_size = sizeof(struct sctp_stream_out);
 
-	if (outcnt <= stream->outcnt)
-		return 0;
+	out = fa_alloc(elem_size, outcnt, gfp);
+	if (!out)
+		return -ENOMEM;
 
-	ret = genradix_prealloc(&stream->out, outcnt, gfp);
-	if (ret)
-		return ret;
+	if (stream->out) {
+		fa_copy(out, stream->out, 0, min(outcnt, stream->outcnt));
+		if (stream->out_curr) {
+			size_t index = fa_index(stream->out, stream->out_curr,
+						stream->outcnt);
 
-	stream->outcnt = outcnt;
+			BUG_ON(index == stream->outcnt);
+			stream->out_curr = flex_array_get(out, index);
+		}
+		fa_free(stream->out);
+	}
+
+	if (outcnt > stream->outcnt)
+		fa_zero(out, stream->outcnt, (outcnt - stream->outcnt));
+
+	stream->out = out;
+
 	return 0;
 }
 
 static int sctp_stream_alloc_in(struct sctp_stream *stream, __u16 incnt,
 				gfp_t gfp)
 {
-	int ret;
+	struct flex_array *in;
+	size_t elem_size = sizeof(struct sctp_stream_in);
 
-	if (incnt <= stream->incnt)
-		return 0;
+	in = fa_alloc(elem_size, incnt, gfp);
+	if (!in)
+		return -ENOMEM;
 
-	ret = genradix_prealloc(&stream->in, incnt, gfp);
-	if (ret)
-		return ret;
+	if (stream->in) {
+		fa_copy(in, stream->in, 0, min(incnt, stream->incnt));
+		fa_free(stream->in);
+	}
 
-	stream->incnt = incnt;
+	if (incnt > stream->incnt)
+		fa_zero(in, stream->incnt, (incnt - stream->incnt));
+
+	stream->in = in;
+
 	return 0;
 }
 
@@ -145,6 +226,7 @@ int sctp_stream_init(struct sctp_stream *stream, __u16 outcnt, __u16 incnt,
 	if (ret)
 		goto out;
 
+	stream->outcnt = outcnt;
 	for (i = 0; i < stream->outcnt; i++)
 		SCTP_SO(stream, i)->state = SCTP_STREAM_OPEN;
 
@@ -156,10 +238,13 @@ in:
 	ret = sctp_stream_alloc_in(stream, incnt, gfp);
 	if (ret) {
 		sched->free(stream);
-		genradix_free(&stream->out);
+		fa_free(stream->out);
+		stream->out = NULL;
 		stream->outcnt = 0;
 		goto out;
 	}
+
+	stream->incnt = incnt;
 
 out:
 	return ret;
@@ -185,8 +270,8 @@ void sctp_stream_free(struct sctp_stream *stream)
 	sched->free(stream);
 	for (i = 0; i < stream->outcnt; i++)
 		kfree(SCTP_SO(stream, i)->ext);
-	genradix_free(&stream->out);
-	genradix_free(&stream->in);
+	fa_free(stream->out);
+	fa_free(stream->in);
 }
 
 void sctp_stream_clear(struct sctp_stream *stream)
@@ -217,8 +302,8 @@ void sctp_stream_update(struct sctp_stream *stream, struct sctp_stream *new)
 
 	sched->sched_all(stream);
 
-	new->out.tree.root = NULL;
-	new->in.tree.root  = NULL;
+	new->out = NULL;
+	new->in  = NULL;
 	new->outcnt = 0;
 	new->incnt  = 0;
 }
@@ -469,6 +554,8 @@ int sctp_send_add_streams(struct sctp_association *asoc,
 		asoc->strreset_chunk = NULL;
 		goto out;
 	}
+
+	stream->outcnt = outcnt;
 
 	asoc->strreset_outstanding = !!out + !!in;
 

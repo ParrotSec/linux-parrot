@@ -301,13 +301,12 @@ pte_t ptep_xchg_lazy(struct mm_struct *mm, unsigned long addr,
 }
 EXPORT_SYMBOL(ptep_xchg_lazy);
 
-pte_t ptep_modify_prot_start(struct vm_area_struct *vma, unsigned long addr,
+pte_t ptep_modify_prot_start(struct mm_struct *mm, unsigned long addr,
 			     pte_t *ptep)
 {
 	pgste_t pgste;
 	pte_t old;
 	int nodat;
-	struct mm_struct *mm = vma->vm_mm;
 
 	preempt_disable();
 	pgste = ptep_xchg_start(mm, addr, ptep);
@@ -319,12 +318,12 @@ pte_t ptep_modify_prot_start(struct vm_area_struct *vma, unsigned long addr,
 	}
 	return old;
 }
+EXPORT_SYMBOL(ptep_modify_prot_start);
 
-void ptep_modify_prot_commit(struct vm_area_struct *vma, unsigned long addr,
-			     pte_t *ptep, pte_t old_pte, pte_t pte)
+void ptep_modify_prot_commit(struct mm_struct *mm, unsigned long addr,
+			     pte_t *ptep, pte_t pte)
 {
 	pgste_t pgste;
-	struct mm_struct *mm = vma->vm_mm;
 
 	if (!MACHINE_HAS_NX)
 		pte_val(pte) &= ~_PAGE_NOEXEC;
@@ -338,6 +337,7 @@ void ptep_modify_prot_commit(struct vm_area_struct *vma, unsigned long addr,
 	}
 	preempt_enable();
 }
+EXPORT_SYMBOL(ptep_modify_prot_commit);
 
 static inline void pmdp_idte_local(struct mm_struct *mm,
 				   unsigned long addr, pmd_t *pmdp)

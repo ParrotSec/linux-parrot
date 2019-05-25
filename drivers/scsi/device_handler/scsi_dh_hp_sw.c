@@ -172,16 +172,17 @@ retry:
 	return rc;
 }
 
-static blk_status_t hp_sw_prep_fn(struct scsi_device *sdev, struct request *req)
+static int hp_sw_prep_fn(struct scsi_device *sdev, struct request *req)
 {
 	struct hp_sw_dh_data *h = sdev->handler_data;
+	int ret = BLKPREP_OK;
 
 	if (h->path_state != HP_SW_PATH_ACTIVE) {
+		ret = BLKPREP_KILL;
 		req->rq_flags |= RQF_QUIET;
-		return BLK_STS_IOERR;
 	}
+	return ret;
 
-	return BLK_STS_OK;
 }
 
 /*

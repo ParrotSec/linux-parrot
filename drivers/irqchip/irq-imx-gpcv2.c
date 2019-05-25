@@ -17,9 +17,6 @@
 
 #define GPC_IMR1_CORE0		0x30
 #define GPC_IMR1_CORE1		0x40
-#define GPC_IMR1_CORE2		0x1c0
-#define GPC_IMR1_CORE3		0x1d0
-
 
 struct gpcv2_irqchip_data {
 	struct raw_spinlock	rlock;
@@ -30,11 +27,6 @@ struct gpcv2_irqchip_data {
 };
 
 static struct gpcv2_irqchip_data *imx_gpcv2_instance;
-
-static void __iomem *gpcv2_idx_to_reg(struct gpcv2_irqchip_data *cd, int i)
-{
-	return cd->gpc_base + cd->cpu2wakeup + i * 4;
-}
 
 static int gpcv2_wakeup_source_save(void)
 {
@@ -47,7 +39,7 @@ static int gpcv2_wakeup_source_save(void)
 		return 0;
 
 	for (i = 0; i < IMR_NUM; i++) {
-		reg = gpcv2_idx_to_reg(cd, i);
+		reg = cd->gpc_base + cd->cpu2wakeup + i * 4;
 		cd->saved_irq_mask[i] = readl_relaxed(reg);
 		writel_relaxed(cd->wakeup_sources[i], reg);
 	}
@@ -58,14 +50,17 @@ static int gpcv2_wakeup_source_save(void)
 static void gpcv2_wakeup_source_restore(void)
 {
 	struct gpcv2_irqchip_data *cd;
+	void __iomem *reg;
 	int i;
 
 	cd = imx_gpcv2_instance;
 	if (!cd)
 		return;
 
-	for (i = 0; i < IMR_NUM; i++)
-		writel_relaxed(cd->saved_irq_mask[i], gpcv2_idx_to_reg(cd, i));
+	for (i = 0; i < IMR_NUM; i++) {
+		reg = cd->gpc_base + cd->cpu2wakeup + i * 4;
+		writel_relaxed(cd->saved_irq_mask[i], reg);
+	}
 }
 
 static struct syscore_ops imx_gpcv2_syscore_ops = {
@@ -78,10 +73,12 @@ static int imx_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
 	struct gpcv2_irqchip_data *cd = d->chip_data;
 	unsigned int idx = d->hwirq / 32;
 	unsigned long flags;
+	void __iomem *reg;
 	u32 mask, val;
 
 	raw_spin_lock_irqsave(&cd->rlock, flags);
-	mask = BIT(d->hwirq % 32);
+	reg = cd->gpc_base + cd->cpu2wakeup + idx * 4;
+	mask = 1 << d->hwirq % 32;
 	val = cd->wakeup_sources[idx];
 
 	cd->wakeup_sources[idx] = on ? (val & ~mask) : (val | mask);
@@ -102,9 +99,9 @@ static void imx_gpcv2_irq_unmask(struct irq_data *d)
 	u32 val;
 
 	raw_spin_lock(&cd->rlock);
-	reg = gpcv2_idx_to_reg(cd, d->hwirq / 32);
+	reg = cd->gpc_base + cd->cpu2wakeup + d->hwirq / 32 * 4;
 	val = readl_relaxed(reg);
-	val &= ~BIT(d->hwirq % 32);
+	val &= ~(1 << d->hwirq % 32);
 	writel_relaxed(val, reg);
 	raw_spin_unlock(&cd->rlock);
 
@@ -118,9 +115,9 @@ static void imx_gpcv2_irq_mask(struct irq_data *d)
 	u32 val;
 
 	raw_spin_lock(&cd->rlock);
-	reg = gpcv2_idx_to_reg(cd, d->hwirq / 32);
+	reg = cd->gpc_base + cd->cpu2wakeup + d->hwirq / 32 * 4;
 	val = readl_relaxed(reg);
-	val |= BIT(d->hwirq % 32);
+	val |= 1 << (d->hwirq % 32);
 	writel_relaxed(val, reg);
 	raw_spin_unlock(&cd->rlock);
 
@@ -195,33 +192,17 @@ static const struct irq_domain_ops gpcv2_irqchip_data_domain_ops = {
 	.free		= irq_domain_free_irqs_common,
 };
 
-static const struct of_device_id gpcv2_of_match[] = {
-	{ .compatible = "fsl,imx7d-gpc",  .data = (const void *) 2 },
-	{ .compatible = "fsl,imx8mq-gpc", .data = (const void *) 4 },
-	{ /* END */ }
-};
-
 static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 			       struct device_node *parent)
 {
 	struct irq_domain *parent_domain, *domain;
 	struct gpcv2_irqchip_data *cd;
-	const struct of_device_id *id;
-	unsigned long core_num;
 	int i;
 
 	if (!parent) {
 		pr_err("%pOF: no parent, giving up\n", node);
 		return -ENODEV;
 	}
-
-	id = of_match_node(gpcv2_of_match, node);
-	if (!id) {
-		pr_err("%pOF: unknown compatibility string\n", node);
-		return -ENODEV;
-	}
-
-	core_num = (unsigned long)id->data;
 
 	parent_domain = irq_find_host(parent);
 	if (!parent_domain) {
@@ -231,7 +212,7 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 
 	cd = kzalloc(sizeof(struct gpcv2_irqchip_data), GFP_KERNEL);
 	if (!cd) {
-		pr_err("%pOF: kzalloc failed!\n", node);
+		pr_err("kzalloc failed!\n");
 		return -ENOMEM;
 	}
 
@@ -239,7 +220,7 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 
 	cd->gpc_base = of_iomap(node, 0);
 	if (!cd->gpc_base) {
-		pr_err("%pOF: unable to map gpc registers\n", node);
+		pr_err("fsl-gpcv2: unable to map gpc registers\n");
 		kfree(cd);
 		return -ENOMEM;
 	}
@@ -255,17 +236,8 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 
 	/* Initially mask all interrupts */
 	for (i = 0; i < IMR_NUM; i++) {
-		void __iomem *reg = cd->gpc_base + i * 4;
-
-		switch (core_num) {
-		case 4:
-			writel_relaxed(~0, reg + GPC_IMR1_CORE2);
-			writel_relaxed(~0, reg + GPC_IMR1_CORE3);
-			/* fall through */
-		case 2:
-			writel_relaxed(~0, reg + GPC_IMR1_CORE0);
-			writel_relaxed(~0, reg + GPC_IMR1_CORE1);
-		}
+		writel_relaxed(~0, cd->gpc_base + GPC_IMR1_CORE0 + i * 4);
+		writel_relaxed(~0, cd->gpc_base + GPC_IMR1_CORE1 + i * 4);
 		cd->wakeup_sources[i] = ~0;
 	}
 
@@ -290,5 +262,4 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 	return 0;
 }
 
-IRQCHIP_DECLARE(imx_gpcv2_imx7d, "fsl,imx7d-gpc", imx_gpcv2_irqchip_init);
-IRQCHIP_DECLARE(imx_gpcv2_imx8mq, "fsl,imx8mq-gpc", imx_gpcv2_irqchip_init);
+IRQCHIP_DECLARE(imx_gpcv2, "fsl,imx7d-gpc", imx_gpcv2_irqchip_init);

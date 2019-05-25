@@ -17,6 +17,5 @@
  * otherwise actual DMA channel names must be passed to this function.
  */
 int samsung_asoc_dma_platform_register(struct device *dev, dma_filter_fn filter,
-				       const char *tx, const char *rx,
-				       struct device *dma_dev);
+				       const char *tx, const char *rx);
 #endif /* _SAMSUNG_DMA_H */

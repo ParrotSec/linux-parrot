@@ -18,7 +18,6 @@
  */
 
 #include <linux/ascii85.h>
-#include <linux/interconnect.h>
 #include <linux/kernel.h>
 #include <linux/pm_opp.h>
 #include <linux/slab.h>
@@ -90,12 +89,12 @@ adreno_request_fw(struct adreno_gpu *adreno_gpu, const char *fwname)
 
 		ret = request_firmware_direct(&fw, newname, drm->dev);
 		if (!ret) {
-			DRM_DEV_INFO(drm->dev, "loaded %s from new location\n",
+			dev_info(drm->dev, "loaded %s from new location\n",
 				newname);
 			adreno_gpu->fwloc = FW_LOCATION_NEW;
 			goto out;
 		} else if (adreno_gpu->fwloc != FW_LOCATION_UNKNOWN) {
-			DRM_DEV_ERROR(drm->dev, "failed to load %s: %d\n",
+			dev_err(drm->dev, "failed to load %s: %d\n",
 				newname, ret);
 			fw = ERR_PTR(ret);
 			goto out;
@@ -110,12 +109,12 @@ adreno_request_fw(struct adreno_gpu *adreno_gpu, const char *fwname)
 
 		ret = request_firmware_direct(&fw, fwname, drm->dev);
 		if (!ret) {
-			DRM_DEV_INFO(drm->dev, "loaded %s from legacy location\n",
+			dev_info(drm->dev, "loaded %s from legacy location\n",
 				newname);
 			adreno_gpu->fwloc = FW_LOCATION_LEGACY;
 			goto out;
 		} else if (adreno_gpu->fwloc != FW_LOCATION_UNKNOWN) {
-			DRM_DEV_ERROR(drm->dev, "failed to load %s: %d\n",
+			dev_err(drm->dev, "failed to load %s: %d\n",
 				fwname, ret);
 			fw = ERR_PTR(ret);
 			goto out;
@@ -131,19 +130,19 @@ adreno_request_fw(struct adreno_gpu *adreno_gpu, const char *fwname)
 
 		ret = request_firmware(&fw, newname, drm->dev);
 		if (!ret) {
-			DRM_DEV_INFO(drm->dev, "loaded %s with helper\n",
+			dev_info(drm->dev, "loaded %s with helper\n",
 				newname);
 			adreno_gpu->fwloc = FW_LOCATION_HELPER;
 			goto out;
 		} else if (adreno_gpu->fwloc != FW_LOCATION_UNKNOWN) {
-			DRM_DEV_ERROR(drm->dev, "failed to load %s: %d\n",
+			dev_err(drm->dev, "failed to load %s: %d\n",
 				newname, ret);
 			fw = ERR_PTR(ret);
 			goto out;
 		}
 	}
 
-	DRM_DEV_ERROR(drm->dev, "failed to load %s\n", fwname);
+	dev_err(drm->dev, "failed to load %s\n", fwname);
 	fw = ERR_PTR(-ENOENT);
 out:
 	kfree(newname);
@@ -210,6 +209,14 @@ int adreno_hw_init(struct msm_gpu *gpu)
 		if (!ring)
 			continue;
 
+		ret = msm_gem_get_iova(ring->bo, gpu->aspace, &ring->iova);
+		if (ret) {
+			ring->iova = 0;
+			dev_err(gpu->dev->dev,
+				"could not map ringbuffer %d: %d\n", i, ret);
+			return ret;
+		}
+
 		ring->cur = ring->start;
 		ring->next = ring->start;
 
@@ -270,7 +277,7 @@ void adreno_recover(struct msm_gpu *gpu)
 
 	ret = msm_gpu_hw_init(gpu);
 	if (ret) {
-		DRM_DEV_ERROR(dev->dev, "gpu hw init failed: %d\n", ret);
+		dev_err(dev->dev, "gpu hw init failed: %d\n", ret);
 		/* hmm, oh well? */
 	}
 }
@@ -312,27 +319,16 @@ void adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 		 */
 		OUT_PKT3(ring, CP_EVENT_WRITE, 1);
 		OUT_RING(ring, HLSQ_FLUSH);
+
+		OUT_PKT3(ring, CP_WAIT_FOR_IDLE, 1);
+		OUT_RING(ring, 0x00000000);
 	}
 
-	/* wait for idle before cache flush/interrupt */
-	OUT_PKT3(ring, CP_WAIT_FOR_IDLE, 1);
-	OUT_RING(ring, 0x00000000);
-
-	if (!adreno_is_a2xx(adreno_gpu)) {
-		/* BIT(31) of CACHE_FLUSH_TS triggers CACHE_FLUSH_TS IRQ from GPU */
-		OUT_PKT3(ring, CP_EVENT_WRITE, 3);
-		OUT_RING(ring, CACHE_FLUSH_TS | BIT(31));
-		OUT_RING(ring, rbmemptr(ring, fence));
-		OUT_RING(ring, submit->seqno);
-	} else {
-		/* BIT(31) means something else on a2xx */
-		OUT_PKT3(ring, CP_EVENT_WRITE, 3);
-		OUT_RING(ring, CACHE_FLUSH_TS);
-		OUT_RING(ring, rbmemptr(ring, fence));
-		OUT_RING(ring, submit->seqno);
-		OUT_PKT3(ring, CP_INTERRUPT, 1);
-		OUT_RING(ring, 0x80000000);
-	}
+	/* BIT(31) of CACHE_FLUSH_TS triggers CACHE_FLUSH_TS IRQ from GPU */
+	OUT_PKT3(ring, CP_EVENT_WRITE, 3);
+	OUT_RING(ring, CACHE_FLUSH_TS | BIT(31));
+	OUT_RING(ring, rbmemptr(ring, fence));
+	OUT_RING(ring, submit->seqno);
 
 #if 0
 	if (adreno_is_a3xx(adreno_gpu)) {
@@ -410,17 +406,13 @@ int adreno_gpu_state_get(struct msm_gpu *gpu, struct msm_gpu_state *state)
 				size = j + 1;
 
 		if (size) {
-			state->ring[i].data = kvmalloc(size << 2, GFP_KERNEL);
+			state->ring[i].data = kmalloc(size << 2, GFP_KERNEL);
 			if (state->ring[i].data) {
 				memcpy(state->ring[i].data, gpu->rb[i]->start, size << 2);
 				state->ring[i].data_size = size << 2;
 			}
 		}
 	}
-
-	/* Some targets prefer to collect their own registers */
-	if (!adreno_gpu->registers)
-		return 0;
 
 	/* Count the number of registers */
 	for (i = 0; adreno_gpu->registers[i] != ~0; i += 2)
@@ -453,7 +445,7 @@ void adreno_gpu_state_destroy(struct msm_gpu_state *state)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(state->ring); i++)
-		kvfree(state->ring[i].data);
+		kfree(state->ring[i].data);
 
 	for (i = 0; state->bos && i < state->nr_bos; i++)
 		kvfree(state->bos[i].data);
@@ -483,74 +475,34 @@ int adreno_gpu_state_put(struct msm_gpu_state *state)
 
 #if defined(CONFIG_DEBUG_FS) || defined(CONFIG_DEV_COREDUMP)
 
-static char *adreno_gpu_ascii85_encode(u32 *src, size_t len)
+static void adreno_show_object(struct drm_printer *p, u32 *ptr, int len)
 {
-	void *buf;
-	size_t buf_itr = 0, buffer_size;
 	char out[ASCII85_BUFSZ];
-	long l;
-	int i;
+	long l, datalen, i;
 
-	if (!src || !len)
-		return NULL;
-
-	l = ascii85_encode_len(len);
+	if (!ptr || !len)
+		return;
 
 	/*
-	 * Ascii85 outputs either a 5 byte string or a 1 byte string. So we
-	 * account for the worst case of 5 bytes per dword plus the 1 for '\0'
+	 * Only dump the non-zero part of the buffer - rarely will any data
+	 * completely fill the entire allocated size of the buffer
 	 */
-	buffer_size = (l * 5) + 1;
-
-	buf = kvmalloc(buffer_size, GFP_KERNEL);
-	if (!buf)
-		return NULL;
-
-	for (i = 0; i < l; i++)
-		buf_itr += snprintf(buf + buf_itr, buffer_size - buf_itr, "%s",
-				ascii85_encode(src[i], out));
-
-	return buf;
-}
-
-/* len is expected to be in bytes */
-static void adreno_show_object(struct drm_printer *p, void **ptr, int len,
-		bool *encoded)
-{
-	if (!*ptr || !len)
-		return;
-
-	if (!*encoded) {
-		long datalen, i;
-		u32 *buf = *ptr;
-
-		/*
-		 * Only dump the non-zero part of the buffer - rarely will
-		 * any data completely fill the entire allocated size of
-		 * the buffer.
-		 */
-		for (datalen = 0, i = 0; i < len >> 2; i++)
-			if (buf[i])
-				datalen = ((i + 1) << 2);
-
-		/*
-		 * If we reach here, then the originally captured binary buffer
-		 * will be replaced with the ascii85 encoded string
-		 */
-		*ptr = adreno_gpu_ascii85_encode(buf, datalen);
-
-		kvfree(buf);
-
-		*encoded = true;
+	for (datalen = 0, i = 0; i < len >> 2; i++) {
+		if (ptr[i])
+			datalen = (i << 2) + 1;
 	}
 
-	if (!*ptr)
+	/* Skip printing the object if it is empty */
+	if (datalen == 0)
 		return;
+
+	l = ascii85_encode_len(datalen);
 
 	drm_puts(p, "    data: !!ascii85 |\n");
 	drm_puts(p, "     ");
 
-	drm_puts(p, *ptr);
+	for (i = 0; i < l; i++)
+		drm_puts(p, ascii85_encode(ptr[i], out));
 
 	drm_puts(p, "\n");
 }
@@ -582,8 +534,8 @@ void adreno_show(struct msm_gpu *gpu, struct msm_gpu_state *state,
 		drm_printf(p, "    wptr: %d\n", state->ring[i].wptr);
 		drm_printf(p, "    size: %d\n", MSM_GPU_RINGBUFFER_SZ);
 
-		adreno_show_object(p, &state->ring[i].data,
-			state->ring[i].data_size, &state->ring[i].encoded);
+		adreno_show_object(p, state->ring[i].data,
+			state->ring[i].data_size);
 	}
 
 	if (state->bos) {
@@ -594,19 +546,17 @@ void adreno_show(struct msm_gpu *gpu, struct msm_gpu_state *state,
 				state->bos[i].iova);
 			drm_printf(p, "    size: %zd\n", state->bos[i].size);
 
-			adreno_show_object(p, &state->bos[i].data,
-				state->bos[i].size, &state->bos[i].encoded);
+			adreno_show_object(p, state->bos[i].data,
+				state->bos[i].size);
 		}
 	}
 
-	if (state->nr_registers) {
-		drm_puts(p, "registers:\n");
+	drm_puts(p, "registers:\n");
 
-		for (i = 0; i < state->nr_registers; i++) {
-			drm_printf(p, "  - { offset: 0x%04x, value: 0x%08x }\n",
-				state->registers[i * 2] << 2,
-				state->registers[(i * 2) + 1]);
-		}
+	for (i = 0; i < state->nr_registers; i++) {
+		drm_printf(p, "  - { offset: 0x%04x, value: 0x%08x }\n",
+			state->registers[i * 2] << 2,
+			state->registers[(i * 2) + 1]);
 	}
 }
 #endif
@@ -644,9 +594,6 @@ void adreno_dump(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	int i;
-
-	if (!adreno_gpu->registers)
-		return;
 
 	/* dump these out in a form that can be parsed by demsm: */
 	printk("IO:region %s 00000000 00020000\n", gpu->name);
@@ -688,7 +635,7 @@ static int adreno_get_legacy_pwrlevels(struct device *dev)
 
 	node = of_get_compatible_child(dev->of_node, "qcom,gpu-pwrlevels");
 	if (!node) {
-		DRM_DEV_ERROR(dev, "Could not find the GPU powerlevels\n");
+		dev_err(dev, "Could not find the GPU powerlevels\n");
 		return -ENXIO;
 	}
 
@@ -727,7 +674,7 @@ static int adreno_get_pwrlevels(struct device *dev,
 	else {
 		ret = dev_pm_opp_of_add_table(dev);
 		if (ret)
-			DRM_DEV_ERROR(dev, "Unable to set the OPP table\n");
+			dev_err(dev, "Unable to set the OPP table\n");
 	}
 
 	if (!ret) {
@@ -748,11 +695,6 @@ static int adreno_get_pwrlevels(struct device *dev,
 
 	DBG("fast_rate=%u, slow_rate=27000000", gpu->fast_rate);
 
-	/* Check for an interconnect path for the bus */
-	gpu->icc_path = of_icc_get(dev, NULL);
-	if (IS_ERR(gpu->icc_path))
-		gpu->icc_path = NULL;
-
 	return 0;
 }
 
@@ -771,12 +713,10 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	adreno_gpu->rev = config->rev;
 
 	adreno_gpu_config.ioname = "kgsl_3d0_reg_memory";
+	adreno_gpu_config.irqname = "kgsl_3d0_irq";
 
 	adreno_gpu_config.va_start = SZ_16M;
 	adreno_gpu_config.va_end = 0xffffffff;
-	/* maximum range of a2xx mmu */
-	if (adreno_is_a2xx(adreno_gpu))
-		adreno_gpu_config.va_end = SZ_16M + 0xfff * SZ_64K;
 
 	adreno_gpu_config.nr_rings = nr_rings;
 
@@ -793,13 +733,10 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 void adreno_gpu_cleanup(struct adreno_gpu *adreno_gpu)
 {
-	struct msm_gpu *gpu = &adreno_gpu->base;
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(adreno_gpu->info->fw); i++)
 		release_firmware(adreno_gpu->fw[i]);
-
-	icc_put(gpu->icc_path);
 
 	msm_gpu_cleanup(&adreno_gpu->base);
 }

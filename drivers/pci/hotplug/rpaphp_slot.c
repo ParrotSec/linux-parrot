@@ -21,7 +21,9 @@
 /* free up the memory used by a slot */
 void dealloc_slot_struct(struct slot *slot)
 {
+	kfree(slot->hotplug_slot->info);
 	kfree(slot->name);
+	kfree(slot->hotplug_slot);
 	kfree(slot);
 }
 
@@ -33,16 +35,28 @@ struct slot *alloc_slot_struct(struct device_node *dn,
 	slot = kzalloc(sizeof(struct slot), GFP_KERNEL);
 	if (!slot)
 		goto error_nomem;
+	slot->hotplug_slot = kzalloc(sizeof(struct hotplug_slot), GFP_KERNEL);
+	if (!slot->hotplug_slot)
+		goto error_slot;
+	slot->hotplug_slot->info = kzalloc(sizeof(struct hotplug_slot_info),
+					   GFP_KERNEL);
+	if (!slot->hotplug_slot->info)
+		goto error_hpslot;
 	slot->name = kstrdup(drc_name, GFP_KERNEL);
 	if (!slot->name)
-		goto error_slot;
+		goto error_info;
 	slot->dn = dn;
 	slot->index = drc_index;
 	slot->power_domain = power_domain;
-	slot->hotplug_slot.ops = &rpaphp_hotplug_slot_ops;
+	slot->hotplug_slot->private = slot;
+	slot->hotplug_slot->ops = &rpaphp_hotplug_slot_ops;
 
 	return (slot);
 
+error_info:
+	kfree(slot->hotplug_slot->info);
+error_hpslot:
+	kfree(slot->hotplug_slot);
 error_slot:
 	kfree(slot);
 error_nomem:
@@ -63,7 +77,7 @@ static int is_registered(struct slot *slot)
 int rpaphp_deregister_slot(struct slot *slot)
 {
 	int retval = 0;
-	struct hotplug_slot *php_slot = &slot->hotplug_slot;
+	struct hotplug_slot *php_slot = slot->hotplug_slot;
 
 	 dbg("%s - Entry: deregistering slot=%s\n",
 		__func__, slot->name);
@@ -79,7 +93,7 @@ EXPORT_SYMBOL_GPL(rpaphp_deregister_slot);
 
 int rpaphp_register_slot(struct slot *slot)
 {
-	struct hotplug_slot *php_slot = &slot->hotplug_slot;
+	struct hotplug_slot *php_slot = slot->hotplug_slot;
 	struct device_node *child;
 	u32 my_index;
 	int retval;

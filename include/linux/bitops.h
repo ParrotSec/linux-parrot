@@ -236,33 +236,33 @@ static __always_inline void __assign_bit(long nr, volatile unsigned long *addr,
 #ifdef __KERNEL__
 
 #ifndef set_mask_bits
-#define set_mask_bits(ptr, mask, bits)	\
+#define set_mask_bits(ptr, _mask, _bits)	\
 ({								\
-	const typeof(*(ptr)) mask__ = (mask), bits__ = (bits);	\
-	typeof(*(ptr)) old__, new__;				\
+	const typeof(*ptr) mask = (_mask), bits = (_bits);	\
+	typeof(*ptr) old, new;					\
 								\
 	do {							\
-		old__ = READ_ONCE(*(ptr));			\
-		new__ = (old__ & ~mask__) | bits__;		\
-	} while (cmpxchg(ptr, old__, new__) != old__);		\
+		old = READ_ONCE(*ptr);			\
+		new = (old & ~mask) | bits;			\
+	} while (cmpxchg(ptr, old, new) != old);		\
 								\
-	old__;							\
+	new;							\
 })
 #endif
 
 #ifndef bit_clear_unless
-#define bit_clear_unless(ptr, clear, test)	\
+#define bit_clear_unless(ptr, _clear, _test)	\
 ({								\
-	const typeof(*(ptr)) clear__ = (clear), test__ = (test);\
-	typeof(*(ptr)) old__, new__;				\
+	const typeof(*ptr) clear = (_clear), test = (_test);	\
+	typeof(*ptr) old, new;					\
 								\
 	do {							\
-		old__ = READ_ONCE(*(ptr));			\
-		new__ = old__ & ~clear__;			\
-	} while (!(old__ & test__) &&				\
-		 cmpxchg(ptr, old__, new__) != old__);		\
+		old = READ_ONCE(*ptr);			\
+		new = old & ~clear;				\
+	} while (!(old & test) &&				\
+		 cmpxchg(ptr, old, new) != old);		\
 								\
-	!(old__ & test__);					\
+	!(old & test);						\
 })
 #endif
 

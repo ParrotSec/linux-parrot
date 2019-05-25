@@ -115,20 +115,18 @@ static const struct pci_device_id ish_invalid_pci_ids[] = {
  */
 static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
-	int ret;
+	struct ishtp_device *dev;
 	struct ish_hw *hw;
-	unsigned long irq_flag = 0;
-	struct ishtp_device *ishtp;
-	struct device *dev = &pdev->dev;
+	int	ret;
 
 	/* Check for invalid platforms for ISH support */
 	if (pci_dev_present(ish_invalid_pci_ids))
 		return -ENODEV;
 
 	/* enable pci dev */
-	ret = pcim_enable_device(pdev);
+	ret = pci_enable_device(pdev);
 	if (ret) {
-		dev_err(dev, "ISH: Failed to enable PCI device\n");
+		dev_err(&pdev->dev, "ISH: Failed to enable PCI device\n");
 		return ret;
 	}
 
@@ -136,48 +134,65 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	pci_set_master(pdev);
 
 	/* pci request regions for ISH driver */
-	ret = pcim_iomap_regions(pdev, 1 << 0, KBUILD_MODNAME);
+	ret = pci_request_regions(pdev, KBUILD_MODNAME);
 	if (ret) {
-		dev_err(dev, "ISH: Failed to get PCI regions\n");
-		return ret;
+		dev_err(&pdev->dev, "ISH: Failed to get PCI regions\n");
+		goto disable_device;
 	}
 
 	/* allocates and initializes the ISH dev structure */
-	ishtp = ish_dev_init(pdev);
-	if (!ishtp) {
+	dev = ish_dev_init(pdev);
+	if (!dev) {
 		ret = -ENOMEM;
-		return ret;
+		goto release_regions;
 	}
-	hw = to_ish_hw(ishtp);
-	ishtp->print_log = ish_event_tracer;
+	hw = to_ish_hw(dev);
+	dev->print_log = ish_event_tracer;
 
 	/* mapping IO device memory */
-	hw->mem_addr = pcim_iomap_table(pdev)[0];
-	ishtp->pdev = pdev;
+	hw->mem_addr = pci_iomap(pdev, 0, 0);
+	if (!hw->mem_addr) {
+		dev_err(&pdev->dev, "ISH: mapping I/O range failure\n");
+		ret = -ENOMEM;
+		goto free_device;
+	}
+
+	dev->pdev = pdev;
+
 	pdev->dev_flags |= PCI_DEV_FLAGS_NO_D3;
 
 	/* request and enable interrupt */
-	ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_ALL_TYPES);
-	if (!pdev->msi_enabled && !pdev->msix_enabled)
-		irq_flag = IRQF_SHARED;
-
-	ret = devm_request_irq(dev, pdev->irq, ish_irq_handler,
-			       irq_flag, KBUILD_MODNAME, ishtp);
+	ret = request_irq(pdev->irq, ish_irq_handler, IRQF_SHARED,
+			  KBUILD_MODNAME, dev);
 	if (ret) {
-		dev_err(dev, "ISH: request IRQ %d failed\n", pdev->irq);
-		return ret;
+		dev_err(&pdev->dev, "ISH: request IRQ failure (%d)\n",
+			pdev->irq);
+		goto free_device;
 	}
 
-	dev_set_drvdata(ishtp->devc, ishtp);
+	dev_set_drvdata(dev->devc, dev);
 
-	init_waitqueue_head(&ishtp->suspend_wait);
-	init_waitqueue_head(&ishtp->resume_wait);
+	init_waitqueue_head(&dev->suspend_wait);
+	init_waitqueue_head(&dev->resume_wait);
 
-	ret = ish_init(ishtp);
+	ret = ish_init(dev);
 	if (ret)
-		return ret;
+		goto free_irq;
 
 	return 0;
+
+free_irq:
+	free_irq(pdev->irq, dev);
+free_device:
+	pci_iounmap(pdev, hw->mem_addr);
+release_regions:
+	pci_release_regions(pdev);
+disable_device:
+	pci_clear_master(pdev);
+	pci_disable_device(pdev);
+	dev_err(&pdev->dev, "ISH: PCI driver initialization failed.\n");
+
+	return ret;
 }
 
 /**
@@ -189,9 +204,16 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 static void ish_remove(struct pci_dev *pdev)
 {
 	struct ishtp_device *ishtp_dev = pci_get_drvdata(pdev);
+	struct ish_hw *hw = to_ish_hw(ishtp_dev);
 
 	ishtp_bus_remove_all_clients(ishtp_dev, false);
 	ish_device_disable(ishtp_dev);
+
+	free_irq(pdev->irq, ishtp_dev);
+	pci_iounmap(pdev, hw->mem_addr);
+	pci_release_regions(pdev);
+	pci_clear_master(pdev);
+	pci_disable_device(pdev);
 }
 
 static struct device __maybe_unused *ish_resume_device;

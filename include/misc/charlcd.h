@@ -35,7 +35,6 @@ struct charlcd_ops {
 };
 
 struct charlcd *charlcd_alloc(unsigned int drvdata_size);
-void charlcd_free(struct charlcd *lcd);
 
 int charlcd_register(struct charlcd *lcd);
 int charlcd_unregister(struct charlcd *lcd);

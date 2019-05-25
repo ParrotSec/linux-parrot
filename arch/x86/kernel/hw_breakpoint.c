@@ -261,8 +261,12 @@ static int arch_build_bp_info(struct perf_event *bp,
 		 * allow kernel breakpoints at all.
 		 */
 		if (attr->bp_addr >= TASK_SIZE_MAX) {
+#ifdef CONFIG_KPROBES
 			if (within_kprobe_blacklist(attr->bp_addr))
 				return -EINVAL;
+#else
+			return -EINVAL;
+#endif
 		}
 
 		hw->type = X86_BREAKPOINT_EXECUTE;
@@ -275,7 +279,6 @@ static int arch_build_bp_info(struct perf_event *bp,
 			hw->len = X86_BREAKPOINT_LEN_X;
 			return 0;
 		}
-		/* fall through */
 	default:
 		return -EINVAL;
 	}

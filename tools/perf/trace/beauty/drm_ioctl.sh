@@ -1,5 +1,4 @@
 #!/bin/sh
-# SPDX-License-Identifier: LGPL-2.1
 
 [ $# -eq 1 ] && header_dir=$1 || header_dir=tools/include/uapi/drm/
 

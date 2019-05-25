@@ -2257,45 +2257,44 @@ static void cy_set_line_char(struct cyclades_port *info, struct tty_struct *tty)
 	}
 }				/* set_line_char */
 
-static int cy_get_serial_info(struct tty_struct *tty,
-				struct serial_struct *ss)
+static int cy_get_serial_info(struct cyclades_port *info,
+		struct serial_struct __user *retinfo)
 {
-	struct cyclades_port *info = tty->driver_data;
 	struct cyclades_card *cinfo = info->card;
-
-	if (serial_paranoia_check(info, tty->name, "cy_ioctl"))
-		return -ENODEV;
-	ss->type = info->type;
-	ss->line = info->line;
-	ss->port = (info->card - cy_card) * 0x100 + info->line -
-			cinfo->first_line;
-	ss->irq = cinfo->irq;
-	ss->flags = info->port.flags;
-	ss->close_delay = info->port.close_delay;
-	ss->closing_wait = info->port.closing_wait;
-	ss->baud_base = info->baud;
-	ss->custom_divisor = info->custom_divisor;
-	return 0;
+	struct serial_struct tmp = {
+		.type = info->type,
+		.line = info->line,
+		.port = (info->card - cy_card) * 0x100 + info->line -
+			cinfo->first_line,
+		.irq = cinfo->irq,
+		.flags = info->port.flags,
+		.close_delay = info->port.close_delay,
+		.closing_wait = info->port.closing_wait,
+		.baud_base = info->baud,
+		.custom_divisor = info->custom_divisor,
+	};
+	return copy_to_user(retinfo, &tmp, sizeof(*retinfo)) ? -EFAULT : 0;
 }
 
-static int cy_set_serial_info(struct tty_struct *tty,
-				struct serial_struct *ss)
+static int
+cy_set_serial_info(struct cyclades_port *info, struct tty_struct *tty,
+		struct serial_struct __user *new_info)
 {
-	struct cyclades_port *info = tty->driver_data;
+	struct serial_struct new_serial;
 	int old_flags;
 	int ret;
 
-	if (serial_paranoia_check(info, tty->name, "cy_ioctl"))
-		return -ENODEV;
+	if (copy_from_user(&new_serial, new_info, sizeof(new_serial)))
+		return -EFAULT;
 
 	mutex_lock(&info->port.mutex);
 
 	old_flags = info->port.flags;
 
 	if (!capable(CAP_SYS_ADMIN)) {
-		if (ss->close_delay != info->port.close_delay ||
-				ss->baud_base != info->baud ||
-				(ss->flags & ASYNC_FLAGS &
+		if (new_serial.close_delay != info->port.close_delay ||
+				new_serial.baud_base != info->baud ||
+				(new_serial.flags & ASYNC_FLAGS &
 					~ASYNC_USR_MASK) !=
 				(info->port.flags & ASYNC_FLAGS & ~ASYNC_USR_MASK))
 		{
@@ -2303,9 +2302,9 @@ static int cy_set_serial_info(struct tty_struct *tty,
 			return -EPERM;
 		}
 		info->port.flags = (info->port.flags & ~ASYNC_USR_MASK) |
-				(ss->flags & ASYNC_USR_MASK);
-		info->baud = ss->baud_base;
-		info->custom_divisor = ss->custom_divisor;
+				(new_serial.flags & ASYNC_USR_MASK);
+		info->baud = new_serial.baud_base;
+		info->custom_divisor = new_serial.custom_divisor;
 		goto check_and_exit;
 	}
 
@@ -2314,18 +2313,18 @@ static int cy_set_serial_info(struct tty_struct *tty,
 	 * At this point, we start making changes.....
 	 */
 
-	info->baud = ss->baud_base;
-	info->custom_divisor = ss->custom_divisor;
+	info->baud = new_serial.baud_base;
+	info->custom_divisor = new_serial.custom_divisor;
 	info->port.flags = (info->port.flags & ~ASYNC_FLAGS) |
-			(ss->flags & ASYNC_FLAGS);
-	info->port.close_delay = ss->close_delay * HZ / 100;
-	info->port.closing_wait = ss->closing_wait * HZ / 100;
+			(new_serial.flags & ASYNC_FLAGS);
+	info->port.close_delay = new_serial.close_delay * HZ / 100;
+	info->port.closing_wait = new_serial.closing_wait * HZ / 100;
 
 check_and_exit:
 	if (tty_port_initialized(&info->port)) {
-		if ((ss->flags ^ old_flags) & ASYNC_SPD_MASK) {
+		if ((new_serial.flags ^ old_flags) & ASYNC_SPD_MASK) {
 			/* warn about deprecation unless clearing */
-			if (ss->flags & ASYNC_SPD_MASK)
+			if (new_serial.flags & ASYNC_SPD_MASK)
 				dev_warn_ratelimited(tty->dev, "use of SPD flags is deprecated\n");
 		}
 		cy_set_line_char(info, tty);
@@ -2698,6 +2697,12 @@ cy_ioctl(struct tty_struct *tty,
 		break;
 	case CYGETWAIT:
 		ret_val = info->port.closing_wait / (HZ / 100);
+		break;
+	case TIOCGSERIAL:
+		ret_val = cy_get_serial_info(info, argp);
+		break;
+	case TIOCSSERIAL:
+		ret_val = cy_set_serial_info(info, tty, argp);
 		break;
 	case TIOCSERGETLSR:	/* Get line status register */
 		ret_val = get_lsr_info(info, argp);
@@ -4006,8 +4011,6 @@ static const struct tty_operations cy_ops = {
 	.tiocmget = cy_tiocmget,
 	.tiocmset = cy_tiocmset,
 	.get_icount = cy_get_icount,
-	.set_serial = cy_set_serial_info,
-	.get_serial = cy_get_serial_info,
 	.proc_show = cyclades_proc_show,
 };
 

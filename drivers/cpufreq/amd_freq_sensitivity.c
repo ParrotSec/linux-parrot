@@ -111,16 +111,11 @@ static int __init amd_freq_sensitivity_init(void)
 {
 	u64 val;
 	struct pci_dev *pcidev;
-	unsigned int pci_vendor;
 
-	if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD)
-		pci_vendor = PCI_VENDOR_ID_AMD;
-	else if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
-		pci_vendor = PCI_VENDOR_ID_HYGON;
-	else
+	if (boot_cpu_data.x86_vendor != X86_VENDOR_AMD)
 		return -ENODEV;
 
-	pcidev = pci_get_device(pci_vendor,
+	pcidev = pci_get_device(PCI_VENDOR_ID_AMD,
 			PCI_DEVICE_ID_AMD_KERNCZ_SMBUS, NULL);
 
 	if (!pcidev) {

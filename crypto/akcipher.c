@@ -30,12 +30,15 @@ static int crypto_akcipher_report(struct sk_buff *skb, struct crypto_alg *alg)
 {
 	struct crypto_report_akcipher rakcipher;
 
-	memset(&rakcipher, 0, sizeof(rakcipher));
+	strncpy(rakcipher.type, "akcipher", sizeof(rakcipher.type));
 
-	strscpy(rakcipher.type, "akcipher", sizeof(rakcipher.type));
+	if (nla_put(skb, CRYPTOCFGA_REPORT_AKCIPHER,
+		    sizeof(struct crypto_report_akcipher), &rakcipher))
+		goto nla_put_failure;
+	return 0;
 
-	return nla_put(skb, CRYPTOCFGA_REPORT_AKCIPHER,
-		       sizeof(rakcipher), &rakcipher);
+nla_put_failure:
+	return -EMSGSIZE;
 }
 #else
 static int crypto_akcipher_report(struct sk_buff *skb, struct crypto_alg *alg)

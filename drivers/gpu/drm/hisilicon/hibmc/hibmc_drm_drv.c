@@ -20,7 +20,7 @@
 #include <linux/module.h>
 
 #include <drm/drm_atomic_helper.h>
-#include <drm/drm_probe_helper.h>
+#include <drm/drm_crtc_helper.h>
 
 #include "hibmc_drm_drv.h"
 #include "hibmc_drm_regs.h"
@@ -37,7 +37,7 @@ static const struct file_operations hibmc_fops = {
 	.llseek		= no_llseek,
 };
 
-static irqreturn_t hibmc_drm_interrupt(int irq, void *arg)
+irqreturn_t hibmc_drm_interrupt(int irq, void *arg)
 {
 	struct drm_device *dev = (struct drm_device *)arg;
 	struct hibmc_drm_private *priv =
@@ -56,7 +56,8 @@ static irqreturn_t hibmc_drm_interrupt(int irq, void *arg)
 }
 
 static struct drm_driver hibmc_driver = {
-	.driver_features	= DRIVER_GEM | DRIVER_MODESET | DRIVER_ATOMIC,
+	.driver_features	= DRIVER_GEM | DRIVER_MODESET |
+				  DRIVER_ATOMIC | DRIVER_HAVE_IRQ,
 	.fops			= &hibmc_fops,
 	.name			= "hibmc",
 	.date			= "20160828",
@@ -73,16 +74,30 @@ static int __maybe_unused hibmc_pm_suspend(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct hibmc_drm_private *priv = drm_dev->dev_private;
 
-	return drm_mode_config_helper_suspend(drm_dev);
+	drm_kms_helper_poll_disable(drm_dev);
+	priv->suspend_state = drm_atomic_helper_suspend(drm_dev);
+	if (IS_ERR(priv->suspend_state)) {
+		DRM_ERROR("drm_atomic_helper_suspend failed: %ld\n",
+			  PTR_ERR(priv->suspend_state));
+		drm_kms_helper_poll_enable(drm_dev);
+		return PTR_ERR(priv->suspend_state);
+	}
+
+	return 0;
 }
 
 static int  __maybe_unused hibmc_pm_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct hibmc_drm_private *priv = drm_dev->dev_private;
 
-	return drm_mode_config_helper_resume(drm_dev);
+	drm_atomic_helper_resume(drm_dev, priv->suspend_state);
+	drm_kms_helper_poll_enable(drm_dev);
+
+	return 0;
 }
 
 static const struct dev_pm_ops hibmc_pm_ops = {
@@ -372,7 +387,7 @@ err_unload:
 err_disable:
 	pci_disable_device(pdev);
 err_free:
-	drm_dev_put(dev);
+	drm_dev_unref(dev);
 
 	return ret;
 }
@@ -383,11 +398,11 @@ static void hibmc_pci_remove(struct pci_dev *pdev)
 
 	drm_dev_unregister(dev);
 	hibmc_unload(dev);
-	drm_dev_put(dev);
+	drm_dev_unref(dev);
 }
 
 static struct pci_device_id hibmc_pci_table[] = {
-	{ PCI_VDEVICE(HUAWEI, 0x1711) },
+	{0x19e5, 0x1711, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{0,}
 };
 

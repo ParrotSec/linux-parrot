@@ -9,7 +9,6 @@
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
-#include <linux/property.h>
 #include <linux/slab.h>
 
 #include "bus.h"
@@ -205,32 +204,15 @@ static void typec_altmode_put_partner(struct altmode *altmode)
 	put_device(&adev->dev);
 }
 
-static int typec_port_fwnode_match(struct device *dev, const void *fwnode)
-{
-	return dev_fwnode(dev) == fwnode;
-}
-
-static int typec_port_name_match(struct device *dev, const void *name)
+static int __typec_port_match(struct device *dev, const void *name)
 {
 	return !strcmp((const char *)name, dev_name(dev));
 }
 
 static void *typec_port_match(struct device_connection *con, int ep, void *data)
 {
-	struct device *dev;
-
-	/*
-	 * FIXME: Check does the fwnode supports the requested SVID. If it does
-	 * we need to return ERR_PTR(-PROBE_DEFER) when there is no device.
-	 */
-	if (con->fwnode)
-		return class_find_device(typec_class, NULL, con->fwnode,
-					 typec_port_fwnode_match);
-
-	dev = class_find_device(typec_class, NULL, con->endpoint[ep],
-				typec_port_name_match);
-
-	return dev ? dev : ERR_PTR(-EPROBE_DEFER);
+	return class_find_device(typec_class, NULL, con->endpoint[ep],
+				 __typec_port_match);
 }
 
 struct typec_altmode *
@@ -295,7 +277,7 @@ void typec_altmode_update_active(struct typec_altmode *adev, bool active)
 	if (adev->active == active)
 		return;
 
-	if (!is_typec_port(adev->dev.parent) && adev->dev.driver) {
+	if (!is_typec_port(adev->dev.parent)) {
 		if (!active)
 			module_put(adev->dev.driver->owner);
 		else
@@ -1340,7 +1322,7 @@ void typec_set_pwr_role(struct typec_port *port, enum typec_role role)
 EXPORT_SYMBOL_GPL(typec_set_pwr_role);
 
 /**
- * typec_set_vconn_role - Report VCONN source change
+ * typec_set_pwr_role - Report VCONN source change
  * @port: The USB Type-C Port which VCONN role changed
  * @role: Source when @port is sourcing VCONN, or Sink when it's not
  *
@@ -1514,8 +1496,11 @@ typec_port_register_altmode(struct typec_port *port,
 {
 	struct typec_altmode *adev;
 	struct typec_mux *mux;
+	char id[10];
 
-	mux = typec_mux_get(&port->dev, desc);
+	sprintf(id, "id%04xm%02x", desc->svid, desc->mode);
+
+	mux = typec_mux_get(&port->dev, id);
 	if (IS_ERR(mux))
 		return ERR_CAST(mux);
 
@@ -1608,7 +1593,7 @@ struct typec_port *typec_register_port(struct device *parent,
 		return ERR_CAST(port->sw);
 	}
 
-	port->mux = typec_mux_get(&port->dev, NULL);
+	port->mux = typec_mux_get(&port->dev, "typec-mux");
 	if (IS_ERR(port->mux)) {
 		put_device(&port->dev);
 		return ERR_CAST(port->mux);

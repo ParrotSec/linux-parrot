@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
-
 /*
  * Xen leaves the responsibility for maintaining p2m mappings to the
  * guests themselves, but it must also access and update the p2m array
@@ -67,7 +65,7 @@
 #include <linux/hash.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
-#include <linux/memblock.h>
+#include <linux/bootmem.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
@@ -181,15 +179,8 @@ static void p2m_init_identity(unsigned long *p2m, unsigned long pfn)
 
 static void * __ref alloc_p2m_page(void)
 {
-	if (unlikely(!slab_is_available())) {
-		void *ptr = memblock_alloc(PAGE_SIZE, PAGE_SIZE);
-
-		if (!ptr)
-			panic("%s: Failed to allocate %lu bytes align=0x%lx\n",
-			      __func__, PAGE_SIZE, PAGE_SIZE);
-
-		return ptr;
-	}
+	if (unlikely(!slab_is_available()))
+		return alloc_bootmem_align(PAGE_SIZE, PAGE_SIZE);
 
 	return (void *)__get_free_page(GFP_KERNEL);
 }
@@ -197,7 +188,7 @@ static void * __ref alloc_p2m_page(void)
 static void __ref free_p2m_page(void *p)
 {
 	if (unlikely(!slab_is_available())) {
-		memblock_free((unsigned long)p, PAGE_SIZE);
+		free_bootmem((unsigned long)p, PAGE_SIZE);
 		return;
 	}
 
@@ -663,7 +654,8 @@ bool __set_phys_to_machine(unsigned long pfn, unsigned long mfn)
 
 	/*
 	 * The interface requires atomic updates on p2m elements.
-	 * xen_safe_write_ulong() is using an atomic store via asm().
+	 * xen_safe_write_ulong() is using __put_user which does an atomic
+	 * store via asm().
 	 */
 	if (likely(!xen_safe_write_ulong(xen_p2m_addr + pfn, mfn)))
 		return true;

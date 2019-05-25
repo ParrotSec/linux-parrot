@@ -43,5 +43,5 @@ pen:	ldr	r7, [r6]
 
 	.align
 1:	.long	.
-	.long	spear_pen_release
+	.long	pen_release
 ENDPROC(spear13xx_secondary_startup)

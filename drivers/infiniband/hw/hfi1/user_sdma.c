@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2015 - 2018 Intel Corporation.
+ * Copyright(c) 2015 - 2017 Intel Corporation.
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
  * redistributing this file, you may do so under either license.
@@ -76,7 +76,8 @@ MODULE_PARM_DESC(sdma_comp_size, "Size of User SDMA completion ring. Default: 12
 
 static unsigned initial_pkt_count = 8;
 
-static int user_sdma_send_pkts(struct user_sdma_request *req, u16 maxpkts);
+static int user_sdma_send_pkts(struct user_sdma_request *req,
+			       unsigned maxpkts);
 static void user_sdma_txreq_cb(struct sdma_txreq *txreq, int status);
 static inline void pq_update(struct hfi1_user_sdma_pkt_q *pq);
 static void user_sdma_free_request(struct user_sdma_request *req, bool unpin);
@@ -100,7 +101,7 @@ static inline u32 get_lrh_len(struct hfi1_pkt_header, u32 len);
 
 static int defer_packet_queue(
 	struct sdma_engine *sde,
-	struct iowait_work *wait,
+	struct iowait *wait,
 	struct sdma_txreq *txreq,
 	uint seq,
 	bool pkts_sent);
@@ -123,13 +124,14 @@ static struct mmu_rb_ops sdma_rb_ops = {
 
 static int defer_packet_queue(
 	struct sdma_engine *sde,
-	struct iowait_work *wait,
+	struct iowait *wait,
 	struct sdma_txreq *txreq,
 	uint seq,
 	bool pkts_sent)
 {
 	struct hfi1_user_sdma_pkt_q *pq =
-		container_of(wait->iow, struct hfi1_user_sdma_pkt_q, busy);
+		container_of(wait, struct hfi1_user_sdma_pkt_q, busy);
+	struct hfi1_ibdev *dev = &pq->dd->verbs_dev;
 	struct user_sdma_txreq *tx =
 		container_of(txreq, struct user_sdma_txreq, txreq);
 
@@ -143,12 +145,10 @@ static int defer_packet_queue(
 	 * it is supposed to be enqueued.
 	 */
 	xchg(&pq->state, SDMA_PKT_Q_DEFERRED);
-	write_seqlock(&sde->waitlock);
-	if (list_empty(&pq->busy.list)) {
-		iowait_get_priority(&pq->busy);
+	write_seqlock(&dev->iowait_lock);
+	if (list_empty(&pq->busy.list))
 		iowait_queue(pkts_sent, &pq->busy, &sde->dmawait);
-	}
-	write_sequnlock(&sde->waitlock);
+	write_sequnlock(&dev->iowait_lock);
 	return -EBUSY;
 eagain:
 	return -EAGAIN;
@@ -192,8 +192,8 @@ int hfi1_user_sdma_alloc_queues(struct hfi1_ctxtdata *uctxt,
 	atomic_set(&pq->n_locked, 0);
 	pq->mm = fd->mm;
 
-	iowait_init(&pq->busy, 0, NULL, NULL, defer_packet_queue,
-		    activate_packet_queue, NULL, NULL);
+	iowait_init(&pq->busy, 0, NULL, defer_packet_queue,
+		    activate_packet_queue, NULL);
 	pq->reqidx = 0;
 
 	pq->reqs = kcalloc(hfi1_sdma_comp_ring_size,
@@ -756,10 +756,9 @@ static int user_sdma_txadd(struct user_sdma_request *req,
 	return ret;
 }
 
-static int user_sdma_send_pkts(struct user_sdma_request *req, u16 maxpkts)
+static int user_sdma_send_pkts(struct user_sdma_request *req, unsigned maxpkts)
 {
-	int ret = 0;
-	u16 count;
+	int ret = 0, count;
 	unsigned npkts = 0;
 	struct user_sdma_txreq *tx = NULL;
 	struct hfi1_user_sdma_pkt_q *pq = NULL;
@@ -861,10 +860,8 @@ static int user_sdma_send_pkts(struct user_sdma_request *req, u16 maxpkts)
 
 				changes = set_txreq_header_ahg(req, tx,
 							       datalen);
-				if (changes < 0) {
-					ret = changes;
+				if (changes < 0)
 					goto free_tx;
-				}
 			}
 		} else {
 			ret = sdma_txinit(&tx->txreq, 0, sizeof(req->hdr) +
@@ -913,9 +910,7 @@ static int user_sdma_send_pkts(struct user_sdma_request *req, u16 maxpkts)
 		npkts++;
 	}
 dosend:
-	ret = sdma_send_txlist(req->sde,
-			       iowait_get_ib_work(&pq->busy),
-			       &req->txps, &count);
+	ret = sdma_send_txlist(req->sde, &pq->busy, &req->txps, &count);
 	req->seqsubmitted += count;
 	if (req->seqsubmitted == req->info.npkts) {
 		/*
@@ -1128,8 +1123,7 @@ static inline u32 set_pkt_bth_psn(__be32 bthpsn, u8 expct, u32 frags)
 			0xffffffull),
 		psn = val & mask;
 	if (expct)
-		psn = (psn & ~HFI1_KDETH_BTH_SEQ_MASK) |
-			((psn + frags) & HFI1_KDETH_BTH_SEQ_MASK);
+		psn = (psn & ~BTH_SEQ_MASK) | ((psn + frags) & BTH_SEQ_MASK);
 	else
 		psn = psn + frags;
 	return psn & mask;

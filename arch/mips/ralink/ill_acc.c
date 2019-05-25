@@ -62,7 +62,7 @@ static int __init ill_acc_of_setup(void)
 
 	pdev = of_find_device_by_node(np);
 	if (!pdev) {
-		pr_err("%pOFn: failed to lookup pdev\n", np);
+		pr_err("%s: failed to lookup pdev\n", np->name);
 		return -EINVAL;
 	}
 

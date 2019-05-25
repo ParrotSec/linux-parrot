@@ -121,12 +121,8 @@ struct thread_info {
 }
 
 /* how to get the thread information struct from C */
-#ifndef BUILD_VDSO
 register struct thread_info *current_thread_info_reg asm("g6");
 #define current_thread_info()	(current_thread_info_reg)
-#else
-extern struct thread_info *current_thread_info(void);
-#endif
 
 /* thread information allocation */
 #if PAGE_SHIFT == 13

@@ -16,7 +16,6 @@
 #define __CODA_H__
 
 #include <linux/debugfs.h>
-#include <linux/idr.h>
 #include <linux/irqreturn.h>
 #include <linux/mutex.h>
 #include <linux/kfifo.h>
@@ -95,7 +94,8 @@ struct coda_dev {
 	struct mutex		coda_mutex;
 	struct workqueue_struct	*workqueue;
 	struct v4l2_m2m_dev	*m2m_dev;
-	struct ida		ida;
+	struct list_head	instances;
+	unsigned long		instance_mask;
 	struct dentry		*debugfs_root;
 };
 
@@ -118,8 +118,6 @@ struct coda_params {
 	u8			h264_disable_deblocking_filter_idc;
 	s8			h264_slice_alpha_c0_offset_div2;
 	s8			h264_slice_beta_offset_div2;
-	bool			h264_constrained_intra_pred_flag;
-	s8			h264_chroma_qp_index_offset;
 	u8			h264_profile_idc;
 	u8			h264_level_idc;
 	u8			mpeg4_intra_qp;
@@ -146,8 +144,8 @@ struct coda_buffer_meta {
 	u32			sequence;
 	struct v4l2_timecode	timecode;
 	u64			timestamp;
-	unsigned int		start;
-	unsigned int		end;
+	u32			start;
+	u32			end;
 };
 
 /* Per-queue, driver-specific private data */
@@ -194,6 +192,7 @@ struct coda_context_ops {
 struct coda_ctx {
 	struct coda_dev			*dev;
 	struct mutex			buffer_mutex;
+	struct list_head		list;
 	struct work_struct		pic_run_work;
 	struct work_struct		seq_end_work;
 	struct completion		completion;
@@ -254,13 +253,6 @@ struct coda_ctx {
 
 extern int coda_debug;
 
-#define coda_dbg(level, ctx, fmt, arg...)				\
-	do {								\
-		if (coda_debug >= (level))				\
-			v4l2_dbg((level), coda_debug, &(ctx)->dev->v4l2_dev, \
-			 "%u: " fmt, (ctx)->idx, ##arg);		\
-	} while (0)
-
 void coda_write(struct coda_dev *dev, u32 data, u32 reg);
 unsigned int coda_read(struct coda_dev *dev, u32 reg);
 void coda_write_base(struct coda_ctx *ctx, struct coda_q_data *q_data,
@@ -302,18 +294,6 @@ static inline unsigned int coda_get_bitstream_payload(struct coda_ctx *ctx)
 {
 	return kfifo_len(&ctx->bitstream_fifo);
 }
-
-/*
- * The bitstream prefetcher needs to read at least 2 256 byte periods past
- * the desired bitstream position for all data to reach the decoder.
- */
-static inline bool coda_bitstream_can_fetch_past(struct coda_ctx *ctx,
-						 unsigned int pos)
-{
-	return (int)(ctx->bitstream_fifo.kfifo.in - ALIGN(pos, 256)) > 512;
-}
-
-bool coda_bitstream_can_fetch_past(struct coda_ctx *ctx, unsigned int pos);
 
 void coda_bit_stream_end_flag(struct coda_ctx *ctx);
 

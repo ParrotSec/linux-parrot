@@ -3,11 +3,12 @@
 #ifndef __LINUX_TPM_EVENTLOG_H__
 #define __LINUX_TPM_EVENTLOG_H__
 
-#include <linux/tpm.h>
+#include <crypto/hash_info.h>
 
 #define TCG_EVENT_NAME_LEN_MAX	255
 #define MAX_TEXT_EVENT		1000	/* Max event string length */
 #define ACPI_TCPA_SIG		"TCPA"	/* 0x41504354 /'TCPA' */
+#define TPM2_ACTIVE_PCR_BANKS	3
 
 #define EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2 0x1
 #define EFI_TCG2_EVENT_LOG_FORMAT_TCG_2   0x2
@@ -81,7 +82,7 @@ struct tcg_efi_specid_event_algs {
 	u16 digest_size;
 } __packed;
 
-struct tcg_efi_specid_event_head {
+struct tcg_efi_specid_event {
 	u8 signature[16];
 	u32 platform_class;
 	u8 spec_version_minor;
@@ -89,7 +90,9 @@ struct tcg_efi_specid_event_head {
 	u8 spec_errata;
 	u8 uintnsize;
 	u32 num_algs;
-	struct tcg_efi_specid_event_algs digest_sizes[];
+	struct tcg_efi_specid_event_algs digest_sizes[TPM2_ACTIVE_PCR_BANKS];
+	u8 vendor_info_size;
+	u8 vendor_info[0];
 } __packed;
 
 struct tcg_pcr_event {
@@ -105,11 +108,17 @@ struct tcg_event_field {
 	u8 event[0];
 } __packed;
 
-struct tcg_pcr_event2_head {
+struct tpm2_digest {
+	u16 alg_id;
+	u8 digest[SHA512_DIGEST_SIZE];
+} __packed;
+
+struct tcg_pcr_event2 {
 	u32 pcr_idx;
 	u32 event_type;
 	u32 count;
-	struct tpm_digest digests[];
+	struct tpm2_digest digests[TPM2_ACTIVE_PCR_BANKS];
+	struct tcg_event_field event;
 } __packed;
 
 #endif

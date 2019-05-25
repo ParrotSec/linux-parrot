@@ -74,8 +74,7 @@ struct data data_copy_escape_string(const char *s, int len)
 	struct data d;
 	char *q;
 
-	d = data_add_marker(empty_data, TYPE_STRING, NULL);
-	d = data_grow_for(d, len + 1);
+	d = data_grow_for(empty_data, len + 1);
 
 	q = d.val;
 	while (i < len) {
@@ -95,7 +94,6 @@ struct data data_copy_file(FILE *f, size_t maxlen)
 {
 	struct data d = empty_data;
 
-	d = data_add_marker(d, TYPE_NONE, NULL);
 	while (!feof(f) && (d.len < maxlen)) {
 		size_t chunksize, ret;
 

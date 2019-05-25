@@ -81,8 +81,9 @@ int drm_client_init(struct drm_device *dev, struct drm_client_dev *client,
 {
 	int ret;
 
-	if (!drm_core_check_feature(dev, DRIVER_MODESET) || !dev->driver->dumb_create)
-		return -EOPNOTSUPP;
+	if (!drm_core_check_feature(dev, DRIVER_MODESET) ||
+	    !dev->driver->dumb_create || !dev->driver->gem_prime_vmap)
+		return -ENOTSUPP;
 
 	if (funcs && !try_module_get(funcs->owner))
 		return -ENODEV;
@@ -228,7 +229,8 @@ static void drm_client_buffer_delete(struct drm_client_buffer *buffer)
 {
 	struct drm_device *dev = buffer->client->dev;
 
-	drm_gem_vunmap(buffer->gem, buffer->vaddr);
+	if (buffer->vaddr && dev->driver->gem_prime_vunmap)
+		dev->driver->gem_prime_vunmap(buffer->gem, buffer->vaddr);
 
 	if (buffer->gem)
 		drm_gem_object_put_unlocked(buffer->gem);
@@ -281,9 +283,9 @@ drm_client_buffer_create(struct drm_client_dev *client, u32 width, u32 height, u
 	 * fd_install step out of the driver backend hooks, to make that
 	 * final step optional for internal users.
 	 */
-	vaddr = drm_gem_vmap(obj);
-	if (IS_ERR(vaddr)) {
-		ret = PTR_ERR(vaddr);
+	vaddr = dev->driver->gem_prime_vmap(obj);
+	if (!vaddr) {
+		ret = -ENOMEM;
 		goto err_delete;
 	}
 

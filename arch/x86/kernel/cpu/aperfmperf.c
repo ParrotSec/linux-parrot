@@ -12,7 +12,6 @@
 #include <linux/ktime.h>
 #include <linux/math64.h>
 #include <linux/percpu.h>
-#include <linux/cpufreq.h>
 #include <linux/smp.h>
 
 #include "cpu.h"

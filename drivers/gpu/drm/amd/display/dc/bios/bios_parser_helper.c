@@ -83,7 +83,8 @@ uint32_t bios_get_vga_enabled_displays(
 {
 	uint32_t active_disp = 1;
 
-	active_disp = REG_READ(BIOS_SCRATCH_3) & 0XFFFF;
+	if (bios->regs->BIOS_SCRATCH_3) /*follow up with other asic, todo*/
+		active_disp = REG_READ(BIOS_SCRATCH_3) & 0XFFFF;
 	return active_disp;
 }
 

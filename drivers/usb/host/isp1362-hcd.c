@@ -2159,15 +2159,25 @@ static int isp1362_show(struct seq_file *s, void *unused)
 
 	return 0;
 }
-DEFINE_SHOW_ATTRIBUTE(isp1362);
+
+static int isp1362_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, isp1362_show, inode);
+}
+
+static const struct file_operations debug_ops = {
+	.open = isp1362_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 
 /* expect just one isp1362_hcd per system */
 static void create_debug_file(struct isp1362_hcd *isp1362_hcd)
 {
 	isp1362_hcd->debug_file = debugfs_create_file("isp1362", S_IRUGO,
 						      usb_debug_root,
-						      isp1362_hcd,
-						      &isp1362_fops);
+						      isp1362_hcd, &debug_ops);
 }
 
 static void remove_debug_file(struct isp1362_hcd *isp1362_hcd)

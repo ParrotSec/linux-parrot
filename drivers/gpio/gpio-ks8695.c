@@ -282,13 +282,22 @@ static int ks8695_gpio_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(ks8695_gpio);
+static int ks8695_gpio_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ks8695_gpio_show, NULL);
+}
+
+static const struct file_operations ks8695_gpio_operations = {
+	.open		= ks8695_gpio_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 static int __init ks8695_gpio_debugfs_init(void)
 {
 	/* /sys/kernel/debug/ks8695_gpio */
-	debugfs_create_file("ks8695_gpio", S_IFREG | S_IRUGO, NULL, NULL,
-				&ks8695_gpio_fops);
+	(void) debugfs_create_file("ks8695_gpio", S_IFREG | S_IRUGO, NULL, NULL, &ks8695_gpio_operations);
 	return 0;
 }
 postcore_initcall(ks8695_gpio_debugfs_init);

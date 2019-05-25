@@ -152,12 +152,11 @@ static long tce_iommu_unregister_pages(struct tce_container *container,
 	struct mm_iommu_table_group_mem_t *mem;
 	struct tce_iommu_prereg *tcemem;
 	bool found = false;
-	long ret;
 
 	if ((vaddr & ~PAGE_MASK) || (size & ~PAGE_MASK))
 		return -EINVAL;
 
-	mem = mm_iommu_get(container->mm, vaddr, size >> PAGE_SHIFT);
+	mem = mm_iommu_find(container->mm, vaddr, size >> PAGE_SHIFT);
 	if (!mem)
 		return -ENOENT;
 
@@ -169,13 +168,9 @@ static long tce_iommu_unregister_pages(struct tce_container *container,
 	}
 
 	if (!found)
-		ret = -ENOENT;
-	else
-		ret = tce_iommu_prereg_free(container, tcemem);
+		return -ENOENT;
 
-	mm_iommu_put(container->mm, mem);
-
-	return ret;
+	return tce_iommu_prereg_free(container, tcemem);
 }
 
 static long tce_iommu_register_pages(struct tce_container *container,
@@ -190,24 +185,22 @@ static long tce_iommu_register_pages(struct tce_container *container,
 			((vaddr + size) < vaddr))
 		return -EINVAL;
 
-	mem = mm_iommu_get(container->mm, vaddr, entries);
+	mem = mm_iommu_find(container->mm, vaddr, entries);
 	if (mem) {
 		list_for_each_entry(tcemem, &container->prereg_list, next) {
-			if (tcemem->mem == mem) {
-				ret = -EBUSY;
-				goto put_exit;
-			}
+			if (tcemem->mem == mem)
+				return -EBUSY;
 		}
-	} else {
-		ret = mm_iommu_new(container->mm, vaddr, entries, &mem);
-		if (ret)
-			return ret;
 	}
+
+	ret = mm_iommu_get(container->mm, vaddr, entries, &mem);
+	if (ret)
+		return ret;
 
 	tcemem = kzalloc(sizeof(*tcemem), GFP_KERNEL);
 	if (!tcemem) {
-		ret = -ENOMEM;
-		goto put_exit;
+		mm_iommu_put(container->mm, mem);
+		return -ENOMEM;
 	}
 
 	tcemem->mem = mem;
@@ -216,22 +209,10 @@ static long tce_iommu_register_pages(struct tce_container *container,
 	container->enabled = true;
 
 	return 0;
-
-put_exit:
-	mm_iommu_put(container->mm, mem);
-	return ret;
 }
 
-static bool tce_page_is_contained(struct mm_struct *mm, unsigned long hpa,
-		unsigned int page_shift)
+static bool tce_page_is_contained(struct page *page, unsigned page_shift)
 {
-	struct page *page;
-	unsigned long size = 0;
-
-	if (mm_iommu_is_devmem(mm, hpa, page_shift, &size))
-		return size == (1UL << page_shift);
-
-	page = pfn_to_page(hpa >> PAGE_SHIFT);
 	/*
 	 * Check that the TCE table granularity is not bigger than the size of
 	 * a page we just found. Otherwise the hardware can get access to
@@ -390,7 +371,6 @@ static void tce_iommu_release(void *iommu_data)
 {
 	struct tce_container *container = iommu_data;
 	struct tce_iommu_group *tcegrp;
-	struct tce_iommu_prereg *tcemem, *tmtmp;
 	long i;
 
 	while (tce_groups_attached(container)) {
@@ -413,8 +393,13 @@ static void tce_iommu_release(void *iommu_data)
 		tce_iommu_free_table(container, tbl);
 	}
 
-	list_for_each_entry_safe(tcemem, tmtmp, &container->prereg_list, next)
-		WARN_ON(tce_iommu_prereg_free(container, tcemem));
+	while (!list_empty(&container->prereg_list)) {
+		struct tce_iommu_prereg *tcemem;
+
+		tcemem = list_first_entry(&container->prereg_list,
+				struct tce_iommu_prereg, next);
+		WARN_ON_ONCE(tce_iommu_prereg_free(container, tcemem));
+	}
 
 	tce_iommu_disable(container);
 	if (container->mm)
@@ -459,7 +444,7 @@ static void tce_iommu_unuse_page_v2(struct tce_container *container,
 	struct mm_iommu_table_group_mem_t *mem = NULL;
 	int ret;
 	unsigned long hpa = 0;
-	__be64 *pua = IOMMU_TABLE_USERSPACE_ENTRY_RO(tbl, entry);
+	__be64 *pua = IOMMU_TABLE_USERSPACE_ENTRY(tbl, entry);
 
 	if (!pua)
 		return;
@@ -482,33 +467,13 @@ static int tce_iommu_clear(struct tce_container *container,
 	unsigned long oldhpa;
 	long ret;
 	enum dma_data_direction direction;
-	unsigned long lastentry = entry + pages;
 
-	for ( ; entry < lastentry; ++entry) {
-		if (tbl->it_indirect_levels && tbl->it_userspace) {
-			/*
-			 * For multilevel tables, we can take a shortcut here
-			 * and skip some TCEs as we know that the userspace
-			 * addresses cache is a mirror of the real TCE table
-			 * and if it is missing some indirect levels, then
-			 * the hardware table does not have them allocated
-			 * either and therefore does not require updating.
-			 */
-			__be64 *pua = IOMMU_TABLE_USERSPACE_ENTRY_RO(tbl,
-					entry);
-			if (!pua) {
-				/* align to level_size which is power of two */
-				entry |= tbl->it_level_size - 1;
-				continue;
-			}
-		}
-
+	for ( ; pages; --pages, ++entry) {
 		cond_resched();
 
 		direction = DMA_NONE;
 		oldhpa = 0;
-		ret = iommu_tce_xchg(container->mm, tbl, entry, &oldhpa,
-				&direction);
+		ret = iommu_tce_xchg(tbl, entry, &oldhpa, &direction);
 		if (ret)
 			continue;
 
@@ -546,6 +511,7 @@ static long tce_iommu_build(struct tce_container *container,
 		enum dma_data_direction direction)
 {
 	long i, ret = 0;
+	struct page *page;
 	unsigned long hpa;
 	enum dma_data_direction dirtmp;
 
@@ -556,16 +522,15 @@ static long tce_iommu_build(struct tce_container *container,
 		if (ret)
 			break;
 
-		if (!tce_page_is_contained(container->mm, hpa,
-				tbl->it_page_shift)) {
+		page = pfn_to_page(hpa >> PAGE_SHIFT);
+		if (!tce_page_is_contained(page, tbl->it_page_shift)) {
 			ret = -EPERM;
 			break;
 		}
 
 		hpa |= offset;
 		dirtmp = direction;
-		ret = iommu_tce_xchg(container->mm, tbl, entry + i, &hpa,
-				&dirtmp);
+		ret = iommu_tce_xchg(tbl, entry + i, &hpa, &dirtmp);
 		if (ret) {
 			tce_iommu_unuse_page(container, hpa);
 			pr_err("iommu_tce: %s failed ioba=%lx, tce=%lx, ret=%ld\n",
@@ -592,6 +557,7 @@ static long tce_iommu_build_v2(struct tce_container *container,
 		enum dma_data_direction direction)
 {
 	long i, ret = 0;
+	struct page *page;
 	unsigned long hpa;
 	enum dma_data_direction dirtmp;
 
@@ -604,8 +570,8 @@ static long tce_iommu_build_v2(struct tce_container *container,
 		if (ret)
 			break;
 
-		if (!tce_page_is_contained(container->mm, hpa,
-				tbl->it_page_shift)) {
+		page = pfn_to_page(hpa >> PAGE_SHIFT);
+		if (!tce_page_is_contained(page, tbl->it_page_shift)) {
 			ret = -EPERM;
 			break;
 		}
@@ -618,8 +584,7 @@ static long tce_iommu_build_v2(struct tce_container *container,
 		if (mm_iommu_mapped_inc(mem))
 			break;
 
-		ret = iommu_tce_xchg(container->mm, tbl, entry + i, &hpa,
-				&dirtmp);
+		ret = iommu_tce_xchg(tbl, entry + i, &hpa, &dirtmp);
 		if (ret) {
 			/* dirtmp cannot be DMA_NONE here */
 			tce_iommu_unuse_page_v2(container, tbl, entry + i);
@@ -1235,8 +1200,7 @@ static void tce_iommu_release_ownership_ddw(struct tce_container *container,
 	}
 
 	for (i = 0; i < IOMMU_TABLE_GROUP_MAX_TABLES; ++i)
-		if (container->tables[i])
-			table_group->ops->unset_window(table_group, i);
+		table_group->ops->unset_window(table_group, i);
 
 	table_group->ops->release_ownership(table_group);
 }
@@ -1398,7 +1362,7 @@ unlock_exit:
 	mutex_unlock(&container->lock);
 }
 
-static const struct vfio_iommu_driver_ops tce_iommu_driver_ops = {
+const struct vfio_iommu_driver_ops tce_iommu_driver_ops = {
 	.name		= "iommu-vfio-powerpc",
 	.owner		= THIS_MODULE,
 	.open		= tce_iommu_open,

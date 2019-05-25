@@ -168,7 +168,7 @@ static int fhc_probe(struct platform_device *op)
 		goto out;
 	}
 
-	if (of_node_name_eq(op->dev.of_node->parent, "central"))
+	if (!strcmp(op->dev.of_node->parent->name, "central"))
 		p->central = true;
 
 	p->pregs = of_ioremap(&op->resource[0], 0,

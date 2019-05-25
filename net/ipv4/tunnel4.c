@@ -149,40 +149,34 @@ drop:
 }
 #endif
 
-static int tunnel4_err(struct sk_buff *skb, u32 info)
+static void tunnel4_err(struct sk_buff *skb, u32 info)
 {
 	struct xfrm_tunnel *handler;
 
 	for_each_tunnel_rcu(tunnel4_handlers, handler)
 		if (!handler->err_handler(skb, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 
 #if IS_ENABLED(CONFIG_IPV6)
-static int tunnel64_err(struct sk_buff *skb, u32 info)
+static void tunnel64_err(struct sk_buff *skb, u32 info)
 {
 	struct xfrm_tunnel *handler;
 
 	for_each_tunnel_rcu(tunnel64_handlers, handler)
 		if (!handler->err_handler(skb, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 #endif
 
 #if IS_ENABLED(CONFIG_MPLS)
-static int tunnelmpls4_err(struct sk_buff *skb, u32 info)
+static void tunnelmpls4_err(struct sk_buff *skb, u32 info)
 {
 	struct xfrm_tunnel *handler;
 
 	for_each_tunnel_rcu(tunnelmpls4_handlers, handler)
 		if (!handler->err_handler(skb, info))
-			return 0;
-
-	return -ENOENT;
+			break;
 }
 #endif
 

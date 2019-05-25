@@ -38,73 +38,20 @@ void msm_gem_address_space_put(struct msm_gem_address_space *aspace)
 		kref_put(&aspace->kref, msm_gem_address_space_destroy);
 }
 
-/* Actually unmap memory for the vma */
-void msm_gem_purge_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma)
+void
+msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt)
 {
-	unsigned size = vma->node.size << PAGE_SHIFT;
-
-	/* Print a message if we try to purge a vma in use */
-	if (WARN_ON(vma->inuse > 0))
+	if (!aspace || !vma->iova)
 		return;
 
-	/* Don't do anything if the memory isn't mapped */
-	if (!vma->mapped)
-		return;
-
-	if (aspace->mmu)
-		aspace->mmu->funcs->unmap(aspace->mmu, vma->iova, size);
-
-	vma->mapped = false;
-}
-
-/* Remove reference counts for the mapping */
-void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma)
-{
-	if (!WARN_ON(!vma->iova))
-		vma->inuse--;
-}
-
-int
-msm_gem_map_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, int prot,
-		struct sg_table *sgt, int npages)
-{
-	unsigned size = npages << PAGE_SHIFT;
-	int ret = 0;
-
-	if (WARN_ON(!vma->iova))
-		return -EINVAL;
-
-	/* Increase the usage counter */
-	vma->inuse++;
-
-	if (vma->mapped)
-		return 0;
-
-	vma->mapped = true;
-
-	if (aspace->mmu)
-		ret = aspace->mmu->funcs->map(aspace->mmu, vma->iova, sgt,
-				size, prot);
-
-	if (ret)
-		vma->mapped = false;
-
-	return ret;
-}
-
-/* Close an iova.  Warn if it is still in use */
-void msm_gem_close_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma)
-{
-	if (WARN_ON(vma->inuse > 0 || vma->mapped))
-		return;
+	if (aspace->mmu) {
+		unsigned size = vma->node.size << PAGE_SHIFT;
+		aspace->mmu->funcs->unmap(aspace->mmu, vma->iova, sgt, size);
+	}
 
 	spin_lock(&aspace->lock);
-	if (vma->iova)
-		drm_mm_remove_node(&vma->node);
+	drm_mm_remove_node(&vma->node);
 	spin_unlock(&aspace->lock);
 
 	vma->iova = 0;
@@ -112,16 +59,18 @@ void msm_gem_close_vma(struct msm_gem_address_space *aspace,
 	msm_gem_address_space_put(aspace);
 }
 
-/* Initialize a new vma and allocate an iova for it */
-int msm_gem_init_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, int npages)
+int
+msm_gem_map_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt, int npages)
 {
 	int ret;
 
-	if (WARN_ON(vma->iova))
-		return -EBUSY;
-
 	spin_lock(&aspace->lock);
+	if (WARN_ON(drm_mm_node_allocated(&vma->node))) {
+		spin_unlock(&aspace->lock);
+		return 0;
+	}
+
 	ret = drm_mm_insert_node(&aspace->mm, &vma->node, npages);
 	spin_unlock(&aspace->lock);
 
@@ -129,13 +78,18 @@ int msm_gem_init_vma(struct msm_gem_address_space *aspace,
 		return ret;
 
 	vma->iova = vma->node.start << PAGE_SHIFT;
-	vma->mapped = false;
 
+	if (aspace->mmu) {
+		unsigned size = npages << PAGE_SHIFT;
+		ret = aspace->mmu->funcs->map(aspace->mmu, vma->iova, sgt,
+				size, IOMMU_READ | IOMMU_WRITE);
+	}
+
+	/* Get a reference to the aspace to keep it around */
 	kref_get(&aspace->kref);
 
-	return 0;
+	return ret;
 }
-
 
 struct msm_gem_address_space *
 msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
@@ -154,29 +108,6 @@ msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 	aspace->mmu = msm_iommu_new(dev, domain);
 
 	drm_mm_init(&aspace->mm, (domain->geometry.aperture_start >> PAGE_SHIFT),
-		size >> PAGE_SHIFT);
-
-	kref_init(&aspace->kref);
-
-	return aspace;
-}
-
-struct msm_gem_address_space *
-msm_gem_address_space_create_a2xx(struct device *dev, struct msm_gpu *gpu,
-		const char *name, uint64_t va_start, uint64_t va_end)
-{
-	struct msm_gem_address_space *aspace;
-	u64 size = va_end - va_start;
-
-	aspace = kzalloc(sizeof(*aspace), GFP_KERNEL);
-	if (!aspace)
-		return ERR_PTR(-ENOMEM);
-
-	spin_lock_init(&aspace->lock);
-	aspace->name = name;
-	aspace->mmu = msm_gpummu_new(dev, gpu);
-
-	drm_mm_init(&aspace->mm, (va_start >> PAGE_SHIFT),
 		size >> PAGE_SHIFT);
 
 	kref_init(&aspace->kref);

@@ -320,8 +320,7 @@ static void pod_startup4(struct work_struct *work)
 	line6_read_serial_number(&pod->line6, &pod->serial_number);
 
 	/* ALSA audio interface: */
-	if (snd_card_register(line6->card))
-		dev_err(line6->ifcdev, "Failed to register POD card.\n");
+	snd_card_register(line6->card);
 }
 
 /* POD special files: */

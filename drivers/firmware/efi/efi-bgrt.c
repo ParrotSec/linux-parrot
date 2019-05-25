@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2012 Intel Corporation
  * Author: Josh Triplett <josh@joshtriplett.org>
@@ -6,6 +5,10 @@
  * Based on the bgrt driver:
  * Copyright 2012 Red Hat, Inc <mjg@redhat.com>
  * Author: Matthew Garrett
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt

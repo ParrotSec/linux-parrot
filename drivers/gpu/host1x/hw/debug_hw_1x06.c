@@ -62,12 +62,9 @@ static void host1x_debug_show_channel_fifo(struct host1x *host,
 					   struct host1x_channel *ch,
 					   struct output *o)
 {
-#if HOST1X_HW <= 6
-	u32 rd_ptr, wr_ptr, start, end;
+	u32 val, rd_ptr, wr_ptr, start, end;
 	u32 payload = INVALID_PAYLOAD;
 	unsigned int data_count = 0;
-#endif
-	u32 val;
 
 	host1x_debug_output(o, "%u: fifo:\n", ch->id);
 
@@ -81,7 +78,6 @@ static void host1x_debug_show_channel_fifo(struct host1x *host,
 	val = host1x_ch_readl(ch, HOST1X_CHANNEL_CMDFIFO_RDATA);
 	host1x_debug_output(o, "CMDFIFO_RDATA %08x\n", val);
 
-#if HOST1X_HW <= 6
 	/* Peek pointer values are invalid during SLCG, so disable it */
 	host1x_hypervisor_writel(host, 0x1, HOST1X_HV_ICG_EN_OVERRIDE);
 
@@ -131,7 +127,6 @@ static void host1x_debug_show_channel_fifo(struct host1x *host,
 
 	host1x_hypervisor_writel(host, 0x0, HOST1X_HV_CMDFIFO_PEEK_CTRL);
 	host1x_hypervisor_writel(host, 0x0, HOST1X_HV_ICG_EN_OVERRIDE);
-#endif
 }
 
 static void host1x_debug_show_mlocks(struct host1x *host, struct output *o)

@@ -10,46 +10,60 @@
 #include <rtl8188e_hal.h>
 #include <usb_ops_linux.h>
 
-void sw_led_on(struct adapter *padapter, struct LED_871x *pLed)
+/*  LED object. */
+
+/*  LED_819xUsb routines. */
+/*	Description: */
+/*		Turn on LED according to LedPin specified. */
+void SwLedOn(struct adapter *padapter, struct LED_871x *pLed)
 {
-	u8 led_cfg;
+	u8	LedCfg;
 
 	if (padapter->bSurpriseRemoved || padapter->bDriverStopped)
 		return;
-	led_cfg = usb_read8(padapter, REG_LEDCFG2);
-	usb_write8(padapter, REG_LEDCFG2, (led_cfg & 0xf0) | BIT(5) | BIT(6));
+	LedCfg = usb_read8(padapter, REG_LEDCFG2);
+	usb_write8(padapter, REG_LEDCFG2, (LedCfg&0xf0) | BIT(5) | BIT(6)); /*  SW control led0 on. */
 	pLed->bLedOn = true;
 }
 
-void sw_led_off(struct adapter *padapter, struct LED_871x *pLed)
+/*	Description: */
+/*		Turn off LED according to LedPin specified. */
+void SwLedOff(struct adapter *padapter, struct LED_871x *pLed)
 {
-	u8 led_cfg;
+	u8	LedCfg;
 
 	if (padapter->bSurpriseRemoved || padapter->bDriverStopped)
 		goto exit;
 
-	led_cfg = usb_read8(padapter, REG_LEDCFG2);/* 0x4E */
+	LedCfg = usb_read8(padapter, REG_LEDCFG2);/* 0x4E */
 
 	/*  Open-drain arrangement for controlling the LED) */
-	led_cfg &= 0x90; /*  Set to software control. */
-	usb_write8(padapter, REG_LEDCFG2, (led_cfg | BIT(3)));
-	led_cfg = usb_read8(padapter, REG_MAC_PINMUX_CFG);
-	led_cfg &= 0xFE;
-	usb_write8(padapter, REG_MAC_PINMUX_CFG, led_cfg);
+	LedCfg &= 0x90; /*  Set to software control. */
+	usb_write8(padapter, REG_LEDCFG2, (LedCfg | BIT(3)));
+	LedCfg = usb_read8(padapter, REG_MAC_PINMUX_CFG);
+	LedCfg &= 0xFE;
+	usb_write8(padapter, REG_MAC_PINMUX_CFG, LedCfg);
 exit:
 	pLed->bLedOn = false;
 }
 
+/*  Interface to manipulate LED objects. */
+/*  Default LED behavior. */
+
+/*	Description: */
+/*		Initialize all LED_871x objects. */
 void rtw_hal_sw_led_init(struct adapter *padapter)
 {
-	struct led_priv *pledpriv = &padapter->ledpriv;
+	struct led_priv *pledpriv = &(padapter->ledpriv);
 
-	InitLed871x(padapter, &pledpriv->sw_led);
+	InitLed871x(padapter, &(pledpriv->SwLed0));
 }
 
+/*	Description: */
+/*		DeInitialize all LED_819xUsb objects. */
 void rtw_hal_sw_led_deinit(struct adapter *padapter)
 {
-	struct led_priv *ledpriv = &padapter->ledpriv;
+	struct led_priv	*ledpriv = &(padapter->ledpriv);
 
-	DeInitLed871x(&ledpriv->sw_led);
+	DeInitLed871x(&(ledpriv->SwLed0));
 }

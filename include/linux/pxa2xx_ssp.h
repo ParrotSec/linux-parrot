@@ -196,7 +196,6 @@ enum pxa_ssp_type {
 	PXA27x_SSP,
 	PXA3xx_SSP,
 	PXA168_SSP,
-	MMP2_SSP,
 	PXA910_SSP,
 	CE4100_SSP,
 	QUARK_X1000_SSP,
@@ -218,7 +217,7 @@ struct ssp_device {
 
 	const char	*label;
 	int		port_id;
-	enum pxa_ssp_type type;
+	int		type;
 	int		use_count;
 	int		irq;
 

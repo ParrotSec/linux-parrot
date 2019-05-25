@@ -201,6 +201,11 @@ static int amd_uncore_event_init(struct perf_event *event)
 	if (is_sampling_event(event) || event->attach_state & PERF_ATTACH_TASK)
 		return -EINVAL;
 
+	/* NB and Last level cache counters do not have usr/os/guest/host bits */
+	if (event->attr.exclude_user || event->attr.exclude_kernel ||
+	    event->attr.exclude_host || event->attr.exclude_guest)
+		return -EINVAL;
+
 	/* and we do not enable counter overflow interrupts */
 	hwc->config = event->attr.config & AMD64_RAW_EVENT_MASK_NB;
 	hwc->idx = -1;
@@ -302,7 +307,6 @@ static struct pmu amd_nb_pmu = {
 	.start		= amd_uncore_start,
 	.stop		= amd_uncore_stop,
 	.read		= amd_uncore_read,
-	.capabilities	= PERF_PMU_CAP_NO_EXCLUDE,
 };
 
 static struct pmu amd_llc_pmu = {
@@ -313,7 +317,6 @@ static struct pmu amd_llc_pmu = {
 	.start		= amd_uncore_start,
 	.stop		= amd_uncore_stop,
 	.read		= amd_uncore_read,
-	.capabilities	= PERF_PMU_CAP_NO_EXCLUDE,
 };
 
 static struct amd_uncore *amd_uncore_alloc(unsigned int cpu)
@@ -512,19 +515,17 @@ static int __init amd_uncore_init(void)
 {
 	int ret = -ENODEV;
 
-	if (boot_cpu_data.x86_vendor != X86_VENDOR_AMD &&
-	    boot_cpu_data.x86_vendor != X86_VENDOR_HYGON)
+	if (boot_cpu_data.x86_vendor != X86_VENDOR_AMD)
 		return -ENODEV;
 
 	if (!boot_cpu_has(X86_FEATURE_TOPOEXT))
 		return -ENODEV;
 
-	if (boot_cpu_data.x86 == 0x17 || boot_cpu_data.x86 == 0x18) {
+	if (boot_cpu_data.x86 == 0x17) {
 		/*
-		 * For F17h or F18h, the Northbridge counters are
-		 * repurposed as Data Fabric counters. Also, L3
-		 * counters are supported too. The PMUs are exported
-		 * based on family as either L2 or L3 and NB or DF.
+		 * For F17h, the Northbridge counters are repurposed as Data
+		 * Fabric counters. Also, L3 counters are supported too. The PMUs
+		 * are exported based on  family as either L2 or L3 and NB or DF.
 		 */
 		num_counters_nb		  = NUM_COUNTERS_NB;
 		num_counters_llc	  = NUM_COUNTERS_L3;
@@ -556,9 +557,7 @@ static int __init amd_uncore_init(void)
 		if (ret)
 			goto fail_nb;
 
-		pr_info("%s NB counters detected\n",
-			boot_cpu_data.x86_vendor == X86_VENDOR_HYGON ?
-				"HYGON" : "AMD");
+		pr_info("AMD NB counters detected\n");
 		ret = 0;
 	}
 
@@ -572,9 +571,7 @@ static int __init amd_uncore_init(void)
 		if (ret)
 			goto fail_llc;
 
-		pr_info("%s LLC counters detected\n",
-			boot_cpu_data.x86_vendor == X86_VENDOR_HYGON ?
-				"HYGON" : "AMD");
+		pr_info("AMD LLC counters detected\n");
 		ret = 0;
 	}
 

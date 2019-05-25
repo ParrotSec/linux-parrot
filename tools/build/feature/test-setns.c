@@ -5,4 +5,3 @@ int main(void)
 {
 	return setns(0, 0);
 }
-#undef _GNU_SOURCE

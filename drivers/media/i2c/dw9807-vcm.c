@@ -218,8 +218,7 @@ static int dw9807_probe(struct i2c_client *client)
 	return 0;
 
 err_cleanup:
-	v4l2_ctrl_handler_free(&dw9807_dev->ctrls_vcm);
-	media_entity_cleanup(&dw9807_dev->sd.entity);
+	dw9807_subdev_cleanup(dw9807_dev);
 
 	return rval;
 }
@@ -230,6 +229,7 @@ static int dw9807_remove(struct i2c_client *client)
 	struct dw9807_device *dw9807_dev = sd_to_dw9807_vcm(sd);
 
 	pm_runtime_disable(&client->dev);
+	pm_runtime_set_suspended(&client->dev);
 
 	dw9807_subdev_cleanup(dw9807_dev);
 

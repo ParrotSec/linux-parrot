@@ -26,10 +26,8 @@
 #include <dirent.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/vfs.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -125,22 +123,10 @@ static void f(DIR *d, unsigned int level)
 int main(void)
 {
 	DIR *d;
-	struct statfs sfs;
 
 	d = opendir("/proc");
 	if (!d)
-		return 4;
-
-	/* Ensure /proc is proc. */
-	if (fstatfs(dirfd(d), &sfs) == -1) {
-		return 1;
-	}
-	if (sfs.f_type != 0x9fa0) {
-		fprintf(stderr, "error: unexpected f_type %lx\n", (long)sfs.f_type);
 		return 2;
-	}
-
 	f(d, 0);
-
 	return 0;
 }

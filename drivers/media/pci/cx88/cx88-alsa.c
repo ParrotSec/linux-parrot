@@ -616,7 +616,7 @@ static int snd_cx88_pcm(struct cx88_audio_dev *chip, int device,
 	if (err < 0)
 		return err;
 	pcm->private_data = chip;
-	strscpy(pcm->name, name, sizeof(pcm->name));
+	strcpy(pcm->name, name);
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &snd_cx88_pcm_ops);
 
 	return 0;
@@ -968,12 +968,12 @@ static int cx88_audio_initdev(struct pci_dev *pci,
 			goto error;
 	}
 
-	strscpy(card->driver, "CX88x", sizeof(card->driver));
+	strcpy(card->driver, "CX88x");
 	sprintf(card->shortname, "Conexant CX%x", pci->device);
 	sprintf(card->longname, "%s at %#llx",
 		card->shortname,
 		(unsigned long long)pci_resource_start(pci, 0));
-	strscpy(card->mixername, "CX88", sizeof(card->mixername));
+	strcpy(card->mixername, "CX88");
 
 	dprintk(0, "%s/%i: ALSA support for cx2388x boards\n",
 		card->driver, devno);

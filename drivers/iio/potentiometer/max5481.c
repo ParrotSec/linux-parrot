@@ -137,6 +137,7 @@ static int max5481_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct max5481_data *data;
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	const struct of_device_id *match;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*data));
@@ -148,8 +149,10 @@ static int max5481_probe(struct spi_device *spi)
 
 	data->spi = spi;
 
-	data->cfg = of_device_get_match_data(&spi->dev);
-	if (!data->cfg)
+	match = of_match_device(of_match_ptr(max5481_match), &spi->dev);
+	if (match)
+		data->cfg = of_device_get_match_data(&spi->dev);
+	else
 		data->cfg = &max5481_cfg[id->driver_data];
 
 	indio_dev->name = id->name;

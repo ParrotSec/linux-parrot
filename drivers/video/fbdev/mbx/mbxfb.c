@@ -74,7 +74,7 @@ struct mbxfb_info {
 
 	u32 pseudo_palette[MAX_PALETTES];
 #ifdef CONFIG_FB_MBX_DEBUG
-	struct dentry *debugfs_dir;
+	void *debugfs_data;
 #endif
 
 };

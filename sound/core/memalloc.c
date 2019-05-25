@@ -25,9 +25,6 @@
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/genalloc.h>
-#ifdef CONFIG_X86
-#include <asm/set_memory.h>
-#endif
 #include <sound/memalloc.h>
 
 /*
@@ -85,32 +82,31 @@ EXPORT_SYMBOL(snd_free_pages);
 
 #ifdef CONFIG_HAS_DMA
 /* allocate the coherent DMA pages */
-static void snd_malloc_dev_pages(struct snd_dma_buffer *dmab, size_t size)
+static void *snd_malloc_dev_pages(struct device *dev, size_t size, dma_addr_t *dma)
 {
+	int pg;
 	gfp_t gfp_flags;
 
+	if (WARN_ON(!dma))
+		return NULL;
+	pg = get_order(size);
 	gfp_flags = GFP_KERNEL
 		| __GFP_COMP	/* compound page lets parts be mapped */
 		| __GFP_NORETRY /* don't trigger OOM-killer */
 		| __GFP_NOWARN; /* no stack trace print - this call is non-critical */
-	dmab->area = dma_alloc_coherent(dmab->dev.dev, size, &dmab->addr,
-					gfp_flags);
-#ifdef CONFIG_X86
-	if (dmab->area && dmab->dev.type == SNDRV_DMA_TYPE_DEV_UC)
-		set_memory_wc((unsigned long)dmab->area,
-			      PAGE_ALIGN(size) >> PAGE_SHIFT);
-#endif
+	return dma_alloc_coherent(dev, PAGE_SIZE << pg, dma, gfp_flags);
 }
 
 /* free the coherent DMA pages */
-static void snd_free_dev_pages(struct snd_dma_buffer *dmab)
+static void snd_free_dev_pages(struct device *dev, size_t size, void *ptr,
+			       dma_addr_t dma)
 {
-#ifdef CONFIG_X86
-	if (dmab->dev.type == SNDRV_DMA_TYPE_DEV_UC)
-		set_memory_wb((unsigned long)dmab->area,
-			      PAGE_ALIGN(dmab->bytes) >> PAGE_SHIFT);
-#endif
-	dma_free_coherent(dmab->dev.dev, dmab->bytes, dmab->area, dmab->addr);
+	int pg;
+
+	if (ptr == NULL)
+		return;
+	pg = get_order(size);
+	dma_free_coherent(dev, PAGE_SIZE << pg, ptr, dma);
 }
 
 #ifdef CONFIG_GENERIC_ALLOCATOR
@@ -182,8 +178,6 @@ int snd_dma_alloc_pages(int type, struct device *device, size_t size,
 		return -ENXIO;
 	if (WARN_ON(!dmab))
 		return -ENXIO;
-	if (WARN_ON(!device))
-		return -EINVAL;
 
 	dmab->dev.type = type;
 	dmab->dev.dev = device;
@@ -205,15 +199,12 @@ int snd_dma_alloc_pages(int type, struct device *device, size_t size,
 		 */
 		dmab->dev.type = SNDRV_DMA_TYPE_DEV;
 #endif /* CONFIG_GENERIC_ALLOCATOR */
-		/* fall through */
 	case SNDRV_DMA_TYPE_DEV:
-	case SNDRV_DMA_TYPE_DEV_UC:
-		snd_malloc_dev_pages(dmab, size);
+		dmab->area = snd_malloc_dev_pages(device, size, &dmab->addr);
 		break;
 #endif
 #ifdef CONFIG_SND_DMA_SGBUF
 	case SNDRV_DMA_TYPE_DEV_SG:
-	case SNDRV_DMA_TYPE_DEV_UC_SG:
 		snd_malloc_sgbuf_pages(device, size, dmab, NULL);
 		break;
 #endif
@@ -284,13 +275,11 @@ void snd_dma_free_pages(struct snd_dma_buffer *dmab)
 		break;
 #endif /* CONFIG_GENERIC_ALLOCATOR */
 	case SNDRV_DMA_TYPE_DEV:
-	case SNDRV_DMA_TYPE_DEV_UC:
-		snd_free_dev_pages(dmab);
+		snd_free_dev_pages(dmab->dev.dev, dmab->bytes, dmab->area, dmab->addr);
 		break;
 #endif
 #ifdef CONFIG_SND_DMA_SGBUF
 	case SNDRV_DMA_TYPE_DEV_SG:
-	case SNDRV_DMA_TYPE_DEV_UC_SG:
 		snd_free_sgbuf_pages(dmab);
 		break;
 #endif

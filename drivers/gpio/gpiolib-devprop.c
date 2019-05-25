@@ -1,9 +1,12 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Device property helpers for GPIO chips.
  *
  * Copyright (C) 2016, Intel Corporation
  * Author: Mika Westerberg <mika.westerberg@linux.intel.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <linux/property.h>
@@ -29,29 +32,32 @@ void devprop_gpiochip_set_names(struct gpio_chip *chip,
 	struct gpio_device *gdev = chip->gpiodev;
 	const char **names;
 	int ret, i;
-	int count;
 
-	count = fwnode_property_read_string_array(fwnode, "gpio-line-names",
-						  NULL, 0);
-	if (count < 0)
+	ret = fwnode_property_read_string_array(fwnode, "gpio-line-names",
+						NULL, 0);
+	if (ret < 0)
 		return;
 
-	if (count > gdev->ngpio)
-		count = gdev->ngpio;
+	if (ret != gdev->ngpio) {
+		dev_warn(&gdev->dev,
+			 "names %d do not match number of GPIOs %d\n", ret,
+			 gdev->ngpio);
+		return;
+	}
 
-	names = kcalloc(count, sizeof(*names), GFP_KERNEL);
+	names = kcalloc(gdev->ngpio, sizeof(*names), GFP_KERNEL);
 	if (!names)
 		return;
 
 	ret = fwnode_property_read_string_array(fwnode, "gpio-line-names",
-						names, count);
+						names, gdev->ngpio);
 	if (ret < 0) {
 		dev_warn(&gdev->dev, "failed to read GPIO line names\n");
 		kfree(names);
 		return;
 	}
 
-	for (i = 0; i < count; i++)
+	for (i = 0; i < gdev->ngpio; i++)
 		gdev->descs[i].name = names[i];
 
 	kfree(names);

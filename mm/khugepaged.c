@@ -944,7 +944,8 @@ static void collapse_huge_page(struct mm_struct *mm,
 	int isolated = 0, result = 0;
 	struct mem_cgroup *memcg;
 	struct vm_area_struct *vma;
-	struct mmu_notifier_range range;
+	unsigned long mmun_start;	/* For mmu_notifiers */
+	unsigned long mmun_end;		/* For mmu_notifiers */
 	gfp_t gfp;
 
 	VM_BUG_ON(address & ~HPAGE_PMD_MASK);
@@ -1016,8 +1017,9 @@ static void collapse_huge_page(struct mm_struct *mm,
 	pte = pte_offset_map(pmd, address);
 	pte_ptl = pte_lockptr(mm, pmd);
 
-	mmu_notifier_range_init(&range, mm, address, address + HPAGE_PMD_SIZE);
-	mmu_notifier_invalidate_range_start(&range);
+	mmun_start = address;
+	mmun_end   = address + HPAGE_PMD_SIZE;
+	mmu_notifier_invalidate_range_start(mm, mmun_start, mmun_end);
 	pmd_ptl = pmd_lock(mm, pmd); /* probably unnecessary */
 	/*
 	 * After this gup_fast can't run anymore. This also removes
@@ -1027,7 +1029,7 @@ static void collapse_huge_page(struct mm_struct *mm,
 	 */
 	_pmd = pmdp_collapse_flush(vma, address, pmd);
 	spin_unlock(pmd_ptl);
-	mmu_notifier_invalidate_range_end(&range);
+	mmu_notifier_invalidate_range_end(mm, mmun_start, mmun_end);
 
 	spin_lock(pte_ptl);
 	isolated = __collapse_huge_page_isolate(vma, address, pte);
@@ -1074,7 +1076,6 @@ static void collapse_huge_page(struct mm_struct *mm,
 	BUG_ON(!pmd_none(*pmd));
 	page_add_new_anon_rmap(new_page, vma, address, true);
 	mem_cgroup_commit_charge(new_page, memcg, false, true);
-	count_memcg_events(memcg, THP_COLLAPSE_ALLOC, 1);
 	lru_cache_add_active_or_unevictable(new_page, vma);
 	pgtable_trans_huge_deposit(mm, pmd, pgtable);
 	set_pmd_at(mm, address, pmd, _pmd);
@@ -1224,7 +1225,7 @@ static void collect_mm_slot(struct mm_slot *mm_slot)
 {
 	struct mm_struct *mm = mm_slot->mm;
 
-	lockdep_assert_held(&khugepaged_mm_lock);
+	VM_BUG_ON(NR_CPUS != 1 && !spin_is_locked(&khugepaged_mm_lock));
 
 	if (khugepaged_test_exit(mm)) {
 		/* free mm_slot */
@@ -1287,17 +1288,17 @@ static void retract_page_tables(struct address_space *mapping, pgoff_t pgoff)
  *
  * Basic scheme is simple, details are more complex:
  *  - allocate and lock a new huge page;
- *  - scan page cache replacing old pages with the new one
+ *  - scan over radix tree replacing old pages the new one
  *    + swap in pages if necessary;
  *    + fill in gaps;
- *    + keep old pages around in case rollback is required;
- *  - if replacing succeeds:
+ *    + keep old pages around in case if rollback is required;
+ *  - if replacing succeed:
  *    + copy data over;
  *    + free old pages;
  *    + unlock huge page;
  *  - if replacing failed;
  *    + put all pages back and unfreeze them;
- *    + restore gaps in the page cache;
+ *    + restore gaps in the radix-tree;
  *    + unlock and free huge page;
  */
 static void collapse_shmem(struct mm_struct *mm,
@@ -1305,11 +1306,12 @@ static void collapse_shmem(struct mm_struct *mm,
 		struct page **hpage, int node)
 {
 	gfp_t gfp;
-	struct page *new_page;
+	struct page *page, *new_page, *tmp;
 	struct mem_cgroup *memcg;
 	pgoff_t index, end = start + HPAGE_PMD_NR;
 	LIST_HEAD(pagelist);
-	XA_STATE_ORDER(xas, &mapping->i_pages, start, HPAGE_PMD_ORDER);
+	struct radix_tree_iter iter;
+	void **slot;
 	int nr_none = 0, result = SCAN_SUCCEED;
 
 	VM_BUG_ON(start & (HPAGE_PMD_NR - 1));
@@ -1328,20 +1330,6 @@ static void collapse_shmem(struct mm_struct *mm,
 		goto out;
 	}
 
-	/* This will be less messy when we use multi-index entries */
-	do {
-		xas_lock_irq(&xas);
-		xas_create_range(&xas);
-		if (!xas_error(&xas))
-			break;
-		xas_unlock_irq(&xas);
-		if (!xas_nomem(&xas, GFP_KERNEL)) {
-			mem_cgroup_cancel_charge(new_page, memcg, true);
-			result = SCAN_FAIL;
-			goto out;
-		}
-	} while (1);
-
 	__SetPageLocked(new_page);
 	__SetPageSwapBacked(new_page);
 	new_page->index = start;
@@ -1353,46 +1341,55 @@ static void collapse_shmem(struct mm_struct *mm,
 	 * be able to map it or use it in another way until we unlock it.
 	 */
 
-	xas_set(&xas, start);
-	for (index = start; index < end; index++) {
-		struct page *page = xas_next(&xas);
+	index = start;
+	xa_lock_irq(&mapping->i_pages);
+	radix_tree_for_each_slot(slot, &mapping->i_pages, &iter, start) {
+		int n = min(iter.index, end) - index;
 
-		VM_BUG_ON(index != xas.xa_index);
-		if (!page) {
-			/*
-			 * Stop if extent has been truncated or hole-punched,
-			 * and is now completely empty.
-			 */
-			if (index == start) {
-				if (!xas_next_entry(&xas, end - 1)) {
-					result = SCAN_TRUNCATED;
-					goto xa_locked;
-				}
-				xas_set(&xas, index);
-			}
-			if (!shmem_charge(mapping->host, 1)) {
-				result = SCAN_FAIL;
-				goto xa_locked;
-			}
-			xas_store(&xas, new_page + (index % HPAGE_PMD_NR));
-			nr_none++;
-			continue;
+		/*
+		 * Stop if extent has been hole-punched, and is now completely
+		 * empty (the more obvious i_size_read() check would take an
+		 * irq-unsafe seqlock on 32-bit).
+		 */
+		if (n >= HPAGE_PMD_NR) {
+			result = SCAN_TRUNCATED;
+			goto tree_locked;
 		}
 
-		if (xa_is_value(page) || !PageUptodate(page)) {
-			xas_unlock_irq(&xas);
+		/*
+		 * Handle holes in the radix tree: charge it from shmem and
+		 * insert relevant subpage of new_page into the radix-tree.
+		 */
+		if (n && !shmem_charge(mapping->host, n)) {
+			result = SCAN_FAIL;
+			goto tree_locked;
+		}
+		for (; index < min(iter.index, end); index++) {
+			radix_tree_insert(&mapping->i_pages, index,
+					new_page + (index % HPAGE_PMD_NR));
+		}
+		nr_none += n;
+
+		/* We are done. */
+		if (index >= end)
+			break;
+
+		page = radix_tree_deref_slot_protected(slot,
+				&mapping->i_pages.xa_lock);
+		if (radix_tree_exceptional_entry(page) || !PageUptodate(page)) {
+			xa_unlock_irq(&mapping->i_pages);
 			/* swap in or instantiate fallocated page */
 			if (shmem_getpage(mapping->host, index, &page,
 						SGP_NOHUGE)) {
 				result = SCAN_FAIL;
-				goto xa_unlocked;
+				goto tree_unlocked;
 			}
 		} else if (trylock_page(page)) {
 			get_page(page);
-			xas_unlock_irq(&xas);
+			xa_unlock_irq(&mapping->i_pages);
 		} else {
 			result = SCAN_PAGE_LOCK;
-			goto xa_locked;
+			goto tree_locked;
 		}
 
 		/*
@@ -1424,21 +1421,22 @@ static void collapse_shmem(struct mm_struct *mm,
 		if (page_mapped(page))
 			unmap_mapping_pages(mapping, index, 1, false);
 
-		xas_lock_irq(&xas);
-		xas_set(&xas, index);
+		xa_lock_irq(&mapping->i_pages);
 
-		VM_BUG_ON_PAGE(page != xas_load(&xas), page);
+		slot = radix_tree_lookup_slot(&mapping->i_pages, index);
+		VM_BUG_ON_PAGE(page != radix_tree_deref_slot_protected(slot,
+					&mapping->i_pages.xa_lock), page);
 		VM_BUG_ON_PAGE(page_mapped(page), page);
 
 		/*
 		 * The page is expected to have page_count() == 3:
 		 *  - we hold a pin on it;
-		 *  - one reference from page cache;
+		 *  - one reference from radix tree;
 		 *  - one from isolate_lru_page;
 		 */
 		if (!page_ref_freeze(page, 3)) {
 			result = SCAN_PAGE_COUNT;
-			xas_unlock_irq(&xas);
+			xa_unlock_irq(&mapping->i_pages);
 			putback_lru_page(page);
 			goto out_unlock;
 		}
@@ -1450,12 +1448,40 @@ static void collapse_shmem(struct mm_struct *mm,
 		list_add_tail(&page->lru, &pagelist);
 
 		/* Finally, replace with the new page. */
-		xas_store(&xas, new_page + (index % HPAGE_PMD_NR));
+		radix_tree_replace_slot(&mapping->i_pages, slot,
+				new_page + (index % HPAGE_PMD_NR));
+
+		slot = radix_tree_iter_resume(slot, &iter);
+		index++;
 		continue;
 out_unlock:
 		unlock_page(page);
 		put_page(page);
-		goto xa_unlocked;
+		goto tree_unlocked;
+	}
+
+	/*
+	 * Handle hole in radix tree at the end of the range.
+	 * This code only triggers if there's nothing in radix tree
+	 * beyond 'end'.
+	 */
+	if (index < end) {
+		int n = end - index;
+
+		/* Stop if extent has been truncated, and is now empty */
+		if (n >= HPAGE_PMD_NR) {
+			result = SCAN_TRUNCATED;
+			goto tree_locked;
+		}
+		if (!shmem_charge(mapping->host, n)) {
+			result = SCAN_FAIL;
+			goto tree_locked;
+		}
+		for (; index < end; index++) {
+			radix_tree_insert(&mapping->i_pages, index,
+					new_page + (index % HPAGE_PMD_NR));
+		}
+		nr_none += n;
 	}
 
 	__inc_node_page_state(new_page, NR_SHMEM_THPS);
@@ -1466,16 +1492,14 @@ out_unlock:
 		__mod_node_page_state(zone->zone_pgdat, NR_SHMEM, nr_none);
 	}
 
-xa_locked:
-	xas_unlock_irq(&xas);
-xa_unlocked:
+tree_locked:
+	xa_unlock_irq(&mapping->i_pages);
+tree_unlocked:
 
 	if (result == SCAN_SUCCEED) {
-		struct page *page, *tmp;
-
 		/*
-		 * Replacing old pages with new one has succeeded, now we
-		 * need to copy the content and free the old pages.
+		 * Replacing old pages with new one has succeed, now we need to
+		 * copy the content and free old pages.
 		 */
 		index = start;
 		list_for_each_entry_safe(page, tmp, &pagelist, lru) {
@@ -1503,7 +1527,6 @@ xa_unlocked:
 		page_ref_add(new_page, HPAGE_PMD_NR - 1);
 		set_page_dirty(new_page);
 		mem_cgroup_commit_charge(new_page, memcg, false, true);
-		count_memcg_events(memcg, THP_COLLAPSE_ALLOC, 1);
 		lru_cache_add_anon(new_page);
 
 		/*
@@ -1514,40 +1537,39 @@ xa_unlocked:
 
 		khugepaged_pages_collapsed++;
 	} else {
-		struct page *page;
-
-		/* Something went wrong: roll back page cache changes */
-		xas_lock_irq(&xas);
+		/* Something went wrong: rollback changes to the radix-tree */
+		xa_lock_irq(&mapping->i_pages);
 		mapping->nrpages -= nr_none;
 		shmem_uncharge(mapping->host, nr_none);
 
-		xas_set(&xas, start);
-		xas_for_each(&xas, page, end - 1) {
+		radix_tree_for_each_slot(slot, &mapping->i_pages, &iter, start) {
+			if (iter.index >= end)
+				break;
 			page = list_first_entry_or_null(&pagelist,
 					struct page, lru);
-			if (!page || xas.xa_index < page->index) {
+			if (!page || iter.index < page->index) {
 				if (!nr_none)
 					break;
 				nr_none--;
 				/* Put holes back where they were */
-				xas_store(&xas, NULL);
+				radix_tree_delete(&mapping->i_pages, iter.index);
 				continue;
 			}
 
-			VM_BUG_ON_PAGE(page->index != xas.xa_index, page);
+			VM_BUG_ON_PAGE(page->index != iter.index, page);
 
 			/* Unfreeze the page. */
 			list_del(&page->lru);
 			page_ref_unfreeze(page, 2);
-			xas_store(&xas, page);
-			xas_pause(&xas);
-			xas_unlock_irq(&xas);
+			radix_tree_replace_slot(&mapping->i_pages, slot, page);
+			slot = radix_tree_iter_resume(slot, &iter);
+			xa_unlock_irq(&mapping->i_pages);
 			unlock_page(page);
 			putback_lru_page(page);
-			xas_lock_irq(&xas);
+			xa_lock_irq(&mapping->i_pages);
 		}
 		VM_BUG_ON(nr_none);
-		xas_unlock_irq(&xas);
+		xa_unlock_irq(&mapping->i_pages);
 
 		mem_cgroup_cancel_charge(new_page, memcg, true);
 		new_page->mapping = NULL;
@@ -1564,7 +1586,8 @@ static void khugepaged_scan_shmem(struct mm_struct *mm,
 		pgoff_t start, struct page **hpage)
 {
 	struct page *page = NULL;
-	XA_STATE(xas, &mapping->i_pages, start);
+	struct radix_tree_iter iter;
+	void **slot;
 	int present, swap;
 	int node = NUMA_NO_NODE;
 	int result = SCAN_SUCCEED;
@@ -1573,11 +1596,17 @@ static void khugepaged_scan_shmem(struct mm_struct *mm,
 	swap = 0;
 	memset(khugepaged_node_load, 0, sizeof(khugepaged_node_load));
 	rcu_read_lock();
-	xas_for_each(&xas, page, start + HPAGE_PMD_NR - 1) {
-		if (xas_retry(&xas, page))
-			continue;
+	radix_tree_for_each_slot(slot, &mapping->i_pages, &iter, start) {
+		if (iter.index >= start + HPAGE_PMD_NR)
+			break;
 
-		if (xa_is_value(page)) {
+		page = radix_tree_deref_slot(slot);
+		if (radix_tree_deref_retry(page)) {
+			slot = radix_tree_iter_retry(&iter);
+			continue;
+		}
+
+		if (radix_tree_exception(page)) {
 			if (++swap > khugepaged_max_ptes_swap) {
 				result = SCAN_EXCEED_SWAP_PTE;
 				break;
@@ -1616,7 +1645,7 @@ static void khugepaged_scan_shmem(struct mm_struct *mm,
 		present++;
 
 		if (need_resched()) {
-			xas_pause(&xas);
+			slot = radix_tree_iter_resume(slot, &iter);
 			cond_resched_rcu();
 		}
 	}
@@ -1653,7 +1682,7 @@ static unsigned int khugepaged_scan_mm_slot(unsigned int pages,
 	int progress = 0;
 
 	VM_BUG_ON(!pages);
-	lockdep_assert_held(&khugepaged_mm_lock);
+	VM_BUG_ON(NR_CPUS != 1 && !spin_is_locked(&khugepaged_mm_lock));
 
 	if (khugepaged_scan.mm_slot)
 		mm_slot = khugepaged_scan.mm_slot;

@@ -13,9 +13,10 @@
 #include <linux/mm.h>
 #include <linux/gfp.h>
 #include <linux/slab.h>
-#include <linux/memblock.h>
+#include <linux/bootmem.h>
 #include <linux/elf.h>
 #include <asm/asm-offsets.h>
+#include <linux/memblock.h>
 #include <asm/os_info.h>
 #include <asm/elf.h>
 #include <asm/ipl.h>
@@ -60,10 +61,7 @@ struct save_area * __init save_area_alloc(bool is_boot_cpu)
 {
 	struct save_area *sa;
 
-	sa = (void *) memblock_phys_alloc(sizeof(*sa), 8);
-	if (!sa)
-		panic("Failed to allocate save area\n");
-
+	sa = (void *) memblock_alloc(sizeof(*sa), 8);
 	if (is_boot_cpu)
 		list_add(&sa->list, &dump_save_areas);
 	else

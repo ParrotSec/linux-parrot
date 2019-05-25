@@ -34,4 +34,4 @@ ENDPROC(sirfsoc_secondary_startup)
 
         .align
 1:      .long   .
-        .long   prima2_pen_release
+        .long   pen_release

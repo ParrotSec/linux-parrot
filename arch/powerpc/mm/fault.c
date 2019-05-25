@@ -103,7 +103,8 @@ static bool store_updates_sp(unsigned int inst)
  */
 
 static int
-__bad_area_nosemaphore(struct pt_regs *regs, unsigned long address, int si_code)
+__bad_area_nosemaphore(struct pt_regs *regs, unsigned long address, int si_code,
+		int pkey)
 {
 	/*
 	 * If we are in kernel mode, bail out with a SEGV, this will
@@ -113,17 +114,18 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long address, int si_code)
 	if (!user_mode(regs))
 		return SIGSEGV;
 
-	_exception(SIGSEGV, regs, si_code, address);
+	_exception_pkey(SIGSEGV, regs, si_code, address, pkey);
 
 	return 0;
 }
 
 static noinline int bad_area_nosemaphore(struct pt_regs *regs, unsigned long address)
 {
-	return __bad_area_nosemaphore(regs, address, SEGV_MAPERR);
+	return __bad_area_nosemaphore(regs, address, SEGV_MAPERR, 0);
 }
 
-static int __bad_area(struct pt_regs *regs, unsigned long address, int si_code)
+static int __bad_area(struct pt_regs *regs, unsigned long address, int si_code,
+			int pkey)
 {
 	struct mm_struct *mm = current->mm;
 
@@ -133,61 +135,54 @@ static int __bad_area(struct pt_regs *regs, unsigned long address, int si_code)
 	 */
 	up_read(&mm->mmap_sem);
 
-	return __bad_area_nosemaphore(regs, address, si_code);
+	return __bad_area_nosemaphore(regs, address, si_code, pkey);
 }
 
 static noinline int bad_area(struct pt_regs *regs, unsigned long address)
 {
-	return __bad_area(regs, address, SEGV_MAPERR);
+	return __bad_area(regs, address, SEGV_MAPERR, 0);
 }
 
 static int bad_key_fault_exception(struct pt_regs *regs, unsigned long address,
 				    int pkey)
 {
-	/*
-	 * If we are in kernel mode, bail out with a SEGV, this will
-	 * be caught by the assembly which will restore the non-volatile
-	 * registers before calling bad_page_fault()
-	 */
-	if (!user_mode(regs))
-		return SIGSEGV;
-
-	_exception_pkey(regs, address, pkey);
-
-	return 0;
+	return __bad_area_nosemaphore(regs, address, SEGV_PKUERR, pkey);
 }
 
 static noinline int bad_access(struct pt_regs *regs, unsigned long address)
 {
-	return __bad_area(regs, address, SEGV_ACCERR);
+	return __bad_area(regs, address, SEGV_ACCERR, 0);
 }
 
 static int do_sigbus(struct pt_regs *regs, unsigned long address,
 		     vm_fault_t fault)
 {
+	siginfo_t info;
+	unsigned int lsb = 0;
+
 	if (!user_mode(regs))
 		return SIGBUS;
 
 	current->thread.trap_nr = BUS_ADRERR;
+	clear_siginfo(&info);
+	info.si_signo = SIGBUS;
+	info.si_errno = 0;
+	info.si_code = BUS_ADRERR;
+	info.si_addr = (void __user *)address;
 #ifdef CONFIG_MEMORY_FAILURE
 	if (fault & (VM_FAULT_HWPOISON|VM_FAULT_HWPOISON_LARGE)) {
-		unsigned int lsb = 0; /* shutup gcc */
-
 		pr_err("MCE: Killing %s:%d due to hardware memory corruption fault at %lx\n",
 			current->comm, current->pid, address);
-
-		if (fault & VM_FAULT_HWPOISON_LARGE)
-			lsb = hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
-		if (fault & VM_FAULT_HWPOISON)
-			lsb = PAGE_SHIFT;
-
-		force_sig_mceerr(BUS_MCEERR_AR, (void __user *)address, lsb,
-				 current);
-		return 0;
+		info.si_code = BUS_MCEERR_AR;
 	}
 
+	if (fault & VM_FAULT_HWPOISON_LARGE)
+		lsb = hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
+	if (fault & VM_FAULT_HWPOISON)
+		lsb = PAGE_SHIFT;
 #endif
-	force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *)address, current);
+	info.si_addr_lsb = lsb;
+	force_sig_info(SIGBUS, &info, current);
 	return 0;
 }
 
@@ -274,7 +269,7 @@ static bool bad_stack_expansion(struct pt_regs *regs, unsigned long address,
 			return false;
 
 		if ((flags & FAULT_FLAG_WRITE) && (flags & FAULT_FLAG_USER) &&
-		    access_ok(nip, sizeof(*nip))) {
+		    access_ok(VERIFY_READ, nip, sizeof(*nip))) {
 			unsigned int inst;
 			int res;
 
@@ -343,20 +338,9 @@ static inline void cmo_account_page_fault(void)
 static inline void cmo_account_page_fault(void) { }
 #endif /* CONFIG_PPC_SMLPAR */
 
-#ifdef CONFIG_PPC_BOOK3S
-static void sanity_check_fault(bool is_write, bool is_user,
-			       unsigned long error_code, unsigned long address)
+#ifdef CONFIG_PPC_STD_MMU
+static void sanity_check_fault(bool is_write, unsigned long error_code)
 {
-	/*
-	 * Userspace trying to access kernel address, we get PROTFAULT for that.
-	 */
-	if (is_user && address >= TASK_SIZE) {
-		pr_crit_ratelimited("%s[%d]: User access of kernel address (%lx) - exploit attempt? (uid: %d)\n",
-				   current->comm, current->pid, address,
-				   from_kuid(&init_user_ns, current_uid()));
-		return;
-	}
-
 	/*
 	 * For hash translation mode, we should never get a
 	 * PROTFAULT. Any update to pte to reduce access will result in us
@@ -386,15 +370,12 @@ static void sanity_check_fault(bool is_write, bool is_user,
 	 * For radix, we can get prot fault for autonuma case, because radix
 	 * page table will have them marked noaccess for user.
 	 */
-	if (radix_enabled() || is_write)
-		return;
-
-	WARN_ON_ONCE(error_code & DSISR_PROTFAULT);
+	if (!radix_enabled() && !is_write)
+		WARN_ON_ONCE(error_code & DSISR_PROTFAULT);
 }
 #else
-static void sanity_check_fault(bool is_write, bool is_user,
-			       unsigned long error_code, unsigned long address) { }
-#endif /* CONFIG_PPC_BOOK3S */
+static void sanity_check_fault(bool is_write, unsigned long error_code) { }
+#endif /* CONFIG_PPC_STD_MMU */
 
 /*
  * Define the correct "is_write" bit in error_code based
@@ -451,7 +432,7 @@ static int __do_page_fault(struct pt_regs *regs, unsigned long address,
 	}
 
 	/* Additional sanity check(s) */
-	sanity_check_fault(is_write, is_user, error_code, address);
+	sanity_check_fault(is_write, error_code);
 
 	/*
 	 * The kernel should never take an execute fault nor should it
@@ -652,23 +633,21 @@ void bad_page_fault(struct pt_regs *regs, unsigned long address, int sig)
 	switch (TRAP(regs)) {
 	case 0x300:
 	case 0x380:
-	case 0xe00:
-		pr_alert("BUG: %s at 0x%08lx\n",
-			 regs->dar < PAGE_SIZE ? "Kernel NULL pointer dereference" :
-			 "Unable to handle kernel data access", regs->dar);
+		printk(KERN_ALERT "Unable to handle kernel paging request for "
+			"data at address 0x%08lx\n", regs->dar);
 		break;
 	case 0x400:
 	case 0x480:
-		pr_alert("BUG: Unable to handle kernel instruction fetch%s",
-			 regs->nip < PAGE_SIZE ? " (NULL pointer?)\n" : "\n");
+		printk(KERN_ALERT "Unable to handle kernel paging request for "
+			"instruction fetch\n");
 		break;
 	case 0x600:
-		pr_alert("BUG: Unable to handle kernel unaligned access at 0x%08lx\n",
-			 regs->dar);
+		printk(KERN_ALERT "Unable to handle kernel paging request for "
+			"unaligned access at address 0x%08lx\n", regs->dar);
 		break;
 	default:
-		pr_alert("BUG: Unable to handle unknown paging fault at 0x%08lx\n",
-			 regs->dar);
+		printk(KERN_ALERT "Unable to handle kernel paging request for "
+			"unknown fault\n");
 		break;
 	}
 	printk(KERN_ALERT "Faulting instruction address: 0x%08lx\n",

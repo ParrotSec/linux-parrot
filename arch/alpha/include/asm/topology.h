@@ -4,7 +4,6 @@
 
 #include <linux/smp.h>
 #include <linux/threads.h>
-#include <linux/numa.h>
 #include <asm/machvec.h>
 
 #ifdef CONFIG_NUMA
@@ -30,7 +29,7 @@ static const struct cpumask *cpumask_of_node(int node)
 {
 	int cpu;
 
-	if (node == NUMA_NO_NODE)
+	if (node == -1)
 		return cpu_all_mask;
 
 	cpumask_clear(&node_to_cpumask_map[node]);

@@ -86,7 +86,8 @@ smp_86xx_kick_cpu(int nr)
 		mdelay(1);
 
 	/* Restore the exception vector */
-	patch_instruction(vector, save_vector);
+	*vector = save_vector;
+	flush_icache_range((unsigned long) vector, (unsigned long) vector + 4);
 
 	local_irq_restore(flags);
 

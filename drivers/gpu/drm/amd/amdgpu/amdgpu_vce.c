@@ -1032,10 +1032,8 @@ out:
  * @ib: the IB to execute
  *
  */
-void amdgpu_vce_ring_emit_ib(struct amdgpu_ring *ring,
-				struct amdgpu_job *job,
-				struct amdgpu_ib *ib,
-				uint32_t flags)
+void amdgpu_vce_ring_emit_ib(struct amdgpu_ring *ring, struct amdgpu_ib *ib,
+			     unsigned vmid, bool ctx_switch)
 {
 	amdgpu_ring_write(ring, VCE_CMD_IB);
 	amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
@@ -1081,9 +1079,11 @@ int amdgpu_vce_ring_test_ring(struct amdgpu_ring *ring)
 		return 0;
 
 	r = amdgpu_ring_alloc(ring, 16);
-	if (r)
+	if (r) {
+		DRM_ERROR("amdgpu: vce failed to lock ring %d (%d).\n",
+			  ring->idx, r);
 		return r;
-
+	}
 	amdgpu_ring_write(ring, VCE_CMD_END);
 	amdgpu_ring_commit(ring);
 
@@ -1093,8 +1093,14 @@ int amdgpu_vce_ring_test_ring(struct amdgpu_ring *ring)
 		DRM_UDELAY(1);
 	}
 
-	if (i >= timeout)
+	if (i < timeout) {
+		DRM_DEBUG("ring test on %d succeeded in %d usecs\n",
+			 ring->idx, i);
+	} else {
+		DRM_ERROR("amdgpu: ring %d test failed\n",
+			  ring->idx);
 		r = -ETIMEDOUT;
+	}
 
 	return r;
 }
@@ -1115,19 +1121,27 @@ int amdgpu_vce_ring_test_ib(struct amdgpu_ring *ring, long timeout)
 		return 0;
 
 	r = amdgpu_vce_get_create_msg(ring, 1, NULL);
-	if (r)
+	if (r) {
+		DRM_ERROR("amdgpu: failed to get create msg (%ld).\n", r);
 		goto error;
+	}
 
 	r = amdgpu_vce_get_destroy_msg(ring, 1, true, &fence);
-	if (r)
+	if (r) {
+		DRM_ERROR("amdgpu: failed to get destroy ib (%ld).\n", r);
 		goto error;
+	}
 
 	r = dma_fence_wait_timeout(fence, false, timeout);
-	if (r == 0)
+	if (r == 0) {
+		DRM_ERROR("amdgpu: IB test timed out.\n");
 		r = -ETIMEDOUT;
-	else if (r > 0)
+	} else if (r < 0) {
+		DRM_ERROR("amdgpu: fence wait failed (%ld).\n", r);
+	} else {
+		DRM_DEBUG("ib test on ring %d succeeded\n", ring->idx);
 		r = 0;
-
+	}
 error:
 	dma_fence_put(fence);
 	return r;

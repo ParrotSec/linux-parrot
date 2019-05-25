@@ -8,29 +8,20 @@
 
 #include "./ff.h"
 
-const char *snd_ff_proc_get_clk_label(enum snd_ff_clock_src src)
-{
-	static const char *const labels[] = {
-		"Internal",
-		"S/PDIF",
-		"ADAT1",
-		"ADAT2",
-		"Word",
-		"LTC",
-	};
-
-	if (src >= ARRAY_SIZE(labels))
-		return NULL;
-
-	return labels[src];
-}
-
-static void proc_dump_status(struct snd_info_entry *entry,
-			     struct snd_info_buffer *buffer)
+static void proc_dump_clock_config(struct snd_info_entry *entry,
+				   struct snd_info_buffer *buffer)
 {
 	struct snd_ff *ff = entry->private_data;
 
-	ff->spec->protocol->dump_status(ff, buffer);
+	ff->spec->protocol->dump_clock_config(ff, buffer);
+}
+
+static void proc_dump_sync_status(struct snd_info_entry *entry,
+				  struct snd_info_buffer *buffer)
+{
+	struct snd_ff *ff = entry->private_data;
+
+	ff->spec->protocol->dump_sync_status(ff, buffer);
 }
 
 static void add_node(struct snd_ff *ff, struct snd_info_entry *root,
@@ -41,8 +32,12 @@ static void add_node(struct snd_ff *ff, struct snd_info_entry *root,
 	struct snd_info_entry *entry;
 
 	entry = snd_info_create_card_entry(ff->card, name, root);
-	if (entry)
-		snd_info_set_text_ops(entry, ff, op);
+	if (entry == NULL)
+		return;
+
+	snd_info_set_text_ops(entry, ff, op);
+	if (snd_info_register(entry) < 0)
+		snd_info_free_entry(entry);
 }
 
 void snd_ff_proc_init(struct snd_ff *ff)
@@ -58,6 +53,11 @@ void snd_ff_proc_init(struct snd_ff *ff)
 	if (root == NULL)
 		return;
 	root->mode = S_IFDIR | 0555;
+	if (snd_info_register(root) < 0) {
+		snd_info_free_entry(root);
+		return;
+	}
 
-	add_node(ff, root, "status", proc_dump_status);
+	add_node(ff, root, "clock-config", proc_dump_clock_config);
+	add_node(ff, root, "sync-status", proc_dump_sync_status);
 }

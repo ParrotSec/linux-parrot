@@ -13,6 +13,7 @@
 #include "dpu_hwio.h"
 #include "dpu_hw_catalog.h"
 #include "dpu_hw_vbif.h"
+#include "dpu_dbg.h"
 
 #define VBIF_VERSION			0x0000
 #define VBIF_CLK_FORCE_CTRL0		0x0008

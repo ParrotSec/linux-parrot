@@ -155,9 +155,10 @@ struct logical_input {
 			int release_data;
 		} std;
 		struct {	/* valid when type == INPUT_TYPE_KBD */
-			char press_str[sizeof(void *) + sizeof(int)] __nonstring;
-			char repeat_str[sizeof(void *) + sizeof(int)] __nonstring;
-			char release_str[sizeof(void *) + sizeof(int)] __nonstring;
+			/* strings can be non null-terminated */
+			char press_str[sizeof(void *) + sizeof(int)];
+			char repeat_str[sizeof(void *) + sizeof(int)];
+			char release_str[sizeof(void *) + sizeof(int)];
 		} kbd;
 	} u;
 };
@@ -1620,7 +1621,7 @@ err_lcd_unreg:
 	if (lcd.enabled)
 		charlcd_unregister(lcd.charlcd);
 err_unreg_device:
-	charlcd_free(lcd.charlcd);
+	kfree(lcd.charlcd);
 	lcd.charlcd = NULL;
 	parport_unregister_device(pprt);
 	pprt = NULL;
@@ -1647,7 +1648,7 @@ static void panel_detach(struct parport *port)
 	if (lcd.enabled) {
 		charlcd_unregister(lcd.charlcd);
 		lcd.initialized = false;
-		charlcd_free(lcd.charlcd);
+		kfree(lcd.charlcd);
 		lcd.charlcd = NULL;
 	}
 

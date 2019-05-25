@@ -86,16 +86,14 @@ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
 {
 	struct net *net = dev_net(skb->dev);
 	struct xfrm_state *x = NULL;
-	struct sec_path *sp;
 	int i = 0;
 
-	sp = secpath_set(skb);
-	if (!sp) {
+	if (secpath_set(skb)) {
 		XFRM_INC_STATS(net, LINUX_MIB_XFRMINERROR);
 		goto drop;
 	}
 
-	if (1 + sp->len == XFRM_MAX_DEPTH) {
+	if (1 + skb->sp->len == XFRM_MAX_DEPTH) {
 		XFRM_INC_STATS(net, LINUX_MIB_XFRMINBUFFERERROR);
 		goto drop;
 	}
@@ -147,7 +145,7 @@ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
 		goto drop;
 	}
 
-	sp->xvec[sp->len++] = x;
+	skb->sp->xvec[skb->sp->len++] = x;
 
 	spin_lock(&x->lock);
 

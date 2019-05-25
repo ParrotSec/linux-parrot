@@ -16,6 +16,8 @@ KBUILD_DEFCONFIG := generic_defconfig
 NM := $(CROSS_COMPILE)nm -B
 READELF := $(CROSS_COMPILE)readelf
 
+export AWK
+
 CHECKFLAGS	+= -D__ia64=1 -D__ia64__=1 -D_LP64 -D__LP64__
 
 OBJCOPYFLAGS	:= --strip-all
@@ -77,9 +79,6 @@ unwcheck: vmlinux
 
 archclean:
 	$(Q)$(MAKE) $(clean)=$(boot)
-
-archheaders:
-	$(Q)$(MAKE) $(build)=arch/ia64/kernel/syscalls all
 
 CLEAN_FILES += vmlinux.gz bootloader
 

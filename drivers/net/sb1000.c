@@ -535,20 +535,17 @@ sb1000_activate(const int ioaddr[], const char* name)
 	int status;
 
 	ssleep(1);
-	status = card_send_command(ioaddr, name, Command0, st);
-	if (status)
+	if ((status = card_send_command(ioaddr, name, Command0, st)))
 		return status;
-	status = card_send_command(ioaddr, name, Command1, st);
-	if (status)
+	if ((status = card_send_command(ioaddr, name, Command1, st)))
 		return status;
 	if (st[3] != 0xf1) {
-		status = sb1000_start_get_set_command(ioaddr, name);
-		if (status)
+    	if ((status = sb1000_start_get_set_command(ioaddr, name)))
 			return status;
 		return -EIO;
 	}
 	udelay(1000);
-	return sb1000_start_get_set_command(ioaddr, name);
+    return sb1000_start_get_set_command(ioaddr, name);
 }
 
 /* get SB1000 firmware version */

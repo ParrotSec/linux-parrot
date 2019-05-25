@@ -82,11 +82,11 @@ static enum power_supply_type gpio_charger_get_type(struct device *dev)
 		if (!strcmp("usb-sdp", chargetype))
 			return POWER_SUPPLY_TYPE_USB;
 		if (!strcmp("usb-dcp", chargetype))
-			return POWER_SUPPLY_TYPE_USB;
+			return POWER_SUPPLY_TYPE_USB_DCP;
 		if (!strcmp("usb-cdp", chargetype))
-			return POWER_SUPPLY_TYPE_USB;
+			return POWER_SUPPLY_TYPE_USB_CDP;
 		if (!strcmp("usb-aca", chargetype))
-			return POWER_SUPPLY_TYPE_USB;
+			return POWER_SUPPLY_TYPE_USB_ACA;
 	}
 	dev_warn(dev, "unknown charger type %s\n", chargetype);
 

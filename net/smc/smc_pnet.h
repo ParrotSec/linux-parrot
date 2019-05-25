@@ -19,16 +19,6 @@
 struct smc_ib_device;
 struct smcd_dev;
 
-/**
- * struct smc_pnettable - SMC PNET table anchor
- * @lock: Lock for list action
- * @pnetlist: List of PNETIDs
- */
-struct smc_pnettable {
-	rwlock_t lock;
-	struct list_head pnetlist;
-};
-
 static inline int smc_pnetid_by_dev_port(struct device *dev,
 					 unsigned short port, u8 *pnetid)
 {
@@ -40,9 +30,8 @@ static inline int smc_pnetid_by_dev_port(struct device *dev,
 }
 
 int smc_pnet_init(void) __init;
-int smc_pnet_net_init(struct net *net);
 void smc_pnet_exit(void);
-void smc_pnet_net_exit(struct net *net);
+int smc_pnet_remove_by_ibdev(struct smc_ib_device *ibdev);
 void smc_pnet_find_roce_resource(struct sock *sk,
 				 struct smc_ib_device **smcibdev, u8 *ibport,
 				 unsigned short vlan_id, u8 gid[]);

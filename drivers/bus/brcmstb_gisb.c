@@ -150,7 +150,8 @@ static ssize_t gisb_arb_get_timeout(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
-	struct brcmstb_gisb_arb_device *gdev = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct brcmstb_gisb_arb_device *gdev = platform_get_drvdata(pdev);
 	u32 timeout;
 
 	mutex_lock(&gdev->lock);
@@ -164,7 +165,8 @@ static ssize_t gisb_arb_set_timeout(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct brcmstb_gisb_arb_device *gdev = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct brcmstb_gisb_arb_device *gdev = platform_get_drvdata(pdev);
 	int val, ret;
 
 	ret = kstrtoint(buf, 10, &val);
@@ -416,7 +418,8 @@ static int __init brcmstb_gisb_arb_probe(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int brcmstb_gisb_arb_suspend(struct device *dev)
 {
-	struct brcmstb_gisb_arb_device *gdev = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct brcmstb_gisb_arb_device *gdev = platform_get_drvdata(pdev);
 
 	gdev->saved_timeout = gisb_read(gdev, ARB_TIMER);
 
@@ -428,7 +431,8 @@ static int brcmstb_gisb_arb_suspend(struct device *dev)
  */
 static int brcmstb_gisb_arb_resume_noirq(struct device *dev)
 {
-	struct brcmstb_gisb_arb_device *gdev = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct brcmstb_gisb_arb_device *gdev = platform_get_drvdata(pdev);
 
 	gisb_write(gdev, gdev->saved_timeout, ARB_TIMER);
 

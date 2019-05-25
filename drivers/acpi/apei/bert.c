@@ -42,20 +42,19 @@ static void __init bert_print_all(struct acpi_bert_region *region,
 	int remain = region_len;
 	u32 estatus_len;
 
-	while (remain >= sizeof(struct acpi_bert_region)) {
+	if (!estatus->block_status)
+		return;
+
+	while (remain > sizeof(struct acpi_bert_region)) {
+		if (cper_estatus_check(estatus)) {
+			pr_err(FW_BUG "Invalid error record.\n");
+			return;
+		}
+
 		estatus_len = cper_estatus_len(estatus);
 		if (remain < estatus_len) {
 			pr_err(FW_BUG "Truncated status block (length: %u).\n",
 			       estatus_len);
-			return;
-		}
-
-		/* No more error records. */
-		if (!estatus->block_status)
-			return;
-
-		if (cper_estatus_check(estatus)) {
-			pr_err(FW_BUG "Invalid error record.\n");
 			return;
 		}
 
@@ -71,6 +70,10 @@ static void __init bert_print_all(struct acpi_bert_region *region,
 		estatus->block_status = 0;
 
 		estatus = (void *)estatus + estatus_len;
+		/* No more error records. */
+		if (!estatus->block_status)
+			return;
+
 		remain -= estatus_len;
 	}
 }

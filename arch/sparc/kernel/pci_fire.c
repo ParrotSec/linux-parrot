@@ -11,7 +11,6 @@
 #include <linux/export.h>
 #include <linux/irq.h>
 #include <linux/of_device.h>
-#include <linux/numa.h>
 
 #include <asm/prom.h>
 #include <asm/irq.h>
@@ -417,7 +416,7 @@ static int pci_fire_pbm_init(struct pci_pbm_info *pbm,
 	struct device_node *dp = op->dev.of_node;
 	int err;
 
-	pbm->numa_node = NUMA_NO_NODE;
+	pbm->numa_node = -1;
 
 	pbm->pci_ops = &sun4u_pci_ops;
 	pbm->config_space_reg_bits = 12;

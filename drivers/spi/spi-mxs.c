@@ -39,7 +39,6 @@
 #include <linux/stmp_device.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/mxs-spi.h>
-#include <trace/events/spi.h>
 
 #define DRIVER_NAME		"mxs-spi"
 
@@ -375,8 +374,6 @@ static int mxs_spi_transfer_one(struct spi_master *master,
 
 	list_for_each_entry(t, &m->transfers, transfer_list) {
 
-		trace_spi_transfer_start(m, t);
-
 		status = mxs_spi_setup_transfer(m->spi, t);
 		if (status)
 			break;
@@ -421,8 +418,6 @@ static int mxs_spi_transfer_one(struct spi_master *master,
 						t->rx_buf, t->len,
 						flag);
 		}
-
-		trace_spi_transfer_stop(m, t);
 
 		if (status) {
 			stmp_reset_block(ssp->base);

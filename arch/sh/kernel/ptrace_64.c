@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * arch/sh/kernel/ptrace_64.c
  *
@@ -11,6 +10,10 @@
  *   Original x86 implementation:
  *	By Ross Biro 1/23/92
  *	edited by Linus Torvalds
+ *
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License.  See the file "COPYING" in the main directory of this archive
+ * for more details.
  */
 #include <linux/kernel.h>
 #include <linux/rwsem.h>

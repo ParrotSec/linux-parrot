@@ -175,7 +175,7 @@ struct msm_dsi_pll *msm_dsi_pll_init(struct platform_device *pdev,
 	}
 
 	if (IS_ERR(pll)) {
-		DRM_DEV_ERROR(dev, "%s: failed to init DSI PLL\n", __func__);
+		dev_err(dev, "%s: failed to init DSI PLL\n", __func__);
 		return pll;
 	}
 

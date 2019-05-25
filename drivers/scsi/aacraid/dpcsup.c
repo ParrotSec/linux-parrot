@@ -38,6 +38,7 @@
 #include <linux/slab.h>
 #include <linux/completion.h>
 #include <linux/blkdev.h>
+#include <linux/semaphore.h>
 
 #include "aacraid.h"
 
@@ -128,7 +129,7 @@ unsigned int aac_response_normal(struct aac_queue * q)
 			spin_lock_irqsave(&fib->event_lock, flagv);
 			if (!fib->done) {
 				fib->done = 1;
-				complete(&fib->event_wait);
+				up(&fib->event_wait);
 			}
 			spin_unlock_irqrestore(&fib->event_lock, flagv);
 
@@ -375,16 +376,16 @@ unsigned int aac_intr_normal(struct aac_dev *dev, u32 index, int isAif,
 				start_callback = 1;
 			} else {
 				unsigned long flagv;
-				int completed = 0;
+				int complete = 0;
 
 				dprintk((KERN_INFO "event_wait up\n"));
 				spin_lock_irqsave(&fib->event_lock, flagv);
 				if (fib->done == 2) {
 					fib->done = 1;
-					completed = 1;
+					complete = 1;
 				} else {
 					fib->done = 1;
-					complete(&fib->event_wait);
+					up(&fib->event_wait);
 				}
 				spin_unlock_irqrestore(&fib->event_lock, flagv);
 
@@ -394,7 +395,7 @@ unsigned int aac_intr_normal(struct aac_dev *dev, u32 index, int isAif,
 					mflags);
 
 				FIB_COUNTER_INCREMENT(aac_config.NativeRecved);
-				if (completed)
+				if (complete)
 					aac_fib_complete(fib);
 			}
 		} else {
@@ -427,16 +428,16 @@ unsigned int aac_intr_normal(struct aac_dev *dev, u32 index, int isAif,
 				start_callback = 1;
 			} else {
 				unsigned long flagv;
-				int completed = 0;
+				int complete = 0;
 
 				dprintk((KERN_INFO "event_wait up\n"));
 				spin_lock_irqsave(&fib->event_lock, flagv);
 				if (fib->done == 2) {
 					fib->done = 1;
-					completed = 1;
+					complete = 1;
 				} else {
 					fib->done = 1;
-					complete(&fib->event_wait);
+					up(&fib->event_wait);
 				}
 				spin_unlock_irqrestore(&fib->event_lock, flagv);
 
@@ -446,7 +447,7 @@ unsigned int aac_intr_normal(struct aac_dev *dev, u32 index, int isAif,
 					mflags);
 
 				FIB_COUNTER_INCREMENT(aac_config.NormalRecved);
-				if (completed)
+				if (complete)
 					aac_fib_complete(fib);
 			}
 		}

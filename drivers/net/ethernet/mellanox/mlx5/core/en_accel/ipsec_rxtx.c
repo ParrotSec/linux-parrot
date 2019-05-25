@@ -254,13 +254,11 @@ struct sk_buff *mlx5e_ipsec_handle_tx_skb(struct net_device *netdev,
 	struct mlx5e_ipsec_metadata *mdata;
 	struct mlx5e_ipsec_sa_entry *sa_entry;
 	struct xfrm_state *x;
-	struct sec_path *sp;
 
 	if (!xo)
 		return skb;
 
-	sp = skb_sec_path(skb);
-	if (unlikely(sp->len != 1)) {
+	if (unlikely(skb->sp->len != 1)) {
 		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_bundle);
 		goto drop;
 	}
@@ -307,11 +305,10 @@ mlx5e_ipsec_build_sp(struct net_device *netdev, struct sk_buff *skb,
 	struct mlx5e_priv *priv = netdev_priv(netdev);
 	struct xfrm_offload *xo;
 	struct xfrm_state *xs;
-	struct sec_path *sp;
 	u32 sa_handle;
 
-	sp = secpath_set(skb);
-	if (unlikely(!sp)) {
+	skb->sp = secpath_dup(skb->sp);
+	if (unlikely(!skb->sp)) {
 		atomic64_inc(&priv->ipsec->sw_stats.ipsec_rx_drop_sp_alloc);
 		return NULL;
 	}
@@ -323,9 +320,8 @@ mlx5e_ipsec_build_sp(struct net_device *netdev, struct sk_buff *skb,
 		return NULL;
 	}
 
-	sp = skb_sec_path(skb);
-	sp->xvec[sp->len++] = xs;
-	sp->olen++;
+	skb->sp->xvec[skb->sp->len++] = xs;
+	skb->sp->olen++;
 
 	xo = xfrm_offload(skb);
 	xo->flags = CRYPTO_DONE;
@@ -376,11 +372,10 @@ struct sk_buff *mlx5e_ipsec_handle_rx_skb(struct net_device *netdev,
 bool mlx5e_ipsec_feature_check(struct sk_buff *skb, struct net_device *netdev,
 			       netdev_features_t features)
 {
-	struct sec_path *sp = skb_sec_path(skb);
 	struct xfrm_state *x;
 
-	if (sp && sp->len) {
-		x = sp->xvec[0];
+	if (skb->sp && skb->sp->len) {
+		x = skb->sp->xvec[0];
 		if (x && x->xso.offload_handle)
 			return true;
 	}

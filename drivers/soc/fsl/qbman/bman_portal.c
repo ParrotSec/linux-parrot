@@ -65,9 +65,7 @@ static int bman_offline_cpu(unsigned int cpu)
 	if (!pcfg)
 		return 0;
 
-	/* use any other online CPU */
-	cpu = cpumask_any_but(cpu_online_mask, cpu);
-	irq_set_affinity(pcfg->irq, cpumask_of(cpu));
+	irq_set_affinity(pcfg->irq, cpumask_of(0));
 	return 0;
 }
 
@@ -93,15 +91,7 @@ static int bman_portal_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	struct bm_portal_config *pcfg;
 	struct resource *addr_phys[2];
-	int irq, cpu, err;
-
-	err = bman_is_probed();
-	if (!err)
-		return -EPROBE_DEFER;
-	if (err < 0) {
-		dev_err(&pdev->dev, "failing probe due to bman probe error\n");
-		return -ENODEV;
-	}
+	int irq, cpu;
 
 	pcfg = devm_kmalloc(dev, sizeof(*pcfg), GFP_KERNEL);
 	if (!pcfg)

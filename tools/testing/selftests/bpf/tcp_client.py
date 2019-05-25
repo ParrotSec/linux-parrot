@@ -30,11 +30,12 @@ def send(sock, s):
 
 
 serverPort = int(sys.argv[1])
+HostName = socket.gethostname()
 
 # create active socket
 sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 try:
-    sock.connect(('localhost', serverPort))
+    sock.connect((HostName, serverPort))
 except socket.error as e:
     sys.exit(1)
 

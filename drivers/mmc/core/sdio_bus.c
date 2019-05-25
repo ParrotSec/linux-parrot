@@ -179,6 +179,7 @@ static int sdio_bus_remove(struct device *dev)
 {
 	struct sdio_driver *drv = to_sdio_driver(dev->driver);
 	struct sdio_func *func = dev_to_sdio_func(dev);
+	int ret = 0;
 
 	/* Make sure card is powered before invoking ->remove() */
 	if (func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
@@ -204,7 +205,7 @@ static int sdio_bus_remove(struct device *dev)
 
 	dev_pm_domain_detach(dev, false);
 
-	return 0;
+	return ret;
 }
 
 static const struct dev_pm_ops sdio_bus_pm_ops = {

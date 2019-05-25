@@ -133,13 +133,12 @@ static int prism2mib_excludeunencrypted(struct mibrec *mib,
 					struct p80211msg_dot11req_mibset *msg,
 					void *data);
 
-static int
-prism2mib_fragmentationthreshold(struct mibrec *mib,
-				 int isget,
-				 struct wlandevice *wlandev,
-				 struct hfa384x *hw,
-				 struct p80211msg_dot11req_mibset *msg,
-				 void *data);
+static int prism2mib_fragmentationthreshold(struct mibrec *mib,
+					    int isget,
+					    struct wlandevice *wlandev,
+					    struct hfa384x *hw,
+					    struct p80211msg_dot11req_mibset *msg,
+					    void *data);
 
 static int prism2mib_priv(struct mibrec *mib,
 			  int isget,
@@ -149,89 +148,89 @@ static int prism2mib_priv(struct mibrec *mib,
 
 static struct mibrec mibtab[] = {
 	/* dot11smt MIB's */
-	{didmib_dot11smt_wepdefaultkeystable_key(1),
+	{DIDmib_dot11smt_dot11WEPDefaultKeysTable_key(1),
 	 F_STA | F_WRITE,
 	 HFA384x_RID_CNFWEPDEFAULTKEY0, 0, 0,
 	 prism2mib_wepdefaultkey},
-	{didmib_dot11smt_wepdefaultkeystable_key(2),
+	{DIDmib_dot11smt_dot11WEPDefaultKeysTable_key(2),
 	 F_STA | F_WRITE,
 	 HFA384x_RID_CNFWEPDEFAULTKEY1, 0, 0,
 	 prism2mib_wepdefaultkey},
-	{didmib_dot11smt_wepdefaultkeystable_key(3),
+	{DIDmib_dot11smt_dot11WEPDefaultKeysTable_key(3),
 	 F_STA | F_WRITE,
 	 HFA384x_RID_CNFWEPDEFAULTKEY2, 0, 0,
 	 prism2mib_wepdefaultkey},
-	{didmib_dot11smt_wepdefaultkeystable_key(4),
+	{DIDmib_dot11smt_dot11WEPDefaultKeysTable_key(4),
 	 F_STA | F_WRITE,
 	 HFA384x_RID_CNFWEPDEFAULTKEY3, 0, 0,
 	 prism2mib_wepdefaultkey},
-	{DIDMIB_DOT11SMT_PRIVACYTABLE_PRIVACYINVOKED,
+	{DIDmib_dot11smt_dot11PrivacyTable_dot11PrivacyInvoked,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_CNFWEPFLAGS, HFA384x_WEPFLAGS_PRIVINVOKED, 0,
 	 prism2mib_privacyinvoked},
-	{DIDMIB_DOT11SMT_PRIVACYTABLE_WEPDEFAULTKEYID,
+	{DIDmib_dot11smt_dot11PrivacyTable_dot11WEPDefaultKeyID,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_CNFWEPDEFAULTKEYID, 0, 0,
 	 prism2mib_uint32},
-	{DIDMIB_DOT11SMT_PRIVACYTABLE_EXCLUDEUNENCRYPTED,
+	{DIDmib_dot11smt_dot11PrivacyTable_dot11ExcludeUnencrypted,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_CNFWEPFLAGS, HFA384x_WEPFLAGS_EXCLUDE, 0,
 	 prism2mib_excludeunencrypted},
 
 	/* dot11mac MIB's */
 
-	{DIDMIB_DOT11MAC_OPERATIONTABLE_MACADDRESS,
+	{DIDmib_dot11mac_dot11OperationTable_dot11MACAddress,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_CNFOWNMACADDR, HFA384x_RID_CNFOWNMACADDR_LEN, 0,
 	 prism2mib_bytearea2pstr},
-	{DIDMIB_DOT11MAC_OPERATIONTABLE_RTSTHRESHOLD,
+	{DIDmib_dot11mac_dot11OperationTable_dot11RTSThreshold,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_RTSTHRESH, 0, 0,
 	 prism2mib_uint32},
-	{DIDMIB_DOT11MAC_OPERATIONTABLE_SHORTRETRYLIMIT,
+	{DIDmib_dot11mac_dot11OperationTable_dot11ShortRetryLimit,
 	 F_STA | F_READ,
 	 HFA384x_RID_SHORTRETRYLIMIT, 0, 0,
 	 prism2mib_uint32},
-	{DIDMIB_DOT11MAC_OPERATIONTABLE_LONGRETRYLIMIT,
+	{DIDmib_dot11mac_dot11OperationTable_dot11LongRetryLimit,
 	 F_STA | F_READ,
 	 HFA384x_RID_LONGRETRYLIMIT, 0, 0,
 	 prism2mib_uint32},
-	{DIDMIB_DOT11MAC_OPERATIONTABLE_FRAGMENTATIONTHRESHOLD,
+	{DIDmib_dot11mac_dot11OperationTable_dot11FragmentationThreshold,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_FRAGTHRESH, 0, 0,
 	 prism2mib_fragmentationthreshold},
-	{DIDMIB_DOT11MAC_OPERATIONTABLE_MAXTRANSMITMSDULIFETIME,
+	{DIDmib_dot11mac_dot11OperationTable_dot11MaxTransmitMSDULifetime,
 	 F_STA | F_READ,
 	 HFA384x_RID_MAXTXLIFETIME, 0, 0,
 	 prism2mib_uint32},
 
 	/* dot11phy MIB's */
 
-	{DIDMIB_DOT11PHY_DSSSTABLE_CURRENTCHANNEL,
+	{DIDmib_dot11phy_dot11PhyDSSSTable_dot11CurrentChannel,
 	 F_STA | F_READ,
 	 HFA384x_RID_CURRENTCHANNEL, 0, 0,
 	 prism2mib_uint32},
-	{DIDMIB_DOT11PHY_TXPOWERTABLE_CURRENTTXPOWERLEVEL,
+	{DIDmib_dot11phy_dot11PhyTxPowerTable_dot11CurrentTxPowerLevel,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_TXPOWERMAX, 0, 0,
 	 prism2mib_uint32},
 
 	/* p2Static MIB's */
 
-	{DIDMIB_P2_STATIC_CNFPORTTYPE,
+	{DIDmib_p2_p2Static_p2CnfPortType,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_CNFPORTTYPE, 0, 0,
 	 prism2mib_uint32},
 
 	/* p2MAC MIB's */
 
-	{DIDMIB_P2_MAC_CURRENTTXRATE,
+	{DIDmib_p2_p2MAC_p2CurrentTxRate,
 	 F_STA | F_READ,
 	 HFA384x_RID_CURRENTTXRATE, 0, 0,
 	 prism2mib_uint32},
 
 	/* And finally, lnx mibs */
-	{DIDMIB_LNX_CONFIGTABLE_RSNAIE,
+	{DIDmib_lnx_lnxConfigTable_lnxRSNAIE,
 	 F_STA | F_READ | F_WRITE,
 	 HFA384x_RID_CNFWPADATA, 0, 0,
 	 prism2mib_priv},
@@ -302,7 +301,7 @@ int prism2mgmt_mibset_mibget(struct wlandevice *wlandev, void *msgp)
 	 ** this is a "mibset" so make make sure that the MIB may be written.
 	 */
 
-	isget = (msg->msgcode == DIDMSG_DOT11REQ_MIBGET);
+	isget = (msg->msgcode == DIDmsg_dot11req_mibget);
 
 	if (isget) {
 		if (!(mib->flag & F_READ)) {
@@ -653,13 +652,12 @@ static int prism2mib_excludeunencrypted(struct mibrec *mib,
  *
  */
 
-static int
-prism2mib_fragmentationthreshold(struct mibrec *mib,
-				 int isget,
-				 struct wlandevice *wlandev,
-				 struct hfa384x *hw,
-				 struct p80211msg_dot11req_mibset *msg,
-				 void *data)
+static int prism2mib_fragmentationthreshold(struct mibrec *mib,
+					    int isget,
+					    struct wlandevice *wlandev,
+					    struct hfa384x *hw,
+					    struct p80211msg_dot11req_mibset *msg,
+					    void *data)
 {
 	u32 *uint32 = data;
 
@@ -709,27 +707,27 @@ static int prism2mib_priv(struct mibrec *mib,
 	struct p80211pstrd *pstr = data;
 
 	switch (mib->did) {
-	case DIDMIB_LNX_CONFIGTABLE_RSNAIE: {
-		struct hfa384x_wpa_data wpa;
+	case DIDmib_lnx_lnxConfigTable_lnxRSNAIE:{
+			struct hfa384x_wpa_data wpa;
 
-		if (isget) {
-			hfa384x_drvr_getconfig(hw,
-					       HFA384x_RID_CNFWPADATA,
-					       (u8 *)&wpa,
-					       sizeof(wpa));
-			pstr->len = le16_to_cpu(wpa.datalen);
-			memcpy(pstr->data, wpa.data, pstr->len);
-		} else {
-			wpa.datalen = cpu_to_le16(pstr->len);
-			memcpy(wpa.data, pstr->data, pstr->len);
+			if (isget) {
+				hfa384x_drvr_getconfig(hw,
+						       HFA384x_RID_CNFWPADATA,
+						       (u8 *)&wpa,
+						       sizeof(wpa));
+				pstr->len = le16_to_cpu(wpa.datalen);
+				memcpy(pstr->data, wpa.data, pstr->len);
+			} else {
+				wpa.datalen = cpu_to_le16(pstr->len);
+				memcpy(wpa.data, pstr->data, pstr->len);
 
-			hfa384x_drvr_setconfig(hw,
-					       HFA384x_RID_CNFWPADATA,
-					       (u8 *)&wpa,
-					       sizeof(wpa));
+				hfa384x_drvr_setconfig(hw,
+						       HFA384x_RID_CNFWPADATA,
+						       (u8 *)&wpa,
+						       sizeof(wpa));
+			}
+			break;
 		}
-		break;
-	}
 	default:
 		netdev_err(wlandev->netdev, "Unhandled DID 0x%08x\n", mib->did);
 	}

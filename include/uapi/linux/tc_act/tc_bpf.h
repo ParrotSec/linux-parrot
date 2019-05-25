@@ -13,6 +13,8 @@
 
 #include <linux/pkt_cls.h>
 
+#define TCA_ACT_BPF 13
+
 struct tc_act_bpf {
 	tc_gen;
 };

@@ -148,7 +148,7 @@ s32 rtl8723bs_xmit_buf_handler(struct adapter *padapter)
 
 	pxmitpriv = &padapter->xmitpriv;
 
-	if (wait_for_completion_interruptible(&pxmitpriv->xmit_comp)) {
+	if (down_interruptible(&pxmitpriv->xmit_sema)) {
 		DBG_871X_LEVEL(_drv_emerg_, "%s: down SdioXmitBufSema fail!\n", __func__);
 		return _FAIL;
 	}
@@ -312,7 +312,7 @@ static s32 xmit_xmitframes(struct adapter *padapter, struct xmit_priv *pxmitpriv
 						DBG_871X_LEVEL(_drv_err_, "%s: xmit_buf is not enough!\n", __func__);
 #endif
 						err = -2;
-						complete(&(pxmitpriv->xmit_comp));
+						up(&(pxmitpriv->xmit_sema));
 						break;
 					}
 					k = 0;
@@ -420,8 +420,8 @@ static s32 rtl8723bs_xmit_handler(struct adapter *padapter)
 
 	pxmitpriv = &padapter->xmitpriv;
 
-	if (wait_for_completion_interruptible(&pxmitpriv->SdioXmitStart)) {
-		DBG_871X_LEVEL(_drv_emerg_, "%s: SdioXmitStart fail!\n", __func__);
+	if (down_interruptible(&pxmitpriv->SdioXmitSema)) {
+		DBG_871X_LEVEL(_drv_emerg_, "%s: down sema fail!\n", __func__);
 		return _FAIL;
 	}
 
@@ -490,6 +490,10 @@ int rtl8723bs_xmit_thread(void *context)
 
 	DBG_871X("start "FUNC_ADPT_FMT"\n", FUNC_ADPT_ARG(padapter));
 
+	/*  For now, no one would down sema to check thread is running, */
+	/*  so mark this temporary, Lucas@20130820 */
+/* 	up(&pxmitpriv->SdioXmitTerminateSema); */
+
 	do {
 		ret = rtl8723bs_xmit_handler(padapter);
 		if (signal_pending(current)) {
@@ -497,7 +501,7 @@ int rtl8723bs_xmit_thread(void *context)
 		}
 	} while (_SUCCESS == ret);
 
-	complete(&pxmitpriv->SdioXmitTerminate);
+	up(&pxmitpriv->SdioXmitTerminateSema);
 
 	RT_TRACE(_module_hal_xmit_c_, _drv_notice_, ("-%s\n", __func__));
 
@@ -586,7 +590,7 @@ s32 rtl8723bs_hal_xmit(
 		return true;
 	}
 
-	complete(&pxmitpriv->SdioXmitStart);
+	up(&pxmitpriv->SdioXmitSema);
 
 	return false;
 }
@@ -607,7 +611,7 @@ s32	rtl8723bs_hal_xmitframe_enqueue(
 #ifdef CONFIG_SDIO_TX_TASKLET
 		tasklet_hi_schedule(&pxmitpriv->xmit_tasklet);
 #else
-		complete(&pxmitpriv->SdioXmitStart);
+		up(&pxmitpriv->SdioXmitSema);
 #endif
 	}
 
@@ -630,8 +634,8 @@ s32 rtl8723bs_init_xmit_priv(struct adapter *padapter)
 	phal = GET_HAL_DATA(padapter);
 
 	spin_lock_init(&phal->SdioTxFIFOFreePageLock);
-	init_completion(&xmitpriv->SdioXmitStart);
-	init_completion(&xmitpriv->SdioXmitTerminate);
+	sema_init(&xmitpriv->SdioXmitSema, 0);
+	sema_init(&xmitpriv->SdioXmitTerminateSema, 0);
 
 	return _SUCCESS;
 }

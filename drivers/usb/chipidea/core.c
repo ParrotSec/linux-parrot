@@ -53,7 +53,6 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
@@ -724,24 +723,6 @@ static int ci_get_platdata(struct device *dev,
 		else
 			cable->connected = false;
 	}
-
-	platdata->pctl = devm_pinctrl_get(dev);
-	if (!IS_ERR(platdata->pctl)) {
-		struct pinctrl_state *p;
-
-		p = pinctrl_lookup_state(platdata->pctl, "default");
-		if (!IS_ERR(p))
-			platdata->pins_default = p;
-
-		p = pinctrl_lookup_state(platdata->pctl, "host");
-		if (!IS_ERR(p))
-			platdata->pins_host = p;
-
-		p = pinctrl_lookup_state(platdata->pctl, "device");
-		if (!IS_ERR(p))
-			platdata->pins_device = p;
-	}
-
 	return 0;
 }
 
@@ -954,47 +935,32 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 	} else if (ci->platdata->usb_phy) {
 		ci->usb_phy = ci->platdata->usb_phy;
 	} else {
-		/* Look for a generic PHY first */
+		ci->usb_phy = devm_usb_get_phy_by_phandle(dev->parent, "phys",
+							  0);
 		ci->phy = devm_phy_get(dev->parent, "usb-phy");
 
-		if (PTR_ERR(ci->phy) == -EPROBE_DEFER) {
-			ret = -EPROBE_DEFER;
-			goto ulpi_exit;
-		} else if (IS_ERR(ci->phy)) {
-			ci->phy = NULL;
-		}
-
-		/* Look for a legacy USB PHY from device-tree next */
-		if (!ci->phy) {
-			ci->usb_phy = devm_usb_get_phy_by_phandle(dev->parent,
-								  "phys", 0);
-
-			if (PTR_ERR(ci->usb_phy) == -EPROBE_DEFER) {
-				ret = -EPROBE_DEFER;
-				goto ulpi_exit;
-			} else if (IS_ERR(ci->usb_phy)) {
-				ci->usb_phy = NULL;
-			}
-		}
-
-		/* Look for any registered legacy USB PHY as last resort */
-		if (!ci->phy && !ci->usb_phy) {
+		/* Fallback to grabbing any registered USB2 PHY */
+		if (IS_ERR(ci->usb_phy) &&
+		    PTR_ERR(ci->usb_phy) != -EPROBE_DEFER)
 			ci->usb_phy = devm_usb_get_phy(dev->parent,
 						       USB_PHY_TYPE_USB2);
 
-			if (PTR_ERR(ci->usb_phy) == -EPROBE_DEFER) {
-				ret = -EPROBE_DEFER;
-				goto ulpi_exit;
-			} else if (IS_ERR(ci->usb_phy)) {
-				ci->usb_phy = NULL;
-			}
-		}
-
-		/* No USB PHY was found in the end */
-		if (!ci->phy && !ci->usb_phy) {
+		/* if both generic PHY and USB PHY layers aren't enabled */
+		if (PTR_ERR(ci->phy) == -ENOSYS &&
+				PTR_ERR(ci->usb_phy) == -ENXIO) {
 			ret = -ENXIO;
 			goto ulpi_exit;
 		}
+
+		if (IS_ERR(ci->phy) && IS_ERR(ci->usb_phy)) {
+			ret = -EPROBE_DEFER;
+			goto ulpi_exit;
+		}
+
+		if (IS_ERR(ci->phy))
+			ci->phy = NULL;
+		else if (IS_ERR(ci->usb_phy))
+			ci->usb_phy = NULL;
 	}
 
 	ret = ci_usb_phy_init(ci);

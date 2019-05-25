@@ -35,7 +35,6 @@
 #include "t4_regs.h"
 #include "t4_values.h"
 #include "t4_msg.h"
-#include "t4_tcb.h"
 #include "t4fw_ri_api.h"
 
 #define T4_MAX_NUM_PD 65536
@@ -398,7 +397,7 @@ struct t4_srq_pending_wr {
 struct t4_srq {
 	union t4_recv_wr *queue;
 	dma_addr_t dma_addr;
-	DEFINE_DMA_UNMAP_ADDR(mapping);
+	DECLARE_PCI_UNMAP_ADDR(mapping);
 	struct t4_swrqe *sw_rq;
 	void __iomem *bar2_va;
 	u64 bar2_pa;

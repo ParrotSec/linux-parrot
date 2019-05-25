@@ -358,8 +358,8 @@ int usbtv_audio_init(struct usbtv *usbtv)
 	if (rv < 0)
 		return rv;
 
-	strscpy(card->driver, usbtv->dev->driver->name, sizeof(card->driver));
-	strscpy(card->shortname, "usbtv", sizeof(card->shortname));
+	strlcpy(card->driver, usbtv->dev->driver->name, sizeof(card->driver));
+	strlcpy(card->shortname, "usbtv", sizeof(card->shortname));
 	snprintf(card->longname, sizeof(card->longname),
 		"USBTV Audio at bus %d device %d", usbtv->udev->bus->busnum,
 		usbtv->udev->devnum);
@@ -372,7 +372,7 @@ int usbtv_audio_init(struct usbtv *usbtv)
 	if (rv < 0)
 		goto err;
 
-	strscpy(pcm->name, "USBTV Audio Input", sizeof(pcm->name));
+	strlcpy(pcm->name, "USBTV Audio Input", sizeof(pcm->name));
 	pcm->info_flags = 0;
 	pcm->private_data = usbtv;
 

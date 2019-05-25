@@ -393,7 +393,7 @@ static int elan_start_multitouch(struct hid_device *hdev)
 	 * This byte sequence will enable multitouch mode and disable
 	 * mouse emulation
 	 */
-	static const unsigned char buf[] = { 0x0D, 0x00, 0x03, 0x21, 0x00 };
+	const unsigned char buf[] = { 0x0D, 0x00, 0x03, 0x21, 0x00 };
 	unsigned char *dmabuf = kmemdup(buf, sizeof(buf), GFP_KERNEL);
 
 	if (!dmabuf)
@@ -497,7 +497,7 @@ static int elan_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		return 0;
 
 	if (!drvdata->input) {
-		hid_err(hdev, "Input device is not registered\n");
+		hid_err(hdev, "Input device is not registred\n");
 		ret = -ENAVAIL;
 		goto err;
 	}

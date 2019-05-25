@@ -1,6 +1,18 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2012 Altera <www.altera.com>
+ *  Copyright (C) 2012 Altera <www.altera.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <dt-bindings/reset/altr,rst-mgr.h>
@@ -10,6 +22,8 @@
 	#size-cells = <1>;
 
 	aliases {
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
 		serial0 = &uart0;
 		serial1 = &uart1;
 		timer0 = &timer0;
@@ -84,7 +98,6 @@
 				#dma-requests = <32>;
 				clocks = <&l4_main_clk>;
 				clock-names = "apb_pclk";
-				resets = <&rst DMA_RESET>;
 			};
 		};
 
@@ -101,7 +114,6 @@
 			reg = <0xffc00000 0x1000>;
 			interrupts = <0 131 4>, <0 132 4>, <0 133 4>, <0 134 4>;
 			clocks = <&can0_clk>;
-			resets = <&rst CAN0_RESET>;
 			status = "disabled";
 		};
 
@@ -110,7 +122,6 @@
 			reg = <0xffc01000 0x1000>;
 			interrupts = <0 135 4>, <0 136 4>, <0 137 4>, <0 138 4>;
 			clocks = <&can1_clk>;
-			resets = <&rst CAN1_RESET>;
 			status = "disabled";
 		};
 
@@ -472,17 +483,10 @@
 						clk-gate = <0xa0 9>;
 					};
 
-					nand_ecc_clk: nand_ecc_clk {
-						#clock-cells = <0>;
-						compatible = "altr,socfpga-gate-clk";
-						clocks = <&nand_x_clk>;
-						clk-gate = <0xa0 9>;
-					};
-
 					nand_clk: nand_clk {
 						#clock-cells = <0>;
 						compatible = "altr,socfpga-gate-clk";
-						clocks = <&nand_x_clk>;
+						clocks = <&f2s_periph_ref_clk>, <&main_nand_sdmmc_clk>, <&per_nand_mmc_clk>;
 						clk-gate = <0xa0 10>;
 						fixed-divider = <4>;
 					};
@@ -588,7 +592,6 @@
 			compatible = "snps,dw-apb-gpio";
 			reg = <0xff708000 0x1000>;
 			clocks = <&l4_mp_clk>;
-			resets = <&rst GPIO0_RESET>;
 			status = "disabled";
 
 			porta: gpio-controller@0 {
@@ -609,7 +612,6 @@
 			compatible = "snps,dw-apb-gpio";
 			reg = <0xff709000 0x1000>;
 			clocks = <&l4_mp_clk>;
-			resets = <&rst GPIO1_RESET>;
 			status = "disabled";
 
 			portb: gpio-controller@0 {
@@ -630,7 +632,6 @@
 			compatible = "snps,dw-apb-gpio";
 			reg = <0xff70a000 0x1000>;
 			clocks = <&l4_mp_clk>;
-			resets = <&rst GPIO2_RESET>;
 			status = "disabled";
 
 			portc: gpio-controller@0 {
@@ -741,7 +742,6 @@
 			#size-cells = <0>;
 			clocks = <&l4_mp_clk>, <&sdmmc_clk_divided>;
 			clock-names = "biu", "ciu";
-			resets = <&rst SDMMC_RESET>;
 			status = "disabled";
 		};
 
@@ -753,9 +753,8 @@
 			      <0xffb80000 0x10000>;
 			reg-names = "nand_data", "denali_reg";
 			interrupts = <0x0 0x90 0x4>;
-			clocks = <&nand_clk>, <&nand_x_clk>, <&nand_ecc_clk>;
-			clock-names = "nand", "nand_x", "ecc";
-			resets = <&rst NAND_RESET>;
+			dma-mask = <0xffffffff>;
+			clocks = <&nand_x_clk>;
 			status = "disabled";
 		};
 
@@ -766,7 +765,7 @@
 
 		qspi: spi@ff705000 {
 			compatible = "cdns,qspi-nor";
-			#address-cells = <1>;
+                        #address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0xff705000 0x1000>,
 			      <0xffa00000 0x1000>;
@@ -775,7 +774,6 @@
 			cdns,fifo-width = <4>;
 			cdns,trigger-address = <0x00000000>;
 			clocks = <&qspi_clk>;
-			resets = <&rst QSPI_RESET>;
 			status = "disabled";
 		};
 
@@ -794,7 +792,6 @@
 		sdr: sdr@ffc25000 {
 			compatible = "altr,sdr-ctl", "syscon";
 			reg = <0xffc25000 0x1000>;
-			resets = <&rst SDR_RESET>;
 		};
 
 		sdramedac {
@@ -811,7 +808,6 @@
 			interrupts = <0 154 4>;
 			num-cs = <4>;
 			clocks = <&spi_m_clk>;
-			resets = <&rst SPIM0_RESET>;
 			status = "disabled";
 		};
 
@@ -823,7 +819,6 @@
 			interrupts = <0 155 4>;
 			num-cs = <4>;
 			clocks = <&spi_m_clk>;
-			resets = <&rst SPIM1_RESET>;
 			status = "disabled";
 		};
 
@@ -846,8 +841,6 @@
 			reg = <0xffc08000 0x1000>;
 			clocks = <&l4_sp_clk>;
 			clock-names = "timer";
-			resets = <&rst SPTIMER0_RESET>;
-			reset-names = "timer";
 		};
 
 		timer1: timer1@ffc09000 {
@@ -856,8 +849,6 @@
 			reg = <0xffc09000 0x1000>;
 			clocks = <&l4_sp_clk>;
 			clock-names = "timer";
-			resets = <&rst SPTIMER1_RESET>;
-			reset-names = "timer";
 		};
 
 		timer2: timer2@ffd00000 {
@@ -866,8 +857,6 @@
 			reg = <0xffd00000 0x1000>;
 			clocks = <&osc1>;
 			clock-names = "timer";
-			resets = <&rst OSC1TIMER0_RESET>;
-			reset-names = "timer";
 		};
 
 		timer3: timer3@ffd01000 {
@@ -876,8 +865,6 @@
 			reg = <0xffd01000 0x1000>;
 			clocks = <&osc1>;
 			clock-names = "timer";
-			resets = <&rst OSC1TIMER1_RESET>;
-			reset-names = "timer";
 		};
 
 		uart0: serial0@ffc02000 {
@@ -890,7 +877,6 @@
 			dmas = <&pdma 28>,
 			       <&pdma 29>;
 			dma-names = "tx", "rx";
-			resets = <&rst UART0_RESET>;
 		};
 
 		uart1: serial1@ffc03000 {
@@ -903,7 +889,6 @@
 			dmas = <&pdma 30>,
 			       <&pdma 31>;
 			dma-names = "tx", "rx";
-			resets = <&rst UART1_RESET>;
 		};
 
 		usbphy0: usbphy {
@@ -943,7 +928,6 @@
 			reg = <0xffd02000 0x1000>;
 			interrupts = <0 171 4>;
 			clocks = <&osc1>;
-			resets = <&rst L4WD0_RESET>;
 			status = "disabled";
 		};
 
@@ -952,7 +936,6 @@
 			reg = <0xffd03000 0x1000>;
 			interrupts = <0 172 4>;
 			clocks = <&osc1>;
-			resets = <&rst L4WD1_RESET>;
 			status = "disabled";
 		};
 	};

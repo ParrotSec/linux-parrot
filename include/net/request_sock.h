@@ -108,6 +108,7 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
 
 static inline void reqsk_free(struct request_sock *req)
 {
+	/* temporary debugging */
 	WARN_ON_ONCE(refcount_read(&req->rsk_refcnt) != 0);
 
 	req->rsk_ops->destructor(req);

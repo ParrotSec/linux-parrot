@@ -162,8 +162,8 @@ static void qib_ud_loopback(struct rvt_qp *sqp, struct rvt_swqe *swqe)
 		const struct ib_global_route *grd = rdma_ah_read_grh(ah_attr);
 
 		qib_make_grh(ibp, &grh, grd, 0, 0);
-		rvt_copy_sge(qp, &qp->r_sge, &grh,
-			     sizeof(grh), true, false);
+		qib_copy_sge(&qp->r_sge, &grh,
+			     sizeof(grh), 1);
 		wc.wc_flags |= IB_WC_GRH;
 	} else
 		rvt_skip_sge(&qp->r_sge, sizeof(struct ib_grh), true);
@@ -172,9 +172,14 @@ static void qib_ud_loopback(struct rvt_qp *sqp, struct rvt_swqe *swqe)
 	ssge.num_sge = swqe->wr.num_sge;
 	sge = &ssge.sge;
 	while (length) {
-		u32 len = rvt_get_sge_length(sge, length);
+		u32 len = sge->length;
 
-		rvt_copy_sge(qp, &qp->r_sge, sge->vaddr, len, true, false);
+		if (len > length)
+			len = length;
+		if (len > sge->sge_length)
+			len = sge->sge_length;
+		BUG_ON(len == 0);
+		qib_copy_sge(&qp->r_sge, sge->vaddr, len, 1);
 		sge->vaddr += len;
 		sge->length -= len;
 		sge->sge_length -= len;
@@ -255,7 +260,7 @@ int qib_make_ud_req(struct rvt_qp *qp, unsigned long *flags)
 			goto bail;
 		}
 		wqe = rvt_get_swqe_ptr(qp, qp->s_last);
-		rvt_send_complete(qp, wqe, IB_WC_WR_FLUSH_ERR);
+		qib_send_complete(qp, wqe, IB_WC_WR_FLUSH_ERR);
 		goto done;
 	}
 
@@ -299,7 +304,7 @@ int qib_make_ud_req(struct rvt_qp *qp, unsigned long *flags)
 			qib_ud_loopback(qp, wqe);
 			spin_lock_irqsave(&qp->s_lock, tflags);
 			*flags = tflags;
-			rvt_send_complete(qp, wqe, IB_WC_SUCCESS);
+			qib_send_complete(qp, wqe, IB_WC_SUCCESS);
 			goto done;
 		}
 	}
@@ -545,13 +550,12 @@ void qib_ud_rcv(struct qib_ibport *ibp, struct ib_header *hdr,
 		goto drop;
 	}
 	if (has_grh) {
-		rvt_copy_sge(qp, &qp->r_sge, &hdr->u.l.grh,
-			     sizeof(struct ib_grh), true, false);
+		qib_copy_sge(&qp->r_sge, &hdr->u.l.grh,
+			     sizeof(struct ib_grh), 1);
 		wc.wc_flags |= IB_WC_GRH;
 	} else
 		rvt_skip_sge(&qp->r_sge, sizeof(struct ib_grh), true);
-	rvt_copy_sge(qp, &qp->r_sge, data, wc.byte_len - sizeof(struct ib_grh),
-		     true, false);
+	qib_copy_sge(&qp->r_sge, data, wc.byte_len - sizeof(struct ib_grh), 1);
 	rvt_put_ss(&qp->r_sge);
 	if (!test_and_clear_bit(RVT_R_WRID_VALID, &qp->r_aflags))
 		return;

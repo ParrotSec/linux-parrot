@@ -13,7 +13,7 @@ static inline unsigned int __xfrm4_addr_hash(const xfrm_address_t *addr)
 
 static inline unsigned int __xfrm6_addr_hash(const xfrm_address_t *addr)
 {
-	return jhash2((__force u32 *)addr->a6, 4, 0);
+	return ntohl(addr->a6[2] ^ addr->a6[3]);
 }
 
 static inline unsigned int __xfrm4_daddr_saddr_hash(const xfrm_address_t *daddr,
@@ -26,7 +26,8 @@ static inline unsigned int __xfrm4_daddr_saddr_hash(const xfrm_address_t *daddr,
 static inline unsigned int __xfrm6_daddr_saddr_hash(const xfrm_address_t *daddr,
 						    const xfrm_address_t *saddr)
 {
-	return __xfrm6_addr_hash(daddr) ^ __xfrm6_addr_hash(saddr);
+	return ntohl(daddr->a6[2] ^ daddr->a6[3] ^
+		     saddr->a6[2] ^ saddr->a6[3]);
 }
 
 static inline u32 __bits2mask32(__u8 bits)

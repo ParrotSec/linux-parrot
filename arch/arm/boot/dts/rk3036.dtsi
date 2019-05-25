@@ -289,7 +289,6 @@
 		dma-names = "tx", "rx";
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s_bus>;
-		#sound-dai-cells = <0>;
 		status = "disabled";
 	};
 
@@ -734,7 +733,7 @@
 			/* no rts / cts for uart2 */
 		};
 
-		spi-pins {
+		spi {
 			spi_txd:spi-txd {
 				rockchip,pins = <1 29 RK_FUNC_3 &pcfg_pull_default>;
 			};

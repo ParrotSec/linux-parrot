@@ -72,12 +72,15 @@ object TTM to provide a pool for buffer object allocation by clients and
 the kernel itself. The type of this object should be
 TTM_GLOBAL_TTM_BO, and its size should be sizeof(struct
 ttm_bo_global). Again, driver-specific init and release functions may
-be provided, likely eventually calling ttm_bo_global_ref_init() and
-ttm_bo_global_ref_release(), respectively. Also, like the previous
+be provided, likely eventually calling ttm_bo_global_init() and
+ttm_bo_global_release(), respectively. Also, like the previous
 object, ttm_global_item_ref() is used to create an initial reference
 count for the TTM, which will call your initialization function.
 
 See the radeon_ttm.c file for an example of usage.
+
+.. kernel-doc:: drivers/gpu/drm/drm_global.c
+   :export:
 
 
 The Graphics Execution Manager (GEM)
@@ -294,7 +297,7 @@ made up of several fields, the more interesting ones being:
 	struct vm_operations_struct {
 		void (*open)(struct vm_area_struct * area);
 		void (*close)(struct vm_area_struct * area);
-		vm_fault_t (*fault)(struct vm_fault *vmf);
+		int (*fault)(struct vm_fault *vmf);
 	};
 
 
@@ -502,7 +505,7 @@ GPU Scheduler
 Overview
 --------
 
-.. kernel-doc:: drivers/gpu/drm/scheduler/sched_main.c
+.. kernel-doc:: drivers/gpu/drm/scheduler/gpu_scheduler.c
    :doc: Overview
 
 Scheduler Function References
@@ -511,5 +514,5 @@ Scheduler Function References
 .. kernel-doc:: include/drm/gpu_scheduler.h
    :internal:
 
-.. kernel-doc:: drivers/gpu/drm/scheduler/sched_main.c
+.. kernel-doc:: drivers/gpu/drm/scheduler/gpu_scheduler.c
    :export:

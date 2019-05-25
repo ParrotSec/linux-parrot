@@ -15,6 +15,7 @@
  */
 
 #include <linux/uaccess.h>
+#include <linux/module.h>
 #include <linux/err.h>
 #include <keys/trusted-type.h>
 #include <keys/encrypted-type.h>

@@ -404,8 +404,7 @@ static const struct regmap_config ltc3589_regmap_config = {
 	.max_register = LTC3589_L2DTV2,
 	.reg_defaults = ltc3589_reg_defaults,
 	.num_reg_defaults = ARRAY_SIZE(ltc3589_reg_defaults),
-	.use_single_read = true,
-	.use_single_write = true,
+	.use_single_rw = true,
 	.cache_type = REGCACHE_RBTREE,
 };
 

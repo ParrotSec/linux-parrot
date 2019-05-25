@@ -19,15 +19,13 @@
 # Written by Paolo Bonzini <pbonzini@redhat.com>
 # Based on Brendan Gregg's stackcollapse-perf.pl script.
 
-from __future__ import print_function
-
 import os
 import sys
 from collections import defaultdict
 from optparse import OptionParser, make_option
 
 sys.path.append(os.environ['PERF_EXEC_PATH'] + \
-    '/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
+                '/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
 
 from perf_trace_context import *
 from Core import *
@@ -122,6 +120,7 @@ def process_event(param_dict):
     lines[stack_string] = lines[stack_string] + 1
 
 def trace_end():
-    list = sorted(lines)
+    list = lines.keys()
+    list.sort()
     for stack in list:
-        print("%s %d" % (stack, lines[stack]))
+        print "%s %d" % (stack, lines[stack])

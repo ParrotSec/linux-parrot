@@ -91,7 +91,7 @@ nvkm_udevice_info_v1(struct nvkm_device *device,
 	case ENGINE_A(MSENC ); break;
 	case ENGINE_A(VIC   ); break;
 	case ENGINE_A(SEC2  ); break;
-	case ENGINE_B(NVDEC ); break;
+	case ENGINE_A(NVDEC ); break;
 	case ENGINE_B(NVENC ); break;
 	default:
 		args->mthd = NV_DEVICE_INFO_INVALID;
@@ -175,7 +175,6 @@ nvkm_udevice_info(struct nvkm_udevice *udev, void *data, u32 size)
 	case GM100: args->v0.family = NV_DEVICE_INFO_V0_MAXWELL; break;
 	case GP100: args->v0.family = NV_DEVICE_INFO_V0_PASCAL; break;
 	case GV100: args->v0.family = NV_DEVICE_INFO_V0_VOLTA; break;
-	case TU100: args->v0.family = NV_DEVICE_INFO_V0_TURING; break;
 	default:
 		args->v0.family = 0;
 		break;
@@ -365,15 +364,16 @@ nvkm_udevice_child_get(struct nvkm_object *object, int index,
 	}
 
 	if (!sclass) {
-		if (index-- == 0)
-			sclass = &nvkm_control_oclass;
-		else if (device->mmu && index-- == 0)
+		switch (index) {
+		case 0: sclass = &nvkm_control_oclass; break;
+		case 1:
+			if (!device->mmu)
+				return -EINVAL;
 			sclass = &device->mmu->user;
-		else if (device->fault && index-- == 0)
-			sclass = &device->fault->user;
-		else
+			break;
+		default:
 			return -EINVAL;
-
+		}
 		oclass->base = sclass->base;
 	}
 

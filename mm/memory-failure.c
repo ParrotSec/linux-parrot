@@ -1162,7 +1162,6 @@ static int memory_failure_dev_pagemap(unsigned long pfn, int flags,
 	LIST_HEAD(tokill);
 	int rc = -EBUSY;
 	loff_t start;
-	dax_entry_t cookie;
 
 	/*
 	 * Prevent the inode from being freed while we are interrogating
@@ -1171,8 +1170,7 @@ static int memory_failure_dev_pagemap(unsigned long pfn, int flags,
 	 * also prevents changes to the mapping of this pfn until
 	 * poison signaling is complete.
 	 */
-	cookie = dax_lock_page(page);
-	if (!cookie)
+	if (!dax_lock_mapping_entry(page))
 		goto out;
 
 	if (hwpoison_filter(page)) {
@@ -1223,7 +1221,7 @@ static int memory_failure_dev_pagemap(unsigned long pfn, int flags,
 	kill_procs(&tokill, flags & MF_MUST_KILL, !unmap_success, pfn, flags);
 	rc = 0;
 unlock:
-	dax_unlock_page(page, cookie);
+	dax_unlock_mapping_entry(page);
 out:
 	/* drop pgmap ref acquired in caller */
 	put_dev_pagemap(pgmap);

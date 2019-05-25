@@ -97,8 +97,7 @@ static const struct nla_policy ipt_policy[TCA_IPT_MAX + 1] = {
 
 static int __tcf_ipt_init(struct net *net, unsigned int id, struct nlattr *nla,
 			  struct nlattr *est, struct tc_action **a,
-			  const struct tc_action_ops *ops, int ovr, int bind,
-			  struct tcf_proto *tp)
+			  const struct tc_action_ops *ops, int ovr, int bind)
 {
 	struct tc_action_net *tn = net_generic(net, id);
 	struct nlattr *tb[TCA_IPT_MAX + 1];
@@ -206,20 +205,20 @@ err1:
 
 static int tcf_ipt_init(struct net *net, struct nlattr *nla,
 			struct nlattr *est, struct tc_action **a, int ovr,
-			int bind, bool rtnl_held, struct tcf_proto *tp,
+			int bind, bool rtnl_held,
 			struct netlink_ext_ack *extack)
 {
 	return __tcf_ipt_init(net, ipt_net_id, nla, est, a, &act_ipt_ops, ovr,
-			      bind, tp);
+			      bind);
 }
 
 static int tcf_xt_init(struct net *net, struct nlattr *nla,
 		       struct nlattr *est, struct tc_action **a, int ovr,
-		       int bind, bool unlocked, struct tcf_proto *tp,
+		       int bind, bool unlocked,
 		       struct netlink_ext_ack *extack)
 {
 	return __tcf_ipt_init(net, xt_net_id, nla, est, a, &act_xt_ops, ovr,
-			      bind, tp);
+			      bind);
 }
 
 static int tcf_ipt_act(struct sk_buff *skb, const struct tc_action *a,
@@ -329,7 +328,8 @@ static int tcf_ipt_walker(struct net *net, struct sk_buff *skb,
 	return tcf_generic_walker(tn, skb, cb, type, ops, extack);
 }
 
-static int tcf_ipt_search(struct net *net, struct tc_action **a, u32 index)
+static int tcf_ipt_search(struct net *net, struct tc_action **a, u32 index,
+			  struct netlink_ext_ack *extack)
 {
 	struct tc_action_net *tn = net_generic(net, ipt_net_id);
 
@@ -338,7 +338,7 @@ static int tcf_ipt_search(struct net *net, struct tc_action **a, u32 index)
 
 static struct tc_action_ops act_ipt_ops = {
 	.kind		=	"ipt",
-	.id		=	TCA_ID_IPT,
+	.type		=	TCA_ACT_IPT,
 	.owner		=	THIS_MODULE,
 	.act		=	tcf_ipt_act,
 	.dump		=	tcf_ipt_dump,
@@ -378,7 +378,8 @@ static int tcf_xt_walker(struct net *net, struct sk_buff *skb,
 	return tcf_generic_walker(tn, skb, cb, type, ops, extack);
 }
 
-static int tcf_xt_search(struct net *net, struct tc_action **a, u32 index)
+static int tcf_xt_search(struct net *net, struct tc_action **a, u32 index,
+			 struct netlink_ext_ack *extack)
 {
 	struct tc_action_net *tn = net_generic(net, xt_net_id);
 
@@ -387,7 +388,7 @@ static int tcf_xt_search(struct net *net, struct tc_action **a, u32 index)
 
 static struct tc_action_ops act_xt_ops = {
 	.kind		=	"xt",
-	.id		=	TCA_ID_XT,
+	.type		=	TCA_ACT_XT,
 	.owner		=	THIS_MODULE,
 	.act		=	tcf_ipt_act,
 	.dump		=	tcf_ipt_dump,

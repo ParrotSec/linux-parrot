@@ -26,7 +26,6 @@
 #include <linux/iversion.h>
 
 #include <linux/uaccess.h>
-#include <linux/sched/mm.h>
 
 #include "delegation.h"
 #include "internal.h"
@@ -713,13 +712,11 @@ int nfs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
 	struct inode *inode = mapping->host;
 	struct nfs_pageio_descriptor pgio;
-	struct nfs_io_completion *ioc;
-	unsigned int pflags = memalloc_nofs_save();
+	struct nfs_io_completion *ioc = nfs_io_completion_alloc(GFP_NOFS);
 	int err;
 
 	nfs_inc_stats(inode, NFSIOS_VFSWRITEPAGES);
 
-	ioc = nfs_io_completion_alloc(GFP_NOFS);
 	if (ioc)
 		nfs_io_completion_init(ioc, nfs_io_completion_commit, inode);
 
@@ -729,8 +726,6 @@ int nfs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 	err = write_cache_pages(mapping, wbc, nfs_writepages_callback, &pgio);
 	nfs_pageio_complete(&pgio);
 	nfs_io_completion_put(ioc);
-
-	memalloc_nofs_restore(pflags);
 
 	if (err < 0)
 		goto out_err;
@@ -870,6 +865,7 @@ EXPORT_SYMBOL_GPL(nfs_request_add_commit_list_locked);
 /**
  * nfs_request_add_commit_list - add request to a commit list
  * @req: pointer to a struct nfs_page
+ * @dst: commit list head
  * @cinfo: holds list lock and accounting info
  *
  * This sets the PG_CLEAN bit, updates the cinfo count of
@@ -1238,12 +1234,9 @@ int
 nfs_key_timeout_notify(struct file *filp, struct inode *inode)
 {
 	struct nfs_open_context *ctx = nfs_file_open_context(filp);
+	struct rpc_auth *auth = NFS_SERVER(inode)->client->cl_auth;
 
-	if (nfs_ctx_key_to_expire(ctx, inode) &&
-	    !ctx->ll_cred)
-		/* Already expired! */
-		return -EACCES;
-	return 0;
+	return rpcauth_key_timeout_notify(auth, ctx->cred);
 }
 
 /*
@@ -1252,23 +1245,8 @@ nfs_key_timeout_notify(struct file *filp, struct inode *inode)
 bool nfs_ctx_key_to_expire(struct nfs_open_context *ctx, struct inode *inode)
 {
 	struct rpc_auth *auth = NFS_SERVER(inode)->client->cl_auth;
-	struct rpc_cred *cred = ctx->ll_cred;
-	struct auth_cred acred = {
-		.cred = ctx->cred,
-	};
 
-	if (cred && !cred->cr_ops->crmatch(&acred, cred, 0)) {
-		put_rpccred(cred);
-		ctx->ll_cred = NULL;
-		cred = NULL;
-	}
-	if (!cred)
-		cred = auth->au_ops->lookup_cred(auth, &acred, 0);
-	if (!cred || IS_ERR(cred))
-		return true;
-	ctx->ll_cred = cred;
-	return !!(cred->cr_ops->crkey_timeout &&
-		  cred->cr_ops->crkey_timeout(cred));
+	return rpcauth_cred_key_to_expire(auth, ctx->cred);
 }
 
 /*
@@ -1416,27 +1394,20 @@ static void nfs_redirty_request(struct nfs_page *req)
 	nfs_release_request(req);
 }
 
-static void nfs_async_write_error(struct list_head *head, int error)
+static void nfs_async_write_error(struct list_head *head)
 {
 	struct nfs_page	*req;
 
 	while (!list_empty(head)) {
 		req = nfs_list_entry(head->next);
 		nfs_list_remove_request(req);
-		if (nfs_error_is_fatal(error)) {
-			nfs_context_set_write_error(req->wb_context, error);
-			if (nfs_error_is_fatal_on_server(error)) {
-				nfs_write_error_remove_page(req);
-				continue;
-			}
-		}
 		nfs_redirty_request(req);
 	}
 }
 
 static void nfs_async_write_reschedule_io(struct nfs_pgio_header *hdr)
 {
-	nfs_async_write_error(&hdr->pages, 0);
+	nfs_async_write_error(&hdr->pages);
 	filemap_fdatawrite_range(hdr->inode->i_mapping, hdr->args.offset,
 			hdr->args.offset + hdr->args.count - 1);
 }
@@ -2152,7 +2123,7 @@ int __init nfs_init_writepagecache(void)
 	 * This allows larger machines to have larger/more transfers.
 	 * Limit the default to 256M
 	 */
-	nfs_congestion_kb = (16*int_sqrt(totalram_pages())) << (PAGE_SHIFT-10);
+	nfs_congestion_kb = (16*int_sqrt(totalram_pages)) << (PAGE_SHIFT-10);
 	if (nfs_congestion_kb > 256*1024)
 		nfs_congestion_kb = 256*1024;
 

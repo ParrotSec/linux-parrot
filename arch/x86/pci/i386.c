@@ -32,7 +32,7 @@
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/errno.h>
-#include <linux/memblock.h>
+#include <linux/bootmem.h>
 
 #include <asm/pat.h>
 #include <asm/e820/api.h>
@@ -59,7 +59,7 @@ static struct pcibios_fwaddrmap *pcibios_fwaddrmap_lookup(struct pci_dev *dev)
 {
 	struct pcibios_fwaddrmap *map;
 
-	lockdep_assert_held(&pcibios_fwaddrmap_lock);
+	WARN_ON_SMP(!spin_is_locked(&pcibios_fwaddrmap_lock));
 
 	list_for_each_entry(map, &pcibios_fwaddrmappings, list)
 		if (map->dev == dev)

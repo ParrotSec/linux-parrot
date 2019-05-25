@@ -78,6 +78,8 @@
 };
 
 &mmc0 {
+	pinctrl-0 = <&mmc0_pins_a>;
+	pinctrl-names = "default";
 	broken-cd;
 	bus-width = <4>;
 	vmmc-supply = <&reg_vcc3v3>;
@@ -85,7 +87,7 @@
 };
 
 &uart0 {
-	pinctrl-0 = <&uart0_pb_pins>;
+	pinctrl-0 = <&uart0_pins_a>;
 	pinctrl-names = "default";
 	status = "okay";
 };

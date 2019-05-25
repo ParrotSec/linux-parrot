@@ -7,11 +7,8 @@
 #define __UCSI_TRACE_H
 
 #include <linux/tracepoint.h>
-
-const char *ucsi_cmd_str(u64 raw_cmd);
-const char *ucsi_ack_str(u8 ack);
-const char *ucsi_cci_str(u32 cci);
-const char *ucsi_recipient_str(u8 recipient);
+#include "ucsi.h"
+#include "debug.h"
 
 DECLARE_EVENT_CLASS(ucsi_log_ack,
 	TP_PROTO(u8 ack),

@@ -13,7 +13,5 @@ ice-y := ice_main.o	\
 	 ice_nvm.o	\
 	 ice_switch.o	\
 	 ice_sched.o	\
-	 ice_lib.o	\
 	 ice_txrx.o	\
 	 ice_ethtool.o
-ice-$(CONFIG_PCI_IOV) += ice_virtchnl_pf.o ice_sriov.o

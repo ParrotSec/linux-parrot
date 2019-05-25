@@ -42,8 +42,7 @@ struct qcom_usb_hs_phy {
 	struct notifier_block vbus_notify;
 };
 
-static int qcom_usb_hs_phy_set_mode(struct phy *phy,
-				    enum phy_mode mode, int submode)
+static int qcom_usb_hs_phy_set_mode(struct phy *phy, enum phy_mode mode)
 {
 	struct qcom_usb_hs_phy *uphy = phy_get_drvdata(phy);
 	u8 addr;

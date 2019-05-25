@@ -144,8 +144,11 @@ static int dp83811_set_wol(struct phy_device *phydev,
 		phy_write_mmd(phydev, DP83811_DEVADDR, MII_DP83811_WOL_CFG,
 			      value);
 	} else {
-		phy_clear_bits_mmd(phydev, DP83811_DEVADDR, MII_DP83811_WOL_CFG,
-				   DP83811_WOL_EN);
+		value = phy_read_mmd(phydev, DP83811_DEVADDR,
+				     MII_DP83811_WOL_CFG);
+		value &= ~DP83811_WOL_EN;
+		phy_write_mmd(phydev, DP83811_DEVADDR, MII_DP83811_WOL_CFG,
+			      value);
 	}
 
 	return 0;
@@ -325,10 +328,14 @@ static int dp83811_suspend(struct phy_device *phydev)
 
 static int dp83811_resume(struct phy_device *phydev)
 {
+	int value;
+
 	genphy_resume(phydev);
 
-	phy_set_bits_mmd(phydev, DP83811_DEVADDR, MII_DP83811_WOL_CFG,
-			 DP83811_WOL_CLR_INDICATION);
+	value = phy_read_mmd(phydev, DP83811_DEVADDR, MII_DP83811_WOL_CFG);
+
+	phy_write_mmd(phydev, DP83811_DEVADDR, MII_DP83811_WOL_CFG, value |
+		      DP83811_WOL_CLR_INDICATION);
 
 	return 0;
 }
@@ -339,6 +346,7 @@ static struct phy_driver dp83811_driver[] = {
 		.phy_id_mask = 0xfffffff0,
 		.name = "TI DP83TC811",
 		.features = PHY_BASIC_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.config_init = dp83811_config_init,
 		.config_aneg = dp83811_config_aneg,
 		.soft_reset = dp83811_phy_reset,

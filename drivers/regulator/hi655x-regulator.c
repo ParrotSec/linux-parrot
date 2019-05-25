@@ -28,6 +28,7 @@
 struct hi655x_regulator {
 	unsigned int disable_reg;
 	unsigned int status_reg;
+	unsigned int ctrl_regs;
 	unsigned int ctrl_mask;
 	struct regulator_desc rdesc;
 };

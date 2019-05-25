@@ -223,12 +223,12 @@ static int qede_ptp_cfg_filters(struct qede_dev *edev)
 
 	switch (ptp->tx_type) {
 	case HWTSTAMP_TX_ON:
-		set_bit(QEDE_FLAGS_TX_TIMESTAMPING_EN, &edev->flags);
+		edev->flags |= QEDE_TX_TIMESTAMPING_EN;
 		tx_type = QED_PTP_HWTSTAMP_TX_ON;
 		break;
 
 	case HWTSTAMP_TX_OFF:
-		clear_bit(QEDE_FLAGS_TX_TIMESTAMPING_EN, &edev->flags);
+		edev->flags &= ~QEDE_TX_TIMESTAMPING_EN;
 		tx_type = QED_PTP_HWTSTAMP_TX_OFF;
 		break;
 
@@ -490,17 +490,18 @@ int qede_ptp_enable(struct qede_dev *edev, bool init_tc)
 
 	ptp->clock = ptp_clock_register(&ptp->clock_info, &edev->pdev->dev);
 	if (IS_ERR(ptp->clock)) {
-		DP_ERR(edev, "PTP clock registration failed\n");
-		qede_ptp_disable(edev);
 		rc = -EINVAL;
+		DP_ERR(edev, "PTP clock registration failed\n");
 		goto err2;
 	}
 
 	return 0;
 
+err2:
+	qede_ptp_disable(edev);
+	ptp->clock = NULL;
 err1:
 	kfree(ptp);
-err2:
 	edev->ptp = NULL;
 
 	return rc;
@@ -517,7 +518,7 @@ void qede_ptp_tx_ts(struct qede_dev *edev, struct sk_buff *skb)
 	if (test_and_set_bit_lock(QEDE_FLAGS_PTP_TX_IN_PRORGESS, &edev->flags))
 		return;
 
-	if (unlikely(!test_bit(QEDE_FLAGS_TX_TIMESTAMPING_EN, &edev->flags))) {
+	if (unlikely(!(edev->flags & QEDE_TX_TIMESTAMPING_EN))) {
 		DP_NOTICE(edev,
 			  "Tx timestamping was not enabled, this packet will not be timestamped\n");
 	} else if (unlikely(ptp->tx_skb)) {

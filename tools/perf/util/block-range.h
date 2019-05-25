@@ -2,11 +2,7 @@
 #ifndef __PERF_BLOCK_RANGE_H
 #define __PERF_BLOCK_RANGE_H
 
-#include <stdbool.h>
-#include <linux/rbtree.h>
-#include <linux/types.h>
-
-struct symbol;
+#include "symbol.h"
 
 /*
  * struct block_range - non-overlapping parts of basic blocks

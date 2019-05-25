@@ -2012,16 +2012,11 @@ void fib_free_table(struct fib_table *tb)
 }
 
 static int fn_trie_dump_leaf(struct key_vector *l, struct fib_table *tb,
-			     struct sk_buff *skb, struct netlink_callback *cb,
-			     struct fib_dump_filter *filter)
+			     struct sk_buff *skb, struct netlink_callback *cb)
 {
-	unsigned int flags = NLM_F_MULTI;
 	__be32 xkey = htonl(l->key);
 	struct fib_alias *fa;
 	int i, s_i;
-
-	if (filter->filter_set)
-		flags |= NLM_F_DUMP_FILTERED;
 
 	s_i = cb->args[4];
 	i = 0;
@@ -2030,35 +2025,25 @@ static int fn_trie_dump_leaf(struct key_vector *l, struct fib_table *tb,
 	hlist_for_each_entry_rcu(fa, &l->leaf, fa_list) {
 		int err;
 
-		if (i < s_i)
-			goto next;
+		if (i < s_i) {
+			i++;
+			continue;
+		}
 
-		if (tb->tb_id != fa->tb_id)
-			goto next;
-
-		if (filter->filter_set) {
-			if (filter->rt_type && fa->fa_type != filter->rt_type)
-				goto next;
-
-			if ((filter->protocol &&
-			     fa->fa_info->fib_protocol != filter->protocol))
-				goto next;
-
-			if (filter->dev &&
-			    !fib_info_nh_uses_dev(fa->fa_info, filter->dev))
-				goto next;
+		if (tb->tb_id != fa->tb_id) {
+			i++;
+			continue;
 		}
 
 		err = fib_dump_info(skb, NETLINK_CB(cb->skb).portid,
 				    cb->nlh->nlmsg_seq, RTM_NEWROUTE,
 				    tb->tb_id, fa->fa_type,
 				    xkey, KEYLENGTH - fa->fa_slen,
-				    fa->fa_tos, fa->fa_info, flags);
+				    fa->fa_tos, fa->fa_info, NLM_F_MULTI);
 		if (err < 0) {
 			cb->args[4] = i;
 			return err;
 		}
-next:
 		i++;
 	}
 
@@ -2068,7 +2053,7 @@ next:
 
 /* rcu_read_lock needs to be hold by caller from readside */
 int fib_table_dump(struct fib_table *tb, struct sk_buff *skb,
-		   struct netlink_callback *cb, struct fib_dump_filter *filter)
+		   struct netlink_callback *cb)
 {
 	struct trie *t = (struct trie *)tb->tb_data;
 	struct key_vector *l, *tp = t->kv;
@@ -2081,7 +2066,7 @@ int fib_table_dump(struct fib_table *tb, struct sk_buff *skb,
 	while ((l = leaf_walk_rcu(&tp, key)) != NULL) {
 		int err;
 
-		err = fn_trie_dump_leaf(l, tb, skb, cb, filter);
+		err = fn_trie_dump_leaf(l, tb, skb, cb);
 		if (err < 0) {
 			cb->args[3] = key;
 			cb->args[2] = count;

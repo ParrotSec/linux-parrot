@@ -5,18 +5,13 @@
 #include <linux/refcount.h>
 #include <linux/rbtree.h>
 #include <linux/list.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include "srccode.h"
-#include "symbol_conf.h"
+#include "symbol.h"
 #include <strlist.h>
 #include <intlist.h>
 #include "rwsem.h"
 
-struct addr_location;
-struct map;
-struct namespaces_event;
 struct thread_stack;
 struct unwind_libunwind_ops;
 
@@ -43,13 +38,10 @@ struct thread {
 	void			*priv;
 	struct thread_stack	*ts;
 	struct nsinfo		*nsinfo;
-	struct srccode_state	srccode_state;
 #ifdef HAVE_LIBUNWIND_SUPPORT
 	void				*addr_space;
 	struct unwind_libunwind_ops	*unwind_libunwind_ops;
 #endif
-	bool			filter;
-	int			filter_entry_depth;
 };
 
 struct machine;
@@ -95,7 +87,7 @@ struct comm *thread__comm(const struct thread *thread);
 struct comm *thread__exec_comm(const struct thread *thread);
 const char *thread__comm_str(const struct thread *thread);
 int thread__insert_map(struct thread *thread, struct map *map);
-int thread__fork(struct thread *thread, struct thread *parent, u64 timestamp, bool do_maps_clone);
+int thread__fork(struct thread *thread, struct thread *parent, u64 timestamp);
 size_t thread__fprintf(struct thread *thread, FILE *fp);
 
 struct thread *thread__main_thread(struct machine *machine, struct thread *thread);
@@ -112,9 +104,6 @@ struct symbol *thread__find_symbol_fb(struct thread *thread, u8 cpumode,
 
 void thread__find_cpumode_addr_location(struct thread *thread, u64 addr,
 					struct addr_location *al);
-
-int thread__memcpy(struct thread *thread, struct machine *machine,
-		   void *buf, u64 ip, int len, bool *is64bit);
 
 static inline void *thread__priv(struct thread *thread)
 {

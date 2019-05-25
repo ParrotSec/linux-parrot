@@ -49,14 +49,13 @@
 #include <linux/sched/hotplug.h>
 #include <linux/sched/task_stack.h>
 #include <linux/percpu.h>
-#include <linux/memblock.h>
+#include <linux/bootmem.h>
 #include <linux/err.h>
 #include <linux/nmi.h>
 #include <linux/tboot.h>
 #include <linux/stackprotector.h>
 #include <linux/gfp.h>
 #include <linux/cpuidle.h>
-#include <linux/numa.h>
 
 #include <asm/acpi.h>
 #include <asm/desc.h>
@@ -150,7 +149,7 @@ static inline void smpboot_restore_warm_reset_vector(void)
  */
 static void smp_callin(void)
 {
-	int cpuid;
+	int cpuid, phys_id;
 
 	/*
 	 * If waken up by an INIT in an 82489DX configuration
@@ -159,6 +158,11 @@ static void smp_callin(void)
 	 * now safe to touch our local APIC.
 	 */
 	cpuid = smp_processor_id();
+
+	/*
+	 * (This works even if the APIC is not enabled.)
+	 */
+	phys_id = read_apic_id();
 
 	/*
 	 * the boot CPU has finished the init stage and is spinning
@@ -672,7 +676,6 @@ static void __init smp_quirk_init_udelay(void)
 
 	/* if modern processor, use no delay */
 	if (((boot_cpu_data.x86_vendor == X86_VENDOR_INTEL) && (boot_cpu_data.x86 == 6)) ||
-	    ((boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) && (boot_cpu_data.x86 >= 0x18)) ||
 	    ((boot_cpu_data.x86_vendor == X86_VENDOR_AMD) && (boot_cpu_data.x86 >= 0xF))) {
 		init_udelay = 0;
 		return;
@@ -837,7 +840,7 @@ wakeup_secondary_cpu_via_init(int phys_apicid, unsigned long start_eip)
 /* reduce the number of lines printed when booting a large cpu count system */
 static void announce_cpu(int cpu, int apicid)
 {
-	static int current_node = NUMA_NO_NODE;
+	static int current_node = -1;
 	int node = early_cpu_to_node(cpu);
 	static int width, node_width;
 
@@ -1589,8 +1592,7 @@ static inline void mwait_play_dead(void)
 	void *mwait_ptr;
 	int i;
 
-	if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD ||
-	    boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD)
 		return;
 	if (!this_cpu_has(X86_FEATURE_MWAIT))
 		return;

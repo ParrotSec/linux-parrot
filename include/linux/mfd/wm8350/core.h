@@ -643,6 +643,7 @@ struct wm8350_platform_data {
  */
 int wm8350_device_init(struct wm8350 *wm8350, int irq,
 		       struct wm8350_platform_data *pdata);
+void wm8350_device_exit(struct wm8350 *wm8350);
 
 /*
  * WM8350 device IO

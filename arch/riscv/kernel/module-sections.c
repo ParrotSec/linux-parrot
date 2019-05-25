@@ -9,14 +9,14 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-unsigned long module_emit_got_entry(struct module *mod, unsigned long val)
+u64 module_emit_got_entry(struct module *mod, u64 val)
 {
 	struct mod_section *got_sec = &mod->arch.got;
 	int i = got_sec->num_entries;
 	struct got_entry *got = get_got_entry(val, got_sec);
 
 	if (got)
-		return (unsigned long)got;
+		return (u64)got;
 
 	/* There is no duplicate entry, create a new one */
 	got = (struct got_entry *)got_sec->shdr->sh_addr;
@@ -25,10 +25,10 @@ unsigned long module_emit_got_entry(struct module *mod, unsigned long val)
 	got_sec->num_entries++;
 	BUG_ON(got_sec->num_entries > got_sec->max_entries);
 
-	return (unsigned long)&got[i];
+	return (u64)&got[i];
 }
 
-unsigned long module_emit_plt_entry(struct module *mod, unsigned long val)
+u64 module_emit_plt_entry(struct module *mod, u64 val)
 {
 	struct mod_section *got_plt_sec = &mod->arch.got_plt;
 	struct got_entry *got_plt;
@@ -37,29 +37,27 @@ unsigned long module_emit_plt_entry(struct module *mod, unsigned long val)
 	int i = plt_sec->num_entries;
 
 	if (plt)
-		return (unsigned long)plt;
+		return (u64)plt;
 
 	/* There is no duplicate entry, create a new one */
 	got_plt = (struct got_entry *)got_plt_sec->shdr->sh_addr;
 	got_plt[i] = emit_got_entry(val);
 	plt = (struct plt_entry *)plt_sec->shdr->sh_addr;
-	plt[i] = emit_plt_entry(val,
-				(unsigned long)&plt[i],
-				(unsigned long)&got_plt[i]);
+	plt[i] = emit_plt_entry(val, (u64)&plt[i], (u64)&got_plt[i]);
 
 	plt_sec->num_entries++;
 	got_plt_sec->num_entries++;
 	BUG_ON(plt_sec->num_entries > plt_sec->max_entries);
 
-	return (unsigned long)&plt[i];
+	return (u64)&plt[i];
 }
 
-static int is_rela_equal(const Elf_Rela *x, const Elf_Rela *y)
+static int is_rela_equal(const Elf64_Rela *x, const Elf64_Rela *y)
 {
 	return x->r_info == y->r_info && x->r_addend == y->r_addend;
 }
 
-static bool duplicate_rela(const Elf_Rela *rela, int idx)
+static bool duplicate_rela(const Elf64_Rela *rela, int idx)
 {
 	int i;
 	for (i = 0; i < idx; i++) {
@@ -69,13 +67,13 @@ static bool duplicate_rela(const Elf_Rela *rela, int idx)
 	return false;
 }
 
-static void count_max_entries(Elf_Rela *relas, int num,
+static void count_max_entries(Elf64_Rela *relas, int num,
 			      unsigned int *plts, unsigned int *gots)
 {
 	unsigned int type, i;
 
 	for (i = 0; i < num; i++) {
-		type = ELF_RISCV_R_TYPE(relas[i].r_info);
+		type = ELF64_R_TYPE(relas[i].r_info);
 		if (type == R_RISCV_CALL_PLT) {
 			if (!duplicate_rela(relas, i))
 				(*plts)++;
@@ -120,9 +118,9 @@ int module_frob_arch_sections(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs,
 
 	/* Calculate the maxinum number of entries */
 	for (i = 0; i < ehdr->e_shnum; i++) {
-		Elf_Rela *relas = (void *)ehdr + sechdrs[i].sh_offset;
-		int num_rela = sechdrs[i].sh_size / sizeof(Elf_Rela);
-		Elf_Shdr *dst_sec = sechdrs + sechdrs[i].sh_info;
+		Elf64_Rela *relas = (void *)ehdr + sechdrs[i].sh_offset;
+		int num_rela = sechdrs[i].sh_size / sizeof(Elf64_Rela);
+		Elf64_Shdr *dst_sec = sechdrs + sechdrs[i].sh_info;
 
 		if (sechdrs[i].sh_type != SHT_RELA)
 			continue;

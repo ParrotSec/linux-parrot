@@ -1479,12 +1479,6 @@ u32 pm8001_mpi_msg_consume(struct pm8001_hba_info *pm8001_ha,
 		} else {
 			u32 producer_index;
 			void *pi_virt = circularQ->pi_virt;
-			/* spurious interrupt during setup if
-			 * kexec-ing and driver doing a doorbell access
-			 * with the pre-kexec oq interrupt setup
-			 */
-			if (!pi_virt)
-				break;
 			/* Update the producer index from SPC */
 			producer_index = pm8001_read_32(pi_virt);
 			circularQ->producer_index = cpu_to_le32(producer_index);
@@ -2420,7 +2414,7 @@ mpi_sata_completion(struct pm8001_hba_info *pm8001_ha, void *piomb)
 			sata_resp = &psataPayload->sata_resp[0];
 			resp = (struct ata_task_resp *)ts->buf;
 			if (t->ata_task.dma_xfer == 0 &&
-			    t->data_dir == DMA_FROM_DEVICE) {
+			t->data_dir == PCI_DMA_FROMDEVICE) {
 				len = sizeof(struct pio_setup_fis);
 				PM8001_IO_DBG(pm8001_ha,
 				pm8001_printk("PIO read len = %d\n", len));
@@ -3816,8 +3810,7 @@ static int mpi_hw_event(struct pm8001_hba_info *pm8001_ha, void* piomb)
 			" status = %x\n", status));
 		if (status == 0) {
 			phy->phy_state = 1;
-			if (pm8001_ha->flags == PM8001F_RUN_TIME &&
-					phy->enable_completion != NULL)
+			if (pm8001_ha->flags == PM8001F_RUN_TIME)
 				complete(phy->enable_completion);
 		}
 		break;
@@ -4203,12 +4196,12 @@ static int process_oq(struct pm8001_hba_info *pm8001_ha, u8 vec)
 	return ret;
 }
 
-/* DMA_... to our direction translation. */
+/* PCI_DMA_... to our direction translation. */
 static const u8 data_dir_flags[] = {
-	[DMA_BIDIRECTIONAL]	= DATA_DIR_BYRECIPIENT,	/* UNSPECIFIED */
-	[DMA_TO_DEVICE]		= DATA_DIR_OUT,		/* OUTBOUND */
-	[DMA_FROM_DEVICE]	= DATA_DIR_IN,		/* INBOUND */
-	[DMA_NONE]		= DATA_DIR_NONE,	/* NO TRANSFER */
+	[PCI_DMA_BIDIRECTIONAL] = DATA_DIR_BYRECIPIENT,/* UNSPECIFIED */
+	[PCI_DMA_TODEVICE]	= DATA_DIR_OUT,/* OUTBOUND */
+	[PCI_DMA_FROMDEVICE]	= DATA_DIR_IN,/* INBOUND */
+	[PCI_DMA_NONE]		= DATA_DIR_NONE,/* NO TRANSFER */
 };
 void
 pm8001_chip_make_sg(struct scatterlist *scatter, int nr, void *prd)
@@ -4255,13 +4248,13 @@ static int pm8001_chip_smp_req(struct pm8001_hba_info *pm8001_ha,
 	 * DMA-map SMP request, response buffers
 	 */
 	sg_req = &task->smp_task.smp_req;
-	elem = dma_map_sg(pm8001_ha->dev, sg_req, 1, DMA_TO_DEVICE);
+	elem = dma_map_sg(pm8001_ha->dev, sg_req, 1, PCI_DMA_TODEVICE);
 	if (!elem)
 		return -ENOMEM;
 	req_len = sg_dma_len(sg_req);
 
 	sg_resp = &task->smp_task.smp_resp;
-	elem = dma_map_sg(pm8001_ha->dev, sg_resp, 1, DMA_FROM_DEVICE);
+	elem = dma_map_sg(pm8001_ha->dev, sg_resp, 1, PCI_DMA_FROMDEVICE);
 	if (!elem) {
 		rc = -ENOMEM;
 		goto err_out;
@@ -4294,10 +4287,10 @@ static int pm8001_chip_smp_req(struct pm8001_hba_info *pm8001_ha,
 
 err_out_2:
 	dma_unmap_sg(pm8001_ha->dev, &ccb->task->smp_task.smp_resp, 1,
-			DMA_FROM_DEVICE);
+			PCI_DMA_FROMDEVICE);
 err_out:
 	dma_unmap_sg(pm8001_ha->dev, &ccb->task->smp_task.smp_req, 1,
-			DMA_TO_DEVICE);
+			PCI_DMA_TODEVICE);
 	return rc;
 }
 
@@ -4376,7 +4369,7 @@ static int pm8001_chip_sata_req(struct pm8001_hba_info *pm8001_ha,
 	u32  opc = OPC_INB_SATA_HOST_OPSTART;
 	memset(&sata_cmd, 0, sizeof(sata_cmd));
 	circularQ = &pm8001_ha->inbnd_q_tbl[0];
-	if (task->data_dir == DMA_NONE) {
+	if (task->data_dir == PCI_DMA_NONE) {
 		ATAP = 0x04;  /* no data*/
 		PM8001_IO_DBG(pm8001_ha, pm8001_printk("no data\n"));
 	} else if (likely(!task->ata_task.device_control_reg_update)) {

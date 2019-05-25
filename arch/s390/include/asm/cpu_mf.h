@@ -12,8 +12,6 @@
 #include <linux/errno.h>
 #include <asm/facility.h>
 
-asm(".include \"asm/cpu_mf-insn.h\"\n");
-
 #define CPU_MF_INT_SF_IAE	(1 << 31)	/* invalid entry address */
 #define CPU_MF_INT_SF_ISE	(1 << 30)	/* incorrect SDBT entry */
 #define CPU_MF_INT_SF_PRA	(1 << 29)	/* program request alert */
@@ -211,25 +209,17 @@ static inline int ecctr(u64 ctr, u64 *val)
 	return cc;
 }
 
-/* Store CPU counter multiple for a particular counter set */
-enum stcctm_ctr_set {
-	EXTENDED = 0,
-	BASIC = 1,
-	PROBLEM_STATE = 2,
-	CRYPTO_ACTIVITY = 3,
-	MT_DIAG = 5,
-	MT_DIAG_CLEARING = 9,	/* clears loss-of-MT-ctr-data alert */
-};
-static inline int stcctm(enum stcctm_ctr_set set, u64 range, u64 *dest)
+/* Store CPU counter multiple for the MT utilization counter set */
+static inline int stcctm5(u64 num, u64 *val)
 {
 	int cc;
 
 	asm volatile (
-		"	STCCTM	%2,%3,%1\n"
+		"	.insn	rsy,0xeb0000000017,%2,5,%1\n"
 		"	ipm	%0\n"
 		"	srl	%0,28\n"
 		: "=d" (cc)
-		: "Q" (*dest), "d" (range), "i" (set)
+		: "Q" (*val), "d" (num)
 		: "cc", "memory");
 	return cc;
 }

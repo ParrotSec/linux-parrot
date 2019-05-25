@@ -576,9 +576,14 @@ static int twlreg_probe(struct platform_device *pdev)
 	struct regulator_init_data	*initdata;
 	struct regulation_constraints	*c;
 	struct regulator_dev		*rdev;
+	const struct of_device_id	*match;
 	struct regulator_config		config = { };
 
-	template = of_device_get_match_data(&pdev->dev);
+	match = of_match_device(twl_of_match, &pdev->dev);
+	if (!match)
+		return -ENODEV;
+
+	template = match->data;
 	if (!template)
 		return -ENODEV;
 

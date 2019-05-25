@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * ION memory allocator chunk heap helper
+ * drivers/staging/android/ion/ion_chunk_heap.c
  *
  * Copyright (C) 2012 Google, Inc.
  */
-
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/genalloc.h>
+#include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
-
+#include <linux/vmalloc.h>
 #include "ion.h"
 
 struct ion_chunk_heap {
 	struct ion_heap heap;
 	struct gen_pool *pool;
+	phys_addr_t base;
 	unsigned long chunk_size;
 	unsigned long size;
 	unsigned long allocated;
@@ -107,13 +108,16 @@ static struct ion_heap_ops chunk_heap_ops = {
 	.unmap_kernel = ion_heap_unmap_kernel,
 };
 
-struct ion_heap *ion_chunk_heap_create(phys_addr_t base, size_t size, size_t chunk_size)
+struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data)
 {
 	struct ion_chunk_heap *chunk_heap;
 	int ret;
 	struct page *page;
+	size_t size;
 
-	page = pfn_to_page(PFN_DOWN(base));
+	page = pfn_to_page(PFN_DOWN(heap_data->base));
+	size = heap_data->size;
+
 	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
 	if (ret)
 		return ERR_PTR(ret);
@@ -122,21 +126,23 @@ struct ion_heap *ion_chunk_heap_create(phys_addr_t base, size_t size, size_t chu
 	if (!chunk_heap)
 		return ERR_PTR(-ENOMEM);
 
-	chunk_heap->chunk_size = chunk_size;
+	chunk_heap->chunk_size = (unsigned long)heap_data->priv;
 	chunk_heap->pool = gen_pool_create(get_order(chunk_heap->chunk_size) +
 					   PAGE_SHIFT, -1);
 	if (!chunk_heap->pool) {
 		ret = -ENOMEM;
 		goto error_gen_pool_create;
 	}
-	chunk_heap->size = size;
+	chunk_heap->base = heap_data->base;
+	chunk_heap->size = heap_data->size;
 	chunk_heap->allocated = 0;
 
-	gen_pool_add(chunk_heap->pool, base, size, -1);
+	gen_pool_add(chunk_heap->pool, chunk_heap->base, heap_data->size, -1);
 	chunk_heap->heap.ops = &chunk_heap_ops;
 	chunk_heap->heap.type = ION_HEAP_TYPE_CHUNK;
 	chunk_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
-	pr_debug("%s: base %pa size %zu\n", __func__, &base, size);
+	pr_debug("%s: base %pa size %zu\n", __func__,
+		 &chunk_heap->base, heap_data->size);
 
 	return &chunk_heap->heap;
 
@@ -144,3 +150,4 @@ error_gen_pool_create:
 	kfree(chunk_heap);
 	return ERR_PTR(ret);
 }
+

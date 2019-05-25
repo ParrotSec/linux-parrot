@@ -222,20 +222,17 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_G_EXT_CTRLS:
 		if (!vfh->ctrl_handler)
 			return -ENOTTY;
-		return v4l2_g_ext_ctrls(vfh->ctrl_handler,
-					sd->v4l2_dev->mdev, arg);
+		return v4l2_g_ext_ctrls(vfh->ctrl_handler, arg);
 
 	case VIDIOC_S_EXT_CTRLS:
 		if (!vfh->ctrl_handler)
 			return -ENOTTY;
-		return v4l2_s_ext_ctrls(vfh, vfh->ctrl_handler,
-					sd->v4l2_dev->mdev, arg);
+		return v4l2_s_ext_ctrls(vfh, vfh->ctrl_handler, arg);
 
 	case VIDIOC_TRY_EXT_CTRLS:
 		if (!vfh->ctrl_handler)
 			return -ENOTTY;
-		return v4l2_try_ext_ctrls(vfh->ctrl_handler,
-					  sd->v4l2_dev->mdev, arg);
+		return v4l2_try_ext_ctrls(vfh->ctrl_handler, arg);
 
 	case VIDIOC_DQEVENT:
 		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_EVENTS))
@@ -276,7 +273,7 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 			p->flags |= V4L2_CHIP_FL_WRITABLE;
 		if (sd->ops->core && sd->ops->core->g_register)
 			p->flags |= V4L2_CHIP_FL_READABLE;
-		strscpy(p->name, sd->name, sizeof(p->name));
+		strlcpy(p->name, sd->name, sizeof(p->name));
 		return 0;
 	}
 #endif

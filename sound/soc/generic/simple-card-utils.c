@@ -32,11 +32,10 @@ void asoc_simple_card_convert_fixup(struct asoc_simple_card_data *data,
 }
 EXPORT_SYMBOL_GPL(asoc_simple_card_convert_fixup);
 
-void asoc_simple_card_parse_convert(struct device *dev,
-				    struct device_node *np,
-				    char *prefix,
+void asoc_simple_card_parse_convert(struct device *dev, char *prefix,
 				    struct asoc_simple_card_data *data)
 {
+	struct device_node *np = dev->of_node;
 	char prop[128];
 
 	if (!prefix)
@@ -152,19 +151,21 @@ int asoc_simple_card_parse_card_name(struct snd_soc_card *card,
 }
 EXPORT_SYMBOL_GPL(asoc_simple_card_parse_card_name);
 
+static void asoc_simple_card_clk_register(struct asoc_simple_dai *dai,
+					  struct clk *clk)
+{
+	dai->clk = clk;
+}
+
 int asoc_simple_card_clk_enable(struct asoc_simple_dai *dai)
 {
-	if (dai)
-		return clk_prepare_enable(dai->clk);
-
-	return 0;
+	return clk_prepare_enable(dai->clk);
 }
 EXPORT_SYMBOL_GPL(asoc_simple_card_clk_enable);
 
 void asoc_simple_card_clk_disable(struct asoc_simple_dai *dai)
 {
-	if (dai)
-		clk_disable_unprepare(dai->clk);
+	clk_disable_unprepare(dai->clk);
 }
 EXPORT_SYMBOL_GPL(asoc_simple_card_clk_disable);
 
@@ -172,22 +173,10 @@ int asoc_simple_card_parse_clk(struct device *dev,
 			       struct device_node *node,
 			       struct device_node *dai_of_node,
 			       struct asoc_simple_dai *simple_dai,
-			       const char *dai_name,
-			       struct snd_soc_dai_link_component *dlc)
+			       const char *name)
 {
 	struct clk *clk;
 	u32 val;
-
-	/*
-	 * Use snd_soc_dai_link_component instead of legacy style.
-	 * It is only for codec, but cpu will be supported in the future.
-	 * see
-	 *	soc-core.c :: snd_soc_init_multicodec()
-	 */
-	if (dlc) {
-		dai_of_node	= dlc->of_node;
-		dai_name	= dlc->dai_name;
-	}
 
 	/*
 	 * Parse dai->sysclk come from "clocks = <&xxx>"
@@ -199,7 +188,7 @@ int asoc_simple_card_parse_clk(struct device *dev,
 	if (!IS_ERR(clk)) {
 		simple_dai->sysclk = clk_get_rate(clk);
 
-		simple_dai->clk = clk;
+		asoc_simple_card_clk_register(simple_dai, clk);
 	} else if (!of_property_read_u32(node, "system-clock-frequency", &val)) {
 		simple_dai->sysclk = val;
 	} else {
@@ -211,7 +200,7 @@ int asoc_simple_card_parse_clk(struct device *dev,
 	if (of_property_read_bool(node, "system-clock-direction-out"))
 		simple_dai->clk_direction = SND_SOC_CLOCK_OUT;
 
-	dev_dbg(dev, "%s : sysclk = %d, direction %d\n", dai_name,
+	dev_dbg(dev, "%s : sysclk = %d, direction %d\n", name,
 		simple_dai->sysclk, simple_dai->clk_direction);
 
 	return 0;
@@ -219,7 +208,6 @@ int asoc_simple_card_parse_clk(struct device *dev,
 EXPORT_SYMBOL_GPL(asoc_simple_card_parse_clk);
 
 int asoc_simple_card_parse_dai(struct device_node *node,
-				    struct snd_soc_dai_link_component *dlc,
 				    struct device_node **dai_of_node,
 				    const char **dai_name,
 				    const char *list_name,
@@ -231,17 +219,6 @@ int asoc_simple_card_parse_dai(struct device_node *node,
 
 	if (!node)
 		return 0;
-
-	/*
-	 * Use snd_soc_dai_link_component instead of legacy style.
-	 * It is only for codec, but cpu will be supported in the future.
-	 * see
-	 *	soc-core.c :: snd_soc_init_multicodec()
-	 */
-	if (dlc) {
-		dai_name	= &dlc->dai_name;
-		dai_of_node	= &dlc->of_node;
-	}
 
 	/*
 	 * Get node via "sound-dai = <&phandle port>"
@@ -271,32 +248,13 @@ static int asoc_simple_card_get_dai_id(struct device_node *ep)
 {
 	struct device_node *node;
 	struct device_node *endpoint;
-	struct of_endpoint info;
 	int i, id;
 	int ret;
 
-	/* use driver specified DAI ID if exist */
 	ret = snd_soc_get_dai_id(ep);
 	if (ret != -ENOTSUPP)
 		return ret;
 
-	/* use endpoint/port reg if exist */
-	ret = of_graph_parse_endpoint(ep, &info);
-	if (ret == 0) {
-		/*
-		 * Because it will count port/endpoint if it doesn't have "reg".
-		 * But, we can't judge whether it has "no reg", or "reg = <0>"
-		 * only of_graph_parse_endpoint().
-		 * We need to check "reg" property
-		 */
-		if (of_get_property(ep,   "reg", NULL))
-			return info.id;
-
-		node = of_get_parent(ep);
-		of_node_put(node);
-		if (of_get_property(node, "reg", NULL))
-			return info.port;
-	}
 	node = of_graph_get_port_parent(ep);
 
 	/*
@@ -320,24 +278,12 @@ static int asoc_simple_card_get_dai_id(struct device_node *ep)
 }
 
 int asoc_simple_card_parse_graph_dai(struct device_node *ep,
-				     struct snd_soc_dai_link_component *dlc,
 				     struct device_node **dai_of_node,
 				     const char **dai_name)
 {
 	struct device_node *node;
 	struct of_phandle_args args;
 	int ret;
-
-	/*
-	 * Use snd_soc_dai_link_component instead of legacy style.
-	 * It is only for codec, but cpu will be supported in the future.
-	 * see
-	 *	soc-core.c :: snd_soc_init_multicodec()
-	 */
-	if (dlc) {
-		dai_name	= &dlc->dai_name;
-		dai_of_node	= &dlc->of_node;
-	}
 
 	if (!ep)
 		return 0;
@@ -366,9 +312,6 @@ int asoc_simple_card_init_dai(struct snd_soc_dai *dai,
 {
 	int ret;
 
-	if (!simple_dai)
-		return 0;
-
 	if (simple_dai->sysclk) {
 		ret = snd_soc_dai_set_sysclk(dai, 0, simple_dai->sysclk,
 					     simple_dai->clk_direction);
@@ -394,13 +337,15 @@ int asoc_simple_card_init_dai(struct snd_soc_dai *dai,
 }
 EXPORT_SYMBOL_GPL(asoc_simple_card_init_dai);
 
-void asoc_simple_card_canonicalize_platform(struct snd_soc_dai_link *dai_link)
+int asoc_simple_card_canonicalize_dailink(struct snd_soc_dai_link *dai_link)
 {
 	/* Assumes platform == cpu */
-	if (!dai_link->platforms->of_node)
-		dai_link->platforms->of_node = dai_link->cpu_of_node;
+	if (!dai_link->platform_of_node)
+		dai_link->platform_of_node = dai_link->cpu_of_node;
+
+	return 0;
 }
-EXPORT_SYMBOL_GPL(asoc_simple_card_canonicalize_platform);
+EXPORT_SYMBOL_GPL(asoc_simple_card_canonicalize_dailink);
 
 void asoc_simple_card_canonicalize_cpu(struct snd_soc_dai_link *dai_link,
 				       int is_single_links)
@@ -422,18 +367,21 @@ EXPORT_SYMBOL_GPL(asoc_simple_card_canonicalize_cpu);
 int asoc_simple_card_clean_reference(struct snd_soc_card *card)
 {
 	struct snd_soc_dai_link *dai_link;
-	int i;
+	int num_links;
 
-	for_each_card_prelinks(card, i, dai_link) {
+	for (num_links = 0, dai_link = card->dai_link;
+	     num_links < card->num_links;
+	     num_links++, dai_link++) {
 		of_node_put(dai_link->cpu_of_node);
-		of_node_put(dai_link->codecs->of_node);
+		of_node_put(dai_link->codec_of_node);
 	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(asoc_simple_card_clean_reference);
 
 int asoc_simple_card_of_parse_routing(struct snd_soc_card *card,
-				      char *prefix)
+				      char *prefix,
+				      int optional)
 {
 	struct device_node *node = card->dev->of_node;
 	char prop[128];
@@ -443,8 +391,11 @@ int asoc_simple_card_of_parse_routing(struct snd_soc_card *card,
 
 	snprintf(prop, sizeof(prop), "%s%s", prefix, "routing");
 
-	if (!of_property_read_bool(node, prop))
-		return 0;
+	if (!of_property_read_bool(node, prop)) {
+		if (optional)
+			return 0;
+		return -EINVAL;
+	}
 
 	return snd_soc_of_parse_audio_routing(card, prop);
 }

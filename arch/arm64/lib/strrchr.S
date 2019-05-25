@@ -29,7 +29,7 @@
  * Returns:
  *	x0 - address of last occurrence of 'c' or 0
  */
-WEAK(strrchr)
+ENTRY(strrchr)
 	mov	x3, #0
 	and	w1, w1, #0xff
 1:	ldrb	w2, [x0], #1
@@ -41,4 +41,3 @@ WEAK(strrchr)
 2:	mov	x0, x3
 	ret
 ENDPIPROC(strrchr)
-EXPORT_SYMBOL_NOKASAN(strrchr)

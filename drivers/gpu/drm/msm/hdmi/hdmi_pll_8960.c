@@ -445,7 +445,7 @@ int msm_hdmi_pll_8960_init(struct platform_device *pdev)
 
 	pll->mmio = msm_ioremap(pdev, "hdmi_pll", "HDMI_PLL");
 	if (IS_ERR(pll->mmio)) {
-		DRM_DEV_ERROR(dev, "failed to map pll base\n");
+		dev_err(dev, "failed to map pll base\n");
 		return -ENOMEM;
 	}
 
@@ -454,7 +454,7 @@ int msm_hdmi_pll_8960_init(struct platform_device *pdev)
 
 	clk = devm_clk_register(dev, &pll->clk_hw);
 	if (IS_ERR(clk)) {
-		DRM_DEV_ERROR(dev, "failed to register pll clock\n");
+		dev_err(dev, "failed to register pll clock\n");
 		return -EINVAL;
 	}
 

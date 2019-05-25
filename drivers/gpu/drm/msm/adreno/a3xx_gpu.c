@@ -481,7 +481,7 @@ struct msm_gpu *a3xx_gpu_init(struct drm_device *dev)
 	int ret;
 
 	if (!pdev) {
-		DRM_DEV_ERROR(dev->dev, "no a3xx device\n");
+		dev_err(dev->dev, "no a3xx device\n");
 		ret = -ENXIO;
 		goto fail;
 	}
@@ -528,7 +528,7 @@ struct msm_gpu *a3xx_gpu_init(struct drm_device *dev)
 		 * to not be possible to restrict access, then we must
 		 * implement a cmdstream validator.
 		 */
-		DRM_DEV_ERROR(dev->dev, "No memory protection without IOMMU\n");
+		dev_err(dev->dev, "No memory protection without IOMMU\n");
 		ret = -ENXIO;
 		goto fail;
 	}

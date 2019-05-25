@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdarg.h>
-#include <stdio.h>
 
 /* define kselftest exit codes */
 #define KSFT_PASS  0

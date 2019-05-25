@@ -140,13 +140,7 @@ static inline int crypto_rng_generate(struct crypto_rng *tfm,
 				      const u8 *src, unsigned int slen,
 				      u8 *dst, unsigned int dlen)
 {
-	struct crypto_alg *alg = tfm->base.__crt_alg;
-	int ret;
-
-	crypto_stats_get(alg);
-	ret = crypto_rng_alg(tfm)->generate(tfm, src, slen, dst, dlen);
-	crypto_stats_rng_generate(alg, dlen, ret);
-	return ret;
+	return crypto_rng_alg(tfm)->generate(tfm, src, slen, dst, dlen);
 }
 
 /**

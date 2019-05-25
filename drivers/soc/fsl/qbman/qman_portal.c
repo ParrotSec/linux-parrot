@@ -195,10 +195,8 @@ static int qman_offline_cpu(unsigned int cpu)
 	if (p) {
 		pcfg = qman_get_qm_portal_config(p);
 		if (pcfg) {
-			/* select any other online CPU */
-			cpu = cpumask_any_but(cpu_online_mask, cpu);
-			irq_set_affinity(pcfg->irq, cpumask_of(cpu));
-			qman_portal_update_sdest(pcfg, cpu);
+			irq_set_affinity(pcfg->irq, cpumask_of(0));
+			qman_portal_update_sdest(pcfg, 0);
 		}
 	}
 	return 0;

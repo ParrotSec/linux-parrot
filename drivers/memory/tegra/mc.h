@@ -26,13 +26,19 @@
 
 static inline u32 mc_readl(struct tegra_mc *mc, unsigned long offset)
 {
-	return readl_relaxed(mc->regs + offset);
+	if (mc->regs2 && offset >= 0x24)
+		return readl(mc->regs2 + offset - 0x3c);
+
+	return readl(mc->regs + offset);
 }
 
 static inline void mc_writel(struct tegra_mc *mc, u32 value,
 			     unsigned long offset)
 {
-	writel_relaxed(value, mc->regs + offset);
+	if (mc->regs2 && offset >= 0x24)
+		return writel(value, mc->regs2 + offset - 0x3c);
+
+	writel(value, mc->regs + offset);
 }
 
 extern const struct tegra_mc_reset_ops terga_mc_reset_ops_common;

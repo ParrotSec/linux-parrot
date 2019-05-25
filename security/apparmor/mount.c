@@ -15,7 +15,6 @@
 #include <linux/fs.h>
 #include <linux/mount.h>
 #include <linux/namei.h>
-#include <uapi/linux/mount.h>
 
 #include "include/apparmor.h"
 #include "include/audit.h"

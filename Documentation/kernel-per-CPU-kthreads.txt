@@ -321,7 +321,7 @@ To reduce its OS jitter, do at least one of the following:
 	to do.
 
 Name:
-  rcuop/%d and rcuos/%d
+  rcuob/%d, rcuop/%d, and rcuos/%d
 
 Purpose:
   Offload RCU callbacks from the corresponding CPU.

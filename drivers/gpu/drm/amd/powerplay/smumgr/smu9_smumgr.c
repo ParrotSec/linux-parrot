@@ -40,8 +40,10 @@ bool smu9_is_smc_ram_running(struct pp_hwmgr *hwmgr)
 	struct amdgpu_device *adev = hwmgr->adev;
 	uint32_t mp1_fw_flags;
 
-	mp1_fw_flags = RREG32_PCIE(MP1_Public |
-				   (smnMP1_FIRMWARE_FLAGS & 0xffffffff));
+	WREG32_SOC15(NBIF, 0, mmPCIE_INDEX2,
+			(MP1_Public | (smnMP1_FIRMWARE_FLAGS & 0xffffffff)));
+
+	mp1_fw_flags = RREG32_SOC15(NBIF, 0, mmPCIE_DATA2);
 
 	if (mp1_fw_flags & MP1_FIRMWARE_FLAGS__INTERRUPTS_ENABLED_MASK)
 		return true;

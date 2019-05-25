@@ -58,7 +58,7 @@ static struct rc_map_list terratec_slim_map = {
 	.map = {
 		.scan     = terratec_slim,
 		.size     = ARRAY_SIZE(terratec_slim),
-		.rc_proto = RC_PROTO_NECX,
+		.rc_proto = RC_PROTO_NEC,
 		.name     = RC_MAP_TERRATEC_SLIM,
 	}
 };

@@ -184,7 +184,7 @@ static struct scsi_host_template gvp11_scsi_template = {
 	.this_id		= 7,
 	.sg_tablesize		= SG_ALL,
 	.cmd_per_lun		= CMD_PER_LUN,
-	.dma_boundary		= PAGE_SIZE - 1,
+	.use_clustering		= DISABLE_CLUSTERING
 };
 
 static int check_wd33c93(struct gvp11_scsiregs *regs)

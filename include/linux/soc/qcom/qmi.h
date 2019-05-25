@@ -166,7 +166,7 @@ struct qmi_ops {
 struct qmi_txn {
 	struct qmi_handle *qmi;
 
-	u16 id;
+	int id;
 
 	struct mutex lock;
 	struct completion completion;

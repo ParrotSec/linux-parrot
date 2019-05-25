@@ -1,0 +1,125 @@
+From: Arthur Kiyanovski <akiyano@amazon.com>
+Date: Thu, 11 Oct 2018 11:26:21 +0300
+Subject: [PATCH 07/19] net: ena: use CSUM_CHECKED device indication to report
+ skb's checksum status
+Origin: https://git.kernel.org/linus/cb36bb36e1f17d2a7b9a9751e5cfec4235b46c93
+
+Set skb->ip_summed to the correct value as reported by the device.
+Add counter for the case where rx csum offload is enabled but
+device didn't check it.
+
+Signed-off-by: Arthur Kiyanovski <akiyano@amazon.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/amazon/ena/ena_eth_com.c     |  7 +++++--
+ drivers/net/ethernet/amazon/ena/ena_eth_com.h     |  1 +
+ drivers/net/ethernet/amazon/ena/ena_eth_io_defs.h | 10 ++++++++--
+ drivers/net/ethernet/amazon/ena/ena_ethtool.c     |  1 +
+ drivers/net/ethernet/amazon/ena/ena_netdev.c      | 13 ++++++++++++-
+ drivers/net/ethernet/amazon/ena/ena_netdev.h      |  1 +
+ 6 files changed, 28 insertions(+), 5 deletions(-)
+
+Index: linux/drivers/net/ethernet/amazon/ena/ena_eth_com.c
+===================================================================
+--- linux.orig/drivers/net/ethernet/amazon/ena/ena_eth_com.c
++++ linux/drivers/net/ethernet/amazon/ena/ena_eth_com.c
+@@ -354,6 +354,9 @@ static inline void ena_com_rx_set_flags(
+ 	ena_rx_ctx->l4_csum_err =
+ 		!!((cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_L4_CSUM_ERR_MASK) >>
+ 		ENA_ETH_IO_RX_CDESC_BASE_L4_CSUM_ERR_SHIFT);
++	ena_rx_ctx->l4_csum_checked =
++		!!((cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_L4_CSUM_CHECKED_MASK) >>
++		ENA_ETH_IO_RX_CDESC_BASE_L4_CSUM_CHECKED_SHIFT);
+ 	ena_rx_ctx->hash = cdesc->hash;
+ 	ena_rx_ctx->frag =
+ 		(cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_IPV4_FRAG_MASK) >>
+Index: linux/drivers/net/ethernet/amazon/ena/ena_eth_com.h
+===================================================================
+--- linux.orig/drivers/net/ethernet/amazon/ena/ena_eth_com.h
++++ linux/drivers/net/ethernet/amazon/ena/ena_eth_com.h
+@@ -67,6 +67,7 @@ struct ena_com_rx_ctx {
+ 	enum ena_eth_io_l4_proto_index l4_proto;
+ 	bool l3_csum_err;
+ 	bool l4_csum_err;
++	u8 l4_csum_checked;
+ 	/* fragmented packet */
+ 	bool frag;
+ 	u32 hash;
+Index: linux/drivers/net/ethernet/amazon/ena/ena_eth_io_defs.h
+===================================================================
+--- linux.orig/drivers/net/ethernet/amazon/ena/ena_eth_io_defs.h
++++ linux/drivers/net/ethernet/amazon/ena/ena_eth_io_defs.h
+@@ -242,9 +242,13 @@ struct ena_eth_io_rx_cdesc_base {
+ 	 *    checksum error detected, or, the controller didn't
+ 	 *    validate the checksum. This bit is valid only when
+ 	 *    l4_proto_idx indicates TCP/UDP packet, and,
+-	 *    ipv4_frag is not set
++	 *    ipv4_frag is not set. This bit is valid only when
++	 *    l4_csum_checked below is set.
+ 	 * 15 : ipv4_frag - Indicates IPv4 fragmented packet
+-	 * 23:16 : reserved16
++	 * 16 : l4_csum_checked - L4 checksum was verified
++	 *    (could be OK or error), when cleared the status of
++	 *    checksum is unknown
++	 * 23:17 : reserved17 - MBZ
+ 	 * 24 : phase
+ 	 * 25 : l3_csum2 - second checksum engine result
+ 	 * 26 : first - Indicates first descriptor in
+@@ -390,6 +394,8 @@ struct ena_eth_io_numa_node_cfg_reg {
+ #define ENA_ETH_IO_RX_CDESC_BASE_L4_CSUM_ERR_MASK BIT(14)
+ #define ENA_ETH_IO_RX_CDESC_BASE_IPV4_FRAG_SHIFT 15
+ #define ENA_ETH_IO_RX_CDESC_BASE_IPV4_FRAG_MASK BIT(15)
++#define ENA_ETH_IO_RX_CDESC_BASE_L4_CSUM_CHECKED_SHIFT 16
++#define ENA_ETH_IO_RX_CDESC_BASE_L4_CSUM_CHECKED_MASK BIT(16)
+ #define ENA_ETH_IO_RX_CDESC_BASE_PHASE_SHIFT 24
+ #define ENA_ETH_IO_RX_CDESC_BASE_PHASE_MASK BIT(24)
+ #define ENA_ETH_IO_RX_CDESC_BASE_L3_CSUM2_SHIFT 25
+Index: linux/drivers/net/ethernet/amazon/ena/ena_ethtool.c
+===================================================================
+--- linux.orig/drivers/net/ethernet/amazon/ena/ena_ethtool.c
++++ linux/drivers/net/ethernet/amazon/ena/ena_ethtool.c
+@@ -97,6 +97,7 @@ static const struct ena_stats ena_stats_
+ 	ENA_STAT_RX_ENTRY(rx_copybreak_pkt),
+ 	ENA_STAT_RX_ENTRY(bad_req_id),
+ 	ENA_STAT_RX_ENTRY(empty_rx_ring),
++	ENA_STAT_RX_ENTRY(csum_unchecked),
+ };
+ 
+ static const struct ena_stats ena_stats_ena_com_strings[] = {
+Index: linux/drivers/net/ethernet/amazon/ena/ena_netdev.c
+===================================================================
+--- linux.orig/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ linux/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -994,8 +994,19 @@ static inline void ena_rx_checksum(struc
+ 			return;
+ 		}
+ 
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		if (likely(ena_rx_ctx->l4_csum_checked)) {
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
++		} else {
++			u64_stats_update_begin(&rx_ring->syncp);
++			rx_ring->rx_stats.csum_unchecked++;
++			u64_stats_update_end(&rx_ring->syncp);
++			skb->ip_summed = CHECKSUM_NONE;
++		}
++	} else {
++		skb->ip_summed = CHECKSUM_NONE;
++		return;
+ 	}
++
+ }
+ 
+ static void ena_set_rx_hash(struct ena_ring *rx_ring,
+Index: linux/drivers/net/ethernet/amazon/ena/ena_netdev.h
+===================================================================
+--- linux.orig/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ linux/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -205,6 +205,7 @@ struct ena_stats_rx {
+ 	u64 rx_copybreak_pkt;
+ 	u64 bad_req_id;
+ 	u64 empty_rx_ring;
++	u64 csum_unchecked;
+ };
+ 
+ struct ena_ring {

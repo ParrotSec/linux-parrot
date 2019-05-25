@@ -71,10 +71,6 @@
 	status = "okay";
 };
 
-&emmc {
-	status = "okay";
-};
-
 &eth {
 	status = "okay";
 	phy-handle = <&ethphy>;
@@ -84,12 +80,4 @@
 	ethphy: ethphy@1 {
 		reg = <1>;
 	};
-};
-
-&usb0 {
-	status = "okay";
-};
-
-&usb1 {
-	status = "okay";
 };

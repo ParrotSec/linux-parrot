@@ -16,7 +16,6 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drm/drm_util.h>
 
 #include "mdp5_kms.h"
 #include "mdp5_smp.h"
@@ -89,7 +88,7 @@ static int smp_request_block(struct mdp5_smp *smp,
 
 	avail = cnt - bitmap_weight(state->state, cnt);
 	if (nblks > avail) {
-		DRM_DEV_ERROR(smp->dev->dev, "out of blks (req=%d > avail=%d)\n",
+		dev_err(smp->dev->dev, "out of blks (req=%d > avail=%d)\n",
 				nblks, avail);
 		return -ENOSPC;
 	}
@@ -189,7 +188,7 @@ int mdp5_smp_assign(struct mdp5_smp *smp, struct mdp5_smp_state *state,
 		DBG("%s[%d]: request %d SMP blocks", pipe2name(pipe), i, n);
 		ret = smp_request_block(smp, state, cid, n);
 		if (ret) {
-			DRM_DEV_ERROR(dev->dev, "Cannot allocate %d SMP blocks: %d\n",
+			dev_err(dev->dev, "Cannot allocate %d SMP blocks: %d\n",
 					n, ret);
 			return ret;
 		}

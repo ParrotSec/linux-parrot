@@ -1382,9 +1382,9 @@ static void hci_sock_cmsg(struct sock *sk, struct msghdr *msg,
 
 	if (mask & HCI_CMSG_TSTAMP) {
 #ifdef CONFIG_COMPAT
-		struct old_timeval32 ctv;
+		struct compat_timeval ctv;
 #endif
-		struct __kernel_old_timeval tv;
+		struct timeval tv;
 		void *data;
 		int len;
 

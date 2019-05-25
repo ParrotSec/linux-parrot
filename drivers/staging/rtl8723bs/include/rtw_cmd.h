@@ -7,7 +7,6 @@
 #ifndef __RTW_CMD_H_
 #define __RTW_CMD_H_
 
-#include <linux/completion.h>
 
 #define C2H_MEM_SZ (16*1024)
 
@@ -28,6 +27,7 @@
 		u8 *rsp;
 		u32 rspsz;
 		struct submit_ctx *sctx;
+		/* _sema		cmd_sem; */
 		struct list_head	list;
 	};
 
@@ -38,8 +38,9 @@
 	};
 
 	struct cmd_priv {
-		struct completion cmd_queue_comp;
-		struct completion terminate_cmdthread_comp;
+		_sema	cmd_queue_sema;
+		/* _sema	cmd_done_sema; */
+		_sema	terminate_cmdthread_sema;
 		struct __queue	cmd_queue;
 		u8 cmd_seq;
 		u8 *cmd_buf;	/* shall be non-paged, and 4 bytes aligned */
@@ -542,7 +543,7 @@ struct Tx_Beacon_param
 
 	mac[0] == 0
 	==> CMD mode, return H2C_SUCCESS.
-	The following condition must be true under CMD mode
+	The following condition must be ture under CMD mode
 		mac[1] == mac[4], mac[2] == mac[3], mac[0]=mac[5]= 0;
 		s0 == 0x1234, s1 == 0xabcd, w0 == 0x78563412, w1 == 0x5aa5def7;
 		s2 == (b1 << 8 | b0);

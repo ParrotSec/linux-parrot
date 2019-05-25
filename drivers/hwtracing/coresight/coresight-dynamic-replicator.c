@@ -34,87 +34,48 @@ struct replicator_state {
 	struct coresight_device	*csdev;
 };
 
-/*
- * replicator_reset : Reset the replicator configuration to sane values.
- */
-static void replicator_reset(struct replicator_state *drvdata)
-{
-	CS_UNLOCK(drvdata->base);
-
-	if (!coresight_claim_device_unlocked(drvdata->base)) {
-		writel_relaxed(0xff, drvdata->base + REPLICATOR_IDFILTER0);
-		writel_relaxed(0xff, drvdata->base + REPLICATOR_IDFILTER1);
-		coresight_disclaim_device_unlocked(drvdata->base);
-	}
-
-	CS_LOCK(drvdata->base);
-}
-
 static int replicator_enable(struct coresight_device *csdev, int inport,
 			      int outport)
 {
-	int rc = 0;
-	u32 reg;
 	struct replicator_state *drvdata = dev_get_drvdata(csdev->dev.parent);
-
-	switch (outport) {
-	case 0:
-		reg = REPLICATOR_IDFILTER0;
-		break;
-	case 1:
-		reg = REPLICATOR_IDFILTER1;
-		break;
-	default:
-		WARN_ON(1);
-		return -EINVAL;
-	}
 
 	CS_UNLOCK(drvdata->base);
 
-	if ((readl_relaxed(drvdata->base + REPLICATOR_IDFILTER0) == 0xff) &&
-	    (readl_relaxed(drvdata->base + REPLICATOR_IDFILTER1) == 0xff))
-		rc = coresight_claim_device_unlocked(drvdata->base);
-
-	/* Ensure that the outport is enabled. */
-	if (!rc) {
-		writel_relaxed(0x00, drvdata->base + reg);
-		dev_dbg(drvdata->dev, "REPLICATOR enabled\n");
+	/*
+	 * Ensure that the other port is disabled
+	 * 0x00 - passing through the replicator unimpeded
+	 * 0xff - disable (or impede) the flow of ATB data
+	 */
+	if (outport == 0) {
+		writel_relaxed(0x00, drvdata->base + REPLICATOR_IDFILTER0);
+		writel_relaxed(0xff, drvdata->base + REPLICATOR_IDFILTER1);
+	} else {
+		writel_relaxed(0x00, drvdata->base + REPLICATOR_IDFILTER1);
+		writel_relaxed(0xff, drvdata->base + REPLICATOR_IDFILTER0);
 	}
 
 	CS_LOCK(drvdata->base);
 
-	return rc;
+	dev_info(drvdata->dev, "REPLICATOR enabled\n");
+	return 0;
 }
 
 static void replicator_disable(struct coresight_device *csdev, int inport,
 				int outport)
 {
-	u32 reg;
 	struct replicator_state *drvdata = dev_get_drvdata(csdev->dev.parent);
-
-	switch (outport) {
-	case 0:
-		reg = REPLICATOR_IDFILTER0;
-		break;
-	case 1:
-		reg = REPLICATOR_IDFILTER1;
-		break;
-	default:
-		WARN_ON(1);
-		return;
-	}
 
 	CS_UNLOCK(drvdata->base);
 
 	/* disable the flow of ATB data through port */
-	writel_relaxed(0xff, drvdata->base + reg);
+	if (outport == 0)
+		writel_relaxed(0xff, drvdata->base + REPLICATOR_IDFILTER0);
+	else
+		writel_relaxed(0xff, drvdata->base + REPLICATOR_IDFILTER1);
 
-	if ((readl_relaxed(drvdata->base + REPLICATOR_IDFILTER0) == 0xff) &&
-	    (readl_relaxed(drvdata->base + REPLICATOR_IDFILTER1) == 0xff))
-		coresight_disclaim_device_unlocked(drvdata->base);
 	CS_LOCK(drvdata->base);
 
-	dev_dbg(drvdata->dev, "REPLICATOR disabled\n");
+	dev_info(drvdata->dev, "REPLICATOR disabled\n");
 }
 
 static const struct coresight_ops_link replicator_link_ops = {
@@ -195,11 +156,7 @@ static int replicator_probe(struct amba_device *adev, const struct amba_id *id)
 	desc.groups = replicator_groups;
 	drvdata->csdev = coresight_register(&desc);
 
-	if (!IS_ERR(drvdata->csdev)) {
-		replicator_reset(drvdata);
-		return 0;
-	}
-	return PTR_ERR(drvdata->csdev);
+	return PTR_ERR_OR_ZERO(drvdata->csdev);
 }
 
 #ifdef CONFIG_PM

@@ -53,30 +53,84 @@ static inline void syscall_set_return_value(struct task_struct *task,
 
 static inline void syscall_get_arguments(struct task_struct *task,
 					 struct pt_regs *regs,
+					 unsigned int i, unsigned int n,
 					 unsigned long *args)
 {
 	const struct uml_pt_regs *r = &regs->regs;
 
-	*args++ = UPT_SYSCALL_ARG1(r);
-	*args++ = UPT_SYSCALL_ARG2(r);
-	*args++ = UPT_SYSCALL_ARG3(r);
-	*args++ = UPT_SYSCALL_ARG4(r);
-	*args++ = UPT_SYSCALL_ARG5(r);
-	*args   = UPT_SYSCALL_ARG6(r);
+	switch (i) {
+	case 0:
+		if (!n--)
+			break;
+		*args++ = UPT_SYSCALL_ARG1(r);
+	case 1:
+		if (!n--)
+			break;
+		*args++ = UPT_SYSCALL_ARG2(r);
+	case 2:
+		if (!n--)
+			break;
+		*args++ = UPT_SYSCALL_ARG3(r);
+	case 3:
+		if (!n--)
+			break;
+		*args++ = UPT_SYSCALL_ARG4(r);
+	case 4:
+		if (!n--)
+			break;
+		*args++ = UPT_SYSCALL_ARG5(r);
+	case 5:
+		if (!n--)
+			break;
+		*args++ = UPT_SYSCALL_ARG6(r);
+	case 6:
+		if (!n--)
+			break;
+	default:
+		BUG();
+		break;
+	}
 }
 
 static inline void syscall_set_arguments(struct task_struct *task,
 					 struct pt_regs *regs,
+					 unsigned int i, unsigned int n,
 					 const unsigned long *args)
 {
 	struct uml_pt_regs *r = &regs->regs;
 
-	UPT_SYSCALL_ARG1(r) = *args++;
-	UPT_SYSCALL_ARG2(r) = *args++;
-	UPT_SYSCALL_ARG3(r) = *args++;
-	UPT_SYSCALL_ARG4(r) = *args++;
-	UPT_SYSCALL_ARG5(r) = *args++;
-	UPT_SYSCALL_ARG6(r) = *args;
+	switch (i) {
+	case 0:
+		if (!n--)
+			break;
+		UPT_SYSCALL_ARG1(r) = *args++;
+	case 1:
+		if (!n--)
+			break;
+		UPT_SYSCALL_ARG2(r) = *args++;
+	case 2:
+		if (!n--)
+			break;
+		UPT_SYSCALL_ARG3(r) = *args++;
+	case 3:
+		if (!n--)
+			break;
+		UPT_SYSCALL_ARG4(r) = *args++;
+	case 4:
+		if (!n--)
+			break;
+		UPT_SYSCALL_ARG5(r) = *args++;
+	case 5:
+		if (!n--)
+			break;
+		UPT_SYSCALL_ARG6(r) = *args++;
+	case 6:
+		if (!n--)
+			break;
+	default:
+		BUG();
+		break;
+	}
 }
 
 /* See arch/x86/um/asm/syscall.h for syscall_get_arch() definition. */

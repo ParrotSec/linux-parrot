@@ -84,6 +84,7 @@ static struct net_device *get_dpdev(const struct datapath *dp)
 	struct vport *local;
 
 	local = ovs_vport_ovsl(dp, OVSP_LOCAL);
+	BUG_ON(!local);
 	return local->dev;
 }
 

@@ -13,10 +13,10 @@ INSTALL = /usr/bin/install
 default: all
 
 $(OUTPUT)centrino-decode: ../i386/centrino-decode.c
-	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $<
+	$(CC) $(CFLAGS) -o $@ $<
 
 $(OUTPUT)powernow-k8-decode: ../i386/powernow-k8-decode.c
-	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $<
+	$(CC) $(CFLAGS) -o $@ $<
 
 all: $(OUTPUT)centrino-decode $(OUTPUT)powernow-k8-decode
 

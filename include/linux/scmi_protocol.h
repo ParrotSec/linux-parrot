@@ -91,8 +91,6 @@ struct scmi_clk_ops {
  *	to sustained performance level mapping
  * @freq_get: gets the frequency for a given device using sustained frequency
  *	to sustained performance level mapping
- * @est_power_get: gets the estimated power cost for a given performance domain
- *	at a given frequency
  */
 struct scmi_perf_ops {
 	int (*limits_set)(const struct scmi_handle *handle, u32 domain,
@@ -112,8 +110,6 @@ struct scmi_perf_ops {
 			unsigned long rate, bool poll);
 	int (*freq_get)(const struct scmi_handle *handle, u32 domain,
 			unsigned long *rate, bool poll);
-	int (*est_power_get)(const struct scmi_handle *handle, u32 domain,
-			     unsigned long *rate, unsigned long *power);
 };
 
 /**

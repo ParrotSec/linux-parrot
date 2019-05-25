@@ -21,8 +21,7 @@
 
 #include "omapdss.h"
 
-static struct device_node *
-dss_of_port_get_parent_device(struct device_node *port)
+struct device_node *dss_of_port_get_parent_device(struct device_node *port)
 {
 	struct device_node *np;
 	int i;
@@ -46,37 +45,41 @@ dss_of_port_get_parent_device(struct device_node *port)
 	return NULL;
 }
 
-struct omap_dss_device *
-omapdss_of_find_connected_device(struct device_node *node, unsigned int port)
+u32 dss_of_port_get_port_number(struct device_node *port)
 {
-	struct device_node *src_node;
-	struct device_node *src_port;
+	int r;
+	u32 reg;
+
+	r = of_property_read_u32(port, "reg", &reg);
+	if (r)
+		reg = 0;
+
+	return reg;
+}
+
+struct omap_dss_device *
+omapdss_of_find_source_for_first_ep(struct device_node *node)
+{
 	struct device_node *ep;
+	struct device_node *src_port;
 	struct omap_dss_device *src;
-	u32 port_number = 0;
 
-	/* Get the endpoint... */
-	ep = of_graph_get_endpoint_by_regs(node, port, 0);
+	ep = of_graph_get_endpoint_by_regs(node, 0, 0);
 	if (!ep)
-		return NULL;
-
-	/* ... and its remote port... */
-	src_port = of_graph_get_remote_port(ep);
-	of_node_put(ep);
-	if (!src_port)
-		return NULL;
-
-	/* ... and the remote port's number and parent... */
-	of_property_read_u32(src_port, "reg", &port_number);
-	src_node = dss_of_port_get_parent_device(src_port);
-	of_node_put(src_port);
-	if (!src_node)
 		return ERR_PTR(-EINVAL);
 
-	/* ... and finally the connected device. */
-	src = omapdss_find_device_by_port(src_node, port_number);
-	of_node_put(src_node);
+	src_port = of_graph_get_remote_port(ep);
+	if (!src_port) {
+		of_node_put(ep);
+		return ERR_PTR(-EINVAL);
+	}
+
+	of_node_put(ep);
+
+	src = omap_dss_find_output_by_port_node(src_port);
+
+	of_node_put(src_port);
 
 	return src ? src : ERR_PTR(-EPROBE_DEFER);
 }
-EXPORT_SYMBOL_GPL(omapdss_of_find_connected_device);
+EXPORT_SYMBOL_GPL(omapdss_of_find_source_for_first_ep);

@@ -30,7 +30,6 @@
  * SOFTWARE.
  */
 #define CREATE_TRACE_POINTS
-#include "lib/eq.h"
 #include "fw_tracer.h"
 #include "fw_tracer_tracepoint.h"
 
@@ -847,9 +846,9 @@ free_tracer:
 	return ERR_PTR(err);
 }
 
-static int fw_tracer_event(struct notifier_block *nb, unsigned long action, void *data);
-
-/* Create HW resources + start tracer */
+/* Create HW resources + start tracer
+ * must be called before Async EQ is created
+ */
 int mlx5_fw_tracer_init(struct mlx5_fw_tracer *tracer)
 {
 	struct mlx5_core_dev *dev;
@@ -875,9 +874,6 @@ int mlx5_fw_tracer_init(struct mlx5_fw_tracer *tracer)
 		goto err_dealloc_pd;
 	}
 
-	MLX5_NB_INIT(&tracer->nb, fw_tracer_event, DEVICE_TRACER);
-	mlx5_eq_notifier_register(dev, &tracer->nb);
-
 	mlx5_fw_tracer_start(tracer);
 
 	return 0;
@@ -887,7 +883,9 @@ err_dealloc_pd:
 	return err;
 }
 
-/* Stop tracer + Cleanup HW resources */
+/* Stop tracer + Cleanup HW resources
+ * must be called after Async EQ is destroyed
+ */
 void mlx5_fw_tracer_cleanup(struct mlx5_fw_tracer *tracer)
 {
 	if (IS_ERR_OR_NULL(tracer))
@@ -895,7 +893,7 @@ void mlx5_fw_tracer_cleanup(struct mlx5_fw_tracer *tracer)
 
 	mlx5_core_dbg(tracer->dev, "FWTracer: Cleanup, is owner ? (%d)\n",
 		      tracer->owner);
-	mlx5_eq_notifier_unregister(tracer->dev, &tracer->nb);
+
 	cancel_work_sync(&tracer->ownership_change_work);
 	cancel_work_sync(&tracer->handle_traces_work);
 
@@ -924,11 +922,12 @@ void mlx5_fw_tracer_destroy(struct mlx5_fw_tracer *tracer)
 	kfree(tracer);
 }
 
-static int fw_tracer_event(struct notifier_block *nb, unsigned long action, void *data)
+void mlx5_fw_tracer_event(struct mlx5_core_dev *dev, struct mlx5_eqe *eqe)
 {
-	struct mlx5_fw_tracer *tracer = mlx5_nb_cof(nb, struct mlx5_fw_tracer, nb);
-	struct mlx5_core_dev *dev = tracer->dev;
-	struct mlx5_eqe *eqe = data;
+	struct mlx5_fw_tracer *tracer = dev->tracer;
+
+	if (!tracer)
+		return;
 
 	switch (eqe->sub_type) {
 	case MLX5_TRACER_SUBTYPE_OWNERSHIP_CHANGE:
@@ -943,8 +942,6 @@ static int fw_tracer_event(struct notifier_block *nb, unsigned long action, void
 		mlx5_core_dbg(dev, "FWTracer: Event with unrecognized subtype: sub_type %d\n",
 			      eqe->sub_type);
 	}
-
-	return NOTIFY_OK;
 }
 
 EXPORT_TRACEPOINT_SYMBOL(mlx5_fw);

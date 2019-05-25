@@ -6,8 +6,6 @@
 
 struct nvkm_nvdec {
 	struct nvkm_engine engine;
-	u32 addr;
-
 	struct nvkm_falcon *falcon;
 };
 

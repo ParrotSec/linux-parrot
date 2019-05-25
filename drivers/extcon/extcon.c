@@ -628,7 +628,7 @@ int extcon_get_property(struct extcon_dev *edev, unsigned int id,
 	unsigned long flags;
 	int index, ret = 0;
 
-	*prop_val = (union extcon_property_value){0};
+	*prop_val = (union extcon_property_value)(0);
 
 	if (!edev)
 		return -EINVAL;
@@ -1123,6 +1123,7 @@ int extcon_dev_register(struct extcon_dev *edev)
 			(unsigned long)atomic_inc_return(&edev_no));
 
 	if (edev->max_supported) {
+		char buf[10];
 		char *str;
 		struct extcon_cable *cable;
 
@@ -1136,7 +1137,9 @@ int extcon_dev_register(struct extcon_dev *edev)
 		for (index = 0; index < edev->max_supported; index++) {
 			cable = &edev->cables[index];
 
-			str = kasprintf(GFP_KERNEL, "cable.%d", index);
+			snprintf(buf, 10, "cable.%d", index);
+			str = kzalloc(strlen(buf) + 1,
+				      GFP_KERNEL);
 			if (!str) {
 				for (index--; index >= 0; index--) {
 					cable = &edev->cables[index];
@@ -1146,6 +1149,7 @@ int extcon_dev_register(struct extcon_dev *edev)
 
 				goto err_alloc_cables;
 			}
+			strcpy(str, buf);
 
 			cable->edev = edev;
 			cable->cable_index = index;
@@ -1168,6 +1172,7 @@ int extcon_dev_register(struct extcon_dev *edev)
 	}
 
 	if (edev->max_supported && edev->mutually_exclusive) {
+		char buf[80];
 		char *name;
 
 		/* Count the size of mutually_exclusive array */
@@ -1192,8 +1197,9 @@ int extcon_dev_register(struct extcon_dev *edev)
 		}
 
 		for (index = 0; edev->mutually_exclusive[index]; index++) {
-			name = kasprintf(GFP_KERNEL, "0x%x",
-					 edev->mutually_exclusive[index]);
+			sprintf(buf, "0x%x", edev->mutually_exclusive[index]);
+			name = kzalloc(strlen(buf) + 1,
+				       GFP_KERNEL);
 			if (!name) {
 				for (index--; index >= 0; index--) {
 					kfree(edev->d_attrs_muex[index].attr.
@@ -1204,6 +1210,7 @@ int extcon_dev_register(struct extcon_dev *edev)
 				ret = -ENOMEM;
 				goto err_muex;
 			}
+			strcpy(name, buf);
 			sysfs_attr_init(&edev->d_attrs_muex[index].attr);
 			edev->d_attrs_muex[index].attr.name = name;
 			edev->d_attrs_muex[index].attr.mode = 0000;

@@ -11,7 +11,6 @@
 
 #include "vdso.h"
 #include "util.h"
-#include "map.h"
 #include "symbol.h"
 #include "machine.h"
 #include "thread.h"
@@ -19,10 +18,10 @@
 #include "debug.h"
 
 /*
- * Include definition of find_map() also used in perf-read-vdso.c for
+ * Include definition of find_vdso_map() also used in perf-read-vdso.c for
  * building perf-read-vdso32 and perf-read-vdsox32.
  */
-#include "find-map.c"
+#include "find-vdso-map.c"
 
 #define VDSO__TEMP_FILE_NAME "/tmp/perf-vdso.so-XXXXXX"
 
@@ -77,7 +76,7 @@ static char *get_file(struct vdso_file *vdso_file)
 	if (vdso_file->found)
 		return vdso_file->temp_file_name;
 
-	if (vdso_file->error || find_map(&start, &end, VDSO__MAP_NAME))
+	if (vdso_file->error || find_vdso_map(&start, &end))
 		return NULL;
 
 	size = end - start;

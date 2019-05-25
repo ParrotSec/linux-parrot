@@ -140,5 +140,6 @@ struct alx_priv {
 };
 
 extern const struct ethtool_ops alx_ethtool_ops;
+extern const char alx_drv_name[];
 
 #endif

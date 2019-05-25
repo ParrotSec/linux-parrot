@@ -107,6 +107,7 @@ int snd_hdac_ext_bus_init(struct hdac_bus *bus, struct device *dev,
 	INIT_LIST_HEAD(&bus->hlink_list);
 	bus->idx = idx++;
 
+	mutex_init(&bus->lock);
 	bus->cmd_dma_state = true;
 
 	return 0;

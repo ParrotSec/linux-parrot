@@ -141,7 +141,7 @@ static inline unsigned long __read_cr4(void)
 	return native_read_cr4();
 }
 
-#ifdef CONFIG_PARAVIRT_XXL
+#ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #else
 
@@ -208,7 +208,7 @@ static inline void load_gs_index(unsigned selector)
 
 #endif
 
-#endif /* CONFIG_PARAVIRT_XXL */
+#endif/* CONFIG_PARAVIRT */
 
 static inline void clflush(volatile void *__p)
 {

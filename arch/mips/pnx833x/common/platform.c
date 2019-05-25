@@ -30,7 +30,8 @@
 #include <linux/resource.h>
 #include <linux/serial.h>
 #include <linux/serial_pnx8xxx.h>
-#include <linux/mtd/platnand.h>
+#include <linux/mtd/rawnand.h>
+#include <linux/mtd/partitions.h>
 
 #include <irq.h>
 #include <irq-mapping.h>
@@ -177,9 +178,10 @@ static struct platform_device pnx833x_sata_device = {
 };
 
 static void
-pnx833x_flash_nand_cmd_ctrl(struct nand_chip *this, int cmd, unsigned int ctrl)
+pnx833x_flash_nand_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 {
-	unsigned long nandaddr = (unsigned long)this->legacy.IO_ADDR_W;
+	struct nand_chip *this = mtd_to_nand(mtd);
+	unsigned long nandaddr = (unsigned long)this->IO_ADDR_W;
 
 	if (cmd == NAND_CMD_NONE)
 		return;

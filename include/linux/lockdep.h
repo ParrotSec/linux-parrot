@@ -46,22 +46,16 @@ extern int lock_stat;
 #define NR_LOCKDEP_CACHING_CLASSES	2
 
 /*
- * A lockdep key is associated with each lock object. For static locks we use
- * the lock address itself as the key. Dynamically allocated lock objects can
- * have a statically or dynamically allocated key. Dynamically allocated lock
- * keys must be registered before being used and must be unregistered before
- * the key memory is freed.
+ * Lock-classes are keyed via unique addresses, by embedding the
+ * lockclass-key into the kernel (or module) .data section. (For
+ * static locks we use the lock address itself as the key.)
  */
 struct lockdep_subclass_key {
 	char __one_byte;
 } __attribute__ ((__packed__));
 
-/* hash_entry is used to keep track of dynamically allocated keys. */
 struct lock_class_key {
-	union {
-		struct hlist_node		hash_entry;
-		struct lockdep_subclass_key	subkeys[MAX_LOCKDEP_SUBCLASSES];
-	};
+	struct lockdep_subclass_key	subkeys[MAX_LOCKDEP_SUBCLASSES];
 };
 
 extern struct lock_class_key __lockdep_no_validate__;
@@ -69,8 +63,7 @@ extern struct lock_class_key __lockdep_no_validate__;
 #define LOCKSTAT_POINTS		4
 
 /*
- * The lock-class itself. The order of the structure members matters.
- * reinit_class() zeroes the key member and all subsequent members.
+ * The lock-class itself:
  */
 struct lock_class {
 	/*
@@ -79,18 +72,9 @@ struct lock_class {
 	struct hlist_node		hash_entry;
 
 	/*
-	 * Entry in all_lock_classes when in use. Entry in free_lock_classes
-	 * when not in use. Instances that are being freed are on one of the
-	 * zapped_classes lists.
+	 * global list of all lock-classes:
 	 */
 	struct list_head		lock_entry;
-
-	/*
-	 * These fields represent a directed graph of lock dependencies,
-	 * to every node we attach a list of "forward" and a list of
-	 * "backward" graph nodes.
-	 */
-	struct list_head		locks_after, locks_before;
 
 	struct lockdep_subclass_key	*key;
 	unsigned int			subclass;
@@ -103,17 +87,31 @@ struct lock_class {
 	struct stack_trace		usage_traces[XXX_LOCK_USAGE_STATES];
 
 	/*
+	 * These fields represent a directed graph of lock dependencies,
+	 * to every node we attach a list of "forward" and a list of
+	 * "backward" graph nodes.
+	 */
+	struct list_head		locks_after, locks_before;
+
+	/*
 	 * Generation counter, when doing certain classes of graph walking,
 	 * to ensure that we check one node only once:
 	 */
-	int				name_version;
+	unsigned int			version;
+
+	/*
+	 * Statistics counter:
+	 */
+	unsigned long			ops;
+
 	const char			*name;
+	int				name_version;
 
 #ifdef CONFIG_LOCK_STAT
 	unsigned long			contention_point[LOCKSTAT_POINTS];
 	unsigned long			contending_point[LOCKSTAT_POINTS];
 #endif
-} __no_randomize_layout;
+};
 
 #ifdef CONFIG_LOCK_STAT
 struct lock_time {
@@ -187,7 +185,6 @@ static inline void lockdep_copy_map(struct lockdep_map *to,
 struct lock_list {
 	struct list_head		entry;
 	struct lock_class		*class;
-	struct lock_class		*links_to;
 	struct stack_trace		trace;
 	int				distance;
 
@@ -274,13 +271,9 @@ extern void lockdep_reset(void);
 extern void lockdep_reset_lock(struct lockdep_map *lock);
 extern void lockdep_free_key_range(void *start, unsigned long size);
 extern asmlinkage void lockdep_sys_exit(void);
-extern void lockdep_set_selftest_task(struct task_struct *task);
 
 extern void lockdep_off(void);
 extern void lockdep_on(void);
-
-extern void lockdep_register_key(struct lock_class_key *key);
-extern void lockdep_unregister_key(struct lock_class_key *key);
 
 /*
  * These methods are used by specific locking variants (spinlocks,
@@ -408,10 +401,6 @@ static inline void lockdep_on(void)
 {
 }
 
-static inline void lockdep_set_selftest_task(struct task_struct *task)
-{
-}
-
 # define lock_acquire(l, s, t, r, c, n, i)	do { } while (0)
 # define lock_release(l, n, i)			do { } while (0)
 # define lock_downgrade(l, i)			do { } while (0)
@@ -442,14 +431,6 @@ static inline void lockdep_set_selftest_task(struct task_struct *task)
  * The class key takes no space if lockdep is disabled:
  */
 struct lock_class_key { };
-
-static inline void lockdep_register_key(struct lock_class_key *key)
-{
-}
-
-static inline void lockdep_unregister_key(struct lock_class_key *key)
-{
-}
 
 /*
  * The lockdep_map takes no space if lockdep is disabled:

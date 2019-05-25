@@ -36,6 +36,9 @@ MODULE_ALIAS("ip_set_hash:ip,mac");
 /* Type specific function prefix */
 #define HTYPE		hash_ipmac
 
+/* Zero valued element is not supported */
+static const unsigned char invalid_ether[ETH_ALEN] = { 0 };
+
 /* IPv4 variant */
 
 /* Member elements */
@@ -105,7 +108,7 @@ hash_ipmac4_kadt(struct ip_set *set, const struct sk_buff *skb,
 	else
 		ether_addr_copy(e.ether, eth_hdr(skb)->h_dest);
 
-	if (is_zero_ether_addr(e.ether))
+	if (ether_addr_equal(e.ether, invalid_ether))
 		return -EINVAL;
 
 	ip4addrptr(skb, opt->flags & IPSET_DIM_ONE_SRC, &e.ip);
@@ -141,7 +144,7 @@ hash_ipmac4_uadt(struct ip_set *set, struct nlattr *tb[],
 	if (ret)
 		return ret;
 	memcpy(e.ether, nla_data(tb[IPSET_ATTR_ETHER]), ETH_ALEN);
-	if (is_zero_ether_addr(e.ether))
+	if (ether_addr_equal(e.ether, invalid_ether))
 		return -IPSET_ERR_HASH_ELEM;
 
 	return adtfn(set, &e, &ext, &ext, flags);
@@ -221,7 +224,7 @@ hash_ipmac6_kadt(struct ip_set *set, const struct sk_buff *skb,
 	else
 		ether_addr_copy(e.ether, eth_hdr(skb)->h_dest);
 
-	if (is_zero_ether_addr(e.ether))
+	if (ether_addr_equal(e.ether, invalid_ether))
 		return -EINVAL;
 
 	ip6addrptr(skb, opt->flags & IPSET_DIM_ONE_SRC, &e.ip.in6);
@@ -261,7 +264,7 @@ hash_ipmac6_uadt(struct ip_set *set, struct nlattr *tb[],
 		return ret;
 
 	memcpy(e.ether, nla_data(tb[IPSET_ATTR_ETHER]), ETH_ALEN);
-	if (is_zero_ether_addr(e.ether))
+	if (ether_addr_equal(e.ether, invalid_ether))
 		return -IPSET_ERR_HASH_ELEM;
 
 	return adtfn(set, &e, &ext, &ext, flags);

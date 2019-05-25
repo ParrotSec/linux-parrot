@@ -8,6 +8,7 @@
 #include <linux/spinlock_types.h>
 #include <linux/dma-mapping.h>
 #include <linux/pci.h>
+#include <linux/netdevice.h>
 #include <linux/list.h>
 #include <linux/u64_stats_sync.h>
 

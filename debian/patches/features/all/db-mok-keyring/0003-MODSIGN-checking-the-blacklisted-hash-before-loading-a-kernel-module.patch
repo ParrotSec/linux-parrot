@@ -24,6 +24,8 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  kernel/module_signing.c | 62 +++++++++++++++++++++++++++++++++++++++++++++++--
  1 file changed, 60 insertions(+), 2 deletions(-)
 
+diff --git a/kernel/module_signing.c b/kernel/module_signing.c
+index d3d6f95..d30ac74 100644
 --- a/kernel/module_signing.c
 +++ b/kernel/module_signing.c
 @@ -11,9 +11,12 @@
@@ -39,7 +41,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  #include "module-internal.h"
  
  enum pkey_id_type {
-@@ -42,19 +45,67 @@ struct module_signature {
+@@ -42,19 +45,67 @@
  	__be32	sig_len;	/* Length of signature data */
  };
  
@@ -108,7 +110,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	memcpy(&ms, mod + (modlen - sizeof(ms)), sizeof(ms));
  	modlen -= sizeof(ms);
  
-@@ -82,8 +133,15 @@ int mod_verify_sig(const void *mod, stru
+@@ -82,8 +133,15 @@
  		return -EBADMSG;
  	}
  

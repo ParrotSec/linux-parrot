@@ -20,21 +20,16 @@
 #include <mach/spear.h>
 #include "generic.h"
 
-/* XXX spear_pen_release is cargo culted code - DO NOT COPY XXX */
-volatile int spear_pen_release = -1;
-
 /*
- * XXX CARGO CULTED CODE - DO NOT COPY XXX
- *
- * Write spear_pen_release in a way that is guaranteed to be visible to
- * all observers, irrespective of whether they're taking part in coherency
+ * Write pen_release in a way that is guaranteed to be visible to all
+ * observers, irrespective of whether they're taking part in coherency
  * or not.  This is necessary for the hotplug code to work reliably.
  */
-static void spear_write_pen_release(int val)
+static void write_pen_release(int val)
 {
-	spear_pen_release = val;
+	pen_release = val;
 	smp_wmb();
-	sync_cache_w(&spear_pen_release);
+	sync_cache_w(&pen_release);
 }
 
 static DEFINE_SPINLOCK(boot_lock);
@@ -47,7 +42,7 @@ static void spear13xx_secondary_init(unsigned int cpu)
 	 * let the primary processor know we're out of the
 	 * pen, then head off into the C entry point
 	 */
-	spear_write_pen_release(-1);
+	write_pen_release(-1);
 
 	/*
 	 * Synchronise with the boot thread.
@@ -69,17 +64,17 @@ static int spear13xx_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	/*
 	 * The secondary processor is waiting to be released from
 	 * the holding pen - release it, then wait for it to flag
-	 * that it has been released by resetting spear_pen_release.
+	 * that it has been released by resetting pen_release.
 	 *
-	 * Note that "spear_pen_release" is the hardware CPU ID, whereas
+	 * Note that "pen_release" is the hardware CPU ID, whereas
 	 * "cpu" is Linux's internal ID.
 	 */
-	spear_write_pen_release(cpu);
+	write_pen_release(cpu);
 
 	timeout = jiffies + (1 * HZ);
 	while (time_before(jiffies, timeout)) {
 		smp_rmb();
-		if (spear_pen_release == -1)
+		if (pen_release == -1)
 			break;
 
 		udelay(10);
@@ -91,7 +86,7 @@ static int spear13xx_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 */
 	spin_unlock(&boot_lock);
 
-	return spear_pen_release != -1 ? -ENOSYS : 0;
+	return pen_release != -1 ? -ENOSYS : 0;
 }
 
 /*

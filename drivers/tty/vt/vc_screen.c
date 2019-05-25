@@ -80,7 +80,7 @@
 struct vcs_poll_data {
 	struct notifier_block notifier;
 	unsigned int cons_num;
-	int event;
+	bool seen_last_update;
 	wait_queue_head_t waitq;
 	struct fasync_struct *fasync;
 };
@@ -93,18 +93,9 @@ vcs_notifier(struct notifier_block *nb, unsigned long code, void *_param)
 	struct vcs_poll_data *poll =
 		container_of(nb, struct vcs_poll_data, notifier);
 	int currcons = poll->cons_num;
-	int fa_band;
 
-	switch (code) {
-	case VT_UPDATE:
-		fa_band = POLL_PRI;
-		break;
-	case VT_DEALLOCATE:
-		fa_band = POLL_HUP;
-		break;
-	default:
+	if (code != VT_UPDATE)
 		return NOTIFY_DONE;
-	}
 
 	if (currcons == 0)
 		currcons = fg_console;
@@ -113,9 +104,9 @@ vcs_notifier(struct notifier_block *nb, unsigned long code, void *_param)
 	if (currcons != vc->vc_num)
 		return NOTIFY_DONE;
 
-	poll->event = code;
+	poll->seen_last_update = false;
 	wake_up_interruptible(&poll->waitq);
-	kill_fasync(&poll->fasync, SIGIO, fa_band);
+	kill_fasync(&poll->fasync, SIGIO, POLL_IN);
 	return NOTIFY_OK;
 }
 
@@ -140,15 +131,6 @@ vcs_poll_data_get(struct file *file)
 	poll->cons_num = console(file_inode(file));
 	init_waitqueue_head(&poll->waitq);
 	poll->notifier.notifier_call = vcs_notifier;
-	/*
-	 * In order not to lose any update event, we must pretend one might
-	 * have occurred before we have a chance to register our notifier.
-	 * This is also how user space has come to detect which kernels
-	 * support POLLPRI on /dev/vcs* devices i.e. using poll() with
-	 * POLLPRI and a zero timeout.
-	 */
-	poll->event = VT_UPDATE;
-
 	if (register_vt_notifier(&poll->notifier) != 0) {
 		kfree(poll);
 		return NULL;
@@ -279,7 +261,7 @@ vcs_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 
 	poll = file->private_data;
 	if (count && poll)
-		poll->event = 0;
+		poll->seen_last_update = true;
 	read = 0;
 	ret = 0;
 	while (count) {
@@ -353,9 +335,8 @@ vcs_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 			if (p < HEADER_SIZE) {
 				size_t tmp_count;
 
-				/* clamp header values if they don't fit */
-				con_buf0[0] = min(vc->vc_rows, 0xFFu);
-				con_buf0[1] = min(vc->vc_cols, 0xFFu);
+				con_buf0[0] = (char)vc->vc_rows;
+				con_buf0[1] = (char)vc->vc_cols;
 				getconsxy(vc, con_buf0 + 2);
 
 				con_buf_start += p;
@@ -634,21 +615,12 @@ static __poll_t
 vcs_poll(struct file *file, poll_table *wait)
 {
 	struct vcs_poll_data *poll = vcs_poll_data_get(file);
-	__poll_t ret = DEFAULT_POLLMASK|EPOLLERR;
+	__poll_t ret = DEFAULT_POLLMASK|EPOLLERR|EPOLLPRI;
 
 	if (poll) {
 		poll_wait(file, &poll->waitq, wait);
-		switch (poll->event) {
-		case VT_UPDATE:
-			ret = DEFAULT_POLLMASK|EPOLLPRI;
-			break;
-		case VT_DEALLOCATE:
-			ret = DEFAULT_POLLMASK|EPOLLHUP|EPOLLERR;
-			break;
-		case 0:
+		if (poll->seen_last_update)
 			ret = DEFAULT_POLLMASK;
-			break;
-		}
 	}
 	return ret;
 }

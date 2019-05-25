@@ -84,17 +84,17 @@ static const struct dce110_timing_generator_offsets reg_offsets[] = {
 #define DCP_REG(reg) (reg + tg110->offsets.dcp)
 #define DMIF_REG(reg) (reg + tg110->offsets.dmif)
 
-static void program_pix_dur(struct timing_generator *tg, uint32_t pix_clk_100hz)
+static void program_pix_dur(struct timing_generator *tg, uint32_t pix_clk_khz)
 {
 	uint64_t pix_dur;
 	uint32_t addr = mmDMIF_PG0_DPG_PIPE_ARBITRATION_CONTROL1
 					+ DCE110TG_FROM_TG(tg)->offsets.dmif;
 	uint32_t value = dm_read_reg(tg->ctx, addr);
 
-	if (pix_clk_100hz == 0)
+	if (pix_clk_khz == 0)
 		return;
 
-	pix_dur = div_u64(10000000000ull, pix_clk_100hz);
+	pix_dur = 1000000000 / pix_clk_khz;
 
 	set_reg_field_value(
 		value,
@@ -110,7 +110,7 @@ static void program_timing(struct timing_generator *tg,
 	bool use_vbios)
 {
 	if (!use_vbios)
-		program_pix_dur(tg, timing->pix_clk_100hz);
+		program_pix_dur(tg, timing->pix_clk_khz);
 
 	dce110_tg_program_timing(tg, timing, use_vbios);
 }

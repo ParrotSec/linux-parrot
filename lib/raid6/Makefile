@@ -13,7 +13,8 @@ raid6_pq-$(CONFIG_S390) += s390vx8.o recov_s390xc.o
 hostprogs-y	+= mktables
 
 quiet_cmd_unroll = UNROLL  $@
-      cmd_unroll = $(AWK) -f$(srctree)/$(src)/unroll.awk -vN=$(UNROLL) < $< > $@
+      cmd_unroll = $(AWK) -f$(srctree)/$(src)/unroll.awk -vN=$(UNROLL) \
+                   < $< > $@ || ( rm -f $@ && exit 1 )
 
 ifeq ($(CONFIG_ALTIVEC),y)
 altivec_flags := -maltivec $(call cc-option,-mabi=altivec)
@@ -159,7 +160,7 @@ $(obj)/s390vx8.c:   $(src)/s390vx.uc $(src)/unroll.awk FORCE
 	$(call if_changed,unroll)
 
 quiet_cmd_mktable = TABLE   $@
-      cmd_mktable = $(obj)/mktables > $@
+      cmd_mktable = $(obj)/mktables > $@ || ( rm -f $@ && exit 1 )
 
 targets += tables.c
 $(obj)/tables.c: $(obj)/mktables FORCE

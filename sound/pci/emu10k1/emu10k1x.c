@@ -1065,9 +1065,15 @@ static void snd_emu10k1x_proc_reg_write(struct snd_info_entry *entry,
 
 static int snd_emu10k1x_proc_init(struct emu10k1x *emu)
 {
-	snd_card_rw_proc_new(emu->card, "emu10k1x_regs", emu,
-			     snd_emu10k1x_proc_reg_read,
-			     snd_emu10k1x_proc_reg_write);
+	struct snd_info_entry *entry;
+	
+	if(! snd_card_proc_new(emu->card, "emu10k1x_regs", &entry)) {
+		snd_info_set_text_ops(entry, emu, snd_emu10k1x_proc_reg_read);
+		entry->c.text.write = snd_emu10k1x_proc_reg_write;
+		entry->mode |= 0200;
+		entry->private_data = emu;
+	}
+	
 	return 0;
 }
 

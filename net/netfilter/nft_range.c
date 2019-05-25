@@ -23,8 +23,9 @@ struct nft_range_expr {
 	enum nft_range_ops	op:8;
 };
 
-void nft_range_eval(const struct nft_expr *expr,
-		    struct nft_regs *regs, const struct nft_pktinfo *pkt)
+static void nft_range_eval(const struct nft_expr *expr,
+			 struct nft_regs *regs,
+			 const struct nft_pktinfo *pkt)
 {
 	const struct nft_range_expr *priv = nft_expr_priv(expr);
 	int d1, d2;

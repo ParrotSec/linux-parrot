@@ -15,7 +15,7 @@
  * GNU General Public License for more details.
  */
 
-#include "internals.h"
+#include <linux/mtd/rawnand.h>
 
 static void amd_nand_decode_id(struct nand_chip *chip)
 {

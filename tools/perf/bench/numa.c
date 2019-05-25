@@ -34,14 +34,9 @@
 #include <sys/types.h>
 #include <linux/kernel.h>
 #include <linux/time64.h>
-#include <linux/numa.h>
 
 #include <numa.h>
 #include <numaif.h>
-
-#ifndef RUSAGE_THREAD
-# define RUSAGE_THREAD 1
-#endif
 
 /*
  * Regular printout to the terminal, supressed if -q is specified:
@@ -303,7 +298,7 @@ static cpu_set_t bind_to_node(int target_node)
 
 	CPU_ZERO(&mask);
 
-	if (target_node == NUMA_NO_NODE) {
+	if (target_node == -1) {
 		for (cpu = 0; cpu < g->p.nr_cpus; cpu++)
 			CPU_SET(cpu, &mask);
 	} else {
@@ -344,7 +339,7 @@ static void bind_to_memnode(int node)
 	unsigned long nodemask;
 	int ret;
 
-	if (node == NUMA_NO_NODE)
+	if (node == -1)
 		return;
 
 	BUG_ON(g->p.nr_nodes > (int)sizeof(nodemask)*8);
@@ -1368,7 +1363,7 @@ static void init_thread_data(void)
 		int cpu;
 
 		/* Allow all nodes by default: */
-		td->bind_node = NUMA_NO_NODE;
+		td->bind_node = -1;
 
 		/* Allow all CPUs by default: */
 		CPU_ZERO(&td->bind_cpumask);

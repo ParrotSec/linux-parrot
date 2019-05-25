@@ -868,14 +868,6 @@
 					};
 				};
 			};
-
-			ports {
-				port {
-					muic_to_usb: endpoint {
-						remote-endpoint = <&usb_to_muic>;
-					};
-				};
-			};
 		};
 
 		regulators {
@@ -947,7 +939,8 @@
 	status = "okay";
 	cap-sd-highspeed;
 	disable-wp;
-	cd-gpios = <&gpa2 4 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpa2 4 GPIO_ACTIVE_HIGH>;
+	cd-inverted;
 	card-detect-delay = <200>;
 	samsung,dw-mshc-ciu-div = <3>;
 	samsung,dw-mshc-sdr-timing = <0 4>;
@@ -1202,20 +1195,6 @@
 	status = "okay";
 };
 
-&serial_3 {
-	status = "okay";
-
-	bluetooth {
-		compatible = "brcm,bcm43438-bt";
-		max-speed = <3000000>;
-		shutdown-gpios = <&gpd4 0 GPIO_ACTIVE_HIGH>;
-		device-wakeup-gpios = <&gpr3 7 GPIO_ACTIVE_HIGH>;
-		host-wakeup-gpios = <&gpa2 2 GPIO_ACTIVE_HIGH>;
-		clocks = <&s2mps13_osc S2MPS11_CLK_BT>;
-		clock-names = "extclk";
-	};
-};
-
 &spi_1 {
 	cs-gpios = <&gpd6 3 GPIO_ACTIVE_HIGH>;
 	status = "okay";
@@ -1304,17 +1283,12 @@
 
 &usbdrd_dwc3 {
 	dr_mode = "otg";
+	extcon = <&muic>;
 };
 
 &usbdrd30_phy {
 	vbus-supply = <&safeout1_reg>;
 	status = "okay";
-
-	port {
-		usb_to_muic: endpoint {
-			remote-endpoint = <&muic_to_usb>;
-		};
-	};
 };
 
 &xxti {

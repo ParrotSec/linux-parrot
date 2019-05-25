@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * drivers/net/phy/marvell.c
  *
@@ -9,6 +8,12 @@
  * Copyright (c) 2004 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2013 Michael Stapelberg <michael@stapelberg.de>
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
  */
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -260,7 +265,7 @@ static int marvell_set_polarity(struct phy_device *phydev, int polarity)
 			return err;
 	}
 
-	return val != reg;
+	return 0;
 }
 
 static int marvell_set_downshift(struct phy_device *phydev, bool enable,
@@ -282,14 +287,11 @@ static int marvell_set_downshift(struct phy_device *phydev, bool enable,
 
 static int marvell_config_aneg(struct phy_device *phydev)
 {
-	int changed = 0;
 	int err;
 
 	err = marvell_set_polarity(phydev, phydev->mdix_ctrl);
 	if (err < 0)
 		return err;
-
-	changed = err;
 
 	err = phy_write(phydev, MII_M1111_PHY_LED_CONTROL,
 			MII_M1111_PHY_LED_DIRECT);
@@ -300,7 +302,7 @@ static int marvell_config_aneg(struct phy_device *phydev)
 	if (err < 0)
 		return err;
 
-	if (phydev->autoneg != AUTONEG_ENABLE || changed) {
+	if (phydev->autoneg != AUTONEG_ENABLE) {
 		/* A write to speed/duplex bits (that is performed by
 		 * genphy_config_aneg() call above) must be followed by
 		 * a software reset. Otherwise, the write has no effect.
@@ -346,6 +348,42 @@ static int m88e1101_config_aneg(struct phy_device *phydev)
 		return err;
 
 	return marvell_config_aneg(phydev);
+}
+
+static int m88e1111_config_aneg(struct phy_device *phydev)
+{
+	int err;
+
+	/* The Marvell PHY has an errata which requires
+	 * that certain registers get written in order
+	 * to restart autonegotiation
+	 */
+	err = genphy_soft_reset(phydev);
+
+	err = marvell_set_polarity(phydev, phydev->mdix_ctrl);
+	if (err < 0)
+		return err;
+
+	err = phy_write(phydev, MII_M1111_PHY_LED_CONTROL,
+			MII_M1111_PHY_LED_DIRECT);
+	if (err < 0)
+		return err;
+
+	err = genphy_config_aneg(phydev);
+	if (err < 0)
+		return err;
+
+	if (phydev->autoneg != AUTONEG_ENABLE) {
+		/* A write to speed/duplex bits (that is performed by
+		 * genphy_config_aneg() call above) must be followed by
+		 * a software reset. Otherwise, the write has no effect.
+		 */
+		err = genphy_soft_reset(phydev);
+		if (err < 0)
+			return err;
+	}
+
+	return 0;
 }
 
 #ifdef CONFIG_OF_MDIO
@@ -441,7 +479,6 @@ static int m88e1121_config_aneg_rgmii_delays(struct phy_device *phydev)
 
 static int m88e1121_config_aneg(struct phy_device *phydev)
 {
-	int changed = 0;
 	int err = 0;
 
 	if (phy_interface_is_rgmii(phydev)) {
@@ -450,26 +487,15 @@ static int m88e1121_config_aneg(struct phy_device *phydev)
 			return err;
 	}
 
+	err = genphy_soft_reset(phydev);
+	if (err < 0)
+		return err;
+
 	err = marvell_set_polarity(phydev, phydev->mdix_ctrl);
 	if (err < 0)
 		return err;
 
-	changed = err;
-
-	err = genphy_config_aneg(phydev);
-	if (err < 0)
-		return err;
-
-	if (phydev->autoneg != AUTONEG_ENABLE || changed) {
-		/* A software reset is used to ensure a "commit" of the
-		 * changes is done.
-		 */
-		err = genphy_soft_reset(phydev);
-		if (err < 0)
-			return err;
-	}
-
-	return 0;
+	return genphy_config_aneg(phydev);
 }
 
 static int m88e1318_config_aneg(struct phy_device *phydev)
@@ -486,26 +512,25 @@ static int m88e1318_config_aneg(struct phy_device *phydev)
 }
 
 /**
- * linkmode_adv_to_fiber_adv_t
- * @advertise: the linkmode advertisement settings
+ * ethtool_adv_to_fiber_adv_t
+ * @ethadv: the ethtool advertisement settings
  *
- * A small helper function that translates linkmode advertisement
- * settings to phy autonegotiation advertisements for the MII_ADV
- * register for fiber link.
+ * A small helper function that translates ethtool advertisement
+ * settings to phy autonegotiation advertisements for the
+ * MII_ADV register for fiber link.
  */
-static inline u32 linkmode_adv_to_fiber_adv_t(unsigned long *advertise)
+static inline u32 ethtool_adv_to_fiber_adv_t(u32 ethadv)
 {
 	u32 result = 0;
 
-	if (linkmode_test_bit(ETHTOOL_LINK_MODE_1000baseT_Half_BIT, advertise))
+	if (ethadv & ADVERTISED_1000baseT_Half)
 		result |= ADVERTISE_FIBER_1000HALF;
-	if (linkmode_test_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, advertise))
+	if (ethadv & ADVERTISED_1000baseT_Full)
 		result |= ADVERTISE_FIBER_1000FULL;
 
-	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, advertise) &&
-	    linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT, advertise))
+	if ((ethadv & ADVERTISE_PAUSE_ASYM) && (ethadv & ADVERTISE_PAUSE_CAP))
 		result |= LPA_PAUSE_ASYM_FIBER;
-	else if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT, advertise))
+	else if (ethadv & ADVERTISE_PAUSE_CAP)
 		result |= (ADVERTISE_PAUSE_FIBER
 			   & (~ADVERTISE_PAUSE_ASYM_FIBER));
 
@@ -526,13 +551,14 @@ static int marvell_config_aneg_fiber(struct phy_device *phydev)
 	int changed = 0;
 	int err;
 	int adv, oldadv;
+	u32 advertise;
 
 	if (phydev->autoneg != AUTONEG_ENABLE)
 		return genphy_setup_forced(phydev);
 
 	/* Only allow advertising what this PHY supports */
-	linkmode_and(phydev->advertising, phydev->advertising,
-		     phydev->supported);
+	phydev->advertising &= phydev->supported;
+	advertise = phydev->advertising;
 
 	/* Setup fiber advertisement */
 	adv = phy_read(phydev, MII_ADVERTISE);
@@ -542,7 +568,7 @@ static int marvell_config_aneg_fiber(struct phy_device *phydev)
 	oldadv = adv;
 	adv &= ~(ADVERTISE_FIBER_1000HALF | ADVERTISE_FIBER_1000FULL
 		| LPA_PAUSE_FIBER);
-	adv |= linkmode_adv_to_fiber_adv_t(phydev->advertising);
+	adv |= ethtool_adv_to_fiber_adv_t(advertise);
 
 	if (adv != oldadv) {
 		err = phy_write(phydev, MII_ADVERTISE, adv);
@@ -633,7 +659,7 @@ static void marvell_config_led(struct phy_device *phydev)
 	err = phy_write_paged(phydev, MII_MARVELL_LED_PAGE, MII_PHY_LED_CTRL,
 			      def_config);
 	if (err < 0)
-		phydev_warn(phydev, "Fail to config marvell phy LED.\n");
+		pr_warn("Fail to config marvell phy LED.\n");
 }
 
 static int marvell_config_init(struct phy_device *phydev)
@@ -1059,21 +1085,22 @@ static int m88e6390_config_aneg(struct phy_device *phydev)
 }
 
 /**
- * fiber_lpa_mod_linkmode_lpa_t
- * @advertising: the linkmode advertisement settings
+ * fiber_lpa_to_ethtool_lpa_t
  * @lpa: value of the MII_LPA register for fiber link
  *
- * A small helper function that translates MII_LPA bits to linkmode LP
- * advertisement settings. Other bits in advertising are left
- * unchanged.
+ * A small helper function that translates MII_LPA
+ * bits to ethtool LP advertisement settings.
  */
-static void fiber_lpa_mod_linkmode_lpa_t(unsigned long *advertising, u32 lpa)
+static u32 fiber_lpa_to_ethtool_lpa_t(u32 lpa)
 {
-	linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseT_Half_BIT,
-			 advertising, lpa & LPA_FIBER_1000HALF);
+	u32 result = 0;
 
-	linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
-			 advertising, lpa & LPA_FIBER_1000FULL);
+	if (lpa & LPA_FIBER_1000HALF)
+		result |= ADVERTISED_1000baseT_Half;
+	if (lpa & LPA_FIBER_1000FULL)
+		result |= ADVERTISED_1000baseT_Full;
+
+	return result;
 }
 
 /**
@@ -1149,8 +1176,9 @@ static int marvell_read_status_page_an(struct phy_device *phydev,
 	}
 
 	if (!fiber) {
-		mii_lpa_to_linkmode_lpa_t(phydev->lp_advertising, lpa);
-		mii_stat1000_mod_linkmode_lpa_t(phydev->lp_advertising, lpagb);
+		phydev->lp_advertising =
+			mii_stat1000_to_ethtool_lpa_t(lpagb) |
+			mii_lpa_to_ethtool_lpa_t(lpa);
 
 		if (phydev->duplex == DUPLEX_FULL) {
 			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
@@ -1158,7 +1186,7 @@ static int marvell_read_status_page_an(struct phy_device *phydev,
 		}
 	} else {
 		/* The fiber link is only 1000M capable */
-		fiber_lpa_mod_linkmode_lpa_t(phydev->lp_advertising, lpa);
+		phydev->lp_advertising = fiber_lpa_to_ethtool_lpa_t(lpa);
 
 		if (phydev->duplex == DUPLEX_FULL) {
 			if (!(lpa & LPA_PAUSE_FIBER)) {
@@ -1197,7 +1225,7 @@ static int marvell_read_status_page_fixed(struct phy_device *phydev)
 
 	phydev->pause = 0;
 	phydev->asym_pause = 0;
-	linkmode_zero(phydev->lp_advertising);
+	phydev->lp_advertising = 0;
 
 	return 0;
 }
@@ -1249,8 +1277,7 @@ static int marvell_read_status(struct phy_device *phydev)
 	int err;
 
 	/* Check the fiber mode first */
-	if (linkmode_test_bit(ETHTOOL_LINK_MODE_FIBRE_BIT,
-			      phydev->supported) &&
+	if (phydev->supported & SUPPORTED_FIBRE &&
 	    phydev->interface != PHY_INTERFACE_MODE_SGMII) {
 		err = marvell_set_page(phydev, MII_MARVELL_FIBER_PAGE);
 		if (err < 0)
@@ -1293,8 +1320,7 @@ static int marvell_suspend(struct phy_device *phydev)
 	int err;
 
 	/* Suspend the fiber mode first */
-	if (!linkmode_test_bit(ETHTOOL_LINK_MODE_FIBRE_BIT,
-			       phydev->supported)) {
+	if (!(phydev->supported & SUPPORTED_FIBRE)) {
 		err = marvell_set_page(phydev, MII_MARVELL_FIBER_PAGE);
 		if (err < 0)
 			goto error;
@@ -1328,8 +1354,7 @@ static int marvell_resume(struct phy_device *phydev)
 	int err;
 
 	/* Resume the fiber mode first */
-	if (!linkmode_test_bit(ETHTOOL_LINK_MODE_FIBRE_BIT,
-			       phydev->supported)) {
+	if (!(phydev->supported & SUPPORTED_FIBRE)) {
 		err = marvell_set_page(phydev, MII_MARVELL_FIBER_PAGE);
 		if (err < 0)
 			goto error;
@@ -1480,8 +1505,7 @@ error:
 
 static int marvell_get_sset_count(struct phy_device *phydev)
 {
-	if (linkmode_test_bit(ETHTOOL_LINK_MODE_FIBRE_BIT,
-			      phydev->supported))
+	if (phydev->supported & SUPPORTED_FIBRE)
 		return ARRAY_SIZE(marvell_hw_stats);
 	else
 		return ARRAY_SIZE(marvell_hw_stats) - NB_FIBER_STATS;
@@ -1489,10 +1513,9 @@ static int marvell_get_sset_count(struct phy_device *phydev)
 
 static void marvell_get_strings(struct phy_device *phydev, u8 *data)
 {
-	int count = marvell_get_sset_count(phydev);
 	int i;
 
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < ARRAY_SIZE(marvell_hw_stats); i++) {
 		strlcpy(data + i * ETH_GSTRING_LEN,
 			marvell_hw_stats[i].string, ETH_GSTRING_LEN);
 	}
@@ -1520,10 +1543,9 @@ static u64 marvell_get_stat(struct phy_device *phydev, int i)
 static void marvell_get_stats(struct phy_device *phydev,
 			      struct ethtool_stats *stats, u64 *data)
 {
-	int count = marvell_get_sset_count(phydev);
 	int i;
 
-	for (i = 0; i < count; i++)
+	for (i = 0; i < ARRAY_SIZE(marvell_hw_stats); i++)
 		data[i] = marvell_get_stat(phydev, i);
 }
 
@@ -2025,6 +2047,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1101",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &marvell_config_init,
 		.config_aneg = &m88e1101_config_aneg,
@@ -2043,6 +2066,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1112",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e1111_config_init,
 		.config_aneg = &marvell_config_aneg,
@@ -2061,9 +2085,10 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1111",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e1111_config_init,
-		.config_aneg = &marvell_config_aneg,
+		.config_aneg = &m88e1111_config_aneg,
 		.read_status = &marvell_read_status,
 		.ack_interrupt = &marvell_ack_interrupt,
 		.config_intr = &marvell_config_intr,
@@ -2080,6 +2105,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1118",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e1118_config_init,
 		.config_aneg = &m88e1118_config_aneg,
@@ -2098,6 +2124,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1121R",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = &m88e1121_probe,
 		.config_init = &marvell_config_init,
 		.config_aneg = &m88e1121_config_aneg,
@@ -2118,6 +2145,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1318S",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e1318_config_init,
 		.config_aneg = &m88e1318_config_aneg,
@@ -2140,6 +2168,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1145",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e1145_config_init,
 		.config_aneg = &m88e1101_config_aneg,
@@ -2159,6 +2188,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1149R",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e1149_config_init,
 		.config_aneg = &m88e1118_config_aneg,
@@ -2177,6 +2207,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1240",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e1111_config_init,
 		.config_aneg = &marvell_config_aneg,
@@ -2195,6 +2226,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1116R",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e1116r_config_init,
 		.ack_interrupt = &marvell_ack_interrupt,
@@ -2211,7 +2243,8 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id = MARVELL_PHY_ID_88E1510,
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1510",
-		.features = PHY_GBIT_FIBRE_FEATURES,
+		.features = PHY_GBIT_FEATURES | SUPPORTED_FIBRE,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = &m88e1510_probe,
 		.config_init = &m88e1510_config_init,
 		.config_aneg = &m88e1510_config_aneg,
@@ -2235,6 +2268,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1540",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = m88e1510_probe,
 		.config_init = &marvell_config_init,
 		.config_aneg = &m88e1510_config_aneg,
@@ -2256,6 +2290,7 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1545",
 		.probe = m88e1510_probe,
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.config_init = &marvell_config_init,
 		.config_aneg = &m88e1510_config_aneg,
 		.read_status = &marvell_read_status,
@@ -2275,6 +2310,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E3016",
 		.features = PHY_BASIC_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = marvell_probe,
 		.config_init = &m88e3016_config_init,
 		.aneg_done = &marvell_aneg_done,
@@ -2295,6 +2331,7 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E6390",
 		.features = PHY_GBIT_FEATURES,
+		.flags = PHY_HAS_INTERRUPT,
 		.probe = m88e6390_probe,
 		.config_init = &marvell_config_init,
 		.config_aneg = &m88e6390_config_aneg,

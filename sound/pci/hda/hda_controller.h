@@ -20,7 +20,7 @@
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/initval.h>
-#include <sound/hda_codec.h>
+#include "hda_codec.h"
 #include <sound/hda_register.h>
 
 #define AZX_MAX_CODECS		HDA_MAX_CODECS
@@ -50,7 +50,11 @@
 /* 24 unused */
 #define AZX_DCAPS_COUNT_LPIB_DELAY  (1 << 25)	/* Take LPIB as delay */
 #define AZX_DCAPS_PM_RUNTIME	(1 << 26)	/* runtime PM support */
-/* 27 unused */
+#ifdef CONFIG_SND_HDA_I915
+#define AZX_DCAPS_I915_POWERWELL (1 << 27)	/* HSW i915 powerwell support */
+#else
+#define AZX_DCAPS_I915_POWERWELL 0		/* NOP */
+#endif
 #define AZX_DCAPS_CORBRP_SELF_CLEAR (1 << 28)	/* CORBRP clears itself after reset */
 #define AZX_DCAPS_NO_MSI64      (1 << 29)	/* Stick to 32-bit MSIs */
 #define AZX_DCAPS_SEPARATE_STREAM_TAG	(1 << 30) /* capture and playback use separate stream tag */
@@ -72,6 +76,7 @@ struct azx_dev {
 	 *  when link position is not greater than FIFO size
 	 */
 	unsigned int insufficient:1;
+	unsigned int wc_marked:1;
 };
 
 #define azx_stream(dev)		(&(dev)->core)
@@ -83,6 +88,11 @@ struct azx;
 struct hda_controller_ops {
 	/* Disable msi if supported, PCI only */
 	int (*disable_msi_reset_irq)(struct azx *);
+	int (*substream_alloc_pages)(struct azx *chip,
+				     struct snd_pcm_substream *substream,
+				     size_t size);
+	int (*substream_free_pages)(struct azx *chip,
+				    struct snd_pcm_substream *substream);
 	void (*pcm_mmap_prepare)(struct snd_pcm_substream *substream,
 				 struct vm_area_struct *area);
 	/* Check if current position is acceptable */
@@ -117,7 +127,7 @@ struct azx {
 	int capture_streams;
 	int capture_index_offset;
 	int num_streams;
-	int jackpoll_interval; /* jack poll interval in jiffies */
+	const int *jackpoll_ms; /* per-card jack poll interval */
 
 	/* Register interaction. */
 	const struct hda_controller_ops *ops;
@@ -166,10 +176,11 @@ struct azx {
 #define azx_bus(chip)	(&(chip)->bus.core)
 #define bus_to_azx(_bus)	container_of(_bus, struct azx, bus.core)
 
-static inline bool azx_snoop(struct azx *chip)
-{
-	return !IS_ENABLED(CONFIG_X86) || chip->snoop;
-}
+#ifdef CONFIG_X86
+#define azx_snoop(chip)		((chip)->snoop)
+#else
+#define azx_snoop(chip)		true
+#endif
 
 /*
  * macros for easy use

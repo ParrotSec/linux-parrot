@@ -752,7 +752,7 @@ void rpcb_getport_async(struct rpc_task *task)
 		goto bailout_nofree;
 	}
 
-	map = kzalloc(sizeof(struct rpcbind_args), GFP_NOFS);
+	map = kzalloc(sizeof(struct rpcbind_args), GFP_ATOMIC);
 	if (!map) {
 		status = -ENOMEM;
 		dprintk("RPC: %5u %s: no memory available\n",
@@ -770,7 +770,7 @@ void rpcb_getport_async(struct rpc_task *task)
 	case RPCBVERS_4:
 	case RPCBVERS_3:
 		map->r_netid = xprt->address_strings[RPC_DISPLAY_NETID];
-		map->r_addr = rpc_sockaddr2uaddr(sap, GFP_NOFS);
+		map->r_addr = rpc_sockaddr2uaddr(sap, GFP_ATOMIC);
 		if (!map->r_addr) {
 			status = -ENOMEM;
 			dprintk("RPC: %5u %s: no memory available\n",

@@ -427,10 +427,9 @@
 #ifdef CONFIG_CPU_MIPSR6
 		eretnc
 #else
-		.set	push
 		.set	arch=r4000
 		eret
-		.set	pop
+		.set	mips0
 #endif
 		.endm
 

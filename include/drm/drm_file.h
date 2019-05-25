@@ -32,7 +32,6 @@
 
 #include <linux/types.h>
 #include <linux/completion.h>
-#include <linux/idr.h>
 
 #include <uapi/drm/drm.h>
 
@@ -165,14 +164,14 @@ struct drm_file {
 	 * See also the :ref:`section on primary nodes and authentication
 	 * <drm_primary_node>`.
 	 */
-	bool authenticated;
+	unsigned authenticated :1;
 
 	/**
 	 * @stereo_allowed:
 	 *
 	 * True when the client has asked us to expose stereo 3D mode flags.
 	 */
-	bool stereo_allowed;
+	unsigned stereo_allowed :1;
 
 	/**
 	 * @universal_planes:
@@ -180,10 +179,10 @@ struct drm_file {
 	 * True if client understands CRTC primary planes and cursor planes
 	 * in the plane list. Automatically set when @atomic is set.
 	 */
-	bool universal_planes;
+	unsigned universal_planes:1;
 
 	/** @atomic: True if client understands atomic properties. */
-	bool atomic;
+	unsigned atomic:1;
 
 	/**
 	 * @aspect_ratio_allowed:
@@ -191,14 +190,14 @@ struct drm_file {
 	 * True, if client can handle picture aspect ratios, and has requested
 	 * to pass this information along with the mode.
 	 */
-	bool aspect_ratio_allowed;
+	unsigned aspect_ratio_allowed:1;
 
 	/**
 	 * @writeback_connectors:
 	 *
 	 * True if client understands writeback connectors
 	 */
-	bool writeback_connectors;
+	unsigned writeback_connectors:1;
 
 	/**
 	 * @is_master:
@@ -209,7 +208,7 @@ struct drm_file {
 	 * See also the :ref:`section on primary nodes and authentication
 	 * <drm_primary_node>`.
 	 */
-	bool is_master;
+	unsigned is_master:1;
 
 	/**
 	 * @master:

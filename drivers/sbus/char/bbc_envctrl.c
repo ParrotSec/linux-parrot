@@ -571,9 +571,9 @@ int bbc_envctrl_init(struct bbc_i2c_bus *bp)
 	int devidx = 0;
 
 	while ((op = bbc_i2c_getdev(bp, devidx++)) != NULL) {
-		if (of_node_name_eq(op->dev.of_node, "temperature"))
+		if (!strcmp(op->dev.of_node->name, "temperature"))
 			attach_one_temp(bp, op, temp_index++);
-		if (of_node_name_eq(op->dev.of_node, "fan-control"))
+		if (!strcmp(op->dev.of_node->name, "fan-control"))
 			attach_one_fan(bp, op, fan_index++);
 	}
 	if (temp_index != 0 && fan_index != 0) {

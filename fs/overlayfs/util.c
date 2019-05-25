@@ -65,7 +65,8 @@ struct super_block *ovl_same_sb(struct super_block *sb)
  */
 int ovl_can_decode_fh(struct super_block *sb)
 {
-	if (!sb->s_export_op || !sb->s_export_op->fh_to_dentry)
+	if (!sb->s_export_op || !sb->s_export_op->fh_to_dentry ||
+	    uuid_is_null(&sb->s_uuid))
 		return 0;
 
 	return sb->s_export_op->encode_fh ? -1 : FILEID_INO32_GEN;
@@ -521,13 +522,13 @@ bool ovl_already_copied_up(struct dentry *dentry, int flags)
 
 int ovl_copy_up_start(struct dentry *dentry, int flags)
 {
-	struct inode *inode = d_inode(dentry);
+	struct ovl_inode *oi = OVL_I(d_inode(dentry));
 	int err;
 
-	err = ovl_inode_lock(inode);
+	err = mutex_lock_interruptible(&oi->lock);
 	if (!err && ovl_already_copied_up_locked(dentry, flags)) {
 		err = 1; /* Already copied up */
-		ovl_inode_unlock(inode);
+		mutex_unlock(&oi->lock);
 	}
 
 	return err;
@@ -535,7 +536,7 @@ int ovl_copy_up_start(struct dentry *dentry, int flags)
 
 void ovl_copy_up_end(struct dentry *dentry)
 {
-	ovl_inode_unlock(d_inode(dentry));
+	mutex_unlock(&OVL_I(d_inode(dentry))->lock);
 }
 
 bool ovl_check_origin_xattr(struct dentry *dentry)
@@ -738,14 +739,14 @@ fail:
  * Operations that change overlay inode and upper inode nlink need to be
  * synchronized with copy up for persistent nlink accounting.
  */
-int ovl_nlink_start(struct dentry *dentry)
+int ovl_nlink_start(struct dentry *dentry, bool *locked)
 {
-	struct inode *inode = d_inode(dentry);
+	struct ovl_inode *oi = OVL_I(d_inode(dentry));
 	const struct cred *old_cred;
 	int err;
 
-	if (WARN_ON(!inode))
-		return -ENOENT;
+	if (!d_inode(dentry))
+		return 0;
 
 	/*
 	 * With inodes index is enabled, we store the union overlay nlink
@@ -767,11 +768,11 @@ int ovl_nlink_start(struct dentry *dentry)
 			return err;
 	}
 
-	err = ovl_inode_lock(inode);
+	err = mutex_lock_interruptible(&oi->lock);
 	if (err)
 		return err;
 
-	if (d_is_dir(dentry) || !ovl_test_flag(OVL_INDEX, inode))
+	if (d_is_dir(dentry) || !ovl_test_flag(OVL_INDEX, d_inode(dentry)))
 		goto out;
 
 	old_cred = ovl_override_creds(dentry->d_sb);
@@ -786,24 +787,27 @@ int ovl_nlink_start(struct dentry *dentry)
 
 out:
 	if (err)
-		ovl_inode_unlock(inode);
+		mutex_unlock(&oi->lock);
+	else
+		*locked = true;
 
 	return err;
 }
 
-void ovl_nlink_end(struct dentry *dentry)
+void ovl_nlink_end(struct dentry *dentry, bool locked)
 {
-	struct inode *inode = d_inode(dentry);
+	if (locked) {
+		if (ovl_test_flag(OVL_INDEX, d_inode(dentry)) &&
+		    d_inode(dentry)->i_nlink == 0) {
+			const struct cred *old_cred;
 
-	if (ovl_test_flag(OVL_INDEX, inode) && inode->i_nlink == 0) {
-		const struct cred *old_cred;
+			old_cred = ovl_override_creds(dentry->d_sb);
+			ovl_cleanup_index(dentry);
+			revert_creds(old_cred);
+		}
 
-		old_cred = ovl_override_creds(dentry->d_sb);
-		ovl_cleanup_index(dentry);
-		revert_creds(old_cred);
+		mutex_unlock(&OVL_I(d_inode(dentry))->lock);
 	}
-
-	ovl_inode_unlock(inode);
 }
 
 int ovl_lock_rename_workdir(struct dentry *workdir, struct dentry *upperdir)

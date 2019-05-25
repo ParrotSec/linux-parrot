@@ -36,7 +36,6 @@ EXPORT_SYMBOL(dcache_stride);
 
 void flush_dcache_page_asm(unsigned long phys_addr, unsigned long vaddr);
 EXPORT_SYMBOL(flush_dcache_page_asm);
-void purge_dcache_page_asm(unsigned long phys_addr, unsigned long vaddr);
 void flush_icache_page_asm(unsigned long phys_addr, unsigned long vaddr);
 
 
@@ -304,17 +303,6 @@ __flush_cache_page(struct vm_area_struct *vma, unsigned long vmaddr,
 	preempt_enable();
 }
 
-static inline void
-__purge_cache_page(struct vm_area_struct *vma, unsigned long vmaddr,
-		   unsigned long physaddr)
-{
-	preempt_disable();
-	purge_dcache_page_asm(physaddr, vmaddr);
-	if (vma->vm_flags & VM_EXEC)
-		flush_icache_page_asm(physaddr, vmaddr);
-	preempt_enable();
-}
-
 void flush_dcache_page(struct page *page)
 {
 	struct address_space *mapping = page_mapping_file(page);
@@ -376,7 +364,7 @@ EXPORT_SYMBOL(flush_kernel_icache_range_asm);
 #define FLUSH_THRESHOLD 0x80000 /* 0.5MB */
 static unsigned long parisc_cache_flush_threshold __read_mostly = FLUSH_THRESHOLD;
 
-#define FLUSH_TLB_THRESHOLD (16*1024) /* 16 KiB minimum TLB threshold */
+#define FLUSH_TLB_THRESHOLD (2*1024*1024) /* 2MB initial TLB threshold */
 static unsigned long parisc_tlb_flush_threshold __read_mostly = FLUSH_TLB_THRESHOLD;
 
 void __init parisc_setup_cache_timing(void)
@@ -416,6 +404,10 @@ void __init parisc_setup_cache_timing(void)
 		goto set_tlb_threshold;
 	}
 
+	alltime = mfctl(16);
+	flush_tlb_all();
+	alltime = mfctl(16) - alltime;
+
 	size = 0;
 	start = (unsigned long) _text;
 	rangetime = mfctl(16);
@@ -426,19 +418,13 @@ void __init parisc_setup_cache_timing(void)
 	}
 	rangetime = mfctl(16) - rangetime;
 
-	alltime = mfctl(16);
-	flush_tlb_all();
-	alltime = mfctl(16) - alltime;
-
-	printk(KERN_INFO "Whole TLB flush %lu cycles, Range flush %lu bytes %lu cycles\n",
+	printk(KERN_DEBUG "Whole TLB flush %lu cycles, flushing %lu bytes %lu cycles\n",
 		alltime, size, rangetime);
 
-	threshold = PAGE_ALIGN((num_online_cpus() * size * alltime) / rangetime);
-	printk(KERN_INFO "Calculated TLB flush threshold %lu KiB\n",
-		threshold/1024);
+	threshold = PAGE_ALIGN(num_online_cpus() * size * alltime / rangetime);
 
 set_tlb_threshold:
-	if (threshold > parisc_tlb_flush_threshold)
+	if (threshold)
 		parisc_tlb_flush_threshold = threshold;
 	printk(KERN_INFO "TLB flush threshold set to %lu KiB\n",
 		parisc_tlb_flush_threshold/1024);
@@ -491,6 +477,18 @@ int __flush_tlb_range(unsigned long sid, unsigned long start,
 	/* Purge TLB entries for small ranges using the pdtlb and
 	   pitlb instructions.  These instructions execute locally
 	   but cause a purge request to be broadcast to other TLBs.  */
+	if (likely(!split_tlb)) {
+		while (start < end) {
+			purge_tlb_start(flags);
+			mtsp(sid, 1);
+			pdtlb(start);
+			purge_tlb_end(flags);
+			start += PAGE_SIZE;
+		}
+		return 0;
+	}
+
+	/* split TLB case */
 	while (start < end) {
 		purge_tlb_start(flags);
 		mtsp(sid, 1);
@@ -575,12 +573,9 @@ void flush_cache_mm(struct mm_struct *mm)
 			pfn = pte_pfn(*ptep);
 			if (!pfn_valid(pfn))
 				continue;
-			if (unlikely(mm->context)) {
+			if (unlikely(mm->context))
 				flush_tlb_page(vma, addr);
-				__flush_cache_page(vma, addr, PFN_PHYS(pfn));
-			} else {
-				__purge_cache_page(vma, addr, PFN_PHYS(pfn));
-			}
+			__flush_cache_page(vma, addr, PFN_PHYS(pfn));
 		}
 	}
 }
@@ -615,12 +610,9 @@ void flush_cache_range(struct vm_area_struct *vma,
 			continue;
 		pfn = pte_pfn(*ptep);
 		if (pfn_valid(pfn)) {
-			if (unlikely(vma->vm_mm->context)) {
+			if (unlikely(vma->vm_mm->context))
 				flush_tlb_page(vma, addr);
-				__flush_cache_page(vma, addr, PFN_PHYS(pfn));
-			} else {
-				__purge_cache_page(vma, addr, PFN_PHYS(pfn));
-			}
+			__flush_cache_page(vma, addr, PFN_PHYS(pfn));
 		}
 	}
 }
@@ -629,12 +621,9 @@ void
 flush_cache_page(struct vm_area_struct *vma, unsigned long vmaddr, unsigned long pfn)
 {
 	if (pfn_valid(pfn)) {
-		if (likely(vma->vm_mm->context)) {
+		if (likely(vma->vm_mm->context))
 			flush_tlb_page(vma, vmaddr);
-			__flush_cache_page(vma, vmaddr, PFN_PHYS(pfn));
-		} else {
-			__purge_cache_page(vma, vmaddr, PFN_PHYS(pfn));
-		}
+		__flush_cache_page(vma, vmaddr, PFN_PHYS(pfn));
 	}
 }
 

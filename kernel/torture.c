@@ -1,10 +1,23 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Common functions for in-kernel torture tests.
  *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
  * Copyright (C) IBM Corporation, 2014
  *
- * Author: Paul E. McKenney <paulmck@linux.ibm.com>
+ * Author: Paul E. McKenney <paulmck@us.ibm.com>
  *	Based on kernel/rcu/torture.c.
  */
 
@@ -40,7 +53,7 @@
 #include "rcu/rcu.h"
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Paul E. McKenney <paulmck@linux.ibm.com>");
+MODULE_AUTHOR("Paul E. McKenney <paulmck@us.ibm.com>");
 
 static char *torture_type;
 static int verbose;
@@ -62,7 +75,6 @@ static DEFINE_MUTEX(fullstop_mutex);
 static struct task_struct *onoff_task;
 static long onoff_holdoff;
 static long onoff_interval;
-static torture_ofl_func *onoff_f;
 static long n_offline_attempts;
 static long n_offline_successes;
 static unsigned long sum_offline;
@@ -106,8 +118,6 @@ bool torture_offline(int cpu, long *n_offl_attempts, long *n_offl_successes,
 			pr_alert("%s" TORTURE_FLAG
 				 "torture_onoff task: offlined %d\n",
 				 torture_type, cpu);
-		if (onoff_f)
-			onoff_f();
 		(*n_offl_successes)++;
 		delta = jiffies - starttime;
 		*sum_offl += delta;
@@ -184,23 +194,11 @@ torture_onoff(void *arg)
 	int cpu;
 	int maxcpu = -1;
 	DEFINE_TORTURE_RANDOM(rand);
-	int ret;
 
 	VERBOSE_TOROUT_STRING("torture_onoff task started");
 	for_each_online_cpu(cpu)
 		maxcpu = cpu;
 	WARN_ON(maxcpu < 0);
-	if (!IS_MODULE(CONFIG_TORTURE_TEST))
-		for_each_possible_cpu(cpu) {
-			if (cpu_online(cpu))
-				continue;
-			ret = cpu_up(cpu);
-			if (ret && verbose) {
-				pr_alert("%s" TORTURE_FLAG
-					 "%s: Initial online %d: errno %d\n",
-					 __func__, torture_type, cpu, ret);
-			}
-		}
 
 	if (maxcpu == 0) {
 		VERBOSE_TOROUT_STRING("Only one CPU, so CPU-hotplug testing is disabled");
@@ -233,18 +231,18 @@ stop:
 /*
  * Initiate online-offline handling.
  */
-int torture_onoff_init(long ooholdoff, long oointerval, torture_ofl_func *f)
+int torture_onoff_init(long ooholdoff, long oointerval)
 {
+	int ret = 0;
+
 #ifdef CONFIG_HOTPLUG_CPU
 	onoff_holdoff = ooholdoff;
 	onoff_interval = oointerval;
-	onoff_f = f;
 	if (onoff_interval <= 0)
 		return 0;
-	return torture_create_kthread(torture_onoff, NULL, onoff_task);
-#else /* #ifdef CONFIG_HOTPLUG_CPU */
-	return 0;
-#endif /* #else #ifdef CONFIG_HOTPLUG_CPU */
+	ret = torture_create_kthread(torture_onoff, NULL, onoff_task);
+#endif /* #ifdef CONFIG_HOTPLUG_CPU */
+	return ret;
 }
 EXPORT_SYMBOL_GPL(torture_onoff_init);
 
@@ -515,13 +513,15 @@ static int torture_shutdown(void *arg)
  */
 int torture_shutdown_init(int ssecs, void (*cleanup)(void))
 {
+	int ret = 0;
+
 	torture_shutdown_hook = cleanup;
 	if (ssecs > 0) {
 		shutdown_time = ktime_add(ktime_get(), ktime_set(ssecs, 0));
-		return torture_create_kthread(torture_shutdown, NULL,
+		ret = torture_create_kthread(torture_shutdown, NULL,
 					     shutdown_task);
 	}
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(torture_shutdown_init);
 
@@ -573,7 +573,7 @@ static int stutter;
  * Block until the stutter interval ends.  This must be called periodically
  * by all running kthreads that need to be subject to stuttering.
  */
-bool stutter_wait(const char *title)
+void stutter_wait(const char *title)
 {
 	int spt;
 
@@ -590,7 +590,6 @@ bool stutter_wait(const char *title)
 		}
 		torture_shutdown_absorb(title);
 	}
-	return !!spt;
 }
 EXPORT_SYMBOL_GPL(stutter_wait);
 
@@ -620,10 +619,13 @@ static int torture_stutter(void *arg)
 /*
  * Initialize and kick off the torture_stutter kthread.
  */
-int torture_stutter_init(const int s)
+int torture_stutter_init(int s)
 {
+	int ret;
+
 	stutter = s;
-	return torture_create_kthread(torture_stutter, NULL, stutter_task);
+	ret = torture_create_kthread(torture_stutter, NULL, stutter_task);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(torture_stutter_init);
 

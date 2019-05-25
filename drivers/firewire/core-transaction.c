@@ -410,14 +410,6 @@ static void transaction_callback(struct fw_card *card, int rcode,
 
 /**
  * fw_run_transaction() - send request and sleep until transaction is completed
- * @card:		card interface for this request
- * @tcode:		transaction code
- * @destination_id:	destination node ID, consisting of bus_ID and phy_ID
- * @generation:		bus generation in which request and response are valid
- * @speed:		transmission speed
- * @offset:		48bit wide offset into destination's address space
- * @payload:		data payload for the request subaction
- * @length:		length of the payload, in bytes
  *
  * Returns the RCODE.  See fw_send_request() for parameter documentation.
  * Unlike fw_send_request(), @data points to the payload of the request or/and
@@ -612,7 +604,6 @@ EXPORT_SYMBOL(fw_core_add_address_handler);
 
 /**
  * fw_core_remove_address_handler() - unregister an address handler
- * @handler: callback
  *
  * To be called in process context.
  *
@@ -837,7 +828,6 @@ EXPORT_SYMBOL(fw_send_response);
 
 /**
  * fw_get_request_speed() - returns speed at which the @request was received
- * @request: firewire request data
  */
 int fw_get_request_speed(struct fw_request *request)
 {

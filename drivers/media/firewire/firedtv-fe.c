@@ -247,7 +247,7 @@ void fdtv_frontend_init(struct firedtv *fdtv, const char *name)
 		dev_err(fdtv->device, "no frontend for model type %d\n",
 			fdtv->type);
 	}
-	strscpy(fi->name, name, sizeof(fi->name));
+	strcpy(fi->name, name);
 
 	fdtv->fe.dvb = &fdtv->adapter;
 	fdtv->fe.sec_priv = fdtv;

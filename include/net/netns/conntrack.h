@@ -18,11 +18,21 @@
 struct ctl_table_header;
 struct nf_conntrack_ecache;
 
+struct nf_proto_net {
+#ifdef CONFIG_SYSCTL
+	struct ctl_table_header *ctl_table_header;
+	struct ctl_table        *ctl_table;
+#endif
+	unsigned int		users;
+};
+
 struct nf_generic_net {
+	struct nf_proto_net pn;
 	unsigned int timeout;
 };
 
 struct nf_tcp_net {
+	struct nf_proto_net pn;
 	unsigned int timeouts[TCP_CONNTRACK_TIMEOUT_MAX];
 	unsigned int tcp_loose;
 	unsigned int tcp_be_liberal;
@@ -36,15 +46,18 @@ enum udp_conntrack {
 };
 
 struct nf_udp_net {
+	struct nf_proto_net pn;
 	unsigned int timeouts[UDP_CT_MAX];
 };
 
 struct nf_icmp_net {
+	struct nf_proto_net pn;
 	unsigned int timeout;
 };
 
 #ifdef CONFIG_NF_CT_PROTO_DCCP
 struct nf_dccp_net {
+	struct nf_proto_net pn;
 	int dccp_loose;
 	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
 };
@@ -52,20 +65,8 @@ struct nf_dccp_net {
 
 #ifdef CONFIG_NF_CT_PROTO_SCTP
 struct nf_sctp_net {
+	struct nf_proto_net pn;
 	unsigned int timeouts[SCTP_CONNTRACK_MAX];
-};
-#endif
-
-#ifdef CONFIG_NF_CT_PROTO_GRE
-enum gre_conntrack {
-	GRE_CT_UNREPLIED,
-	GRE_CT_REPLIED,
-	GRE_CT_MAX
-};
-
-struct nf_gre_net {
-	struct list_head	keymap_list;
-	unsigned int		timeouts[GRE_CT_MAX];
 };
 #endif
 
@@ -80,9 +81,6 @@ struct nf_ip_net {
 #endif
 #ifdef CONFIG_NF_CT_PROTO_SCTP
 	struct nf_sctp_net	sctp;
-#endif
-#ifdef CONFIG_NF_CT_PROTO_GRE
-	struct nf_gre_net	gre;
 #endif
 };
 
@@ -99,14 +97,18 @@ struct netns_ct {
 	struct delayed_work ecache_dwork;
 	bool ecache_dwork_pending;
 #endif
-	bool			auto_assign_helper_warned;
 #ifdef CONFIG_SYSCTL
 	struct ctl_table_header	*sysctl_header;
+	struct ctl_table_header	*acct_sysctl_header;
+	struct ctl_table_header	*tstamp_sysctl_header;
+	struct ctl_table_header	*event_sysctl_header;
+	struct ctl_table_header	*helper_sysctl_header;
 #endif
 	unsigned int		sysctl_log_invalid; /* Log invalid packets */
 	int			sysctl_events;
 	int			sysctl_acct;
 	int			sysctl_auto_assign_helper;
+	bool			auto_assign_helper_warned;
 	int			sysctl_tstamp;
 	int			sysctl_checksum;
 

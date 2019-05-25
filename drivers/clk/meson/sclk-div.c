@@ -16,11 +16,7 @@
  * duty_cycle = (1 + hi) / (1 + val)
  */
 
-#include <linux/clk-provider.h>
-#include <linux/module.h>
-
-#include "clk-regmap.h"
-#include "sclk-div.h"
+#include "clkc-audio.h"
 
 static inline struct meson_sclk_div_data *
 meson_sclk_div_data(struct clk_regmap *clk)
@@ -245,7 +241,3 @@ const struct clk_ops meson_sclk_div_ops = {
 	.init		= sclk_div_init,
 };
 EXPORT_SYMBOL_GPL(meson_sclk_div_ops);
-
-MODULE_DESCRIPTION("Amlogic Sample divider driver");
-MODULE_AUTHOR("Jerome Brunet <jbrunet@baylibre.com>");
-MODULE_LICENSE("GPL v2");

@@ -51,14 +51,8 @@
 };
 
 &cpsw_emac0 {
-	phy-handle = <&ethphy0>;
+	phy_id = <&davinci_mdio>, <3>;
 	phy-mode = "rgmii";
-};
-
-&davinci_mdio {
-	ethphy0: ethernet-phy@3 {
-		reg = <3>;
-	};
 };
 
 &mmc1 {

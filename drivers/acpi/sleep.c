@@ -985,8 +985,6 @@ static int acpi_s2idle_prepare(void)
 
 static void acpi_s2idle_wake(void)
 {
-	if (!lps0_device_handle)
-		return;
 
 	if (pm_debug_messages_on)
 		lpi_check_constraints();
@@ -1005,7 +1003,8 @@ static void acpi_s2idle_wake(void)
 		 * takes too much time for EC wakeup events to survive, so look
 		 * for them now.
 		 */
-		acpi_ec_dispatch_gpe();
+		if (lps0_device_handle)
+			acpi_ec_dispatch_gpe();
 	}
 }
 

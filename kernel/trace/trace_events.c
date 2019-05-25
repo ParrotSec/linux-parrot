@@ -1251,7 +1251,7 @@ static int f_show(struct seq_file *m, void *v)
 	 */
 	array_descriptor = strchr(field->type, '[');
 
-	if (str_has_prefix(field->type, "__data_loc"))
+	if (!strncmp(field->type, "__data_loc", 10))
 		array_descriptor = NULL;
 
 	if (!array_descriptor)
@@ -2309,8 +2309,7 @@ static void __add_event_to_tracers(struct trace_event_call *call);
 int trace_add_event_call(struct trace_event_call *call)
 {
 	int ret;
-	lockdep_assert_held(&event_mutex);
-
+	mutex_lock(&event_mutex);
 	mutex_lock(&trace_types_lock);
 
 	ret = __register_event(call, NULL);
@@ -2318,6 +2317,7 @@ int trace_add_event_call(struct trace_event_call *call)
 		__add_event_to_tracers(call);
 
 	mutex_unlock(&trace_types_lock);
+	mutex_unlock(&event_mutex);
 	return ret;
 }
 
@@ -2371,13 +2371,13 @@ int trace_remove_event_call(struct trace_event_call *call)
 {
 	int ret;
 
-	lockdep_assert_held(&event_mutex);
-
+	mutex_lock(&event_mutex);
 	mutex_lock(&trace_types_lock);
 	down_write(&trace_event_sem);
 	ret = probe_remove_event_call(call);
 	up_write(&trace_event_sem);
 	mutex_unlock(&trace_types_lock);
+	mutex_unlock(&event_mutex);
 
 	return ret;
 }

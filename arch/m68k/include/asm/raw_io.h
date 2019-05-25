@@ -107,43 +107,12 @@ static inline void raw_insb(volatile u8 __iomem *port, u8 *buf, unsigned int len
 }
 
 static inline void raw_outsb(volatile u8 __iomem *port, const u8 *buf,
-			     unsigned int nr)
+			     unsigned int len)
 {
-	unsigned int tmp;
+	unsigned int i;
 
-	if (nr & 15) {
-		tmp = (nr & 15) - 1;
-		asm volatile (
-			"1: moveb %0@+,%2@; dbra %1,1b"
-			: "=a" (buf), "=d" (tmp)
-			: "a" (port), "0" (buf),
-			  "1" (tmp));
-	}
-	if (nr >> 4) {
-		tmp = (nr >> 4) - 1;
-		asm volatile (
-			"1: "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"moveb %0@+,%2@; "
-			"dbra %1,1b"
-			: "=a" (buf), "=d" (tmp)
-			: "a" (port), "0" (buf),
-			  "1" (tmp));
-	}
+        for (i = 0; i < len; i++)
+		out_8(port, *buf++);
 }
 
 static inline void raw_insw(volatile u16 __iomem *port, u16 *buf, unsigned int nr)

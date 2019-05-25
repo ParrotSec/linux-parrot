@@ -164,7 +164,9 @@ config ARM_CHARLCD
 	  line and the Linux version on the second line, but that's
 	  still useful.
 
-menuconfig PARPORT_PANEL
+endif # AUXDISPLAY
+
+menuconfig PANEL
 	tristate "Parallel port LCD/Keypad Panel support"
 	depends on PARPORT
 	select CHARLCD
@@ -176,7 +178,7 @@ menuconfig PARPORT_PANEL
 	  compiled as a module, or linked into the kernel and started at boot.
 	  If you don't understand what all this is about, say N.
 
-if PARPORT_PANEL
+if PANEL
 
 config PANEL_PARPORT
 	int "Default parallel port number (0=LPT1)"
@@ -417,11 +419,8 @@ config PANEL_LCD_PIN_BL
 
 	  Default for the 'BL' pin in custom profile is '0' (uncontrolled).
 
-endif # PARPORT_PANEL
-
 config PANEL_CHANGE_MESSAGE
 	bool "Change LCD initialization message ?"
-	depends on CHARLCD
 	default "n"
 	---help---
 	  This allows you to replace the boot message indicating the kernel version
@@ -445,34 +444,7 @@ config PANEL_BOOT_MESSAGE
 	  An empty message will only clear the display at driver init time. Any other
 	  printf()-formatted message is valid with newline and escape codes.
 
-choice
-	prompt "Backlight initial state"
-	default CHARLCD_BL_FLASH
-
-	config CHARLCD_BL_OFF
-		bool "Off"
-		help
-		  Backlight is initially turned off
-
-	config CHARLCD_BL_ON
-		bool "On"
-		help
-		  Backlight is initially turned on
-
-	config CHARLCD_BL_FLASH
-		bool "Flash"
-		help
-		  Backlight is flashed briefly on init
-
-endchoice
-
-endif # AUXDISPLAY
-
-config PANEL
-	tristate "Parallel port LCD/Keypad Panel support (OLD OPTION)"
-	depends on PARPORT
-	select AUXDISPLAY
-	select PARPORT_PANEL
+endif # PANEL
 
 config CHARLCD
 	tristate "Character LCD core support" if COMPILE_TEST

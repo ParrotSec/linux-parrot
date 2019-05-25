@@ -40,7 +40,7 @@ void mctrl_gpio_set(struct mctrl_gpios *gpios, unsigned int mctrl)
 {
 	enum mctrl_gpio_idx i;
 	struct gpio_desc *desc_array[UART_GPIO_MAX];
-	DECLARE_BITMAP(values, UART_GPIO_MAX);
+	int value_array[UART_GPIO_MAX];
 	unsigned int count = 0;
 
 	if (gpios == NULL)
@@ -49,11 +49,10 @@ void mctrl_gpio_set(struct mctrl_gpios *gpios, unsigned int mctrl)
 	for (i = 0; i < UART_GPIO_MAX; i++)
 		if (gpios->gpio[i] && mctrl_gpios_desc[i].dir_out) {
 			desc_array[count] = gpios->gpio[i];
-			__assign_bit(count, values,
-				     mctrl & mctrl_gpios_desc[i].mctrl);
+			value_array[count] = !!(mctrl & mctrl_gpios_desc[i].mctrl);
 			count++;
 		}
-	gpiod_set_array_value(count, desc_array, NULL, values);
+	gpiod_set_array_value(count, desc_array, value_array);
 }
 EXPORT_SYMBOL_GPL(mctrl_gpio_set);
 

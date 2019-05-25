@@ -26,6 +26,7 @@
 #include <linux/cache.h>
 #include <linux/types.h>
 #include <linux/compiler.h>
+#include <linux/cache.h>
 #include <linux/slab.h>
 #include <asm/errno.h>
 #endif

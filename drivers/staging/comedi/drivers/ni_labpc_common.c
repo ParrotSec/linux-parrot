@@ -906,9 +906,7 @@ static int labpc_ao_insn_write(struct comedi_device *dev,
 {
 	const struct labpc_boardinfo *board = dev->board_ptr;
 	struct labpc_private *devpriv = dev->private;
-	unsigned int channel;
-	unsigned int range;
-	unsigned int i;
+	int channel, range;
 	unsigned long flags;
 
 	channel = CR_CHAN(insn->chanspec);
@@ -934,10 +932,9 @@ static int labpc_ao_insn_write(struct comedi_device *dev,
 		devpriv->write_byte(dev, devpriv->cmd6, CMD6_REG);
 	}
 	/* send data */
-	for (i = 0; i < insn->n; i++)
-		labpc_ao_write(dev, s, channel, data[i]);
+	labpc_ao_write(dev, s, channel, data[0]);
 
-	return insn->n;
+	return 1;
 }
 
 /* lowlevel write to eeprom/dac */

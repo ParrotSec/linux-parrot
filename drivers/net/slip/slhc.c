@@ -153,7 +153,7 @@ out_fail:
 void
 slhc_free(struct slcompress *comp)
 {
-	if ( IS_ERR_OR_NULL(comp) )
+	if ( comp == NULLSLCOMPR )
 		return;
 
 	if ( comp->tstate != NULLSLSTATE )

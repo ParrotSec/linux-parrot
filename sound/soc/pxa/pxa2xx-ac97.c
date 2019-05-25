@@ -17,7 +17,6 @@
 #include <linux/dmaengine.h>
 #include <linux/dma/pxa-dma.h>
 
-#include <sound/ac97/controller.h>
 #include <sound/core.h>
 #include <sound/ac97_codec.h>
 #include <sound/soc.h>
@@ -28,35 +27,43 @@
 #include <mach/regs-ac97.h>
 #include <mach/audio.h>
 
-static void pxa2xx_ac97_warm_reset(struct ac97_controller *adrv)
+static void pxa2xx_ac97_warm_reset(struct snd_ac97 *ac97)
 {
 	pxa2xx_ac97_try_warm_reset();
 
 	pxa2xx_ac97_finish_reset();
 }
 
-static void pxa2xx_ac97_cold_reset(struct ac97_controller *adrv)
+static void pxa2xx_ac97_cold_reset(struct snd_ac97 *ac97)
 {
 	pxa2xx_ac97_try_cold_reset();
 
 	pxa2xx_ac97_finish_reset();
 }
 
-static int pxa2xx_ac97_read_actrl(struct ac97_controller *adrv, int slot,
-				  unsigned short reg)
+static unsigned short pxa2xx_ac97_legacy_read(struct snd_ac97 *ac97,
+					      unsigned short reg)
 {
-	return pxa2xx_ac97_read(slot, reg);
+	int ret;
+
+	ret = pxa2xx_ac97_read(ac97->num, reg);
+	if (ret < 0)
+		return 0;
+	else
+		return (unsigned short)(ret & 0xffff);
 }
 
-static int pxa2xx_ac97_write_actrl(struct ac97_controller *adrv, int slot,
-				   unsigned short reg, unsigned short val)
+static void pxa2xx_ac97_legacy_write(struct snd_ac97 *ac97,
+				     unsigned short reg, unsigned short val)
 {
-	return pxa2xx_ac97_write(slot, reg, val);
+	int ret;
+
+	ret = pxa2xx_ac97_write(ac97->num, reg, val);
 }
 
-static struct ac97_controller_ops pxa2xx_ac97_ops = {
-	.read	= pxa2xx_ac97_read_actrl,
-	.write	= pxa2xx_ac97_write_actrl,
+static struct snd_ac97_bus_ops pxa2xx_ac97_ops = {
+	.read	= pxa2xx_ac97_legacy_read,
+	.write	= pxa2xx_ac97_legacy_write,
 	.warm_reset	= pxa2xx_ac97_warm_reset,
 	.reset	= pxa2xx_ac97_cold_reset,
 };
@@ -226,9 +233,6 @@ MODULE_DEVICE_TABLE(of, pxa2xx_ac97_dt_ids);
 static int pxa2xx_ac97_dev_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct ac97_controller *ctrl;
-	pxa2xx_audio_ops_t *pdata = pdev->dev.platform_data;
-	void **codecs_pdata;
 
 	if (pdev->id != -1) {
 		dev_err(&pdev->dev, "PXA2xx has only one AC97 port.\n");
@@ -241,14 +245,10 @@ static int pxa2xx_ac97_dev_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	codecs_pdata = pdata ? pdata->codec_pdata : NULL;
-	ctrl = snd_ac97_controller_register(&pxa2xx_ac97_ops, &pdev->dev,
-					    AC97_SLOTS_AVAILABLE_ALL,
-					    codecs_pdata);
-	if (IS_ERR(ctrl))
-		return PTR_ERR(ctrl);
+	ret = snd_soc_set_ac97_ops(&pxa2xx_ac97_ops);
+	if (ret != 0)
+		return ret;
 
-	platform_set_drvdata(pdev, ctrl);
 	/* Punt most of the init to the SoC probe; we may need the machine
 	 * driver to do interesting things with the clocking to get us up
 	 * and running.
@@ -259,10 +259,8 @@ static int pxa2xx_ac97_dev_probe(struct platform_device *pdev)
 
 static int pxa2xx_ac97_dev_remove(struct platform_device *pdev)
 {
-	struct ac97_controller *ctrl = platform_get_drvdata(pdev);
-
 	snd_soc_unregister_component(&pdev->dev);
-	snd_ac97_controller_unregister(ctrl);
+	snd_soc_set_ac97_ops(NULL);
 	pxa2xx_ac97_hw_remove(pdev);
 	return 0;
 }

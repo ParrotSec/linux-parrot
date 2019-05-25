@@ -27,8 +27,6 @@
 #include <linux/slab.h>
 #include <asm/unaligned.h>
 
-#include <drm/drm_util.h>
-
 #define ATOM_DEBUG
 
 #include "atom.h"

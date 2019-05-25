@@ -25,11 +25,6 @@ struct mtk_vcodec_mem {
 	dma_addr_t dma_addr;
 };
 
-struct mtk_vcodec_fb {
-	size_t size;
-	dma_addr_t dma_addr;
-};
-
 struct mtk_vcodec_ctx;
 struct mtk_vcodec_dev;
 

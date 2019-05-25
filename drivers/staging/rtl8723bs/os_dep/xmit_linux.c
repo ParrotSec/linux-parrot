@@ -101,7 +101,7 @@ void rtw_os_xmit_schedule(struct adapter *padapter)
 		return;
 
 	if (!list_empty(&padapter->xmitpriv.pending_xmitbuf_queue.queue))
-		complete(&pri_adapter->xmitpriv.xmit_comp);
+		up(&pri_adapter->xmitpriv.xmit_sema);
 }
 
 static void rtw_check_xmit_resource(struct adapter *padapter, _pkt *pkt)

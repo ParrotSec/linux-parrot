@@ -854,9 +854,11 @@ static int lx_pcm_create(struct lx6464es *chip)
 	pcm->nonatomic = true;
 	strcpy(pcm->name, card_name);
 
-	snd_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_DEV,
-					      snd_dma_pci_data(chip->pci),
-					      size, size);
+	err = snd_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_DEV,
+						    snd_dma_pci_data(chip->pci),
+						    size, size);
+	if (err < 0)
+		return err;
 
 	chip->pcm = pcm;
 	chip->capture_stream.is_capture = 1;
@@ -946,7 +948,13 @@ static void lx_proc_levels_read(struct snd_info_entry *entry,
 
 static int lx_proc_create(struct snd_card *card, struct lx6464es *chip)
 {
-	return snd_card_ro_proc_new(card, "levels", chip, lx_proc_levels_read);
+	struct snd_info_entry *entry;
+	int err = snd_card_proc_new(card, "levels", &entry);
+	if (err < 0)
+		return err;
+
+	snd_info_set_text_ops(entry, chip, lx_proc_levels_read);
+	return 0;
 }
 
 

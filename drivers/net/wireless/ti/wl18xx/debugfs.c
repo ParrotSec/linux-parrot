@@ -422,10 +422,20 @@ static const struct file_operations radar_debug_mode_ops = {
 int wl18xx_debugfs_add_files(struct wl1271 *wl,
 			     struct dentry *rootdir)
 {
-	struct dentry *stats, *moddir;
+	int ret = 0;
+	struct dentry *entry, *stats, *moddir;
 
 	moddir = debugfs_create_dir(KBUILD_MODNAME, rootdir);
+	if (!moddir || IS_ERR(moddir)) {
+		entry = moddir;
+		goto err;
+	}
+
 	stats = debugfs_create_dir("fw_stats", moddir);
+	if (!stats || IS_ERR(stats)) {
+		entry = stats;
+		goto err;
+	}
 
 	DEBUGFS_ADD(clear_fw_stats, stats);
 
@@ -580,4 +590,12 @@ int wl18xx_debugfs_add_files(struct wl1271 *wl,
 	DEBUGFS_ADD(dynamic_fw_traces, moddir);
 
 	return 0;
+
+err:
+	if (IS_ERR(entry))
+		ret = PTR_ERR(entry);
+	else
+		ret = -ENOMEM;
+
+	return ret;
 }

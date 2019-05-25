@@ -439,7 +439,7 @@
 /* Error in I2C data xfer (but I2C device is present) */
 #define CXERR_I2CDEV_XFERERR    0x000011
 
-/* Channel changing component not ready */
+/* Chanel changing component not ready */
 #define CXERR_CHANNELNOTREADY   0x000012
 
 /* PPU (Presensation/Decoder) mail box is corrupted */

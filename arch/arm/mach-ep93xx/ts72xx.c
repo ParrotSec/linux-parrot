@@ -16,7 +16,8 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <linux/mtd/platnand.h>
+#include <linux/mtd/rawnand.h>
+#include <linux/mtd/partitions.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
 #include <linux/spi/mmc_spi.h>
@@ -26,6 +27,7 @@
 #include <mach/gpio-ep93xx.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+#include <mach/gpio-ep93xx.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/map.h>
@@ -74,11 +76,13 @@ static void __init ts72xx_map_io(void)
 #define TS72XX_NAND_CONTROL_ADDR_LINE	22	/* 0xN0400000 */
 #define TS72XX_NAND_BUSY_ADDR_LINE	23	/* 0xN0800000 */
 
-static void ts72xx_nand_hwcontrol(struct nand_chip *chip,
+static void ts72xx_nand_hwcontrol(struct mtd_info *mtd,
 				  int cmd, unsigned int ctrl)
 {
+	struct nand_chip *chip = mtd_to_nand(mtd);
+
 	if (ctrl & NAND_CTRL_CHANGE) {
-		void __iomem *addr = chip->legacy.IO_ADDR_R;
+		void __iomem *addr = chip->IO_ADDR_R;
 		unsigned char bits;
 
 		addr += (1 << TS72XX_NAND_CONTROL_ADDR_LINE);
@@ -92,12 +96,13 @@ static void ts72xx_nand_hwcontrol(struct nand_chip *chip,
 	}
 
 	if (cmd != NAND_CMD_NONE)
-		__raw_writeb(cmd, chip->legacy.IO_ADDR_W);
+		__raw_writeb(cmd, chip->IO_ADDR_W);
 }
 
-static int ts72xx_nand_device_ready(struct nand_chip *chip)
+static int ts72xx_nand_device_ready(struct mtd_info *mtd)
 {
-	void __iomem *addr = chip->legacy.IO_ADDR_R;
+	struct nand_chip *chip = mtd_to_nand(mtd);
+	void __iomem *addr = chip->IO_ADDR_R;
 
 	addr += (1 << TS72XX_NAND_BUSY_ADDR_LINE);
 

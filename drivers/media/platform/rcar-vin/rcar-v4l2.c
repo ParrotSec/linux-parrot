@@ -238,8 +238,8 @@ static int rvin_querycap(struct file *file, void *priv,
 {
 	struct rvin_dev *vin = video_drvdata(file);
 
-	strscpy(cap->driver, KBUILD_MODNAME, sizeof(cap->driver));
-	strscpy(cap->card, "R_Car_VIN", sizeof(cap->card));
+	strlcpy(cap->driver, KBUILD_MODNAME, sizeof(cap->driver));
+	strlcpy(cap->card, "R_Car_VIN", sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
 		 dev_name(vin->dev));
 	return 0;
@@ -404,16 +404,16 @@ static int rvin_s_selection(struct file *file, void *fh,
 	return 0;
 }
 
-static int rvin_g_pixelaspect(struct file *file, void *priv,
-			      int type, struct v4l2_fract *f)
+static int rvin_cropcap(struct file *file, void *priv,
+			struct v4l2_cropcap *crop)
 {
 	struct rvin_dev *vin = video_drvdata(file);
 	struct v4l2_subdev *sd = vin_to_source(vin);
 
-	if (type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+	if (crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
-	return v4l2_subdev_call(sd, video, g_pixelaspect, f);
+	return v4l2_subdev_call(sd, video, g_pixelaspect, &crop->pixelaspect);
 }
 
 static int rvin_enum_input(struct file *file, void *priv,
@@ -440,7 +440,7 @@ static int rvin_enum_input(struct file *file, void *priv,
 		i->std = vin->vdev.tvnorms;
 	}
 
-	strscpy(i->name, "Camera", sizeof(i->name));
+	strlcpy(i->name, "Camera", sizeof(i->name));
 
 	return 0;
 }
@@ -620,7 +620,7 @@ static const struct v4l2_ioctl_ops rvin_ioctl_ops = {
 	.vidioc_g_selection		= rvin_g_selection,
 	.vidioc_s_selection		= rvin_s_selection,
 
-	.vidioc_g_pixelaspect		= rvin_g_pixelaspect,
+	.vidioc_cropcap			= rvin_cropcap,
 
 	.vidioc_enum_input		= rvin_enum_input,
 	.vidioc_g_input			= rvin_g_input,
@@ -665,7 +665,7 @@ static void rvin_mc_try_format(struct rvin_dev *vin,
 	 * The V4L2 specification clearly documents the colorspace fields
 	 * as being set by drivers for capture devices. Using the values
 	 * supplied by userspace thus wouldn't comply with the API. Until
-	 * the API is updated force fixed values.
+	 * the API is updated force fixed vaules.
 	 */
 	pix->colorspace = RVIN_DEFAULT_COLORSPACE;
 	pix->xfer_func = V4L2_MAP_XFER_FUNC_DEFAULT(pix->colorspace);
@@ -714,7 +714,7 @@ static int rvin_mc_enum_input(struct file *file, void *priv,
 		return -EINVAL;
 
 	i->type = V4L2_INPUT_TYPE_CAMERA;
-	strscpy(i->name, "Camera", sizeof(i->name));
+	strlcpy(i->name, "Camera", sizeof(i->name));
 
 	return 0;
 }
@@ -964,7 +964,7 @@ void rvin_v4l2_unregister(struct rvin_dev *vin)
 	v4l2_info(&vin->v4l2_dev, "Removing %s\n",
 		  video_device_node_name(&vin->vdev));
 
-	/* Checks internally if vdev have been init or not */
+	/* Checks internaly if vdev have been init or not */
 	video_unregister_device(&vin->vdev);
 }
 

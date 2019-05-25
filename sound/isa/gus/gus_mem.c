@@ -238,6 +238,9 @@ int snd_gf1_mem_init(struct snd_gus_card * gus)
 {
 	struct snd_gf1_mem *alloc;
 	struct snd_gf1_mem_block block;
+#ifdef CONFIG_SND_DEBUG
+	struct snd_info_entry *entry;
+#endif
 
 	alloc = &gus->gf1.mem_alloc;
 	mutex_init(&alloc->memory_mutex);
@@ -260,7 +263,8 @@ int snd_gf1_mem_init(struct snd_gus_card * gus)
 	if (snd_gf1_mem_xalloc(alloc, &block) == NULL)
 		return -ENOMEM;
 #ifdef CONFIG_SND_DEBUG
-	snd_card_ro_proc_new(gus->card, "gusmem", gus, snd_gf1_mem_info_read);
+	if (! snd_card_proc_new(gus->card, "gusmem", &entry))
+		snd_info_set_text_ops(entry, gus, snd_gf1_mem_info_read);
 #endif
 	return 0;
 }

@@ -88,6 +88,19 @@ static int wm2000_write(struct i2c_client *i2c, unsigned int reg,
 	return regmap_write(wm2000->regmap, reg, value);
 }
 
+static unsigned int wm2000_read(struct i2c_client *i2c, unsigned int r)
+{
+	struct wm2000_priv *wm2000 = i2c_get_clientdata(i2c);
+	unsigned int val;
+	int ret;
+
+	ret = regmap_read(wm2000->regmap, r, &val);
+	if (ret < 0)
+		return -1;
+
+	return val;
+}
+
 static void wm2000_reset(struct wm2000_priv *wm2000)
 {
 	struct i2c_client *i2c = wm2000->i2c;
@@ -102,15 +115,14 @@ static void wm2000_reset(struct wm2000_priv *wm2000)
 static int wm2000_poll_bit(struct i2c_client *i2c,
 			   unsigned int reg, u8 mask)
 {
-	struct wm2000_priv *wm2000 = i2c_get_clientdata(i2c);
 	int timeout = 4000;
-	unsigned int val;
+	int val;
 
-	regmap_read(wm2000->regmap, reg, &val);
+	val = wm2000_read(i2c, reg);
 
 	while (!(val & mask) && --timeout) {
 		msleep(1);
-		regmap_read(wm2000->regmap, reg, &val);
+		val = wm2000_read(i2c, reg);
 	}
 
 	if (timeout == 0)
@@ -123,7 +135,6 @@ static int wm2000_power_up(struct i2c_client *i2c, int analogue)
 {
 	struct wm2000_priv *wm2000 = dev_get_drvdata(&i2c->dev);
 	unsigned long rate;
-	unsigned int val;
 	int ret;
 
 	if (WARN_ON(wm2000->anc_mode != ANC_OFF))
@@ -202,17 +213,12 @@ static int wm2000_power_up(struct i2c_client *i2c, int analogue)
 			     WM2000_MODE_THERMAL_ENABLE);
 	}
 
-	ret = regmap_read(wm2000->regmap, WM2000_REG_SPEECH_CLARITY, &val);
-	if (ret != 0) {
-		dev_err(&i2c->dev, "Unable to read Speech Clarity: %d\n", ret);
-		regulator_bulk_disable(WM2000_NUM_SUPPLIES, wm2000->supplies);
-		return ret;
-	}
+	ret = wm2000_read(i2c, WM2000_REG_SPEECH_CLARITY);
 	if (wm2000->speech_clarity)
-		val |= WM2000_SPEECH_CLARITY;
+		ret |= WM2000_SPEECH_CLARITY;
 	else
-		val &= ~WM2000_SPEECH_CLARITY;
-	wm2000_write(i2c, WM2000_REG_SPEECH_CLARITY, val);
+		ret &= ~WM2000_SPEECH_CLARITY;
+	wm2000_write(i2c, WM2000_REG_SPEECH_CLARITY, ret);
 
 	wm2000_write(i2c, WM2000_REG_SYS_START0, 0x33);
 	wm2000_write(i2c, WM2000_REG_SYS_START1, 0x02);
@@ -818,7 +824,7 @@ static int wm2000_i2c_probe(struct i2c_client *i2c,
 	const char *filename;
 	const struct firmware *fw = NULL;
 	int ret, i;
-	unsigned int reg;
+	int reg;
 	u16 id;
 
 	wm2000 = devm_kzalloc(&i2c->dev, sizeof(*wm2000), GFP_KERNEL);
@@ -854,17 +860,9 @@ static int wm2000_i2c_probe(struct i2c_client *i2c,
 	}
 
 	/* Verify that this is a WM2000 */
-	ret = regmap_read(wm2000->regmap, WM2000_REG_ID1, &reg);
-	if (ret != 0) {
-		dev_err(&i2c->dev, "Unable to read ID1: %d\n", ret);
-		return ret;
-	}
+	reg = wm2000_read(i2c, WM2000_REG_ID1);
 	id = reg << 8;
-	ret = regmap_read(wm2000->regmap, WM2000_REG_ID2, &reg);
-	if (ret != 0) {
-		dev_err(&i2c->dev, "Unable to read ID2: %d\n", ret);
-		return ret;
-	}
+	reg = wm2000_read(i2c, WM2000_REG_ID2);
 	id |= reg & 0xff;
 
 	if (id != 0x2000) {
@@ -873,11 +871,7 @@ static int wm2000_i2c_probe(struct i2c_client *i2c,
 		goto err_supplies;
 	}
 
-	ret = regmap_read(wm2000->regmap, WM2000_REG_REVISON, &reg);
-	if (ret != 0) {
-		dev_err(&i2c->dev, "Unable to read Revision: %d\n", ret);
-		return ret;
-	}
+	reg = wm2000_read(i2c, WM2000_REG_REVISON);
 	dev_info(&i2c->dev, "revision %c\n", reg + 'A');
 
 	wm2000->mclk = devm_clk_get(&i2c->dev, "MCLK");

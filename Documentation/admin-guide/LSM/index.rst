@@ -17,8 +17,9 @@ MAC extensions, other extensions can be built using the LSM to provide
 specific changes to system operation when these tweaks are not available
 in the core functionality of Linux itself.
 
-The Linux capabilities modules will always be included. This may be
-followed by any number of "minor" modules and at most one "major" module.
+Without a specific LSM built into the kernel, the default LSM will be the
+Linux capabilities system. Most LSMs choose to extend the capabilities
+system, building their checks on top of the defined capability hooks.
 For more details on capabilities, see ``capabilities(7)`` in the Linux
 man-pages project.
 
@@ -29,14 +30,6 @@ order in which checks are made. The capability module will always
 be first, followed by any "minor" modules (e.g. Yama) and then
 the one "major" module (e.g. SELinux) if there is one configured.
 
-Process attributes associated with "major" security modules should
-be accessed and maintained using the special files in ``/proc/.../attr``.
-A security module may maintain a module specific subdirectory there,
-named after the module. ``/proc/.../attr/smack`` is provided by the Smack
-security module and contains all its special files. The files directly
-in ``/proc/.../attr`` remain as legacy interfaces for modules that provide
-subdirectories.
-
 .. toctree::
    :maxdepth: 1
 
@@ -46,4 +39,3 @@ subdirectories.
    Smack
    tomoyo
    Yama
-   SafeSetID

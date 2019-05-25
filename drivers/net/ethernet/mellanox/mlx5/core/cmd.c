@@ -40,11 +40,9 @@
 #include <linux/random.h>
 #include <linux/io-mapping.h>
 #include <linux/mlx5/driver.h>
-#include <linux/mlx5/eq.h>
 #include <linux/debugfs.h>
 
 #include "mlx5_core.h"
-#include "lib/eq.h"
 
 enum {
 	CMD_IF_REV = 5,
@@ -310,13 +308,10 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_MODIFY_FLOW_TABLE:
 	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
 	case MLX5_CMD_OP_SET_FLOW_TABLE_ROOT:
-	case MLX5_CMD_OP_DEALLOC_PACKET_REFORMAT_CONTEXT:
+	case MLX5_CMD_OP_DEALLOC_ENCAP_HEADER:
 	case MLX5_CMD_OP_DEALLOC_MODIFY_HEADER_CONTEXT:
 	case MLX5_CMD_OP_FPGA_DESTROY_QP:
 	case MLX5_CMD_OP_DESTROY_GENERAL_OBJECT:
-	case MLX5_CMD_OP_DEALLOC_MEMIC:
-	case MLX5_CMD_OP_PAGE_FAULT_RESUME:
-	case MLX5_CMD_OP_QUERY_HOST_PARAMS:
 		return MLX5_CMD_STAT_OK;
 
 	case MLX5_CMD_OP_QUERY_HCA_CAP:
@@ -330,6 +325,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_CREATE_MKEY:
 	case MLX5_CMD_OP_QUERY_MKEY:
 	case MLX5_CMD_OP_QUERY_SPECIAL_CONTEXTS:
+	case MLX5_CMD_OP_PAGE_FAULT_RESUME:
 	case MLX5_CMD_OP_CREATE_EQ:
 	case MLX5_CMD_OP_QUERY_EQ:
 	case MLX5_CMD_OP_GEN_EQE:
@@ -374,8 +370,6 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_QUERY_VPORT_COUNTER:
 	case MLX5_CMD_OP_ALLOC_Q_COUNTER:
 	case MLX5_CMD_OP_QUERY_Q_COUNTER:
-	case MLX5_CMD_OP_SET_MONITOR_COUNTER:
-	case MLX5_CMD_OP_ARM_MONITOR_COUNTER:
 	case MLX5_CMD_OP_SET_PP_RATE_LIMIT:
 	case MLX5_CMD_OP_QUERY_RATE_LIMIT:
 	case MLX5_CMD_OP_CREATE_SCHEDULING_ELEMENT:
@@ -432,7 +426,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY:
 	case MLX5_CMD_OP_ALLOC_FLOW_COUNTER:
 	case MLX5_CMD_OP_QUERY_FLOW_COUNTER:
-	case MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT:
+	case MLX5_CMD_OP_ALLOC_ENCAP_HEADER:
 	case MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT:
 	case MLX5_CMD_OP_FPGA_CREATE_QP:
 	case MLX5_CMD_OP_FPGA_MODIFY_QP:
@@ -441,7 +435,6 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
 	case MLX5_CMD_OP_CREATE_GENERAL_OBJECT:
 	case MLX5_CMD_OP_MODIFY_GENERAL_OBJECT:
 	case MLX5_CMD_OP_QUERY_GENERAL_OBJECT:
-	case MLX5_CMD_OP_ALLOC_MEMIC:
 		*status = MLX5_DRIVER_STATUS_ABORTED;
 		*synd = MLX5_DRIVER_SYND;
 		return -EIO;
@@ -525,8 +518,6 @@ const char *mlx5_command_str(int command)
 	MLX5_COMMAND_STR_CASE(ALLOC_Q_COUNTER);
 	MLX5_COMMAND_STR_CASE(DEALLOC_Q_COUNTER);
 	MLX5_COMMAND_STR_CASE(QUERY_Q_COUNTER);
-	MLX5_COMMAND_STR_CASE(SET_MONITOR_COUNTER);
-	MLX5_COMMAND_STR_CASE(ARM_MONITOR_COUNTER);
 	MLX5_COMMAND_STR_CASE(SET_PP_RATE_LIMIT);
 	MLX5_COMMAND_STR_CASE(QUERY_RATE_LIMIT);
 	MLX5_COMMAND_STR_CASE(CREATE_SCHEDULING_ELEMENT);
@@ -608,8 +599,8 @@ const char *mlx5_command_str(int command)
 	MLX5_COMMAND_STR_CASE(DEALLOC_FLOW_COUNTER);
 	MLX5_COMMAND_STR_CASE(QUERY_FLOW_COUNTER);
 	MLX5_COMMAND_STR_CASE(MODIFY_FLOW_TABLE);
-	MLX5_COMMAND_STR_CASE(ALLOC_PACKET_REFORMAT_CONTEXT);
-	MLX5_COMMAND_STR_CASE(DEALLOC_PACKET_REFORMAT_CONTEXT);
+	MLX5_COMMAND_STR_CASE(ALLOC_ENCAP_HEADER);
+	MLX5_COMMAND_STR_CASE(DEALLOC_ENCAP_HEADER);
 	MLX5_COMMAND_STR_CASE(ALLOC_MODIFY_HEADER_CONTEXT);
 	MLX5_COMMAND_STR_CASE(DEALLOC_MODIFY_HEADER_CONTEXT);
 	MLX5_COMMAND_STR_CASE(FPGA_CREATE_QP);
@@ -626,9 +617,6 @@ const char *mlx5_command_str(int command)
 	MLX5_COMMAND_STR_CASE(MODIFY_GENERAL_OBJECT);
 	MLX5_COMMAND_STR_CASE(QUERY_GENERAL_OBJECT);
 	MLX5_COMMAND_STR_CASE(QUERY_MODIFY_HEADER_CONTEXT);
-	MLX5_COMMAND_STR_CASE(ALLOC_MEMIC);
-	MLX5_COMMAND_STR_CASE(DEALLOC_MEMIC);
-	MLX5_COMMAND_STR_CASE(QUERY_HOST_PARAMS);
 	default: return "unknown command opcode";
 	}
 }
@@ -812,8 +800,6 @@ static u16 msg_to_opcode(struct mlx5_cmd_msg *in)
 {
 	return MLX5_GET(mbox_in, in->first.data, opcode);
 }
-
-static void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced);
 
 static void cb_timeout_handler(struct work_struct *work)
 {
@@ -1422,32 +1408,14 @@ static void mlx5_cmd_change_mod(struct mlx5_core_dev *dev, int mode)
 		up(&cmd->sem);
 }
 
-static int cmd_comp_notifier(struct notifier_block *nb,
-			     unsigned long type, void *data)
-{
-	struct mlx5_core_dev *dev;
-	struct mlx5_cmd *cmd;
-	struct mlx5_eqe *eqe;
-
-	cmd = mlx5_nb_cof(nb, struct mlx5_cmd, nb);
-	dev = container_of(cmd, struct mlx5_core_dev, cmd);
-	eqe = data;
-
-	mlx5_cmd_comp_handler(dev, be32_to_cpu(eqe->data.cmd.vector), false);
-
-	return NOTIFY_OK;
-}
 void mlx5_cmd_use_events(struct mlx5_core_dev *dev)
 {
-	MLX5_NB_INIT(&dev->cmd.nb, cmd_comp_notifier, CMD);
-	mlx5_eq_notifier_register(dev, &dev->cmd.nb);
 	mlx5_cmd_change_mod(dev, CMD_MODE_EVENTS);
 }
 
 void mlx5_cmd_use_polling(struct mlx5_core_dev *dev)
 {
 	mlx5_cmd_change_mod(dev, CMD_MODE_POLLING);
-	mlx5_eq_notifier_unregister(dev, &dev->cmd.nb);
 }
 
 static void free_msg(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *msg)
@@ -1463,7 +1431,7 @@ static void free_msg(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *msg)
 	}
 }
 
-static void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
+void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
 {
 	struct mlx5_cmd *cmd = &dev->cmd;
 	struct mlx5_cmd_work_ent *ent;
@@ -1561,47 +1529,7 @@ static void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool force
 		}
 	}
 }
-
-void mlx5_cmd_trigger_completions(struct mlx5_core_dev *dev)
-{
-	unsigned long flags;
-	u64 vector;
-
-	/* wait for pending handlers to complete */
-	mlx5_eq_synchronize_cmd_irq(dev);
-	spin_lock_irqsave(&dev->cmd.alloc_lock, flags);
-	vector = ~dev->cmd.bitmask & ((1ul << (1 << dev->cmd.log_sz)) - 1);
-	if (!vector)
-		goto no_trig;
-
-	vector |= MLX5_TRIGGERED_CMD_COMP;
-	spin_unlock_irqrestore(&dev->cmd.alloc_lock, flags);
-
-	mlx5_core_dbg(dev, "vector 0x%llx\n", vector);
-	mlx5_cmd_comp_handler(dev, vector, true);
-	return;
-
-no_trig:
-	spin_unlock_irqrestore(&dev->cmd.alloc_lock, flags);
-}
-
-void mlx5_cmd_flush(struct mlx5_core_dev *dev)
-{
-	struct mlx5_cmd *cmd = &dev->cmd;
-	int i;
-
-	for (i = 0; i < cmd->max_reg_cmds; i++)
-		while (down_trylock(&cmd->sem))
-			mlx5_cmd_trigger_completions(dev);
-
-	while (down_trylock(&cmd->pages_sem))
-		mlx5_cmd_trigger_completions(dev);
-
-	/* Unlock cmdif */
-	up(&cmd->pages_sem);
-	for (i = 0; i < cmd->max_reg_cmds; i++)
-		up(&cmd->sem);
-}
+EXPORT_SYMBOL(mlx5_cmd_comp_handler);
 
 static int status_to_err(u8 status)
 {
@@ -1731,57 +1659,12 @@ int mlx5_cmd_exec(struct mlx5_core_dev *dev, void *in, int in_size, void *out,
 }
 EXPORT_SYMBOL(mlx5_cmd_exec);
 
-void mlx5_cmd_init_async_ctx(struct mlx5_core_dev *dev,
-			     struct mlx5_async_ctx *ctx)
+int mlx5_cmd_exec_cb(struct mlx5_core_dev *dev, void *in, int in_size,
+		     void *out, int out_size, mlx5_cmd_cbk_t callback,
+		     void *context)
 {
-	ctx->dev = dev;
-	/* Starts at 1 to avoid doing wake_up if we are not cleaning up */
-	atomic_set(&ctx->num_inflight, 1);
-	init_waitqueue_head(&ctx->wait);
-}
-EXPORT_SYMBOL(mlx5_cmd_init_async_ctx);
-
-/**
- * mlx5_cmd_cleanup_async_ctx - Clean up an async_ctx
- * @ctx: The ctx to clean
- *
- * Upon return all callbacks given to mlx5_cmd_exec_cb() have been called. The
- * caller must ensure that mlx5_cmd_exec_cb() is not called during or after
- * the call mlx5_cleanup_async_ctx().
- */
-void mlx5_cmd_cleanup_async_ctx(struct mlx5_async_ctx *ctx)
-{
-	atomic_dec(&ctx->num_inflight);
-	wait_event(ctx->wait, atomic_read(&ctx->num_inflight) == 0);
-}
-EXPORT_SYMBOL(mlx5_cmd_cleanup_async_ctx);
-
-static void mlx5_cmd_exec_cb_handler(int status, void *_work)
-{
-	struct mlx5_async_work *work = _work;
-	struct mlx5_async_ctx *ctx = work->ctx;
-
-	work->user_callback(status, work);
-	if (atomic_dec_and_test(&ctx->num_inflight))
-		wake_up(&ctx->wait);
-}
-
-int mlx5_cmd_exec_cb(struct mlx5_async_ctx *ctx, void *in, int in_size,
-		     void *out, int out_size, mlx5_async_cbk_t callback,
-		     struct mlx5_async_work *work)
-{
-	int ret;
-
-	work->ctx = ctx;
-	work->user_callback = callback;
-	if (WARN_ON(!atomic_inc_not_zero(&ctx->num_inflight)))
-		return -EIO;
-	ret = cmd_exec(ctx->dev, in, in_size, out, out_size,
-		       mlx5_cmd_exec_cb_handler, work, false);
-	if (ret && atomic_dec_and_test(&ctx->num_inflight))
-		wake_up(&ctx->wait);
-
-	return ret;
+	return cmd_exec(dev, in, in_size, out, out_size, callback, context,
+			false);
 }
 EXPORT_SYMBOL(mlx5_cmd_exec_cb);
 
@@ -1854,8 +1737,8 @@ static int alloc_cmd_page(struct mlx5_core_dev *dev, struct mlx5_cmd *cmd)
 {
 	struct device *ddev = &dev->pdev->dev;
 
-	cmd->cmd_alloc_buf = dma_alloc_coherent(ddev, MLX5_ADAPTER_PAGE_SIZE,
-						&cmd->alloc_dma, GFP_KERNEL);
+	cmd->cmd_alloc_buf = dma_zalloc_coherent(ddev, MLX5_ADAPTER_PAGE_SIZE,
+						 &cmd->alloc_dma, GFP_KERNEL);
 	if (!cmd->cmd_alloc_buf)
 		return -ENOMEM;
 
@@ -1869,9 +1752,9 @@ static int alloc_cmd_page(struct mlx5_core_dev *dev, struct mlx5_cmd *cmd)
 
 	dma_free_coherent(ddev, MLX5_ADAPTER_PAGE_SIZE, cmd->cmd_alloc_buf,
 			  cmd->alloc_dma);
-	cmd->cmd_alloc_buf = dma_alloc_coherent(ddev,
-						2 * MLX5_ADAPTER_PAGE_SIZE - 1,
-						&cmd->alloc_dma, GFP_KERNEL);
+	cmd->cmd_alloc_buf = dma_zalloc_coherent(ddev,
+						 2 * MLX5_ADAPTER_PAGE_SIZE - 1,
+						 &cmd->alloc_dma, GFP_KERNEL);
 	if (!cmd->cmd_alloc_buf)
 		return -ENOMEM;
 

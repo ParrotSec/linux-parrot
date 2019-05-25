@@ -15,8 +15,6 @@
 #include "thread_map.h"
 #include "cpumap.h"
 #include "machine.h"
-#include "map.h"
-#include "symbol.h"
 #include "event.h"
 #include "thread.h"
 
@@ -601,7 +599,7 @@ static int do_test_code_reading(bool try_kcore)
 	}
 
 	ret = perf_event__synthesize_thread_map(NULL, threads,
-						perf_event__process, machine, false);
+						perf_event__process, machine, false, 500);
 	if (ret < 0) {
 		pr_debug("perf_event__synthesize_thread_map failed\n");
 		goto out_err;

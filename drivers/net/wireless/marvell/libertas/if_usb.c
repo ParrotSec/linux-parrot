@@ -254,11 +254,8 @@ static int if_usb_probe(struct usb_interface *intf,
 		goto dealloc;
 	}
 
-	priv = lbs_add_card(cardp, &intf->dev);
-	if (IS_ERR(priv)) {
-		r = PTR_ERR(priv);
+	if (!(priv = lbs_add_card(cardp, &intf->dev)))
 		goto err_add_card;
-	}
 
 	cardp->priv = priv;
 

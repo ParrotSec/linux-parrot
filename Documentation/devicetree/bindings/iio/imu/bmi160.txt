@@ -9,11 +9,9 @@ Required properties:
  - spi-max-frequency : set maximum clock frequency (only for SPI)
 
 Optional properties:
- - interrupts : interrupt mapping for IRQ
+ - interrupts : interrupt mapping for IRQ, must be IRQ_TYPE_LEVEL_LOW
  - interrupt-names : set to "INT1" if INT1 pin should be used as interrupt
    input, set to "INT2" if INT2 pin should be used instead
- - drive-open-drain : set if the specified interrupt pin should be configured as
-   open drain. If not set, defaults to push-pull.
 
 Examples:
 
@@ -22,7 +20,7 @@ bmi160@68 {
 	reg = <0x68>;
 
 	interrupt-parent = <&gpio4>;
-	interrupts = <12 IRQ_TYPE_EDGE_RISING>;
+	interrupts = <12 IRQ_TYPE_LEVEL_LOW>;
 	interrupt-names = "INT1";
 };
 

@@ -14,6 +14,7 @@
 #include <linux/clk-provider.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/syscore_ops.h>
 
 #include "clk.h"
 #include "clk-cpu.h"
@@ -110,6 +111,9 @@ enum exynos5250_plls {
 
 static void __iomem *reg_base;
 
+#ifdef CONFIG_PM_SLEEP
+static struct samsung_clk_reg_dump *exynos5250_save;
+
 /*
  * list of controller registers to be saved and restored during a
  * suspend/resume cycle.
@@ -167,6 +171,41 @@ static const unsigned long exynos5250_clk_regs[] __initconst = {
 	GATE_IP_ISP0,
 	GATE_IP_ISP1,
 };
+
+static int exynos5250_clk_suspend(void)
+{
+	samsung_clk_save(reg_base, exynos5250_save,
+				ARRAY_SIZE(exynos5250_clk_regs));
+
+	return 0;
+}
+
+static void exynos5250_clk_resume(void)
+{
+	samsung_clk_restore(reg_base, exynos5250_save,
+				ARRAY_SIZE(exynos5250_clk_regs));
+}
+
+static struct syscore_ops exynos5250_clk_syscore_ops = {
+	.suspend = exynos5250_clk_suspend,
+	.resume = exynos5250_clk_resume,
+};
+
+static void __init exynos5250_clk_sleep_init(void)
+{
+	exynos5250_save = samsung_clk_alloc_reg_dump(exynos5250_clk_regs,
+					ARRAY_SIZE(exynos5250_clk_regs));
+	if (!exynos5250_save) {
+		pr_warn("%s: failed to allocate sleep save data, no sleep support!\n",
+			__func__);
+		return;
+	}
+
+	register_syscore_ops(&exynos5250_clk_syscore_ops);
+}
+#else
+static void __init exynos5250_clk_sleep_init(void) {}
+#endif
 
 /* list of all parent clock list */
 PNAME(mout_apll_p)	= { "fin_pll", "fout_apll", };
@@ -843,8 +882,7 @@ static void __init exynos5250_clk_init(struct device_node *np)
 		PWR_CTRL2_CORE2_UP_RATIO | PWR_CTRL2_CORE1_UP_RATIO);
 	__raw_writel(tmp, reg_base + PWR_CTRL2);
 
-	samsung_clk_sleep_init(reg_base, exynos5250_clk_regs,
-			       ARRAY_SIZE(exynos5250_clk_regs));
+	exynos5250_clk_sleep_init();
 	exynos5_subcmus_init(ctx, 1, &exynos5250_disp_subcmu);
 
 	samsung_clk_of_add_provider(np, ctx);

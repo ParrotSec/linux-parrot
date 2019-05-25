@@ -61,7 +61,6 @@
 	};
 
 	memory {
-		device_type = "memory";
 		reg = <0x00000000 0x1000000>;
 	};
 
@@ -211,7 +210,8 @@
 &sdio {
 	status = "okay";
 	vmmc-supply = <&mmc_vcard>;
-	cd-gpios = <&gpiog 2 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpiog 2 GPIO_ACTIVE_HIGH>;
+	cd-inverted;
 	broken-cd;
 	pinctrl-names = "default", "opendrain";
 	pinctrl-0 = <&sdio_pins>;

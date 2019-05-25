@@ -8,8 +8,6 @@
  *  Author:	Rocky Craig <first.last@hp.com>
  */
 
-#define DEBUG /* So dev_dbg() is always available. */
-
 #include <linux/kernel.h> /* For printk. */
 #include <linux/string.h>
 #include <linux/module.h>
@@ -217,11 +215,11 @@ static int bt_start_transaction(struct si_sm_data *bt,
 		return IPMI_NOT_IN_MY_STATE_ERR;
 
 	if (bt_debug & BT_DEBUG_MSG) {
-		dev_dbg(bt->io->dev, "+++++++++++++++++ New command\n");
-		dev_dbg(bt->io->dev, "NetFn/LUN CMD [%d data]:", size - 2);
+		printk(KERN_WARNING "BT: +++++++++++++++++ New command\n");
+		printk(KERN_WARNING "BT: NetFn/LUN CMD [%d data]:", size - 2);
 		for (i = 0; i < size; i ++)
-			pr_cont(" %02x", data[i]);
-		pr_cont("\n");
+			printk(" %02x", data[i]);
+		printk("\n");
 	}
 	bt->write_data[0] = size + 1;	/* all data plus seq byte */
 	bt->write_data[1] = *data;	/* NetFn/LUN */
@@ -262,10 +260,10 @@ static int bt_get_result(struct si_sm_data *bt,
 		memcpy(data + 2, bt->read_data + 4, msg_len - 2);
 
 	if (bt_debug & BT_DEBUG_MSG) {
-		dev_dbg(bt->io->dev, "result %d bytes:", msg_len);
+		printk(KERN_WARNING "BT: result %d bytes:", msg_len);
 		for (i = 0; i < msg_len; i++)
-			pr_cont(" %02x", data[i]);
-		pr_cont("\n");
+			printk(" %02x", data[i]);
+		printk("\n");
 	}
 	return msg_len;
 }
@@ -276,7 +274,8 @@ static int bt_get_result(struct si_sm_data *bt,
 static void reset_flags(struct si_sm_data *bt)
 {
 	if (bt_debug)
-		dev_dbg(bt->io->dev, "flag reset %s\n", status2txt(BT_STATUS));
+		printk(KERN_WARNING "IPMI BT: flag reset %s\n",
+					status2txt(BT_STATUS));
 	if (BT_STATUS & BT_H_BUSY)
 		BT_CONTROL(BT_H_BUSY);	/* force clear */
 	BT_CONTROL(BT_CLR_WR_PTR);	/* always reset */
@@ -302,14 +301,14 @@ static void drain_BMC2HOST(struct si_sm_data *bt)
 	BT_CONTROL(BT_B2H_ATN);		/* some BMCs are stubborn */
 	BT_CONTROL(BT_CLR_RD_PTR);	/* always reset */
 	if (bt_debug)
-		dev_dbg(bt->io->dev, "stale response %s; ",
+		printk(KERN_WARNING "IPMI BT: stale response %s; ",
 			status2txt(BT_STATUS));
 	size = BMC2HOST;
 	for (i = 0; i < size ; i++)
 		BMC2HOST;
 	BT_CONTROL(BT_H_BUSY);		/* now clear */
 	if (bt_debug)
-		pr_cont("drained %d bytes\n", size + 1);
+		printk("drained %d bytes\n", size + 1);
 }
 
 static inline void write_all_bytes(struct si_sm_data *bt)
@@ -317,11 +316,11 @@ static inline void write_all_bytes(struct si_sm_data *bt)
 	int i;
 
 	if (bt_debug & BT_DEBUG_MSG) {
-		dev_dbg(bt->io->dev, "write %d bytes seq=0x%02X",
+		printk(KERN_WARNING "BT: write %d bytes seq=0x%02X",
 			bt->write_count, bt->seq);
 		for (i = 0; i < bt->write_count; i++)
-			pr_cont(" %02x", bt->write_data[i]);
-		pr_cont("\n");
+			printk(" %02x", bt->write_data[i]);
+		printk("\n");
 	}
 	for (i = 0; i < bt->write_count; i++)
 		HOST2BMC(bt->write_data[i]);
@@ -341,8 +340,8 @@ static inline int read_all_bytes(struct si_sm_data *bt)
 
 	if (bt->read_count < 4 || bt->read_count >= IPMI_MAX_MSG_LENGTH) {
 		if (bt_debug & BT_DEBUG_MSG)
-			dev_dbg(bt->io->dev,
-				"bad raw rsp len=%d\n", bt->read_count);
+			printk(KERN_WARNING "BT: bad raw rsp len=%d\n",
+				bt->read_count);
 		bt->truncated = 1;
 		return 1;	/* let next XACTION START clean it up */
 	}
@@ -353,13 +352,13 @@ static inline int read_all_bytes(struct si_sm_data *bt)
 	if (bt_debug & BT_DEBUG_MSG) {
 		int max = bt->read_count;
 
-		dev_dbg(bt->io->dev,
-			"got %d bytes seq=0x%02X", max, bt->read_data[2]);
+		printk(KERN_WARNING "BT: got %d bytes seq=0x%02X",
+			max, bt->read_data[2]);
 		if (max > 16)
 			max = 16;
 		for (i = 0; i < max; i++)
-			pr_cont(" %02x", bt->read_data[i]);
-		pr_cont("%s\n", bt->read_count == max ? "" : " ...");
+			printk(KERN_CONT " %02x", bt->read_data[i]);
+		printk(KERN_CONT "%s\n", bt->read_count == max ? "" : " ...");
 	}
 
 	/* per the spec, the (NetFn[1], Seq[2], Cmd[3]) tuples must match */
@@ -369,11 +368,10 @@ static inline int read_all_bytes(struct si_sm_data *bt)
 			return 1;
 
 	if (bt_debug & BT_DEBUG_MSG)
-		dev_dbg(bt->io->dev,
-			"IPMI BT: bad packet: want 0x(%02X, %02X, %02X) got (%02X, %02X, %02X)\n",
-			bt->write_data[1] | 0x04, bt->write_data[2],
-			bt->write_data[3],
-			bt->read_data[1],  bt->read_data[2],  bt->read_data[3]);
+		printk(KERN_WARNING "IPMI BT: bad packet: "
+		"want 0x(%02X, %02X, %02X) got (%02X, %02X, %02X)\n",
+		bt->write_data[1] | 0x04, bt->write_data[2], bt->write_data[3],
+		bt->read_data[1],  bt->read_data[2],  bt->read_data[3]);
 	return 0;
 }
 
@@ -396,8 +394,8 @@ static enum si_sm_result error_recovery(struct si_sm_data *bt,
 		break;
 	}
 
-	dev_warn(bt->io->dev, "IPMI BT: %s in %s %s ", /* open-ended line */
-		 reason, STATE2TXT, STATUS2TXT);
+	printk(KERN_WARNING "IPMI BT: %s in %s %s ", 	/* open-ended line */
+		reason, STATE2TXT, STATUS2TXT);
 
 	/*
 	 * Per the IPMI spec, retries are based on the sequence number
@@ -405,20 +403,20 @@ static enum si_sm_result error_recovery(struct si_sm_data *bt,
 	 */
 	(bt->error_retries)++;
 	if (bt->error_retries < bt->BT_CAP_retries) {
-		pr_cont("%d retries left\n",
+		printk("%d retries left\n",
 			bt->BT_CAP_retries - bt->error_retries);
 		bt->state = BT_STATE_RESTART;
 		return SI_SM_CALL_WITHOUT_DELAY;
 	}
 
-	dev_warn(bt->io->dev, "failed %d retries, sending error response\n",
-		 bt->BT_CAP_retries);
+	printk(KERN_WARNING "failed %d retries, sending error response\n",
+	       bt->BT_CAP_retries);
 	if (!bt->nonzero_status)
-		dev_err(bt->io->dev, "stuck, try power cycle\n");
+		printk(KERN_ERR "IPMI BT: stuck, try power cycle\n");
 
 	/* this is most likely during insmod */
 	else if (bt->seq <= (unsigned char)(bt->BT_CAP_retries & 0xFF)) {
-		dev_warn(bt->io->dev, "BT reset (takes 5 secs)\n");
+		printk(KERN_WARNING "IPMI: BT reset (takes 5 secs)\n");
 		bt->state = BT_STATE_RESET1;
 		return SI_SM_CALL_WITHOUT_DELAY;
 	}
@@ -454,7 +452,7 @@ static enum si_sm_result bt_event(struct si_sm_data *bt, long time)
 	status = BT_STATUS;
 	bt->nonzero_status |= status;
 	if ((bt_debug & BT_DEBUG_STATES) && (bt->state != last_printed)) {
-		dev_dbg(bt->io->dev, "BT: %s %s TO=%ld - %ld\n",
+		printk(KERN_WARNING "BT: %s %s TO=%ld - %ld \n",
 			STATE2TXT,
 			STATUS2TXT,
 			bt->timeout,

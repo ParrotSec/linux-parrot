@@ -1575,7 +1575,8 @@ static void uninstall_fb(struct fb_info *info)
 
 	unregister_framebuffer(info);
 	unmap_video_memory(info);
-	fb_dealloc_cmap(&info->cmap);
+	if (&info->cmap)
+		fb_dealloc_cmap(&info->cmap);
 
 	mfbi->registered = 0;
 }
@@ -1924,7 +1925,7 @@ static int __init fsl_diu_init(void)
 	pr_info("Freescale Display Interface Unit (DIU) framebuffer driver\n");
 
 #ifdef CONFIG_NOT_COHERENT_CACHE
-	np = of_get_cpu_node(0, NULL);
+	np = of_find_node_by_type(NULL, "cpu");
 	if (!np) {
 		pr_err("fsl-diu-fb: can't find 'cpu' device node\n");
 		return -ENODEV;

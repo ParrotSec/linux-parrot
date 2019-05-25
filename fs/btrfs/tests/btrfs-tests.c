@@ -174,10 +174,8 @@ void btrfs_free_dummy_root(struct btrfs_root *root)
 	/* Will be freed by btrfs_free_fs_roots */
 	if (WARN_ON(test_bit(BTRFS_ROOT_IN_RADIX, &root->state)))
 		return;
-	if (root->node) {
-		/* One for allocate_extent_buffer */
+	if (root->node)
 		free_extent_buffer(root->node);
-	}
 	kfree(root);
 }
 

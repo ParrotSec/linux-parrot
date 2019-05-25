@@ -21,7 +21,6 @@ static bool tomoyo_check_task_acl(struct tomoyo_request_info *r,
 {
 	const struct tomoyo_task_acl *acl = container_of(ptr, typeof(*acl),
 							 head);
-
 	return !tomoyo_pathcmp(r->param.task.domainname, acl->domainname);
 }
 
@@ -43,7 +42,6 @@ static ssize_t tomoyo_write_self(struct file *file, const char __user *buf,
 {
 	char *data;
 	int error;
-
 	if (!count || count >= TOMOYO_EXEC_TMPSIZE - 10)
 		return -ENOMEM;
 	data = memdup_user_nul(buf, count);
@@ -54,7 +52,6 @@ static ssize_t tomoyo_write_self(struct file *file, const char __user *buf,
 		const int idx = tomoyo_read_lock();
 		struct tomoyo_path_info name;
 		struct tomoyo_request_info r;
-
 		name.name = data;
 		tomoyo_fill_path_info(&name);
 		/* Check "task manual_domain_transition" permission. */
@@ -70,14 +67,18 @@ static ssize_t tomoyo_write_self(struct file *file, const char __user *buf,
 			if (!new_domain) {
 				error = -ENOENT;
 			} else {
-				struct tomoyo_task *s = tomoyo_task(current);
-				struct tomoyo_domain_info *old_domain =
-					s->domain_info;
-
-				s->domain_info = new_domain;
-				atomic_inc(&new_domain->users);
-				atomic_dec(&old_domain->users);
-				error = 0;
+				struct cred *cred = prepare_creds();
+				if (!cred) {
+					error = -ENOMEM;
+				} else {
+					struct tomoyo_domain_info *old_domain =
+						cred->security;
+					cred->security = new_domain;
+					atomic_inc(&new_domain->users);
+					atomic_dec(&old_domain->users);
+					commit_creds(cred);
+					error = 0;
+				}
 			}
 		}
 		tomoyo_read_unlock(idx);
@@ -103,7 +104,6 @@ static ssize_t tomoyo_read_self(struct file *file, char __user *buf,
 	const char *domain = tomoyo_domain()->domainname->name;
 	loff_t len = strlen(domain);
 	loff_t pos = *ppos;
-
 	if (pos >= len || !count)
 		return 0;
 	len -= pos;
@@ -234,14 +234,10 @@ static void __init tomoyo_create_entry(const char *name, const umode_t mode,
  */
 static int __init tomoyo_initerface_init(void)
 {
-	struct tomoyo_domain_info *domain;
 	struct dentry *tomoyo_dir;
 
-	if (!tomoyo_enabled)
-		return 0;
-	domain = tomoyo_domain();
 	/* Don't create securityfs entries unless registered. */
-	if (domain != &tomoyo_kernel_domain)
+	if (current_cred()->security != &tomoyo_kernel_domain)
 		return 0;
 
 	tomoyo_dir = securityfs_create_dir("tomoyo", NULL);

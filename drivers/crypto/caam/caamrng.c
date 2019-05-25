@@ -1,9 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * caam - Freescale FSL CAAM support for hw_random
  *
  * Copyright 2011 Freescale Semiconductor, Inc.
- * Copyright 2018 NXP
  *
  * Based on caamalg.c crypto API driver.
  *
@@ -308,8 +306,8 @@ static int __init caam_rng_init(void)
 	struct device *dev;
 	struct device_node *dev_node;
 	struct platform_device *pdev;
+	struct device *ctrldev;
 	struct caam_drv_private *priv;
-	u32 rng_inst;
 	int err;
 
 	dev_node = of_find_compatible_node(NULL, NULL, "fsl,sec-v4.0");
@@ -325,35 +323,25 @@ static int __init caam_rng_init(void)
 		return -ENODEV;
 	}
 
-	priv = dev_get_drvdata(&pdev->dev);
+	ctrldev = &pdev->dev;
+	priv = dev_get_drvdata(ctrldev);
 	of_node_put(dev_node);
 
 	/*
 	 * If priv is NULL, it's probably because the caam driver wasn't
 	 * properly initialized (e.g. RNG4 init failed). Thus, bail out here.
 	 */
-	if (!priv) {
-		err = -ENODEV;
-		goto out_put_dev;
-	}
+	if (!priv)
+		return -ENODEV;
 
 	/* Check for an instantiated RNG before registration */
-	if (priv->era < 10)
-		rng_inst = (rd_reg32(&priv->ctrl->perfmon.cha_num_ls) &
-			    CHA_ID_LS_RNG_MASK) >> CHA_ID_LS_RNG_SHIFT;
-	else
-		rng_inst = rd_reg32(&priv->ctrl->vreg.rng) & CHA_VER_NUM_MASK;
-
-	if (!rng_inst) {
-		err = -ENODEV;
-		goto out_put_dev;
-	}
+	if (!(rd_reg32(&priv->ctrl->perfmon.cha_num_ls) & CHA_ID_LS_RNG_MASK))
+		return -ENODEV;
 
 	dev = caam_jr_alloc();
 	if (IS_ERR(dev)) {
 		pr_err("Job Ring Device allocation for transform failed\n");
-		err = PTR_ERR(dev);
-		goto out_put_dev;
+		return PTR_ERR(dev);
 	}
 	rng_ctx = kmalloc(sizeof(*rng_ctx), GFP_DMA | GFP_KERNEL);
 	if (!rng_ctx) {
@@ -364,7 +352,6 @@ static int __init caam_rng_init(void)
 	if (err)
 		goto free_rng_ctx;
 
-	put_device(&pdev->dev);
 	dev_info(dev, "registering rng-caam\n");
 	return hwrng_register(&caam_rng);
 
@@ -372,8 +359,6 @@ free_rng_ctx:
 	kfree(rng_ctx);
 free_caam_alloc:
 	caam_jr_free(dev);
-out_put_dev:
-	put_device(&pdev->dev);
 	return err;
 }
 

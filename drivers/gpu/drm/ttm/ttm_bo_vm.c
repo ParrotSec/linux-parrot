@@ -71,7 +71,7 @@ static vm_fault_t ttm_bo_vm_fault_idle(struct ttm_buffer_object *bo,
 		ttm_bo_get(bo);
 		up_read(&vmf->vma->vm_mm->mmap_sem);
 		(void) dma_fence_wait(bo->moving, true);
-		reservation_object_unlock(bo->resv);
+		ttm_bo_unreserve(bo);
 		ttm_bo_put(bo);
 		goto out_unlock;
 	}
@@ -131,7 +131,11 @@ static vm_fault_t ttm_bo_vm_fault(struct vm_fault *vmf)
 	 * for reserve, and if it fails, retry the fault after waiting
 	 * for the buffer to become unreserved.
 	 */
-	if (unlikely(!reservation_object_trylock(bo->resv))) {
+	err = ttm_bo_reserve(bo, true, true, NULL);
+	if (unlikely(err != 0)) {
+		if (err != -EBUSY)
+			return VM_FAULT_NOPAGE;
+
 		if (vmf->flags & FAULT_FLAG_ALLOW_RETRY) {
 			if (!(vmf->flags & FAULT_FLAG_RETRY_NOWAIT)) {
 				ttm_bo_get(bo);
@@ -161,8 +165,6 @@ static vm_fault_t ttm_bo_vm_fault(struct vm_fault *vmf)
 	}
 
 	if (bdev->driver->fault_reserve_notify) {
-		struct dma_fence *moving = dma_fence_get(bo->moving);
-
 		err = bdev->driver->fault_reserve_notify(bo);
 		switch (err) {
 		case 0:
@@ -175,13 +177,6 @@ static vm_fault_t ttm_bo_vm_fault(struct vm_fault *vmf)
 			ret = VM_FAULT_SIGBUS;
 			goto out_unlock;
 		}
-
-		if (bo->moving != moving) {
-			spin_lock(&bdev->glob->lru_lock);
-			ttm_bo_move_to_lru_tail(bo, NULL);
-			spin_unlock(&bdev->glob->lru_lock);
-		}
-		dma_fence_put(moving);
 	}
 
 	/*
@@ -296,7 +291,7 @@ static vm_fault_t ttm_bo_vm_fault(struct vm_fault *vmf)
 out_io_unlock:
 	ttm_mem_io_unlock(man);
 out_unlock:
-	reservation_object_unlock(bo->resv);
+	ttm_bo_unreserve(bo);
 	return ret;
 }
 
@@ -414,7 +409,8 @@ static struct ttm_buffer_object *ttm_bo_vm_lookup(struct ttm_bo_device *bdev,
 	node = drm_vma_offset_lookup_locked(&bdev->vma_manager, offset, pages);
 	if (likely(node)) {
 		bo = container_of(node, struct ttm_buffer_object, vma_node);
-		bo = ttm_bo_get_unless_zero(bo);
+		if (!kref_get_unless_zero(&bo->kref))
+			bo = NULL;
 	}
 
 	drm_vma_offset_unlock_lookup(&bdev->vma_manager);

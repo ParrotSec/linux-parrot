@@ -1,6 +1,11 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2011 Sascha Hauer, Pengutronix <s.hauer@pengutronix.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Standard functionality for the common clock API.
  */
 #include <linux/module.h>
 #include <linux/clk-provider.h>
@@ -153,14 +158,14 @@ static struct clk *_of_fixed_factor_clk_setup(struct device_node *node)
 	int ret;
 
 	if (of_property_read_u32(node, "clock-div", &div)) {
-		pr_err("%s Fixed factor clock <%pOFn> must have a clock-div property\n",
-			__func__, node);
+		pr_err("%s Fixed factor clock <%s> must have a clock-div property\n",
+			__func__, node->name);
 		return ERR_PTR(-EIO);
 	}
 
 	if (of_property_read_u32(node, "clock-mult", &mult)) {
-		pr_err("%s Fixed factor clock <%pOFn> must have a clock-mult property\n",
-			__func__, node);
+		pr_err("%s Fixed factor clock <%s> must have a clock-mult property\n",
+			__func__, node->name);
 		return ERR_PTR(-EIO);
 	}
 

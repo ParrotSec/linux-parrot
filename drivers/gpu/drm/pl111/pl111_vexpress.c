@@ -55,8 +55,6 @@ int pl111_vexpress_clcd_init(struct device *dev,
 		}
 	}
 
-	of_node_put(root);
-
 	/*
 	 * If there is a coretile HDLCD and it has a driver,
 	 * do not mux the CLCD on the motherboard to the DVI.

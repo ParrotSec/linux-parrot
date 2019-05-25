@@ -31,11 +31,6 @@ static FILE *f;
 static char log_name[MAX_LOG_NAME];
 bool intel_pt_enable_logging;
 
-void *intel_pt_log_fp(void)
-{
-	return f;
-}
-
 void intel_pt_log_enable(void)
 {
 	intel_pt_enable_logging = true;

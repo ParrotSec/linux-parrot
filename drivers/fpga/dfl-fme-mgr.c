@@ -201,7 +201,7 @@ static int fme_mgr_write(struct fpga_manager *mgr,
 		}
 
 		if (count < 4) {
-			dev_err(dev, "Invalid PR bitstream size\n");
+			dev_err(dev, "Invaild PR bitstream size\n");
 			return -EINVAL;
 		}
 
@@ -287,6 +287,7 @@ static int fme_mgr_probe(struct platform_device *pdev)
 	struct fme_mgr_priv *priv;
 	struct fpga_manager *mgr;
 	struct resource *res;
+	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -308,15 +309,19 @@ static int fme_mgr_probe(struct platform_device *pdev)
 
 	fme_mgr_get_compat_id(priv->ioaddr, compat_id);
 
-	mgr = devm_fpga_mgr_create(dev, "DFL FME FPGA Manager",
-				   &fme_mgr_ops, priv);
+	mgr = fpga_mgr_create(dev, "DFL FME FPGA Manager",
+			      &fme_mgr_ops, priv);
 	if (!mgr)
 		return -ENOMEM;
 
 	mgr->compat_id = compat_id;
 	platform_set_drvdata(pdev, mgr);
 
-	return fpga_mgr_register(mgr);
+	ret = fpga_mgr_register(mgr);
+	if (ret)
+		fpga_mgr_free(mgr);
+
+	return ret;
 }
 
 static int fme_mgr_remove(struct platform_device *pdev)

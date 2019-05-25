@@ -267,14 +267,8 @@ static int tipc_nl_compat_dumpit(struct tipc_nl_compat_cmd_dump *cmd,
 	if (msg->rep_type)
 		tipc_tlv_init(msg->rep, msg->rep_type);
 
-	if (cmd->header) {
-		err = (*cmd->header)(msg);
-		if (err) {
-			kfree_skb(msg->rep);
-			msg->rep = NULL;
-			return err;
-		}
-	}
+	if (cmd->header)
+		(*cmd->header)(msg);
 
 	arg = nlmsg_new(0, GFP_KERNEL);
 	if (!arg) {
@@ -403,12 +397,7 @@ static int tipc_nl_compat_bearer_enable(struct tipc_nl_compat_cmd_doit *cmd,
 	if (!bearer)
 		return -EMSGSIZE;
 
-	len = TLV_GET_DATA_LEN(msg->req);
-	len -= offsetof(struct tipc_bearer_config, name);
-	if (len <= 0)
-		return -EINVAL;
-
-	len = min_t(int, len, TIPC_MAX_BEARER_NAME);
+	len = min_t(int, TLV_GET_DATA_LEN(msg->req), TIPC_MAX_BEARER_NAME);
 	if (!string_is_valid(b->name, len))
 		return -EINVAL;
 
@@ -777,12 +766,7 @@ static int tipc_nl_compat_link_set(struct tipc_nl_compat_cmd_doit *cmd,
 
 	lc = (struct tipc_link_config *)TLV_DATA(msg->req);
 
-	len = TLV_GET_DATA_LEN(msg->req);
-	len -= offsetof(struct tipc_link_config, name);
-	if (len <= 0)
-		return -EINVAL;
-
-	len = min_t(int, len, TIPC_MAX_LINK_NAME);
+	len = min_t(int, TLV_GET_DATA_LEN(msg->req), TIPC_MAX_LINK_NAME);
 	if (!string_is_valid(lc->name, len))
 		return -EINVAL;
 
@@ -968,10 +952,6 @@ static int tipc_nl_compat_publ_dump(struct tipc_nl_compat_msg *msg, u32 sock)
 
 	hdr = genlmsg_put(args, 0, 0, &tipc_genl_family, NLM_F_MULTI,
 			  TIPC_NL_PUBL_GET);
-	if (!hdr) {
-		kfree_skb(args);
-		return -EMSGSIZE;
-	}
 
 	nest = nla_nest_start(args, TIPC_NLA_SOCK);
 	if (!nest) {
@@ -1019,11 +999,8 @@ static int tipc_nl_compat_sk_dump(struct tipc_nl_compat_msg *msg,
 		u32 node;
 		struct nlattr *con[TIPC_NLA_CON_MAX + 1];
 
-		err = nla_parse_nested(con, TIPC_NLA_CON_MAX,
-				       sock[TIPC_NLA_SOCK_CON], NULL, NULL);
-
-		if (err)
-			return err;
+		nla_parse_nested(con, TIPC_NLA_CON_MAX,
+				 sock[TIPC_NLA_SOCK_CON], NULL, NULL);
 
 		node = nla_get_u32(con[TIPC_NLA_CON_NODE]);
 		tipc_tlv_sprintf(msg->rep, "  connected to <%u.%u.%u:%u>",

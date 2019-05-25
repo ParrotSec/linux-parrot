@@ -16,6 +16,10 @@ fail() { #msg
     exit_fail
 }
 
+yield() {
+    ping localhost -c 1 || sleep .001 || usleep 1 || sleep 1
+}
+
 if [ ! -f set_event -o ! -d events/sched ]; then
     echo "event tracing is not supported"
     exit_unsupported
@@ -26,7 +30,8 @@ if [ ! -f set_event_pid ]; then
     exit_unsupported
 fi
 
-echo 0 > options/event-fork
+reset_tracer
+do_reset
 
 echo 1 > events/sched/sched_switch/enable
 
@@ -42,7 +47,6 @@ do_reset
 read mypid rest < /proc/self/stat
 
 echo $mypid > set_event_pid
-grep -q $mypid set_event_pid
 echo 'sched:sched_switch' > set_event
 
 yield

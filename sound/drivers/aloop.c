@@ -1133,10 +1133,16 @@ static void print_cable_info(struct snd_info_entry *entry,
 static int loopback_proc_new(struct loopback *loopback, int cidx)
 {
 	char name[32];
+	struct snd_info_entry *entry;
+	int err;
 
 	snprintf(name, sizeof(name), "cable#%d", cidx);
-	return snd_card_ro_proc_new(loopback->card, name, loopback,
-				    print_cable_info);
+	err = snd_card_proc_new(loopback->card, name, &entry);
+	if (err < 0)
+		return err;
+
+	snd_info_set_text_ops(entry, loopback, print_cable_info);
+	return 0;
 }
 
 static int loopback_probe(struct platform_device *devptr)
@@ -1194,8 +1200,12 @@ static int loopback_remove(struct platform_device *devptr)
 static int loopback_suspend(struct device *pdev)
 {
 	struct snd_card *card = dev_get_drvdata(pdev);
+	struct loopback *loopback = card->private_data;
 
 	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
+
+	snd_pcm_suspend_all(loopback->pcm[0]);
+	snd_pcm_suspend_all(loopback->pcm[1]);
 	return 0;
 }
 	

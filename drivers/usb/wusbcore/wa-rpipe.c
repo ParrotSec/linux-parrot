@@ -470,7 +470,9 @@ error:
 int wa_rpipes_create(struct wahc *wa)
 {
 	wa->rpipes = le16_to_cpu(wa->wa_descr->wNumRPipes);
-	wa->rpipe_bm = bitmap_zalloc(wa->rpipes, GFP_KERNEL);
+	wa->rpipe_bm = kcalloc(BITS_TO_LONGS(wa->rpipes),
+			       sizeof(unsigned long),
+			       GFP_KERNEL);
 	if (wa->rpipe_bm == NULL)
 		return -ENOMEM;
 	return 0;
@@ -485,7 +487,7 @@ void wa_rpipes_destroy(struct wahc *wa)
 		dev_err(dev, "BUG: pipes not released on exit: %*pb\n",
 			wa->rpipes, wa->rpipe_bm);
 	}
-	bitmap_free(wa->rpipe_bm);
+	kfree(wa->rpipe_bm);
 }
 
 /*

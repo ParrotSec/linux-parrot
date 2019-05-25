@@ -40,7 +40,6 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/serdev.h>
-#include <asm/unaligned.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -59,13 +58,10 @@
 
 #define IBS_WAKE_RETRANS_TIMEOUT_MS	100
 #define IBS_TX_IDLE_TIMEOUT_MS		2000
-#define CMD_TRANS_TIMEOUT_MS		100
+#define BAUDRATE_SETTLE_TIMEOUT_MS	300
 
 /* susclk rate */
 #define SUSCLK_RATE_32KHZ	32768
-
-/* Controller debug log header */
-#define QCA_DEBUG_HANDLE	0x2EDC
 
 /* HCI_IBS transmit side sleep protocol states */
 enum tx_ibs_states {
@@ -172,7 +168,6 @@ struct qca_serdev {
 
 static int qca_power_setup(struct hci_uart *hu, bool on);
 static void qca_power_shutdown(struct hci_uart *hu);
-static int qca_power_off(struct hci_dev *hdev);
 
 static void __serial_clock_on(struct tty_struct *tty)
 {
@@ -504,6 +499,7 @@ static int qca_open(struct hci_uart *hu)
 	hu->priv = qca;
 
 	if (hu->serdev) {
+		serdev_device_open(hu->serdev);
 
 		qcadev = serdev_device_get_drvdata(hu->serdev);
 		if (qcadev->btsoc_type != QCA_WCN3990) {
@@ -617,6 +613,7 @@ static int qca_close(struct hci_uart *hu)
 		else
 			gpiod_set_value_cansleep(qcadev->bt_en, 0);
 
+		serdev_device_close(hu->serdev);
 	}
 
 	kfree_skb(qca->rx_skb);
@@ -770,16 +767,15 @@ static int qca_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 	/* Prepend skb with frame type */
 	memcpy(skb_push(skb, 1), &hci_skb_pkt_type(skb), 1);
 
-	spin_lock_irqsave(&qca->hci_ibs_lock, flags);
-
 	/* Don't go to sleep in middle of patch download or
 	 * Out-Of-Band(GPIOs control) sleep is selected.
 	 */
 	if (!test_bit(STATE_IN_BAND_SLEEP_ENABLED, &qca->flags)) {
 		skb_queue_tail(&qca->txq, skb);
-		spin_unlock_irqrestore(&qca->hci_ibs_lock, flags);
 		return 0;
 	}
+
+	spin_lock_irqsave(&qca->hci_ibs_lock, flags);
 
 	/* Act according to current state */
 	switch (qca->tx_ibs_state) {
@@ -854,19 +850,6 @@ static int qca_ibs_wake_ack(struct hci_dev *hdev, struct sk_buff *skb)
 	return 0;
 }
 
-static int qca_recv_acl_data(struct hci_dev *hdev, struct sk_buff *skb)
-{
-	/* We receive debug logs from chip as an ACL packets.
-	 * Instead of sending the data to ACL to decode the
-	 * received data, we are pushing them to the above layers
-	 * as a diagnostic packet.
-	 */
-	if (get_unaligned_le16(skb->data) == QCA_DEBUG_HANDLE)
-		return hci_recv_diag(hdev, skb);
-
-	return hci_recv_frame(hdev, skb);
-}
-
 #define QCA_IBS_SLEEP_IND_EVENT \
 	.type = HCI_IBS_SLEEP_IND, \
 	.hlen = 0, \
@@ -889,7 +872,7 @@ static int qca_recv_acl_data(struct hci_dev *hdev, struct sk_buff *skb)
 	.maxlen = HCI_MAX_IBS_SIZE
 
 static const struct h4_recv_pkt qca_recv_pkts[] = {
-	{ H4_RECV_ACL,             .recv = qca_recv_acl_data },
+	{ H4_RECV_ACL,             .recv = hci_recv_frame    },
 	{ H4_RECV_SCO,             .recv = hci_recv_frame    },
 	{ H4_RECV_EVENT,           .recv = hci_recv_frame    },
 	{ QCA_IBS_WAKE_IND_EVENT,  .recv = qca_ibs_wake_ind  },
@@ -963,8 +946,8 @@ static int qca_set_baudrate(struct hci_dev *hdev, uint8_t baudrate)
 {
 	struct hci_uart *hu = hci_get_drvdata(hdev);
 	struct qca_data *qca = hu->priv;
-	struct qca_serdev *qcadev;
 	struct sk_buff *skb;
+	struct qca_serdev *qcadev;
 	u8 cmd[] = { 0x01, 0x48, 0xFC, 0x01, 0x00 };
 
 	if (baudrate > QCA_BAUDRATE_3200000)
@@ -978,6 +961,13 @@ static int qca_set_baudrate(struct hci_dev *hdev, uint8_t baudrate)
 		return -ENOMEM;
 	}
 
+	/* Disabling hardware flow control is mandatory while
+	 * sending change baudrate request to wcn3990 SoC.
+	 */
+	qcadev = serdev_device_get_drvdata(hu->serdev);
+	if (qcadev->btsoc_type == QCA_WCN3990)
+		hci_uart_set_flow_control(hu, true);
+
 	/* Assign commands to change baudrate and packet type. */
 	skb_put_data(skb, cmd, sizeof(cmd));
 	hci_skb_pkt_type(skb) = HCI_COMMAND_PKT;
@@ -985,21 +975,16 @@ static int qca_set_baudrate(struct hci_dev *hdev, uint8_t baudrate)
 	skb_queue_tail(&qca->txq, skb);
 	hci_uart_tx_wakeup(hu);
 
-	qcadev = serdev_device_get_drvdata(hu->serdev);
+	/* wait 300ms to change new baudrate on controller side
+	 * controller will come back after they receive this HCI command
+	 * then host can communicate with new baudrate to controller
+	 */
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout(msecs_to_jiffies(BAUDRATE_SETTLE_TIMEOUT_MS));
+	set_current_state(TASK_RUNNING);
 
-	/* Wait for the baudrate change request to be sent */
-
-	while (!skb_queue_empty(&qca->txq))
-		usleep_range(100, 200);
-
-	serdev_device_wait_until_sent(hu->serdev,
-		      msecs_to_jiffies(CMD_TRANS_TIMEOUT_MS));
-
-	/* Give the controller time to process the request */
 	if (qcadev->btsoc_type == QCA_WCN3990)
-		msleep(10);
-	else
-		msleep(300);
+		hci_uart_set_flow_control(hu, false);
 
 	return 0;
 }
@@ -1012,11 +997,11 @@ static inline void host_set_baudrate(struct hci_uart *hu, unsigned int speed)
 		hci_uart_set_baudrate(hu, speed);
 }
 
-static int qca_send_power_pulse(struct hci_uart *hu, bool on)
+static int qca_send_power_pulse(struct hci_dev *hdev, u8 cmd)
 {
-	int ret;
-	int timeout = msecs_to_jiffies(CMD_TRANS_TIMEOUT_MS);
-	u8 cmd = on ? QCA_WCN3990_POWERON_PULSE : QCA_WCN3990_POWEROFF_PULSE;
+	struct hci_uart *hu = hci_get_drvdata(hdev);
+	struct qca_data *qca = hu->priv;
+	struct sk_buff *skb;
 
 	/* These power pulses are single byte command which are sent
 	 * at required baudrate to wcn3990. On wcn3990, we have an external
@@ -1028,24 +1013,23 @@ static int qca_send_power_pulse(struct hci_uart *hu, bool on)
 	 * save power. Disabling hardware flow control is mandatory while
 	 * sending power pulses to SoC.
 	 */
-	bt_dev_dbg(hu->hdev, "sending power pulse %02x to controller", cmd);
+	bt_dev_dbg(hdev, "sending power pulse %02x to SoC", cmd);
 
-	serdev_device_write_flush(hu->serdev);
+	skb = bt_skb_alloc(sizeof(cmd), GFP_KERNEL);
+	if (!skb)
+		return -ENOMEM;
+
 	hci_uart_set_flow_control(hu, true);
-	ret = serdev_device_write_buf(hu->serdev, &cmd, sizeof(cmd));
-	if (ret < 0) {
-		bt_dev_err(hu->hdev, "failed to send power pulse %02x", cmd);
-		return ret;
-	}
 
-	serdev_device_wait_until_sent(hu->serdev, timeout);
+	skb_put_u8(skb, cmd);
+	hci_skb_pkt_type(skb) = HCI_COMMAND_PKT;
+
+	skb_queue_tail(&qca->txq, skb);
+	hci_uart_tx_wakeup(hu);
+
+	/* Wait for 100 uS for SoC to settle down */
+	usleep_range(100, 200);
 	hci_uart_set_flow_control(hu, false);
-
-	/* Give to controller time to boot/shutdown */
-	if (on)
-		msleep(100);
-	else
-		msleep(10);
 
 	return 0;
 }
@@ -1091,8 +1075,7 @@ static int qca_check_speeds(struct hci_uart *hu)
 static int qca_set_speed(struct hci_uart *hu, enum qca_speed_type speed_type)
 {
 	unsigned int speed, qca_baudrate;
-	struct qca_serdev *qcadev;
-	int ret = 0;
+	int ret;
 
 	if (speed_type == QCA_INIT_SPEED) {
 		speed = qca_get_speed(hu, QCA_INIT_SPEED);
@@ -1103,61 +1086,36 @@ static int qca_set_speed(struct hci_uart *hu, enum qca_speed_type speed_type)
 		if (!speed)
 			return 0;
 
-		/* Disable flow control for wcn3990 to deassert RTS while
-		 * changing the baudrate of chip and host.
-		 */
-		qcadev = serdev_device_get_drvdata(hu->serdev);
-		if (qcadev->btsoc_type == QCA_WCN3990)
-			hci_uart_set_flow_control(hu, true);
-
 		qca_baudrate = qca_get_baudrate_value(speed);
 		bt_dev_dbg(hu->hdev, "Set UART speed to %d", speed);
 		ret = qca_set_baudrate(hu->hdev, qca_baudrate);
 		if (ret)
-			goto error;
+			return ret;
 
 		host_set_baudrate(hu, speed);
-
-error:
-		if (qcadev->btsoc_type == QCA_WCN3990)
-			hci_uart_set_flow_control(hu, false);
 	}
 
-	return ret;
+	return 0;
 }
 
 static int qca_wcn3990_init(struct hci_uart *hu)
 {
-	struct qca_serdev *qcadev;
+	struct hci_dev *hdev = hu->hdev;
 	int ret;
-
-	/* Check for vregs status, may be hci down has turned
-	 * off the voltage regulator.
-	 */
-	qcadev = serdev_device_get_drvdata(hu->serdev);
-	if (!qcadev->bt_power->vregs_on) {
-		serdev_device_close(hu->serdev);
-		ret = qca_power_setup(hu, true);
-		if (ret)
-			return ret;
-
-		ret = serdev_device_open(hu->serdev);
-		if (ret) {
-			bt_dev_err(hu->hdev, "failed to open port");
-			return ret;
-		}
-	}
 
 	/* Forcefully enable wcn3990 to enter in to boot mode. */
 	host_set_baudrate(hu, 2400);
-	ret = qca_send_power_pulse(hu, false);
+	ret = qca_send_power_pulse(hdev, QCA_WCN3990_POWEROFF_PULSE);
 	if (ret)
 		return ret;
 
 	qca_set_speed(hu, QCA_INIT_SPEED);
-	ret = qca_send_power_pulse(hu, true);
+	ret = qca_send_power_pulse(hdev, QCA_WCN3990_POWERON_PULSE);
 	if (ret)
 		return ret;
+
+	/* Wait for 100 ms for SoC to boot */
+	msleep(100);
 
 	/* Now the device is in ready state to communicate with host.
 	 * To sync host with device we need to reopen port.
@@ -1196,13 +1154,6 @@ static int qca_setup(struct hci_uart *hu)
 
 	if (qcadev->btsoc_type == QCA_WCN3990) {
 		bt_dev_info(hdev, "setting up wcn3990");
-
-		/* Enable NON_PERSISTENT_SETUP QUIRK to ensure to execute
-		 * setup for every hci up.
-		 */
-		set_bit(HCI_QUIRK_NON_PERSISTENT_SETUP, &hdev->quirks);
-		set_bit(HCI_QUIRK_USE_BDADDR_PROPERTY, &hdev->quirks);
-		hu->hdev->shutdown = qca_power_off;
 		ret = qca_wcn3990_init(hu);
 		if (ret)
 			return ret;
@@ -1250,10 +1201,7 @@ static int qca_setup(struct hci_uart *hu)
 	}
 
 	/* Setup bdaddr */
-	if (qcadev->btsoc_type == QCA_WCN3990)
-		hu->hdev->set_bdaddr = qca_set_bdaddr;
-	else
-		hu->hdev->set_bdaddr = qca_set_bdaddr_rome;
+	hu->hdev->set_bdaddr = qca_set_bdaddr_rome;
 
 	return ret;
 }
@@ -1286,29 +1234,14 @@ static const struct qca_vreg_data qca_soc_data = {
 
 static void qca_power_shutdown(struct hci_uart *hu)
 {
-	struct qca_data *qca = hu->priv;
-	unsigned long flags;
-
-	/* From this point we go into power off state. But serial port is
-	 * still open, stop queueing the IBS data and flush all the buffered
-	 * data in skb's.
-	 */
-	spin_lock_irqsave(&qca->hci_ibs_lock, flags);
-	clear_bit(STATE_IN_BAND_SLEEP_ENABLED, &qca->flags);
-	qca_flush(hu);
-	spin_unlock_irqrestore(&qca->hci_ibs_lock, flags);
+	struct serdev_device *serdev = hu->serdev;
+	unsigned char cmd = QCA_WCN3990_POWEROFF_PULSE;
 
 	host_set_baudrate(hu, 2400);
-	qca_send_power_pulse(hu, false);
+	hci_uart_set_flow_control(hu, true);
+	serdev_device_write_buf(serdev, &cmd, sizeof(cmd));
+	hci_uart_set_flow_control(hu, false);
 	qca_power_setup(hu, false);
-}
-
-static int qca_power_off(struct hci_dev *hdev)
-{
-	struct hci_uart *hu = hci_get_drvdata(hdev);
-
-	qca_power_shutdown(hu);
-	return 0;
 }
 
 static int qca_enable_regulator(struct qca_vreg vregs,

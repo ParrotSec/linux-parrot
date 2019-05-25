@@ -34,11 +34,11 @@
 #include <linux/slab.h>
 
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_crtc_helper.h>
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_of.h>
 #include <drm/drm_panel.h>
-#include <drm/drm_probe_helper.h>
 
 /* Registers */
 
@@ -208,7 +208,7 @@ struct tc_data {
 	/* display edid */
 	struct edid		*edid;
 	/* current mode */
-	const struct drm_display_mode	*mode;
+	struct drm_display_mode	*mode;
 
 	u32			rev;
 	u8			assr;
@@ -657,8 +657,7 @@ err_dpcd_read:
 	return ret;
 }
 
-static int tc_set_video_mode(struct tc_data *tc,
-			     const struct drm_display_mode *mode)
+static int tc_set_video_mode(struct tc_data *tc, struct drm_display_mode *mode)
 {
 	int ret;
 	int vid_sync_dly;
@@ -1137,8 +1136,8 @@ static enum drm_mode_status tc_connector_mode_valid(struct drm_connector *connec
 }
 
 static void tc_bridge_mode_set(struct drm_bridge *bridge,
-			       const struct drm_display_mode *mode,
-			       const struct drm_display_mode *adj)
+			       struct drm_display_mode *mode,
+			       struct drm_display_mode *adj)
 {
 	struct tc_data *tc = bridge_to_tc(bridge);
 
@@ -1210,8 +1209,7 @@ static int tc_bridge_attach(struct drm_bridge *bridge)
 	/* Create eDP connector */
 	drm_connector_helper_add(&tc->connector, &tc_connector_helper_funcs);
 	ret = drm_connector_init(drm, &tc->connector, &tc_connector_funcs,
-				 tc->panel ? DRM_MODE_CONNECTOR_eDP :
-				 DRM_MODE_CONNECTOR_DisplayPort);
+				 DRM_MODE_CONNECTOR_eDP);
 	if (ret)
 		return ret;
 

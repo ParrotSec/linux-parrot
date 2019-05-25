@@ -146,10 +146,10 @@ snic_release_req_buf(struct snic *snic,
 		      CMD_FLAGS(sc));
 
 	if (req->u.icmnd.sense_addr)
-		dma_unmap_single(&snic->pdev->dev,
+		pci_unmap_single(snic->pdev,
 				 le64_to_cpu(req->u.icmnd.sense_addr),
 				 SCSI_SENSE_BUFFERSIZE,
-				 DMA_FROM_DEVICE);
+				 PCI_DMA_FROMDEVICE);
 
 	scsi_dma_unmap(sc);
 
@@ -185,11 +185,12 @@ snic_queue_icmnd_req(struct snic *snic,
 		}
 	}
 
-	pa = dma_map_single(&snic->pdev->dev,
+	pa = pci_map_single(snic->pdev,
 			    sc->sense_buffer,
 			    SCSI_SENSE_BUFFERSIZE,
-			    DMA_FROM_DEVICE);
-	if (dma_mapping_error(&snic->pdev->dev, pa)) {
+			    PCI_DMA_FROMDEVICE);
+
+	if (pci_dma_mapping_error(snic->pdev, pa)) {
 		SNIC_HOST_ERR(snic->shost,
 			      "QIcmnd:PCI Map Failed for sns buf %p tag %x\n",
 			      sc->sense_buffer, snic_cmd_tag(sc));
@@ -2000,7 +2001,7 @@ snic_dr_finish(struct snic *snic, struct scsi_cmnd *sc)
 	}
 
 dr_failed:
-	lockdep_assert_held(io_lock);
+	SNIC_BUG_ON(!spin_is_locked(io_lock));
 	if (rqi)
 		CMD_SP(sc) = NULL;
 	spin_unlock_irqrestore(io_lock, flags);
@@ -2603,7 +2604,7 @@ snic_internal_abort_io(struct snic *snic, struct scsi_cmnd *sc, int tmf)
 	ret = SUCCESS;
 
 skip_internal_abts:
-	lockdep_assert_held(io_lock);
+	SNIC_BUG_ON(!spin_is_locked(io_lock));
 	spin_unlock_irqrestore(io_lock, flags);
 
 	return ret;

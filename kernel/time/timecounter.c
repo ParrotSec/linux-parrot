@@ -1,7 +1,20 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
- * Based on clocksource code. See commit 74d23cc704d1
+ * linux/kernel/time/timecounter.c
+ *
+ * based on code that migrated away from
+ * linux/kernel/time/clocksource.c
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/export.h>
 #include <linux/timecounter.h>
 

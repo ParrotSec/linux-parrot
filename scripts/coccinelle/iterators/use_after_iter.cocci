@@ -35,7 +35,6 @@ iterator name hlist_for_each_entry_from;
 iterator name hlist_for_each_entry_safe;
 statement S;
 position p1,p2;
-type T;
 @@
 
 (
@@ -125,8 +124,6 @@ list_remove_head(x,c,...)
 sizeof(<+...c...+>)
 |
  &c->member
-|
-T c;
 |
 c = E
 |

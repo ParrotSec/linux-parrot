@@ -102,8 +102,7 @@ static void brcmf_fweh_queue_event(struct brcmf_fweh_info *fweh,
 	schedule_work(&fweh->event_work);
 }
 
-static int brcmf_fweh_call_event_handler(struct brcmf_pub *drvr,
-					 struct brcmf_if *ifp,
+static int brcmf_fweh_call_event_handler(struct brcmf_if *ifp,
 					 enum brcmf_fweh_event_code code,
 					 struct brcmf_event_msg *emsg,
 					 void *data)
@@ -118,9 +117,9 @@ static int brcmf_fweh_call_event_handler(struct brcmf_pub *drvr,
 		if (fweh->evt_handler[code])
 			err = fweh->evt_handler[code](ifp, emsg, data);
 		else
-			bphy_err(drvr, "unhandled event %d ignored\n", code);
+			brcmf_err("unhandled event %d ignored\n", code);
 	} else {
-		bphy_err(drvr, "no interface object\n");
+		brcmf_err("no interface object\n");
 	}
 	return err;
 }
@@ -159,7 +158,7 @@ static void brcmf_fweh_handle_if_event(struct brcmf_pub *drvr,
 		return;
 	}
 	if (ifevent->ifidx >= BRCMF_MAX_IFS) {
-		bphy_err(drvr, "invalid interface index: %u\n", ifevent->ifidx);
+		brcmf_err("invalid interface index: %u\n", ifevent->ifidx);
 		return;
 	}
 
@@ -182,8 +181,7 @@ static void brcmf_fweh_handle_if_event(struct brcmf_pub *drvr,
 	if (ifp && ifevent->action == BRCMF_E_IF_CHANGE)
 		brcmf_proto_reset_if(drvr, ifp);
 
-	err = brcmf_fweh_call_event_handler(drvr, ifp, emsg->event_code, emsg,
-					    data);
+	err = brcmf_fweh_call_event_handler(ifp, emsg->event_code, emsg, data);
 
 	if (ifp && ifevent->action == BRCMF_E_IF_DEL) {
 		bool armed = brcmf_cfg80211_vif_event_armed(drvr->config);
@@ -270,11 +268,11 @@ static void brcmf_fweh_event_worker(struct work_struct *work)
 			ifp = drvr->iflist[0];
 		else
 			ifp = drvr->iflist[emsg.bsscfgidx];
-		err = brcmf_fweh_call_event_handler(drvr, ifp, event->code,
-						    &emsg, event->data);
+		err = brcmf_fweh_call_event_handler(ifp, event->code, &emsg,
+						    event->data);
 		if (err) {
-			bphy_err(drvr, "event handler failed (%d)\n",
-				 event->code);
+			brcmf_err("event handler failed (%d)\n",
+				  event->code);
 			err = 0;
 		}
 event_free:
@@ -341,7 +339,7 @@ int brcmf_fweh_register(struct brcmf_pub *drvr, enum brcmf_fweh_event_code code,
 			brcmf_fweh_handler_t handler)
 {
 	if (drvr->fweh.evt_handler[code]) {
-		bphy_err(drvr, "event code %d already registered\n", code);
+		brcmf_err("event code %d already registered\n", code);
 		return -ENOSPC;
 	}
 	drvr->fweh.evt_handler[code] = handler;
@@ -371,7 +369,6 @@ void brcmf_fweh_unregister(struct brcmf_pub *drvr,
  */
 int brcmf_fweh_activate_events(struct brcmf_if *ifp)
 {
-	struct brcmf_pub *drvr = ifp->drvr;
 	int i, err;
 	s8 eventmask[BRCMF_EVENTING_MASK_LEN];
 
@@ -391,7 +388,7 @@ int brcmf_fweh_activate_events(struct brcmf_if *ifp)
 	err = brcmf_fil_iovar_data_set(ifp, "event_msgs",
 				       eventmask, BRCMF_EVENTING_MASK_LEN);
 	if (err)
-		bphy_err(drvr, "Set event_msgs error (%d)\n", err);
+		brcmf_err("Set event_msgs error (%d)\n", err);
 
 	return err;
 }

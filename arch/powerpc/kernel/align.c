@@ -131,7 +131,8 @@ static int emulate_spe(struct pt_regs *regs, unsigned int reg,
 
 	/* Verify the address of the operand */
 	if (unlikely(user_mode(regs) &&
-		     !access_ok(addr, nb)))
+		     !access_ok((flags & ST ? VERIFY_WRITE : VERIFY_READ),
+				addr, nb)))
 		return -EFAULT;
 
 	/* userland only */

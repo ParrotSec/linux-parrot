@@ -444,7 +444,8 @@ struct cxgb4_tc_u32_table *cxgb4_init_tc_u32(struct adapter *adap)
 	if (!max_tids)
 		return NULL;
 
-	t = kvzalloc(struct_size(t, table, max_tids), GFP_KERNEL);
+	t = kvzalloc(sizeof(*t) +
+			 (max_tids * sizeof(struct cxgb4_link)), GFP_KERNEL);
 	if (!t)
 		return NULL;
 

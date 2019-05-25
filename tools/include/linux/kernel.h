@@ -70,7 +70,6 @@
 #define BUG_ON(cond) assert(!(cond))
 #endif
 #endif
-#define BUG()	BUG_ON(1)
 
 #if __BYTE_ORDER == __BIG_ENDIAN
 #define cpu_to_le16 bswap_16
@@ -116,6 +115,6 @@ int scnprintf(char * buf, size_t size, const char * fmt, ...);
 #define round_down(x, y) ((x) & ~__round_mask(x, y))
 
 #define current_gfp_context(k) 0
-#define synchronize_rcu()
+#define synchronize_sched()
 
 #endif

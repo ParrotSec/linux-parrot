@@ -466,25 +466,17 @@ static int inode_go_lock(struct gfs2_holder *gh)
  *
  */
 
-static void inode_go_dump(struct seq_file *seq, struct gfs2_glock *gl)
+static void inode_go_dump(struct seq_file *seq, const struct gfs2_glock *gl)
 {
-	struct gfs2_inode *ip = gl->gl_object;
-	struct inode *inode = &ip->i_inode;
-	unsigned long nrpages;
-
+	const struct gfs2_inode *ip = gl->gl_object;
 	if (ip == NULL)
 		return;
-
-	xa_lock_irq(&inode->i_data.i_pages);
-	nrpages = inode->i_data.nrpages;
-	xa_unlock_irq(&inode->i_data.i_pages);
-
-	gfs2_print_dbg(seq, " I: n:%llu/%llu t:%u f:0x%02lx d:0x%08x s:%llu p:%lu\n",
+	gfs2_print_dbg(seq, " I: n:%llu/%llu t:%u f:0x%02lx d:0x%08x s:%llu\n",
 		  (unsigned long long)ip->i_no_formal_ino,
 		  (unsigned long long)ip->i_no_addr,
 		  IF2DT(ip->i_inode.i_mode), ip->i_flags,
 		  (unsigned int)ip->i_diskflags,
-		  (unsigned long long)i_size_read(inode), nrpages);
+		  (unsigned long long)i_size_read(&ip->i_inode));
 }
 
 /**

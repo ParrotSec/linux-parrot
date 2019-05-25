@@ -6,7 +6,6 @@
 #include "util/evsel.h"
 #include "util/util.h"
 #include "util/config.h"
-#include "util/map.h"
 #include "util/symbol.h"
 #include "util/thread.h"
 #include "util/header.h"
@@ -335,7 +334,7 @@ static int build_alloc_func_list(void)
 	struct alloc_func *func;
 	struct machine *machine = &kmem_session->machines.host;
 	regex_t alloc_func_regex;
-	static const char pattern[] = "^_?_?(alloc|get_free|get_zeroed)_pages?";
+	const char pattern[] = "^_?_?(alloc|get_free|get_zeroed)_pages?";
 
 	ret = regcomp(&alloc_func_regex, pattern, REG_EXTENDED);
 	if (ret) {
@@ -1925,7 +1924,7 @@ int cmd_kmem(int argc, const char **argv)
 		NULL
 	};
 	struct perf_session *session;
-	static const char errmsg[] = "No %s allocation events found.  Have you run 'perf kmem record --%s'?\n";
+	const char errmsg[] = "No %s allocation events found.  Have you run 'perf kmem record --%s'?\n";
 	int ret = perf_config(kmem_config, NULL);
 
 	if (ret)
@@ -1949,7 +1948,7 @@ int cmd_kmem(int argc, const char **argv)
 		return __cmd_record(argc, argv);
 	}
 
-	data.path = input_name;
+	data.file.path = input_name;
 
 	kmem_session = session = perf_session__new(&data, false, &perf_kmem);
 	if (session == NULL)

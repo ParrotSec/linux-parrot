@@ -6,7 +6,7 @@ If you want to use SELinux, chances are you will want
 to use the distro-provided policies, or install the
 latest reference policy release from
 
-	https://github.com/SELinuxProject/refpolicy
+	http://oss.tresys.com/projects/refpolicy
 
 However, if you want to install a dummy policy for
 testing, you can do using ``mdp`` provided under

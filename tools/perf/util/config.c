@@ -13,9 +13,7 @@
 #include <sys/param.h>
 #include "util.h"
 #include "cache.h"
-#include "callchain.h"
 #include <subcmd/exec-cmd.h>
-#include "util/event.h"  /* proc_map_timeout */
 #include "util/hist.h"  /* perf_hist_config */
 #include "util/llvm-utils.h"   /* perf_llvm_config */
 #include "config.h"
@@ -421,9 +419,6 @@ static int perf_buildid_config(const char *var, const char *value)
 static int perf_default_core_config(const char *var __maybe_unused,
 				    const char *value __maybe_unused)
 {
-	if (!strcmp(var, "core.proc-map-timeout"))
-		proc_map_timeout = strtoul(value, NULL, 10);
-
 	/* Add other config variables here. */
 	return 0;
 }
@@ -815,14 +810,14 @@ int config_error_nonbool(const char *var)
 void set_buildid_dir(const char *dir)
 {
 	if (dir)
-		scnprintf(buildid_dir, MAXPATHLEN, "%s", dir);
+		scnprintf(buildid_dir, MAXPATHLEN-1, "%s", dir);
 
 	/* default to $HOME/.debug */
 	if (buildid_dir[0] == '\0') {
 		char *home = getenv("HOME");
 
 		if (home) {
-			snprintf(buildid_dir, MAXPATHLEN, "%s/%s",
+			snprintf(buildid_dir, MAXPATHLEN-1, "%s/%s",
 				 home, DEBUG_CACHE_DIR);
 		} else {
 			strncpy(buildid_dir, DEBUG_CACHE_DIR, MAXPATHLEN-1);

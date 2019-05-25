@@ -134,10 +134,17 @@ static struct sysrq_key_op sysrq_unraw_op = {
 
 static void sysrq_handle_crash(int key)
 {
-	/* release the RCU read lock before crashing */
-	rcu_read_unlock();
+	char *killer = NULL;
 
-	panic("sysrq triggered crash\n");
+	/* we need to release the RCU read lock here,
+	 * otherwise we get an annoying
+	 * 'BUG: sleeping function called from invalid context'
+	 * complaint from the kernel before the panic.
+	 */
+	rcu_read_unlock();
+	panic_on_oops = 1;	/* force panic */
+	wmb();
+	*killer = 1;
 }
 static struct sysrq_key_op sysrq_crash_op = {
 	.handler	= sysrq_handle_crash,
@@ -341,7 +348,7 @@ static void send_sig_all(int sig)
 		if (is_global_init(p))
 			continue;
 
-		do_send_sig_info(sig, SEND_SIG_PRIV, p, PIDTYPE_MAX);
+		do_send_sig_info(sig, SEND_SIG_FORCED, p, PIDTYPE_MAX);
 	}
 	read_unlock(&tasklist_lock);
 }
@@ -539,6 +546,7 @@ void __handle_sysrq(int key, bool check_mask)
 	 */
 	orig_log_level = console_loglevel;
 	console_loglevel = CONSOLE_LOGLEVEL_DEFAULT;
+	pr_info("SysRq : ");
 
         op_p = __sysrq_get_key_op(key);
         if (op_p) {
@@ -547,15 +555,14 @@ void __handle_sysrq(int key, bool check_mask)
 		 * should not) and is the invoked operation enabled?
 		 */
 		if (!check_mask || sysrq_on_mask(op_p->enable_mask)) {
-			pr_info("%s\n", op_p->action_msg);
+			pr_cont("%s\n", op_p->action_msg);
 			console_loglevel = orig_log_level;
 			op_p->handler(key);
 		} else {
-			pr_info("This sysrq operation is disabled.\n");
-			console_loglevel = orig_log_level;
+			pr_cont("This sysrq operation is disabled.\n");
 		}
 	} else {
-		pr_info("HELP : ");
+		pr_cont("HELP : ");
 		/* Only print the help msg once per handler */
 		for (i = 0; i < ARRAY_SIZE(sysrq_key_table); i++) {
 			if (sysrq_key_table[i]) {
@@ -653,7 +660,8 @@ static void sysrq_do_reset(struct timer_list *t)
 
 	state->reset_requested = true;
 
-	orderly_reboot();
+	ksys_sync();
+	kernel_restart(NULL);
 }
 
 static void sysrq_handle_reset_request(struct sysrq_state *state)
@@ -728,8 +736,6 @@ static void sysrq_of_get_keyreset_config(void)
 
 	/* Get reset timeout if any. */
 	of_property_read_u32(np, "timeout-ms", &sysrq_reset_downtime_ms);
-
-	of_node_put(np);
 }
 #else
 static void sysrq_of_get_keyreset_config(void)

@@ -342,7 +342,6 @@ struct rcar_csi2_info {
 	int (*confirm_start)(struct rcar_csi2 *priv);
 	const struct rcsi2_mbps_reg *hsfreqrange;
 	unsigned int csi0clkfreqrange;
-	unsigned int num_channels;
 	bool clear_ulps;
 };
 
@@ -477,14 +476,13 @@ static int rcsi2_start(struct rcar_csi2 *priv)
 	format = rcsi2_code_to_fmt(priv->mf.code);
 
 	/*
-	 * Enable all supported CSI-2 channels with virtual channel and
-	 * data type matching.
+	 * Enable all Virtual Channels.
 	 *
 	 * NOTE: It's not possible to get individual datatype for each
 	 *       source virtual channel. Once this is possible in V4L2
 	 *       it should be used here.
 	 */
-	for (i = 0; i < priv->info->num_channels; i++) {
+	for (i = 0; i < 4; i++) {
 		u32 vcdt_part;
 
 		vcdt_part = VCDT_SEL_VC(i) | VCDT_VCDTN_EN | VCDT_SEL_DTN_ON |
@@ -513,8 +511,7 @@ static int rcsi2_start(struct rcar_csi2 *priv)
 	rcsi2_write(priv, FLD_REG, FLD_FLD_NUM(2) | FLD_FLD_EN4 |
 		    FLD_FLD_EN3 | FLD_FLD_EN2 | FLD_FLD_EN);
 	rcsi2_write(priv, VCDT_REG, vcdt);
-	if (vcdt2)
-		rcsi2_write(priv, VCDT2_REG, vcdt2);
+	rcsi2_write(priv, VCDT2_REG, vcdt2);
 	/* Lanes are zero indexed. */
 	rcsi2_write(priv, LSWAP_REG,
 		    LSWAP_L0SEL(priv->lane_swap[0] - 1) |
@@ -717,7 +714,7 @@ static int rcsi2_parse_v4l2(struct rcar_csi2 *priv,
 	if (vep->base.port || vep->base.id)
 		return -ENOTCONN;
 
-	if (vep->bus_type != V4L2_MBUS_CSI2_DPHY) {
+	if (vep->bus_type != V4L2_MBUS_CSI2) {
 		dev_err(priv->dev, "Unsupported bus: %u\n", vep->bus_type);
 		return -EINVAL;
 	}
@@ -746,7 +743,7 @@ static int rcsi2_parse_v4l2(struct rcar_csi2 *priv,
 static int rcsi2_parse_dt(struct rcar_csi2 *priv)
 {
 	struct device_node *ep;
-	struct v4l2_fwnode_endpoint v4l2_ep = { .bus_type = 0 };
+	struct v4l2_fwnode_endpoint v4l2_ep;
 	int ret;
 
 	ep = of_graph_get_endpoint_by_regs(priv->dev->of_node, 0, 0);
@@ -774,25 +771,21 @@ static int rcsi2_parse_dt(struct rcar_csi2 *priv)
 
 	of_node_put(ep);
 
-	v4l2_async_notifier_init(&priv->notifier);
+	priv->notifier.subdevs = devm_kzalloc(priv->dev,
+					      sizeof(*priv->notifier.subdevs),
+					      GFP_KERNEL);
+	if (!priv->notifier.subdevs)
+		return -ENOMEM;
 
-	ret = v4l2_async_notifier_add_subdev(&priv->notifier, &priv->asd);
-	if (ret) {
-		fwnode_handle_put(priv->asd.match.fwnode);
-		return ret;
-	}
-
+	priv->notifier.num_subdevs = 1;
+	priv->notifier.subdevs[0] = &priv->asd;
 	priv->notifier.ops = &rcar_csi2_notify_ops;
 
 	dev_dbg(priv->dev, "Found '%pOF'\n",
 		to_of_node(priv->asd.match.fwnode));
 
-	ret = v4l2_async_subdev_notifier_register(&priv->subdev,
-						  &priv->notifier);
-	if (ret)
-		v4l2_async_notifier_cleanup(&priv->notifier);
-
-	return ret;
+	return v4l2_async_subdev_notifier_register(&priv->subdev,
+						   &priv->notifier);
 }
 
 /* -----------------------------------------------------------------------------
@@ -943,52 +936,30 @@ static const struct rcar_csi2_info rcar_csi2_info_r8a7795 = {
 	.init_phtw = rcsi2_init_phtw_h3_v3h_m3n,
 	.hsfreqrange = hsfreqrange_h3_v3h_m3n,
 	.csi0clkfreqrange = 0x20,
-	.num_channels = 4,
 	.clear_ulps = true,
 };
 
 static const struct rcar_csi2_info rcar_csi2_info_r8a7795es1 = {
 	.hsfreqrange = hsfreqrange_m3w_h3es1,
-	.num_channels = 4,
 };
 
 static const struct rcar_csi2_info rcar_csi2_info_r8a7796 = {
 	.hsfreqrange = hsfreqrange_m3w_h3es1,
-	.num_channels = 4,
 };
 
 static const struct rcar_csi2_info rcar_csi2_info_r8a77965 = {
 	.init_phtw = rcsi2_init_phtw_h3_v3h_m3n,
 	.hsfreqrange = hsfreqrange_h3_v3h_m3n,
 	.csi0clkfreqrange = 0x20,
-	.num_channels = 4,
 	.clear_ulps = true,
 };
 
 static const struct rcar_csi2_info rcar_csi2_info_r8a77970 = {
 	.init_phtw = rcsi2_init_phtw_v3m_e3,
 	.confirm_start = rcsi2_confirm_start_v3m_e3,
-	.num_channels = 4,
-};
-
-static const struct rcar_csi2_info rcar_csi2_info_r8a77980 = {
-	.init_phtw = rcsi2_init_phtw_h3_v3h_m3n,
-	.hsfreqrange = hsfreqrange_h3_v3h_m3n,
-	.csi0clkfreqrange = 0x20,
-	.clear_ulps = true,
-};
-
-static const struct rcar_csi2_info rcar_csi2_info_r8a77990 = {
-	.init_phtw = rcsi2_init_phtw_v3m_e3,
-	.confirm_start = rcsi2_confirm_start_v3m_e3,
-	.num_channels = 2,
 };
 
 static const struct of_device_id rcar_csi2_of_table[] = {
-	{
-		.compatible = "renesas,r8a774c0-csi2",
-		.data = &rcar_csi2_info_r8a77990,
-	},
 	{
 		.compatible = "renesas,r8a7795-csi2",
 		.data = &rcar_csi2_info_r8a7795,
@@ -1004,14 +975,6 @@ static const struct of_device_id rcar_csi2_of_table[] = {
 	{
 		.compatible = "renesas,r8a77970-csi2",
 		.data = &rcar_csi2_info_r8a77970,
-	},
-	{
-		.compatible = "renesas,r8a77980-csi2",
-		.data = &rcar_csi2_info_r8a77980,
-	},
-	{
-		.compatible = "renesas,r8a77990-csi2",
-		.data = &rcar_csi2_info_r8a77990,
 	},
 	{ /* sentinel */ },
 };

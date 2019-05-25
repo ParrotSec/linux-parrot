@@ -38,7 +38,6 @@
 #include <asm/ldcw.h>
 #include <asm/traps.h>
 #include <asm/thread_info.h>
-#include <asm/alternative.h>
 
 #include <linux/linkage.h>
 
@@ -394,7 +393,6 @@
 	*/
 	.macro		space_check	spc,tmp,fault
 	mfsp		%sr7,\tmp
-	/* check against %r0 which is same value as LINUX_GATEWAY_SPACE */
 	or,COND(<>)	%r0,\spc,%r0	/* user may execute gateway page
 					 * as kernel, so defeat the space
 					 * check if it is */
@@ -428,10 +426,13 @@
 	ldw,s		\index(\pmd),\pmd
 	bb,>=,n		\pmd,_PxD_PRESENT_BIT,\fault
 	dep		%r0,31,PxD_FLAG_SHIFT,\pmd /* clear flags */
-	SHLREG		\pmd,PxD_VALUE_SHIFT,\pmd
+	copy		\pmd,%r9
+	SHLREG		%r9,PxD_VALUE_SHIFT,\pmd
 	extru		\va,31-PAGE_SHIFT,ASM_BITS_PER_PTE,\index
 	dep		%r0,31,PAGE_SHIFT,\pmd  /* clear offset */
 	shladd		\index,BITS_PER_PTE_ENTRY,\pmd,\pmd /* pmd is now pte */
+	LDREG		%r0(\pmd),\pte
+	bb,>=,n		\pte,_PAGE_PRESENT_BIT,\fault
 	.endm
 
 	/* Look up PTE in a 3-Level scheme.
@@ -447,6 +448,7 @@
 	.macro		L3_ptep pgd,pte,index,va,fault
 #if CONFIG_PGTABLE_LEVELS == 3 /* we might have a 2-Level scheme, e.g. with 16kb page size */
 	extrd,u		\va,63-ASM_PGDIR_SHIFT,ASM_BITS_PER_PGD,\index
+	copy		%r0,\pte
 	extrd,u,*=	\va,63-ASM_PGDIR_SHIFT,64-ASM_PGDIR_SHIFT,%r0
 	ldw,s		\index(\pgd),\pgd
 	extrd,u,*=	\va,63-ASM_PGDIR_SHIFT,64-ASM_PGDIR_SHIFT,%r0
@@ -461,39 +463,36 @@
 	L2_ptep		\pgd,\pte,\index,\va,\fault
 	.endm
 
-	/* Acquire pa_tlb_lock lock and check page is present. */
+	/* Acquire pa_tlb_lock lock and recheck page is still present. */
 	.macro		tlb_lock	spc,ptp,pte,tmp,tmp1,fault
 #ifdef CONFIG_SMP
-98:	cmpib,COND(=),n	0,\spc,2f
+	cmpib,COND(=),n	0,\spc,2f
 	load_pa_tlb_lock \tmp
 1:	LDCW		0(\tmp),\tmp1
 	cmpib,COND(=)	0,\tmp1,1b
 	nop
 	LDREG		0(\ptp),\pte
-	bb,<,n		\pte,_PAGE_PRESENT_BIT,3f
+	bb,<,n		\pte,_PAGE_PRESENT_BIT,2f
 	b		\fault
-	stw,ma		\spc,0(\tmp)
-99:	ALTERNATIVE(98b, 99b, ALT_COND_NO_SMP, INSN_NOP)
+	stw		 \spc,0(\tmp)
+2:
 #endif
-2:	LDREG		0(\ptp),\pte
-	bb,>=,n		\pte,_PAGE_PRESENT_BIT,\fault
-3:
 	.endm
 
 	/* Release pa_tlb_lock lock without reloading lock address. */
 	.macro		tlb_unlock0	spc,tmp
 #ifdef CONFIG_SMP
-98:	or,COND(=)	%r0,\spc,%r0
-	stw,ma		\spc,0(\tmp)
-99:	ALTERNATIVE(98b, 99b, ALT_COND_NO_SMP, INSN_NOP)
+	or,COND(=)	%r0,\spc,%r0
+	sync
+	or,COND(=)	%r0,\spc,%r0
+	stw             \spc,0(\tmp)
 #endif
 	.endm
 
 	/* Release pa_tlb_lock lock. */
 	.macro		tlb_unlock1	spc,tmp
 #ifdef CONFIG_SMP
-98:	load_pa_tlb_lock \tmp
-99:	ALTERNATIVE(98b, 99b, ALT_COND_NO_SMP, INSN_NOP)
+	load_pa_tlb_lock \tmp
 	tlb_unlock0	\spc,\tmp
 #endif
 	.endm
@@ -911,9 +910,9 @@ intr_check_sig:
 	 * Only do signals if we are returning to user space
 	 */
 	LDREG	PT_IASQ0(%r16), %r20
-	cmpib,COND(=),n LINUX_GATEWAY_SPACE, %r20, intr_restore /* backward */
+	cmpib,COND(=),n 0,%r20,intr_restore /* backward */
 	LDREG	PT_IASQ1(%r16), %r20
-	cmpib,COND(=),n LINUX_GATEWAY_SPACE, %r20, intr_restore /* backward */
+	cmpib,COND(=),n 0,%r20,intr_restore /* backward */
 
 	/* NOTE: We need to enable interrupts if we have to deliver
 	 * signals. We used to do this earlier but it caused kernel
@@ -1659,7 +1658,7 @@ dbit_fault:
 
 itlb_fault:
 	b               intr_save
-	ldi             PARISC_ITLB_TRAP,%r8
+	ldi             6,%r8
 
 nadtlb_fault:
 	b               intr_save

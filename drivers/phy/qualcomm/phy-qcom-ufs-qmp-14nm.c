@@ -65,8 +65,7 @@ static int ufs_qcom_phy_qmp_14nm_exit(struct phy *generic_phy)
 }
 
 static
-int ufs_qcom_phy_qmp_14nm_set_mode(struct phy *generic_phy,
-				   enum phy_mode mode, int submode)
+int ufs_qcom_phy_qmp_14nm_set_mode(struct phy *generic_phy, enum phy_mode mode)
 {
 	struct ufs_qcom_phy *phy_common = get_ufs_qcom_phy(generic_phy);
 

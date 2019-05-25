@@ -214,7 +214,7 @@ int bcmgenet_mii_config(struct net_device *dev, bool init)
 
 	case PHY_INTERFACE_MODE_MII:
 		phy_name = "external MII";
-		phy_set_max_speed(phydev, SPEED_100);
+		phydev->supported &= PHY_BASIC_FEATURES;
 		bcmgenet_sys_writel(priv,
 				    PORT_MODE_EXT_EPHY, SYS_PORT_CTRL);
 		break;
@@ -226,11 +226,11 @@ int bcmgenet_mii_config(struct net_device *dev, bool init)
 		 * capabilities, use that knowledge to also configure the
 		 * Reverse MII interface correctly.
 		 */
-		if (linkmode_test_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
-				      dev->phydev->supported))
-			port_ctrl = PORT_MODE_EXT_RVMII_50;
-		else
+		if ((dev->phydev->supported & PHY_BASIC_FEATURES) ==
+				PHY_BASIC_FEATURES)
 			port_ctrl = PORT_MODE_EXT_RVMII_25;
+		else
+			port_ctrl = PORT_MODE_EXT_RVMII_50;
 		bcmgenet_sys_writel(priv, port_ctrl, SYS_PORT_CTRL);
 		break;
 
@@ -318,7 +318,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
 		return ret;
 	}
 
-	linkmode_copy(phydev->advertising, phydev->supported);
+	phydev->advertising = phydev->supported;
 
 	/* The internal PHY has its link interrupts routed to the
 	 * Ethernet MAC ISRs. On GENETv5 there is a hardware issue
@@ -525,7 +525,7 @@ static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
 			.asym_pause = 0,
 		};
 
-		phydev = fixed_phy_register(PHY_POLL, &fphy_status, NULL);
+		phydev = fixed_phy_register(PHY_POLL, &fphy_status, -1, NULL);
 		if (!phydev || IS_ERR(phydev)) {
 			dev_err(kdev, "failed to register fixed PHY device\n");
 			return -ENODEV;

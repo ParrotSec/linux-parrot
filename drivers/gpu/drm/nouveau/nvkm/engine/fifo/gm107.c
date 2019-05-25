@@ -41,7 +41,6 @@ gm107_fifo_runlist = {
 	.size = 8,
 	.cgrp = gk110_fifo_runlist_cgrp,
 	.chan = gm107_fifo_runlist_chan,
-	.commit = gk104_fifo_runlist_commit,
 };
 
 const struct nvkm_enum
@@ -69,7 +68,7 @@ gm107_fifo_fault_engine[] = {
 
 static const struct gk104_fifo_func
 gm107_fifo = {
-	.pbdma = &gk208_fifo_pbdma,
+	.init_pbdma_timeout = gk208_fifo_init_pbdma_timeout,
 	.fault.access = gk104_fifo_fault_access,
 	.fault.engine = gm107_fifo_fault_engine,
 	.fault.reason = gk104_fifo_fault_reason,

@@ -74,16 +74,12 @@
 		simple-audio-card,name = "DA850-OMAPL138 LCDK";
 		simple-audio-card,widgets =
 			"Line", "Line In",
-			"Line", "Line Out",
-			"Microphone", "Mic Jack";
+			"Line", "Line Out";
 		simple-audio-card,routing =
 			"LINE1L", "Line In",
 			"LINE1R", "Line In",
 			"Line Out", "LLOUT",
-			"Line Out", "RLOUT",
-			"MIC3L", "Mic Jack",
-			"MIC3R", "Mic Jack",
-			"Mic Jack", "Mic Bias";
+			"Line Out", "RLOUT";
 		simple-audio-card,format = "dsp_b";
 		simple-audio-card,bitclock-master = <&link0_codec>;
 		simple-audio-card,frame-master = <&link0_codec>;
@@ -254,8 +250,6 @@
 		#sound-dai-cells = <0>;
 		compatible = "ti,tlv320aic3106";
 		reg = <0x18>;
-		adc-settle-ms = <40>;
-		ai3x-micbias-vg = <1>;		/* 2.0V */
 		status = "okay";
 
 		/* Regulators */

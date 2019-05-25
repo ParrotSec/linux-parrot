@@ -1,5 +1,3 @@
-.. SPDX-License-Identifier: GPL-2.0
-
 Media Controller devices
 ------------------------
 
@@ -60,7 +58,7 @@ Drivers initialize entity pads by calling
 
 Drivers register entities with a media device by calling
 :c:func:`media_device_register_entity()`
-and unregistered by calling
+and unregistred by calling
 :c:func:`media_device_unregister_entity()`.
 
 Interfaces
@@ -264,5 +262,3 @@ in the end provide a way to use driver-specific callbacks.
 .. kernel-doc:: include/media/media-devnode.h
 
 .. kernel-doc:: include/media/media-entity.h
-
-.. kernel-doc:: include/media/media-request.h

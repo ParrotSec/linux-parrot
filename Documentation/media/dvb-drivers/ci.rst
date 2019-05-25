@@ -1,5 +1,3 @@
-.. SPDX-License-Identifier: GPL-2.0
-
 Digital TV Conditional Access Interface (CI API)
 ================================================
 

@@ -16,14 +16,15 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <netinet/ether.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
-#include <sys/uio.h>
 #include <linux/virtio_net.h>
 #include <netdb.h>
 #include <stdlib.h>
@@ -266,7 +267,8 @@ cleanup:
 		os_close_file(rxfd);
 	if (txfd >= 0)
 		os_close_file(txfd);
-	kfree(result);
+	if (result != NULL)
+		kfree(result);
 	return NULL;
 }
 
@@ -432,7 +434,8 @@ cleanup:
 	if (fd >= 0)
 		os_close_file(fd);
 	if (result != NULL) {
-		kfree(result->remote_addr);
+		if (result->remote_addr != NULL)
+			kfree(result->remote_addr);
 		kfree(result);
 	}
 	return NULL;

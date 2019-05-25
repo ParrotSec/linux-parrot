@@ -1,5 +1,3 @@
-.. SPDX-License-Identifier: GPL-2.0
-
 AU0828 cards list
 =================
 

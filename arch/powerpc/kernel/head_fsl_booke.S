@@ -194,6 +194,13 @@ set_ivor:
 #endif
 	mtspr	SPRN_MAS4, r2
 
+#if 0
+	/* Enable DOZE */
+	mfspr	r2,SPRN_HID0
+	oris	r2,r2,HID0_DOZE@h
+	mtspr	SPRN_HID0, r2
+#endif
+
 #if !defined(CONFIG_BDI_SWITCH)
 	/*
 	 * The Abatron BDI JTAG debugger does not tolerate others
@@ -236,9 +243,8 @@ set_ivor:
 	li	r0,0
 	stwu	r0,THREAD_SIZE-STACK_FRAME_OVERHEAD(r1)
 
-#ifdef CONFIG_SMP
-	stw	r24, TASK_CPU(r2)
-#endif
+	CURRENT_THREAD_INFO(r22, r1)
+	stw	r24, TI_CPU(r22)
 
 	bl	early_init
 
@@ -711,7 +717,8 @@ finish_tlb_load:
 
 	/* Get the next_tlbcam_idx percpu var */
 #ifdef CONFIG_SMP
-	lwz	r15, TASK_CPU-THREAD(r12)
+	lwz	r12, THREAD_INFO-THREAD(r12)
+	lwz	r15, TI_CPU(r12)
 	lis     r14, __per_cpu_offset@h
 	ori     r14, r14, __per_cpu_offset@l
 	rlwinm  r15, r15, 2, 0, 29
@@ -1082,10 +1089,10 @@ __secondary_start:
 	mr	r4,r24		/* Why? */
 	bl	call_setup_cpu
 
-	/* get current's stack and current */
-	lis	r2,secondary_current@ha
-	lwz	r2,secondary_current@l(r2)
-	lwz	r1,TASK_STACK(r2)
+	/* get current_thread_info and current */
+	lis	r1,secondary_ti@ha
+	lwz	r1,secondary_ti@l(r1)
+	lwz	r2,TI_TASK(r1)
 
 	/* stack */
 	addi	r1,r1,THREAD_SIZE-STACK_FRAME_OVERHEAD

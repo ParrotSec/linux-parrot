@@ -77,32 +77,16 @@ static unsigned char edid_get_byte(struct intel_vgpu *vgpu)
 	return chr;
 }
 
-static inline int cnp_get_port_from_gmbus0(u32 gmbus0)
-{
-	int port_select = gmbus0 & _GMBUS_PIN_SEL_MASK;
-	int port = -EINVAL;
-
-	if (port_select == GMBUS_PIN_1_BXT)
-		port = PORT_B;
-	else if (port_select == GMBUS_PIN_2_BXT)
-		port = PORT_C;
-	else if (port_select == GMBUS_PIN_3_BXT)
-		port = PORT_D;
-	else if (port_select == GMBUS_PIN_4_CNP)
-		port = PORT_E;
-	return port;
-}
-
 static inline int bxt_get_port_from_gmbus0(u32 gmbus0)
 {
 	int port_select = gmbus0 & _GMBUS_PIN_SEL_MASK;
 	int port = -EINVAL;
 
-	if (port_select == GMBUS_PIN_1_BXT)
+	if (port_select == 1)
 		port = PORT_B;
-	else if (port_select == GMBUS_PIN_2_BXT)
+	else if (port_select == 2)
 		port = PORT_C;
-	else if (port_select == GMBUS_PIN_3_BXT)
+	else if (port_select == 3)
 		port = PORT_D;
 	return port;
 }
@@ -112,13 +96,13 @@ static inline int get_port_from_gmbus0(u32 gmbus0)
 	int port_select = gmbus0 & _GMBUS_PIN_SEL_MASK;
 	int port = -EINVAL;
 
-	if (port_select == GMBUS_PIN_VGADDC)
+	if (port_select == 2)
 		port = PORT_E;
-	else if (port_select == GMBUS_PIN_DPC)
+	else if (port_select == 4)
 		port = PORT_C;
-	else if (port_select == GMBUS_PIN_DPB)
+	else if (port_select == 5)
 		port = PORT_B;
-	else if (port_select == GMBUS_PIN_DPD)
+	else if (port_select == 6)
 		port = PORT_D;
 	return port;
 }
@@ -149,8 +133,6 @@ static int gmbus0_mmio_write(struct intel_vgpu *vgpu,
 
 	if (IS_BROXTON(dev_priv))
 		port = bxt_get_port_from_gmbus0(pin_select);
-	else if (IS_COFFEELAKE(dev_priv))
-		port = cnp_get_port_from_gmbus0(pin_select);
 	else
 		port = get_port_from_gmbus0(pin_select);
 	if (WARN_ON(port < 0))
@@ -358,9 +340,6 @@ static int gmbus2_mmio_write(struct intel_vgpu *vgpu, unsigned int offset,
 /**
  * intel_gvt_i2c_handle_gmbus_read - emulate gmbus register mmio read
  * @vgpu: a vGPU
- * @offset: reg offset
- * @p_data: data return buffer
- * @bytes: access data length
  *
  * This function is used to emulate gmbus register mmio read
  *
@@ -386,9 +365,6 @@ int intel_gvt_i2c_handle_gmbus_read(struct intel_vgpu *vgpu,
 /**
  * intel_gvt_i2c_handle_gmbus_write - emulate gmbus register mmio write
  * @vgpu: a vGPU
- * @offset: reg offset
- * @p_data: data return buffer
- * @bytes: access data length
  *
  * This function is used to emulate gmbus register mmio write
  *
@@ -461,9 +437,6 @@ static inline int get_aux_ch_reg(unsigned int offset)
 /**
  * intel_gvt_i2c_handle_aux_ch_write - emulate AUX channel register write
  * @vgpu: a vGPU
- * @port_idx: port index
- * @offset: reg offset
- * @p_data: write ptr
  *
  * This function is used to emulate AUX channel register write
  *

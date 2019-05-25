@@ -136,9 +136,10 @@ BEGIN_FTR_SECTION
 	DSSALL
 	sync
 END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
-	lwz	r8,TI_LOCAL_FLAGS(r2)	/* set napping bit */
+	CURRENT_THREAD_INFO(r9, r1)
+	lwz	r8,TI_LOCAL_FLAGS(r9)	/* set napping bit */
 	ori	r8,r8,_TLF_NAPPING	/* so when we take an exception */
-	stw	r8,TI_LOCAL_FLAGS(r2)	/* it will return to our caller */
+	stw	r8,TI_LOCAL_FLAGS(r9)	/* it will return to our caller */
 	mfmsr	r7
 	ori	r7,r7,MSR_EE
 	oris	r7,r7,MSR_POW@h
@@ -158,7 +159,8 @@ _GLOBAL(power_save_ppc32_restore)
 	stw	r9,_NIP(r11)		/* make it do a blr */
 
 #ifdef CONFIG_SMP
-	lwz	r11,TASK_CPU(r2)	/* get cpu number * 4 */
+	CURRENT_THREAD_INFO(r12, r11)
+	lwz	r11,TI_CPU(r12)		/* get cpu number * 4 */
 	slwi	r11,r11,2
 #else
 	li	r11,0

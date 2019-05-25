@@ -243,7 +243,8 @@ static unsigned int speedstep_get(unsigned int cpu)
 	unsigned int speed;
 
 	/* You're supposed to ensure CPU is online. */
-	BUG_ON(smp_call_function_single(cpu, get_freq_data, &speed, 1));
+	if (smp_call_function_single(cpu, get_freq_data, &speed, 1) != 0)
+		BUG();
 
 	pr_debug("detected %u kHz as current frequency\n", speed);
 	return speed;

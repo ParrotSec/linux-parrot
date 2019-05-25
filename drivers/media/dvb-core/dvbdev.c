@@ -621,7 +621,7 @@ int dvb_create_media_graph(struct dvb_adapter *adap,
 	unsigned demux_pad = 0;
 	unsigned dvr_pad = 0;
 	unsigned ntuner = 0, ndemod = 0;
-	int ret, pad_source, pad_sink;
+	int ret;
 	static const char *connector_name = "Television";
 
 	if (!mdev)
@@ -681,7 +681,7 @@ int dvb_create_media_graph(struct dvb_adapter *adap,
 		if (ret)
 			return ret;
 
-		if (!ntuner) {
+		if (!ntuner)
 			ret = media_create_pad_links(mdev,
 						     MEDIA_ENT_F_CONN_RF,
 						     conn, 0,
@@ -689,31 +689,22 @@ int dvb_create_media_graph(struct dvb_adapter *adap,
 						     demod, 0,
 						     MEDIA_LNK_FL_ENABLED,
 						     false);
-		} else {
-			pad_sink = media_get_pad_index(tuner, true,
-						       PAD_SIGNAL_ANALOG);
-			if (pad_sink < 0)
-				return -EINVAL;
+		else
 			ret = media_create_pad_links(mdev,
 						     MEDIA_ENT_F_CONN_RF,
 						     conn, 0,
 						     MEDIA_ENT_F_TUNER,
-						     tuner, pad_sink,
+						     tuner, TUNER_PAD_RF_INPUT,
 						     MEDIA_LNK_FL_ENABLED,
 						     false);
-		}
 		if (ret)
 			return ret;
 	}
 
 	if (ntuner && ndemod) {
-		pad_source = media_get_pad_index(tuner, true,
-						 PAD_SIGNAL_ANALOG);
-		if (pad_source)
-			return -EINVAL;
 		ret = media_create_pad_links(mdev,
 					     MEDIA_ENT_F_TUNER,
-					     tuner, pad_source,
+					     tuner, TUNER_PAD_OUTPUT,
 					     MEDIA_ENT_F_DTV_DEMOD,
 					     demod, 0, MEDIA_LNK_FL_ENABLED,
 					     false);
@@ -898,7 +889,7 @@ EXPORT_SYMBOL(dvb_unregister_adapter);
 
 /* if the miracle happens and "generic_usercopy()" is included into
    the kernel, then this can vanish. please don't make the mistake and
-   define this as video_usercopy(). this will introduce a dependency
+   define this as video_usercopy(). this will introduce a dependecy
    to the v4l "videodev.o" module, which is unnecessary for some
    cards (ie. the budget dvb-cards don't need the v4l module...) */
 int dvb_usercopy(struct file *file,
@@ -976,9 +967,9 @@ struct i2c_client *dvb_module_probe(const char *module_name,
 		return NULL;
 
 	if (name)
-		strscpy(board_info->type, name, I2C_NAME_SIZE);
+		strlcpy(board_info->type, name, I2C_NAME_SIZE);
 	else
-		strscpy(board_info->type, module_name, I2C_NAME_SIZE);
+		strlcpy(board_info->type, module_name, I2C_NAME_SIZE);
 
 	board_info->addr = addr;
 	board_info->platform_data = platform_data;

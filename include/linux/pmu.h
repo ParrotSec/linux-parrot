@@ -9,7 +9,6 @@
 #ifndef _LINUX_PMU_H
 #define _LINUX_PMU_H
 
-#include <linux/rtc.h>
 #include <uapi/linux/pmu.h>
 
 
@@ -36,9 +35,6 @@ static inline void pmu_resume(void)
 #endif
 
 extern void pmu_enable_irled(int on);
-
-extern time64_t pmu_get_time(void);
-extern int pmu_set_rtc_time(struct rtc_time *tm);
 
 extern void pmu_restart(void);
 extern void pmu_shutdown(void);

@@ -5,7 +5,6 @@
 #define _DRM_AUDIO_COMPONENT_H_
 
 struct drm_audio_component;
-struct device;
 
 /**
  * struct drm_audio_component_ops - Ops implemented by DRM driver, called by hda driver

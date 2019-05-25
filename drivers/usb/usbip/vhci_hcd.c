@@ -702,10 +702,8 @@ static int vhci_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flag
 	}
 	vdev = &vhci_hcd->vdev[portnum-1];
 
-	if (!urb->transfer_buffer && urb->transfer_buffer_length) {
-		dev_dbg(dev, "Null URB transfer buffer\n");
-		return -EINVAL;
-	}
+	/* patch to usb_sg_init() is in 2.5.60 */
+	BUG_ON(!urb->transfer_buffer && urb->transfer_buffer_length);
 
 	spin_lock_irqsave(&vhci->lock, flags);
 

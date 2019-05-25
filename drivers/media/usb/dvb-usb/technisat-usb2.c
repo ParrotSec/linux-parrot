@@ -566,9 +566,8 @@ static int technisat_usb2_frontend_attach(struct dvb_usb_adapter *a)
 			a->fe_adap[0].fe->ops.set_voltage = technisat_usb2_set_voltage;
 
 			/* if everything was successful assign a nice name to the frontend */
-			strscpy(a->fe_adap[0].fe->ops.info.name,
-				a->dev->desc->name,
-				sizeof(a->fe_adap[0].fe->ops.info.name));
+			strlcpy(a->fe_adap[0].fe->ops.info.name, a->dev->desc->name,
+					sizeof(a->fe_adap[0].fe->ops.info.name));
 		} else {
 			dvb_frontend_detach(a->fe_adap[0].fe);
 			a->fe_adap[0].fe = NULL;

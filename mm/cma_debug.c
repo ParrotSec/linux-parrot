@@ -21,6 +21,8 @@ struct cma_mem {
 	unsigned long n;
 };
 
+static struct dentry *cma_debugfs_root;
+
 static int cma_debugfs_get(void *data, u64 *val)
 {
 	unsigned long *p = data;
@@ -160,7 +162,7 @@ static int cma_alloc_write(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(cma_alloc_fops, NULL, cma_alloc_write, "%llu\n");
 
-static void cma_debugfs_add_one(struct cma *cma, struct dentry *root_dentry)
+static void cma_debugfs_add_one(struct cma *cma, int idx)
 {
 	struct dentry *tmp;
 	char name[16];
@@ -168,7 +170,7 @@ static void cma_debugfs_add_one(struct cma *cma, struct dentry *root_dentry)
 
 	scnprintf(name, sizeof(name), "cma-%s", cma->name);
 
-	tmp = debugfs_create_dir(name, root_dentry);
+	tmp = debugfs_create_dir(name, cma_debugfs_root);
 
 	debugfs_create_file("alloc", 0200, tmp, cma, &cma_alloc_fops);
 	debugfs_create_file("free", 0200, tmp, cma, &cma_free_fops);
@@ -186,13 +188,14 @@ static void cma_debugfs_add_one(struct cma *cma, struct dentry *root_dentry)
 
 static int __init cma_debugfs_init(void)
 {
-	struct dentry *cma_debugfs_root;
 	int i;
 
 	cma_debugfs_root = debugfs_create_dir("cma", NULL);
+	if (!cma_debugfs_root)
+		return -ENOMEM;
 
 	for (i = 0; i < cma_area_count; i++)
-		cma_debugfs_add_one(&cma_areas[i], cma_debugfs_root);
+		cma_debugfs_add_one(&cma_areas[i], i);
 
 	return 0;
 }

@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/leds.h>
 #include <linux/init.h>
+#include <linux/platform_data/gpio-ts5500.h>
 #include <linux/platform_data/max197.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>

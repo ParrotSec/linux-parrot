@@ -1,5 +1,27 @@
-// SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 2009-2012  Realtek Corporation.*/
+/******************************************************************************
+ *
+ * Copyright(c) 2009-2012  Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * The full GNU General Public License is included in this distribution in the
+ * file called LICENSE.
+ *
+ * Contact Information:
+ * wlanfae <wlanfae@realtek.com>
+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
+ * Hsinchu 300, Taiwan.
+ *
+ * Larry Finger <Larry.Finger@lwfinger.net>
+ *
+ *****************************************************************************/
 
 #include "../wifi.h"
 #include "../base.h"
@@ -842,7 +864,7 @@ static void rtl92d_dm_txpower_tracking_callback_thermalmeter(
 	else
 		rf = 1;
 	if (thermalvalue) {
-		ele_d = rtl_get_bbreg(hw, ROFDM0_XATXIQIMBALANCE,
+		ele_d = rtl_get_bbreg(hw, ROFDM0_XATxIQIMBALANCE,
 				      MASKDWORD) & MASKOFDM_D;
 		for (i = 0; i < OFDM_TABLE_SIZE_92D; i++) {
 			if (ele_d == (ofdmswing_table[i] & MASKOFDM_D)) {
@@ -850,13 +872,13 @@ static void rtl92d_dm_txpower_tracking_callback_thermalmeter(
 
 				RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
 					 "Initial pathA ele_d reg0x%x = 0x%lx, ofdm_index=0x%x\n",
-					 ROFDM0_XATXIQIMBALANCE,
+					 ROFDM0_XATxIQIMBALANCE,
 					 ele_d, ofdm_index_old[0]);
 				break;
 			}
 		}
 		if (is2t) {
-			ele_d = rtl_get_bbreg(hw, ROFDM0_XBTXIQIMBALANCE,
+			ele_d = rtl_get_bbreg(hw, ROFDM0_XBTxIQIMBALANCE,
 					      MASKDWORD) & MASKOFDM_D;
 			for (i = 0; i < OFDM_TABLE_SIZE_92D; i++) {
 				if (ele_d ==
@@ -865,7 +887,7 @@ static void rtl92d_dm_txpower_tracking_callback_thermalmeter(
 					RT_TRACE(rtlpriv, COMP_POWER_TRACKING,
 						 DBG_LOUD,
 						 "Initial pathB ele_d reg 0x%x = 0x%lx, ofdm_index = 0x%x\n",
-						 ROFDM0_XBTXIQIMBALANCE, ele_d,
+						 ROFDM0_XBTxIQIMBALANCE, ele_d,
 						 ofdm_index_old[1]);
 					break;
 				}
@@ -1037,11 +1059,11 @@ static void rtl92d_dm_txpower_tracking_callback_thermalmeter(
 				 * regC94, element B is always 0 */
 				value32 = (ele_d << 22) | ((ele_c & 0x3F) <<
 					  16) | ele_a;
-				rtl_set_bbreg(hw, ROFDM0_XATXIQIMBALANCE,
+				rtl_set_bbreg(hw, ROFDM0_XATxIQIMBALANCE,
 					      MASKDWORD, value32);
 
 				value32 = (ele_c & 0x000003C0) >> 6;
-				rtl_set_bbreg(hw, ROFDM0_XCTXAFE, MASKH4BITS,
+				rtl_set_bbreg(hw, ROFDM0_XCTxAFE, MASKH4BITS,
 					      value32);
 
 				value32 = ((val_x * ele_d) >> 7) & 0x01;
@@ -1049,11 +1071,11 @@ static void rtl92d_dm_txpower_tracking_callback_thermalmeter(
 					      value32);
 
 			} else {
-				rtl_set_bbreg(hw, ROFDM0_XATXIQIMBALANCE,
+				rtl_set_bbreg(hw, ROFDM0_XATxIQIMBALANCE,
 					      MASKDWORD,
 					      ofdmswing_table
 					      [(u8)ofdm_index[0]]);
-				rtl_set_bbreg(hw, ROFDM0_XCTXAFE, MASKH4BITS,
+				rtl_set_bbreg(hw, ROFDM0_XCTxAFE, MASKH4BITS,
 					      0x00);
 				rtl_set_bbreg(hw, ROFDM0_ECCATHRESHOLD,
 					      BIT(24), 0x00);
@@ -1150,21 +1172,21 @@ static void rtl92d_dm_txpower_tracking_callback_thermalmeter(
 						  ((ele_c & 0x3F) << 16) |
 						  ele_a;
 					rtl_set_bbreg(hw,
-						      ROFDM0_XBTXIQIMBALANCE,
+						      ROFDM0_XBTxIQIMBALANCE,
 						      MASKDWORD, value32);
 					value32 = (ele_c & 0x000003C0) >> 6;
-					rtl_set_bbreg(hw, ROFDM0_XDTXAFE,
+					rtl_set_bbreg(hw, ROFDM0_XDTxAFE,
 						      MASKH4BITS, value32);
 					value32 = ((val_x * ele_d) >> 7) & 0x01;
 					rtl_set_bbreg(hw, ROFDM0_ECCATHRESHOLD,
 						      BIT(28), value32);
 				} else {
 					rtl_set_bbreg(hw,
-						      ROFDM0_XBTXIQIMBALANCE,
+						      ROFDM0_XBTxIQIMBALANCE,
 						      MASKDWORD,
 						      ofdmswing_table
 						      [(u8) ofdm_index[1]]);
-					rtl_set_bbreg(hw, ROFDM0_XDTXAFE,
+					rtl_set_bbreg(hw, ROFDM0_XDTxAFE,
 						      MASKH4BITS, 0x00);
 					rtl_set_bbreg(hw, ROFDM0_ECCATHRESHOLD,
 						      BIT(28), 0x00);

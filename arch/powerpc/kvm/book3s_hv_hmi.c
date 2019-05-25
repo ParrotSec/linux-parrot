@@ -24,7 +24,6 @@
 #include <linux/compiler.h>
 #include <asm/paca.h>
 #include <asm/hmi.h>
-#include <asm/processor.h>
 
 void wait_for_subcore_guest_exit(void)
 {

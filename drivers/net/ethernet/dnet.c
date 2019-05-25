@@ -284,11 +284,13 @@ static int dnet_mii_probe(struct net_device *dev)
 
 	/* mask with MAC supported features */
 	if (bp->capabilities & DNET_HAS_GIGABIT)
-		phy_set_max_speed(phydev, SPEED_1000);
+		phydev->supported &= PHY_GBIT_FEATURES;
 	else
-		phy_set_max_speed(phydev, SPEED_100);
+		phydev->supported &= PHY_BASIC_FEATURES;
 
-	phy_support_asym_pause(phydev);
+	phydev->supported |= SUPPORTED_Asym_Pause | SUPPORTED_Pause;
+
+	phydev->advertising = phydev->supported;
 
 	bp->link = 0;
 	bp->speed = 0;

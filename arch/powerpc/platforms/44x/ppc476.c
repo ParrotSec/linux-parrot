@@ -34,7 +34,6 @@
 #include <asm/ppc4xx.h>
 #include <asm/mpic.h>
 #include <asm/mmu.h>
-#include <asm/swiotlb.h>
 
 #include <linux/pci.h>
 #include <linux/i2c.h>

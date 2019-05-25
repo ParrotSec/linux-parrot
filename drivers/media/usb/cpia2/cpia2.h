@@ -350,7 +350,7 @@ struct cpia2_sbuf {
 };
 
 struct framebuf {
-	u64 ts;
+	struct timeval timestamp;
 	unsigned long seq;
 	int num;
 	int length;

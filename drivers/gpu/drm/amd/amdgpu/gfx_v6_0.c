@@ -1552,7 +1552,7 @@ static void gfx_v6_0_config_init(struct amdgpu_device *adev)
 	adev->gfx.config.double_offchip_lds_buf = 0;
 }
 
-static void gfx_v6_0_constants_init(struct amdgpu_device *adev)
+static void gfx_v6_0_gpu_init(struct amdgpu_device *adev)
 {
 	u32 gb_addr_config = 0;
 	u32 mc_shared_chmap, mc_arb_ramcfg;
@@ -1775,15 +1775,18 @@ static int gfx_v6_0_ring_test_ring(struct amdgpu_ring *ring)
 	int r;
 
 	r = amdgpu_gfx_scratch_get(adev, &scratch);
-	if (r)
+	if (r) {
+		DRM_ERROR("amdgpu: cp failed to get scratch reg (%d).\n", r);
 		return r;
-
+	}
 	WREG32(scratch, 0xCAFEDEAD);
 
 	r = amdgpu_ring_alloc(ring, 3);
-	if (r)
-		goto error_free_scratch;
-
+	if (r) {
+		DRM_ERROR("amdgpu: cp failed to lock ring %d (%d).\n", ring->idx, r);
+		amdgpu_gfx_scratch_free(adev, scratch);
+		return r;
+	}
 	amdgpu_ring_write(ring, PACKET3(PACKET3_SET_CONFIG_REG, 1));
 	amdgpu_ring_write(ring, (scratch - PACKET3_SET_CONFIG_REG_START));
 	amdgpu_ring_write(ring, 0xDEADBEEF);
@@ -1795,11 +1798,13 @@ static int gfx_v6_0_ring_test_ring(struct amdgpu_ring *ring)
 			break;
 		DRM_UDELAY(1);
 	}
-
-	if (i >= adev->usec_timeout)
-		r = -ETIMEDOUT;
-
-error_free_scratch:
+	if (i < adev->usec_timeout) {
+		DRM_DEBUG("ring test on %d succeeded in %d usecs\n", ring->idx, i);
+	} else {
+		DRM_ERROR("amdgpu: ring %d test failed (scratch(0x%04X)=0x%08X)\n",
+			  ring->idx, scratch, tmp);
+		r = -EINVAL;
+	}
 	amdgpu_gfx_scratch_free(adev, scratch);
 	return r;
 }
@@ -1840,15 +1845,13 @@ static void gfx_v6_0_ring_emit_fence(struct amdgpu_ring *ring, u64 addr,
 }
 
 static void gfx_v6_0_ring_emit_ib(struct amdgpu_ring *ring,
-				  struct amdgpu_job *job,
 				  struct amdgpu_ib *ib,
-				  uint32_t flags)
+				  unsigned vmid, bool ctx_switch)
 {
-	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
 	u32 header, control = 0;
 
 	/* insert SWITCH_BUFFER packet before first IB in the ring frame */
-	if (flags & AMDGPU_HAVE_CTX_SWITCH) {
+	if (ctx_switch) {
 		amdgpu_ring_write(ring, PACKET3(PACKET3_SWITCH_BUFFER, 0));
 		amdgpu_ring_write(ring, 0);
 	}
@@ -1889,15 +1892,17 @@ static int gfx_v6_0_ring_test_ib(struct amdgpu_ring *ring, long timeout)
 	long r;
 
 	r = amdgpu_gfx_scratch_get(adev, &scratch);
-	if (r)
+	if (r) {
+		DRM_ERROR("amdgpu: failed to get scratch reg (%ld).\n", r);
 		return r;
-
+	}
 	WREG32(scratch, 0xCAFEDEAD);
 	memset(&ib, 0, sizeof(ib));
 	r = amdgpu_ib_get(adev, NULL, 256, &ib);
-	if (r)
+	if (r) {
+		DRM_ERROR("amdgpu: failed to get ib (%ld).\n", r);
 		goto err1;
-
+	}
 	ib.ptr[0] = PACKET3(PACKET3_SET_CONFIG_REG, 1);
 	ib.ptr[1] = ((scratch - PACKET3_SET_CONFIG_REG_START));
 	ib.ptr[2] = 0xDEADBEEF;
@@ -1909,16 +1914,22 @@ static int gfx_v6_0_ring_test_ib(struct amdgpu_ring *ring, long timeout)
 
 	r = dma_fence_wait_timeout(f, false, timeout);
 	if (r == 0) {
+		DRM_ERROR("amdgpu: IB test timed out\n");
 		r = -ETIMEDOUT;
 		goto err2;
 	} else if (r < 0) {
+		DRM_ERROR("amdgpu: fence wait failed (%ld).\n", r);
 		goto err2;
 	}
 	tmp = RREG32(scratch);
-	if (tmp == 0xDEADBEEF)
+	if (tmp == 0xDEADBEEF) {
+		DRM_DEBUG("ib test on ring %d succeeded\n", ring->idx);
 		r = 0;
-	else
+	} else {
+		DRM_ERROR("amdgpu: ib test failed (scratch(0x%04X)=0x%08X)\n",
+			  scratch, tmp);
 		r = -EINVAL;
+	}
 
 err2:
 	amdgpu_ib_free(adev, &ib, NULL);
@@ -1939,9 +1950,9 @@ static void gfx_v6_0_cp_gfx_enable(struct amdgpu_device *adev, bool enable)
 				      CP_ME_CNTL__CE_HALT_MASK));
 		WREG32(mmSCRATCH_UMSK, 0);
 		for (i = 0; i < adev->gfx.num_gfx_rings; i++)
-			adev->gfx.gfx_ring[i].sched.ready = false;
+			adev->gfx.gfx_ring[i].ready = false;
 		for (i = 0; i < adev->gfx.num_compute_rings; i++)
-			adev->gfx.compute_ring[i].sched.ready = false;
+			adev->gfx.compute_ring[i].ready = false;
 	}
 	udelay(50);
 }
@@ -2113,9 +2124,12 @@ static int gfx_v6_0_cp_gfx_resume(struct amdgpu_device *adev)
 
 	/* start the rings */
 	gfx_v6_0_cp_gfx_start(adev);
-	r = amdgpu_ring_test_helper(ring);
-	if (r)
+	ring->ready = true;
+	r = amdgpu_ring_test_ring(ring);
+	if (r) {
+		ring->ready = false;
 		return r;
+	}
 
 	return 0;
 }
@@ -2213,11 +2227,14 @@ static int gfx_v6_0_cp_compute_resume(struct amdgpu_device *adev)
 	WREG32(mmCP_RB2_CNTL, tmp);
 	WREG32(mmCP_RB2_BASE, ring->gpu_addr >> 8);
 
+	adev->gfx.compute_ring[0].ready = false;
+	adev->gfx.compute_ring[1].ready = false;
 
 	for (i = 0; i < 2; i++) {
-		r = amdgpu_ring_test_helper(&adev->gfx.compute_ring[i]);
+		r = amdgpu_ring_test_ring(&adev->gfx.compute_ring[i]);
 		if (r)
 			return r;
+		adev->gfx.compute_ring[i].ready = true;
 	}
 
 	return 0;
@@ -2351,11 +2368,18 @@ static void gfx_v6_0_ring_emit_wreg(struct amdgpu_ring *ring,
 	amdgpu_ring_write(ring, val);
 }
 
+static void gfx_v6_0_rlc_fini(struct amdgpu_device *adev)
+{
+	amdgpu_bo_free_kernel(&adev->gfx.rlc.save_restore_obj, NULL, NULL);
+	amdgpu_bo_free_kernel(&adev->gfx.rlc.clear_state_obj, NULL, NULL);
+	amdgpu_bo_free_kernel(&adev->gfx.rlc.cp_table_obj, NULL, NULL);
+}
+
 static int gfx_v6_0_rlc_init(struct amdgpu_device *adev)
 {
 	const u32 *src_ptr;
 	volatile u32 *dst_ptr;
-	u32 dws;
+	u32 dws, i;
 	u64 reg_list_mc_addr;
 	const struct cs_section_def *cs_data;
 	int r;
@@ -2370,10 +2394,26 @@ static int gfx_v6_0_rlc_init(struct amdgpu_device *adev)
 	cs_data = adev->gfx.rlc.cs_data;
 
 	if (src_ptr) {
-		/* init save restore block */
-		r = amdgpu_gfx_rlc_init_sr(adev, dws);
-		if (r)
+		/* save restore block */
+		r = amdgpu_bo_create_reserved(adev, dws * 4, PAGE_SIZE,
+					      AMDGPU_GEM_DOMAIN_VRAM,
+					      &adev->gfx.rlc.save_restore_obj,
+					      &adev->gfx.rlc.save_restore_gpu_addr,
+					      (void **)&adev->gfx.rlc.sr_ptr);
+		if (r) {
+			dev_warn(adev->dev, "(%d) create RLC sr bo failed\n",
+				 r);
+			gfx_v6_0_rlc_fini(adev);
 			return r;
+		}
+
+		/* write the sr buffer */
+		dst_ptr = adev->gfx.rlc.sr_ptr;
+		for (i = 0; i < adev->gfx.rlc.reg_list_size; i++)
+			dst_ptr[i] = cpu_to_le32(src_ptr[i]);
+
+		amdgpu_bo_kunmap(adev->gfx.rlc.save_restore_obj);
+		amdgpu_bo_unreserve(adev->gfx.rlc.save_restore_obj);
 	}
 
 	if (cs_data) {
@@ -2388,7 +2428,7 @@ static int gfx_v6_0_rlc_init(struct amdgpu_device *adev)
 					      (void **)&adev->gfx.rlc.cs_ptr);
 		if (r) {
 			dev_warn(adev->dev, "(%d) create RLC c bo failed\n", r);
-			amdgpu_gfx_rlc_fini(adev);
+			gfx_v6_0_rlc_fini(adev);
 			return r;
 		}
 
@@ -2509,8 +2549,8 @@ static int gfx_v6_0_rlc_resume(struct amdgpu_device *adev)
 	if (!adev->gfx.rlc_fw)
 		return -EINVAL;
 
-	adev->gfx.rlc.funcs->stop(adev);
-	adev->gfx.rlc.funcs->reset(adev);
+	gfx_v6_0_rlc_stop(adev);
+	gfx_v6_0_rlc_reset(adev);
 	gfx_v6_0_init_pg(adev);
 	gfx_v6_0_init_cg(adev);
 
@@ -2538,7 +2578,7 @@ static int gfx_v6_0_rlc_resume(struct amdgpu_device *adev)
 	WREG32(mmRLC_UCODE_ADDR, 0);
 
 	gfx_v6_0_enable_lbpw(adev, gfx_v6_0_lbpw_supported(adev));
-	adev->gfx.rlc.funcs->start(adev);
+	gfx_v6_0_rlc_start(adev);
 
 	return 0;
 }
@@ -3035,14 +3075,6 @@ static const struct amdgpu_gfx_funcs gfx_v6_0_gfx_funcs = {
 	.select_me_pipe_q = &gfx_v6_0_select_me_pipe_q
 };
 
-static const struct amdgpu_rlc_funcs gfx_v6_0_rlc_funcs = {
-	.init = gfx_v6_0_rlc_init,
-	.resume = gfx_v6_0_rlc_resume,
-	.stop = gfx_v6_0_rlc_stop,
-	.reset = gfx_v6_0_rlc_reset,
-	.start = gfx_v6_0_rlc_start
-};
-
 static int gfx_v6_0_early_init(void *handle)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
@@ -3050,7 +3082,6 @@ static int gfx_v6_0_early_init(void *handle)
 	adev->gfx.num_gfx_rings = GFX6_NUM_GFX_RINGS;
 	adev->gfx.num_compute_rings = GFX6_NUM_COMPUTE_RINGS;
 	adev->gfx.funcs = &gfx_v6_0_gfx_funcs;
-	adev->gfx.rlc.funcs = &gfx_v6_0_rlc_funcs;
 	gfx_v6_0_set_ring_funcs(adev);
 	gfx_v6_0_set_irq_funcs(adev);
 
@@ -3063,15 +3094,15 @@ static int gfx_v6_0_sw_init(void *handle)
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 	int i, r;
 
-	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, 181, &adev->gfx.eop_irq);
+	r = amdgpu_irq_add_id(adev, AMDGPU_IH_CLIENTID_LEGACY, 181, &adev->gfx.eop_irq);
 	if (r)
 		return r;
 
-	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, 184, &adev->gfx.priv_reg_irq);
+	r = amdgpu_irq_add_id(adev, AMDGPU_IH_CLIENTID_LEGACY, 184, &adev->gfx.priv_reg_irq);
 	if (r)
 		return r;
 
-	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, 185, &adev->gfx.priv_inst_irq);
+	r = amdgpu_irq_add_id(adev, AMDGPU_IH_CLIENTID_LEGACY, 185, &adev->gfx.priv_inst_irq);
 	if (r)
 		return r;
 
@@ -3083,7 +3114,7 @@ static int gfx_v6_0_sw_init(void *handle)
 		return r;
 	}
 
-	r = adev->gfx.rlc.funcs->init(adev);
+	r = gfx_v6_0_rlc_init(adev);
 	if (r) {
 		DRM_ERROR("Failed to init rlc BOs!\n");
 		return r;
@@ -3134,7 +3165,7 @@ static int gfx_v6_0_sw_fini(void *handle)
 	for (i = 0; i < adev->gfx.num_compute_rings; i++)
 		amdgpu_ring_fini(&adev->gfx.compute_ring[i]);
 
-	amdgpu_gfx_rlc_fini(adev);
+	gfx_v6_0_rlc_fini(adev);
 
 	return 0;
 }
@@ -3144,9 +3175,9 @@ static int gfx_v6_0_hw_init(void *handle)
 	int r;
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 
-	gfx_v6_0_constants_init(adev);
+	gfx_v6_0_gpu_init(adev);
 
-	r = adev->gfx.rlc.funcs->resume(adev);
+	r = gfx_v6_0_rlc_resume(adev);
 	if (r)
 		return r;
 
@@ -3164,7 +3195,7 @@ static int gfx_v6_0_hw_fini(void *handle)
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 
 	gfx_v6_0_cp_enable(adev, false);
-	adev->gfx.rlc.funcs->stop(adev);
+	gfx_v6_0_rlc_stop(adev);
 	gfx_v6_0_fini_pg(adev);
 
 	return 0;
@@ -3362,31 +3393,12 @@ static int gfx_v6_0_eop_irq(struct amdgpu_device *adev,
 	return 0;
 }
 
-static void gfx_v6_0_fault(struct amdgpu_device *adev,
-			   struct amdgpu_iv_entry *entry)
-{
-	struct amdgpu_ring *ring;
-
-	switch (entry->ring_id) {
-	case 0:
-		ring = &adev->gfx.gfx_ring[0];
-		break;
-	case 1:
-	case 2:
-		ring = &adev->gfx.compute_ring[entry->ring_id - 1];
-		break;
-	default:
-		return;
-	}
-	drm_sched_fault(&ring->sched);
-}
-
 static int gfx_v6_0_priv_reg_irq(struct amdgpu_device *adev,
 				 struct amdgpu_irq_src *source,
 				 struct amdgpu_iv_entry *entry)
 {
 	DRM_ERROR("Illegal register access in command stream\n");
-	gfx_v6_0_fault(adev, entry);
+	schedule_work(&adev->reset_work);
 	return 0;
 }
 
@@ -3395,7 +3407,7 @@ static int gfx_v6_0_priv_inst_irq(struct amdgpu_device *adev,
 				  struct amdgpu_iv_entry *entry)
 {
 	DRM_ERROR("Illegal instruction in command stream\n");
-	gfx_v6_0_fault(adev, entry);
+	schedule_work(&adev->reset_work);
 	return 0;
 }
 

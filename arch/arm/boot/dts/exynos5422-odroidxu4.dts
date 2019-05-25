@@ -33,8 +33,6 @@
 		compatible = "samsung,odroid-xu3-audio";
 		model = "Odroid-XU4";
 
-		samsung,audio-routing = "I2S Playback", "Mixer DAI TX";
-
 		assigned-clocks = <&clock CLK_MOUT_EPLL>,
 				<&clock CLK_MOUT_MAU_EPLL>,
 				<&clock CLK_MOUT_USER_MAU_EPLL>,
@@ -60,7 +58,7 @@
 				<196608000>;
 
 		cpu {
-			sound-dai = <&i2s0 0>, <&i2s0 1>;
+			sound-dai = <&i2s0 0>;
 		};
 
 		codec {

@@ -21,7 +21,6 @@
 #include <linux/spinlock.h>
 #include <linux/io.h>
 #include <linux/gpio/driver.h>
-#include <linux/gpio/consumer.h> /* GPIO descriptor enum */
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
 #include <linux/platform_device.h>
@@ -2061,7 +2060,7 @@ static int gpmc_probe_generic_child(struct platform_device *pdev,
 	 * timings.
 	 */
 	name = gpmc_cs_get_name(cs);
-	if (name && of_node_name_eq(child, name))
+	if (name && of_node_cmp(child->name, name) == 0)
 		goto no_timings;
 
 	ret = gpmc_cs_request(cs, resource_size(&res), &base);
@@ -2069,7 +2068,7 @@ static int gpmc_probe_generic_child(struct platform_device *pdev,
 		dev_err(&pdev->dev, "cannot request GPMC CS %d\n", cs);
 		return ret;
 	}
-	gpmc_cs_set_name(cs, child->full_name);
+	gpmc_cs_set_name(cs, child->name);
 
 	gpmc_read_settings_dt(child, &gpmc_s);
 	gpmc_read_timings_dt(child, &gpmc_t);
@@ -2114,7 +2113,7 @@ static int gpmc_probe_generic_child(struct platform_device *pdev,
 		goto err;
 	}
 
-	if (of_node_name_eq(child, "nand")) {
+	if (of_node_cmp(child->name, "nand") == 0) {
 		/* Warn about older DT blobs with no compatible property */
 		if (!of_property_read_bool(child, "compatible")) {
 			dev_warn(&pdev->dev,
@@ -2124,7 +2123,7 @@ static int gpmc_probe_generic_child(struct platform_device *pdev,
 		}
 	}
 
-	if (of_node_name_eq(child, "onenand")) {
+	if (of_node_cmp(child->name, "onenand") == 0) {
 		/* Warn about older DT blobs with no compatible property */
 		if (!of_property_read_bool(child, "compatible")) {
 			dev_warn(&pdev->dev,
@@ -2146,8 +2145,8 @@ static int gpmc_probe_generic_child(struct platform_device *pdev,
 			gpmc_s.device_width = GPMC_DEVWIDTH_16BIT;
 			break;
 		default:
-			dev_err(&pdev->dev, "%pOFn: invalid 'nand-bus-width'\n",
-				child);
+			dev_err(&pdev->dev, "%s: invalid 'nand-bus-width'\n",
+				child->name);
 			ret = -EINVAL;
 			goto err;
 		}
@@ -2171,8 +2170,7 @@ static int gpmc_probe_generic_child(struct platform_device *pdev,
 		unsigned int wait_pin = gpmc_s.wait_pin;
 
 		waitpin_desc = gpiochip_request_own_desc(&gpmc->gpio_chip,
-							 wait_pin, "WAITPIN",
-							 0);
+							 wait_pin, "WAITPIN");
 		if (IS_ERR(waitpin_desc)) {
 			dev_err(&pdev->dev, "invalid wait-pin: %d\n", wait_pin);
 			ret = PTR_ERR(waitpin_desc);
@@ -2188,8 +2186,8 @@ static int gpmc_probe_generic_child(struct platform_device *pdev,
 
 	ret = gpmc_cs_set_timings(cs, &gpmc_t, &gpmc_s);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to set gpmc timings for: %pOFn\n",
-			child);
+		dev_err(&pdev->dev, "failed to set gpmc timings for: %s\n",
+			child->name);
 		goto err_cs;
 	}
 
@@ -2217,7 +2215,7 @@ no_timings:
 
 err_child_fail:
 
-	dev_err(&pdev->dev, "failed to create gpmc child %pOFn\n", child);
+	dev_err(&pdev->dev, "failed to create gpmc child %s\n", child->name);
 	ret = -ENODEV;
 
 err_cs:
@@ -2267,10 +2265,14 @@ static void gpmc_probe_dt_children(struct platform_device *pdev)
 	struct device_node *child;
 
 	for_each_available_child_of_node(pdev->dev.of_node, child) {
+
+		if (!child->name)
+			continue;
+
 		ret = gpmc_probe_generic_child(pdev, child);
 		if (ret) {
-			dev_err(&pdev->dev, "failed to probe DT child '%pOFn': %d\n",
-				child, ret);
+			dev_err(&pdev->dev, "failed to probe DT child '%s': %d\n",
+				child->name, ret);
 		}
 	}
 }

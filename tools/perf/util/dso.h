@@ -7,14 +7,12 @@
 #include <linux/rbtree.h>
 #include <sys/types.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include "rwsem.h"
+#include <linux/types.h>
 #include <linux/bitops.h>
+#include "map.h"
+#include "namespaces.h"
 #include "build-id.h"
-
-struct machine;
-struct map;
-struct perf_env;
 
 enum dso_binary_type {
 	DSO_BINARY_TYPE__KALLSYMS = 0,
@@ -36,7 +34,6 @@ enum dso_binary_type {
 	DSO_BINARY_TYPE__KCORE,
 	DSO_BINARY_TYPE__GUEST_KCORE,
 	DSO_BINARY_TYPE__OPENEMBEDDED_DEBUGINFO,
-	DSO_BINARY_TYPE__BPF_PROG_INFO,
 	DSO_BINARY_TYPE__NOT_FOUND,
 };
 
@@ -143,10 +140,10 @@ struct dso {
 	struct list_head node;
 	struct rb_node	 rb_node;	/* rbtree node sorted by long name */
 	struct rb_root	 *root;		/* root of rbtree that rb_node is in */
-	struct rb_root_cached symbols;
-	struct rb_root_cached symbol_names;
-	struct rb_root_cached inlined_nodes;
-	struct rb_root_cached srclines;
+	struct rb_root	 symbols;
+	struct rb_root	 symbol_names;
+	struct rb_root	 inlined_nodes;
+	struct rb_root	 srclines;
 	struct {
 		u64		addr;
 		struct symbol	*symbol;
@@ -191,12 +188,6 @@ struct dso {
 		u64		 debug_frame_offset;
 		u64		 eh_frame_hdr_offset;
 	} data;
-	/* bpf prog information */
-	struct {
-		u32		id;
-		u32		sub_id;
-		struct perf_env	*env;
-	} bpf_prog;
 
 	union { /* Tool specific area */
 		void	 *priv;
@@ -244,7 +235,7 @@ bool dso__loaded(const struct dso *dso);
 
 static inline bool dso__has_symbols(const struct dso *dso)
 {
-	return !RB_EMPTY_ROOT(&dso->symbols.rb_root);
+	return !RB_EMPTY_ROOT(&dso->symbols);
 }
 
 bool dso__sorted_by_name(const struct dso *dso);
@@ -331,7 +322,6 @@ int dso__data_get_fd(struct dso *dso, struct machine *machine);
 void dso__data_put_fd(struct dso *dso);
 void dso__data_close(struct dso *dso);
 
-int dso__data_file_size(struct dso *dso, struct machine *machine);
 off_t dso__data_size(struct dso *dso, struct machine *machine);
 ssize_t dso__data_read_offset(struct dso *dso, struct machine *machine,
 			      u64 offset, u8 *data, ssize_t size);

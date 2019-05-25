@@ -17,9 +17,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#define pr_fmt(fmt)     "AMD-Vi: " fmt
-#define dev_fmt(fmt)    pr_fmt(fmt)
-
 #include <linux/pci.h>
 #include <linux/acpi.h>
 #include <linux/list.h>
@@ -359,7 +356,7 @@ static void iommu_write_l2(struct amd_iommu *iommu, u8 address, u32 val)
 static void iommu_set_exclusion_range(struct amd_iommu *iommu)
 {
 	u64 start = iommu->exclusion_start & PAGE_MASK;
-	u64 limit = (start + iommu->exclusion_length - 1) & PAGE_MASK;
+	u64 limit = (start + iommu->exclusion_length) & PAGE_MASK;
 	u64 entry;
 
 	if (!iommu->exclusion_start)
@@ -446,9 +443,9 @@ static void iommu_disable(struct amd_iommu *iommu)
 static u8 __iomem * __init iommu_map_mmio_space(u64 address, u64 end)
 {
 	if (!request_mem_region(address, end, "amd_iommu")) {
-		pr_err("Can not reserve memory region %llx-%llx for mmio\n",
+		pr_err("AMD-Vi: Can not reserve memory region %llx-%llx for mmio\n",
 			address, end);
-		pr_err("This is a BIOS bug. Please contact your hardware vendor\n");
+		pr_err("AMD-Vi: This is a BIOS bug. Please contact your hardware vendor\n");
 		return NULL;
 	}
 
@@ -515,7 +512,7 @@ static int __init find_last_devid_from_ivhd(struct ivhd_header *h)
 	u32 ivhd_size = get_ivhd_header_size(h);
 
 	if (!ivhd_size) {
-		pr_err("Unsupported IVHD type %#x\n", h->type);
+		pr_err("AMD-Vi: Unsupported IVHD type %#x\n", h->type);
 		return -EINVAL;
 	}
 
@@ -556,7 +553,7 @@ static int __init check_ivrs_checksum(struct acpi_table_header *table)
 		checksum += p[i];
 	if (checksum != 0) {
 		/* ACPI table corrupt */
-		pr_err(FW_BUG "IVRS invalid checksum\n");
+		pr_err(FW_BUG "AMD-Vi: IVRS invalid checksum\n");
 		return -ENODEV;
 	}
 
@@ -906,22 +903,12 @@ static bool copy_device_table(void)
 		}
 	}
 
-	/*
-	 * When SME is enabled in the first kernel, the entry includes the
-	 * memory encryption mask(sme_me_mask), we must remove the memory
-	 * encryption mask to obtain the true physical address in kdump kernel.
-	 */
-	old_devtb_phys = __sme_clr(entry) & PAGE_MASK;
-
+	old_devtb_phys = entry & PAGE_MASK;
 	if (old_devtb_phys >= 0x100000000ULL) {
 		pr_err("The address of old device table is above 4G, not trustworthy!\n");
 		return false;
 	}
-	old_devtb = (sme_active() && is_kdump_kernel())
-		    ? (__force void *)ioremap_encrypted(old_devtb_phys,
-							dev_table_size)
-		    : memremap(old_devtb_phys, dev_table_size, MEMREMAP_WB);
-
+	old_devtb = memremap(old_devtb_phys, dev_table_size, MEMREMAP_WB);
 	if (!old_devtb)
 		return false;
 
@@ -1031,7 +1018,7 @@ static int __init add_special_device(u8 type, u8 id, u16 *devid, bool cmd_line)
 		if (!(entry->id == id && entry->cmd_line))
 			continue;
 
-		pr_info("Command-line override present for %s id %d - ignoring\n",
+		pr_info("AMD-Vi: Command-line override present for %s id %d - ignoring\n",
 			type == IVHD_SPECIAL_IOAPIC ? "IOAPIC" : "HPET", id);
 
 		*devid = entry->devid;
@@ -1064,7 +1051,7 @@ static int __init add_acpi_hid_device(u8 *hid, u8 *uid, u16 *devid,
 		    !entry->cmd_line)
 			continue;
 
-		pr_info("Command-line override for hid:%s uid:%s\n",
+		pr_info("AMD-Vi: Command-line override for hid:%s uid:%s\n",
 			hid, uid);
 		*devid = entry->devid;
 		return 0;
@@ -1080,7 +1067,7 @@ static int __init add_acpi_hid_device(u8 *hid, u8 *uid, u16 *devid,
 	entry->cmd_line	= cmd_line;
 	entry->root_devid = (entry->devid & (~0x7));
 
-	pr_info("%s, add hid:%s, uid:%s, rdevid:%d\n",
+	pr_info("AMD-Vi:%s, add hid:%s, uid:%s, rdevid:%d\n",
 		entry->cmd_line ? "cmd" : "ivrs",
 		entry->hid, entry->uid, entry->root_devid);
 
@@ -1176,7 +1163,7 @@ static int __init init_iommu_from_acpi(struct amd_iommu *iommu,
 	 */
 	ivhd_size = get_ivhd_header_size(h);
 	if (!ivhd_size) {
-		pr_err("Unsupported IVHD type %#x\n", h->type);
+		pr_err("AMD-Vi: Unsupported IVHD type %#x\n", h->type);
 		return -EINVAL;
 	}
 
@@ -1458,7 +1445,8 @@ static void amd_iommu_erratum_746_workaround(struct amd_iommu *iommu)
 	pci_write_config_dword(iommu->dev, 0xf0, 0x90 | (1 << 8));
 
 	pci_write_config_dword(iommu->dev, 0xf4, value | 0x4);
-	pci_info(iommu->dev, "Applying erratum 746 workaround\n");
+	pr_info("AMD-Vi: Applying erratum 746 workaround for IOMMU at %s\n",
+		dev_name(&iommu->dev->dev));
 
 	/* Clear the enable writing bit */
 	pci_write_config_dword(iommu->dev, 0xf0, 0x90);
@@ -1488,7 +1476,8 @@ static void amd_iommu_ats_write_check_workaround(struct amd_iommu *iommu)
 	/* Set L2_DEBUG_3[AtsIgnoreIWDis] = 1 */
 	iommu_write_l2(iommu, 0x47, value | BIT(0));
 
-	pci_info(iommu->dev, "Applying ATS write check workaround\n");
+	pr_info("AMD-Vi: Applying ATS write check workaround for IOMMU at %s\n",
+		dev_name(&iommu->dev->dev));
 }
 
 /*
@@ -1507,7 +1496,7 @@ static int __init init_iommu_one(struct amd_iommu *iommu, struct ivhd_header *h)
 	iommu->index = amd_iommus_present++;
 
 	if (unlikely(iommu->index >= MAX_IOMMUS)) {
-		WARN(1, "System has more IOMMUs than supported by this driver\n");
+		WARN(1, "AMD-Vi: System has more IOMMUs than supported by this driver\n");
 		return -ENOSYS;
 	}
 
@@ -1664,7 +1653,6 @@ static int iommu_pc_get_set_reg(struct amd_iommu *iommu, u8 bank, u8 cntr,
 
 static void init_iommu_perf_ctr(struct amd_iommu *iommu)
 {
-	struct pci_dev *pdev = iommu->dev;
 	u64 val = 0xabcd, val2 = 0;
 
 	if (!iommu_feature(iommu, FEATURE_PC))
@@ -1676,12 +1664,12 @@ static void init_iommu_perf_ctr(struct amd_iommu *iommu)
 	if ((iommu_pc_get_set_reg(iommu, 0, 0, 0, &val, true)) ||
 	    (iommu_pc_get_set_reg(iommu, 0, 0, 0, &val2, false)) ||
 	    (val != val2)) {
-		pci_err(pdev, "Unable to write to IOMMU perf counter.\n");
+		pr_err("AMD-Vi: Unable to write to IOMMU perf counter.\n");
 		amd_iommu_pc_present = false;
 		return;
 	}
 
-	pci_info(pdev, "IOMMU performance counters supported\n");
+	pr_info("AMD-Vi: IOMMU performance counters supported\n");
 
 	val = readl(iommu->mmio_base + MMIO_CNTR_CONF_OFFSET);
 	iommu->max_banks = (u8) ((val >> 12) & 0x3f);
@@ -1722,7 +1710,7 @@ static const struct attribute_group *amd_iommu_groups[] = {
 	NULL,
 };
 
-static int __init iommu_init_pci(struct amd_iommu *iommu)
+static int iommu_init_pci(struct amd_iommu *iommu)
 {
 	int cap_ptr = iommu->cap_ptr;
 	u32 range, misc, low, high;
@@ -1840,14 +1828,14 @@ static void print_iommu_info(void)
 	struct amd_iommu *iommu;
 
 	for_each_iommu(iommu) {
-		struct pci_dev *pdev = iommu->dev;
 		int i;
 
-		pci_info(pdev, "Found IOMMU cap 0x%hx\n", iommu->cap_ptr);
+		pr_info("AMD-Vi: Found IOMMU at %s cap 0x%hx\n",
+			dev_name(&iommu->dev->dev), iommu->cap_ptr);
 
 		if (iommu->cap & (1 << IOMMU_CAP_EFR)) {
-			pci_info(pdev, "Extended features (%#llx):\n",
-				 iommu->features);
+			pr_info("AMD-Vi: Extended features (%#llx):\n",
+				iommu->features);
 			for (i = 0; i < ARRAY_SIZE(feat_str); ++i) {
 				if (iommu_feature(iommu, (1ULL << i)))
 					pr_cont(" %s", feat_str[i]);
@@ -1860,11 +1848,11 @@ static void print_iommu_info(void)
 		}
 	}
 	if (irq_remapping_enabled) {
-		pr_info("Interrupt remapping enabled\n");
+		pr_info("AMD-Vi: Interrupt remapping enabled\n");
 		if (AMD_IOMMU_GUEST_IR_VAPIC(amd_iommu_guest_ir))
-			pr_info("Virtual APIC enabled\n");
+			pr_info("AMD-Vi: virtual APIC enabled\n");
 		if (amd_iommu_xt_mode == IRQ_REMAP_X2APIC_MODE)
-			pr_info("X2APIC enabled\n");
+			pr_info("AMD-Vi: X2APIC enabled\n");
 	}
 }
 
@@ -2013,9 +2001,6 @@ static int __init init_unity_map_range(struct ivmd_header *m)
 	if (e == NULL)
 		return -ENOMEM;
 
-	if (m->flags & IVMD_FLAG_EXCL_RANGE)
-		init_exclusion_range(m);
-
 	switch (m->type) {
 	default:
 		kfree(e);
@@ -2062,7 +2047,9 @@ static int __init init_memory_definitions(struct acpi_table_header *table)
 
 	while (p < end) {
 		m = (struct ivmd_header *)p;
-		if (m->flags & (IVMD_FLAG_UNITY_MAP | IVMD_FLAG_EXCL_RANGE))
+		if (m->flags & IVMD_FLAG_EXCL_RANGE)
+			init_exclusion_range(m);
+		else if (m->flags & IVMD_FLAG_UNITY_MAP)
 			init_unity_map_range(m);
 
 		p += m->length;
@@ -2379,7 +2366,7 @@ static bool __init check_ioapic_information(void)
 
 		devid = get_ioapic_devid(id);
 		if (devid < 0) {
-			pr_err("%s: IOAPIC[%d] not in IVRS table\n",
+			pr_err("%sAMD-Vi: IOAPIC[%d] not in IVRS table\n",
 				fw_bug, id);
 			ret = false;
 		} else if (devid == IOAPIC_SB_DEVID) {
@@ -2397,11 +2384,11 @@ static bool __init check_ioapic_information(void)
 		 * when the BIOS is buggy and provides us the wrong
 		 * device id for the IOAPIC in the system.
 		 */
-		pr_err("%s: No southbridge IOAPIC found\n", fw_bug);
+		pr_err("%sAMD-Vi: No southbridge IOAPIC found\n", fw_bug);
 	}
 
 	if (!ret)
-		pr_err("Disabling interrupt remapping\n");
+		pr_err("AMD-Vi: Disabling interrupt remapping\n");
 
 	return ret;
 }
@@ -2456,7 +2443,7 @@ static int __init early_amd_iommu_init(void)
 		return -ENODEV;
 	else if (ACPI_FAILURE(status)) {
 		const char *err = acpi_format_exception(status);
-		pr_err("IVRS table error: %s\n", err);
+		pr_err("AMD-Vi: IVRS table error: %s\n", err);
 		return -EINVAL;
 	}
 
@@ -2609,7 +2596,7 @@ static bool detect_ivrs(void)
 		return false;
 	else if (ACPI_FAILURE(status)) {
 		const char *err = acpi_format_exception(status);
-		pr_err("IVRS table error: %s\n", err);
+		pr_err("AMD-Vi: IVRS table error: %s\n", err);
 		return false;
 	}
 
@@ -2644,7 +2631,7 @@ static int __init state_next(void)
 		ret = early_amd_iommu_init();
 		init_state = ret ? IOMMU_INIT_ERROR : IOMMU_ACPI_FINISHED;
 		if (init_state == IOMMU_ACPI_FINISHED && amd_iommu_disabled) {
-			pr_info("AMD IOMMU disabled on kernel command-line\n");
+			pr_info("AMD-Vi: AMD IOMMU disabled on kernel command-line\n");
 			free_dma_resources();
 			free_iommu_resources();
 			init_state = IOMMU_CMDLINE_DISABLED;
@@ -2791,7 +2778,7 @@ static bool amd_iommu_sme_check(void)
 	    (boot_cpu_data.microcode <= 0x080011ff))
 		return true;
 
-	pr_notice("IOMMU not currently supported when SME is active\n");
+	pr_notice("AMD-Vi: IOMMU not currently supported when SME is active\n");
 
 	return false;
 }
@@ -2876,12 +2863,12 @@ static int __init parse_ivrs_ioapic(char *str)
 	ret = sscanf(str, "[%d]=%x:%x.%x", &id, &bus, &dev, &fn);
 
 	if (ret != 4) {
-		pr_err("Invalid command line: ivrs_ioapic%s\n", str);
+		pr_err("AMD-Vi: Invalid command line: ivrs_ioapic%s\n", str);
 		return 1;
 	}
 
 	if (early_ioapic_map_size == EARLY_MAP_SIZE) {
-		pr_err("Early IOAPIC map overflow - ignoring ivrs_ioapic%s\n",
+		pr_err("AMD-Vi: Early IOAPIC map overflow - ignoring ivrs_ioapic%s\n",
 			str);
 		return 1;
 	}
@@ -2906,12 +2893,12 @@ static int __init parse_ivrs_hpet(char *str)
 	ret = sscanf(str, "[%d]=%x:%x.%x", &id, &bus, &dev, &fn);
 
 	if (ret != 4) {
-		pr_err("Invalid command line: ivrs_hpet%s\n", str);
+		pr_err("AMD-Vi: Invalid command line: ivrs_hpet%s\n", str);
 		return 1;
 	}
 
 	if (early_hpet_map_size == EARLY_MAP_SIZE) {
-		pr_err("Early HPET map overflow - ignoring ivrs_hpet%s\n",
+		pr_err("AMD-Vi: Early HPET map overflow - ignoring ivrs_hpet%s\n",
 			str);
 		return 1;
 	}
@@ -2936,7 +2923,7 @@ static int __init parse_ivrs_acpihid(char *str)
 
 	ret = sscanf(str, "[%x:%x.%x]=%s", &bus, &dev, &fn, acpiid);
 	if (ret != 4) {
-		pr_err("Invalid command line: ivrs_acpihid(%s)\n", str);
+		pr_err("AMD-Vi: Invalid command line: ivrs_acpihid(%s)\n", str);
 		return 1;
 	}
 
@@ -2945,7 +2932,7 @@ static int __init parse_ivrs_acpihid(char *str)
 	uid = p;
 
 	if (!hid || !(*hid) || !uid) {
-		pr_err("Invalid command line: hid or uid\n");
+		pr_err("AMD-Vi: Invalid command line: hid or uid\n");
 		return 1;
 	}
 

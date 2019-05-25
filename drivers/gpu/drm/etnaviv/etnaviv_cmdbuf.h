@@ -15,6 +15,8 @@ struct etnaviv_perfmon_request;
 struct etnaviv_cmdbuf {
 	/* suballocator this cmdbuf is allocated from */
 	struct etnaviv_cmdbuf_suballoc *suballoc;
+	/* user context key, must be unique between all active users */
+	struct etnaviv_file_private *ctx;
 	/* cmdbuf properties */
 	int suballoc_offset;
 	void *vaddr;

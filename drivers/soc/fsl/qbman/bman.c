@@ -562,9 +562,11 @@ static int bman_create_portal(struct bman_portal *portal,
 		dev_err(c->dev, "request_irq() failed\n");
 		goto fail_irq;
 	}
-
-	if (dpaa_set_portal_irq_affinity(c->dev, c->irq, c->cpu))
+	if (c->cpu != -1 && irq_can_set_affinity(c->irq) &&
+	    irq_set_affinity(c->irq, cpumask_of(c->cpu))) {
+		dev_err(c->dev, "irq_set_affinity() failed\n");
 		goto fail_affinity;
+	}
 
 	/* Need RCR to be empty before continuing */
 	ret = bm_rcr_get_fill(p);

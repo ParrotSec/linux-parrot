@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2007-2019  B.A.T.M.A.N. contributors:
+/* Copyright (C) 2007-2018  B.A.T.M.A.N. contributors:
  *
  * Marek Lindner, Simon Wunderlich, Antonio Quartulli
  *
@@ -616,26 +616,14 @@ static void batadv_tt_global_free(struct batadv_priv *bat_priv,
 				  struct batadv_tt_global_entry *tt_global,
 				  const char *message)
 {
-	struct batadv_tt_global_entry *tt_removed_entry;
-	struct hlist_node *tt_removed_node;
-
 	batadv_dbg(BATADV_DBG_TT, bat_priv,
 		   "Deleting global tt entry %pM (vid: %d): %s\n",
 		   tt_global->common.addr,
 		   batadv_print_vid(tt_global->common.vid), message);
 
-	tt_removed_node = batadv_hash_remove(bat_priv->tt.global_hash,
-					     batadv_compare_tt,
-					     batadv_choose_tt,
-					     &tt_global->common);
-	if (!tt_removed_node)
-		return;
-
-	/* drop reference of remove hash entry */
-	tt_removed_entry = hlist_entry(tt_removed_node,
-				       struct batadv_tt_global_entry,
-				       common.hash_entry);
-	batadv_tt_global_entry_put(tt_removed_entry);
+	batadv_hash_remove(bat_priv->tt.global_hash, batadv_compare_tt,
+			   batadv_choose_tt, &tt_global->common);
+	batadv_tt_global_entry_put(tt_global);
 }
 
 /**
@@ -1157,15 +1145,14 @@ out:
  * batadv_tt_local_dump_entry() - Dump one TT local entry into a message
  * @msg :Netlink message to dump into
  * @portid: Port making netlink request
- * @cb: Control block containing additional options
+ * @seq: Sequence number of netlink message
  * @bat_priv: The bat priv with all the soft interface information
  * @common: tt local & tt global common data
  *
  * Return: Error code, or 0 on success
  */
 static int
-batadv_tt_local_dump_entry(struct sk_buff *msg, u32 portid,
-			   struct netlink_callback *cb,
+batadv_tt_local_dump_entry(struct sk_buff *msg, u32 portid, u32 seq,
 			   struct batadv_priv *bat_priv,
 			   struct batadv_tt_common_entry *common)
 {
@@ -1186,13 +1173,11 @@ batadv_tt_local_dump_entry(struct sk_buff *msg, u32 portid,
 
 	batadv_softif_vlan_put(vlan);
 
-	hdr = genlmsg_put(msg, portid, cb->nlh->nlmsg_seq,
-			  &batadv_netlink_family,  NLM_F_MULTI,
+	hdr = genlmsg_put(msg, portid, seq, &batadv_netlink_family,
+			  NLM_F_MULTI,
 			  BATADV_CMD_GET_TRANSTABLE_LOCAL);
 	if (!hdr)
 		return -ENOBUFS;
-
-	genl_dump_check_consistent(cb, hdr);
 
 	if (nla_put(msg, BATADV_ATTR_TT_ADDRESS, ETH_ALEN, common->addr) ||
 	    nla_put_u32(msg, BATADV_ATTR_TT_CRC32, crc) ||
@@ -1216,39 +1201,34 @@ batadv_tt_local_dump_entry(struct sk_buff *msg, u32 portid,
  * batadv_tt_local_dump_bucket() - Dump one TT local bucket into a message
  * @msg: Netlink message to dump into
  * @portid: Port making netlink request
- * @cb: Control block containing additional options
+ * @seq: Sequence number of netlink message
  * @bat_priv: The bat priv with all the soft interface information
- * @hash: hash to dump
- * @bucket: bucket index to dump
+ * @head: Pointer to the list containing the local tt entries
  * @idx_s: Number of entries to skip
  *
  * Return: Error code, or 0 on success
  */
 static int
-batadv_tt_local_dump_bucket(struct sk_buff *msg, u32 portid,
-			    struct netlink_callback *cb,
+batadv_tt_local_dump_bucket(struct sk_buff *msg, u32 portid, u32 seq,
 			    struct batadv_priv *bat_priv,
-			    struct batadv_hashtable *hash, unsigned int bucket,
-			    int *idx_s)
+			    struct hlist_head *head, int *idx_s)
 {
 	struct batadv_tt_common_entry *common;
 	int idx = 0;
 
-	spin_lock_bh(&hash->list_locks[bucket]);
-	cb->seq = atomic_read(&hash->generation) << 1 | 1;
-
-	hlist_for_each_entry(common, &hash->table[bucket], hash_entry) {
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(common, head, hash_entry) {
 		if (idx++ < *idx_s)
 			continue;
 
-		if (batadv_tt_local_dump_entry(msg, portid, cb, bat_priv,
+		if (batadv_tt_local_dump_entry(msg, portid, seq, bat_priv,
 					       common)) {
-			spin_unlock_bh(&hash->list_locks[bucket]);
+			rcu_read_unlock();
 			*idx_s = idx - 1;
 			return -EMSGSIZE;
 		}
 	}
-	spin_unlock_bh(&hash->list_locks[bucket]);
+	rcu_read_unlock();
 
 	*idx_s = 0;
 	return 0;
@@ -1268,6 +1248,7 @@ int batadv_tt_local_dump(struct sk_buff *msg, struct netlink_callback *cb)
 	struct batadv_priv *bat_priv;
 	struct batadv_hard_iface *primary_if = NULL;
 	struct batadv_hashtable *hash;
+	struct hlist_head *head;
 	int ret;
 	int ifindex;
 	int bucket = cb->args[0];
@@ -1295,8 +1276,10 @@ int batadv_tt_local_dump(struct sk_buff *msg, struct netlink_callback *cb)
 	hash = bat_priv->tt.local_hash;
 
 	while (bucket < hash->size) {
-		if (batadv_tt_local_dump_bucket(msg, portid, cb, bat_priv,
-						hash, bucket, &idx))
+		head = &hash->table[bucket];
+
+		if (batadv_tt_local_dump_bucket(msg, portid, cb->nlh->nlmsg_seq,
+						bat_priv, head, &idx))
 			break;
 
 		bucket++;
@@ -1349,10 +1332,9 @@ u16 batadv_tt_local_remove(struct batadv_priv *bat_priv, const u8 *addr,
 			   unsigned short vid, const char *message,
 			   bool roaming)
 {
-	struct batadv_tt_local_entry *tt_removed_entry;
 	struct batadv_tt_local_entry *tt_local_entry;
 	u16 flags, curr_flags = BATADV_NO_FLAGS;
-	struct hlist_node *tt_removed_node;
+	void *tt_entry_exists;
 
 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, addr, vid);
 	if (!tt_local_entry)
@@ -1381,18 +1363,15 @@ u16 batadv_tt_local_remove(struct batadv_priv *bat_priv, const u8 *addr,
 	 */
 	batadv_tt_local_event(bat_priv, tt_local_entry, BATADV_TT_CLIENT_DEL);
 
-	tt_removed_node = batadv_hash_remove(bat_priv->tt.local_hash,
+	tt_entry_exists = batadv_hash_remove(bat_priv->tt.local_hash,
 					     batadv_compare_tt,
 					     batadv_choose_tt,
 					     &tt_local_entry->common);
-	if (!tt_removed_node)
+	if (!tt_entry_exists)
 		goto out;
 
-	/* drop reference of remove hash entry */
-	tt_removed_entry = hlist_entry(tt_removed_node,
-				       struct batadv_tt_local_entry,
-				       common.hash_entry);
-	batadv_tt_local_entry_put(tt_removed_entry);
+	/* extra call to free the local tt entry */
+	batadv_tt_local_entry_put(tt_local_entry);
 
 out:
 	if (tt_local_entry)

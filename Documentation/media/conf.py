@@ -1,7 +1,5 @@
 # -*- coding: utf-8; mode: python -*-
 
-# SPDX-License-Identifier: GPL-2.0
-
 project = 'Linux Media Subsystem Documentation'
 
 tags.add("subproject")

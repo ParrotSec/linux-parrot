@@ -1838,7 +1838,7 @@ static struct scsi_host_template mesh_template = {
 	.this_id			= 7,
 	.sg_tablesize			= SG_ALL,
 	.cmd_per_lun			= 2,
-	.max_segment_size		= 65535,
+	.use_clustering			= DISABLE_CLUSTERING,
 };
 
 static int mesh_probe(struct macio_dev *mdev, const struct of_device_id *match)
@@ -1915,9 +1915,8 @@ static int mesh_probe(struct macio_dev *mdev, const struct of_device_id *match)
 	/* We use the PCI APIs for now until the generic one gets fixed
 	 * enough or until we get some macio-specific versions
 	 */
-	dma_cmd_space = dma_alloc_coherent(&macio_get_pci_dev(mdev)->dev,
-					   ms->dma_cmd_size, &dma_cmd_bus,
-					   GFP_KERNEL);
+	dma_cmd_space = pci_zalloc_consistent(macio_get_pci_dev(mdev),
+					      ms->dma_cmd_size, &dma_cmd_bus);
 	if (dma_cmd_space == NULL) {
 		printk(KERN_ERR "mesh: can't allocate DMA table\n");
 		goto out_unmap;
@@ -1975,7 +1974,7 @@ static int mesh_probe(struct macio_dev *mdev, const struct of_device_id *match)
 	 */
 	mesh_shutdown(mdev);
 	set_mesh_power(ms, 0);
-	dma_free_coherent(&macio_get_pci_dev(mdev)->dev, ms->dma_cmd_size,
+	pci_free_consistent(macio_get_pci_dev(mdev), ms->dma_cmd_size,
 			    ms->dma_cmd_space, ms->dma_cmd_bus);
  out_unmap:
 	iounmap(ms->dma);
@@ -2008,7 +2007,7 @@ static int mesh_remove(struct macio_dev *mdev)
        	iounmap(ms->dma);
 
 	/* Free DMA commands memory */
-	dma_free_coherent(&macio_get_pci_dev(mdev)->dev, ms->dma_cmd_size,
+	pci_free_consistent(macio_get_pci_dev(mdev), ms->dma_cmd_size,
 			    ms->dma_cmd_space, ms->dma_cmd_bus);
 
 	/* Release memory resources */

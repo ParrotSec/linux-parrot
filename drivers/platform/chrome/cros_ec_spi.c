@@ -1,7 +1,17 @@
-// SPDX-License-Identifier: GPL-2.0
-// SPI interface for ChromeOS Embedded Controller
-//
-// Copyright (C) 2012 Google, Inc
+/*
+ * ChromeOS EC multi-function device (SPI)
+ *
+ * Copyright (C) 2012 Google, Inc
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
 #include <linux/delay.h>
 #include <linux/kernel.h>
@@ -675,6 +685,16 @@ static int cros_ec_spi_probe(struct spi_device *spi)
 	return 0;
 }
 
+static int cros_ec_spi_remove(struct spi_device *spi)
+{
+	struct cros_ec_device *ec_dev;
+
+	ec_dev = spi_get_drvdata(spi);
+	cros_ec_remove(ec_dev);
+
+	return 0;
+}
+
 #ifdef CONFIG_PM_SLEEP
 static int cros_ec_spi_suspend(struct device *dev)
 {
@@ -713,10 +733,11 @@ static struct spi_driver cros_ec_driver_spi = {
 		.pm	= &cros_ec_spi_pm_ops,
 	},
 	.probe		= cros_ec_spi_probe,
+	.remove		= cros_ec_spi_remove,
 	.id_table	= cros_ec_spi_id,
 };
 
 module_spi_driver(cros_ec_driver_spi);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("SPI interface for ChromeOS Embedded Controller");
+MODULE_DESCRIPTION("ChromeOS EC multi function device (SPI)");

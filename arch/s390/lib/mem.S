@@ -14,8 +14,7 @@
 /*
  * void *memmove(void *dest, const void *src, size_t n)
  */
-WEAK(memmove)
-ENTRY(__memmove)
+ENTRY(memmove)
 	ltgr	%r4,%r4
 	lgr	%r1,%r2
 	jz	.Lmemmove_exit
@@ -48,7 +47,6 @@ ENTRY(__memmove)
 	BR_EX	%r14
 .Lmemmove_mvc:
 	mvc	0(1,%r1),0(%r3)
-ENDPROC(__memmove)
 EXPORT_SYMBOL(memmove)
 
 /*
@@ -66,8 +64,7 @@ EXPORT_SYMBOL(memmove)
  *	return __builtin_memset(s, c, n);
  * }
  */
-WEAK(memset)
-ENTRY(__memset)
+ENTRY(memset)
 	ltgr	%r4,%r4
 	jz	.Lmemset_exit
 	ltgr	%r3,%r3
@@ -111,7 +108,6 @@ ENTRY(__memset)
 	xc	0(1,%r1),0(%r1)
 .Lmemset_mvc:
 	mvc	1(1,%r1),0(%r1)
-ENDPROC(__memset)
 EXPORT_SYMBOL(memset)
 
 /*
@@ -119,8 +115,7 @@ EXPORT_SYMBOL(memset)
  *
  * void *memcpy(void *dest, const void *src, size_t n)
  */
-WEAK(memcpy)
-ENTRY(__memcpy)
+ENTRY(memcpy)
 	ltgr	%r4,%r4
 	jz	.Lmemcpy_exit
 	aghi	%r4,-1
@@ -141,7 +136,6 @@ ENTRY(__memcpy)
 	j	.Lmemcpy_remainder
 .Lmemcpy_mvc:
 	mvc	0(1,%r1),0(%r3)
-ENDPROC(__memcpy)
 EXPORT_SYMBOL(memcpy)
 
 /*

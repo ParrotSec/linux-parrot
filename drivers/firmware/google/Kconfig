@@ -10,31 +10,37 @@ if GOOGLE_FIRMWARE
 
 config GOOGLE_SMI
 	tristate "SMI interface for Google platforms"
-	depends on X86 && ACPI && DMI
+	depends on X86 && ACPI && DMI && EFI
+	select EFI_VARS
 	help
 	  Say Y here if you want to enable SMI callbacks for Google
 	  platforms.  This provides an interface for writing to and
-	  clearing the event log.  If EFI_VARS is also enabled this
-	  driver provides an interface for reading and writing NVRAM
+	  clearing the EFI event log and reading and writing NVRAM
 	  variables.
 
 config GOOGLE_COREBOOT_TABLE
-	tristate "Coreboot Table Access"
-	depends on ACPI || OF
-	help
-	  This option enables the coreboot_table module, which provides other
-	  firmware modules access to the coreboot table. The coreboot table
-	  pointer is accessed through the ACPI "GOOGCB00" object or the
-	  device tree node /firmware/coreboot.
-	  If unsure say N.
+	tristate
+	depends on GOOGLE_COREBOOT_TABLE_ACPI || GOOGLE_COREBOOT_TABLE_OF
 
 config GOOGLE_COREBOOT_TABLE_ACPI
-	tristate
+	tristate "Coreboot Table Access - ACPI"
+	depends on ACPI
 	select GOOGLE_COREBOOT_TABLE
+	help
+	  This option enables the coreboot_table module, which provides other
+	  firmware modules to access to the coreboot table. The coreboot table
+	  pointer is accessed through the ACPI "GOOGCB00" object.
+	  If unsure say N.
 
 config GOOGLE_COREBOOT_TABLE_OF
-	tristate
+	tristate "Coreboot Table Access - Device Tree"
+	depends on OF
 	select GOOGLE_COREBOOT_TABLE
+	help
+	  This option enable the coreboot_table module, which provide other
+	  firmware modules to access coreboot table. The coreboot table pointer
+	  is accessed through the device tree node /firmware/coreboot.
+	  If unsure say N.
 
 config GOOGLE_MEMCONSOLE
 	tristate

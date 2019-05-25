@@ -296,8 +296,7 @@ struct ntb_dev_ops {
 	int (*db_clear_mask)(struct ntb_dev *ntb, u64 db_bits);
 
 	int (*peer_db_addr)(struct ntb_dev *ntb,
-			    phys_addr_t *db_addr, resource_size_t *db_size,
-				u64 *db_data, int db_bit);
+			    phys_addr_t *db_addr, resource_size_t *db_size);
 	u64 (*peer_db_read)(struct ntb_dev *ntb);
 	int (*peer_db_set)(struct ntb_dev *ntb, u64 db_bits);
 	int (*peer_db_clear)(struct ntb_dev *ntb, u64 db_bits);
@@ -1079,8 +1078,6 @@ static inline int ntb_db_clear_mask(struct ntb_dev *ntb, u64 db_bits)
  * @ntb:	NTB device context.
  * @db_addr:	OUT - The address of the peer doorbell register.
  * @db_size:	OUT - The number of bytes to write the peer doorbell register.
- * @db_data:	OUT - The data of peer doorbell register
- * @db_bit:		door bell bit number
  *
  * Return the address of the peer doorbell register.  This may be used, for
  * example, by drivers that offload memory copy operations to a dma engine.
@@ -1094,13 +1091,12 @@ static inline int ntb_db_clear_mask(struct ntb_dev *ntb, u64 db_bits)
  */
 static inline int ntb_peer_db_addr(struct ntb_dev *ntb,
 				   phys_addr_t *db_addr,
-				   resource_size_t *db_size,
-				   u64 *db_data, int db_bit)
+				   resource_size_t *db_size)
 {
 	if (!ntb->ops->peer_db_addr)
 		return -EINVAL;
 
-	return ntb->ops->peer_db_addr(ntb, db_addr, db_size, db_data, db_bit);
+	return ntb->ops->peer_db_addr(ntb, db_addr, db_size);
 }
 
 /**

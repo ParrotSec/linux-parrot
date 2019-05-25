@@ -33,7 +33,6 @@
 #include <net/sctp/checksum.h>
 
 #include <net/act_api.h>
-#include <net/pkt_cls.h>
 
 #include <linux/tc_act/tc_csum.h>
 #include <net/tc_act/tc_csum.h>
@@ -47,13 +46,12 @@ static struct tc_action_ops act_csum_ops;
 
 static int tcf_csum_init(struct net *net, struct nlattr *nla,
 			 struct nlattr *est, struct tc_action **a, int ovr,
-			 int bind, bool rtnl_held, struct tcf_proto *tp,
+			 int bind, bool rtnl_held,
 			 struct netlink_ext_ack *extack)
 {
 	struct tc_action_net *tn = net_generic(net, csum_net_id);
 	struct tcf_csum_params *params_new;
 	struct nlattr *tb[TCA_CSUM_MAX + 1];
-	struct tcf_chain *goto_ch = NULL;
 	struct tc_csum *parm;
 	struct tcf_csum *p;
 	int ret = 0, err;
@@ -89,27 +87,21 @@ static int tcf_csum_init(struct net *net, struct nlattr *nla,
 		return err;
 	}
 
-	err = tcf_action_check_ctrlact(parm->action, tp, &goto_ch, extack);
-	if (err < 0)
-		goto release_idr;
-
 	p = to_tcf_csum(*a);
 
 	params_new = kzalloc(sizeof(*params_new), GFP_KERNEL);
 	if (unlikely(!params_new)) {
-		err = -ENOMEM;
-		goto put_chain;
+		tcf_idr_release(*a, bind);
+		return -ENOMEM;
 	}
 	params_new->update_flags = parm->update_flags;
 
 	spin_lock_bh(&p->tcf_lock);
-	goto_ch = tcf_action_set_ctrlact(*a, parm->action, goto_ch);
+	p->tcf_action = parm->action;
 	rcu_swap_protected(p->params, params_new,
 			   lockdep_is_held(&p->tcf_lock));
 	spin_unlock_bh(&p->tcf_lock);
 
-	if (goto_ch)
-		tcf_chain_put_by_act(goto_ch);
 	if (params_new)
 		kfree_rcu(params_new, rcu);
 
@@ -117,12 +109,6 @@ static int tcf_csum_init(struct net *net, struct nlattr *nla,
 		tcf_idr_insert(tn, *a);
 
 	return ret;
-put_chain:
-	if (goto_ch)
-		tcf_chain_put_by_act(goto_ch);
-release_idr:
-	tcf_idr_release(*a, bind);
-	return err;
 }
 
 /**
@@ -573,11 +559,8 @@ static int tcf_csum_act(struct sk_buff *skb, const struct tc_action *a,
 			struct tcf_result *res)
 {
 	struct tcf_csum *p = to_tcf_csum(a);
-	bool orig_vlan_tag_present = false;
-	unsigned int vlan_hdr_count = 0;
 	struct tcf_csum_params *params;
 	u32 update_flags;
-	__be16 protocol;
 	int action;
 
 	params = rcu_dereference_bh(p->params);
@@ -590,9 +573,7 @@ static int tcf_csum_act(struct sk_buff *skb, const struct tc_action *a,
 		goto drop;
 
 	update_flags = params->update_flags;
-	protocol = tc_skb_protocol(skb);
-again:
-	switch (protocol) {
+	switch (tc_skb_protocol(skb)) {
 	case cpu_to_be16(ETH_P_IP):
 		if (!tcf_csum_ipv4(skb, update_flags))
 			goto drop;
@@ -601,35 +582,13 @@ again:
 		if (!tcf_csum_ipv6(skb, update_flags))
 			goto drop;
 		break;
-	case cpu_to_be16(ETH_P_8021AD): /* fall through */
-	case cpu_to_be16(ETH_P_8021Q):
-		if (skb_vlan_tag_present(skb) && !orig_vlan_tag_present) {
-			protocol = skb->protocol;
-			orig_vlan_tag_present = true;
-		} else {
-			struct vlan_hdr *vlan = (struct vlan_hdr *)skb->data;
-
-			protocol = vlan->h_vlan_encapsulated_proto;
-			skb_pull(skb, VLAN_HLEN);
-			skb_reset_network_header(skb);
-			vlan_hdr_count++;
-		}
-		goto again;
-	}
-
-out:
-	/* Restore the skb for the pulled VLAN tags */
-	while (vlan_hdr_count--) {
-		skb_push(skb, VLAN_HLEN);
-		skb_reset_network_header(skb);
 	}
 
 	return action;
 
 drop:
 	qstats_drop_inc(this_cpu_ptr(p->common.cpu_qstats));
-	action = TC_ACT_SHOT;
-	goto out;
+	return TC_ACT_SHOT;
 }
 
 static int tcf_csum_dump(struct sk_buff *skb, struct tc_action *a, int bind,
@@ -687,7 +646,8 @@ static int tcf_csum_walker(struct net *net, struct sk_buff *skb,
 	return tcf_generic_walker(tn, skb, cb, type, ops, extack);
 }
 
-static int tcf_csum_search(struct net *net, struct tc_action **a, u32 index)
+static int tcf_csum_search(struct net *net, struct tc_action **a, u32 index,
+			   struct netlink_ext_ack *extack)
 {
 	struct tc_action_net *tn = net_generic(net, csum_net_id);
 
@@ -701,7 +661,7 @@ static size_t tcf_csum_get_fill_size(const struct tc_action *act)
 
 static struct tc_action_ops act_csum_ops = {
 	.kind		= "csum",
-	.id		= TCA_ID_CSUM,
+	.type		= TCA_ACT_CSUM,
 	.owner		= THIS_MODULE,
 	.act		= tcf_csum_act,
 	.dump		= tcf_csum_dump,

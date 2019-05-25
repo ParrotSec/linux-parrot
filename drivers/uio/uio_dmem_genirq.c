@@ -163,8 +163,7 @@ static int uio_dmem_genirq_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "unable to kmalloc\n");
 			goto bad2;
 		}
-		uioinfo->name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%pOFn",
-					       pdev->dev.of_node);
+		uioinfo->name = pdev->dev.of_node->name;
 		uioinfo->version = "devicetree";
 
 		/* Multiple IRQs are not supported */

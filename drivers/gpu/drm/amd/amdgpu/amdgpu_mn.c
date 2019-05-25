@@ -238,40 +238,44 @@ static void amdgpu_mn_invalidate_node(struct amdgpu_mn_node *node,
  * amdgpu_mn_invalidate_range_start_gfx - callback to notify about mm change
  *
  * @mn: our notifier
- * @range: mmu notifier context
+ * @mm: the mm this callback is about
+ * @start: start of updated range
+ * @end: end of updated range
  *
  * Block for operations on BOs to finish and mark pages as accessed and
  * potentially dirty.
  */
 static int amdgpu_mn_invalidate_range_start_gfx(struct mmu_notifier *mn,
-			const struct mmu_notifier_range *range)
+						 struct mm_struct *mm,
+						 unsigned long start,
+						 unsigned long end,
+						 bool blockable)
 {
 	struct amdgpu_mn *amn = container_of(mn, struct amdgpu_mn, mn);
 	struct interval_tree_node *it;
-	unsigned long end;
 
 	/* notification is exclusive, but interval is inclusive */
-	end = range->end - 1;
+	end -= 1;
 
 	/* TODO we should be able to split locking for interval tree and
 	 * amdgpu_mn_invalidate_node
 	 */
-	if (amdgpu_mn_read_lock(amn, range->blockable))
+	if (amdgpu_mn_read_lock(amn, blockable))
 		return -EAGAIN;
 
-	it = interval_tree_iter_first(&amn->objects, range->start, end);
+	it = interval_tree_iter_first(&amn->objects, start, end);
 	while (it) {
 		struct amdgpu_mn_node *node;
 
-		if (!range->blockable) {
+		if (!blockable) {
 			amdgpu_mn_read_unlock(amn);
 			return -EAGAIN;
 		}
 
 		node = container_of(it, struct amdgpu_mn_node, it);
-		it = interval_tree_iter_next(it, range->start, end);
+		it = interval_tree_iter_next(it, start, end);
 
-		amdgpu_mn_invalidate_node(node, range->start, end);
+		amdgpu_mn_invalidate_node(node, start, end);
 	}
 
 	return 0;
@@ -290,38 +294,39 @@ static int amdgpu_mn_invalidate_range_start_gfx(struct mmu_notifier *mn,
  * are restorted in amdgpu_mn_invalidate_range_end_hsa.
  */
 static int amdgpu_mn_invalidate_range_start_hsa(struct mmu_notifier *mn,
-			const struct mmu_notifier_range *range)
+						 struct mm_struct *mm,
+						 unsigned long start,
+						 unsigned long end,
+						 bool blockable)
 {
 	struct amdgpu_mn *amn = container_of(mn, struct amdgpu_mn, mn);
 	struct interval_tree_node *it;
-	unsigned long end;
 
 	/* notification is exclusive, but interval is inclusive */
-	end = range->end - 1;
+	end -= 1;
 
-	if (amdgpu_mn_read_lock(amn, range->blockable))
+	if (amdgpu_mn_read_lock(amn, blockable))
 		return -EAGAIN;
 
-	it = interval_tree_iter_first(&amn->objects, range->start, end);
+	it = interval_tree_iter_first(&amn->objects, start, end);
 	while (it) {
 		struct amdgpu_mn_node *node;
 		struct amdgpu_bo *bo;
 
-		if (!range->blockable) {
+		if (!blockable) {
 			amdgpu_mn_read_unlock(amn);
 			return -EAGAIN;
 		}
 
 		node = container_of(it, struct amdgpu_mn_node, it);
-		it = interval_tree_iter_next(it, range->start, end);
+		it = interval_tree_iter_next(it, start, end);
 
 		list_for_each_entry(bo, &node->bos, mn_list) {
 			struct kgd_mem *mem = bo->kfd_bo;
 
 			if (amdgpu_ttm_tt_affect_userptr(bo->tbo.ttm,
-							 range->start,
-							 end))
-				amdgpu_amdkfd_evict_userptr(mem, range->mm);
+							 start, end))
+				amdgpu_amdkfd_evict_userptr(mem, mm);
 		}
 	}
 
@@ -339,7 +344,9 @@ static int amdgpu_mn_invalidate_range_start_hsa(struct mmu_notifier *mn,
  * Release the lock again to allow new command submissions.
  */
 static void amdgpu_mn_invalidate_range_end(struct mmu_notifier *mn,
-			const struct mmu_notifier_range *range)
+					   struct mm_struct *mm,
+					   unsigned long start,
+					   unsigned long end)
 {
 	struct amdgpu_mn *amn = container_of(mn, struct amdgpu_mn, mn);
 

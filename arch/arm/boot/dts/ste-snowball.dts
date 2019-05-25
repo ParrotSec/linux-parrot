@@ -26,7 +26,6 @@
 	};
 
 	memory {
-		device_type = "memory";
 		reg = <0x00000000 0x20000000>;
 	};
 
@@ -377,7 +376,7 @@
 			pinctrl-1 = <&i2c3_sleep_mode>;
 		};
 
-		spi@80002000 {
+		ssp@80002000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&ssp0_snowball_mode>;
 		};

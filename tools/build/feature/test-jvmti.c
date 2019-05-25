@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <jvmti.h>
+#include <jvmticmlr.h>
 
 int main(void)
 {

@@ -121,7 +121,7 @@ static void vb2_common_vm_close(struct vm_area_struct *vma)
 }
 
 /*
- * vb2_common_vm_ops - common vm_ops used for tracking refcount of mmapped
+ * vb2_common_vm_ops - common vm_ops used for tracking refcount of mmaped
  * video buffers
  */
 const struct vm_operations_struct vb2_common_vm_ops = {

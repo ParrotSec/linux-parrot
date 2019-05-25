@@ -167,7 +167,8 @@ static ssize_t qeth_l3_dev_fake_broadcast_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&card->conf_mutex);
-	if (card->state != CARD_STATE_DOWN) {
+	if ((card->state != CARD_STATE_DOWN) &&
+	    (card->state != CARD_STATE_RECOVER)) {
 		rc = -EPERM;
 		goto out;
 	}
@@ -212,7 +213,8 @@ static ssize_t qeth_l3_dev_sniffer_store(struct device *dev,
 		return -EPERM;
 
 	mutex_lock(&card->conf_mutex);
-	if (card->state != CARD_STATE_DOWN) {
+	if ((card->state != CARD_STATE_DOWN) &&
+	    (card->state != CARD_STATE_RECOVER)) {
 		rc = -EPERM;
 		goto out;
 	}
@@ -278,7 +280,8 @@ static ssize_t qeth_l3_dev_hsuid_store(struct device *dev,
 
 	if (card->info.type != QETH_CARD_TYPE_IQD)
 		return -EPERM;
-	if (card->state != CARD_STATE_DOWN)
+	if (card->state != CARD_STATE_DOWN &&
+	    card->state != CARD_STATE_RECOVER)
 		return -EPERM;
 	if (card->options.sniffer)
 		return -EPERM;
@@ -353,7 +356,8 @@ static ssize_t qeth_l3_dev_ipato_enable_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&card->conf_mutex);
-	if (card->state != CARD_STATE_DOWN) {
+	if ((card->state != CARD_STATE_DOWN) &&
+	    (card->state != CARD_STATE_RECOVER)) {
 		rc = -EPERM;
 		goto out;
 	}

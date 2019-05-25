@@ -104,6 +104,8 @@ struct ast_private {
 	int fb_mtrr;
 
 	struct {
+		struct drm_global_reference mem_global_ref;
+		struct ttm_bo_global_ref bo_global_ref;
 		struct ttm_bo_device bdev;
 	} ttm;
 

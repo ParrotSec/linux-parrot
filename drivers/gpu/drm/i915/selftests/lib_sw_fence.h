@@ -39,7 +39,4 @@ struct timed_fence {
 void timed_fence_init(struct timed_fence *tf, unsigned long expires);
 void timed_fence_fini(struct timed_fence *tf);
 
-struct i915_sw_fence *heap_fence_create(gfp_t gfp);
-void heap_fence_put(struct i915_sw_fence *fence);
-
 #endif /* _LIB_SW_FENCE_H_ */

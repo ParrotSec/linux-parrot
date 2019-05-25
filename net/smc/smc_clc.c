@@ -265,7 +265,7 @@ out:
  * clcsock error, -EINTR, -ECONNRESET, -EPROTO otherwise.
  */
 int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
-		     u8 expected_type, unsigned long timeout)
+		     u8 expected_type)
 {
 	long rcvtimeo = smc->clcsock->sk->sk_rcvtimeo;
 	struct sock *clc_sk = smc->clcsock->sk;
@@ -285,8 +285,8 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
 	 * sizeof(struct smc_clc_msg_hdr)
 	 */
 	krflags = MSG_PEEK | MSG_WAITALL;
-	clc_sk->sk_rcvtimeo = timeout;
-	iov_iter_kvec(&msg.msg_iter, READ, &vec, 1,
+	smc->clcsock->sk->sk_rcvtimeo = CLC_WAIT_TIME;
+	iov_iter_kvec(&msg.msg_iter, READ | ITER_KVEC, &vec, 1,
 			sizeof(struct smc_clc_msg_hdr));
 	len = sock_recvmsg(smc->clcsock, &msg, krflags);
 	if (signal_pending(current)) {
@@ -297,11 +297,7 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
 	}
 	if (clc_sk->sk_err) {
 		reason_code = -clc_sk->sk_err;
-		if (clc_sk->sk_err == EAGAIN &&
-		    expected_type == SMC_CLC_DECLINE)
-			clc_sk->sk_err = 0; /* reset for fallback usage */
-		else
-			smc->sk.sk_err = clc_sk->sk_err;
+		smc->sk.sk_err = clc_sk->sk_err;
 		goto out;
 	}
 	if (!len) { /* peer has performed orderly shutdown */
@@ -310,8 +306,7 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
 		goto out;
 	}
 	if (len < 0) {
-		if (len != -EAGAIN || expected_type != SMC_CLC_DECLINE)
-			smc->sk.sk_err = -len;
+		smc->sk.sk_err = -len;
 		reason_code = len;
 		goto out;
 	}
@@ -330,7 +325,7 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
 
 	/* receive the complete CLC message */
 	memset(&msg, 0, sizeof(struct msghdr));
-	iov_iter_kvec(&msg.msg_iter, READ, &vec, 1, datlen);
+	iov_iter_kvec(&msg.msg_iter, READ | ITER_KVEC, &vec, 1, datlen);
 	krflags = MSG_WAITALL;
 	len = sock_recvmsg(smc->clcsock, &msg, krflags);
 	if (len < datlen || !smc_clc_msg_hdr_valid(clcm)) {
@@ -351,7 +346,7 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
 	}
 
 out:
-	clc_sk->sk_rcvtimeo = rcvtimeo;
+	smc->clcsock->sk->sk_rcvtimeo = rcvtimeo;
 	return reason_code;
 }
 
@@ -378,9 +373,11 @@ int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info)
 	vec.iov_len = sizeof(struct smc_clc_msg_decline);
 	len = kernel_sendmsg(smc->clcsock, &msg, &vec, 1,
 			     sizeof(struct smc_clc_msg_decline));
-	if (len < 0 || len < sizeof(struct smc_clc_msg_decline))
-		len = -EPROTO;
-	return len > 0 ? 0 : len;
+	if (len < sizeof(struct smc_clc_msg_decline))
+		smc->sk.sk_err = EPROTO;
+	if (len < 0)
+		smc->sk.sk_err = -len;
+	return sock_error(&smc->sk);
 }
 
 /* send CLC PROPOSAL message across internal TCP socket */
@@ -539,6 +536,7 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
 	struct smc_link *link;
 	struct msghdr msg;
 	struct kvec vec;
+	int rc = 0;
 	int len;
 
 	memset(&aclc, 0, sizeof(aclc));
@@ -591,8 +589,13 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
 	vec.iov_len = ntohs(aclc.hdr.length);
 	len = kernel_sendmsg(new_smc->clcsock, &msg, &vec, 1,
 			     ntohs(aclc.hdr.length));
-	if (len < ntohs(aclc.hdr.length))
-		len = len >= 0 ? -EPROTO : -new_smc->clcsock->sk->sk_err;
+	if (len < ntohs(aclc.hdr.length)) {
+		if (len >= 0)
+			new_smc->sk.sk_err = EPROTO;
+		else
+			new_smc->sk.sk_err = new_smc->clcsock->sk->sk_err;
+		rc = sock_error(&new_smc->sk);
+	}
 
-	return len > 0 ? 0 : len;
+	return rc;
 }

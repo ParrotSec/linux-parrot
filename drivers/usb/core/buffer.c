@@ -101,8 +101,12 @@ void hcd_buffer_destroy(struct usb_hcd *hcd)
 		return;
 
 	for (i = 0; i < HCD_BUFFER_POOLS; i++) {
-		dma_pool_destroy(hcd->pool[i]);
-		hcd->pool[i] = NULL;
+		struct dma_pool *pool = hcd->pool[i];
+
+		if (pool) {
+			dma_pool_destroy(pool);
+			hcd->pool[i] = NULL;
+		}
 	}
 }
 

@@ -229,7 +229,7 @@ ftrace_call:
 	 *  - r0, r11 & r12 are free
 	 */
 livepatch_handler:
-	ld	r12, PACA_THREAD_INFO(r13)
+	CURRENT_THREAD_INFO(r12, r1)
 
 	/* Allocate 3 x 8 bytes */
 	ld	r11, TI_livepatch_sp(r12)
@@ -256,7 +256,7 @@ livepatch_handler:
 	 * restore it.
 	 */
 
-	ld	r12, PACA_THREAD_INFO(r13)
+	CURRENT_THREAD_INFO(r12, r1)
 
 	ld	r11, TI_livepatch_sp(r12)
 
@@ -273,7 +273,7 @@ livepatch_handler:
 	ld	r2,  -24(r11)
 
 	/* Pop livepatch stack frame */
-	ld	r12, PACA_THREAD_INFO(r13)
+	CURRENT_THREAD_INFO(r12, r1)
 	subi	r11, r11, 24
 	std	r11, TI_livepatch_sp(r12)
 

@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/sa11x0-dma.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 
@@ -705,6 +706,7 @@ static int sa11x0_dma_device_pause(struct dma_chan *chan)
 	struct sa11x0_dma_chan *c = to_sa11x0_dma_chan(chan);
 	struct sa11x0_dma_dev *d = to_sa11x0_dma(chan->device);
 	struct sa11x0_dma_phy *p;
+	LIST_HEAD(head);
 	unsigned long flags;
 
 	dev_dbg(d->slave.dev, "vchan %p: pause\n", &c->vc);
@@ -731,6 +733,7 @@ static int sa11x0_dma_device_resume(struct dma_chan *chan)
 	struct sa11x0_dma_chan *c = to_sa11x0_dma_chan(chan);
 	struct sa11x0_dma_dev *d = to_sa11x0_dma(chan->device);
 	struct sa11x0_dma_phy *p;
+	LIST_HEAD(head);
 	unsigned long flags;
 
 	dev_dbg(d->slave.dev, "vchan %p: resume\n", &c->vc);
@@ -826,14 +829,6 @@ static const struct dma_slave_map sa11x0_dma_map[] = {
 	{ "sa11x0-ssp", "tx", "Ser4SSPTr" },
 	{ "sa11x0-ssp", "rx", "Ser4SSPRc" },
 };
-
-static bool sa11x0_dma_filter_fn(struct dma_chan *chan, void *param)
-{
-	struct sa11x0_dma_chan *c = to_sa11x0_dma_chan(chan);
-	const char *p = param;
-
-	return !strcmp(c->name, p);
-}
 
 static int sa11x0_dma_init_dmadev(struct dma_device *dmadev,
 	struct device *dev)
@@ -1091,6 +1086,18 @@ static struct platform_driver sa11x0_dma_driver = {
 	.probe		= sa11x0_dma_probe,
 	.remove		= sa11x0_dma_remove,
 };
+
+bool sa11x0_dma_filter_fn(struct dma_chan *chan, void *param)
+{
+	if (chan->device->dev->driver == &sa11x0_dma_driver.driver) {
+		struct sa11x0_dma_chan *c = to_sa11x0_dma_chan(chan);
+		const char *p = param;
+
+		return !strcmp(c->name, p);
+	}
+	return false;
+}
+EXPORT_SYMBOL(sa11x0_dma_filter_fn);
 
 static int __init sa11x0_dma_init(void)
 {

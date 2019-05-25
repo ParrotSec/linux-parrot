@@ -14,9 +14,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include "event-parse.h"
-#include "event-parse-local.h"
 #include "event-utils.h"
-#include "trace-seq.h"
 
 #define LOCAL_PLUGIN_DIR ".traceevent/plugins"
 
@@ -32,8 +30,8 @@ static struct trace_plugin_options {
 	char				*value;
 } *trace_plugin_options;
 
-struct tep_plugin_list {
-	struct tep_plugin_list	*next;
+struct plugin_list {
+	struct plugin_list	*next;
 	char			*name;
 	void			*handle;
 };
@@ -260,7 +258,7 @@ void tep_plugin_remove_options(struct tep_plugin_option *options)
  */
 void tep_print_plugins(struct trace_seq *s,
 		       const char *prefix, const char *suffix,
-		       const struct tep_plugin_list *list)
+		       const struct plugin_list *list)
 {
 	while (list) {
 		trace_seq_printf(s, "%s%s%s", prefix, list->name, suffix);
@@ -272,9 +270,9 @@ static void
 load_plugin(struct tep_handle *pevent, const char *path,
 	    const char *file, void *data)
 {
-	struct tep_plugin_list **plugin_list = data;
+	struct plugin_list **plugin_list = data;
 	tep_plugin_load_func func;
-	struct tep_plugin_list *list;
+	struct plugin_list *list;
 	const char *alias;
 	char *plugin;
 	void *handle;
@@ -418,20 +416,20 @@ load_plugins(struct tep_handle *pevent, const char *suffix,
 	free(path);
 }
 
-struct tep_plugin_list*
+struct plugin_list*
 tep_load_plugins(struct tep_handle *pevent)
 {
-	struct tep_plugin_list *list = NULL;
+	struct plugin_list *list = NULL;
 
 	load_plugins(pevent, ".so", load_plugin, &list);
 	return list;
 }
 
 void
-tep_unload_plugins(struct tep_plugin_list *plugin_list, struct tep_handle *pevent)
+tep_unload_plugins(struct plugin_list *plugin_list, struct tep_handle *pevent)
 {
 	tep_plugin_unload_func func;
-	struct tep_plugin_list *list;
+	struct plugin_list *list;
 
 	while (plugin_list) {
 		list = plugin_list;

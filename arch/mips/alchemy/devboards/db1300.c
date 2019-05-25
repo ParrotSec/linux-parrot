@@ -19,7 +19,8 @@
 #include <linux/mmc/host.h>
 #include <linux/module.h>
 #include <linux/mtd/mtd.h>
-#include <linux/mtd/platnand.h>
+#include <linux/mtd/rawnand.h>
+#include <linux/mtd/partitions.h>
 #include <linux/platform_device.h>
 #include <linux/smsc911x.h>
 #include <linux/wm97xx.h>
@@ -148,12 +149,11 @@ static void __init db1300_gpio_config(void)
 
 /**********************************************************************/
 
-static u64 au1300_all_dmamask = DMA_BIT_MASK(32);
-
-static void au1300_nand_cmd_ctrl(struct nand_chip *this, int cmd,
+static void au1300_nand_cmd_ctrl(struct mtd_info *mtd, int cmd,
 				 unsigned int ctrl)
 {
-	unsigned long ioaddr = (unsigned long)this->legacy.IO_ADDR_W;
+	struct nand_chip *this = mtd_to_nand(mtd);
+	unsigned long ioaddr = (unsigned long)this->IO_ADDR_W;
 
 	ioaddr &= 0xffffff00;
 
@@ -165,14 +165,14 @@ static void au1300_nand_cmd_ctrl(struct nand_chip *this, int cmd,
 		/* assume we want to r/w real data  by default */
 		ioaddr += MEM_STNAND_DATA;
 	}
-	this->legacy.IO_ADDR_R = this->legacy.IO_ADDR_W = (void __iomem *)ioaddr;
+	this->IO_ADDR_R = this->IO_ADDR_W = (void __iomem *)ioaddr;
 	if (cmd != NAND_CMD_NONE) {
-		__raw_writeb(cmd, this->legacy.IO_ADDR_W);
+		__raw_writeb(cmd, this->IO_ADDR_W);
 		wmb();
 	}
 }
 
-static int au1300_nand_device_ready(struct nand_chip *this)
+static int au1300_nand_device_ready(struct mtd_info *mtd)
 {
 	return alchemy_rdsmem(AU1000_MEM_STSTAT) & 1;
 }
@@ -440,8 +440,6 @@ static struct resource db1300_ide_res[] = {
 
 static struct platform_device db1300_ide_dev = {
 	.dev	= {
-		.dma_mask		= &au1300_all_dmamask,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
 		.platform_data	= &db1300_ide_info,
 	},
 	.name		= "pata_platform",
@@ -564,9 +562,7 @@ static struct resource au1300_sd1_res[] = {
 
 static struct platform_device db1300_sd1_dev = {
 	.dev = {
-		.dma_mask		= &au1300_all_dmamask,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
-		.platform_data		= &db1300_sd1_platdata,
+		.platform_data	= &db1300_sd1_platdata,
 	},
 	.name		= "au1xxx-mmc",
 	.id		= 1,
@@ -631,9 +627,7 @@ static struct resource au1300_sd0_res[] = {
 
 static struct platform_device db1300_sd0_dev = {
 	.dev = {
-		.dma_mask		= &au1300_all_dmamask,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
-		.platform_data		= &db1300_sd0_platdata,
+		.platform_data	= &db1300_sd0_platdata,
 	},
 	.name		= "au1xxx-mmc",
 	.id		= 0,
@@ -660,18 +654,10 @@ static struct platform_device db1300_i2sdma_dev = {
 
 static struct platform_device db1300_sndac97_dev = {
 	.name		= "db1300-ac97",
-	.dev = {
-		.dma_mask		= &au1300_all_dmamask,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
-	},
 };
 
 static struct platform_device db1300_sndi2s_dev = {
 	.name		= "db1300-i2s",
-	.dev = {
-		.dma_mask		= &au1300_all_dmamask,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
-	},
 };
 
 /**********************************************************************/
@@ -716,12 +702,13 @@ static struct resource au1300_lcd_res[] = {
 	}
 };
 
+static u64 au1300_lcd_dmamask = DMA_BIT_MASK(32);
 
 static struct platform_device db1300_lcd_dev = {
 	.name		= "au1200-lcd",
 	.id		= 0,
 	.dev = {
-		.dma_mask		= &au1300_all_dmamask,
+		.dma_mask		= &au1300_lcd_dmamask,
 		.coherent_dma_mask	= DMA_BIT_MASK(32),
 		.platform_data		= &db1300fb_pd,
 	},

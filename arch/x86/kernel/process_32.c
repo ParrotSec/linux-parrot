@@ -44,6 +44,9 @@
 #include <asm/processor.h>
 #include <asm/fpu/internal.h>
 #include <asm/desc.h>
+#ifdef CONFIG_MATH_EMULATION
+#include <asm/math_emu.h>
+#endif
 
 #include <linux/err.h>
 
@@ -53,7 +56,7 @@
 #include <asm/debugreg.h>
 #include <asm/switch_to.h>
 #include <asm/vm86.h>
-#include <asm/resctrl_sched.h>
+#include <asm/intel_rdt_sched.h>
 #include <asm/proto.h>
 
 #include "process.h"
@@ -295,7 +298,7 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	this_cpu_write(current_task, next_p);
 
 	/* Load the Intel cache allocation PQR MSR. */
-	resctrl_sched_in();
+	intel_rdt_sched_in();
 
 	return prev_p;
 }

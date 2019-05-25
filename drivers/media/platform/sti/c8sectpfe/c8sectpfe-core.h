@@ -193,7 +193,7 @@ struct c8sectpfei {
 #define C8SECTPFE_SYS_ENABLE             BIT(0)
 
 /*
- * Pointer record data structure required for each input block
+ * Ponter record data structure required for each input block
  * see Table 82 on page 167 of functional specification.
  */
 

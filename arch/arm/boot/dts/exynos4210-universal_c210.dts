@@ -310,9 +310,6 @@
 
 	pmic@66 {
 		compatible = "national,lp3974";
-		interrupts-extended = <&gpx0 7 0>, <&gpx2 7 0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&lp3974_irq>;
 		reg = <0x66>;
 
 		max8998,pmic-buck1-default-dvs-idx = <0>;
@@ -506,11 +503,6 @@
 };
 
 &pinctrl_1 {
-	lp3974_irq: lp3974-irq {
-		samsung,pins = "gpx0-7", "gpx2-7";
-		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
-	};
-
 	hdmi_hpd: hdmi-hpd {
 		samsung,pins = "gpx3-7";
 		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
@@ -545,7 +537,8 @@
 	pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_bus4>;
 	pinctrl-names = "default";
 	vmmc-supply = <&ldo5_reg>;
-	cd-gpios = <&gpx3 4 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpx3 4 GPIO_ACTIVE_HIGH>;
+	cd-inverted;
 	status = "okay";
 };
 

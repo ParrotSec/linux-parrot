@@ -373,7 +373,6 @@ static int adm1275_probe(struct i2c_client *client,
 	const struct coefficients *coefficients;
 	int vindex = -1, voindex = -1, cindex = -1, pindex = -1;
 	int tindex = -1;
-	u32 shunt;
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_READ_BYTE_DATA
@@ -421,13 +420,6 @@ static int adm1275_probe(struct i2c_client *client,
 			    GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
-
-	if (of_property_read_u32(client->dev.of_node,
-				 "shunt-resistor-micro-ohms", &shunt))
-		shunt = 1000; /* 1 mOhm if not set via DT */
-
-	if (shunt == 0)
-		return -EINVAL;
 
 	data->id = mid->driver_data;
 
@@ -662,15 +654,12 @@ static int adm1275_probe(struct i2c_client *client,
 		info->R[PSC_VOLTAGE_OUT] = coefficients[voindex].R;
 	}
 	if (cindex >= 0) {
-		/* Scale current with sense resistor value */
-		info->m[PSC_CURRENT_OUT] =
-			coefficients[cindex].m * shunt / 1000;
+		info->m[PSC_CURRENT_OUT] = coefficients[cindex].m;
 		info->b[PSC_CURRENT_OUT] = coefficients[cindex].b;
 		info->R[PSC_CURRENT_OUT] = coefficients[cindex].R;
 	}
 	if (pindex >= 0) {
-		info->m[PSC_POWER] =
-			coefficients[pindex].m * shunt / 1000;
+		info->m[PSC_POWER] = coefficients[pindex].m;
 		info->b[PSC_POWER] = coefficients[pindex].b;
 		info->R[PSC_POWER] = coefficients[pindex].R;
 	}

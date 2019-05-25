@@ -456,8 +456,9 @@ static int __init hypfs_init(void)
 {
 	int rc;
 
-	hypfs_dbfs_init();
-
+	rc = hypfs_dbfs_init();
+	if (rc)
+		return rc;
 	if (hypfs_diag_init()) {
 		rc = -ENODATA;
 		goto fail_dbfs_exit;
@@ -466,7 +467,10 @@ static int __init hypfs_init(void)
 		rc = -ENODATA;
 		goto fail_hypfs_diag_exit;
 	}
-	hypfs_sprp_init();
+	if (hypfs_sprp_init()) {
+		rc = -ENODATA;
+		goto fail_hypfs_vm_exit;
+	}
 	if (hypfs_diag0c_init()) {
 		rc = -ENODATA;
 		goto fail_hypfs_sprp_exit;
@@ -485,6 +489,7 @@ fail_hypfs_diag0c_exit:
 	hypfs_diag0c_exit();
 fail_hypfs_sprp_exit:
 	hypfs_sprp_exit();
+fail_hypfs_vm_exit:
 	hypfs_vm_exit();
 fail_hypfs_diag_exit:
 	hypfs_diag_exit();

@@ -26,12 +26,6 @@ static int nvdimm_probe(struct device *dev)
 	struct nvdimm_drvdata *ndd;
 	int rc;
 
-	rc = nvdimm_security_setup_events(dev);
-	if (rc < 0) {
-		dev_err(dev, "security event setup failed: %d\n", rc);
-		return rc;
-	}
-
 	rc = nvdimm_check_config_data(dev);
 	if (rc) {
 		/* not required for non-aliased nvdimm, ex. NVDIMM-N */
@@ -40,11 +34,7 @@ static int nvdimm_probe(struct device *dev)
 		return rc;
 	}
 
-	/*
-	 * The locked status bit reflects explicit status codes from the
-	 * label reading commands, revalidate it each time the driver is
-	 * activated and re-reads the label area.
-	 */
+	/* reset locked, to be validated below... */
 	nvdimm_clear_locked(dev);
 
 	ndd = kzalloc(sizeof(*ndd), GFP_KERNEL);
@@ -60,16 +50,6 @@ static int nvdimm_probe(struct device *dev)
 	ndd->dev = dev;
 	get_device(dev);
 	kref_init(&ndd->kref);
-
-	/*
-	 * Attempt to unlock, if the DIMM supports security commands,
-	 * otherwise the locked indication is determined by explicit
-	 * status codes from the label reading commands.
-	 */
-	rc = nvdimm_security_unlock(dev);
-	if (rc < 0)
-		dev_dbg(dev, "failed to unlock dimm: %d\n", rc);
-
 
 	/*
 	 * EACCES failures reading the namespace label-area-properties
@@ -95,7 +75,7 @@ static int nvdimm_probe(struct device *dev)
 	 * DIMM capacity. We fail the dimm probe to prevent regions from
 	 * attempting to parse the label area.
 	 */
-	rc = nd_label_data_init(ndd);
+	rc = nvdimm_init_config_data(ndd);
 	if (rc == -EACCES)
 		nvdimm_set_locked(dev);
 	if (rc)
@@ -104,6 +84,10 @@ static int nvdimm_probe(struct device *dev)
 	dev_dbg(dev, "config data size: %d\n", ndd->nsarea.config_size);
 
 	nvdimm_bus_lock(dev);
+	ndd->ns_current = nd_label_validate(ndd);
+	ndd->ns_next = nd_label_next_nsindex(ndd->ns_current);
+	nd_label_copy(ndd, to_next_namespace_index(ndd),
+			to_current_namespace_index(ndd));
 	if (ndd->ns_current >= 0) {
 		rc = nd_label_reserve_dpa(ndd);
 		if (rc == 0)

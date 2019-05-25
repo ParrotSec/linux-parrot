@@ -249,7 +249,7 @@ struct ib_qp *pvrdma_create_qp(struct ib_pd *pd,
 		init_completion(&qp->free);
 
 		qp->state = IB_QPS_RESET;
-		qp->is_kernel = !udata;
+		qp->is_kernel = !(pd->uobject && udata);
 
 		if (!qp->is_kernel) {
 			dev_dbg(&dev->pdev->dev,
@@ -262,7 +262,8 @@ struct ib_qp *pvrdma_create_qp(struct ib_pd *pd,
 
 			if (!is_srq) {
 				/* set qp->sq.wqe_cnt, shift, buf_size.. */
-				qp->rumem = ib_umem_get(udata, ucmd.rbuf_addr,
+				qp->rumem = ib_umem_get(pd->uobject->context,
+							ucmd.rbuf_addr,
 							ucmd.rbuf_size, 0, 0);
 				if (IS_ERR(qp->rumem)) {
 					ret = PTR_ERR(qp->rumem);
@@ -274,7 +275,8 @@ struct ib_qp *pvrdma_create_qp(struct ib_pd *pd,
 				qp->srq = to_vsrq(init_attr->srq);
 			}
 
-			qp->sumem = ib_umem_get(udata, ucmd.sbuf_addr,
+			qp->sumem = ib_umem_get(pd->uobject->context,
+						ucmd.sbuf_addr,
 						ucmd.sbuf_size, 0, 0);
 			if (IS_ERR(qp->sumem)) {
 				if (!is_srq)
@@ -497,7 +499,7 @@ int pvrdma_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	next_state = (attr_mask & IB_QP_STATE) ? attr->qp_state : cur_state;
 
 	if (!ib_modify_qp_is_ok(cur_state, next_state, ibqp->qp_type,
-				attr_mask)) {
+				attr_mask, IB_LINK_LAYER_ETHERNET)) {
 		ret = -EINVAL;
 		goto out;
 	}

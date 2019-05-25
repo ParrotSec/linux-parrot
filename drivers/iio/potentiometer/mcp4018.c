@@ -147,6 +147,7 @@ static int mcp4018_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct mcp4018_data *data;
 	struct iio_dev *indio_dev;
+	const struct of_device_id *match;
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_BYTE)) {
@@ -161,8 +162,10 @@ static int mcp4018_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, indio_dev);
 	data->client = client;
 
-	data->cfg = of_device_get_match_data(dev);
-	if (!data->cfg)
+	match = of_match_device(of_match_ptr(mcp4018_of_match), dev);
+	if (match)
+		data->cfg = of_device_get_match_data(dev);
+	else
 		data->cfg = &mcp4018_cfg[i2c_match_id(mcp4018_id, client)->driver_data];
 
 	indio_dev->dev.parent = dev;
@@ -187,4 +190,4 @@ module_i2c_driver(mcp4018_driver);
 
 MODULE_AUTHOR("Peter Rosin <peda@axentia.se>");
 MODULE_DESCRIPTION("MCP4018 digital potentiometer");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

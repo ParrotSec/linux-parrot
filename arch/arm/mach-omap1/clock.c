@@ -968,7 +968,7 @@ late_initcall(omap_clk_enable_autoidle_all);
 
 static struct dentry *clk_debugfs_root;
 
-static int debug_clock_show(struct seq_file *s, void *unused)
+static int clk_dbg_show_summary(struct seq_file *s, void *unused)
 {
 	struct clk *c;
 	struct clk *pa;
@@ -988,7 +988,17 @@ static int debug_clock_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(debug_clock);
+static int clk_dbg_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, clk_dbg_show_summary, inode->i_private);
+}
+
+static const struct file_operations debug_clock_fops = {
+	.open           = clk_dbg_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
 
 static int clk_debugfs_register_one(struct clk *c)
 {

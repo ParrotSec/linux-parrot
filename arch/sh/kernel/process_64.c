@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * arch/sh/kernel/process_64.c
  *
@@ -13,6 +12,10 @@
  *
  *   In turn started from i386 version:
  *     Copyright (C) 1995  Linus Torvalds
+ *
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License.  See the file "COPYING" in the main directory of this archive
+ * for more details.
  */
 #include <linux/mm.h>
 #include <linux/fs.h>

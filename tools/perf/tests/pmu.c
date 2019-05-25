@@ -4,9 +4,7 @@
 #include "util.h"
 #include "tests.h"
 #include <errno.h>
-#include <stdio.h>
 #include <linux/kernel.h>
-#include <linux/limits.h>
 
 /* Simulated format definitions. */
 static struct test_format {

@@ -963,8 +963,7 @@ static const struct regmap_config rt1305_regmap = {
 	.num_reg_defaults = ARRAY_SIZE(rt1305_reg),
 	.ranges = rt1305_ranges,
 	.num_ranges = ARRAY_SIZE(rt1305_ranges),
-	.use_single_read = true,
-	.use_single_write = true,
+	.use_single_rw = true,
 };
 
 #if defined(CONFIG_OF)

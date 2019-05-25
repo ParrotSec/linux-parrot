@@ -119,8 +119,7 @@ static int phy_meson_gxl_usb3_power_off(struct phy *phy)
 	return 0;
 }
 
-static int phy_meson_gxl_usb3_set_mode(struct phy *phy,
-				       enum phy_mode mode, int submode)
+static int phy_meson_gxl_usb3_set_mode(struct phy *phy, enum phy_mode mode)
 {
 	struct phy_meson_gxl_usb3_priv *priv = phy_get_drvdata(phy);
 
@@ -165,7 +164,7 @@ static int phy_meson_gxl_usb3_init(struct phy *phy)
 	if (ret)
 		goto err_disable_clk_phy;
 
-	ret = phy_meson_gxl_usb3_set_mode(phy, priv->mode, 0);
+	ret = phy_meson_gxl_usb3_set_mode(phy, priv->mode);
 	if (ret)
 		goto err_disable_clk_peripheral;
 

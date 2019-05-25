@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * bcm2835 sdhost driver.
  *
@@ -26,6 +25,18 @@
  *  sdhci-bcm2708.c by Broadcom
  *  sdhci-bcm2835.c by Stephen Warren and Oleksandr Tymoshenko
  *  sdhci.c and sdhci-pci.c by Pierre Ossman
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -148,6 +159,7 @@ struct bcm2835_host {
 	void __iomem		*ioaddr;
 	u32			phys_addr;
 
+	struct mmc_host		*mmc;
 	struct platform_device	*pdev;
 
 	int			clock;		/* Current clock speed */
@@ -452,7 +464,7 @@ static void bcm2835_transfer_pio(struct bcm2835_host *host)
 static
 void bcm2835_prepare_dma(struct bcm2835_host *host, struct mmc_data *data)
 {
-	int sg_len, dir_data, dir_slave;
+	int len, dir_data, dir_slave;
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dma_chan *dma_chan;
 
@@ -498,24 +510,23 @@ void bcm2835_prepare_dma(struct bcm2835_host *host, struct mmc_data *data)
 				     &host->dma_cfg_rx :
 				     &host->dma_cfg_tx);
 
-	sg_len = dma_map_sg(dma_chan->device->dev, data->sg, data->sg_len,
-			    dir_data);
-	if (!sg_len)
-		return;
+	len = dma_map_sg(dma_chan->device->dev, data->sg, data->sg_len,
+			 dir_data);
 
-	desc = dmaengine_prep_slave_sg(dma_chan, data->sg, sg_len, dir_slave,
-				       DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
-
-	if (!desc) {
-		dma_unmap_sg(dma_chan->device->dev, data->sg, sg_len, dir_data);
-		return;
+	if (len > 0) {
+		desc = dmaengine_prep_slave_sg(dma_chan, data->sg,
+					       len, dir_slave,
+					       DMA_PREP_INTERRUPT |
+					       DMA_CTRL_ACK);
 	}
 
-	desc->callback = bcm2835_dma_complete;
-	desc->callback_param = host;
-	host->dma_desc = desc;
-	host->dma_chan = dma_chan;
-	host->dma_dir = dir_data;
+	if (desc) {
+		desc->callback = bcm2835_dma_complete;
+		desc->callback_param = host;
+		host->dma_desc = desc;
+		host->dma_chan = dma_chan;
+		host->dma_dir = dir_data;
+	}
 }
 
 static void bcm2835_start_dma(struct bcm2835_host *host)
@@ -597,7 +608,7 @@ static void bcm2835_finish_request(struct bcm2835_host *host)
 	struct dma_chan *terminate_chan = NULL;
 	struct mmc_request *mrq;
 
-	cancel_delayed_work_sync(&host->timeout_work);
+	cancel_delayed_work(&host->timeout_work);
 
 	mrq = host->mrq;
 
@@ -617,7 +628,7 @@ static void bcm2835_finish_request(struct bcm2835_host *host)
 				"failed to terminate DMA (%d)\n", err);
 	}
 
-	mmc_request_done(mmc_from_priv(host), mrq);
+	mmc_request_done(host->mmc, mrq);
 }
 
 static
@@ -836,7 +847,7 @@ static void bcm2835_timeout(struct work_struct *work)
 		dev_err(dev, "timeout waiting for hardware interrupt.\n");
 		bcm2835_dumpregs(host);
 
-		bcm2835_reset(mmc_from_priv(host));
+		bcm2835_reset(host->mmc);
 
 		if (host->data) {
 			host->data->error = -ETIMEDOUT;
@@ -1053,11 +1064,9 @@ static void bcm2835_dma_complete_work(struct work_struct *work)
 {
 	struct bcm2835_host *host =
 		container_of(work, struct bcm2835_host, dma_work);
-	struct mmc_data *data;
+	struct mmc_data *data = host->data;
 
 	mutex_lock(&host->mutex);
-
-	data = host->data;
 
 	if (host->dma_chan) {
 		dma_unmap_sg(host->dma_chan->device->dev,
@@ -1099,7 +1108,6 @@ static void bcm2835_dma_complete_work(struct work_struct *work)
 
 static void bcm2835_set_clock(struct bcm2835_host *host, unsigned int clock)
 {
-	struct mmc_host *mmc = mmc_from_priv(host);
 	int div;
 
 	/* The SDCDIV register has 11 bits, and holds (div - 2).  But
@@ -1143,18 +1151,18 @@ static void bcm2835_set_clock(struct bcm2835_host *host, unsigned int clock)
 		div = SDCDIV_MAX_CDIV;
 
 	clock = host->max_clk / (div + 2);
-	mmc->actual_clock = clock;
+	host->mmc->actual_clock = clock;
 
 	/* Calibrate some delays */
 
 	host->ns_per_fifo_word = (1000000000 / clock) *
-		((mmc->caps & MMC_CAP_4_BIT_DATA) ? 8 : 32);
+		((host->mmc->caps & MMC_CAP_4_BIT_DATA) ? 8 : 32);
 
 	host->cdiv = div;
 	writel(host->cdiv, host->ioaddr + SDCDIV);
 
 	/* Set the timeout to 500ms */
-	writel(mmc->actual_clock / 2, host->ioaddr + SDTOUT);
+	writel(host->mmc->actual_clock / 2, host->ioaddr + SDTOUT);
 }
 
 static void bcm2835_request(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -1184,6 +1192,9 @@ static void bcm2835_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		return;
 	}
 
+	if (host->use_dma && mrq->data && (mrq->data->blocks > PIO_THRESHOLD))
+		bcm2835_prepare_dma(host, mrq->data);
+
 	mutex_lock(&host->mutex);
 
 	WARN_ON(host->mrq);
@@ -1206,9 +1217,6 @@ static void bcm2835_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		mutex_unlock(&host->mutex);
 		return;
 	}
-
-	if (host->use_dma && mrq->data && (mrq->data->blocks > PIO_THRESHOLD))
-		bcm2835_prepare_dma(host, mrq->data);
 
 	host->use_sbc = !!mrq->sbc && host->mrq->data &&
 			(host->mrq->data->flags & MMC_DATA_READ);
@@ -1264,7 +1272,7 @@ static const struct mmc_host_ops bcm2835_ops = {
 
 static int bcm2835_add_host(struct bcm2835_host *host)
 {
-	struct mmc_host *mmc = mmc_from_priv(host);
+	struct mmc_host *mmc = host->mmc;
 	struct device *dev = &host->pdev->dev;
 	char pio_limit_string[20];
 	int ret;
@@ -1286,7 +1294,7 @@ static int bcm2835_add_host(struct bcm2835_host *host)
 	spin_lock_init(&host->lock);
 	mutex_init(&host->mutex);
 
-	if (!host->dma_chan_rxtx) {
+	if (IS_ERR_OR_NULL(host->dma_chan_rxtx)) {
 		dev_warn(dev, "unable to initialise DMA channel. Falling back to PIO\n");
 		host->use_dma = false;
 	} else {
@@ -1370,6 +1378,7 @@ static int bcm2835_probe(struct platform_device *pdev)
 
 	mmc->ops = &bcm2835_ops;
 	host = mmc_priv(mmc);
+	host->mmc = mmc;
 	host->pdev = pdev;
 	spin_lock_init(&host->lock);
 
@@ -1440,9 +1449,8 @@ err:
 static int bcm2835_remove(struct platform_device *pdev)
 {
 	struct bcm2835_host *host = platform_get_drvdata(pdev);
-	struct mmc_host *mmc = mmc_from_priv(host);
 
-	mmc_remove_host(mmc);
+	mmc_remove_host(host->mmc);
 
 	writel(SDVDD_POWER_OFF, host->ioaddr + SDVDD);
 
@@ -1451,10 +1459,8 @@ static int bcm2835_remove(struct platform_device *pdev)
 	cancel_work_sync(&host->dma_work);
 	cancel_delayed_work_sync(&host->timeout_work);
 
-	if (host->dma_chan_rxtx)
-		dma_release_channel(host->dma_chan_rxtx);
-
-	mmc_free_host(mmc);
+	mmc_free_host(host->mmc);
+	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }

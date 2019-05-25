@@ -9,6 +9,9 @@
  * 2 of the License, or (at your option) any later version.
  */
 
+#ifdef CONFIG_GENERIC_CSUM
+#include <asm-generic/checksum.h>
+#else
 #include <linux/bitops.h>
 #include <linux/in6.h>
 /*
@@ -214,5 +217,6 @@ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
 			const struct in6_addr *daddr,
 			__u32 len, __u8 proto, __wsum sum);
 
+#endif
 #endif /* __KERNEL__ */
 #endif

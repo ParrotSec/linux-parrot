@@ -422,7 +422,6 @@ static const struct intel_th_subdevice {
 	unsigned		nres;
 	unsigned		type;
 	unsigned		otype;
-	bool			mknode;
 	unsigned		scrpd;
 	int			id;
 } intel_th_subdevices[] = {
@@ -457,7 +456,6 @@ static const struct intel_th_subdevice {
 		.name	= "msc",
 		.id	= 0,
 		.type	= INTEL_TH_OUTPUT,
-		.mknode	= true,
 		.otype	= GTH_MSU,
 		.scrpd	= SCRPD_MEM_IS_PRIM_DEST | SCRPD_MSC0_IS_ENABLED,
 	},
@@ -478,7 +476,6 @@ static const struct intel_th_subdevice {
 		.name	= "msc",
 		.id	= 1,
 		.type	= INTEL_TH_OUTPUT,
-		.mknode	= true,
 		.otype	= GTH_MSU,
 		.scrpd	= SCRPD_MEM_IS_PRIM_DEST | SCRPD_MSC1_IS_ENABLED,
 	},
@@ -638,8 +635,7 @@ intel_th_subdevice_alloc(struct intel_th *th,
 	}
 
 	if (subdev->type == INTEL_TH_OUTPUT) {
-		if (subdev->mknode)
-			thdev->dev.devt = MKDEV(th->major, th->num_thdevs);
+		thdev->dev.devt = MKDEV(th->major, th->num_thdevs);
 		thdev->output.type = subdev->otype;
 		thdev->output.port = -1;
 		thdev->output.scratchpad = subdev->scrpd;

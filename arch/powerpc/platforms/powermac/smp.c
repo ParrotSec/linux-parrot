@@ -832,7 +832,8 @@ static int smp_core99_kick_cpu(int nr)
 	mdelay(1);
 
 	/* Restore our exception vector */
-	patch_instruction(vector, save_vector);
+	*vector = save_vector;
+	flush_icache_range((unsigned long) vector, (unsigned long) vector + 4);
 
 	local_irq_restore(flags);
 	if (ppc_md.progress) ppc_md.progress("smp_core99_kick_cpu done", 0x347);

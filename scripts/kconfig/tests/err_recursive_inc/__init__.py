@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: GPL-2.0
 """
 Detect recursive inclusion error.
 

@@ -1,5 +1,35 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-/* Copyright (C) 2018 Netronome Systems, Inc. */
+/*
+ * Copyright (C) 2018 Netronome Systems, Inc.
+ *
+ * This software is dual licensed under the GNU General License Version 2,
+ * June 1991 as shown in the file COPYING in the top-level directory of this
+ * source tree or the BSD 2-Clause License provided below.  You have the
+ * option to license this software under the complete terms of either license.
+ *
+ * The BSD 2-Clause License:
+ *
+ *     Redistribution and use in source and binary forms, with or
+ *     without modification, are permitted provided that the following
+ *     conditions are met:
+ *
+ *      1. Redistributions of source code must retain the above
+ *         copyright notice, this list of conditions and the following
+ *         disclaimer.
+ *
+ *      2. Redistributions in binary form must reproduce the above
+ *         copyright notice, this list of conditions and the following
+ *         disclaimer in the documentation and/or other materials
+ *         provided with the distribution.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 #include <linux/bitfield.h>
 #include <linux/device.h>
@@ -41,8 +71,8 @@ int nfp_net_tlv_caps_parse(struct device *dev, u8 __iomem *ctrl_mem,
 		data += 4;
 
 		if (length % NFP_NET_CFG_TLV_LENGTH_INC) {
-			dev_err(dev, "TLV size not multiple of %u offset:%u len:%u\n",
-				NFP_NET_CFG_TLV_LENGTH_INC, offset, length);
+			dev_err(dev, "TLV size not multiple of %u len:%u\n",
+				NFP_NET_CFG_TLV_LENGTH_INC, length);
 			return -EINVAL;
 		}
 		if (data + length > end) {
@@ -61,14 +91,14 @@ int nfp_net_tlv_caps_parse(struct device *dev, u8 __iomem *ctrl_mem,
 			if (!length)
 				return 0;
 
-			dev_err(dev, "END TLV should be empty, has offset:%u len:%d\n",
-				offset, length);
+			dev_err(dev, "END TLV should be empty, has len:%d\n",
+				length);
 			return -EINVAL;
 		case NFP_NET_CFG_TLV_TYPE_ME_FREQ:
 			if (length != 4) {
 				dev_err(dev,
-					"ME FREQ TLV should be 4B, is %dB offset:%u\n",
-					length, offset);
+					"ME FREQ TLV should be 4B, is %dB\n",
+					length);
 				return -EINVAL;
 			}
 
@@ -82,22 +112,6 @@ int nfp_net_tlv_caps_parse(struct device *dev, u8 __iomem *ctrl_mem,
 				caps->mbox_off = data - ctrl_mem;
 				caps->mbox_len = length;
 			}
-			break;
-		case NFP_NET_CFG_TLV_TYPE_EXPERIMENTAL0:
-		case NFP_NET_CFG_TLV_TYPE_EXPERIMENTAL1:
-			dev_warn(dev,
-				 "experimental TLV type:%u offset:%u len:%u\n",
-				 FIELD_GET(NFP_NET_CFG_TLV_HEADER_TYPE, hdr),
-				 offset, length);
-			break;
-		case NFP_NET_CFG_TLV_TYPE_REPR_CAP:
-			if (length < 4) {
-				dev_err(dev, "REPR CAP TLV short %dB < 4B offset:%u\n",
-					length, offset);
-				return -EINVAL;
-			}
-
-			caps->repr_cap = readl(data);
 			break;
 		default:
 			if (!FIELD_GET(NFP_NET_CFG_TLV_HEADER_REQUIRED, hdr))

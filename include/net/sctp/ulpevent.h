@@ -164,39 +164,30 @@ void sctp_ulpevent_read_nxtinfo(const struct sctp_ulpevent *event,
 
 __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event);
 
-static inline void sctp_ulpevent_type_set(__u16 *subscribe,
-					  __u16 sn_type, __u8 on)
-{
-	if (sn_type > SCTP_SN_TYPE_MAX)
-		return;
-
-	if (on)
-		*subscribe |=  (1 << (sn_type - SCTP_SN_TYPE_BASE));
-	else
-		*subscribe &= ~(1 << (sn_type - SCTP_SN_TYPE_BASE));
-}
-
 /* Is this event type enabled? */
-static inline bool sctp_ulpevent_type_enabled(__u16 subscribe, __u16 sn_type)
+static inline int sctp_ulpevent_type_enabled(__u16 sn_type,
+					     struct sctp_event_subscribe *mask)
 {
-	if (sn_type > SCTP_SN_TYPE_MAX)
-		return false;
+	int offset = sn_type - SCTP_SN_TYPE_BASE;
+	char *amask = (char *) mask;
 
-	return subscribe & (1 << (sn_type - SCTP_SN_TYPE_BASE));
+	if (offset >= sizeof(struct sctp_event_subscribe))
+		return 0;
+	return amask[offset];
 }
 
 /* Given an event subscription, is this event enabled? */
-static inline bool sctp_ulpevent_is_enabled(const struct sctp_ulpevent *event,
-					    __u16 subscribe)
+static inline int sctp_ulpevent_is_enabled(const struct sctp_ulpevent *event,
+					   struct sctp_event_subscribe *mask)
 {
 	__u16 sn_type;
+	int enabled = 1;
 
-	if (!sctp_ulpevent_is_notification(event))
-		return true;
-
-	sn_type = sctp_ulpevent_get_notification_type(event);
-
-	return sctp_ulpevent_type_enabled(subscribe, sn_type);
+	if (sctp_ulpevent_is_notification(event)) {
+		sn_type = sctp_ulpevent_get_notification_type(event);
+		enabled = sctp_ulpevent_type_enabled(sn_type, mask);
+	}
+	return enabled;
 }
 
 #endif /* __sctp_ulpevent_h__ */

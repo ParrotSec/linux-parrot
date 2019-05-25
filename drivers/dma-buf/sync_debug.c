@@ -147,7 +147,7 @@ static void sync_print_sync_file(struct seq_file *s,
 	}
 }
 
-static int sync_info_debugfs_show(struct seq_file *s, void *unused)
+static int sync_debugfs_show(struct seq_file *s, void *unused)
 {
 	struct list_head *pos;
 
@@ -178,7 +178,17 @@ static int sync_info_debugfs_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(sync_info_debugfs);
+static int sync_info_debugfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, sync_debugfs_show, inode->i_private);
+}
+
+static const struct file_operations sync_info_debugfs_fops = {
+	.open           = sync_info_debugfs_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
 
 static __init int sync_debugfs_init(void)
 {
@@ -208,7 +218,7 @@ void sync_dump(void)
 	};
 	int i;
 
-	sync_info_debugfs_show(&s, NULL);
+	sync_debugfs_show(&s, NULL);
 
 	for (i = 0; i < s.count; i += DUMP_CHUNK) {
 		if ((s.count - i) > DUMP_CHUNK) {

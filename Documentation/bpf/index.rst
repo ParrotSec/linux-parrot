@@ -15,13 +15,6 @@ that goes into great technical depth about the BPF Architecture.
 The primary info for the bpf syscall is available in the `man-pages`_
 for `bpf(2)`_.
 
-BPF Type Format (BTF)
-=====================
-
-.. toctree::
-   :maxdepth: 1
-
-   btf
 
 
 Frequently asked questions (FAQ)

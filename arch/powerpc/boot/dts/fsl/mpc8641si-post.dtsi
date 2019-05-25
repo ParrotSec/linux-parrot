@@ -97,7 +97,6 @@
 &pci0 {
 	compatible = "fsl,mpc8641-pcie";
 	device_type = "pci";
-	#interrupt-cells = <1>;
 	#size-cells = <2>;
 	#address-cells = <3>;
 	bus-range = <0x0 0xff>;
@@ -124,7 +123,6 @@
 &pci1 {
 	compatible = "fsl,mpc8641-pcie";
 	device_type = "pci";
-	#interrupt-cells = <1>;
 	#size-cells = <2>;
 	#address-cells = <3>;
 	bus-range = <0x0 0xff>;

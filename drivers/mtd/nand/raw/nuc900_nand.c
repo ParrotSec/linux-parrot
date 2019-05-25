@@ -79,31 +79,31 @@ static const struct mtd_partition partitions[] = {
 	}
 };
 
-static unsigned char nuc900_nand_read_byte(struct nand_chip *chip)
+static unsigned char nuc900_nand_read_byte(struct mtd_info *mtd)
 {
 	unsigned char ret;
-	struct nuc900_nand *nand = mtd_to_nuc900(nand_to_mtd(chip));
+	struct nuc900_nand *nand = mtd_to_nuc900(mtd);
 
 	ret = (unsigned char)read_data_reg(nand);
 
 	return ret;
 }
 
-static void nuc900_nand_read_buf(struct nand_chip *chip,
+static void nuc900_nand_read_buf(struct mtd_info *mtd,
 				 unsigned char *buf, int len)
 {
 	int i;
-	struct nuc900_nand *nand = mtd_to_nuc900(nand_to_mtd(chip));
+	struct nuc900_nand *nand = mtd_to_nuc900(mtd);
 
 	for (i = 0; i < len; i++)
 		buf[i] = (unsigned char)read_data_reg(nand);
 }
 
-static void nuc900_nand_write_buf(struct nand_chip *chip,
+static void nuc900_nand_write_buf(struct mtd_info *mtd,
 				  const unsigned char *buf, int len)
 {
 	int i;
-	struct nuc900_nand *nand = mtd_to_nuc900(nand_to_mtd(chip));
+	struct nuc900_nand *nand = mtd_to_nuc900(mtd);
 
 	for (i = 0; i < len; i++)
 		write_data_reg(nand, buf[i]);
@@ -120,20 +120,19 @@ static int nuc900_check_rb(struct nuc900_nand *nand)
 	return val;
 }
 
-static int nuc900_nand_devready(struct nand_chip *chip)
+static int nuc900_nand_devready(struct mtd_info *mtd)
 {
-	struct nuc900_nand *nand = mtd_to_nuc900(nand_to_mtd(chip));
+	struct nuc900_nand *nand = mtd_to_nuc900(mtd);
 	int ready;
 
 	ready = (nuc900_check_rb(nand)) ? 1 : 0;
 	return ready;
 }
 
-static void nuc900_nand_command_lp(struct nand_chip *chip,
-				   unsigned int command,
+static void nuc900_nand_command_lp(struct mtd_info *mtd, unsigned int command,
 				   int column, int page_addr)
 {
-	struct mtd_info *mtd = nand_to_mtd(chip);
+	register struct nand_chip *chip = mtd_to_nand(mtd);
 	struct nuc900_nand *nand = mtd_to_nuc900(mtd);
 
 	if (command == NAND_CMD_READOOB) {
@@ -175,9 +174,9 @@ static void nuc900_nand_command_lp(struct nand_chip *chip,
 		return;
 
 	case NAND_CMD_RESET:
-		if (chip->legacy.dev_ready)
+		if (chip->dev_ready)
 			break;
-		udelay(chip->legacy.chip_delay);
+		udelay(chip->chip_delay);
 
 		write_cmd_reg(nand, NAND_CMD_STATUS);
 		write_cmd_reg(nand, command);
@@ -196,8 +195,8 @@ static void nuc900_nand_command_lp(struct nand_chip *chip,
 		write_cmd_reg(nand, NAND_CMD_READSTART);
 	default:
 
-		if (!chip->legacy.dev_ready) {
-			udelay(chip->legacy.chip_delay);
+		if (!chip->dev_ready) {
+			udelay(chip->chip_delay);
 			return;
 		}
 	}
@@ -206,7 +205,7 @@ static void nuc900_nand_command_lp(struct nand_chip *chip,
 	 * any case on any machine. */
 	ndelay(100);
 
-	while (!chip->legacy.dev_ready(chip))
+	while (!chip->dev_ready(mtd))
 		;
 }
 
@@ -254,12 +253,12 @@ static int nuc900_nand_probe(struct platform_device *pdev)
 		return -ENOENT;
 	clk_enable(nuc900_nand->clk);
 
-	chip->legacy.cmdfunc	= nuc900_nand_command_lp;
-	chip->legacy.dev_ready	= nuc900_nand_devready;
-	chip->legacy.read_byte	= nuc900_nand_read_byte;
-	chip->legacy.write_buf	= nuc900_nand_write_buf;
-	chip->legacy.read_buf	= nuc900_nand_read_buf;
-	chip->legacy.chip_delay	= 50;
+	chip->cmdfunc		= nuc900_nand_command_lp;
+	chip->dev_ready		= nuc900_nand_devready;
+	chip->read_byte		= nuc900_nand_read_byte;
+	chip->write_buf		= nuc900_nand_write_buf;
+	chip->read_buf		= nuc900_nand_read_buf;
+	chip->chip_delay	= 50;
 	chip->options		= 0;
 	chip->ecc.mode		= NAND_ECC_SOFT;
 	chip->ecc.algo		= NAND_ECC_HAMMING;
@@ -271,7 +270,7 @@ static int nuc900_nand_probe(struct platform_device *pdev)
 
 	nuc900_nand_enable(nuc900_nand);
 
-	if (nand_scan(chip, 1))
+	if (nand_scan(mtd, 1))
 		return -ENXIO;
 
 	mtd_device_register(mtd, partitions, ARRAY_SIZE(partitions));
@@ -285,7 +284,7 @@ static int nuc900_nand_remove(struct platform_device *pdev)
 {
 	struct nuc900_nand *nuc900_nand = platform_get_drvdata(pdev);
 
-	nand_release(&nuc900_nand->chip);
+	nand_release(nand_to_mtd(&nuc900_nand->chip));
 	clk_disable(nuc900_nand->clk);
 
 	return 0;

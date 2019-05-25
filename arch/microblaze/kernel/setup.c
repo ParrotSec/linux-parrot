@@ -192,14 +192,23 @@ struct dentry *of_debugfs_root;
 static int microblaze_debugfs_init(void)
 {
 	of_debugfs_root = debugfs_create_dir("microblaze", NULL);
-	return 0;
+
+	return of_debugfs_root == NULL;
 }
 arch_initcall(microblaze_debugfs_init);
 
 # ifdef CONFIG_MMU
 static int __init debugfs_tlb(void)
 {
-	debugfs_create_u32("tlb_skip", S_IRUGO, of_debugfs_root, &tlb_skip);
+	struct dentry *d;
+
+	if (!of_debugfs_root)
+		return -ENODEV;
+
+	d = debugfs_create_u32("tlb_skip", S_IRUGO, of_debugfs_root, &tlb_skip);
+	if (!d)
+		return -ENOMEM;
+
 	return 0;
 }
 device_initcall(debugfs_tlb);

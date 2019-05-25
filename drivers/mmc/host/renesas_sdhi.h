@@ -1,9 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Renesas Mobile SDHI
  *
  * Copyright (C) 2017 Horms Solutions Ltd., Simon Horman
  * Copyright (C) 2017 Renesas Electronics Corporation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #ifndef RENESAS_SDHI_H
@@ -15,7 +18,6 @@
 struct renesas_sdhi_scc {
 	unsigned long clk_rate;	/* clock rate for SDR104 */
 	u32 tap;		/* sampling clock position for SDR104 */
-	u32 tap_hs400;		/* sampling clock position for HS400 */
 };
 
 struct renesas_sdhi_of_data {
@@ -50,7 +52,6 @@ struct renesas_sdhi {
 	struct pinctrl_state *pins_default, *pins_uhs;
 	void __iomem *scc_ctl;
 	u32 scc_tappos;
-	u32 scc_tappos_hs400;
 };
 
 #define host_to_priv(host) \

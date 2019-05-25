@@ -284,7 +284,7 @@ int pcmcia_fixup_iowidth(struct pcmcia_device *p_dev)
 		io_on.stop = s->io[i].res->end;
 
 		s->ops->set_io_map(s, &io_off);
-		msleep(40);
+		mdelay(40);
 		s->ops->set_io_map(s, &io_on);
 	}
 unlock:
@@ -567,7 +567,7 @@ int pcmcia_enable_device(struct pcmcia_device *p_dev)
 			!(flags & CONF_ENABLE_PULSE_IRQ))
 			option |= COR_LEVEL_REQ;
 		pcmcia_write_cis_mem(s, 1, (base + CISREG_COR)>>1, 1, &option);
-		msleep(40);
+		mdelay(40);
 	}
 	if (p_dev->config_regs & PRESENT_STATUS)
 		pcmcia_write_cis_mem(s, 1, (base + CISREG_CCSR)>>1, 1, &status);

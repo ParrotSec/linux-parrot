@@ -184,7 +184,7 @@ static void try_bulk_dequeue_skb(struct Qdisc *q,
 		skb = nskb;
 		(*packets)++; /* GSO counts as one pkt */
 	}
-	skb_mark_not_on_list(skb);
+	skb->next = NULL;
 }
 
 /* This variant of try_bulk_dequeue_skb() makes sure
@@ -210,7 +210,7 @@ static void try_bulk_dequeue_skb_slow(struct Qdisc *q,
 		skb = nskb;
 	} while (++cnt < 8);
 	(*packets) += cnt;
-	skb_mark_not_on_list(skb);
+	skb->next = NULL;
 }
 
 /* Note that dequeue_skb can possibly return a SKB list (via skb->next).
@@ -500,7 +500,7 @@ static void dev_watchdog_down(struct net_device *dev)
  *	netif_carrier_on - set carrier
  *	@dev: network device
  *
- * Device has detected acquisition of carrier.
+ * Device has detected that carrier.
  */
 void netif_carrier_on(struct net_device *dev)
 {
@@ -559,7 +559,7 @@ struct Qdisc_ops noop_qdisc_ops __read_mostly = {
 };
 
 static struct netdev_queue noop_netdev_queue = {
-	RCU_POINTER_INITIALIZER(qdisc, &noop_qdisc),
+	.qdisc		=	&noop_qdisc,
 	.qdisc_sleeping	=	&noop_qdisc,
 };
 
@@ -572,18 +572,6 @@ struct Qdisc noop_qdisc = {
 	.dev_queue	=	&noop_netdev_queue,
 	.running	=	SEQCNT_ZERO(noop_qdisc.running),
 	.busylock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.busylock),
-	.gso_skb = {
-		.next = (struct sk_buff *)&noop_qdisc.gso_skb,
-		.prev = (struct sk_buff *)&noop_qdisc.gso_skb,
-		.qlen = 0,
-		.lock = __SPIN_LOCK_UNLOCKED(noop_qdisc.gso_skb.lock),
-	},
-	.skb_bad_txq = {
-		.next = (struct sk_buff *)&noop_qdisc.skb_bad_txq,
-		.prev = (struct sk_buff *)&noop_qdisc.skb_bad_txq,
-		.qlen = 0,
-		.lock = __SPIN_LOCK_UNLOCKED(noop_qdisc.skb_bad_txq.lock),
-	},
 };
 EXPORT_SYMBOL(noop_qdisc);
 
@@ -912,7 +900,7 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
 	if (!ops->init || ops->init(sch, NULL, extack) == 0)
 		return sch;
 
-	qdisc_put(sch);
+	qdisc_destroy(sch);
 	return NULL;
 }
 EXPORT_SYMBOL(qdisc_create_dflt);
@@ -952,17 +940,14 @@ void qdisc_free(struct Qdisc *qdisc)
 	kfree((char *) qdisc - qdisc->padded);
 }
 
-static void qdisc_free_cb(struct rcu_head *head)
-{
-	struct Qdisc *q = container_of(head, struct Qdisc, rcu);
-
-	qdisc_free(q);
-}
-
-static void qdisc_destroy(struct Qdisc *qdisc)
+void qdisc_destroy(struct Qdisc *qdisc)
 {
 	const struct Qdisc_ops  *ops = qdisc->ops;
 	struct sk_buff *skb, *tmp;
+
+	if (qdisc->flags & TCQ_F_BUILTIN ||
+	    !refcount_dec_and_test(&qdisc->refcnt))
+		return;
 
 #ifdef CONFIG_NET_SCHED
 	qdisc_hash_del(qdisc);
@@ -988,34 +973,9 @@ static void qdisc_destroy(struct Qdisc *qdisc)
 		kfree_skb_list(skb);
 	}
 
-	call_rcu(&qdisc->rcu, qdisc_free_cb);
+	qdisc_free(qdisc);
 }
-
-void qdisc_put(struct Qdisc *qdisc)
-{
-	if (qdisc->flags & TCQ_F_BUILTIN ||
-	    !refcount_dec_and_test(&qdisc->refcnt))
-		return;
-
-	qdisc_destroy(qdisc);
-}
-EXPORT_SYMBOL(qdisc_put);
-
-/* Version of qdisc_put() that is called with rtnl mutex unlocked.
- * Intended to be used as optimization, this function only takes rtnl lock if
- * qdisc reference counter reached zero.
- */
-
-void qdisc_put_unlocked(struct Qdisc *qdisc)
-{
-	if (qdisc->flags & TCQ_F_BUILTIN ||
-	    !refcount_dec_and_rtnl_lock(&qdisc->refcnt))
-		return;
-
-	qdisc_destroy(qdisc);
-	rtnl_unlock();
-}
-EXPORT_SYMBOL(qdisc_put_unlocked);
+EXPORT_SYMBOL(qdisc_destroy);
 
 /* Attach toplevel qdisc to device queue. */
 struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
@@ -1284,6 +1244,8 @@ static void dev_init_scheduler_queue(struct net_device *dev,
 
 	rcu_assign_pointer(dev_queue->qdisc, qdisc);
 	dev_queue->qdisc_sleeping = qdisc;
+	__skb_queue_head_init(&qdisc->gso_skb);
+	__skb_queue_head_init(&qdisc->skb_bad_txq);
 }
 
 void dev_init_scheduler(struct net_device *dev)
@@ -1307,7 +1269,7 @@ static void shutdown_scheduler_queue(struct net_device *dev,
 		rcu_assign_pointer(dev_queue->qdisc, qdisc_default);
 		dev_queue->qdisc_sleeping = qdisc_default;
 
-		qdisc_put(qdisc);
+		qdisc_destroy(qdisc);
 	}
 }
 
@@ -1316,7 +1278,7 @@ void dev_shutdown(struct net_device *dev)
 	netdev_for_each_tx_queue(dev, shutdown_scheduler_queue, &noop_qdisc);
 	if (dev_ingress_queue(dev))
 		shutdown_scheduler_queue(dev, dev_ingress_queue(dev), &noop_qdisc);
-	qdisc_put(dev->qdisc);
+	qdisc_destroy(dev->qdisc);
 	dev->qdisc = &noop_qdisc;
 
 	WARN_ON(timer_pending(&dev->watchdog_timer));
@@ -1365,17 +1327,13 @@ static void mini_qdisc_rcu_func(struct rcu_head *head)
 void mini_qdisc_pair_swap(struct mini_Qdisc_pair *miniqp,
 			  struct tcf_proto *tp_head)
 {
-	/* Protected with chain0->filter_chain_lock.
-	 * Can't access chain directly because tp_head can be NULL.
-	 */
-	struct mini_Qdisc *miniq_old =
-		rcu_dereference_protected(*miniqp->p_miniq, 1);
+	struct mini_Qdisc *miniq_old = rtnl_dereference(*miniqp->p_miniq);
 	struct mini_Qdisc *miniq;
 
 	if (!tp_head) {
 		RCU_INIT_POINTER(*miniqp->p_miniq, NULL);
 		/* Wait for flying RCU callback before it is freed. */
-		rcu_barrier();
+		rcu_barrier_bh();
 		return;
 	}
 
@@ -1383,10 +1341,10 @@ void mini_qdisc_pair_swap(struct mini_Qdisc_pair *miniqp,
 		&miniqp->miniq1 : &miniqp->miniq2;
 
 	/* We need to make sure that readers won't see the miniq
-	 * we are about to modify. So wait until previous call_rcu callback
+	 * we are about to modify. So wait until previous call_rcu_bh callback
 	 * is done.
 	 */
-	rcu_barrier();
+	rcu_barrier_bh();
 	miniq->filter_list = tp_head;
 	rcu_assign_pointer(*miniqp->p_miniq, miniq);
 
@@ -1395,7 +1353,7 @@ void mini_qdisc_pair_swap(struct mini_Qdisc_pair *miniqp,
 		 * block potential new user of miniq_old until all readers
 		 * are not seeing it.
 		 */
-		call_rcu(&miniq_old->rcu, mini_qdisc_rcu_func);
+		call_rcu_bh(&miniq_old->rcu, mini_qdisc_rcu_func);
 }
 EXPORT_SYMBOL(mini_qdisc_pair_swap);
 

@@ -11,7 +11,7 @@
 #include <linux/mm.h>
 #include <linux/swap.h>
 #include <linux/module.h>
-#include <linux/memblock.h>
+#include <linux/bootmem.h>
 #ifdef CONFIG_BLK_DEV_RAM
 #include <linux/blkdev.h>
 #endif
@@ -38,11 +38,8 @@ void __init paging_init(void)
 	struct pglist_data *pgdat = NODE_DATA(0);
 	unsigned long zones_size[MAX_NR_ZONES] = {0, };
 
-	empty_zero_page      = (unsigned long) memblock_alloc(PAGE_SIZE,
-							      PAGE_SIZE);
-	if (!empty_zero_page)
-		panic("%s: Failed to allocate %lu bytes align=0x%lx\n",
-		      __func__, PAGE_SIZE, PAGE_SIZE);
+	empty_zero_page      = (unsigned long) alloc_bootmem_pages(PAGE_SIZE);
+	memset((void *)empty_zero_page, 0, PAGE_SIZE);
 
 	/*
 	 * Set up user data space
@@ -64,7 +61,7 @@ void __init mem_init(void)
 	high_memory = (void *)(memory_end & PAGE_MASK);
 
 	/* this will put all memory onto the freelists */
-	memblock_free_all();
+	free_all_bootmem();
 
 	mem_init_print_info(NULL);
 }

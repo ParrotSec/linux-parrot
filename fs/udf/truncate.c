@@ -199,7 +199,7 @@ static void udf_update_alloc_ext_desc(struct inode *inode,
  * for making file shorter. For making file longer, udf_extend_file() has to
  * be used.
  */
-int udf_truncate_extents(struct inode *inode)
+void udf_truncate_extents(struct inode *inode)
 {
 	struct extent_position epos;
 	struct kernel_lb_addr eloc, neloc = {};
@@ -224,7 +224,7 @@ int udf_truncate_extents(struct inode *inode)
 	if (etype == -1) {
 		/* We should extend the file? */
 		WARN_ON(byte_offset);
-		return 0;
+		return;
 	}
 	epos.offset -= adsize;
 	extent_trunc(inode, &epos, &eloc, etype, elen, byte_offset);
@@ -262,7 +262,7 @@ int udf_truncate_extents(struct inode *inode)
 					udf_get_lb_pblock(sb, &eloc, 0));
 			/* Error reading indirect block? */
 			if (!epos.bh)
-				return -EIO;
+				return;
 			if (elen)
 				indirect_ext_len =
 					(elen + sb->s_blocksize - 1) >>
@@ -286,5 +286,4 @@ int udf_truncate_extents(struct inode *inode)
 	iinfo->i_lenExtents = inode->i_size;
 
 	brelse(epos.bh);
-	return 0;
 }

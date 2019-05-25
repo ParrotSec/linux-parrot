@@ -223,10 +223,10 @@ static int cs4271_set_dai_fmt(struct snd_soc_dai *codec_dai,
 
 	switch (format & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
-		cs4271->master = false;
+		cs4271->master = 0;
 		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		cs4271->master = true;
+		cs4271->master = 1;
 		val |= CS4271_MODE1_MASTER;
 		break;
 	default:

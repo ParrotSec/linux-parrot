@@ -137,6 +137,7 @@
 
 &emmc {
 	cap-mmc-highspeed;
+	disable-wp;
 	non-removable;
 	status = "okay";
 };

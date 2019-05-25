@@ -145,8 +145,7 @@ static void show_ecr_verbose(struct pt_regs *regs)
 	} else if (vec == ECR_V_PROTV) {
 		if (cause_code == ECR_C_PROTV_INST_FETCH)
 			pr_cont("Execute from Non-exec Page\n");
-		else if (cause_code == ECR_C_PROTV_MISALIG_DATA &&
-		         IS_ENABLED(CONFIG_ISA_ARCOMPACT))
+		else if (cause_code == ECR_C_PROTV_MISALIG_DATA)
 			pr_cont("Misaligned r/w from 0x%08lx\n", address);
 		else
 			pr_cont("%s access not allowed on page\n",
@@ -162,8 +161,6 @@ static void show_ecr_verbose(struct pt_regs *regs)
 			pr_cont("Bus Error from Data Mem\n");
 		else
 			pr_cont("Bus Error, check PRM\n");
-	} else if (vec == ECR_V_MISALIGN) {
-		pr_cont("Misaligned r/w from 0x%08lx\n", address);
 #endif
 	} else if (vec == ECR_V_TRAP) {
 		if (regs->ecr_param == 5)
@@ -181,12 +178,6 @@ void show_regs(struct pt_regs *regs)
 {
 	struct task_struct *tsk = current;
 	struct callee_regs *cregs;
-
-	/*
-	 * generic code calls us with preemption disabled, but some calls
-	 * here could sleep, so re-enable to avoid lockdep splat
-	 */
-	preempt_enable();
 
 	print_task_path_n_nm(tsk);
 	show_regs_print_info(KERN_INFO);
@@ -230,8 +221,6 @@ void show_regs(struct pt_regs *regs)
 	cregs = (struct callee_regs *)current->thread.callee_reg;
 	if (cregs)
 		show_callee_regs(cregs);
-
-	preempt_disable();
 }
 
 void show_kernel_fault_diag(const char *str, struct pt_regs *regs,

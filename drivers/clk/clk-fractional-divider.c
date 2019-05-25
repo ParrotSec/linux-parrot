@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2014 Intel Corporation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
  * Adjustable fractional divider clock implementation.
  * Output rate = (m / n) * parent_rate.
@@ -36,11 +39,6 @@ static unsigned long clk_fd_recalc_rate(struct clk_hw *hw,
 
 	m = (val & fd->mmask) >> fd->mshift;
 	n = (val & fd->nmask) >> fd->nshift;
-
-	if (fd->flags & CLK_FRAC_DIVIDER_ZERO_BASED) {
-		m++;
-		n++;
-	}
 
 	if (!n || !m)
 		return parent_rate;
@@ -104,11 +102,6 @@ static int clk_fd_set_rate(struct clk_hw *hw, unsigned long rate,
 	rational_best_approximation(rate, parent_rate,
 			GENMASK(fd->mwidth - 1, 0), GENMASK(fd->nwidth - 1, 0),
 			&m, &n);
-
-	if (fd->flags & CLK_FRAC_DIVIDER_ZERO_BASED) {
-		m--;
-		n--;
-	}
 
 	if (fd->lock)
 		spin_lock_irqsave(fd->lock, flags);

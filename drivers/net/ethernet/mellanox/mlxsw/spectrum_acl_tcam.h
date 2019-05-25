@@ -17,9 +17,6 @@ struct mlxsw_sp_acl_tcam {
 	unsigned long *used_groups;  /* bit array */
 	unsigned int max_groups;
 	unsigned int max_group_size;
-	struct mutex lock; /* guards vregion list */
-	struct list_head vregion_list;
-	u32 vregion_rehash_intrvl;   /* ms */
 	unsigned long priv[0];
 	/* priv has to be always the last item */
 };
@@ -29,11 +26,6 @@ int mlxsw_sp_acl_tcam_init(struct mlxsw_sp *mlxsw_sp,
 			   struct mlxsw_sp_acl_tcam *tcam);
 void mlxsw_sp_acl_tcam_fini(struct mlxsw_sp *mlxsw_sp,
 			    struct mlxsw_sp_acl_tcam *tcam);
-u32 mlxsw_sp_acl_tcam_vregion_rehash_intrvl_get(struct mlxsw_sp *mlxsw_sp,
-						struct mlxsw_sp_acl_tcam *tcam);
-int mlxsw_sp_acl_tcam_vregion_rehash_intrvl_set(struct mlxsw_sp *mlxsw_sp,
-						struct mlxsw_sp_acl_tcam *tcam,
-						u32 val);
 int mlxsw_sp_acl_tcam_priority_get(struct mlxsw_sp *mlxsw_sp,
 				   struct mlxsw_sp_acl_rule_info *rulei,
 				   u32 *priority, bool fillup_priority);
@@ -51,13 +43,11 @@ struct mlxsw_sp_acl_profile_ops {
 			       struct mlxsw_sp_port *mlxsw_sp_port,
 			       bool ingress);
 	u16 (*ruleset_group_id)(void *ruleset_priv);
-	size_t rule_priv_size;
+	size_t (*rule_priv_size)(struct mlxsw_sp *mlxsw_sp);
 	int (*rule_add)(struct mlxsw_sp *mlxsw_sp,
 			void *ruleset_priv, void *rule_priv,
 			struct mlxsw_sp_acl_rule_info *rulei);
 	void (*rule_del)(struct mlxsw_sp *mlxsw_sp, void *rule_priv);
-	int (*rule_action_replace)(struct mlxsw_sp *mlxsw_sp, void *rule_priv,
-				   struct mlxsw_sp_acl_rule_info *rulei);
 	int (*rule_activity_get)(struct mlxsw_sp *mlxsw_sp, void *rule_priv,
 				 bool *activity);
 };
@@ -75,12 +65,11 @@ mlxsw_sp_acl_tcam_profile_ops(struct mlxsw_sp *mlxsw_sp,
 	(MLXSW_REG_PTCEX_FLEX_KEY_BLOCKS_LEN * BITS_PER_BYTE)
 
 struct mlxsw_sp_acl_tcam_group;
-struct mlxsw_sp_acl_tcam_vregion;
 
 struct mlxsw_sp_acl_tcam_region {
-	struct mlxsw_sp_acl_tcam_vregion *vregion;
-	struct mlxsw_sp_acl_tcam_group *group;
 	struct list_head list; /* Member of a TCAM group */
+	struct list_head chunk_list; /* List of chunks under this region */
+	struct mlxsw_sp_acl_tcam_group *group;
 	enum mlxsw_reg_ptar_key_type key_type;
 	u16 id; /* ACL ID and region ID - they are same */
 	char tcam_region_info[MLXSW_REG_PXXX_TCAM_REGION_INFO_LEN];
@@ -132,10 +121,6 @@ void mlxsw_sp_acl_ctcam_entry_del(struct mlxsw_sp *mlxsw_sp,
 				  struct mlxsw_sp_acl_ctcam_region *cregion,
 				  struct mlxsw_sp_acl_ctcam_chunk *cchunk,
 				  struct mlxsw_sp_acl_ctcam_entry *centry);
-int mlxsw_sp_acl_ctcam_entry_action_replace(struct mlxsw_sp *mlxsw_sp,
-					    struct mlxsw_sp_acl_ctcam_region *cregion,
-					    struct mlxsw_sp_acl_ctcam_entry *centry,
-					    struct mlxsw_sp_acl_rule_info *rulei);
 static inline unsigned int
 mlxsw_sp_acl_ctcam_entry_offset(struct mlxsw_sp_acl_ctcam_entry *centry)
 {
@@ -159,7 +144,6 @@ struct mlxsw_sp_acl_atcam {
 
 struct mlxsw_sp_acl_atcam_region {
 	struct rhashtable entries_ht; /* A-TCAM only */
-	struct list_head entries_list; /* A-TCAM only */
 	struct mlxsw_sp_acl_ctcam_region cregion;
 	const struct mlxsw_sp_acl_atcam_region_ops *ops;
 	struct mlxsw_sp_acl_tcam_region *region;
@@ -170,9 +154,7 @@ struct mlxsw_sp_acl_atcam_region {
 };
 
 struct mlxsw_sp_acl_atcam_entry_ht_key {
-	char full_enc_key[MLXSW_REG_PTCEX_FLEX_KEY_BLOCKS_LEN]; /* Encoded
-								 * key.
-								 */
+	char enc_key[MLXSW_REG_PTCEX_FLEX_KEY_BLOCKS_LEN]; /* Encoded key */
 	u8 erp_id;
 };
 
@@ -182,19 +164,10 @@ struct mlxsw_sp_acl_atcam_chunk {
 
 struct mlxsw_sp_acl_atcam_entry {
 	struct rhash_head ht_node;
-	struct list_head list; /* Member in entries_list */
 	struct mlxsw_sp_acl_atcam_entry_ht_key ht_key;
-	char enc_key[MLXSW_REG_PTCEX_FLEX_KEY_BLOCKS_LEN]; /* Encoded key,
-							    * minus delta bits.
-							    */
-	struct {
-		u16 start;
-		u8 mask;
-		u8 value;
-	} delta_info;
 	struct mlxsw_sp_acl_ctcam_entry centry;
 	struct mlxsw_sp_acl_atcam_lkey_id *lkey_id;
-	struct mlxsw_sp_acl_erp_mask *erp_mask;
+	struct mlxsw_sp_acl_erp *erp;
 };
 
 static inline struct mlxsw_sp_acl_atcam_region *
@@ -216,7 +189,6 @@ mlxsw_sp_acl_atcam_region_init(struct mlxsw_sp *mlxsw_sp,
 			       struct mlxsw_sp_acl_atcam *atcam,
 			       struct mlxsw_sp_acl_atcam_region *aregion,
 			       struct mlxsw_sp_acl_tcam_region *region,
-			       void *hints_priv,
 			       const struct mlxsw_sp_acl_ctcam_region_ops *ops);
 void mlxsw_sp_acl_atcam_region_fini(struct mlxsw_sp_acl_atcam_region *aregion);
 void mlxsw_sp_acl_atcam_chunk_init(struct mlxsw_sp_acl_atcam_region *aregion,
@@ -232,74 +204,25 @@ void mlxsw_sp_acl_atcam_entry_del(struct mlxsw_sp *mlxsw_sp,
 				  struct mlxsw_sp_acl_atcam_region *aregion,
 				  struct mlxsw_sp_acl_atcam_chunk *achunk,
 				  struct mlxsw_sp_acl_atcam_entry *aentry);
-int mlxsw_sp_acl_atcam_entry_action_replace(struct mlxsw_sp *mlxsw_sp,
-					    struct mlxsw_sp_acl_atcam_region *aregion,
-					    struct mlxsw_sp_acl_atcam_entry *aentry,
-					    struct mlxsw_sp_acl_rule_info *rulei);
 int mlxsw_sp_acl_atcam_init(struct mlxsw_sp *mlxsw_sp,
 			    struct mlxsw_sp_acl_atcam *atcam);
 void mlxsw_sp_acl_atcam_fini(struct mlxsw_sp *mlxsw_sp,
 			     struct mlxsw_sp_acl_atcam *atcam);
-void *
-mlxsw_sp_acl_atcam_rehash_hints_get(struct mlxsw_sp_acl_atcam_region *aregion);
-void mlxsw_sp_acl_atcam_rehash_hints_put(void *hints_priv);
 
-struct mlxsw_sp_acl_erp_delta;
+struct mlxsw_sp_acl_erp;
 
-u16 mlxsw_sp_acl_erp_delta_start(const struct mlxsw_sp_acl_erp_delta *delta);
-u8 mlxsw_sp_acl_erp_delta_mask(const struct mlxsw_sp_acl_erp_delta *delta);
-u8 mlxsw_sp_acl_erp_delta_value(const struct mlxsw_sp_acl_erp_delta *delta,
-				const char *enc_key);
-void mlxsw_sp_acl_erp_delta_clear(const struct mlxsw_sp_acl_erp_delta *delta,
-				  const char *enc_key);
-
-struct mlxsw_sp_acl_erp_mask;
-
-bool
-mlxsw_sp_acl_erp_mask_is_ctcam(const struct mlxsw_sp_acl_erp_mask *erp_mask);
-u8 mlxsw_sp_acl_erp_mask_erp_id(const struct mlxsw_sp_acl_erp_mask *erp_mask);
-const struct mlxsw_sp_acl_erp_delta *
-mlxsw_sp_acl_erp_delta(const struct mlxsw_sp_acl_erp_mask *erp_mask);
-struct mlxsw_sp_acl_erp_mask *
-mlxsw_sp_acl_erp_mask_get(struct mlxsw_sp_acl_atcam_region *aregion,
-			  const char *mask, bool ctcam);
-void mlxsw_sp_acl_erp_mask_put(struct mlxsw_sp_acl_atcam_region *aregion,
-			       struct mlxsw_sp_acl_erp_mask *erp_mask);
-int mlxsw_sp_acl_erp_bf_insert(struct mlxsw_sp *mlxsw_sp,
-			       struct mlxsw_sp_acl_atcam_region *aregion,
-			       struct mlxsw_sp_acl_erp_mask *erp_mask,
-			       struct mlxsw_sp_acl_atcam_entry *aentry);
-void mlxsw_sp_acl_erp_bf_remove(struct mlxsw_sp *mlxsw_sp,
-				struct mlxsw_sp_acl_atcam_region *aregion,
-				struct mlxsw_sp_acl_erp_mask *erp_mask,
-				struct mlxsw_sp_acl_atcam_entry *aentry);
-void *
-mlxsw_sp_acl_erp_rehash_hints_get(struct mlxsw_sp_acl_atcam_region *aregion);
-void mlxsw_sp_acl_erp_rehash_hints_put(void *hints_priv);
-int mlxsw_sp_acl_erp_region_init(struct mlxsw_sp_acl_atcam_region *aregion,
-				 void *hints_priv);
+bool mlxsw_sp_acl_erp_is_ctcam_erp(const struct mlxsw_sp_acl_erp *erp);
+u8 mlxsw_sp_acl_erp_id(const struct mlxsw_sp_acl_erp *erp);
+struct mlxsw_sp_acl_erp *
+mlxsw_sp_acl_erp_get(struct mlxsw_sp_acl_atcam_region *aregion,
+		     const char *mask, bool ctcam);
+void mlxsw_sp_acl_erp_put(struct mlxsw_sp_acl_atcam_region *aregion,
+			  struct mlxsw_sp_acl_erp *erp);
+int mlxsw_sp_acl_erp_region_init(struct mlxsw_sp_acl_atcam_region *aregion);
 void mlxsw_sp_acl_erp_region_fini(struct mlxsw_sp_acl_atcam_region *aregion);
 int mlxsw_sp_acl_erps_init(struct mlxsw_sp *mlxsw_sp,
 			   struct mlxsw_sp_acl_atcam *atcam);
 void mlxsw_sp_acl_erps_fini(struct mlxsw_sp *mlxsw_sp,
 			    struct mlxsw_sp_acl_atcam *atcam);
-
-struct mlxsw_sp_acl_bf;
-
-int
-mlxsw_sp_acl_bf_entry_add(struct mlxsw_sp *mlxsw_sp,
-			  struct mlxsw_sp_acl_bf *bf,
-			  struct mlxsw_sp_acl_atcam_region *aregion,
-			  unsigned int erp_bank,
-			  struct mlxsw_sp_acl_atcam_entry *aentry);
-void
-mlxsw_sp_acl_bf_entry_del(struct mlxsw_sp *mlxsw_sp,
-			  struct mlxsw_sp_acl_bf *bf,
-			  struct mlxsw_sp_acl_atcam_region *aregion,
-			  unsigned int erp_bank,
-			  struct mlxsw_sp_acl_atcam_entry *aentry);
-struct mlxsw_sp_acl_bf *
-mlxsw_sp_acl_bf_init(struct mlxsw_sp *mlxsw_sp, unsigned int num_erp_banks);
-void mlxsw_sp_acl_bf_fini(struct mlxsw_sp_acl_bf *bf);
 
 #endif

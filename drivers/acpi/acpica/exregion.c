@@ -3,7 +3,7 @@
  *
  * Module Name: exregion - ACPI default op_region (address space) handlers
  *
- * Copyright (C) 2000 - 2019, Intel Corp.
+ * Copyright (C) 2000 - 2018, Intel Corp.
  *
  *****************************************************************************/
 
@@ -311,7 +311,6 @@ acpi_ex_system_io_space_handler(u32 function,
 	return_ACPI_STATUS(status);
 }
 
-#ifdef ACPI_PCI_CONFIGURED
 /*******************************************************************************
  *
  * FUNCTION:    acpi_ex_pci_config_space_handler
@@ -388,7 +387,6 @@ acpi_ex_pci_config_space_handler(u32 function,
 
 	return_ACPI_STATUS(status);
 }
-#endif
 
 /*******************************************************************************
  *
@@ -422,7 +420,6 @@ acpi_ex_cmos_space_handler(u32 function,
 	return_ACPI_STATUS(status);
 }
 
-#ifdef ACPI_PCI_CONFIGURED
 /*******************************************************************************
  *
  * FUNCTION:    acpi_ex_pci_bar_space_handler
@@ -454,7 +451,6 @@ acpi_ex_pci_bar_space_handler(u32 function,
 
 	return_ACPI_STATUS(status);
 }
-#endif
 
 /*******************************************************************************
  *

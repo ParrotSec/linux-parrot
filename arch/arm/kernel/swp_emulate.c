@@ -98,20 +98,22 @@ static int proc_status_show(struct seq_file *m, void *v)
  */
 static void set_segfault(struct pt_regs *regs, unsigned long addr)
 {
-	int si_code;
+	siginfo_t info;
 
+	clear_siginfo(&info);
 	down_read(&current->mm->mmap_sem);
 	if (find_vma(current->mm, addr) == NULL)
-		si_code = SEGV_MAPERR;
+		info.si_code = SEGV_MAPERR;
 	else
-		si_code = SEGV_ACCERR;
+		info.si_code = SEGV_ACCERR;
 	up_read(&current->mm->mmap_sem);
 
+	info.si_signo = SIGSEGV;
+	info.si_errno = 0;
+	info.si_addr  = (void *) instruction_pointer(regs);
+
 	pr_debug("SWP{B} emulation: access caused memory abort!\n");
-	arm_notify_die("Illegal memory access", regs,
-		       SIGSEGV, si_code,
-		       (void __user *)instruction_pointer(regs),
-		       0, 0);
+	arm_notify_die("Illegal memory access", regs, &info, 0, 0);
 
 	abtcounter++;
 }
@@ -198,7 +200,7 @@ static int swp_handler(struct pt_regs *regs, unsigned int instr)
 		 destreg, EXTRACT_REG_NUM(instr, RT2_OFFSET), data);
 
 	/* Check access in reasonable access range for both SWP and SWPB */
-	if (!access_ok((address & ~3), 4)) {
+	if (!access_ok(VERIFY_WRITE, (address & ~3), 4)) {
 		pr_debug("SWP{B} emulation: access to %p not allowed!\n",
 			 (void *)address);
 		res = -EFAULT;

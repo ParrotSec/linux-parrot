@@ -437,7 +437,6 @@ static void pcie_pme_remove(struct pcie_device *srv)
 
 	pcie_pme_disable_interrupt(srv->port, data);
 	free_irq(srv->irq, srv);
-	cancel_work_sync(&data->work);
 	kfree(data);
 }
 
@@ -455,7 +454,8 @@ static struct pcie_port_service_driver pcie_pme_driver = {
 /**
  * pcie_pme_service_init - Register the PCIe PME service driver.
  */
-int __init pcie_pme_init(void)
+static int __init pcie_pme_service_init(void)
 {
 	return pcie_port_service_register(&pcie_pme_driver);
 }
+device_initcall(pcie_pme_service_init);

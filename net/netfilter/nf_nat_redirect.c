@@ -52,11 +52,13 @@ nf_nat_redirect_ipv4(struct sk_buff *skb,
 
 		newdst = 0;
 
+		rcu_read_lock();
 		indev = __in_dev_get_rcu(skb->dev);
 		if (indev && indev->ifa_list) {
 			ifa = indev->ifa_list;
 			newdst = ifa->ifa_local;
 		}
+		rcu_read_unlock();
 
 		if (!newdst)
 			return NF_DROP;
@@ -95,6 +97,7 @@ nf_nat_redirect_ipv6(struct sk_buff *skb, const struct nf_nat_range2 *range,
 		struct inet6_ifaddr *ifa;
 		bool addr = false;
 
+		rcu_read_lock();
 		idev = __in6_dev_get(skb->dev);
 		if (idev != NULL) {
 			read_lock_bh(&idev->lock);
@@ -105,6 +108,7 @@ nf_nat_redirect_ipv6(struct sk_buff *skb, const struct nf_nat_range2 *range,
 			}
 			read_unlock_bh(&idev->lock);
 		}
+		rcu_read_unlock();
 
 		if (!addr)
 			return NF_DROP;

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
 #include "unwind.h"
-#include "map.h"
 #include "thread.h"
 #include "session.h"
 #include "debug.h"

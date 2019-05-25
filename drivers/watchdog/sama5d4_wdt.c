@@ -247,7 +247,11 @@ static int sama5d4_wdt_probe(struct platform_device *pdev)
 		}
 	}
 
-	watchdog_init_timeout(wdd, wdt_timeout, &pdev->dev);
+	ret = watchdog_init_timeout(wdd, wdt_timeout, &pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to set timeout value\n");
+		return ret;
+	}
 
 	timeout = WDT_SEC2TICKS(wdd->timeout);
 

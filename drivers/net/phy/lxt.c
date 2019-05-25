@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * drivers/net/phy/lxt.c
  *
@@ -7,6 +6,12 @@
  * Author: Andy Fleming
  *
  * Copyright (c) 2004 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
  */
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -172,7 +177,7 @@ static int lxt973a2_read_status(struct phy_device *phydev)
 			*/
 		} while (lpa == adv && retry--);
 
-		mii_lpa_to_linkmode_lpa_t(phydev->lp_advertising, lpa);
+		phydev->lp_advertising = mii_lpa_to_ethtool_lpa_t(lpa);
 
 		lpa &= adv;
 
@@ -213,7 +218,7 @@ static int lxt973a2_read_status(struct phy_device *phydev)
 			phydev->speed = SPEED_10;
 
 		phydev->pause = phydev->asym_pause = 0;
-		linkmode_zero(phydev->lp_advertising);
+		phydev->lp_advertising = 0;
 	}
 
 	return 0;
@@ -252,6 +257,7 @@ static struct phy_driver lxt97x_driver[] = {
 	.name		= "LXT970",
 	.phy_id_mask	= 0xfffffff0,
 	.features	= PHY_BASIC_FEATURES,
+	.flags		= PHY_HAS_INTERRUPT,
 	.config_init	= lxt970_config_init,
 	.ack_interrupt	= lxt970_ack_interrupt,
 	.config_intr	= lxt970_config_intr,
@@ -260,6 +266,7 @@ static struct phy_driver lxt97x_driver[] = {
 	.name		= "LXT971",
 	.phy_id_mask	= 0xfffffff0,
 	.features	= PHY_BASIC_FEATURES,
+	.flags		= PHY_HAS_INTERRUPT,
 	.ack_interrupt	= lxt971_ack_interrupt,
 	.config_intr	= lxt971_config_intr,
 }, {

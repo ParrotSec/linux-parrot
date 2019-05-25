@@ -82,6 +82,13 @@ int crypto_shash_setkey(struct crypto_shash *tfm, const u8 *key,
 }
 EXPORT_SYMBOL_GPL(crypto_shash_setkey);
 
+static inline unsigned int shash_align_buffer_size(unsigned len,
+						   unsigned long mask)
+{
+	typedef u8 __aligned_largest u8_aligned;
+	return len + (mask & ~(__alignof__(u8_aligned) - 1));
+}
+
 static int shash_update_unaligned(struct shash_desc *desc, const u8 *data,
 				  unsigned int len)
 {
@@ -90,16 +97,10 @@ static int shash_update_unaligned(struct shash_desc *desc, const u8 *data,
 	unsigned long alignmask = crypto_shash_alignmask(tfm);
 	unsigned int unaligned_len = alignmask + 1 -
 				     ((unsigned long)data & alignmask);
-	/*
-	 * We cannot count on __aligned() working for large values:
-	 * https://patchwork.kernel.org/patch/9507697/
-	 */
-	u8 ubuf[MAX_ALGAPI_ALIGNMASK * 2];
+	u8 ubuf[shash_align_buffer_size(unaligned_len, alignmask)]
+		__aligned_largest;
 	u8 *buf = PTR_ALIGN(&ubuf[0], alignmask + 1);
 	int err;
-
-	if (WARN_ON(buf + unaligned_len > ubuf + sizeof(ubuf)))
-		return -EINVAL;
 
 	if (unaligned_len > len)
 		unaligned_len = len;
@@ -132,16 +133,10 @@ static int shash_final_unaligned(struct shash_desc *desc, u8 *out)
 	unsigned long alignmask = crypto_shash_alignmask(tfm);
 	struct shash_alg *shash = crypto_shash_alg(tfm);
 	unsigned int ds = crypto_shash_digestsize(tfm);
-	/*
-	 * We cannot count on __aligned() working for large values:
-	 * https://patchwork.kernel.org/patch/9507697/
-	 */
-	u8 ubuf[MAX_ALGAPI_ALIGNMASK + HASH_MAX_DIGESTSIZE];
+	u8 ubuf[shash_align_buffer_size(ds, alignmask)]
+		__aligned_largest;
 	u8 *buf = PTR_ALIGN(&ubuf[0], alignmask + 1);
 	int err;
-
-	if (WARN_ON(buf + ds > ubuf + sizeof(ubuf)))
-		return -EINVAL;
 
 	err = shash->final(desc, buf);
 	if (err)
@@ -388,8 +383,10 @@ int crypto_init_shash_ops_async(struct crypto_tfm *tfm)
 	crypto_ahash_set_flags(crt, crypto_shash_get_flags(shash) &
 				    CRYPTO_TFM_NEED_KEY);
 
-	crt->export = shash_async_export;
-	crt->import = shash_async_import;
+	if (alg->export)
+		crt->export = shash_async_export;
+	if (alg->import)
+		crt->import = shash_async_import;
 
 	crt->reqsize = sizeof(struct shash_desc) + crypto_shash_descsize(shash);
 
@@ -414,14 +411,18 @@ static int crypto_shash_report(struct sk_buff *skb, struct crypto_alg *alg)
 	struct crypto_report_hash rhash;
 	struct shash_alg *salg = __crypto_shash_alg(alg);
 
-	memset(&rhash, 0, sizeof(rhash));
-
-	strscpy(rhash.type, "shash", sizeof(rhash.type));
+	strncpy(rhash.type, "shash", sizeof(rhash.type));
 
 	rhash.blocksize = alg->cra_blocksize;
 	rhash.digestsize = salg->digestsize;
 
-	return nla_put(skb, CRYPTOCFGA_REPORT_HASH, sizeof(rhash), &rhash);
+	if (nla_put(skb, CRYPTOCFGA_REPORT_HASH,
+		    sizeof(struct crypto_report_hash), &rhash))
+		goto nla_put_failure;
+	return 0;
+
+nla_put_failure:
+	return -EMSGSIZE;
 }
 #else
 static int crypto_shash_report(struct sk_buff *skb, struct crypto_alg *alg)
@@ -465,12 +466,9 @@ static int shash_prepare_alg(struct shash_alg *alg)
 {
 	struct crypto_alg *base = &alg->base;
 
-	if (alg->digestsize > HASH_MAX_DIGESTSIZE ||
-	    alg->descsize > HASH_MAX_DESCSIZE ||
-	    alg->statesize > HASH_MAX_STATESIZE)
-		return -EINVAL;
-
-	if ((alg->export && !alg->import) || (alg->import && !alg->export))
+	if (alg->digestsize > PAGE_SIZE / 8 ||
+	    alg->descsize > PAGE_SIZE / 8 ||
+	    alg->statesize > PAGE_SIZE / 8)
 		return -EINVAL;
 
 	base->cra_type = &crypto_shash_type;

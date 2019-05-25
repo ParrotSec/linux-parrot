@@ -32,8 +32,6 @@ struct reset_control *devm_reset_control_array_get(struct device *dev,
 struct reset_control *of_reset_control_array_get(struct device_node *np,
 						 bool shared, bool optional);
 
-int reset_control_get_count(struct device *dev);
-
 #else
 
 static inline int reset_control_reset(struct reset_control *rstc)
@@ -99,11 +97,6 @@ of_reset_control_array_get(struct device_node *np, bool shared, bool optional)
 	return optional ? NULL : ERR_PTR(-ENOTSUPP);
 }
 
-static inline int reset_control_get_count(struct device *dev)
-{
-	return -ENOENT;
-}
-
 #endif /* CONFIG_RESET_CONTROLLER */
 
 static inline int __must_check device_reset(struct device *dev)
@@ -123,7 +116,7 @@ static inline int device_reset_optional(struct device *dev)
  * @id: reset line name
  *
  * Returns a struct reset_control or IS_ERR() condition containing errno.
- * If this function is called more than once for the same reset_control it will
+ * If this function is called more then once for the same reset_control it will
  * return -EBUSY.
  *
  * See reset_control_get_shared for details on shared references to
@@ -145,7 +138,7 @@ __must_check reset_control_get_exclusive(struct device *dev, const char *id)
  *
  * Returns a struct reset_control or IS_ERR() condition containing errno.
  * This function is intended for use with reset-controls which are shared
- * between hardware blocks.
+ * between hardware-blocks.
  *
  * When a reset-control is shared, the behavior of reset_control_assert /
  * deassert is changed, the reset-core will keep track of a deassert_count
@@ -194,7 +187,7 @@ static inline struct reset_control *of_reset_control_get_exclusive(
 }
 
 /**
- * of_reset_control_get_shared - Lookup and obtain a shared reference
+ * of_reset_control_get_shared - Lookup and obtain an shared reference
  *                               to a reset controller.
  * @node: device to be reset by the controller
  * @id: reset line name
@@ -236,7 +229,7 @@ static inline struct reset_control *of_reset_control_get_exclusive_by_index(
 }
 
 /**
- * of_reset_control_get_shared_by_index - Lookup and obtain a shared
+ * of_reset_control_get_shared_by_index - Lookup and obtain an shared
  *                                        reference to a reset controller
  *                                        by index.
  * @node: device to be reset by the controller
@@ -329,7 +322,7 @@ devm_reset_control_get_exclusive_by_index(struct device *dev, int index)
 
 /**
  * devm_reset_control_get_shared_by_index - resource managed
- *                                          reset_control_get_shared
+ * reset_control_get_shared
  * @dev: device to be reset by the controller
  * @index: index of the reset controller
  *

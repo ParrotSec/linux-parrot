@@ -18,7 +18,6 @@
 #ifndef _ASM_RISCV_SYSCALL_H
 #define _ASM_RISCV_SYSCALL_H
 
-#include <uapi/linux/audit.h>
 #include <linux/sched.h>
 #include <linux/err.h>
 
@@ -72,29 +71,34 @@ static inline void syscall_set_return_value(struct task_struct *task,
 
 static inline void syscall_get_arguments(struct task_struct *task,
 					 struct pt_regs *regs,
+					 unsigned int i, unsigned int n,
 					 unsigned long *args)
 {
-	args[0] = regs->orig_a0;
-	args++;
-	memcpy(args, &regs->a1, 5 * sizeof(args[0]));
+	BUG_ON(i + n > 6);
+	if (i == 0) {
+		args[0] = regs->orig_a0;
+		args++;
+		n--;
+	} else {
+		i--;
+	}
+	memcpy(args, &regs->a1 + i, n * sizeof(args[0]));
 }
 
 static inline void syscall_set_arguments(struct task_struct *task,
 					 struct pt_regs *regs,
+					 unsigned int i, unsigned int n,
 					 const unsigned long *args)
 {
-	regs->orig_a0 = args[0];
-	args++;
-	memcpy(&regs->a1, args, 5 * sizeof(regs->a1));
-}
-
-static inline int syscall_get_arch(void)
-{
-#ifdef CONFIG_64BIT
-	return AUDIT_ARCH_RISCV64;
-#else
-	return AUDIT_ARCH_RISCV32;
-#endif
+	BUG_ON(i + n > 6);
+        if (i == 0) {
+                regs->orig_a0 = args[0];
+                args++;
+                n--;
+	} else {
+		i--;
+	}
+	memcpy(&regs->a1 + i, args, n * sizeof(regs->a1));
 }
 
 #endif	/* _ASM_RISCV_SYSCALL_H */

@@ -47,8 +47,8 @@ int brcmf_proto_attach(struct brcmf_pub *drvr)
 		if (brcmf_proto_msgbuf_attach(drvr))
 			goto fail;
 	} else {
-		bphy_err(drvr, "Unsupported proto type %d\n",
-			 drvr->bus_if->proto_type);
+		brcmf_err("Unsupported proto type %d\n",
+			  drvr->bus_if->proto_type);
 		goto fail;
 	}
 	if (!proto->tx_queue_data || (proto->hdrpull == NULL) ||
@@ -56,7 +56,7 @@ int brcmf_proto_attach(struct brcmf_pub *drvr)
 	    (proto->configure_addr_mode == NULL) ||
 	    (proto->delete_peer == NULL) || (proto->add_tdls_peer == NULL) ||
 	    (proto->debugfs_create == NULL)) {
-		bphy_err(drvr, "Not all proto handlers have been installed\n");
+		brcmf_err("Not all proto handlers have been installed\n");
 		goto fail;
 	}
 	return 0;

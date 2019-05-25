@@ -14,7 +14,7 @@
 void __vwarning(const char *fmt, va_list ap)
 {
 	if (errno)
-		perror("libtraceevent");
+		perror("trace-cmd");
 	errno = 0;
 
 	fprintf(stderr, "  ");

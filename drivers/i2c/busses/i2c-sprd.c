@@ -86,6 +86,7 @@ struct sprd_i2c {
 	u32 count;
 	int irq;
 	int err;
+	bool is_suspended;
 };
 
 static void sprd_i2c_set_count(struct sprd_i2c *i2c_dev, u32 count)
@@ -282,6 +283,9 @@ static int sprd_i2c_master_xfer(struct i2c_adapter *i2c_adap,
 {
 	struct sprd_i2c *i2c_dev = i2c_adap->algo_data;
 	int im, ret;
+
+	if (i2c_dev->is_suspended)
+		return -EBUSY;
 
 	ret = pm_runtime_get_sync(i2c_dev->dev);
 	if (ret < 0)
@@ -582,34 +586,40 @@ static int sprd_i2c_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int __maybe_unused sprd_i2c_suspend_noirq(struct device *dev)
+static int __maybe_unused sprd_i2c_suspend_noirq(struct device *pdev)
 {
-	struct sprd_i2c *i2c_dev = dev_get_drvdata(dev);
+	struct sprd_i2c *i2c_dev = dev_get_drvdata(pdev);
 
-	i2c_mark_adapter_suspended(&i2c_dev->adap);
-	return pm_runtime_force_suspend(dev);
+	i2c_lock_bus(&i2c_dev->adap, I2C_LOCK_ROOT_ADAPTER);
+	i2c_dev->is_suspended = true;
+	i2c_unlock_bus(&i2c_dev->adap, I2C_LOCK_ROOT_ADAPTER);
+
+	return pm_runtime_force_suspend(pdev);
 }
 
-static int __maybe_unused sprd_i2c_resume_noirq(struct device *dev)
+static int __maybe_unused sprd_i2c_resume_noirq(struct device *pdev)
 {
-	struct sprd_i2c *i2c_dev = dev_get_drvdata(dev);
+	struct sprd_i2c *i2c_dev = dev_get_drvdata(pdev);
 
-	i2c_mark_adapter_resumed(&i2c_dev->adap);
-	return pm_runtime_force_resume(dev);
+	i2c_lock_bus(&i2c_dev->adap, I2C_LOCK_ROOT_ADAPTER);
+	i2c_dev->is_suspended = false;
+	i2c_unlock_bus(&i2c_dev->adap, I2C_LOCK_ROOT_ADAPTER);
+
+	return pm_runtime_force_resume(pdev);
 }
 
-static int __maybe_unused sprd_i2c_runtime_suspend(struct device *dev)
+static int __maybe_unused sprd_i2c_runtime_suspend(struct device *pdev)
 {
-	struct sprd_i2c *i2c_dev = dev_get_drvdata(dev);
+	struct sprd_i2c *i2c_dev = dev_get_drvdata(pdev);
 
 	clk_disable_unprepare(i2c_dev->clk);
 
 	return 0;
 }
 
-static int __maybe_unused sprd_i2c_runtime_resume(struct device *dev)
+static int __maybe_unused sprd_i2c_runtime_resume(struct device *pdev)
 {
-	struct sprd_i2c *i2c_dev = dev_get_drvdata(dev);
+	struct sprd_i2c *i2c_dev = dev_get_drvdata(pdev);
 	int ret;
 
 	ret = clk_prepare_enable(i2c_dev->clk);

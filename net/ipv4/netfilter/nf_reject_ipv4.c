@@ -102,7 +102,6 @@ EXPORT_SYMBOL_GPL(nf_reject_ip_tcphdr_put);
 /* Send RST reply */
 void nf_send_reset(struct net *net, struct sk_buff *oldskb, int hook)
 {
-	struct net_device *br_indev __maybe_unused;
 	struct sk_buff *nskb;
 	struct iphdr *niph;
 	const struct tcphdr *oth;
@@ -148,11 +147,10 @@ void nf_send_reset(struct net *net, struct sk_buff *oldskb, int hook)
 	 * build the eth header using the original destination's MAC as the
 	 * source, and send the RST packet directly.
 	 */
-	br_indev = nf_bridge_get_physindev(oldskb);
-	if (br_indev) {
+	if (oldskb->nf_bridge) {
 		struct ethhdr *oeth = eth_hdr(oldskb);
 
-		nskb->dev = br_indev;
+		nskb->dev = nf_bridge_get_physindev(oldskb);
 		niph->tot_len = htons(nskb->len);
 		ip_send_check(niph);
 		if (dev_hard_header(nskb, nskb->dev, ntohs(nskb->protocol),
@@ -173,15 +171,20 @@ EXPORT_SYMBOL_GPL(nf_send_reset);
 void nf_send_unreach(struct sk_buff *skb_in, int code, int hook)
 {
 	struct iphdr *iph = ip_hdr(skb_in);
-	u8 proto = iph->protocol;
+	u8 proto;
 
 	if (iph->frag_off & htons(IP_OFFSET))
 		return;
 
-	if (skb_csum_unnecessary(skb_in) || !nf_reject_verify_csum(proto)) {
+	if (skb_csum_unnecessary(skb_in)) {
 		icmp_send(skb_in, ICMP_DEST_UNREACH, code, 0);
 		return;
 	}
+
+	if (iph->protocol == IPPROTO_TCP || iph->protocol == IPPROTO_UDP)
+		proto = iph->protocol;
+	else
+		proto = 0;
 
 	if (nf_ip_checksum(skb_in, hook, ip_hdrlen(skb_in), proto) == 0)
 		icmp_send(skb_in, ICMP_DEST_UNREACH, code, 0);

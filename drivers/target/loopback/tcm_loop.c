@@ -128,6 +128,14 @@ static void tcm_loop_submission_work(struct work_struct *work)
 		set_host_byte(sc, DID_ERROR);
 		goto out_done;
 	}
+	if (scsi_bidi_cmnd(sc)) {
+		struct scsi_data_buffer *sdb = scsi_in(sc);
+
+		sgl_bidi = sdb->table.sgl;
+		sgl_bidi_count = sdb->table.nents;
+		se_cmd->se_cmd_flags |= SCF_BIDI;
+
+	}
 
 	transfer_length = scsi_transfer_length(sc);
 	if (!scsi_prot_sg_count(sc) &&
@@ -296,6 +304,12 @@ static int tcm_loop_target_reset(struct scsi_cmnd *sc)
 	return FAILED;
 }
 
+static int tcm_loop_slave_alloc(struct scsi_device *sd)
+{
+	blk_queue_flag_set(QUEUE_FLAG_BIDI, sd->request_queue);
+	return 0;
+}
+
 static struct scsi_host_template tcm_loop_driver_template = {
 	.show_info		= tcm_loop_show_info,
 	.proc_name		= "tcm_loopback",
@@ -310,7 +324,8 @@ static struct scsi_host_template tcm_loop_driver_template = {
 	.sg_tablesize		= 256,
 	.cmd_per_lun		= 1024,
 	.max_sectors		= 0xFFFF,
-	.dma_boundary		= PAGE_SIZE - 1,
+	.use_clustering		= DISABLE_CLUSTERING,
+	.slave_alloc		= tcm_loop_slave_alloc,
 	.module			= THIS_MODULE,
 	.track_queue_depth	= 1,
 };
@@ -445,6 +460,11 @@ static void tcm_loop_release_core_bus(void)
 	pr_debug("Releasing TCM Loop Core BUS\n");
 }
 
+static char *tcm_loop_get_fabric_name(void)
+{
+	return "loopback";
+}
+
 static inline struct tcm_loop_tpg *tl_tpg(struct se_portal_group *se_tpg)
 {
 	return container_of(se_tpg, struct tcm_loop_tpg, tl_se_tpg);
@@ -542,6 +562,11 @@ static int tcm_loop_write_pending(struct se_cmd *se_cmd)
 	 * object execution queue.
 	 */
 	target_execute_cmd(se_cmd);
+	return 0;
+}
+
+static int tcm_loop_write_pending_status(struct se_cmd *se_cmd)
+{
 	return 0;
 }
 
@@ -1124,7 +1149,8 @@ static struct configfs_attribute *tcm_loop_wwn_attrs[] = {
 
 static const struct target_core_fabric_ops loop_ops = {
 	.module				= THIS_MODULE,
-	.fabric_name			= "loopback",
+	.name				= "loopback",
+	.get_fabric_name		= tcm_loop_get_fabric_name,
 	.tpg_get_wwn			= tcm_loop_get_endpoint_wwn,
 	.tpg_get_tag			= tcm_loop_get_tag,
 	.tpg_check_demo_mode		= tcm_loop_check_demo_mode,
@@ -1139,6 +1165,7 @@ static const struct target_core_fabric_ops loop_ops = {
 	.release_cmd			= tcm_loop_release_cmd,
 	.sess_get_index			= tcm_loop_sess_get_index,
 	.write_pending			= tcm_loop_write_pending,
+	.write_pending_status		= tcm_loop_write_pending_status,
 	.set_default_node_attributes	= tcm_loop_set_default_node_attributes,
 	.get_cmd_state			= tcm_loop_get_cmd_state,
 	.queue_data_in			= tcm_loop_queue_data_in,

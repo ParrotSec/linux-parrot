@@ -664,11 +664,11 @@ static int jpu_querycap(struct file *file, void *priv,
 	struct jpu_ctx *ctx = fh_to_ctx(priv);
 
 	if (ctx->encoder)
-		strscpy(cap->card, DRV_NAME " encoder", sizeof(cap->card));
+		strlcpy(cap->card, DRV_NAME " encoder", sizeof(cap->card));
 	else
-		strscpy(cap->card, DRV_NAME " decoder", sizeof(cap->card));
+		strlcpy(cap->card, DRV_NAME " decoder", sizeof(cap->card));
 
-	strscpy(cap->driver, DRV_NAME, sizeof(cap->driver));
+	strlcpy(cap->driver, DRV_NAME, sizeof(cap->driver));
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
 		 dev_name(ctx->jpu->dev));
 	cap->device_caps |= V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_M2M_MPLANE;
@@ -1654,7 +1654,7 @@ static int jpu_probe(struct platform_device *pdev)
 	for (i = 0; i < JPU_MAX_QUALITY; i++)
 		jpu_generate_hdr(i, (unsigned char *)jpeg_hdrs[i]);
 
-	strscpy(jpu->vfd_encoder.name, DRV_NAME, sizeof(jpu->vfd_encoder.name));
+	strlcpy(jpu->vfd_encoder.name, DRV_NAME, sizeof(jpu->vfd_encoder.name));
 	jpu->vfd_encoder.fops		= &jpu_fops;
 	jpu->vfd_encoder.ioctl_ops	= &jpu_ioctl_ops;
 	jpu->vfd_encoder.minor		= -1;
@@ -1671,7 +1671,7 @@ static int jpu_probe(struct platform_device *pdev)
 
 	video_set_drvdata(&jpu->vfd_encoder, jpu);
 
-	strscpy(jpu->vfd_decoder.name, DRV_NAME, sizeof(jpu->vfd_decoder.name));
+	strlcpy(jpu->vfd_decoder.name, DRV_NAME, sizeof(jpu->vfd_decoder.name));
 	jpu->vfd_decoder.fops		= &jpu_fops;
 	jpu->vfd_decoder.ioctl_ops	= &jpu_ioctl_ops;
 	jpu->vfd_decoder.minor		= -1;

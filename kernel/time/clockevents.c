@@ -1,10 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
+ * linux/kernel/time/clockevents.c
+ *
  * This file contains functions which manage clock event devices.
  *
  * Copyright(C) 2005-2006, Thomas Gleixner <tglx@linutronix.de>
  * Copyright(C) 2005-2007, Red Hat, Inc., Ingo Molnar
  * Copyright(C) 2006-2007, Timesys Corp., Thomas Gleixner
+ *
+ * This code is licenced under the GPL version 2. For details see
+ * kernel-base/COPYING.
  */
 
 #include <linux/clockchips.h>
@@ -35,8 +39,10 @@ static u64 cev_delta2ns(unsigned long latch, struct clock_event_device *evt,
 	u64 clc = (u64) latch << evt->shift;
 	u64 rnd;
 
-	if (WARN_ON(!evt->mult))
+	if (unlikely(!evt->mult)) {
 		evt->mult = 1;
+		WARN_ON(1);
+	}
 	rnd = (u64) evt->mult - 1;
 
 	/*
@@ -158,8 +164,10 @@ void clockevents_switch_state(struct clock_event_device *dev,
 		 * on it, so fix it up and emit a warning:
 		 */
 		if (clockevent_state_oneshot(dev)) {
-			if (WARN_ON(!dev->mult))
+			if (unlikely(!dev->mult)) {
 				dev->mult = 1;
+				WARN_ON(1);
+			}
 		}
 	}
 }
@@ -307,8 +315,10 @@ int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
 	int64_t delta;
 	int rc;
 
-	if (WARN_ON_ONCE(expires < 0))
+	if (unlikely(expires < 0)) {
+		WARN_ON_ONCE(1);
 		return -ETIME;
+	}
 
 	dev->next_event = expires;
 

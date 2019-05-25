@@ -122,8 +122,7 @@ static ssize_t device_name_store(struct device *dev,
 		trigger_data->net_dev = NULL;
 	}
 
-	memcpy(trigger_data->device_name, buf, size);
-	trigger_data->device_name[size] = 0;
+	strncpy(trigger_data->device_name, buf, size);
 	if (size > 0 && trigger_data->device_name[size - 1] == '\n')
 		trigger_data->device_name[size - 1] = 0;
 
@@ -302,11 +301,11 @@ static int netdev_trig_notify(struct notifier_block *nb,
 		container_of(nb, struct led_netdev_data, notifier);
 
 	if (evt != NETDEV_UP && evt != NETDEV_DOWN && evt != NETDEV_CHANGE
-	    && evt != NETDEV_REGISTER && evt != NETDEV_UNREGISTER)
+	    && evt != NETDEV_REGISTER && evt != NETDEV_UNREGISTER
+	    && evt != NETDEV_CHANGENAME)
 		return NOTIFY_DONE;
 
-	if (!(dev == trigger_data->net_dev ||
-	      (evt == NETDEV_REGISTER && !strcmp(dev->name, trigger_data->device_name))))
+	if (strcmp(dev->name, trigger_data->device_name))
 		return NOTIFY_DONE;
 
 	cancel_delayed_work_sync(&trigger_data->work);
@@ -321,9 +320,12 @@ static int netdev_trig_notify(struct notifier_block *nb,
 		dev_hold(dev);
 		trigger_data->net_dev = dev;
 		break;
+	case NETDEV_CHANGENAME:
 	case NETDEV_UNREGISTER:
-		dev_put(trigger_data->net_dev);
-		trigger_data->net_dev = NULL;
+		if (trigger_data->net_dev) {
+			dev_put(trigger_data->net_dev);
+			trigger_data->net_dev = NULL;
+		}
 		break;
 	case NETDEV_UP:
 	case NETDEV_CHANGE:

@@ -1,5 +1,3 @@
-.. SPDX-License-Identifier: GPL-2.0
-
 How to get the bt8xx cards working
 ==================================
 

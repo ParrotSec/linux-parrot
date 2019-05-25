@@ -5,6 +5,7 @@
 CONFIG_CPU_SUBTYPE_SH7785=y
 ## end choice
 CONFIG_SH_PCLK_FREQ=50000000
+CONFIG_PCI=y
 
 ##
 ## file: arch/sh/boards/Kconfig
@@ -151,11 +152,6 @@ CONFIG_NETDEVICES=y
 ## file: drivers/net/ethernet/realtek/Kconfig
 ##
 CONFIG_R8169=y
-
-##
-## file: drivers/pci/Kconfig
-##
-CONFIG_PCI=y
 
 ##
 ## file: drivers/rtc/Kconfig

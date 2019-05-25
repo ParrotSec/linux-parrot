@@ -168,59 +168,20 @@ static size_t longest_prefix_match(const struct lpm_trie *trie,
 				   const struct lpm_trie_node *node,
 				   const struct bpf_lpm_trie_key *key)
 {
-	u32 limit = min(node->prefixlen, key->prefixlen);
-	u32 prefixlen = 0, i = 0;
+	size_t prefixlen = 0;
+	size_t i;
 
-	BUILD_BUG_ON(offsetof(struct lpm_trie_node, data) % sizeof(u32));
-	BUILD_BUG_ON(offsetof(struct bpf_lpm_trie_key, data) % sizeof(u32));
+	for (i = 0; i < trie->data_size; i++) {
+		size_t b;
 
-#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && defined(CONFIG_64BIT)
+		b = 8 - fls(node->data[i] ^ key->data[i]);
+		prefixlen += b;
 
-	/* data_size >= 16 has very small probability.
-	 * We do not use a loop for optimal code generation.
-	 */
-	if (trie->data_size >= 8) {
-		u64 diff = be64_to_cpu(*(__be64 *)node->data ^
-				       *(__be64 *)key->data);
+		if (prefixlen >= node->prefixlen || prefixlen >= key->prefixlen)
+			return min(node->prefixlen, key->prefixlen);
 
-		prefixlen = 64 - fls64(diff);
-		if (prefixlen >= limit)
-			return limit;
-		if (diff)
-			return prefixlen;
-		i = 8;
-	}
-#endif
-
-	while (trie->data_size >= i + 4) {
-		u32 diff = be32_to_cpu(*(__be32 *)&node->data[i] ^
-				       *(__be32 *)&key->data[i]);
-
-		prefixlen += 32 - fls(diff);
-		if (prefixlen >= limit)
-			return limit;
-		if (diff)
-			return prefixlen;
-		i += 4;
-	}
-
-	if (trie->data_size >= i + 2) {
-		u16 diff = be16_to_cpu(*(__be16 *)&node->data[i] ^
-				       *(__be16 *)&key->data[i]);
-
-		prefixlen += 16 - fls(diff);
-		if (prefixlen >= limit)
-			return limit;
-		if (diff)
-			return prefixlen;
-		i += 2;
-	}
-
-	if (trie->data_size >= i + 1) {
-		prefixlen += 8 - fls(node->data[i] ^ key->data[i]);
-
-		if (prefixlen >= limit)
-			return limit;
+		if (b < 8)
+			break;
 	}
 
 	return prefixlen;
@@ -729,7 +690,6 @@ free_stack:
 }
 
 static int trie_check_btf(const struct bpf_map *map,
-			  const struct btf *btf,
 			  const struct btf_type *key_type,
 			  const struct btf_type *value_type)
 {

@@ -53,6 +53,8 @@
 	CON_INITCALL
   }
 
+  SECURITY_INIT
+
   .exitcall : {
 	__exitcall_begin = .;
 	*(.exitcall.exit)

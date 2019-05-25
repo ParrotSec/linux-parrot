@@ -16,7 +16,6 @@
  */
 
 #include <drm/drm_crtc.h>
-#include <drm/drm_util.h>
 #include <drm/drm_fb_helper.h>
 
 #include "omap_drv.h"
@@ -151,7 +150,7 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 		/* note: if fb creation failed, we can't rely on fb destroy
 		 * to unref the bo:
 		 */
-		drm_gem_object_put_unlocked(fbdev->bo);
+		drm_gem_object_unreference_unlocked(fbdev->bo);
 		ret = PTR_ERR(fb);
 		goto fail;
 	}
@@ -244,7 +243,7 @@ void omap_fbdev_init(struct drm_device *dev)
 	struct drm_fb_helper *helper;
 	int ret = 0;
 
-	if (!priv->num_pipes)
+	if (!priv->num_crtcs || !priv->num_connectors)
 		return;
 
 	fbdev = kzalloc(sizeof(*fbdev), GFP_KERNEL);
@@ -257,7 +256,7 @@ void omap_fbdev_init(struct drm_device *dev)
 
 	drm_fb_helper_prepare(dev, helper, &omap_fb_helper_funcs);
 
-	ret = drm_fb_helper_init(dev, helper, priv->num_pipes);
+	ret = drm_fb_helper_init(dev, helper, priv->num_connectors);
 	if (ret)
 		goto fail;
 

@@ -31,46 +31,32 @@ struct page *erofs_allocpage(struct list_head *pool, gfp_t gfp)
 static atomic_long_t erofs_global_shrink_cnt;
 
 #ifdef CONFIG_EROFS_FS_ZIP
-#define __erofs_workgroup_get(grp)	atomic_inc(&(grp)->refcount)
-#define __erofs_workgroup_put(grp)	atomic_dec(&(grp)->refcount)
 
-static int erofs_workgroup_get(struct erofs_workgroup *grp)
-{
-	int o;
-
-repeat:
-	o = erofs_wait_on_workgroup_freezed(grp);
-	if (unlikely(o <= 0))
-		return -1;
-
-	if (unlikely(atomic_cmpxchg(&grp->refcount, o, o + 1) != o))
-		goto repeat;
-
-	/* decrease refcount paired by erofs_workgroup_put */
-	if (unlikely(o == 1))
-		atomic_long_dec(&erofs_global_shrink_cnt);
-	return 0;
-}
-
-struct erofs_workgroup *erofs_find_workgroup(struct super_block *sb,
-					     pgoff_t index, bool *tag)
+/* radix_tree and the future XArray both don't use tagptr_t yet */
+struct erofs_workgroup *erofs_find_workgroup(
+	struct super_block *sb, pgoff_t index, bool *tag)
 {
 	struct erofs_sb_info *sbi = EROFS_SB(sb);
 	struct erofs_workgroup *grp;
+	int oldcount;
 
 repeat:
 	rcu_read_lock();
 	grp = radix_tree_lookup(&sbi->workstn_tree, index);
 	if (grp != NULL) {
-		*tag = xa_pointer_tag(grp);
-		grp = xa_untag_pointer(grp);
+		*tag = radix_tree_exceptional_entry(grp);
+		grp = (void *)((unsigned long)grp &
+			~RADIX_TREE_EXCEPTIONAL_ENTRY);
 
-		if (erofs_workgroup_get(grp)) {
+		if (erofs_workgroup_get(grp, &oldcount)) {
 			/* prefer to relax rcu read side */
 			rcu_read_unlock();
 			goto repeat;
 		}
 
+		/* decrease refcount added by erofs_workgroup_put */
+		if (unlikely(oldcount == 1))
+			atomic_long_dec(&erofs_global_shrink_cnt);
 		DBG_BUGON(index != grp->index);
 	}
 	rcu_read_unlock();
@@ -97,7 +83,9 @@ int erofs_register_workgroup(struct super_block *sb,
 	sbi = EROFS_SB(sb);
 	erofs_workstn_lock(sbi);
 
-	grp = xa_tag_pointer(grp, tag);
+	if (tag)
+		grp = (void *)((unsigned long)grp |
+			1UL << RADIX_TREE_EXCEPTIONAL_SHIFT);
 
 	/*
 	 * Bump up reference count before making this workgroup
@@ -119,6 +107,8 @@ int erofs_register_workgroup(struct super_block *sb,
 	radix_tree_preload_end();
 	return err;
 }
+
+extern void erofs_workgroup_free_rcu(struct erofs_workgroup *grp);
 
 static void  __erofs_workgroup_free(struct erofs_workgroup *grp)
 {
@@ -145,10 +135,12 @@ static void erofs_workgroup_unfreeze_final(struct erofs_workgroup *grp)
 	__erofs_workgroup_free(grp);
 }
 
-static bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
-					   struct erofs_workgroup *grp,
-					   bool cleanup)
+bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
+				    struct erofs_workgroup *grp,
+				    bool cleanup)
 {
+	void *entry;
+
 	/*
 	 * for managed cache enabled, the refcount of workgroups
 	 * themselves could be < 0 (freezed). So there is no guarantee
@@ -173,8 +165,9 @@ static bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
 	 * however in order to avoid some race conditions, add a
 	 * DBG_BUGON to observe this in advance.
 	 */
-	DBG_BUGON(xa_untag_pointer(radix_tree_delete(&sbi->workstn_tree,
-						     grp->index)) != grp);
+	entry = radix_tree_delete(&sbi->workstn_tree, grp->index);
+	DBG_BUGON((void *)((unsigned long)entry &
+			   ~RADIX_TREE_EXCEPTIONAL_ENTRY) != grp);
 
 	/*
 	 * if managed cache is enable, the last refcount
@@ -186,11 +179,12 @@ static bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
 
 #else
 /* for nocache case, no customized reclaim path at all */
-static bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
-					   struct erofs_workgroup *grp,
-					   bool cleanup)
+bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
+				    struct erofs_workgroup *grp,
+				    bool cleanup)
 {
 	int cnt = atomic_read(&grp->refcount);
+	void *entry;
 
 	DBG_BUGON(cnt <= 0);
 	DBG_BUGON(cleanup && cnt != 1);
@@ -198,8 +192,9 @@ static bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
 	if (cnt > 1)
 		return false;
 
-	DBG_BUGON(xa_untag_pointer(radix_tree_delete(&sbi->workstn_tree,
-						     grp->index)) != grp);
+	entry = radix_tree_delete(&sbi->workstn_tree, grp->index);
+	DBG_BUGON((void *)((unsigned long)entry &
+			   ~RADIX_TREE_EXCEPTIONAL_ENTRY) != grp);
 
 	/* (rarely) could be grabbed again when freeing */
 	erofs_workgroup_put(grp);
@@ -214,7 +209,7 @@ unsigned long erofs_shrink_workstation(struct erofs_sb_info *sbi,
 {
 	pgoff_t first_index = 0;
 	void *batch[PAGEVEC_SIZE];
-	unsigned int freed = 0;
+	unsigned freed = 0;
 
 	int i, found;
 repeat:
@@ -224,7 +219,9 @@ repeat:
 		batch, first_index, PAGEVEC_SIZE);
 
 	for (i = 0; i < found; ++i) {
-		struct erofs_workgroup *grp = xa_untag_pointer(batch[i]);
+		struct erofs_workgroup *grp = (void *)
+			((unsigned long)batch[i] &
+				~RADIX_TREE_EXCEPTIONAL_ENTRY);
 
 		first_index = grp->index + 1;
 
@@ -270,14 +267,14 @@ void erofs_unregister_super(struct super_block *sb)
 	spin_unlock(&erofs_sb_list_lock);
 }
 
-static unsigned long erofs_shrink_count(struct shrinker *shrink,
-					struct shrink_control *sc)
+unsigned long erofs_shrink_count(struct shrinker *shrink,
+				 struct shrink_control *sc)
 {
 	return atomic_long_read(&erofs_global_shrink_cnt);
 }
 
-static unsigned long erofs_shrink_scan(struct shrinker *shrink,
-				       struct shrink_control *sc)
+unsigned long erofs_shrink_scan(struct shrinker *shrink,
+				struct shrink_control *sc)
 {
 	struct erofs_sb_info *sbi;
 	struct list_head *p;
@@ -332,10 +329,4 @@ static unsigned long erofs_shrink_scan(struct shrinker *shrink,
 	spin_unlock(&erofs_sb_list_lock);
 	return freed;
 }
-
-struct shrinker erofs_shrinker_info = {
-	.scan_objects = erofs_shrink_scan,
-	.count_objects = erofs_shrink_count,
-	.seeks = DEFAULT_SEEKS,
-};
 

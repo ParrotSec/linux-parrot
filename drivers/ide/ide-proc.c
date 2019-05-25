@@ -614,7 +614,18 @@ static int ide_drivers_show(struct seq_file *s, void *p)
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(ide_drivers);
+static int ide_drivers_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, &ide_drivers_show, NULL);
+}
+
+static const struct file_operations ide_drivers_operations = {
+	.owner		= THIS_MODULE,
+	.open		= ide_drivers_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 void proc_ide_create(void)
 {
@@ -623,7 +634,7 @@ void proc_ide_create(void)
 	if (!proc_ide_root)
 		return;
 
-	proc_create("drivers", 0, proc_ide_root, &ide_drivers_fops);
+	proc_create("drivers", 0, proc_ide_root, &ide_drivers_operations);
 }
 
 void proc_ide_destroy(void)

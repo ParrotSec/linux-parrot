@@ -589,6 +589,46 @@ static int adpt_show_info(struct seq_file *m, struct Scsi_Host *host)
 }
 
 /*
+ *	Turn a struct scsi_cmnd * into a unique 32 bit 'context'.
+ */
+static u32 adpt_cmd_to_context(struct scsi_cmnd *cmd)
+{
+	return (u32)cmd->serial_number;
+}
+
+/*
+ *	Go from a u32 'context' to a struct scsi_cmnd * .
+ *	This could probably be made more efficient.
+ */
+static struct scsi_cmnd *
+	adpt_cmd_from_context(adpt_hba * pHba, u32 context)
+{
+	struct scsi_cmnd * cmd;
+	struct scsi_device * d;
+
+	if (context == 0)
+		return NULL;
+
+	spin_unlock(pHba->host->host_lock);
+	shost_for_each_device(d, pHba->host) {
+		unsigned long flags;
+		spin_lock_irqsave(&d->list_lock, flags);
+		list_for_each_entry(cmd, &d->cmd_list, list) {
+			if (((u32)cmd->serial_number == context)) {
+				spin_unlock_irqrestore(&d->list_lock, flags);
+				scsi_device_put(d);
+				spin_lock(pHba->host->host_lock);
+				return cmd;
+			}
+		}
+		spin_unlock_irqrestore(&d->list_lock, flags);
+	}
+	spin_lock(pHba->host->host_lock);
+
+	return NULL;
+}
+
+/*
  *	Turn a pointer to ioctl reply data into an u32 'context'
  */
 static u32 adpt_ioctl_to_context(adpt_hba * pHba, void *reply)
@@ -645,6 +685,9 @@ static int adpt_abort(struct scsi_cmnd * cmd)
 	u32 msg[5];
 	int rcode;
 
+	if(cmd->serial_number == 0){
+		return FAILED;
+	}
 	pHba = (adpt_hba*) cmd->device->host->hostdata[0];
 	printk(KERN_INFO"%s: Trying to Abort\n",pHba->name);
 	if ((dptdevice = (void*) (cmd->device->hostdata)) == NULL) {
@@ -656,9 +699,8 @@ static int adpt_abort(struct scsi_cmnd * cmd)
 	msg[0] = FIVE_WORD_MSG_SIZE|SGL_OFFSET_0;
 	msg[1] = I2O_CMD_SCSI_ABORT<<24|HOST_TID<<12|dptdevice->tid;
 	msg[2] = 0;
-	msg[3]= 0;
-	/* Add 1 to avoid firmware treating it as invalid command */
-	msg[4] = cmd->request->tag + 1;
+	msg[3]= 0; 
+	msg[4] = adpt_cmd_to_context(cmd);
 	if (pHba->host)
 		spin_lock_irq(pHba->host->host_lock);
 	rcode = adpt_i2o_post_wait(pHba, msg, sizeof(msg), FOREVER);
@@ -892,15 +934,15 @@ static int adpt_install_hba(struct scsi_host_template* sht, struct pci_dev* pDev
 	 *	See if we should enable dma64 mode.
 	 */
 	if (sizeof(dma_addr_t) > 4 &&
-	    dma_get_required_mask(&pDev->dev) > DMA_BIT_MASK(32) &&
-	    dma_set_mask(&pDev->dev, DMA_BIT_MASK(64)) == 0)
-		dma64 = 1;
-
-	if (!dma64 && dma_set_mask(&pDev->dev, DMA_BIT_MASK(32)) != 0)
+	    pci_set_dma_mask(pDev, DMA_BIT_MASK(64)) == 0) {
+		if (dma_get_required_mask(&pDev->dev) > DMA_BIT_MASK(32))
+			dma64 = 1;
+	}
+	if (!dma64 && pci_set_dma_mask(pDev, DMA_BIT_MASK(32)) != 0)
 		return -EINVAL;
 
 	/* adapter only supports message blocks below 4GB */
-	dma_set_coherent_mask(&pDev->dev, DMA_BIT_MASK(32));
+	pci_set_consistent_dma_mask(pDev, DMA_BIT_MASK(32));
 
 	base_addr0_phys = pci_resource_start(pDev,0);
 	hba_map0_area_size = pci_resource_len(pDev,0);
@@ -2156,27 +2198,20 @@ static irqreturn_t adpt_isr(int irq, void *dev_id)
 				status = I2O_POST_WAIT_OK;
 			}
 			if(!(context & 0x40000000)) {
-				/*
-				 * The request tag is one less than the command tag
-				 * as the firmware might treat a 0 tag as invalid
-				 */
-				cmd = scsi_host_find_tag(pHba->host,
-							 readl(reply + 12) - 1);
+				cmd = adpt_cmd_from_context(pHba,
+							readl(reply+12));
 				if(cmd != NULL) {
 					printk(KERN_WARNING"%s: Apparent SCSI cmd in Post Wait Context - cmd=%p context=%x\n", pHba->name, cmd, context);
 				}
 			}
 			adpt_i2o_post_wait_complete(context, status);
 		} else { // SCSI message
-			/*
-			 * The request tag is one less than the command tag
-			 * as the firmware might treat a 0 tag as invalid
-			 */
-			cmd = scsi_host_find_tag(pHba->host,
-						 readl(reply + 12) - 1);
+			cmd = adpt_cmd_from_context (pHba, readl(reply+12));
 			if(cmd != NULL){
 				scsi_dma_unmap(cmd);
-				adpt_i2o_to_scsi(reply, cmd);
+				if(cmd->serial_number != 0) { // If not timedout
+					adpt_i2o_to_scsi(reply, cmd);
+				}
 			}
 		}
 		writel(m, pHba->reply_port);
@@ -2242,8 +2277,7 @@ static s32 adpt_scsi_to_i2o(adpt_hba* pHba, struct scsi_cmnd* cmd, struct adpt_d
 	// I2O_CMD_SCSI_EXEC
 	msg[1] = ((0xff<<24)|(HOST_TID<<12)|d->tid);
 	msg[2] = 0;
-	/* Add 1 to avoid firmware treating it as invalid command */
-	msg[3] = cmd->request->tag + 1;
+	msg[3] = adpt_cmd_to_context(cmd);  /* Want SCSI control block back */
 	// Our cards use the transaction context as the tag for queueing
 	// Adaptec/DPT Private stuff 
 	msg[4] = I2O_CMD_SCSI_EXEC|(DPT_ORGANIZATION_ID<<16);
@@ -2659,6 +2693,9 @@ static void adpt_fail_posted_scbs(adpt_hba* pHba)
 		unsigned long flags;
 		spin_lock_irqsave(&d->list_lock, flags);
 		list_for_each_entry(cmd, &d->cmd_list, list) {
+			if(cmd->serial_number == 0){
+				continue;
+			}
 			cmd->result = (DID_OK << 16) | (QUEUE_FULL <<1);
 			cmd->scsi_done(cmd);
 		}
@@ -3532,6 +3569,7 @@ static struct scsi_host_template driver_template = {
 	.slave_configure	= adpt_slave_configure,
 	.can_queue		= MAX_TO_IOP_MESSAGES,
 	.this_id		= 7,
+	.use_clustering		= ENABLE_CLUSTERING,
 };
 
 static int __init adpt_init(void)

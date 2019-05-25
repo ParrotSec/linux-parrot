@@ -26,6 +26,7 @@
 #include <linux/syscalls.h>
 #include <linux/rcupdate.h>
 #include <linux/binfmts.h>
+#include <linux/syscalls.h>
 
 #include <asm/spu.h>
 

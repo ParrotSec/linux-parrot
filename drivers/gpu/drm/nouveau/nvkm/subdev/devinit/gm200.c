@@ -105,15 +105,6 @@ pmu_load(struct nv50_devinit *init, u8 type, bool post,
 	return pmu_exec(init, pmu.init_addr_pmu), 0;
 }
 
-void
-gm200_devinit_preos(struct nv50_devinit *init, bool post)
-{
-	/* Optional: Execute PRE_OS application on PMU, which should at
-	 * least take care of fans until a full PMU has been loaded.
-	 */
-	pmu_load(init, 0x01, post, NULL, NULL);
-}
-
 int
 gm200_devinit_post(struct nvkm_devinit *base, bool post)
 {
@@ -165,7 +156,10 @@ gm200_devinit_post(struct nvkm_devinit *base, bool post)
 			return -ETIMEDOUT;
 	}
 
-	gm200_devinit_preos(init, post);
+	/* Optional: Execute PRE_OS application on PMU, which should at
+	 * least take care of fans until a full PMU has been loaded.
+	 */
+	pmu_load(init, 0x01, post, NULL, NULL);
 	return 0;
 }
 

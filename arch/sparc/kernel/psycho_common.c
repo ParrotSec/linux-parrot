@@ -5,7 +5,6 @@
  */
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
-#include <linux/numa.h>
 
 #include <asm/upa.h>
 
@@ -455,7 +454,7 @@ void psycho_pbm_init_common(struct pci_pbm_info *pbm, struct platform_device *op
 	struct device_node *dp = op->dev.of_node;
 
 	pbm->name = dp->full_name;
-	pbm->numa_node = NUMA_NO_NODE;
+	pbm->numa_node = -1;
 	pbm->chip_type = chip_type;
 	pbm->chip_version = of_getintprop_default(dp, "version#", 0);
 	pbm->chip_revision = of_getintprop_default(dp, "module-revision#", 0);

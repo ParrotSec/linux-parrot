@@ -10,7 +10,6 @@
 #include <linux/pci.h>
 #include <linux/list.h>
 #include <linux/ioport.h>
-#include <linux/numa.h>
 
 struct device_node;
 
@@ -20,8 +19,6 @@ struct device_node;
 struct pci_controller_ops {
 	void		(*dma_dev_setup)(struct pci_dev *pdev);
 	void		(*dma_bus_setup)(struct pci_bus *bus);
-	bool		(*iommu_bypass_supported)(struct pci_dev *pdev,
-				u64 mask);
 
 	int		(*probe_mode)(struct pci_bus *bus);
 
@@ -45,6 +42,9 @@ struct pci_controller_ops {
 					  int nvec, int type);
 	void		(*teardown_msi_irqs)(struct pci_dev *pdev);
 #endif
+
+	int             (*dma_set_mask)(struct pci_dev *pdev, u64 dma_mask);
+	u64		(*dma_get_required_mask)(struct pci_dev *pdev);
 
 	void		(*shutdown)(struct pci_controller *hose);
 };
@@ -129,7 +129,6 @@ struct pci_controller {
 #endif	/* CONFIG_PPC64 */
 
 	void *private_data;
-	struct npu *npu;
 };
 
 /* These are used for config access before all the PCI probing
@@ -265,7 +264,7 @@ extern int pcibios_map_io_space(struct pci_bus *bus);
 #ifdef CONFIG_NUMA
 #define PHB_SET_NODE(PHB, NODE)		((PHB)->node = (NODE))
 #else
-#define PHB_SET_NODE(PHB, NODE)		((PHB)->node = NUMA_NO_NODE)
+#define PHB_SET_NODE(PHB, NODE)		((PHB)->node = -1)
 #endif
 
 #endif	/* CONFIG_PPC64 */
@@ -273,8 +272,6 @@ extern int pcibios_map_io_space(struct pci_bus *bus);
 /* Get the PCI host controller for an OF device */
 extern struct pci_controller *pci_find_hose_for_OF_device(
 			struct device_node* node);
-
-extern struct pci_controller *pci_find_controller_for_domain(int domain_nr);
 
 /* Fill up host controller resources from the OF node */
 extern void pci_process_bridge_OF_ranges(struct pci_controller *hose,

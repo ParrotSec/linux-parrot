@@ -82,20 +82,16 @@ static int autofs_show_options(struct seq_file *m, struct dentry *root)
 	seq_printf(m, ",maxproto=%d", sbi->max_proto);
 
 	if (autofs_type_offset(sbi->type))
-		seq_puts(m, ",offset");
+		seq_printf(m, ",offset");
 	else if (autofs_type_direct(sbi->type))
-		seq_puts(m, ",direct");
+		seq_printf(m, ",direct");
 	else
-		seq_puts(m, ",indirect");
-	if (sbi->flags & AUTOFS_SBI_STRICTEXPIRE)
-		seq_puts(m, ",strictexpire");
-	if (sbi->flags & AUTOFS_SBI_IGNORE)
-		seq_puts(m, ",ignore");
+		seq_printf(m, ",indirect");
 #ifdef CONFIG_CHECKPOINT_RESTORE
 	if (sbi->pipe)
 		seq_printf(m, ",pipe_ino=%ld", file_inode(sbi->pipe)->i_ino);
 	else
-		seq_puts(m, ",pipe_ino=-1");
+		seq_printf(m, ",pipe_ino=-1");
 #endif
 	return 0;
 }
@@ -113,8 +109,7 @@ static const struct super_operations autofs_sops = {
 };
 
 enum {Opt_err, Opt_fd, Opt_uid, Opt_gid, Opt_pgrp, Opt_minproto, Opt_maxproto,
-	Opt_indirect, Opt_direct, Opt_offset, Opt_strictexpire,
-	Opt_ignore};
+	Opt_indirect, Opt_direct, Opt_offset};
 
 static const match_table_t tokens = {
 	{Opt_fd, "fd=%u"},
@@ -126,29 +121,24 @@ static const match_table_t tokens = {
 	{Opt_indirect, "indirect"},
 	{Opt_direct, "direct"},
 	{Opt_offset, "offset"},
-	{Opt_strictexpire, "strictexpire"},
-	{Opt_ignore, "ignore"},
 	{Opt_err, NULL}
 };
 
-static int parse_options(char *options,
-			 struct inode *root, int *pgrp, bool *pgrp_set,
-			 struct autofs_sb_info *sbi)
+static int parse_options(char *options, int *pipefd, kuid_t *uid, kgid_t *gid,
+			 int *pgrp, bool *pgrp_set, unsigned int *type,
+			 int *minproto, int *maxproto)
 {
 	char *p;
 	substring_t args[MAX_OPT_ARGS];
 	int option;
-	int pipefd = -1;
-	kuid_t uid;
-	kgid_t gid;
 
-	root->i_uid = current_uid();
-	root->i_gid = current_gid();
+	*uid = current_uid();
+	*gid = current_gid();
 
-	sbi->min_proto = AUTOFS_MIN_PROTO_VERSION;
-	sbi->max_proto = AUTOFS_MAX_PROTO_VERSION;
+	*minproto = AUTOFS_MIN_PROTO_VERSION;
+	*maxproto = AUTOFS_MAX_PROTO_VERSION;
 
-	sbi->pipefd = -1;
+	*pipefd = -1;
 
 	if (!options)
 		return 1;
@@ -162,25 +152,22 @@ static int parse_options(char *options,
 		token = match_token(p, tokens, args);
 		switch (token) {
 		case Opt_fd:
-			if (match_int(args, &pipefd))
+			if (match_int(args, pipefd))
 				return 1;
-			sbi->pipefd = pipefd;
 			break;
 		case Opt_uid:
 			if (match_int(args, &option))
 				return 1;
-			uid = make_kuid(current_user_ns(), option);
-			if (!uid_valid(uid))
+			*uid = make_kuid(current_user_ns(), option);
+			if (!uid_valid(*uid))
 				return 1;
-			root->i_uid = uid;
 			break;
 		case Opt_gid:
 			if (match_int(args, &option))
 				return 1;
-			gid = make_kgid(current_user_ns(), option);
-			if (!gid_valid(gid))
+			*gid = make_kgid(current_user_ns(), option);
+			if (!gid_valid(*gid))
 				return 1;
-			root->i_gid = gid;
 			break;
 		case Opt_pgrp:
 			if (match_int(args, &option))
@@ -191,33 +178,27 @@ static int parse_options(char *options,
 		case Opt_minproto:
 			if (match_int(args, &option))
 				return 1;
-			sbi->min_proto = option;
+			*minproto = option;
 			break;
 		case Opt_maxproto:
 			if (match_int(args, &option))
 				return 1;
-			sbi->max_proto = option;
+			*maxproto = option;
 			break;
 		case Opt_indirect:
-			set_autofs_type_indirect(&sbi->type);
+			set_autofs_type_indirect(type);
 			break;
 		case Opt_direct:
-			set_autofs_type_direct(&sbi->type);
+			set_autofs_type_direct(type);
 			break;
 		case Opt_offset:
-			set_autofs_type_offset(&sbi->type);
-			break;
-		case Opt_strictexpire:
-			sbi->flags |= AUTOFS_SBI_STRICTEXPIRE;
-			break;
-		case Opt_ignore:
-			sbi->flags |= AUTOFS_SBI_IGNORE;
+			set_autofs_type_offset(type);
 			break;
 		default:
 			return 1;
 		}
 	}
-	return (sbi->pipefd < 0);
+	return (*pipefd < 0);
 }
 
 int autofs_fill_super(struct super_block *s, void *data, int silent)
@@ -225,6 +206,7 @@ int autofs_fill_super(struct super_block *s, void *data, int silent)
 	struct inode *root_inode;
 	struct dentry *root;
 	struct file *pipe;
+	int pipefd;
 	struct autofs_sb_info *sbi;
 	struct autofs_info *ino;
 	int pgrp = 0;
@@ -240,12 +222,12 @@ int autofs_fill_super(struct super_block *s, void *data, int silent)
 	sbi->magic = AUTOFS_SBI_MAGIC;
 	sbi->pipefd = -1;
 	sbi->pipe = NULL;
+	sbi->catatonic = 1;
 	sbi->exp_timeout = 0;
 	sbi->oz_pgrp = NULL;
 	sbi->sb = s;
 	sbi->version = 0;
 	sbi->sub_version = 0;
-	sbi->flags = AUTOFS_SBI_CATATONIC;
 	set_autofs_type_indirect(&sbi->type);
 	sbi->min_proto = 0;
 	sbi->max_proto = 0;
@@ -282,7 +264,9 @@ int autofs_fill_super(struct super_block *s, void *data, int silent)
 	root->d_fsdata = ino;
 
 	/* Can this call block? */
-	if (parse_options(data, root_inode, &pgrp, &pgrp_set, sbi)) {
+	if (parse_options(data, &pipefd, &root_inode->i_uid, &root_inode->i_gid,
+			  &pgrp, &pgrp_set, &sbi->type, &sbi->min_proto,
+			  &sbi->max_proto)) {
 		pr_err("called with bogus options\n");
 		goto fail_dput;
 	}
@@ -321,9 +305,8 @@ int autofs_fill_super(struct super_block *s, void *data, int silent)
 	root_inode->i_fop = &autofs_root_operations;
 	root_inode->i_op = &autofs_dir_inode_operations;
 
-	pr_debug("pipe fd = %d, pgrp = %u\n",
-		 sbi->pipefd, pid_nr(sbi->oz_pgrp));
-	pipe = fget(sbi->pipefd);
+	pr_debug("pipe fd = %d, pgrp = %u\n", pipefd, pid_nr(sbi->oz_pgrp));
+	pipe = fget(pipefd);
 
 	if (!pipe) {
 		pr_err("could not open pipe file descriptor\n");
@@ -333,7 +316,8 @@ int autofs_fill_super(struct super_block *s, void *data, int silent)
 	if (ret < 0)
 		goto fail_fput;
 	sbi->pipe = pipe;
-	sbi->flags &= ~AUTOFS_SBI_CATATONIC;
+	sbi->pipefd = pipefd;
+	sbi->catatonic = 0;
 
 	/*
 	 * Success! Install the root dentry now to indicate completion.

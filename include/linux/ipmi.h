@@ -27,7 +27,7 @@ struct device;
  * Opaque type for a IPMI message user.  One of these is needed to
  * send and receive messages.
  */
-struct ipmi_user;
+typedef struct ipmi_user *ipmi_user_t;
 
 /*
  * Stuff coming from the receive interface comes as one of these.

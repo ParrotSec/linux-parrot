@@ -86,6 +86,7 @@ static const struct acpi_device_id tps68470_acpi_ids[] = {
 	{"INT3472"},
 	{},
 };
+MODULE_DEVICE_TABLE(acpi, tps68470_acpi_ids);
 
 static struct i2c_driver tps68470_driver = {
 	.driver = {

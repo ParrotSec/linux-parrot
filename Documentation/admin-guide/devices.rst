@@ -1,4 +1,3 @@
-.. _admin_devices:
 
 Linux allocated devices (4.x+ version)
 ======================================

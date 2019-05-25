@@ -74,6 +74,12 @@
 			((void *)((cmdq_pages)->shadow_page_vaddr) \
 				+ (wq)->block_idx * CMDQ_BLOCK_SIZE)
 
+#define WQE_PAGE_OFF(wq, idx)   (((idx) & ((wq)->num_wqebbs_per_page - 1)) * \
+					(wq)->wqebb_size)
+
+#define WQE_PAGE_NUM(wq, idx)   (((idx) / ((wq)->num_wqebbs_per_page)) \
+					& ((wq)->num_q_pages - 1))
+
 #define WQ_PAGE_ADDR(wq, idx)           \
 			((wq)->shadow_block_vaddr[WQE_PAGE_NUM(wq, idx)])
 
@@ -87,17 +93,6 @@
 		(((unsigned long)(wqe) - (unsigned long)(wq)->shadow_wqe) \
 			/ (wq)->max_wqe_size)
 
-static inline int WQE_PAGE_OFF(struct hinic_wq *wq, u16 idx)
-{
-	return (((idx) & ((wq)->num_wqebbs_per_page - 1))
-		<< (wq)->wqebb_size_shift);
-}
-
-static inline int WQE_PAGE_NUM(struct hinic_wq *wq, u16 idx)
-{
-	return (((idx) >> ((wq)->wqebbs_per_page_shift))
-		& ((wq)->num_q_pages - 1));
-}
 /**
  * queue_alloc_page - allocate page for Queue
  * @hwif: HW interface for allocating DMA
@@ -114,8 +109,8 @@ static int queue_alloc_page(struct hinic_hwif *hwif, u64 **vaddr, u64 *paddr,
 	struct pci_dev *pdev = hwif->pdev;
 	dma_addr_t dma_addr;
 
-	*vaddr = dma_alloc_coherent(&pdev->dev, page_sz, &dma_addr,
-				    GFP_KERNEL);
+	*vaddr = dma_zalloc_coherent(&pdev->dev, page_sz, &dma_addr,
+				     GFP_KERNEL);
 	if (!*vaddr) {
 		dev_err(&pdev->dev, "Failed to allocate dma for wqs page\n");
 		return -ENOMEM;
@@ -482,8 +477,8 @@ static int alloc_wq_pages(struct hinic_wq *wq, struct hinic_hwif *hwif,
 		u64 *paddr = &wq->block_vaddr[i];
 		dma_addr_t dma_addr;
 
-		*vaddr = dma_alloc_coherent(&pdev->dev, wq->wq_page_size,
-					    &dma_addr, GFP_KERNEL);
+		*vaddr = dma_zalloc_coherent(&pdev->dev, wq->wq_page_size,
+					     &dma_addr, GFP_KERNEL);
 		if (!*vaddr) {
 			dev_err(&pdev->dev, "Failed to allocate wq page\n");
 			goto err_alloc_wq_pages;
@@ -518,11 +513,10 @@ int hinic_wq_allocate(struct hinic_wqs *wqs, struct hinic_wq *wq,
 	struct hinic_hwif *hwif = wqs->hwif;
 	struct pci_dev *pdev = hwif->pdev;
 	u16 num_wqebbs_per_page;
-	u16 wqebb_size_shift;
 	int err;
 
-	if (!is_power_of_2(wqebb_size)) {
-		dev_err(&pdev->dev, "wqebb_size must be power of 2\n");
+	if (wqebb_size == 0) {
+		dev_err(&pdev->dev, "wqebb_size must be > 0\n");
 		return -EINVAL;
 	}
 
@@ -536,11 +530,9 @@ int hinic_wq_allocate(struct hinic_wqs *wqs, struct hinic_wq *wq,
 		return -EINVAL;
 	}
 
-	wqebb_size_shift = ilog2(wqebb_size);
-	num_wqebbs_per_page = ALIGN(wq_page_size, wqebb_size)
-				>> wqebb_size_shift;
+	num_wqebbs_per_page = ALIGN(wq_page_size, wqebb_size) / wqebb_size;
 
-	if (!is_power_of_2(num_wqebbs_per_page)) {
+	if (num_wqebbs_per_page & (num_wqebbs_per_page - 1)) {
 		dev_err(&pdev->dev, "num wqebbs per page must be power of 2\n");
 		return -EINVAL;
 	}
@@ -558,8 +550,7 @@ int hinic_wq_allocate(struct hinic_wqs *wqs, struct hinic_wq *wq,
 	wq->q_depth = q_depth;
 	wq->max_wqe_size = max_wqe_size;
 	wq->num_wqebbs_per_page = num_wqebbs_per_page;
-	wq->wqebbs_per_page_shift = ilog2(num_wqebbs_per_page);
-	wq->wqebb_size_shift = wqebb_size_shift;
+
 	wq->block_vaddr = WQ_BASE_VADDR(wqs, wq);
 	wq->shadow_block_vaddr = WQ_BASE_ADDR(wqs, wq);
 	wq->block_paddr = WQ_BASE_PADDR(wqs, wq);
@@ -613,13 +604,11 @@ int hinic_wqs_cmdq_alloc(struct hinic_cmdq_pages *cmdq_pages,
 			 u16 q_depth, u16 max_wqe_size)
 {
 	struct pci_dev *pdev = hwif->pdev;
-	u16 num_wqebbs_per_page_shift;
 	u16 num_wqebbs_per_page;
-	u16 wqebb_size_shift;
 	int i, j, err = -ENOMEM;
 
-	if (!is_power_of_2(wqebb_size)) {
-		dev_err(&pdev->dev, "wqebb_size must be power of 2\n");
+	if (wqebb_size == 0) {
+		dev_err(&pdev->dev, "wqebb_size must be > 0\n");
 		return -EINVAL;
 	}
 
@@ -633,11 +622,9 @@ int hinic_wqs_cmdq_alloc(struct hinic_cmdq_pages *cmdq_pages,
 		return -EINVAL;
 	}
 
-	wqebb_size_shift = ilog2(wqebb_size);
-	num_wqebbs_per_page = ALIGN(wq_page_size, wqebb_size)
-				>> wqebb_size_shift;
+	num_wqebbs_per_page = ALIGN(wq_page_size, wqebb_size) / wqebb_size;
 
-	if (!is_power_of_2(num_wqebbs_per_page)) {
+	if (num_wqebbs_per_page & (num_wqebbs_per_page - 1)) {
 		dev_err(&pdev->dev, "num wqebbs per page must be power of 2\n");
 		return -EINVAL;
 	}
@@ -649,7 +636,6 @@ int hinic_wqs_cmdq_alloc(struct hinic_cmdq_pages *cmdq_pages,
 		dev_err(&pdev->dev, "Failed to allocate CMDQ page\n");
 		return err;
 	}
-	num_wqebbs_per_page_shift = ilog2(num_wqebbs_per_page);
 
 	for (i = 0; i < cmdq_blocks; i++) {
 		wq[i].hwif = hwif;
@@ -661,8 +647,7 @@ int hinic_wqs_cmdq_alloc(struct hinic_cmdq_pages *cmdq_pages,
 		wq[i].q_depth = q_depth;
 		wq[i].max_wqe_size = max_wqe_size;
 		wq[i].num_wqebbs_per_page = num_wqebbs_per_page;
-		wq[i].wqebbs_per_page_shift = num_wqebbs_per_page_shift;
-		wq[i].wqebb_size_shift = wqebb_size_shift;
+
 		wq[i].block_vaddr = CMDQ_BASE_VADDR(cmdq_pages, &wq[i]);
 		wq[i].shadow_block_vaddr = CMDQ_BASE_ADDR(cmdq_pages, &wq[i]);
 		wq[i].block_paddr = CMDQ_BASE_PADDR(cmdq_pages, &wq[i]);
@@ -756,7 +741,7 @@ struct hinic_hw_wqe *hinic_get_wqe(struct hinic_wq *wq, unsigned int wqe_size,
 
 	*prod_idx = MASKED_WQE_IDX(wq, atomic_read(&wq->prod_idx));
 
-	num_wqebbs = ALIGN(wqe_size, wq->wqebb_size) >> wq->wqebb_size_shift;
+	num_wqebbs = ALIGN(wqe_size, wq->wqebb_size) / wq->wqebb_size;
 
 	if (atomic_sub_return(num_wqebbs, &wq->delta) <= 0) {
 		atomic_add(num_wqebbs, &wq->delta);
@@ -790,28 +775,13 @@ struct hinic_hw_wqe *hinic_get_wqe(struct hinic_wq *wq, unsigned int wqe_size,
 }
 
 /**
- * hinic_return_wqe - return the wqe when transmit failed
- * @wq: wq to return wqe
- * @wqe_size: wqe size
- **/
-void hinic_return_wqe(struct hinic_wq *wq, unsigned int wqe_size)
-{
-	int num_wqebbs = ALIGN(wqe_size, wq->wqebb_size) / wq->wqebb_size;
-
-	atomic_sub(num_wqebbs, &wq->prod_idx);
-
-	atomic_add(num_wqebbs, &wq->delta);
-}
-
-/**
  * hinic_put_wqe - return the wqe place to use for a new wqe
  * @wq: wq to return wqe
  * @wqe_size: wqe size
  **/
 void hinic_put_wqe(struct hinic_wq *wq, unsigned int wqe_size)
 {
-	int num_wqebbs = ALIGN(wqe_size, wq->wqebb_size)
-			>> wq->wqebb_size_shift;
+	int num_wqebbs = ALIGN(wqe_size, wq->wqebb_size) / wq->wqebb_size;
 
 	atomic_add(num_wqebbs, &wq->cons_idx);
 
@@ -829,8 +799,7 @@ void hinic_put_wqe(struct hinic_wq *wq, unsigned int wqe_size)
 struct hinic_hw_wqe *hinic_read_wqe(struct hinic_wq *wq, unsigned int wqe_size,
 				    u16 *cons_idx)
 {
-	int num_wqebbs = ALIGN(wqe_size, wq->wqebb_size)
-			>> wq->wqebb_size_shift;
+	int num_wqebbs = ALIGN(wqe_size, wq->wqebb_size) / wq->wqebb_size;
 	u16 curr_cons_idx, end_cons_idx;
 	int curr_pg, end_pg;
 

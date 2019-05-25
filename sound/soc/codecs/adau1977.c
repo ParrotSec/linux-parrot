@@ -885,15 +885,13 @@ static int adau1977_setup_micbias(struct adau1977 *adau1977)
 	struct adau1977_platform_data *pdata = adau1977->dev->platform_data;
 	unsigned int micbias;
 
-	if (pdata)
+	if (pdata) {
 		micbias = pdata->micbias;
-	else if (device_property_read_u32(adau1977->dev, "adi,micbias",
-					  &micbias))
-		micbias = ADAU1977_MICBIAS_8V5;
+		if (micbias > ADAU1977_MICBIAS_9V0)
+			return -EINVAL;
 
-	if (micbias > ADAU1977_MICBIAS_9V0) {
-		dev_err(adau1977->dev, "Invalid value for 'adi,micbias'\n");
-		return -EINVAL;
+	} else {
+		micbias = ADAU1977_MICBIAS_8V5;
 	}
 
 	return regmap_update_bits(adau1977->regmap, ADAU1977_REG_MICBIAS,

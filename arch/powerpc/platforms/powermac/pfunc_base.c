@@ -101,8 +101,9 @@ static void macio_gpio_init_one(struct macio_chip *macio)
 	 * Find the "gpio" parent node
 	 */
 
-	for_each_child_of_node(macio->of_node, gparent)
-		if (of_node_name_eq(gparent, "gpio"))
+	for (gparent = NULL;
+	     (gparent = of_get_next_child(macio->of_node, gparent)) != NULL;)
+		if (strcmp(gparent->name, "gpio") == 0)
 			break;
 	if (gparent == NULL)
 		return;
@@ -312,7 +313,7 @@ static void uninorth_install_pfunc(void)
 	 * Install handlers for the hwclock child if any
 	 */
 	for (np = NULL; (np = of_get_next_child(uninorth_node, np)) != NULL;)
-		if (of_node_name_eq(np, "hw-clock")) {
+		if (strcmp(np->name, "hw-clock") == 0) {
 			unin_hwclock = np;
 			break;
 		}

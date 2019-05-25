@@ -8,9 +8,6 @@
  *
  * 2007-2008 (c) Jason Wessel - Wind River Systems, Inc.
  */
-
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include <linux/kernel.h>
 #include <linux/ctype.h>
 #include <linux/kgdb.h>
@@ -238,7 +235,7 @@ static int param_set_kgdboc_var(const char *kmessage,
 	size_t len = strlen(kmessage);
 
 	if (len >= MAX_CONFIG_LEN) {
-		pr_err("config string too long\n");
+		printk(KERN_ERR "kgdboc: config string too long\n");
 		return -ENOSPC;
 	}
 
@@ -249,7 +246,8 @@ static int param_set_kgdboc_var(const char *kmessage,
 	}
 
 	if (kgdb_connected) {
-		pr_err("Cannot reconfigure while KGDB is connected.\n");
+		printk(KERN_ERR
+		       "kgdboc: Cannot reconfigure while KGDB is connected.\n");
 
 		return -EBUSY;
 	}

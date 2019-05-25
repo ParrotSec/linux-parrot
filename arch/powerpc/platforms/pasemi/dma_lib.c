@@ -262,6 +262,8 @@ int pasemi_dma_alloc_ring(struct pasemi_dmachan *chan, int ring_size)
 	if (!chan->ring_virt)
 		return -ENOMEM;
 
+	memset(chan->ring_virt, 0, ring_size * sizeof(u64));
+
 	return 0;
 }
 EXPORT_SYMBOL(pasemi_dma_alloc_ring);
@@ -574,7 +576,7 @@ int pasemi_dma_init(void)
 		res.start = 0xfd800000;
 		res.end = res.start + 0x1000;
 	}
-	dma_status = ioremap_cache(res.start, resource_size(&res));
+	dma_status = __ioremap(res.start, resource_size(&res), 0);
 	pci_dev_put(iob_pdev);
 
 	for (i = 0; i < MAX_TXCH; i++)

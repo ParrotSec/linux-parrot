@@ -310,6 +310,7 @@
 };
 
 &i2s {
+	#sound-dai-cells = <0>;
 	status = "okay";
 };
 

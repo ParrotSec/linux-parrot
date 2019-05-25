@@ -12,7 +12,6 @@
  */
 #include <linux/module.h>
 #include <drm/drmP.h>
-#include <drm/drm_util.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_crtc_helper.h>
 

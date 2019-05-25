@@ -17,7 +17,6 @@ Required properties:
 		  represents
 
 Optional properties:
-- lna-supply	: Separate supply for an LNA
 - enable-gpios	: GPIO used to enable the device
 - timepulse-gpios	: Time pulse GPIO
 

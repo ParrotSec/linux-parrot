@@ -276,7 +276,7 @@ Commands:\n\
   X	exit monitor and don't recover\n"
 #if defined(CONFIG_PPC64) && !defined(CONFIG_PPC_BOOK3E)
 "  u	dump segment table or SLB\n"
-#elif defined(CONFIG_PPC_BOOK3S_32)
+#elif defined(CONFIG_PPC_STD_MMU_32)
 "  u	dump segment registers\n"
 #elif defined(CONFIG_44x) || defined(CONFIG_PPC_BOOK3E)
 "  u	dump TLB\n"
@@ -1060,7 +1060,7 @@ cmds(struct pt_regs *excp)
 		case 'P':
 			show_tasks();
 			break;
-#ifdef CONFIG_PPC_BOOK3S
+#ifdef CONFIG_PPC_STD_MMU
 		case 'u':
 			dump_segments();
 			break;
@@ -2380,33 +2380,25 @@ static void dump_one_paca(int cpu)
 	DUMP(p, cpu_start, "%#-*x");
 	DUMP(p, kexec_state, "%#-*x");
 #ifdef CONFIG_PPC_BOOK3S_64
-	if (!early_radix_enabled()) {
-		for (i = 0; i < SLB_NUM_BOLTED; i++) {
-			u64 esid, vsid;
+	for (i = 0; i < SLB_NUM_BOLTED; i++) {
+		u64 esid, vsid;
 
-			if (!p->slb_shadow_ptr)
-				continue;
+		if (!p->slb_shadow_ptr)
+			continue;
 
-			esid = be64_to_cpu(p->slb_shadow_ptr->save_area[i].esid);
-			vsid = be64_to_cpu(p->slb_shadow_ptr->save_area[i].vsid);
+		esid = be64_to_cpu(p->slb_shadow_ptr->save_area[i].esid);
+		vsid = be64_to_cpu(p->slb_shadow_ptr->save_area[i].vsid);
 
-			if (esid || vsid) {
-				printf(" %-*s[%d] = 0x%016llx 0x%016llx\n",
-				       22, "slb_shadow", i, esid, vsid);
-			}
-		}
-		DUMP(p, vmalloc_sllp, "%#-*x");
-		DUMP(p, stab_rr, "%#-*x");
-		DUMP(p, slb_used_bitmap, "%#-*x");
-		DUMP(p, slb_kern_bitmap, "%#-*x");
-
-		if (!early_cpu_has_feature(CPU_FTR_ARCH_300)) {
-			DUMP(p, slb_cache_ptr, "%#-*x");
-			for (i = 0; i < SLB_CACHE_ENTRIES; i++)
-				printf(" %-*s[%d] = 0x%016x\n",
-				       22, "slb_cache", i, p->slb_cache[i]);
+		if (esid || vsid) {
+			printf(" %-*s[%d] = 0x%016llx 0x%016llx\n",
+			       22, "slb_shadow", i, esid, vsid);
 		}
 	}
+	DUMP(p, vmalloc_sllp, "%#-*x");
+	DUMP(p, slb_cache_ptr, "%#-*x");
+	for (i = 0; i < SLB_CACHE_ENTRIES; i++)
+		printf(" %-*s[%d] = 0x%016x\n",
+		       22, "slb_cache", i, p->slb_cache[i]);
 
 	DUMP(p, rfi_flush_fallback_area, "%-*px");
 #endif
@@ -2422,9 +2414,7 @@ static void dump_one_paca(int cpu)
 	DUMP(p, __current, "%-*px");
 	DUMP(p, kstack, "%#-*llx");
 	printf(" %-*s = 0x%016llx\n", 25, "kstack_base", p->kstack & ~(THREAD_SIZE - 1));
-#ifdef CONFIG_STACKPROTECTOR
-	DUMP(p, canary, "%#-*lx");
-#endif
+	DUMP(p, stab_rr, "%#-*llx");
 	DUMP(p, saved_r1, "%#-*llx");
 	DUMP(p, trap_save, "%#-*x");
 	DUMP(p, irq_soft_mask, "%#-*x");
@@ -2456,15 +2446,11 @@ static void dump_one_paca(int cpu)
 
 	DUMP(p, accounting.utime, "%#-*lx");
 	DUMP(p, accounting.stime, "%#-*lx");
-#ifdef CONFIG_ARCH_HAS_SCALED_CPUTIME
 	DUMP(p, accounting.utime_scaled, "%#-*lx");
-#endif
 	DUMP(p, accounting.starttime, "%#-*lx");
 	DUMP(p, accounting.starttime_user, "%#-*lx");
-#ifdef CONFIG_ARCH_HAS_SCALED_CPUTIME
 	DUMP(p, accounting.startspurr, "%#-*lx");
 	DUMP(p, accounting.utime_sspurr, "%#-*lx");
-#endif
 	DUMP(p, accounting.steal_time, "%#-*lx");
 #undef DUMP
 
@@ -2795,7 +2781,7 @@ print_address(unsigned long addr)
 	xmon_print_symbol(addr, "\t# ", "");
 }
 
-static void
+void
 dump_log_buf(void)
 {
 	struct kmsg_dumper dumper = { .active = 1 };
@@ -2996,25 +2982,23 @@ static void show_task(struct task_struct *tsk)
 
 	printf("%px %016lx %6d %6d %c %2d %s\n", tsk,
 		tsk->thread.ksp,
-		tsk->pid, rcu_dereference(tsk->parent)->pid,
-		state, task_cpu(tsk),
+		tsk->pid, tsk->parent->pid,
+		state, task_thread_info(tsk)->cpu,
 		tsk->comm);
 }
 
 #ifdef CONFIG_PPC_BOOK3S_64
-static void format_pte(void *ptep, unsigned long pte)
+void format_pte(void *ptep, unsigned long pte)
 {
-	pte_t entry = __pte(pte);
-
 	printf("ptep @ 0x%016lx = 0x%016lx\n", (unsigned long)ptep, pte);
 	printf("Maps physical address = 0x%016lx\n", pte & PTE_RPN_MASK);
 
 	printf("Flags = %s%s%s%s%s\n",
-	       pte_young(entry) ? "Accessed " : "",
-	       pte_dirty(entry) ? "Dirty " : "",
-	       pte_read(entry)  ? "Read " : "",
-	       pte_write(entry) ? "Write " : "",
-	       pte_exec(entry)  ? "Exec " : "");
+	       (pte & _PAGE_ACCESSED) ? "Accessed " : "",
+	       (pte & _PAGE_DIRTY)    ? "Dirty " : "",
+	       (pte & _PAGE_READ)     ? "Read " : "",
+	       (pte & _PAGE_WRITE)    ? "Write " : "",
+	       (pte & _PAGE_EXEC)     ? "Exec " : "");
 }
 
 static void show_pte(unsigned long addr)
@@ -3497,14 +3481,14 @@ void dump_segments(void)
 }
 #endif
 
-#ifdef CONFIG_PPC_BOOK3S_32
+#ifdef CONFIG_PPC_STD_MMU_32
 void dump_segments(void)
 {
 	int i;
 
 	printf("sr0-15 =");
 	for (i = 0; i < 16; ++i)
-		printf(" %x", mfsrin(i << 28));
+		printf(" %x", mfsrin(i));
 	printf("\n");
 }
 #endif
@@ -4043,7 +4027,6 @@ static int do_spu_cmd(void)
 		subcmd = inchar();
 		if (isxdigit(subcmd) || subcmd == '\n')
 			termch = subcmd;
-		/* fall through */
 	case 'f':
 		scanhex(&num);
 		if (num >= XMON_NUM_SPUS || !spu_info[num].spu) {

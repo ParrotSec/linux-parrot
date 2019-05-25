@@ -25,7 +25,7 @@ static int read_one_page(struct page *page)
 	struct iov_iter to;
 	struct bio_vec bv = {.bv_page = page, .bv_len = PAGE_SIZE};
 
-	iov_iter_bvec(&to, READ, &bv, 1, PAGE_SIZE);
+	iov_iter_bvec(&to, ITER_BVEC | READ, &bv, 1, PAGE_SIZE);
 
 	gossip_debug(GOSSIP_INODE_DEBUG,
 		    "orangefs_readpage called with page %p\n",
@@ -77,7 +77,7 @@ static int orangefs_readpages(struct file *file,
 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
 		struct page *page;
 
-		page = lru_to_page(pages);
+		page = list_entry(pages->prev, struct page, lru);
 		list_del(&page->lru);
 		if (!add_to_page_cache(page,
 				       mapping,
@@ -261,8 +261,11 @@ int orangefs_getattr(const struct path *path, struct kstat *stat,
 		generic_fillattr(inode, stat);
 
 		/* override block size reported to stat */
-		if (!(request_mask & STATX_SIZE))
-			stat->result_mask &= ~STATX_SIZE;
+		if (request_mask & STATX_SIZE)
+			stat->result_mask = STATX_BASIC_STATS;
+		else
+			stat->result_mask = STATX_BASIC_STATS &
+			    ~STATX_SIZE;
 
 		stat->attributes_mask = STATX_ATTR_IMMUTABLE |
 		    STATX_ATTR_APPEND;
@@ -402,11 +405,7 @@ struct inode *orangefs_iget(struct super_block *sb,
 			orangefs_test_inode,
 			orangefs_set_inode,
 			ref);
-
-	if (!inode)
-		return ERR_PTR(-ENOMEM);
-
-	if (!(inode->i_state & I_NEW))
+	if (!inode || !(inode->i_state & I_NEW))
 		return inode;
 
 	error = orangefs_inode_getattr(inode, 1, 1, STATX_ALL);
@@ -449,7 +448,7 @@ struct inode *orangefs_new_inode(struct super_block *sb, struct inode *dir,
 
 	inode = new_inode(sb);
 	if (!inode)
-		return ERR_PTR(-ENOMEM);
+		return NULL;
 
 	orangefs_set_inode(inode, ref);
 	inode->i_ino = hash;	/* needed for stat etc */

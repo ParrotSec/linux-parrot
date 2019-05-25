@@ -36,4 +36,4 @@ ENDPROC(exynos4_secondary_startup)
 
 	.align 2
 1:	.long	.
-	.long	exynos_pen_release
+	.long	pen_release

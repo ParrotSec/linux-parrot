@@ -33,7 +33,6 @@
 #include "ui/browsers/hists.h"
 #include "thread.h"
 #include "mem2node.h"
-#include "symbol.h"
 
 struct c2c_hists {
 	struct hists		hists;
@@ -69,7 +68,7 @@ struct c2c_hist_entry {
 	struct hist_entry	he;
 };
 
-static char const *coalesce_default = "iaddr";
+static char const *coalesce_default = "pid,iaddr";
 
 struct perf_c2c {
 	struct perf_tool	tool;
@@ -1879,7 +1878,7 @@ static int c2c_hists__reinit(struct c2c_hists *c2c_hists,
 	return hpp_list__parse(&c2c_hists->list, output, sort);
 }
 
-#define DISPLAY_LINE_LIMIT  0.001
+#define DISPLAY_LINE_LIMIT  0.0005
 
 static bool he__display(struct hist_entry *he, struct c2c_stats *stats)
 {
@@ -1970,7 +1969,7 @@ static void calc_width(struct c2c_hist_entry *c2c_he)
 	set_nodestr(c2c_he);
 }
 
-static int filter_cb(struct hist_entry *he, void *arg __maybe_unused)
+static int filter_cb(struct hist_entry *he)
 {
 	struct c2c_hist_entry *c2c_he;
 
@@ -1987,7 +1986,7 @@ static int filter_cb(struct hist_entry *he, void *arg __maybe_unused)
 	return 0;
 }
 
-static int resort_cl_cb(struct hist_entry *he, void *arg __maybe_unused)
+static int resort_cl_cb(struct hist_entry *he)
 {
 	struct c2c_hist_entry *c2c_he;
 	struct c2c_hists *c2c_hists;
@@ -2078,7 +2077,7 @@ static int setup_nodes(struct perf_session *session)
 
 #define HAS_HITMS(__h) ((__h)->stats.lcl_hitm || (__h)->stats.rmt_hitm)
 
-static int resort_hitm_cb(struct hist_entry *he, void *arg __maybe_unused)
+static int resort_hitm_cb(struct hist_entry *he)
 {
 	struct c2c_hist_entry *c2c_he;
 	c2c_he = container_of(he, struct c2c_hist_entry, he);
@@ -2093,14 +2092,14 @@ static int resort_hitm_cb(struct hist_entry *he, void *arg __maybe_unused)
 
 static int hists__iterate_cb(struct hists *hists, hists__resort_cb_t cb)
 {
-	struct rb_node *next = rb_first_cached(&hists->entries);
+	struct rb_node *next = rb_first(&hists->entries);
 	int ret = 0;
 
 	while (next) {
 		struct hist_entry *he;
 
 		he = rb_entry(next, struct hist_entry, rb_node);
-		ret = cb(he, NULL);
+		ret = cb(he);
 		if (ret)
 			break;
 		next = rb_next(&he->rb_node);
@@ -2220,7 +2219,7 @@ static void print_pareto(FILE *out)
 	if (WARN_ONCE(ret, "failed to setup sort entries\n"))
 		return;
 
-	nd = rb_first_cached(&c2c.hists.hists.entries);
+	nd = rb_first(&c2c.hists.hists.entries);
 
 	for (; nd; nd = rb_next(nd)) {
 		struct hist_entry *he = rb_entry(nd, struct hist_entry, rb_node);
@@ -2288,7 +2287,7 @@ static void perf_c2c__hists_fprintf(FILE *out, struct perf_session *session)
 static void c2c_browser__update_nr_entries(struct hist_browser *hb)
 {
 	u64 nr_entries = 0;
-	struct rb_node *nd = rb_first_cached(&hb->hists->entries);
+	struct rb_node *nd = rb_first(&hb->hists->entries);
 
 	while (nd) {
 		struct hist_entry *he = rb_entry(nd, struct hist_entry, rb_node);
@@ -2348,7 +2347,7 @@ static int perf_c2c__browse_cacheline(struct hist_entry *he)
 	struct c2c_cacheline_browser *cl_browser;
 	struct hist_browser *browser;
 	int key = -1;
-	static const char help[] =
+	const char help[] =
 	" ENTER         Toggle callchains (if present) \n"
 	" n             Toggle Node details info \n"
 	" s             Toggle full length of symbol and source line columns \n"
@@ -2429,7 +2428,7 @@ static int perf_c2c__hists_browse(struct hists *hists)
 {
 	struct hist_browser *browser;
 	int key = -1;
-	static const char help[] =
+	const char help[] =
 	" d             Display cacheline details \n"
 	" ENTER         Toggle callchains (if present) \n"
 	" q             Quit \n";
@@ -2754,8 +2753,8 @@ static int perf_c2c__report(int argc, const char **argv)
 	if (!input_name || !strlen(input_name))
 		input_name = "perf.data";
 
-	data.path  = input_name;
-	data.force = symbol_conf.force;
+	data.file.path = input_name;
+	data.force     = symbol_conf.force;
 
 	err = setup_display(display);
 	if (err)

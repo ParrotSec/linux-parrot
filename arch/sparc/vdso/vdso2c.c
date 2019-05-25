@@ -63,6 +63,9 @@ enum {
 	sym_vvar_start,
 	sym_VDSO_FAKE_SECTION_TABLE_START,
 	sym_VDSO_FAKE_SECTION_TABLE_END,
+	sym_vread_tick,
+	sym_vread_tick_patch_start,
+	sym_vread_tick_patch_end
 };
 
 struct vdso_sym {
@@ -78,6 +81,9 @@ struct vdso_sym required_syms[] = {
 	[sym_VDSO_FAKE_SECTION_TABLE_END] = {
 		"VDSO_FAKE_SECTION_TABLE_END", 0
 	},
+	[sym_vread_tick] = {"vread_tick", 1},
+	[sym_vread_tick_patch_start] = {"vread_tick_patch_start", 1},
+	[sym_vread_tick_patch_end] = {"vread_tick_patch_end", 1}
 };
 
 __attribute__((format(printf, 1, 2))) __attribute__((noreturn))

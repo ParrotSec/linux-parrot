@@ -19,12 +19,9 @@
 
 	clocks {
 		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <0>;
 
-		xti: xti@0 {
+		xti: xti {
 			compatible = "fixed-clock";
-			reg = <0>;
 			clock-frequency = <12000000>;
 			clock-output-names = "xti";
 			#clock-cells = <0>;

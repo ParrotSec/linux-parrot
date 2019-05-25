@@ -331,16 +331,9 @@ int kvmppc_st(struct kvm_vcpu *vcpu, ulong *eaddr, int size, void *ptr,
 {
 	ulong mp_pa = vcpu->arch.magic_page_pa & KVM_PAM & PAGE_MASK;
 	struct kvmppc_pte pte;
-	int r = -EINVAL;
+	int r;
 
 	vcpu->stat.st++;
-
-	if (vcpu->kvm->arch.kvm_ops && vcpu->kvm->arch.kvm_ops->store_to_eaddr)
-		r = vcpu->kvm->arch.kvm_ops->store_to_eaddr(vcpu, eaddr, ptr,
-							    size);
-
-	if ((!r) || (r == -EAGAIN))
-		return r;
 
 	r = kvmppc_xlate(vcpu, *eaddr, data ? XLATE_DATA : XLATE_INST,
 			 XLATE_WRITE, &pte);
@@ -374,16 +367,9 @@ int kvmppc_ld(struct kvm_vcpu *vcpu, ulong *eaddr, int size, void *ptr,
 {
 	ulong mp_pa = vcpu->arch.magic_page_pa & KVM_PAM & PAGE_MASK;
 	struct kvmppc_pte pte;
-	int rc = -EINVAL;
+	int rc;
 
 	vcpu->stat.ld++;
-
-	if (vcpu->kvm->arch.kvm_ops && vcpu->kvm->arch.kvm_ops->load_from_eaddr)
-		rc = vcpu->kvm->arch.kvm_ops->load_from_eaddr(vcpu, eaddr, ptr,
-							      size);
-
-	if ((!rc) || (rc == -EAGAIN))
-		return rc;
 
 	rc = kvmppc_xlate(vcpu, *eaddr, data ? XLATE_DATA : XLATE_INST,
 			  XLATE_READ, &pte);
@@ -532,6 +518,7 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_PPC_UNSET_IRQ:
 	case KVM_CAP_PPC_IRQ_LEVEL:
 	case KVM_CAP_ENABLE_CAP:
+	case KVM_CAP_ENABLE_CAP_VM:
 	case KVM_CAP_ONE_REG:
 	case KVM_CAP_IOEVENTFD:
 	case KVM_CAP_DEVICE_CTRL:
@@ -610,12 +597,7 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 		r = !!(hv_enabled && radix_enabled());
 		break;
 	case KVM_CAP_PPC_MMU_HASH_V3:
-		r = !!(hv_enabled && cpu_has_feature(CPU_FTR_ARCH_300) &&
-		       cpu_has_feature(CPU_FTR_HVMODE));
-		break;
-	case KVM_CAP_PPC_NESTED_HV:
-		r = !!(hv_enabled && kvmppc_hv_ops->enable_nested &&
-		       !kvmppc_hv_ops->enable_nested(NULL));
+		r = !!(hv_enabled && cpu_has_feature(CPU_FTR_ARCH_300));
 		break;
 #endif
 	case KVM_CAP_SYNC_MMU:
@@ -712,7 +694,7 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
 				   const struct kvm_memory_slot *new,
 				   enum kvm_mr_change change)
 {
-	kvmppc_core_commit_memory_region(kvm, mem, old, new, change);
+	kvmppc_core_commit_memory_region(kvm, mem, old, new);
 }
 
 void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
@@ -748,7 +730,7 @@ void kvm_arch_vcpu_free(struct kvm_vcpu *vcpu)
 		kvmppc_mpic_disconnect_vcpu(vcpu->arch.mpic, vcpu);
 		break;
 	case KVMPPC_IRQ_XICS:
-		if (xics_on_xive())
+		if (xive_enabled())
 			kvmppc_xive_cleanup_vcpu(vcpu);
 		else
 			kvmppc_xics_free_icp(vcpu);
@@ -1206,14 +1188,6 @@ static void kvmppc_complete_mmio_load(struct kvm_vcpu *vcpu,
 		else if (vcpu->arch.mmio_copy_type ==
 				KVMPPC_VMX_COPY_BYTE)
 			kvmppc_set_vmx_byte(vcpu, gpr);
-		break;
-#endif
-#ifdef CONFIG_KVM_BOOK3S_HV_POSSIBLE
-	case KVM_MMIO_REG_NESTED_GPR:
-		if (kvmppc_need_byteswap(vcpu))
-			gpr = swab64(gpr);
-		kvm_vcpu_write_guest(vcpu, vcpu->arch.nested_io_gpr, &gpr,
-				     sizeof(gpr));
 		break;
 #endif
 	default:
@@ -1931,7 +1905,7 @@ static int kvm_vcpu_ioctl_enable_cap(struct kvm_vcpu *vcpu,
 		r = -EPERM;
 		dev = kvm_device_from_filp(f.file);
 		if (dev) {
-			if (xics_on_xive())
+			if (xive_enabled())
 				r = kvmppc_xive_connect_vcpu(dev, vcpu, cap->args[1]);
 			else
 				r = kvmppc_xics_connect_vcpu(dev, vcpu, cap->args[1]);
@@ -2108,8 +2082,8 @@ int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *irq_event,
 }
 
 
-int kvm_vm_ioctl_enable_cap(struct kvm *kvm,
-			    struct kvm_enable_cap *cap)
+static int kvm_vm_ioctl_enable_cap(struct kvm *kvm,
+				   struct kvm_enable_cap *cap)
 {
 	int r;
 
@@ -2143,14 +2117,6 @@ int kvm_vm_ioctl_enable_cap(struct kvm *kvm,
 			r = kvm->arch.kvm_ops->set_smt_mode(kvm, mode, flags);
 		break;
 	}
-
-	case KVM_CAP_PPC_NESTED_HV:
-		r = -EINVAL;
-		if (!is_kvmppc_hv_enabled(kvm) ||
-		    !kvm->arch.kvm_ops->enable_nested)
-			break;
-		r = kvm->arch.kvm_ops->enable_nested(kvm);
-		break;
 #endif
 	default:
 		r = -EINVAL;
@@ -2189,12 +2155,10 @@ static int pseries_get_cpu_char(struct kvm_ppc_cpu_char *cp)
 			KVM_PPC_CPU_CHAR_L1D_THREAD_PRIV |
 			KVM_PPC_CPU_CHAR_BR_HINT_HONOURED |
 			KVM_PPC_CPU_CHAR_MTTRIG_THR_RECONF |
-			KVM_PPC_CPU_CHAR_COUNT_CACHE_DIS |
-			KVM_PPC_CPU_CHAR_BCCTR_FLUSH_ASSIST;
+			KVM_PPC_CPU_CHAR_COUNT_CACHE_DIS;
 		cp->behaviour_mask = KVM_PPC_CPU_BEHAV_FAVOUR_SECURITY |
 			KVM_PPC_CPU_BEHAV_L1D_FLUSH_PR |
-			KVM_PPC_CPU_BEHAV_BNDS_CHK_SPEC_BAR |
-			KVM_PPC_CPU_BEHAV_FLUSH_COUNT_CACHE;
+			KVM_PPC_CPU_BEHAV_BNDS_CHK_SPEC_BAR;
 	}
 	return 0;
 }
@@ -2253,16 +2217,12 @@ static int kvmppc_get_cpu_char(struct kvm_ppc_cpu_char *cp)
 		if (have_fw_feat(fw_features, "enabled",
 				 "fw-count-cache-disabled"))
 			cp->character |= KVM_PPC_CPU_CHAR_COUNT_CACHE_DIS;
-		if (have_fw_feat(fw_features, "enabled",
-				 "fw-count-cache-flush-bcctr2,0,0"))
-			cp->character |= KVM_PPC_CPU_CHAR_BCCTR_FLUSH_ASSIST;
 		cp->character_mask = KVM_PPC_CPU_CHAR_SPEC_BAR_ORI31 |
 			KVM_PPC_CPU_CHAR_BCCTRL_SERIALISED |
 			KVM_PPC_CPU_CHAR_L1D_FLUSH_ORI30 |
 			KVM_PPC_CPU_CHAR_L1D_FLUSH_TRIG2 |
 			KVM_PPC_CPU_CHAR_L1D_THREAD_PRIV |
-			KVM_PPC_CPU_CHAR_COUNT_CACHE_DIS |
-			KVM_PPC_CPU_CHAR_BCCTR_FLUSH_ASSIST;
+			KVM_PPC_CPU_CHAR_COUNT_CACHE_DIS;
 
 		if (have_fw_feat(fw_features, "enabled",
 				 "speculation-policy-favor-security"))
@@ -2273,13 +2233,9 @@ static int kvmppc_get_cpu_char(struct kvm_ppc_cpu_char *cp)
 		if (!have_fw_feat(fw_features, "disabled",
 				  "needs-spec-barrier-for-bound-checks"))
 			cp->behaviour |= KVM_PPC_CPU_BEHAV_BNDS_CHK_SPEC_BAR;
-		if (have_fw_feat(fw_features, "enabled",
-				 "needs-count-cache-flush-on-context-switch"))
-			cp->behaviour |= KVM_PPC_CPU_BEHAV_FLUSH_COUNT_CACHE;
 		cp->behaviour_mask = KVM_PPC_CPU_BEHAV_FAVOUR_SECURITY |
 			KVM_PPC_CPU_BEHAV_L1D_FLUSH_PR |
-			KVM_PPC_CPU_BEHAV_BNDS_CHK_SPEC_BAR |
-			KVM_PPC_CPU_BEHAV_FLUSH_COUNT_CACHE;
+			KVM_PPC_CPU_BEHAV_BNDS_CHK_SPEC_BAR;
 
 		of_node_put(fw_features);
 	}
@@ -2305,6 +2261,15 @@ long kvm_arch_vm_ioctl(struct file *filp,
 			goto out;
 		}
 
+		break;
+	}
+	case KVM_ENABLE_CAP:
+	{
+		struct kvm_enable_cap cap;
+		r = -EFAULT;
+		if (copy_from_user(&cap, argp, sizeof(cap)))
+			goto out;
+		r = kvm_vm_ioctl_enable_cap(kvm, &cap);
 		break;
 	}
 #ifdef CONFIG_SPAPR_TCE_IOMMU

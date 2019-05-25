@@ -730,9 +730,9 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 	/* normal [4.15.1.2] or error [4.15.1.1] completion */
 	if (likely ((status & (STS_INT|STS_ERR)) != 0)) {
 		if (likely ((status & STS_ERR) == 0))
-			INCR(ehci->stats.normal);
+			COUNT (ehci->stats.normal);
 		else
-			INCR(ehci->stats.error);
+			COUNT (ehci->stats.error);
 		bh = 1;
 	}
 
@@ -756,7 +756,7 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 		if (cmd & CMD_IAAD)
 			ehci_dbg(ehci, "IAA with IAAD still set?\n");
 		if (ehci->iaa_in_progress)
-			INCR(ehci->stats.iaa);
+			COUNT(ehci->stats.iaa);
 		end_iaa_cycle(ehci);
 	}
 
@@ -1284,6 +1284,11 @@ MODULE_LICENSE ("GPL");
 #ifdef CONFIG_SPARC_LEON
 #include "ehci-grlib.c"
 #define PLATFORM_DRIVER		ehci_grlib_driver
+#endif
+
+#ifdef CONFIG_USB_EHCI_MV
+#include "ehci-mv.c"
+#define        PLATFORM_DRIVER         ehci_mv_driver
 #endif
 
 static int __init ehci_hcd_init(void)

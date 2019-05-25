@@ -1,8 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * DTS File for HiSilicon Poplar Development Board
  *
  * Copyright (c) 2016-2017 HiSilicon Technologies Co., Ltd.
+ *
+ * Released under the GPLv2 only.
+ * SPDX-License-Identifier: GPL-2.0
  */
 
 /dts-v1/;
@@ -33,31 +35,30 @@
 		compatible = "gpio-leds";
 
 		user-led0 {
-			label = "green:user1";
+			label = "USER-LED0";
 			gpios = <&gpio6 3 GPIO_ACTIVE_LOW>;
 			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		user-led1 {
-			label = "green:user2";
+			label = "USER-LED1";
 			gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
 			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 
 		user-led2 {
-			label = "green:user3";
+			label = "USER-LED2";
 			gpios = <&gpio5 2 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "mmc1";
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		user-led3 {
-			label = "green:user4";
+			label = "USER-LED3";
 			gpios = <&gpio10 6 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "none";
-			panic-indicator;
+			linux,default-trigger = "cpu0";
 			default-state = "off";
 		};
 	};

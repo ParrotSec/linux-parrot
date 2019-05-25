@@ -391,6 +391,14 @@ struct hv_interrupt_entry {
 	u32	data;
 };
 
+#define HV_VP_SET_BANK_COUNT_MAX	5 /* current implementation limit */
+
+struct hv_vp_set {
+	u64	format;			/* 0 (HvGenericSetSparse4k) */
+	u64	valid_banks;
+	u64	masks[HV_VP_SET_BANK_COUNT_MAX];
+};
+
 /*
  * flags for hv_device_interrupt_target.flags
  */
@@ -402,7 +410,7 @@ struct hv_device_interrupt_target {
 	u32	flags;
 	union {
 		u64		 vp_mask;
-		struct hv_vpset vp_set;
+		struct hv_vp_set vp_set;
 	};
 };
 
@@ -412,7 +420,7 @@ struct retarget_msi_interrupt {
 	struct hv_interrupt_entry int_entry;
 	u64	reserved2;
 	struct hv_device_interrupt_target int_target;
-} __packed __aligned(8);
+} __packed;
 
 /*
  * Driver specific state.
@@ -452,16 +460,12 @@ struct hv_pcibus_device {
 	struct msi_controller msi_chip;
 	struct irq_domain *irq_domain;
 
-	spinlock_t retarget_msi_interrupt_lock;
-
-	struct workqueue_struct *wq;
-
 	/* hypercall arg, must not cross page boundary */
 	struct retarget_msi_interrupt retarget_msi_interrupt_params;
 
-	/*
-	 * Don't put anything here: retarget_msi_interrupt_params must be last
-	 */
+	spinlock_t retarget_msi_interrupt_lock;
+
+	struct workqueue_struct *wq;
 };
 
 /*
@@ -906,12 +910,12 @@ static void hv_irq_unmask(struct irq_data *data)
 	struct retarget_msi_interrupt *params;
 	struct hv_pcibus_device *hbus;
 	struct cpumask *dest;
-	cpumask_var_t tmp;
 	struct pci_bus *pbus;
 	struct pci_dev *pdev;
 	unsigned long flags;
 	u32 var_size = 0;
-	int cpu, nr_bank;
+	int cpu_vmbus;
+	int cpu;
 	u64 res;
 
 	dest = irq_data_get_effective_affinity_mask(data);
@@ -951,27 +955,28 @@ static void hv_irq_unmask(struct irq_data *data)
 		 */
 		params->int_target.flags |=
 			HV_DEVICE_INTERRUPT_TARGET_PROCESSOR_SET;
-
-		if (!alloc_cpumask_var(&tmp, GFP_ATOMIC)) {
-			res = 1;
-			goto exit_unlock;
-		}
-
-		cpumask_and(tmp, dest, cpu_online_mask);
-		nr_bank = cpumask_to_vpset(&params->int_target.vp_set, tmp);
-		free_cpumask_var(tmp);
-
-		if (nr_bank <= 0) {
-			res = 1;
-			goto exit_unlock;
-		}
+		params->int_target.vp_set.valid_banks =
+			(1ull << HV_VP_SET_BANK_COUNT_MAX) - 1;
 
 		/*
 		 * var-sized hypercall, var-size starts after vp_mask (thus
-		 * vp_set.format does not count, but vp_set.valid_bank_mask
-		 * does).
+		 * vp_set.format does not count, but vp_set.valid_banks does).
 		 */
-		var_size = 1 + nr_bank;
+		var_size = 1 + HV_VP_SET_BANK_COUNT_MAX;
+
+		for_each_cpu_and(cpu, dest, cpu_online_mask) {
+			cpu_vmbus = hv_cpu_number_to_vp_number(cpu);
+
+			if (cpu_vmbus >= HV_VP_SET_BANK_COUNT_MAX * 64) {
+				dev_err(&hbus->hdev->device,
+					"too high CPU %d", cpu_vmbus);
+				res = 1;
+				goto exit_unlock;
+			}
+
+			params->int_target.vp_set.masks[cpu_vmbus / 64] |=
+				(1ULL << (cpu_vmbus & 63));
+		}
 	} else {
 		for_each_cpu_and(cpu, dest, cpu_online_mask) {
 			params->int_target.vp_mask |=
@@ -1486,21 +1491,6 @@ static void hv_pci_assign_slots(struct hv_pcibus_device *hbus)
 	}
 }
 
-/*
- * Remove entries in sysfs pci slot directory.
- */
-static void hv_pci_remove_slots(struct hv_pcibus_device *hbus)
-{
-	struct hv_pci_dev *hpdev;
-
-	list_for_each_entry(hpdev, &hbus->children, list_entry) {
-		if (!hpdev->pci_slot)
-			continue;
-		pci_destroy_slot(hpdev->pci_slot);
-		hpdev->pci_slot = NULL;
-	}
-}
-
 /**
  * create_root_hv_pci_bus() - Expose a new root PCI bus
  * @hbus:	Root PCI bus, as understood by this driver
@@ -1776,10 +1766,6 @@ static void pci_devices_present_work(struct work_struct *work)
 		hpdev = list_first_entry(&removed, struct hv_pci_dev,
 					 list_entry);
 		list_del(&hpdev->list_entry);
-
-		if (hpdev->pci_slot)
-			pci_destroy_slot(hpdev->pci_slot);
-
 		put_pcichild(hpdev);
 	}
 
@@ -1919,9 +1905,6 @@ static void hv_eject_device_work(struct work_struct *work)
 			 sizeof(*ejct_pkt), (unsigned long)&ctxt.pkt,
 			 VM_PKT_DATA_INBAND, 0);
 
-	/* For the get_pcichild() in hv_pci_eject_device() */
-	put_pcichild(hpdev);
-	/* For the two refs got in new_pcichild_device() */
 	put_pcichild(hpdev);
 	put_pcichild(hpdev);
 	put_hvpcibus(hpdev->hbus);
@@ -2699,7 +2682,6 @@ static int hv_pci_remove(struct hv_device *hdev)
 		pci_lock_rescan_remove();
 		pci_stop_root_bus(hbus->pci_bus);
 		pci_remove_root_bus(hbus->pci_bus);
-		hv_pci_remove_slots(hbus);
 		pci_unlock_rescan_remove();
 		hbus->state = hv_pcibus_removed;
 	}

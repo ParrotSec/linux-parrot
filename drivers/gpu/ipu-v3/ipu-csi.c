@@ -232,7 +232,7 @@ static int mbus_code_to_bus_cfg(struct ipu_csi_bus_config *cfg, u32 mbus_code,
 	case MEDIA_BUS_FMT_BGR565_2X8_LE:
 	case MEDIA_BUS_FMT_RGB565_2X8_BE:
 	case MEDIA_BUS_FMT_RGB565_2X8_LE:
-		if (mbus_type == V4L2_MBUS_CSI2_DPHY)
+		if (mbus_type == V4L2_MBUS_CSI2)
 			cfg->data_fmt = CSI_SENS_CONF_DATA_FMT_RGB565;
 		else
 			cfg->data_fmt = CSI_SENS_CONF_DATA_FMT_BAYER;
@@ -325,21 +325,12 @@ static int mbus_code_to_bus_cfg(struct ipu_csi_bus_config *cfg, u32 mbus_code,
 	return 0;
 }
 
-/* translate alternate field mode based on given standard */
-static inline enum v4l2_field
-ipu_csi_translate_field(enum v4l2_field field, v4l2_std_id std)
-{
-	return (field != V4L2_FIELD_ALTERNATE) ? field :
-		((std & V4L2_STD_525_60) ?
-		 V4L2_FIELD_SEQ_BT : V4L2_FIELD_SEQ_TB);
-}
-
 /*
  * Fill a CSI bus config struct from mbus_config and mbus_framefmt.
  */
 static int fill_csi_bus_cfg(struct ipu_csi_bus_config *csicfg,
-			    const struct v4l2_mbus_config *mbus_cfg,
-			    const struct v4l2_mbus_framefmt *mbus_fmt)
+				 struct v4l2_mbus_config *mbus_cfg,
+				 struct v4l2_mbus_framefmt *mbus_fmt)
 {
 	int ret;
 
@@ -368,7 +359,7 @@ static int fill_csi_bus_cfg(struct ipu_csi_bus_config *csicfg,
 		else
 			csicfg->clk_mode = IPU_CSI_CLK_MODE_CCIR656_PROGRESSIVE;
 		break;
-	case V4L2_MBUS_CSI2_DPHY:
+	case V4L2_MBUS_CSI2:
 		/*
 		 * MIPI CSI-2 requires non gated clock mode, all other
 		 * parameters are not applicable for MIPI CSI-2 bus.
@@ -383,76 +374,22 @@ static int fill_csi_bus_cfg(struct ipu_csi_bus_config *csicfg,
 	return 0;
 }
 
-static int
-ipu_csi_set_bt_interlaced_codes(struct ipu_csi *csi,
-				const struct v4l2_mbus_framefmt *infmt,
-				const struct v4l2_mbus_framefmt *outfmt,
-				v4l2_std_id std)
-{
-	enum v4l2_field infield, outfield;
-	bool swap_fields;
-
-	/* get translated field type of input and output */
-	infield = ipu_csi_translate_field(infmt->field, std);
-	outfield = ipu_csi_translate_field(outfmt->field, std);
-
-	/*
-	 * Write the H-V-F codes the CSI will match against the
-	 * incoming data for start/end of active and blanking
-	 * field intervals. If input and output field types are
-	 * sequential but not the same (one is SEQ_BT and the other
-	 * is SEQ_TB), swap the F-bit so that the CSI will capture
-	 * field 1 lines before field 0 lines.
-	 */
-	swap_fields = (V4L2_FIELD_IS_SEQUENTIAL(infield) &&
-		       V4L2_FIELD_IS_SEQUENTIAL(outfield) &&
-		       infield != outfield);
-
-	if (!swap_fields) {
-		/*
-		 * Field0BlankEnd  = 110, Field0BlankStart  = 010
-		 * Field0ActiveEnd = 100, Field0ActiveStart = 000
-		 * Field1BlankEnd  = 111, Field1BlankStart  = 011
-		 * Field1ActiveEnd = 101, Field1ActiveStart = 001
-		 */
-		ipu_csi_write(csi, 0x40596 | CSI_CCIR_ERR_DET_EN,
-			      CSI_CCIR_CODE_1);
-		ipu_csi_write(csi, 0xD07DF, CSI_CCIR_CODE_2);
-	} else {
-		dev_dbg(csi->ipu->dev, "capture field swap\n");
-
-		/* same as above but with F-bit inverted */
-		ipu_csi_write(csi, 0xD07DF | CSI_CCIR_ERR_DET_EN,
-			      CSI_CCIR_CODE_1);
-		ipu_csi_write(csi, 0x40596, CSI_CCIR_CODE_2);
-	}
-
-	ipu_csi_write(csi, 0xFF0000, CSI_CCIR_CODE_3);
-
-	return 0;
-}
-
-
 int ipu_csi_init_interface(struct ipu_csi *csi,
-			   const struct v4l2_mbus_config *mbus_cfg,
-			   const struct v4l2_mbus_framefmt *infmt,
-			   const struct v4l2_mbus_framefmt *outfmt)
+			   struct v4l2_mbus_config *mbus_cfg,
+			   struct v4l2_mbus_framefmt *mbus_fmt)
 {
 	struct ipu_csi_bus_config cfg;
 	unsigned long flags;
 	u32 width, height, data = 0;
-	v4l2_std_id std;
 	int ret;
 
-	ret = fill_csi_bus_cfg(&cfg, mbus_cfg, infmt);
+	ret = fill_csi_bus_cfg(&cfg, mbus_cfg, mbus_fmt);
 	if (ret < 0)
 		return ret;
 
 	/* set default sensor frame width and height */
-	width = infmt->width;
-	height = infmt->height;
-	if (infmt->field == V4L2_FIELD_ALTERNATE)
-		height *= 2;
+	width = mbus_fmt->width;
+	height = mbus_fmt->height;
 
 	/* Set the CSI_SENS_CONF register remaining fields */
 	data |= cfg.data_width << CSI_SENS_CONF_DATA_WIDTH_SHIFT |
@@ -479,22 +416,42 @@ int ipu_csi_init_interface(struct ipu_csi *csi,
 		ipu_csi_write(csi, 0xFF0000, CSI_CCIR_CODE_3);
 		break;
 	case IPU_CSI_CLK_MODE_CCIR656_INTERLACED:
-		if (width == 720 && height == 480) {
-			std = V4L2_STD_NTSC;
-			height = 525;
-		} else if (width == 720 && height == 576) {
-			std = V4L2_STD_PAL;
-			height = 625;
+		if (mbus_fmt->width == 720 && mbus_fmt->height == 576) {
+			/*
+			 * PAL case
+			 *
+			 * Field0BlankEnd = 0x6, Field0BlankStart = 0x2,
+			 * Field0ActiveEnd = 0x4, Field0ActiveStart = 0
+			 * Field1BlankEnd = 0x7, Field1BlankStart = 0x3,
+			 * Field1ActiveEnd = 0x5, Field1ActiveStart = 0x1
+			 */
+			height = 625; /* framelines for PAL */
+
+			ipu_csi_write(csi, 0x40596 | CSI_CCIR_ERR_DET_EN,
+					  CSI_CCIR_CODE_1);
+			ipu_csi_write(csi, 0xD07DF, CSI_CCIR_CODE_2);
+			ipu_csi_write(csi, 0xFF0000, CSI_CCIR_CODE_3);
+		} else if (mbus_fmt->width == 720 && mbus_fmt->height == 480) {
+			/*
+			 * NTSC case
+			 *
+			 * Field0BlankEnd = 0x7, Field0BlankStart = 0x3,
+			 * Field0ActiveEnd = 0x5, Field0ActiveStart = 0x1
+			 * Field1BlankEnd = 0x6, Field1BlankStart = 0x2,
+			 * Field1ActiveEnd = 0x4, Field1ActiveStart = 0
+			 */
+			height = 525; /* framelines for NTSC */
+
+			ipu_csi_write(csi, 0xD07DF | CSI_CCIR_ERR_DET_EN,
+					  CSI_CCIR_CODE_1);
+			ipu_csi_write(csi, 0x40596, CSI_CCIR_CODE_2);
+			ipu_csi_write(csi, 0xFF0000, CSI_CCIR_CODE_3);
 		} else {
 			dev_err(csi->ipu->dev,
-				"Unsupported interlaced video mode\n");
-			ret = -EINVAL;
-			goto out_unlock;
+				"Unsupported CCIR656 interlaced video mode\n");
+			spin_unlock_irqrestore(&csi->lock, flags);
+			return -EINVAL;
 		}
-
-		ret = ipu_csi_set_bt_interlaced_codes(csi, infmt, outfmt, std);
-		if (ret)
-			goto out_unlock;
 		break;
 	case IPU_CSI_CLK_MODE_CCIR1120_PROGRESSIVE_DDR:
 	case IPU_CSI_CLK_MODE_CCIR1120_PROGRESSIVE_SDR:
@@ -519,10 +476,9 @@ int ipu_csi_init_interface(struct ipu_csi *csi,
 	dev_dbg(csi->ipu->dev, "CSI_ACT_FRM_SIZE = 0x%08X\n",
 		ipu_csi_read(csi, CSI_ACT_FRM_SIZE));
 
-out_unlock:
 	spin_unlock_irqrestore(&csi->lock, flags);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(ipu_csi_init_interface);
 
@@ -655,7 +611,7 @@ int ipu_csi_set_mipi_datatype(struct ipu_csi *csi, u32 vc,
 	if (vc > 3)
 		return -EINVAL;
 
-	ret = mbus_code_to_bus_cfg(&cfg, mbus_fmt->code, V4L2_MBUS_CSI2_DPHY);
+	ret = mbus_code_to_bus_cfg(&cfg, mbus_fmt->code, V4L2_MBUS_CSI2);
 	if (ret < 0)
 		return ret;
 

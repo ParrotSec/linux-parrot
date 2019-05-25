@@ -204,10 +204,9 @@
 #define LOADB(reg, addr, handler)	EXC(lb, LD_INSN, reg, addr, handler)
 #define STOREB(reg, addr, handler)	EXC(sb, ST_INSN, reg, addr, handler)
 
-#ifdef CONFIG_CPU_HAS_PREFETCH
-# define _PREF(hint, addr, type)					\
+#define _PREF(hint, addr, type)						\
 	.if \mode == LEGACY_MODE;					\
-		kernel_pref(hint, addr);				\
+		PREF(hint, addr);					\
 	.else;								\
 		.if ((\from == USEROP) && (type == SRC_PREFETCH)) ||	\
 		    ((\to == USEROP) && (type == DST_PREFETCH));	\
@@ -219,15 +218,12 @@
 			 * used later on. Therefore use $v1.		\
 			 */						\
 			.set at=v1;					\
-			user_pref(hint, addr);				\
+			PREFE(hint, addr);				\
 			.set noat;					\
 		.else;							\
-			kernel_pref(hint, addr);			\
+			PREF(hint, addr);				\
 		.endif;							\
 	.endif
-#else
-# define _PREF(hint, addr, type)
-#endif
 
 #define PREFS(hint, addr) _PREF(hint, addr, SRC_PREFETCH)
 #define PREFD(hint, addr) _PREF(hint, addr, DST_PREFETCH)
@@ -301,7 +297,7 @@
 	 and	t0, src, ADDRMASK
 	PREFS(	0, 2*32(src) )
 	PREFD(	1, 2*32(dst) )
-#ifdef CONFIG_CPU_HAS_LOAD_STORE_LR
+#ifndef CONFIG_CPU_MIPSR6
 	bnez	t1, .Ldst_unaligned\@
 	 nop
 	bnez	t0, .Lsrc_unaligned_dst_aligned\@
@@ -389,7 +385,7 @@
 	bne	rem, len, 1b
 	.set	noreorder
 
-#ifdef CONFIG_CPU_HAS_LOAD_STORE_LR
+#ifndef CONFIG_CPU_MIPSR6
 	/*
 	 * src and dst are aligned, need to copy rem bytes (rem < NBYTES)
 	 * A loop would do only a byte at a time with possible branch
@@ -491,7 +487,7 @@
 	bne	len, rem, 1b
 	.set	noreorder
 
-#endif /* CONFIG_CPU_HAS_LOAD_STORE_LR */
+#endif /* !CONFIG_CPU_MIPSR6 */
 .Lcopy_bytes_checklen\@:
 	beqz	len, .Ldone\@
 	 nop
@@ -520,7 +516,7 @@
 	jr	ra
 	 nop
 
-#ifndef CONFIG_CPU_HAS_LOAD_STORE_LR
+#ifdef CONFIG_CPU_MIPSR6
 .Lcopy_unaligned_bytes\@:
 1:
 	COPY_BYTE(0)
@@ -534,7 +530,7 @@
 	ADD	src, src, 8
 	b	1b
 	 ADD	dst, dst, 8
-#endif /* !CONFIG_CPU_HAS_LOAD_STORE_LR */
+#endif /* CONFIG_CPU_MIPSR6 */
 	.if __memcpy == 1
 	END(memcpy)
 	.set __memcpy, 0

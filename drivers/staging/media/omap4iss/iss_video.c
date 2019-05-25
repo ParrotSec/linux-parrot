@@ -1,10 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * TI OMAP4 ISS V4L2 Driver - Generic video node
  *
  * Copyright (C) 2012 Texas Instruments, Inc.
  *
  * Author: Sergio Aguirre <sergio.a.aguirre@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  */
 
 #include <linux/clk.h>
@@ -530,9 +534,9 @@ iss_video_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
 {
 	struct iss_video *video = video_drvdata(file);
 
-	strscpy(cap->driver, ISS_VIDEO_DRIVER_NAME, sizeof(cap->driver));
-	strscpy(cap->card, video->video.name, sizeof(cap->card));
-	strscpy(cap->bus_info, "media", sizeof(cap->bus_info));
+	strlcpy(cap->driver, ISS_VIDEO_DRIVER_NAME, sizeof(cap->driver));
+	strlcpy(cap->card, video->video.name, sizeof(cap->card));
+	strlcpy(cap->bus_info, "media", sizeof(cap->bus_info));
 
 	if (video->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		cap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
@@ -569,7 +573,7 @@ iss_video_enum_format(struct file *file, void *fh, struct v4l2_fmtdesc *f)
 
 		if (index == 0) {
 			f->pixelformat = info->pixelformat;
-			strscpy(f->description, info->description,
+			strlcpy(f->description, info->description,
 				sizeof(f->description));
 			return 0;
 		}
@@ -802,10 +806,9 @@ iss_video_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 static int
 iss_video_qbuf(struct file *file, void *fh, struct v4l2_buffer *b)
 {
-	struct iss_video *video = video_drvdata(file);
 	struct iss_video_fh *vfh = to_iss_video_fh(fh);
 
-	return vb2_qbuf(&vfh->queue, video->video.v4l2_dev->mdev, b);
+	return vb2_qbuf(&vfh->queue, b);
 }
 
 static int
@@ -1050,7 +1053,7 @@ iss_video_enum_input(struct file *file, void *fh, struct v4l2_input *input)
 	if (input->index > 0)
 		return -EINVAL;
 
-	strscpy(input->name, "camera", sizeof(input->name));
+	strlcpy(input->name, "camera", sizeof(input->name));
 	input->type = V4L2_INPUT_TYPE_CAMERA;
 
 	return 0;

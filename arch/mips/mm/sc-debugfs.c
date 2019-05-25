@@ -55,11 +55,20 @@ static const struct file_operations sc_prefetch_fops = {
 
 static int __init sc_debugfs_init(void)
 {
-	struct dentry *dir;
+	struct dentry *dir, *file;
+
+	if (!mips_debugfs_dir)
+		return -ENODEV;
 
 	dir = debugfs_create_dir("l2cache", mips_debugfs_dir);
-	debugfs_create_file("prefetch", S_IRUGO | S_IWUSR, dir, NULL,
-			    &sc_prefetch_fops);
+	if (IS_ERR(dir))
+		return PTR_ERR(dir);
+
+	file = debugfs_create_file("prefetch", S_IRUGO | S_IWUSR, dir,
+				   NULL, &sc_prefetch_fops);
+	if (!file)
+		return -ENOMEM;
+
 	return 0;
 }
 late_initcall(sc_debugfs_init);

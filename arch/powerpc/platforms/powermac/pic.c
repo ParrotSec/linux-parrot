@@ -417,7 +417,7 @@ int of_irq_parse_oldworld(struct device_node *device, int index,
 		if (ints != NULL)
 			break;
 		device = device->parent;
-		if (!of_node_is_type(device, "pci"))
+		if (device && strcmp(device->type, "pci") != 0)
 			break;
 	}
 	if (ints == NULL)
@@ -553,13 +553,13 @@ void __init pmac_pic_init(void)
 
 		for_each_node_with_property(np, "interrupt-controller") {
 			/* Skip /chosen/interrupt-controller */
-			if (of_node_name_eq(np, "chosen"))
+			if (strcmp(np->name, "chosen") == 0)
 				continue;
 			/* It seems like at least one person wants
 			 * to use BootX on a machine with an AppleKiwi
 			 * controller which happens to pretend to be an
 			 * interrupt controller too. */
-			if (of_node_name_eq(np, "AppleKiwi"))
+			if (strcmp(np->name, "AppleKiwi") == 0)
 				continue;
 			/* I think we found one ! */
 			of_irq_dflt_pic = np;

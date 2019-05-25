@@ -16,6 +16,8 @@
  * heartbeat requests after the watchdog device has been closed.
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/delay.h>

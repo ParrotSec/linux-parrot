@@ -392,7 +392,8 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
 		}
 
 		/* Drop our reference to the MDIO bus device */
-		put_device(pd->chip[i].host_dev);
+		if (pd->chip[i].host_dev)
+			put_device(pd->chip[i].host_dev);
 	}
 	kfree(pd->chip);
 }
@@ -686,7 +687,8 @@ static void dsa_shutdown(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int dsa_suspend(struct device *d)
 {
-	struct dsa_switch_tree *dst = dev_get_drvdata(d);
+	struct platform_device *pdev = to_platform_device(d);
+	struct dsa_switch_tree *dst = platform_get_drvdata(pdev);
 	int i, ret = 0;
 
 	for (i = 0; i < dst->pd->nr_chips; i++) {
@@ -701,7 +703,8 @@ static int dsa_suspend(struct device *d)
 
 static int dsa_resume(struct device *d)
 {
-	struct dsa_switch_tree *dst = dev_get_drvdata(d);
+	struct platform_device *pdev = to_platform_device(d);
+	struct dsa_switch_tree *dst = platform_get_drvdata(pdev);
 	int i, ret = 0;
 
 	for (i = 0; i < dst->pd->nr_chips; i++) {

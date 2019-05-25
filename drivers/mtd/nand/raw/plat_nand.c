@@ -15,7 +15,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/mtd/mtd.h>
-#include <linux/mtd/platnand.h>
+#include <linux/mtd/rawnand.h>
+#include <linux/mtd/partitions.h>
 
 struct plat_nand_data {
 	struct nand_chip	chip;
@@ -59,14 +60,14 @@ static int plat_nand_probe(struct platform_device *pdev)
 	mtd = nand_to_mtd(&data->chip);
 	mtd->dev.parent = &pdev->dev;
 
-	data->chip.legacy.IO_ADDR_R = data->io_base;
-	data->chip.legacy.IO_ADDR_W = data->io_base;
-	data->chip.legacy.cmd_ctrl = pdata->ctrl.cmd_ctrl;
-	data->chip.legacy.dev_ready = pdata->ctrl.dev_ready;
-	data->chip.legacy.select_chip = pdata->ctrl.select_chip;
-	data->chip.legacy.write_buf = pdata->ctrl.write_buf;
-	data->chip.legacy.read_buf = pdata->ctrl.read_buf;
-	data->chip.legacy.chip_delay = pdata->chip.chip_delay;
+	data->chip.IO_ADDR_R = data->io_base;
+	data->chip.IO_ADDR_W = data->io_base;
+	data->chip.cmd_ctrl = pdata->ctrl.cmd_ctrl;
+	data->chip.dev_ready = pdata->ctrl.dev_ready;
+	data->chip.select_chip = pdata->ctrl.select_chip;
+	data->chip.write_buf = pdata->ctrl.write_buf;
+	data->chip.read_buf = pdata->ctrl.read_buf;
+	data->chip.chip_delay = pdata->chip.chip_delay;
 	data->chip.options |= pdata->chip.options;
 	data->chip.bbt_options |= pdata->chip.bbt_options;
 
@@ -83,7 +84,7 @@ static int plat_nand_probe(struct platform_device *pdev)
 	}
 
 	/* Scan to find existence of the device */
-	err = nand_scan(&data->chip, pdata->chip.nr_chips);
+	err = nand_scan(mtd, pdata->chip.nr_chips);
 	if (err)
 		goto out;
 
@@ -96,7 +97,7 @@ static int plat_nand_probe(struct platform_device *pdev)
 	if (!err)
 		return err;
 
-	nand_release(&data->chip);
+	nand_release(mtd);
 out:
 	if (pdata->ctrl.remove)
 		pdata->ctrl.remove(pdev);
@@ -111,7 +112,7 @@ static int plat_nand_remove(struct platform_device *pdev)
 	struct plat_nand_data *data = platform_get_drvdata(pdev);
 	struct platform_nand_data *pdata = dev_get_platdata(&pdev->dev);
 
-	nand_release(&data->chip);
+	nand_release(nand_to_mtd(&data->chip));
 	if (pdata->ctrl.remove)
 		pdata->ctrl.remove(pdev);
 

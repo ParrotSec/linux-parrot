@@ -28,6 +28,7 @@
 #define USER_DS		MAKE_MM_SEG(TASK_SIZE - 1)
 #endif
 
+#define get_ds()	(KERNEL_DS)
 #define get_fs()	(current->thread.addr_limit)
 
 static inline void set_fs(mm_segment_t fs)
@@ -61,8 +62,8 @@ static inline int __access_ok(unsigned long addr, unsigned long size,
 
 #endif
 
-#define access_ok(addr, size)		\
-	(__chk_user_ptr(addr),		\
+#define access_ok(type, addr, size)		\
+	(__chk_user_ptr(addr), (void)(type),		\
 	 __access_ok((__force unsigned long)(addr), (size), get_fs()))
 
 /*
@@ -165,7 +166,7 @@ do {								\
 	long __pu_err = -EFAULT;					\
 	__typeof__(*(ptr)) __user *__pu_addr = (ptr);			\
 	might_fault();							\
-	if (access_ok(__pu_addr, size))			\
+	if (access_ok(VERIFY_WRITE, __pu_addr, size))			\
 		__put_user_size((x), __pu_addr, (size), __pu_err);	\
 	__pu_err;							\
 })
@@ -259,7 +260,7 @@ do {								\
 ({								\
 	long __gu_err;						\
 	__long_type(*(ptr)) __gu_val;				\
-	__typeof__(*(ptr)) __user *__gu_addr = (ptr);	\
+	const __typeof__(*(ptr)) __user *__gu_addr = (ptr);	\
 	__chk_user_ptr(ptr);					\
 	if (!is_kernel_addr((unsigned long)__gu_addr))		\
 		might_fault();					\
@@ -273,9 +274,9 @@ do {								\
 ({									\
 	long __gu_err = -EFAULT;					\
 	__long_type(*(ptr)) __gu_val = 0;				\
-	__typeof__(*(ptr)) __user *__gu_addr = (ptr);		\
+	const __typeof__(*(ptr)) __user *__gu_addr = (ptr);		\
 	might_fault();							\
-	if (access_ok(__gu_addr, (size))) {		\
+	if (access_ok(VERIFY_READ, __gu_addr, (size))) {		\
 		barrier_nospec();					\
 		__get_user_size(__gu_val, __gu_addr, (size), __gu_err);	\
 	}								\
@@ -287,7 +288,7 @@ do {								\
 ({								\
 	long __gu_err;						\
 	__long_type(*(ptr)) __gu_val;				\
-	__typeof__(*(ptr)) __user *__gu_addr = (ptr);	\
+	const __typeof__(*(ptr)) __user *__gu_addr = (ptr);	\
 	__chk_user_ptr(ptr);					\
 	barrier_nospec();					\
 	__get_user_size(__gu_val, __gu_addr, (size), __gu_err);	\
@@ -373,7 +374,7 @@ extern unsigned long __clear_user(void __user *addr, unsigned long size);
 static inline unsigned long clear_user(void __user *addr, unsigned long size)
 {
 	might_fault();
-	if (likely(access_ok(addr, size)))
+	if (likely(access_ok(VERIFY_WRITE, addr, size)))
 		return __clear_user(addr, size);
 	return size;
 }

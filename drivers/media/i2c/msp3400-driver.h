@@ -52,12 +52,6 @@ extern int msp_standard;
 extern bool msp_dolby;
 extern int msp_stereo_thresh;
 
-enum msp3400_pads {
-	MSP3400_PAD_IF_INPUT,
-	MSP3400_PAD_OUT,
-	MSP3400_NUM_PADS
-};
-
 struct msp_state {
 	struct v4l2_subdev sd;
 	struct v4l2_ctrl_handler hdl;
@@ -112,7 +106,7 @@ struct msp_state {
 	unsigned int         watch_stereo:1;
 
 #if IS_ENABLED(CONFIG_MEDIA_CONTROLLER)
-	struct media_pad pads[MSP3400_NUM_PADS];
+	struct media_pad pads[IF_AUD_DEC_PAD_NUM_PADS];
 #endif
 };
 

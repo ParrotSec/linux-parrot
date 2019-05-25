@@ -934,7 +934,7 @@ static int dw_probe(struct platform_device *pdev)
 
 	pm_runtime_put(chip->dev);
 
-	ret = dmaenginem_async_device_register(&dw->dma);
+	ret = dma_async_device_register(&dw->dma);
 	if (ret)
 		goto err_pm_disable;
 
@@ -976,6 +976,8 @@ static int dw_remove(struct platform_device *pdev)
 		list_del(&chan->vc.chan.device_node);
 		tasklet_kill(&chan->vc.task);
 	}
+
+	dma_async_device_unregister(&dw->dma);
 
 	return 0;
 }

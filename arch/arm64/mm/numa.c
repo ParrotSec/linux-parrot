@@ -20,6 +20,7 @@
 #define pr_fmt(fmt) "NUMA: " fmt
 
 #include <linux/acpi.h>
+#include <linux/bootmem.h>
 #include <linux/memblock.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -120,7 +121,7 @@ static void __init setup_node_to_cpumask_map(void)
 	}
 
 	/* cpumask_of_node() will now work */
-	pr_debug("Node to cpumask map for %u nodes\n", nr_node_ids);
+	pr_debug("Node to cpumask map for %d nodes\n", nr_node_ids);
 }
 
 /*
@@ -167,7 +168,7 @@ static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size,
 {
 	int nid = early_cpu_to_node(cpu);
 
-	return  memblock_alloc_try_nid(size, align,
+	return  memblock_virt_alloc_try_nid(size, align,
 			__pa(MAX_DMA_ADDRESS), MEMBLOCK_ALLOC_ACCESSIBLE, nid);
 }
 
@@ -236,11 +237,7 @@ static void __init setup_node_data(int nid, u64 start_pfn, u64 end_pfn)
 	if (start_pfn >= end_pfn)
 		pr_info("Initmem setup node %d [<memory-less node>]\n", nid);
 
-	nd_pa = memblock_phys_alloc_try_nid(nd_size, SMP_CACHE_BYTES, nid);
-	if (!nd_pa)
-		panic("Cannot allocate %zu bytes for node %d data\n",
-		      nd_size, nid);
-
+	nd_pa = memblock_alloc_try_nid(nd_size, SMP_CACHE_BYTES, nid);
 	nd = __va(nd_pa);
 
 	/* report and initialize */
@@ -394,6 +391,7 @@ static int __init numa_init(int (*init_func)(void))
 	nodes_clear(numa_nodes_parsed);
 	nodes_clear(node_possible_map);
 	nodes_clear(node_online_map);
+	numa_free_distance();
 
 	ret = numa_alloc_distance();
 	if (ret < 0)
@@ -401,24 +399,20 @@ static int __init numa_init(int (*init_func)(void))
 
 	ret = init_func();
 	if (ret < 0)
-		goto out_free_distance;
+		return ret;
 
 	if (nodes_empty(numa_nodes_parsed)) {
 		pr_info("No NUMA configuration found\n");
-		ret = -EINVAL;
-		goto out_free_distance;
+		return -EINVAL;
 	}
 
 	ret = numa_register_nodes();
 	if (ret < 0)
-		goto out_free_distance;
+		return ret;
 
 	setup_node_to_cpumask_map();
 
 	return 0;
-out_free_distance:
-	numa_free_distance();
-	return ret;
 }
 
 /**
@@ -438,7 +432,7 @@ static int __init dummy_numa_init(void)
 	if (numa_off)
 		pr_info("NUMA disabled\n"); /* Forced off on command line. */
 	pr_info("Faking a node at [mem %#018Lx-%#018Lx]\n",
-		memblock_start_of_DRAM(), memblock_end_of_DRAM() - 1);
+		0LLU, PFN_PHYS(max_pfn) - 1);
 
 	for_each_memblock(memory, mblk) {
 		ret = numa_add_memblk(0, mblk->base, mblk->base + mblk->size);
@@ -469,14 +463,4 @@ void __init arm64_numa_init(void)
 	}
 
 	numa_init(dummy_numa_init);
-}
-
-/*
- * We hope that we will be hotplugging memory on nodes we already know about,
- * such that acpi_get_node() succeeds and we never fall back to this...
- */
-int memory_add_physaddr_to_nid(u64 addr)
-{
-	pr_warn("Unknown node for memory at 0x%llx, assuming node 0\n", addr);
-	return 0;
 }

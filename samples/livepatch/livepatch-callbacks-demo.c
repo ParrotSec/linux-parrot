@@ -195,11 +195,22 @@ static struct klp_patch patch = {
 
 static int livepatch_callbacks_demo_init(void)
 {
-	return klp_enable_patch(&patch);
+	int ret;
+
+	ret = klp_register_patch(&patch);
+	if (ret)
+		return ret;
+	ret = klp_enable_patch(&patch);
+	if (ret) {
+		WARN_ON(klp_unregister_patch(&patch));
+		return ret;
+	}
+	return 0;
 }
 
 static void livepatch_callbacks_demo_exit(void)
 {
+	WARN_ON(klp_unregister_patch(&patch));
 }
 
 module_init(livepatch_callbacks_demo_init);

@@ -434,14 +434,14 @@ enum ovl_copyop {
 	OVL_DEDUPE,
 };
 
-static loff_t ovl_copyfile(struct file *file_in, loff_t pos_in,
+static ssize_t ovl_copyfile(struct file *file_in, loff_t pos_in,
 			    struct file *file_out, loff_t pos_out,
-			    loff_t len, unsigned int flags, enum ovl_copyop op)
+			    u64 len, unsigned int flags, enum ovl_copyop op)
 {
 	struct inode *inode_out = file_inode(file_out);
 	struct fd real_in, real_out;
 	const struct cred *old_cred;
-	loff_t ret;
+	ssize_t ret;
 
 	ret = ovl_real_fdget(file_out, &real_out);
 	if (ret)
@@ -462,13 +462,12 @@ static loff_t ovl_copyfile(struct file *file_in, loff_t pos_in,
 
 	case OVL_CLONE:
 		ret = vfs_clone_file_range(real_in.file, pos_in,
-					   real_out.file, pos_out, len, flags);
+					   real_out.file, pos_out, len);
 		break;
 
 	case OVL_DEDUPE:
 		ret = vfs_dedupe_file_range_one(real_in.file, pos_in,
-						real_out.file, pos_out, len,
-						flags);
+						real_out.file, pos_out, len);
 		break;
 	}
 	revert_creds(old_cred);
@@ -490,31 +489,26 @@ static ssize_t ovl_copy_file_range(struct file *file_in, loff_t pos_in,
 			    OVL_COPY);
 }
 
-static loff_t ovl_remap_file_range(struct file *file_in, loff_t pos_in,
-				   struct file *file_out, loff_t pos_out,
-				   loff_t len, unsigned int remap_flags)
+static int ovl_clone_file_range(struct file *file_in, loff_t pos_in,
+				struct file *file_out, loff_t pos_out, u64 len)
 {
-	enum ovl_copyop op;
+	return ovl_copyfile(file_in, pos_in, file_out, pos_out, len, 0,
+			    OVL_CLONE);
+}
 
-	if (remap_flags & ~(REMAP_FILE_DEDUP | REMAP_FILE_ADVISORY))
-		return -EINVAL;
-
-	if (remap_flags & REMAP_FILE_DEDUP)
-		op = OVL_DEDUPE;
-	else
-		op = OVL_CLONE;
-
+static int ovl_dedupe_file_range(struct file *file_in, loff_t pos_in,
+				 struct file *file_out, loff_t pos_out, u64 len)
+{
 	/*
 	 * Don't copy up because of a dedupe request, this wouldn't make sense
 	 * most of the time (data would be duplicated instead of deduplicated).
 	 */
-	if (op == OVL_DEDUPE &&
-	    (!ovl_inode_upper(file_inode(file_in)) ||
-	     !ovl_inode_upper(file_inode(file_out))))
+	if (!ovl_inode_upper(file_inode(file_in)) ||
+	    !ovl_inode_upper(file_inode(file_out)))
 		return -EPERM;
 
-	return ovl_copyfile(file_in, pos_in, file_out, pos_out, len,
-			    remap_flags, op);
+	return ovl_copyfile(file_in, pos_in, file_out, pos_out, len, 0,
+			    OVL_DEDUPE);
 }
 
 const struct file_operations ovl_file_operations = {
@@ -531,5 +525,6 @@ const struct file_operations ovl_file_operations = {
 	.compat_ioctl	= ovl_compat_ioctl,
 
 	.copy_file_range	= ovl_copy_file_range,
-	.remap_file_range	= ovl_remap_file_range,
+	.clone_file_range	= ovl_clone_file_range,
+	.dedupe_file_range	= ovl_dedupe_file_range,
 };

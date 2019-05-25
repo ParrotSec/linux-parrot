@@ -419,7 +419,7 @@ static size_t fqd_sz, pfdr_sz;
 static int zero_priv_mem(phys_addr_t addr, size_t sz)
 {
 	/* map as cacheable, non-guarded */
-	void __iomem *tmpp = ioremap_cache(addr, sz);
+	void __iomem *tmpp = ioremap_prot(addr, sz, 0);
 
 	if (!tmpp)
 		return -ENOMEM;

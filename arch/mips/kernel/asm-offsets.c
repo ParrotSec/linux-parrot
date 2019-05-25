@@ -123,6 +123,7 @@ void output_thread_defines(void)
 	OFFSET(THREAD_REG31, task_struct, thread.reg31);
 	OFFSET(THREAD_STATUS, task_struct,
 	       thread.cp0_status);
+	OFFSET(THREAD_FPU, task_struct, thread.fpu);
 
 	OFFSET(THREAD_BVADDR, task_struct, \
 	       thread.cp0_badvaddr);
@@ -134,11 +135,8 @@ void output_thread_defines(void)
 	BLANK();
 }
 
-#ifdef CONFIG_MIPS_FP_SUPPORT
 void output_thread_fpu_defines(void)
 {
-	OFFSET(THREAD_FPU, task_struct, thread.fpu);
-
 	OFFSET(THREAD_FPR0, task_struct, thread.fpu.fpr[0]);
 	OFFSET(THREAD_FPR1, task_struct, thread.fpu.fpr[1]);
 	OFFSET(THREAD_FPR2, task_struct, thread.fpu.fpr[2]);
@@ -176,7 +174,6 @@ void output_thread_fpu_defines(void)
 	OFFSET(THREAD_MSA_CSR, task_struct, thread.fpu.msacsr);
 	BLANK();
 }
-#endif
 
 void output_mm_defines(void)
 {
@@ -344,7 +341,6 @@ void output_pm_defines(void)
 }
 #endif
 
-#ifdef CONFIG_MIPS_FP_SUPPORT
 void output_kvm_defines(void)
 {
 	COMMENT(" KVM/MIPS Specific offsets. ");
@@ -386,7 +382,6 @@ void output_kvm_defines(void)
 	OFFSET(VCPU_MSA_CSR, kvm_vcpu_arch, fpu.msacsr);
 	BLANK();
 }
-#endif
 
 #ifdef CONFIG_MIPS_CPS
 void output_cps_defines(void)

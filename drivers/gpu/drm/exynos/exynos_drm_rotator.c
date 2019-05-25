@@ -23,6 +23,7 @@
 #include <drm/exynos_drm.h>
 #include "regs-rotator.h"
 #include "exynos_drm_drv.h"
+#include "exynos_drm_iommu.h"
 #include "exynos_drm_ipp.h"
 
 /*
@@ -243,7 +244,7 @@ static int rotator_bind(struct device *dev, struct device *master, void *data)
 	struct exynos_drm_ipp *ipp = &rot->ipp;
 
 	rot->drm_dev = drm_dev;
-	exynos_drm_register_dma(drm_dev, dev);
+	drm_iommu_attach_device(drm_dev, dev);
 
 	exynos_drm_ipp_register(drm_dev, ipp, &ipp_funcs,
 			   DRM_EXYNOS_IPP_CAP_CROP | DRM_EXYNOS_IPP_CAP_ROTATE,
@@ -262,7 +263,7 @@ static void rotator_unbind(struct device *dev, struct device *master,
 	struct exynos_drm_ipp *ipp = &rot->ipp;
 
 	exynos_drm_ipp_unregister(drm_dev, ipp);
-	exynos_drm_unregister_dma(rot->drm_dev, rot->dev);
+	drm_iommu_detach_device(rot->drm_dev, rot->dev);
 }
 
 static const struct component_ops rotator_component_ops = {
@@ -356,11 +357,6 @@ static int rotator_runtime_resume(struct device *dev)
 }
 #endif
 
-static const struct drm_exynos_ipp_limit rotator_s5pv210_rbg888_limits[] = {
-	{ IPP_SIZE_LIMIT(BUFFER, .h = { 8, SZ_16K }, .v = { 8, SZ_16K }) },
-	{ IPP_SIZE_LIMIT(AREA, .h.align = 2, .v.align = 2) },
-};
-
 static const struct drm_exynos_ipp_limit rotator_4210_rbg888_limits[] = {
 	{ IPP_SIZE_LIMIT(BUFFER, .h = { 8, SZ_16K }, .v = { 8, SZ_16K }) },
 	{ IPP_SIZE_LIMIT(AREA, .h.align = 4, .v.align = 4) },
@@ -376,11 +372,6 @@ static const struct drm_exynos_ipp_limit rotator_5250_rbg888_limits[] = {
 	{ IPP_SIZE_LIMIT(AREA, .h.align = 2, .v.align = 2) },
 };
 
-static const struct drm_exynos_ipp_limit rotator_s5pv210_yuv_limits[] = {
-	{ IPP_SIZE_LIMIT(BUFFER, .h = { 32, SZ_64K }, .v = { 32, SZ_64K }) },
-	{ IPP_SIZE_LIMIT(AREA, .h.align = 8, .v.align = 8) },
-};
-
 static const struct drm_exynos_ipp_limit rotator_4210_yuv_limits[] = {
 	{ IPP_SIZE_LIMIT(BUFFER, .h = { 32, SZ_64K }, .v = { 32, SZ_64K }) },
 	{ IPP_SIZE_LIMIT(AREA, .h.align = 8, .v.align = 8) },
@@ -389,11 +380,6 @@ static const struct drm_exynos_ipp_limit rotator_4210_yuv_limits[] = {
 static const struct drm_exynos_ipp_limit rotator_4412_yuv_limits[] = {
 	{ IPP_SIZE_LIMIT(BUFFER, .h = { 32, SZ_32K }, .v = { 32, SZ_32K }) },
 	{ IPP_SIZE_LIMIT(AREA, .h.align = 8, .v.align = 8) },
-};
-
-static const struct exynos_drm_ipp_formats rotator_s5pv210_formats[] = {
-	{ IPP_SRCDST_FORMAT(XRGB8888, rotator_s5pv210_rbg888_limits) },
-	{ IPP_SRCDST_FORMAT(NV12, rotator_s5pv210_yuv_limits) },
 };
 
 static const struct exynos_drm_ipp_formats rotator_4210_formats[] = {
@@ -409,11 +395,6 @@ static const struct exynos_drm_ipp_formats rotator_4412_formats[] = {
 static const struct exynos_drm_ipp_formats rotator_5250_formats[] = {
 	{ IPP_SRCDST_FORMAT(XRGB8888, rotator_5250_rbg888_limits) },
 	{ IPP_SRCDST_FORMAT(NV12, rotator_4412_yuv_limits) },
-};
-
-static const struct rot_variant rotator_s5pv210_data = {
-	.formats = rotator_s5pv210_formats,
-	.num_formats = ARRAY_SIZE(rotator_s5pv210_formats),
 };
 
 static const struct rot_variant rotator_4210_data = {
@@ -433,9 +414,6 @@ static const struct rot_variant rotator_5250_data = {
 
 static const struct of_device_id exynos_rotator_match[] = {
 	{
-		.compatible = "samsung,s5pv210-rotator",
-		.data = &rotator_s5pv210_data,
-	}, {
 		.compatible = "samsung,exynos4210-rotator",
 		.data = &rotator_4210_data,
 	}, {

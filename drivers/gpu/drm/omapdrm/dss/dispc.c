@@ -1140,6 +1140,18 @@ static void dispc_ovl_set_color_mode(struct dispc_device *dispc,
 	REG_FLD_MOD(dispc, DISPC_OVL_ATTRIBUTES(plane), m, 4, 1);
 }
 
+static bool format_is_yuv(u32 fourcc)
+{
+	switch (fourcc) {
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_NV12:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static void dispc_ovl_configure_burst_type(struct dispc_device *dispc,
 					   enum omap_plane_id plane,
 					   enum omap_dss_rotation_type rotation)
@@ -1898,14 +1910,11 @@ static void dispc_ovl_set_scaling_uv(struct dispc_device *dispc,
 	int scale_x = out_width != orig_width;
 	int scale_y = out_height != orig_height;
 	bool chroma_upscale = plane != OMAP_DSS_WB;
-	const struct drm_format_info *info;
-
-	info = drm_format_info(fourcc);
 
 	if (!dispc_has_feature(dispc, FEAT_HANDLE_UV_SEPARATE))
 		return;
 
-	if (!info->is_yuv) {
+	if (!format_is_yuv(fourcc)) {
 		/* reset chroma resampling for RGB formats  */
 		if (plane != OMAP_DSS_WB)
 			REG_FLD_MOD(dispc, DISPC_OVL_ATTRIBUTES2(plane),
@@ -2615,7 +2624,7 @@ static int dispc_ovl_setup_common(struct dispc_device *dispc,
 	unsigned int offset0, offset1;
 	s32 row_inc;
 	s32 pix_inc;
-	u16 frame_width;
+	u16 frame_width, frame_height;
 	unsigned int field_offset = 0;
 	u16 in_height = height;
 	u16 in_width = width;
@@ -2623,9 +2632,6 @@ static int dispc_ovl_setup_common(struct dispc_device *dispc,
 	bool ilace = !!(vm->flags & DISPLAY_FLAGS_INTERLACED);
 	unsigned long pclk = dispc_plane_pclk_rate(dispc, plane);
 	unsigned long lclk = dispc_plane_lclk_rate(dispc, plane);
-	const struct drm_format_info *info;
-
-	info = drm_format_info(fourcc);
 
 	/* when setting up WB, dispc_plane_pclk_rate() returns 0 */
 	if (plane == OMAP_DSS_WB)
@@ -2634,7 +2640,7 @@ static int dispc_ovl_setup_common(struct dispc_device *dispc,
 	if (paddr == 0 && rotation_type != OMAP_DSS_ROT_TILER)
 		return -EINVAL;
 
-	if (info->is_yuv && (in_width & 1)) {
+	if (format_is_yuv(fourcc) && (in_width & 1)) {
 		DSSERR("input width %d is not even for YUV format\n", in_width);
 		return -EINVAL;
 	}
@@ -2674,7 +2680,7 @@ static int dispc_ovl_setup_common(struct dispc_device *dispc,
 		DSSDBG("predecimation %d x %x, new input size %d x %d\n",
 			x_predecim, y_predecim, in_width, in_height);
 
-	if (info->is_yuv && (in_width & 1)) {
+	if (format_is_yuv(fourcc) && (in_width & 1)) {
 		DSSDBG("predecimated input width is not even for YUV format\n");
 		DSSDBG("adjusting input width %d -> %d\n",
 			in_width, in_width & ~1);
@@ -2682,7 +2688,7 @@ static int dispc_ovl_setup_common(struct dispc_device *dispc,
 		in_width &= ~1;
 	}
 
-	if (info->is_yuv)
+	if (format_is_yuv(fourcc))
 		cconv = 1;
 
 	if (ilace && !fieldmode) {
@@ -2708,10 +2714,13 @@ static int dispc_ovl_setup_common(struct dispc_device *dispc,
 	row_inc = 0;
 	pix_inc = 0;
 
-	if (plane == OMAP_DSS_WB)
+	if (plane == OMAP_DSS_WB) {
 		frame_width = out_width;
-	else
+		frame_height = out_height;
+	} else {
 		frame_width = in_width;
+		frame_height = height;
+	}
 
 	calc_offset(screen_width, frame_width,
 			fourcc, fieldmode, field_offset,
@@ -2893,6 +2902,13 @@ static int dispc_ovl_enable(struct dispc_device *dispc,
 	REG_FLD_MOD(dispc, DISPC_OVL_ATTRIBUTES(plane), enable ? 1 : 0, 0, 0);
 
 	return 0;
+}
+
+static enum omap_dss_output_id
+dispc_mgr_get_supported_outputs(struct dispc_device *dispc,
+				enum omap_channel channel)
+{
+	return dss_get_supported_outputs(dispc->dss, channel);
 }
 
 static void dispc_lcd_enable_signal_polarity(struct dispc_device *dispc,
@@ -3104,29 +3120,28 @@ static bool _dispc_mgr_pclk_ok(struct dispc_device *dispc,
 		return pclk <= dispc->feat->max_tv_pclk;
 }
 
-static int dispc_mgr_check_timings(struct dispc_device *dispc,
-				   enum omap_channel channel,
-				   const struct videomode *vm)
+bool dispc_mgr_timings_ok(struct dispc_device *dispc, enum omap_channel channel,
+			  const struct videomode *vm)
 {
 	if (!_dispc_mgr_size_ok(dispc, vm->hactive, vm->vactive))
-		return MODE_BAD;
+		return false;
 
 	if (!_dispc_mgr_pclk_ok(dispc, channel, vm->pixelclock))
-		return MODE_BAD;
+		return false;
 
 	if (dss_mgr_is_lcd(channel)) {
 		/* TODO: OMAP4+ supports interlace for LCD outputs */
 		if (vm->flags & DISPLAY_FLAGS_INTERLACED)
-			return MODE_BAD;
+			return false;
 
 		if (!_dispc_lcd_timings_ok(dispc, vm->hsync_len,
 				vm->hfront_porch, vm->hback_porch,
 				vm->vsync_len, vm->vfront_porch,
 				vm->vback_porch))
-			return MODE_BAD;
+			return false;
 	}
 
-	return MODE_OK;
+	return true;
 }
 
 static void _dispc_mgr_set_lcd_timings(struct dispc_device *dispc,
@@ -3228,7 +3243,7 @@ static void dispc_mgr_set_timings(struct dispc_device *dispc,
 
 	DSSDBG("channel %d xres %u yres %u\n", channel, t.hactive, t.vactive);
 
-	if (dispc_mgr_check_timings(dispc, channel, &t)) {
+	if (!dispc_mgr_timings_ok(dispc, channel, &t)) {
 		BUG();
 		return;
 	}
@@ -4725,9 +4740,9 @@ static const struct dispc_ops dispc_ops = {
 	.mgr_go_busy = dispc_mgr_go_busy,
 	.mgr_go = dispc_mgr_go,
 	.mgr_set_lcd_config = dispc_mgr_set_lcd_config,
-	.mgr_check_timings = dispc_mgr_check_timings,
 	.mgr_set_timings = dispc_mgr_set_timings,
 	.mgr_setup = dispc_mgr_setup,
+	.mgr_get_supported_outputs = dispc_mgr_get_supported_outputs,
 	.mgr_gamma_size = dispc_mgr_gamma_size,
 	.mgr_set_gamma = dispc_mgr_set_gamma,
 

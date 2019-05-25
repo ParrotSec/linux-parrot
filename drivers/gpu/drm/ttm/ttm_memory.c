@@ -41,9 +41,6 @@
 
 #define TTM_MEMORY_ALLOC_RETRIES 4
 
-struct ttm_mem_global ttm_mem_glob;
-EXPORT_SYMBOL(ttm_mem_glob);
-
 struct ttm_mem_zone {
 	struct kobject kobj;
 	struct ttm_mem_global *glob;
@@ -458,11 +455,12 @@ out_no_zone:
 	ttm_mem_global_release(glob);
 	return ret;
 }
+EXPORT_SYMBOL(ttm_mem_global_init);
 
 void ttm_mem_global_release(struct ttm_mem_global *glob)
 {
-	struct ttm_mem_zone *zone;
 	unsigned int i;
+	struct ttm_mem_zone *zone;
 
 	/* let the page allocator first stop the shrink work. */
 	ttm_page_alloc_fini();
@@ -475,11 +473,11 @@ void ttm_mem_global_release(struct ttm_mem_global *glob)
 		zone = glob->zones[i];
 		kobject_del(&zone->kobj);
 		kobject_put(&zone->kobj);
-	}
+			}
 	kobject_del(&glob->kobj);
 	kobject_put(&glob->kobj);
-	memset(glob, 0, sizeof(*glob));
 }
+EXPORT_SYMBOL(ttm_mem_global_release);
 
 static void ttm_check_swapping(struct ttm_mem_global *glob)
 {
