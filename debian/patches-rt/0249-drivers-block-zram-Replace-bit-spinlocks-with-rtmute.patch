@@ -1,9 +1,9 @@
 From 666113236b467b8463b3a9f1976d21bd61e8f88e Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Thu, 31 Mar 2016 04:08:28 +0200
-Subject: [PATCH 249/264] drivers/block/zram: Replace bit spinlocks with
+Subject: [PATCH 249/269] drivers/block/zram: Replace bit spinlocks with
  rtmutex for -rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 They're nondeterministic, and lead to ___might_sleep() splats in -rt.
 OTOH, they're a lot less wasteful than an rtmutex per page.

@@ -12,15 +12,15 @@ Applied-Upstream: yes
  FEATURE-DUMP.libbpf
 --- a/tools/lib/bpf/Makefile
 +++ b/tools/lib/bpf/Makefile
-@@ -93,6 +93,7 @@
- LIBBPF_VERSION=$(shell make --no-print-directory -sC ../../.. kernelversion)
+@@ -95,6 +95,7 @@ libdir_SQ = $(subst ','\'',$(libdir))
+ libdir_relative_SQ = $(subst ','\'',$(libdir_relative))
  
  LIB_FILE = libbpf.a libbpf.so.$(LIBBPF_VERSION)
 +PC_FILE = libbpf.pc
  
- OBJ		= $@
- N		=
-@@ -136,8 +137,9 @@
+ VERSION		= $(BPF_VERSION)
+ PATCHLEVEL	= $(BPF_PATCHLEVEL)
+@@ -144,8 +145,9 @@ include $(srctree)/tools/build/Makefile.
  
  BPF_IN    := $(OUTPUT)libbpf-in.o
  LIB_FILE := $(addprefix $(OUTPUT),$(LIB_FILE))
@@ -31,7 +31,7 @@ Applied-Upstream: yes
  
  TARGETS = $(CMD_TARGETS)
  
-@@ -166,6 +168,12 @@
+@@ -175,6 +177,12 @@ $(OUTPUT)libbpf.so.$(LIBBPF_VERSION): $(
  $(OUTPUT)libbpf.a: $(BPF_IN)
  	$(QUIET_LINK)$(RM) $@; $(AR) rcs $@ $^
  
@@ -44,7 +44,7 @@ Applied-Upstream: yes
  define do_install
  	if [ ! -d '$(DESTDIR_SQ)$2' ]; then		\
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$2';	\
-@@ -184,7 +192,12 @@
+@@ -193,7 +201,12 @@ install_headers:
  		$(call do_install,libbpf.h,$(prefix)/include/bpf,644);
  		$(call do_install,btf.h,$(prefix)/include/bpf,644);
  
@@ -58,7 +58,7 @@ Applied-Upstream: yes
  
  ### Cleaning rules
  
-@@ -193,7 +206,7 @@
+@@ -202,7 +215,7 @@ config-clean:
  	$(Q)$(MAKE) -C $(srctree)/tools/build/feature/ clean >/dev/null
  
  clean:

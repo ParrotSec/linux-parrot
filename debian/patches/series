@@ -9,7 +9,7 @@ debian/dfsg/video-remove-nvidiafb-and-rivafb.patch
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-debian/gitignore.patch
+#debian/gitignore.patch # Kali: we have that in the git repo already
 debian/ia64-hardcode-arch-script-output.patch
 debian/mips-disable-werror.patch
 debian/mips-boston-disable-its.patch
@@ -86,6 +86,8 @@ bugfix/arm64/arm64-dts-allwinner-a64-Enable-A64-timer-workaround.patch
 bugfix/mips/MIPS-Loongson-Introduce-and-use-loongson_llsc_mb.patch
 bugfix/powerpc/powerpc-vdso-make-vdso32-installation-conditional-in.patch
 bugfix/mips/MIPS-scall64-o32-Fix-indirect-syscall-number-load.patch
+bugfix/mips/MIPS-Bounds-check-virt_addr_valid.patch
+bugfix/sparc64/sunhv-fix-device-naming-inconsistency-between-sunhv_console-and-sunhv_reg.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
@@ -216,6 +218,19 @@ bugfix/all/spec/0028-x86-mds-Add-MDSUM-variant-to-the-MDS-documentation.patch
 bugfix/all/spec/0029-Documentation-Correct-the-possible-MDS-sysfs-values.patch
 bugfix/all/spec/0030-x86-speculation-mds-Fix-documentation-typo.patch
 bugfix/all/spec/powerpc-64s-include-cpu-header.patch
+bugfix/all/brcmfmac-assure-SSID-length-from-firmware-is-limited.patch
+bugfix/all/brcmfmac-add-subtype-check-for-event-handling-in-dat.patch
+bugfix/all/ext4-zero-out-the-unused-memory-region-in-the-extent.patch
+bugfix/all/Bluetooth-hidp-fix-buffer-overflow.patch
+bugfix/all/mwifiex-fix-possible-buffer-overflows-at-parsing-bss.patch
+bugfix/all/mwifiex-abort-at-too-short-bss-descriptor-element.patch
+bugfix/all/mwifiex-don-t-abort-on-small-spec-compliant-vendor-ies.patch
+bugfix/all/mm-mincore.c-make-mincore-more-conservative.patch
+bugfix/all/mwifiex-fix-heap-overflow-in-mwifiex_uap_parse_tail_.patch
+bugfix/all/tcp-limit-payload-size-of-sacked-skbs.patch
+bugfix/all/tcp-tcp_fragment-should-apply-sane-memory-limits.patch
+bugfix/all/tcp-add-tcp_min_snd_mss-sysctl.patch
+bugfix/all/tcp-enforce-tcp_min_snd_mss-in-tcp_mtu_probing.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -269,3 +284,4 @@ features/all/ena/0017-net-ena-fix-crash-during-ena_remove.patch
 features/all/ena/0018-net-ena-update-driver-version-from-2.0.1-to-2.0.2.patch
 
 # ABI maintenance
+debian/abi/tcp-avoid-abi-change-for-dos-fixes.patch

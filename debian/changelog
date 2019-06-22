@@ -1,3 +1,76 @@
+linux (4.19.37-5parrot1) testing; urgency=medium
+
+  * Import new Debian release.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sun, 23 Jun 2019 01:01:59 +0200
+
+linux (4.19.37-5) unstable; urgency=medium
+
+  [ Romain Perier ]
+  * [sparc64] Fix device naming inconsistency between sunhv_console and
+    sunhv_reg (Closes: #926539)
+
+  [ Ben Hutchings ]
+  * tcp: Avoid ABI change for DoS fixes (Closes: #930743)
+  * Add ABI reference for 4.19.0-5
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Wed, 19 Jun 2019 23:16:58 +0100
+
+linux (4.19.37-4) unstable; urgency=high
+
+  [ Ben Hutchings ]
+  * libbpf: Fix various build bugs:
+    - Drop unnecessary changes from "libbpf: add SONAME to shared object"
+    - libbpf: Use only 2 components in soversion, matching package name
+      (Closes: #929187)
+    - libbpf: Build out-of-tree
+  * README.source: Document the various makefiles and use of out-of-tree builds
+  * [x86] lockdown,sysrq: Enable ALLOW_LOCKDOWN_LIFT_BY_SYSRQ (Closes: #929583)
+  * mwifiex: Fix possible buffer overflows at parsing bss descriptor
+    (CVE-2019-3846)
+  * mwifiex: Abort at too short BSS descriptor element
+  * mwifiex: Don't abort on small, spec-compliant vendor IEs
+  * mm/mincore.c: make mincore() more conservative (CVE-2019-5489)
+  * mwifiex: Fix heap overflow in mwifiex_uap_parse_tail_ies()
+    (CVE-2019-10126)
+  * tcp: limit payload size of sacked skbs (CVE-2019-11477)
+  * tcp: tcp_fragment() should apply sane memory limits (CVE-2019-11478)
+  * tcp: add tcp_min_snd_mss sysctl (CVE-2019-11479)
+  * tcp: enforce tcp_min_snd_mss in tcp_mtu_probing()
+
+  [ Romain Perier ]
+  * [rt] Update to 4.19.37-rt20:
+    - powerpc/pseries/iommu: Use a locallock instead local_irq_save()
+    - powerpc: reshuffle TIF bits
+    - tty/sysrq: Convert show_lock to raw_spinlock_t
+    - drm/i915: Don't disable interrupts independently of the lock
+    - sched/completion: Fix a lockup in wait_for_completion()
+
+  [ Salvatore Bonaccorso ]
+  * brcmfmac: assure SSID length from firmware is limited (CVE-2019-9500)
+  * brcmfmac: add subtype check for event handling in data path
+    (CVE-2019-9503)
+  * ext4: zero out the unused memory region in the extent tree block
+    (CVE-2019-11833)
+  * Bluetooth: hidp: fix buffer overflow (CVE-2019-11884)
+
+  [ Aurelien Jarno ]
+  * [mips] Correctly bounds check virt_addr_valid (Closes: #929366)
+
+  [ John Paul Adrian Glaubitz ]
+  * [sparc64] udeb: Disable suffix for kernel-image
+
+  [ Alper Nebi Yasak ]
+  * udeb: input-modules: Include all keyboard driver modules
+  * [arm64] udeb: kernel-image: Include cros_ec_spi and SPI drivers
+  * [arm64] udeb: kernel-image: Include phy-rockchip-pcie
+  * [arm64] udeb: usb-modules: Include phy-rockchip-typec, extcon-usbc-cros-ec
+  * [arm64] udeb: mmc-modules: Include phy-rockchip-emmc
+  * [arm64] udeb: fb-modules: Include rockchipdrm, panel-simple, pwm_bl and
+    pwm-cros-ec
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Mon, 17 Jun 2019 20:00:22 +0100
+
 linux (4.19.37-3parrot5) testing; urgency=medium
 
   * Import new Debian release.

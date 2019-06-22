@@ -1,8 +1,8 @@
 From 7a6ae7f96331bdaeeac96006086d01805ca48612 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 18 Jul 2011 13:59:17 +0200
-Subject: [PATCH 121/264] softirq: Disable softirq stacks for RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 121/269] softirq: Disable softirq stacks for RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Disable extra stacks for softirqs. We want to preempt softirqs and
 having them on special IRQ-stack does not make this easier.

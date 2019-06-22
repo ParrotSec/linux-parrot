@@ -1,8 +1,8 @@
 From f723e17e9826ed2e03a4b4c40c575ea2e2bf2c56 Mon Sep 17 00:00:00 2001
 From: Julia Cartwright <julia@ni.com>
 Date: Wed, 12 Oct 2016 11:21:14 -0500
-Subject: [PATCH 164/264] rcu: enable rcu_normal_after_boot by default for RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 164/269] rcu: enable rcu_normal_after_boot by default for RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 The forcing of an expedited grace period is an expensive and very
 RT-application unfriendly operation, as it forcibly preempts all running

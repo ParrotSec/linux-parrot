@@ -1,8 +1,8 @@
 From 7b2e3123b8a2c8f1df0aa040b4c58d2f443fa8a5 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Wed, 23 Nov 2016 16:29:32 +0100
-Subject: [PATCH 170/264] locking/percpu-rwsem: Remove preempt_disable variants
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 170/269] locking/percpu-rwsem: Remove preempt_disable variants
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Effective revert commit:
 

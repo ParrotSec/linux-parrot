@@ -1,5 +1,5 @@
 [abi]
-abiname: 3parrot5
+abiname: parrot1
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*

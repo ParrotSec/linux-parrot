@@ -2,3 +2,9 @@
 
 ast
 tegra-drm
+rockchipdrm
+
+# For panel/backlight on some chromeos devices
+panel-simple
+pwm_bl
+pwm-cros-ec

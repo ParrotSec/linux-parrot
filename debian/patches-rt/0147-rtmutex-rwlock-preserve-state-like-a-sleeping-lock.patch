@@ -1,8 +1,8 @@
 From f4e21a9f84eb9919949bfe5763eb96637b90bb1e Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 11 Jan 2019 21:16:31 +0100
-Subject: [PATCH 147/264] rtmutex/rwlock: preserve state like a sleeping lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 147/269] rtmutex/rwlock: preserve state like a sleeping lock
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 The rwlock is spinning while acquiring a lock. Therefore it must become
 a sleeping lock on RT and preserve its task state while sleeping and

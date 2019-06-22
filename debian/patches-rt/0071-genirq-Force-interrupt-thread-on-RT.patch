@@ -1,8 +1,8 @@
 From 22860bd2c33dc3abc1b0aa695f8f455595762a93 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 3 Apr 2011 11:57:29 +0200
-Subject: [PATCH 071/264] genirq: Force interrupt thread on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 071/269] genirq: Force interrupt thread on RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Force threaded_irqs and optimize the code (force_irqthreads) in regard
 to this.

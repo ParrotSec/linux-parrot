@@ -33,6 +33,6 @@ Build-Depends-Arch:
  libelf-dev:native [amd64] <!stage1 !pkg.linux.nokernel>,
  libelf-dev <!stage1 !pkg.linux.notools>,
 Rules-Requires-Root: no
-Vcs-Git: https://salsa.debian.org/kernel-team/linux.git
-Vcs-Browser: https://salsa.debian.org/kernel-team/linux
+Vcs-Git: https://nest.parrotsec.org/debian-packages/linux
+Vcs-Browser: https://nest.parrotsec.org/debian-packages/linux
 Homepage: https://www.kernel.org/

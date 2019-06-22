@@ -7,6 +7,7 @@ kernel-arch: arm
 [build]
 image-file: arch/arm/boot/zImage
 vdso: true
+signed-code: false
 
 [image]
 install-stem: vmlinuz

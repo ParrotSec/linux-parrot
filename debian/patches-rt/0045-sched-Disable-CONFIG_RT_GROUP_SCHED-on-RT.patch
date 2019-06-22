@@ -1,8 +1,8 @@
 From 56d2f884391ba7e98721f6639f87698e46429c7f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 18 Jul 2011 17:03:52 +0200
-Subject: [PATCH 045/264] sched: Disable CONFIG_RT_GROUP_SCHED on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 045/269] sched: Disable CONFIG_RT_GROUP_SCHED on RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Carsten reported problems when running:
 

@@ -1,9 +1,9 @@
 From 24fddbe29940c9217a8e2f5e9443ca29f941281a Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <efault@gmx.de>
 Date: Wed, 23 Aug 2017 11:57:29 +0200
-Subject: [PATCH 251/264] drivers/zram: fix zcomp_stream_get()
+Subject: [PATCH 251/269] drivers/zram: fix zcomp_stream_get()
  smp_processor_id() use in preemptible code
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Use get_local_ptr() instead this_cpu_ptr() to avoid a warning regarding
 smp_processor_id() in preemptible code.

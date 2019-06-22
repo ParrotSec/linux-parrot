@@ -1,9 +1,9 @@
 From 3dd75cbf0c1ddd8dc0a7c0492e86f7293a730145 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 2 Sep 2011 14:41:29 +0200
-Subject: [PATCH 058/264] printk: Add "force_early_printk" boot param to help
+Subject: [PATCH 058/269] printk: Add "force_early_printk" boot param to help
  with debugging
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Gives me an option to screw printk and actually see what the machine
 says.

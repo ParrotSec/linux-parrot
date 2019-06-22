@@ -1,9 +1,9 @@
 From 14ab946c30ebc65a97dd2a3a68f5f1bb0bfb8c7a Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Sat, 27 Feb 2016 08:09:11 +0100
-Subject: [PATCH 254/264] drm,radeon,i915: Use preempt_disable/enable_rt()
+Subject: [PATCH 254/269] drm,radeon,i915: Use preempt_disable/enable_rt()
  where recommended
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 DRM folks identified the spots, so use them.
 

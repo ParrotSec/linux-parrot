@@ -1,6 +1,9 @@
 # Include HID drivers by default
 drivers/hid/**
 
+# Include keyboards
+drivers/input/keyboard/** ?
+
 # Exclude drivers for anything but keyboard and mouse/trackball/touchpad
 drivers/hid/hid-*ff -
 hid-dr -

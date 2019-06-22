@@ -1,8 +1,8 @@
 From 57c3607ed990ada1d1636542d00bd3ed95e243da Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 9 Apr 2015 15:23:01 +0200
-Subject: [PATCH 054/264] cpufreq: drop K8's driver from beeing selected
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 054/269] cpufreq: drop K8's driver from beeing selected
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Ralf posted a picture of a backtrace from
 

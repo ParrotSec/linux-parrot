@@ -1,9 +1,9 @@
 From 48a22e409d7de1904f5577d83d0c8f9cb69ce766 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 26 Feb 2019 14:53:49 +0100
-Subject: [PATCH 244/264] x86: lazy-preempt: use proper return label on
+Subject: [PATCH 244/269] x86: lazy-preempt: use proper return label on
  32bit-x86
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 The lazy-preempt uses the wrong return label in case preemption isn't
 possible. This results crash while returning to the kernel.

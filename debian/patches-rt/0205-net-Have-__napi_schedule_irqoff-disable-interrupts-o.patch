@@ -1,9 +1,9 @@
 From bdd2169d3d5cc93fcaca144c2166ac375331e25d Mon Sep 17 00:00:00 2001
 From: Steven Rostedt <rostedt@goodmis.org>
 Date: Tue, 6 Dec 2016 17:50:30 -0500
-Subject: [PATCH 205/264] net: Have __napi_schedule_irqoff() disable interrupts
+Subject: [PATCH 205/269] net: Have __napi_schedule_irqoff() disable interrupts
  on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 A customer hit a crash where the napi sd->poll_list became corrupted.
 The customer had the bnx2x driver, which does a

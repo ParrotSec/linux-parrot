@@ -1,8 +1,8 @@
 From f03e611745700fad514b850296eab0b098b3c12d Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 11 Oct 2017 17:43:49 +0200
-Subject: [PATCH 260/264] apparmor: use a locallock instead preempt_disable()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 260/269] apparmor: use a locallock instead preempt_disable()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 get_buffers() disables preemption which acts as a lock for the per-CPU
 variable. Since we can't disable preemption here on RT, a local_lock is

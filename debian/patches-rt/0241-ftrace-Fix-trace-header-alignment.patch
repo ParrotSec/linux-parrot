@@ -1,8 +1,8 @@
 From 9dc4f4dc93a57dce9f30fb429753a23f0e339749 Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Sun, 16 Oct 2016 05:08:30 +0200
-Subject: [PATCH 241/264] ftrace: Fix trace header alignment
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 241/269] ftrace: Fix trace header alignment
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Line up helper arrows to the right column.
 

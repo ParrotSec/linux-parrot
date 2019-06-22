@@ -1,8 +1,8 @@
 From 58450ccb54ddabe50f8c0990f4ea69f7cdaabdac Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 12 May 2017 15:46:17 +0200
-Subject: [PATCH 229/264] random: avoid preempt_disable()ed section
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 229/269] random: avoid preempt_disable()ed section
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 extract_crng() will use sleeping locks while in a preempt_disable()
 section due to get_cpu_var().

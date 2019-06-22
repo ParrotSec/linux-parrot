@@ -1,9 +1,9 @@
 From 35b95587b8a912221d7eb0bdbb7aefb126c7db5d Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 19 Feb 2019 16:49:29 +0100
-Subject: [PATCH 127/264] softirq: Avoid "local_softirq_pending" messages if
+Subject: [PATCH 127/269] softirq: Avoid "local_softirq_pending" messages if
  task is in cpu_chill()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 If the softirq thread enters cpu_chill() then ->state is UNINTERRUPTIBLE
 and has no ->pi_blocked_on set and so its mask is not taken into account.

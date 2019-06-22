@@ -1,9 +1,9 @@
 From 1ab1616de2aaaa7392ebb706a457af2fdcd2b82a Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 31 Aug 2018 14:16:30 +0200
-Subject: [PATCH 021/264] of: allocate / free phandle cache outside of the
+Subject: [PATCH 021/269] of: allocate / free phandle cache outside of the
  devtree_lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 The phandle cache code allocates memory while holding devtree_lock which
 is a raw_spinlock_t. Memory allocation (and free()) is not possible on

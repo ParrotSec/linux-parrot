@@ -1,8 +1,8 @@
 From 3286a3abb2234e5ecf7605154781fbd762b3d726 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 22 Dec 2016 17:28:33 +0100
-Subject: [PATCH 134/264] arm: include definition for cpumask_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 134/269] arm: include definition for cpumask_t
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 This definition gets pulled in by other files. With the (later) split of
 RCU and spinlock.h it won't compile anymore.

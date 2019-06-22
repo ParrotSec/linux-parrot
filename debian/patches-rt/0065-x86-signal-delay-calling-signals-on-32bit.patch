@@ -1,8 +1,8 @@
 From 6828880f532efdf1ded1248f5e0ea555e9520eda Mon Sep 17 00:00:00 2001
 From: Yang Shi <yang.shi@linaro.org>
 Date: Thu, 10 Dec 2015 10:58:51 -0800
-Subject: [PATCH 065/264] x86/signal: delay calling signals on 32bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 065/269] x86/signal: delay calling signals on 32bit
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 When running some ptrace single step tests on x86-32 machine, the below problem
 is triggered:

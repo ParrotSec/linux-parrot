@@ -1,8 +1,8 @@
 From 245bd7bd92ce193e01ef35fbdaae505d5eefd28b Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 9 Mar 2016 10:51:06 +0100
-Subject: [PATCH 029/264] arm: at91: do not disable/enable clocks in a row
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 029/269] arm: at91: do not disable/enable clocks in a row
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Currently the driver will disable the clock and enable it one line later
 if it is switching from periodic mode into one shot.

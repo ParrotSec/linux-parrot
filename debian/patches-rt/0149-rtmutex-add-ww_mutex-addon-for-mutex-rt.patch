@@ -1,8 +1,8 @@
 From cb5d05fc6f3f2a23c0dc2d3cdf925e62d8e9e13f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 12 Oct 2017 17:34:38 +0200
-Subject: [PATCH 149/264] rtmutex: add ww_mutex addon for mutex-rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 149/269] rtmutex: add ww_mutex addon for mutex-rt
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---

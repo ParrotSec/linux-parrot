@@ -1,8 +1,8 @@
 From 789344b11534d2799fbc807496846f21869124b5 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 26 Jul 2009 02:21:32 +0200
-Subject: [PATCH 052/264] x86: Use generic rwsem_spinlocks on -rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 052/269] x86: Use generic rwsem_spinlocks on -rt
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Simplifies the separation of anon_rw_semaphores and rw_semaphores for
 -rt.

@@ -1,8 +1,8 @@
 From 3bf07cd523e1ceabae1252c9c286b5fa88608994 Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <efault@gmx.de>
 Date: Sun, 8 Jan 2017 09:32:25 +0100
-Subject: [PATCH 259/264] cpuset: Convert callback_lock to raw_spinlock_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 259/269] cpuset: Convert callback_lock to raw_spinlock_t
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 The two commits below add up to a cpuset might_sleep() splat for RT:
 

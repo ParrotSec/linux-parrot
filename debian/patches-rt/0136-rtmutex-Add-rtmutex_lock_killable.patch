@@ -1,8 +1,8 @@
 From 84d0c68fcaa44acc03d15941d982f4a0157903d0 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 9 Jun 2011 11:43:52 +0200
-Subject: [PATCH 136/264] rtmutex: Add rtmutex_lock_killable()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 136/269] rtmutex: Add rtmutex_lock_killable()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Add "killable" type to rtmutex. We need this since rtmutex are used as
 "normal" mutexes which do use this type.

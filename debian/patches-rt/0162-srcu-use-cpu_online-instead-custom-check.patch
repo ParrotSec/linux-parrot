@@ -1,8 +1,8 @@
 From cf507028c7a29d61fc47c6209aeca2d9d7cd0876 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 13 Sep 2017 14:43:41 +0200
-Subject: [PATCH 162/264] srcu: use cpu_online() instead custom check
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 162/269] srcu: use cpu_online() instead custom check
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 The current check via srcu_online is slightly racy because after looking
 at srcu_online there could be an interrupt that interrupted us long

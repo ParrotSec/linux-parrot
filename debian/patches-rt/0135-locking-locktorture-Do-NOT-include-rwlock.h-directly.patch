@@ -1,9 +1,9 @@
 From 55274d88157f847bb93b54d4b3c0d569995b8443 Mon Sep 17 00:00:00 2001
 From: "Wolfgang M. Reimer" <linuxball@gmail.com>
 Date: Tue, 21 Jul 2015 16:20:07 +0200
-Subject: [PATCH 135/264] locking: locktorture: Do NOT include rwlock.h
+Subject: [PATCH 135/269] locking: locktorture: Do NOT include rwlock.h
  directly
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Including rwlock.h directly will cause kernel builds to fail
 if CONFIG_PREEMPT_RT_FULL is defined. The correct header file

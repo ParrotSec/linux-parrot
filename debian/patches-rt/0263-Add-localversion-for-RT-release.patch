@@ -1,8 +1,8 @@
 From 7b48c4366f0f483bb81cc05f7f427176bff52bf8 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 8 Jul 2011 20:25:16 +0200
-Subject: [PATCH 263/264] Add localversion for -RT release
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 263/269] Add localversion for -RT release
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---

@@ -1,8 +1,8 @@
 From 85dc65ec7e8efc7a7842a1c52b964fe3a5f3214e Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 1 Nov 2012 11:03:47 +0100
-Subject: [PATCH 242/264] x86: Support for lazy preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 242/269] x86: Support for lazy preemption
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Implement the x86 pieces for lazy preempt.
 

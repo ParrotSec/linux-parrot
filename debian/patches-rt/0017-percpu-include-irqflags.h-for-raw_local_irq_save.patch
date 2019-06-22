@@ -1,8 +1,8 @@
 From d77a9b0754acbc89c7884b3505afdbb49677b36a Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 11 Oct 2018 16:39:59 +0200
-Subject: [PATCH 017/264] percpu: include irqflags.h for raw_local_irq_save()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 017/269] percpu: include irqflags.h for raw_local_irq_save()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 The header percpu.h header file is using raw_local_irq_save() but does
 not include irqflags.h for its definition. It compiles because the

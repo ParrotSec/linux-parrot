@@ -1,9 +1,9 @@
 From 1eef86c9b8aa09d8e57f4ee5684c7bfd28f6900f Mon Sep 17 00:00:00 2001
 From: Alexandre Belloni <alexandre.belloni@bootlin.com>
 Date: Thu, 13 Sep 2018 13:30:19 +0200
-Subject: [PATCH 002/264] clocksource/drivers: Add a new driver for the Atmel
+Subject: [PATCH 002/269] clocksource/drivers: Add a new driver for the Atmel
  ARM TC blocks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Add a driver for the Atmel Timer Counter Blocks. This driver provides a
 clocksource and two clockevent devices.

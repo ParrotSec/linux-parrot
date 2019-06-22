@@ -1,11 +1,11 @@
 From 841d8b9e20d17d7907421dc223346198287e81a1 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 29 Aug 2018 21:59:04 +0200
-Subject: [PATCH 016/264] Drivers: hv: vmbus: include header for get_irq_regs()
+Subject: [PATCH 016/269] Drivers: hv: vmbus: include header for get_irq_regs()
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 On !RT the header file get_irq_regs() gets pulled in via other header files. On
 RT it does not and the build fails:

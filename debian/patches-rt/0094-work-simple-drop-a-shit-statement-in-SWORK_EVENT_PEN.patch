@@ -1,9 +1,9 @@
 From ba25a567c5891e2b1acd586212b0fd92ce755e71 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 10 Sep 2018 18:00:31 +0200
-Subject: [PATCH 094/264] work-simple: drop a shit statement in
+Subject: [PATCH 094/269] work-simple: drop a shit statement in
  SWORK_EVENT_PENDING
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Dan Carpenter reported
 | smatch warnings:

@@ -1,0 +1,101 @@
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sun, 16 Jun 2019 13:00:34 +0100
+Subject: tcp: Avoid ABI change for DoS fixes
+Forwarded: not-needed
+
+"tcp: tcp_fragment() should apply sane memory limits" adds a new Linux
+MIB counter.  This adds another element to the array in struct
+linux_mib.  Since that is always allocated by built-in code, it's a
+backward-compatible change and we can hide the added element from
+genksyms.
+
+"tcp: add tcp_min_snd_mss sysctl" adds a new per-netns sysctl and a
+new members in struct netns_ipv4.  Since this is embedded in struct
+net, it changes the offsets of all the following members.  However
+struct net itself is not embedded in anything, and is always allocated
+by built-in code.  So move the new member to the end of struct net,
+and hide it from genksyms.
+
+Also hide the added element and member from modules, as they won't be
+able to rely on their being present until we bump ABI.
+
+---
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -161,6 +161,9 @@ struct net {
+ #endif
+ 	struct sock		*diag_nlsk;
+ 	atomic_t		fnhe_genid;
++#if !defined(__GENKSYMS__) && !defined(MODULE)
++	int			ipv4_sysctl_tcp_min_snd_mss;
++#endif
+ } __randomize_layout;
+ 
+ #include <linux/seq_file_net.h>
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -113,7 +113,7 @@ struct netns_ipv4 {
+ #endif
+ 	int sysctl_tcp_mtu_probing;
+ 	int sysctl_tcp_base_mss;
+-	int sysctl_tcp_min_snd_mss;
++	/* int sysctl_tcp_min_snd_mss; - bwh: moved to end of struct net */
+ 	int sysctl_tcp_probe_threshold;
+ 	u32 sysctl_tcp_probe_interval;
+ 
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -740,7 +740,7 @@ static struct ctl_table ipv4_net_table[]
+ 	},
+ 	{
+ 		.procname	= "tcp_min_snd_mss",
+-		.data		= &init_net.ipv4.sysctl_tcp_min_snd_mss,
++		.data		= &init_net.ipv4_sysctl_tcp_min_snd_mss,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2527,7 +2527,7 @@ static int __net_init tcp_sk_init(struct
+ 	net->ipv4.sysctl_tcp_ecn_fallback = 1;
+ 
+ 	net->ipv4.sysctl_tcp_base_mss = TCP_BASE_MSS;
+-	net->ipv4.sysctl_tcp_min_snd_mss = TCP_MIN_SND_MSS;
++	net->ipv4_sysctl_tcp_min_snd_mss = TCP_MIN_SND_MSS;
+ 	net->ipv4.sysctl_tcp_probe_threshold = TCP_PROBE_THRESHOLD;
+ 	net->ipv4.sysctl_tcp_probe_interval = TCP_PROBE_INTERVAL;
+ 
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1462,7 +1462,7 @@ static inline int __tcp_mtu_to_mss(struc
+ 	mss_now -= icsk->icsk_ext_hdr_len;
+ 
+ 	/* Then reserve room for full set of TCP options and 8 bytes of data */
+-	mss_now = max(mss_now, sock_net(sk)->ipv4.sysctl_tcp_min_snd_mss);
++	mss_now = max(mss_now, sock_net(sk)->ipv4_sysctl_tcp_min_snd_mss);
+ 	return mss_now;
+ }
+ 
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -166,7 +166,7 @@ static void tcp_mtu_probing(struct inet_
+ 		mss = tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low) >> 1;
+ 		mss = min(net->ipv4.sysctl_tcp_base_mss, mss);
+ 		mss = max(mss, 68 - tcp_sk(sk)->tcp_header_len);
+-		mss = max(mss, net->ipv4.sysctl_tcp_min_snd_mss);
++		mss = max(mss, net->ipv4_sysctl_tcp_min_snd_mss);
+ 		icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
+ 	}
+ 	tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -282,7 +282,9 @@ enum
+ 	LINUX_MIB_TCPACKCOMPRESSED,		/* TCPAckCompressed */
+ 	LINUX_MIB_TCPZEROWINDOWDROP,		/* TCPZeroWindowDrop */
+ 	LINUX_MIB_TCPRCVQDROP,			/* TCPRcvQDrop */
++#if !defined(__KERNEL__) || (!defined(__GENKSYMS__) && !defined(MODULE))
+ 	LINUX_MIB_TCPWQUEUETOOBIG,		/* TCPWqueueTooBig */
++#endif
+ 	__LINUX_MIB_MAX
+ };
+ 

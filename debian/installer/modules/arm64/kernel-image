@@ -14,3 +14,12 @@ drivers/soc/**
 
 # Watchdog needed for reboot
 sunxi_wdt ?
+
+# SPI devices
+drivers/spi/**
+
+# For cros_ec mfd device
+cros_ec_spi ?
+
+# PCIe PHYs
+phy-rockchip-pcie ?

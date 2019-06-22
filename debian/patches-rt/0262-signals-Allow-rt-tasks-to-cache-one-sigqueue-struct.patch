@@ -1,8 +1,8 @@
 From d05a6a9bf872f14f98543e61c6ef160307078b7c Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 3 Jul 2009 08:44:56 -0500
-Subject: [PATCH 262/264] signals: Allow rt tasks to cache one sigqueue struct
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 262/269] signals: Allow rt tasks to cache one sigqueue struct
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 To avoid allocation allow rt tasks to cache one sigqueue struct in
 task struct.

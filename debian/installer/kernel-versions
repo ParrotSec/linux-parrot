@@ -32,4 +32,4 @@ riscv64    -       riscv64       -             -      -
 s390x      -       s390x         -             -      -
 sh4        -       sh7751r       -             y      -
 sh4        -       sh7785lcr     -             y      -
-sparc64    -       sparc64       -             y      -
+sparc64    -       sparc64       -             -      -

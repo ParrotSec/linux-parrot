@@ -1,8 +1,8 @@
 From e958966734633c26363abc8920eca9c38e5cd7ce Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 8 Nov 2013 17:34:54 +0100
-Subject: [PATCH 035/264] usb: do no disable interrupts in giveback
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt19.tar.xz
+Subject: [PATCH 035/269] usb: do no disable interrupts in giveback
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/4.19/older/patches-4.19.37-rt20.tar.xz
 
 Since commit 94dfd7ed ("USB: HCD: support giveback of URB in tasklet
 context") the USB code disables interrupts before invoking the complete
