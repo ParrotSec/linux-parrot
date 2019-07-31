@@ -9,7 +9,7 @@ debian/dfsg/video-remove-nvidiafb-and-rivafb.patch
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-#debian/gitignore.patch # Kali: we have that in the git repo already
+debian/gitignore.patch
 debian/ia64-hardcode-arch-script-output.patch
 debian/mips-disable-werror.patch
 debian/mips-boston-disable-its.patch
@@ -21,6 +21,10 @@ debian/wireless-add-debian-wireless-regdb-certificates.patch
 debian/export-symbols-needed-by-android-drivers.patch
 debian/android-enable-building-ashmem-and-binder-as-modules.patch
 
+# Parrot patches
+features/all/wifi-injection.patch
+features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
+
 # Fixes/improvements to firmware loading
 features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
 debian/iwlwifi-do-not-request-unreleased-firmware.patch
@@ -28,10 +32,6 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
-
-# Parrot patches
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Patches from aufs4 repository, imported with debian/bin/genpatch-aufs.
 # These are only the changes needed to allow aufs to be built out-of-tree.
@@ -73,6 +73,7 @@ bugfix/x86/platform-x86-ideapad-laptop-add-ideapad-v510-15ikb-t.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-several-models-to-no.patch
 bugfix/x86/perf-tools-fix-unwind-build-on-i386.patch
 bugfix/sh/sh-boot-do-not-use-hyphen-in-exported-variable-name.patch
+bugfix/sh/sh-check-for-kprobe-trap-number-before-trying-to-handle-a-kprobe-trap.patch
 bugfix/powerpc/powerpc-lib-sstep-fix-building-for-powerpcspe.patch
 bugfix/powerpc/powerpc-lib-makefile-don-t-pull-in-quad.o-for-32-bit.patch
 bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
@@ -231,6 +232,8 @@ bugfix/all/tcp-limit-payload-size-of-sacked-skbs.patch
 bugfix/all/tcp-tcp_fragment-should-apply-sane-memory-limits.patch
 bugfix/all/tcp-add-tcp_min_snd_mss-sysctl.patch
 bugfix/all/tcp-enforce-tcp_min_snd_mss-in-tcp_mtu_probing.patch
+bugfix/all/tcp-refine-memory-limit-test-in-tcp_fragment.patch
+bugfix/all/ptrace-Fix-ptracer_cred-handling-for-PTRACE_TRACEME.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -282,6 +285,46 @@ features/all/ena/0015-net-ena-enable-Low-Latency-Queues.patch
 features/all/ena/0016-net-ena-fix-compilation-error-in-xtensa-architecture.patch
 features/all/ena/0017-net-ena-fix-crash-during-ena_remove.patch
 features/all/ena/0018-net-ena-update-driver-version-from-2.0.1-to-2.0.2.patch
+
+# Backported bugfixes from 4.20/4.21 for the Huawei TaiShan server platform (aka D06)
+bugfix/arm64/huawei-taishan/0001-scsi-hisi_sas-Feed-back-linkrate-max-min-when-re-att.patch
+bugfix/arm64/huawei-taishan/0002-scsi-hisi_sas-Move-evaluation-of-hisi_hba-in-hisi_sa.patch
+bugfix/arm64/huawei-taishan/0003-scsi-hisi_sas-Fix-the-race-between-IO-completion-and.patch
+bugfix/arm64/huawei-taishan/0004-scsi-hisi_sas-Free-slot-later-in-slot_complete_vx_hw.patch
+bugfix/arm64/huawei-taishan/0005-scsi-hisi_sas-unmask-interrupts-ent72-and-ent74.patch
+bugfix/arm64/huawei-taishan/0006-scsi-hisi_sas-Use-block-layer-tag-instead-for-IPTT.patch
+bugfix/arm64/huawei-taishan/0007-scsi-hisi_sas-Update-v3-hw-AIP_LIMIT-and-CFG_AGING_T.patch
+bugfix/arm64/huawei-taishan/0008-scsi-hisi_sas-Fix-spin-lock-management-in-slot_index.patch
+bugfix/arm64/huawei-taishan/0009-scsi-hisi_sas-use-dma_set_mask_and_coherent.patch
+bugfix/arm64/huawei-taishan/0010-scsi-hisi_sas-Create-separate-host-attributes-per-HB.patch
+bugfix/arm64/huawei-taishan/0011-scsi-hisi_sas-Add-support-for-interrupt-converge-for.patch
+bugfix/arm64/huawei-taishan/0012-scsi-hisi_sas-Add-support-for-interrupt-coalescing-f.patch
+bugfix/arm64/huawei-taishan/0013-scsi-hisi_sas-Relocate-some-codes-to-avoid-an-unused.patch
+bugfix/arm64/huawei-taishan/0014-scsi-hisi_sas-Fix-warnings-detected-by-sparse.patch
+bugfix/arm64/huawei-taishan/0015-scsi-hisi_sas-Relocate-some-code-to-reduce-complexit.patch
+bugfix/arm64/huawei-taishan/0016-scsi-hisi_sas-Make-sg_tablesize-consistent-value.patch
+bugfix/arm64/huawei-taishan/0017-net-hns3-remove-unnecessary-configuration-recapture-.patch
+bugfix/arm64/huawei-taishan/0018-net-hns3-remove-1000M-half-support-of-phy.patch
+bugfix/arm64/huawei-taishan/0019-net-hns3-synchronize-speed-and-duplex-from-phy-when-.patch
+bugfix/arm64/huawei-taishan/0020-net-hns3-getting-tx-and-dv-buffer-size-through-firmw.patch
+bugfix/arm64/huawei-taishan/0021-net-hns3-aligning-buffer-size-in-SSU-to-256-bytes.patch
+bugfix/arm64/huawei-taishan/0022-net-hns3-fix-a-SSU-buffer-checking-bug.patch
+bugfix/arm64/huawei-taishan/0023-net-hns3-change-default-tc-state-to-close.patch
+bugfix/arm64/huawei-taishan/0024-net-hns3-fix-a-bug-caused-by-udelay.patch
+bugfix/arm64/huawei-taishan/0025-net-hns3-remove-redundant-variable-initialization.patch
+bugfix/arm64/huawei-taishan/0026-net-hns3-call-hns3_nic_net_open-while-doing-HNAE3_UP.patch
+bugfix/arm64/huawei-taishan/0027-RDMA-hns-Fix-the-bug-with-updating-rq-head-pointer-w.patch
+bugfix/arm64/huawei-taishan/0028-RDMA-hns-Bugfix-for-the-scene-without-receiver-queue.patch
+bugfix/arm64/huawei-taishan/0029-RDMA-hns-Add-constraint-on-the-setting-of-local-ACK-.patch
+bugfix/arm64/huawei-taishan/0030-RDMA-hns-Modify-the-pbl-ba-page-size-for-hip08.patch
+bugfix/arm64/huawei-taishan/0031-RDMA-hns-RDMA-hns-Assign-rq-head-pointer-when-enable.patch
+bugfix/arm64/huawei-taishan/0032-scsi-hisi_sas-Fix-NULL-pointer-dereference.patch
+bugfix/arm64/huawei-taishan/0033-scsi-hisi_sas-fix-calls-to-dma_set_mask_and_coherent.patch
+
+# Backported DTB support for Raspberry Pi Compute Module 3 from 4.20-rc1:
+features/arm/ARM-dts-add-Raspberry-Pi-Compute-Module-3-and-IO-boa.patch
+features/arm64/arm64-dts-broadcom-Add-reference-to-Compute-Module-I.patch
+features/arm64/arm64-dts-broadcom-Use-the-.dtb-name-in-the-rule-rat.patch
 
 # ABI maintenance
 debian/abi/tcp-avoid-abi-change-for-dos-fixes.patch

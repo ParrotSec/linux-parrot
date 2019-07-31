@@ -1,5 +1,5 @@
 [abi]
-abiname: parrot1
+abiname: 6parrot1
 ignore-changes:
  __cpuhp_*
  __xive_vm_h_*
@@ -80,6 +80,8 @@ ignore-changes:
 # Not OOT
  nf_nat_masquerade_ipv4_register_notifier
  nf_nat_masquerade_ipv6_register_notifier
+# ignore changes to hisi_sas/*
+ module:drivers/scsi/hisi_sas/*
 
 [base]
 arches:

@@ -1,0 +1,32 @@
+From: Liviu Dudau <liviu@dudau.co.uk>
+Date: Mon, 24 Sep 2018 11:22:28 +0100
+Subject: arm64: dts: broadcom: Use the .dtb name in the rule, rather than .dts
+Origin: https://git.kernel.org/linus/74cf77e8be35795b4cc57b7010bc348295e421b9
+
+Commit a7eb26392b893 ("arm64: dts: broadcom: Add reference to Compute
+Module IO Board V3") adds the bcm2837-rpi-cm3-io3.dts file as a target
+in the Makefile, rather than the .dtb name. This will skip the
+generation of the .dtb file at compile time and will fail the dtbs_install
+target.
+
+Fixes: a7eb26392b893 ("arm64: dts: broadcom: Add reference to Compute Module IO Board V3")
+Signed-off-by: Liviu Dudau <liviu@dudau.co.uk>
+Acked-by: Stefan Wahren <stefan.wahren@i2se.com>
+Signed-off-by: Olof Johansson <olof@lixom.net>
+---
+ arch/arm64/boot/dts/broadcom/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/broadcom/Makefile b/arch/arm64/boot/dts/broadcom/Makefile
+index 3d98f5f5ab88..667ca989c11b 100644
+--- a/arch/arm64/boot/dts/broadcom/Makefile
++++ b/arch/arm64/boot/dts/broadcom/Makefile
+@@ -1,7 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ dtb-$(CONFIG_ARCH_BCM2835) += bcm2837-rpi-3-b.dtb \
+ 			      bcm2837-rpi-3-b-plus.dtb \
+-			      bcm2837-rpi-cm3-io3.dts
++			      bcm2837-rpi-cm3-io3.dtb
+ 
+ subdir-y	+= northstar2
+ subdir-y	+= stingray

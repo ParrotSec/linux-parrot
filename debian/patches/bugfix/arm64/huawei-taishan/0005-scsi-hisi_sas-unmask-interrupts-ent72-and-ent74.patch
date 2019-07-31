@@ -1,0 +1,32 @@
+From de1d5713a20562acdb3f94466232432c9dd1d95c Mon Sep 17 00:00:00 2001
+From: Xiang Chen <chenxiang66@hisilicon.com>
+Date: Mon, 24 Sep 2018 23:06:32 +0800
+Subject: [PATCH 05/31] scsi: hisi_sas: unmask interrupts ent72 and ent74
+Origin: https://git.kernel.org/linus/6ecf5ba13cd5959eb75f617ff32c93bb67790e48
+
+The interrupts of ent72 and ent74 are not processed by PCIe AER handling,
+so we need to unmask the interrupts and process them first in the driver.
+
+Signed-off-by: Xiang Chen <chenxiang66@hisilicon.com>
+Signed-off-by: John Garry <john.garry@huawei.com>
+Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
+---
+ drivers/scsi/hisi_sas/hisi_sas_v3_hw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/hisi_sas/hisi_sas_v3_hw.c b/drivers/scsi/hisi_sas/hisi_sas_v3_hw.c
+index fb2a5969181b..06824bde9c8d 100644
+--- a/drivers/scsi/hisi_sas/hisi_sas_v3_hw.c
++++ b/drivers/scsi/hisi_sas/hisi_sas_v3_hw.c
+@@ -441,7 +441,7 @@ static void init_reg_v3_hw(struct hisi_hba *hisi_hba)
+ 	hisi_sas_write32(hisi_hba, ENT_INT_SRC_MSK1, 0xfefefefe);
+ 	hisi_sas_write32(hisi_hba, ENT_INT_SRC_MSK2, 0xfefefefe);
+ 	if (pdev->revision >= 0x21)
+-		hisi_sas_write32(hisi_hba, ENT_INT_SRC_MSK3, 0xffff7fff);
++		hisi_sas_write32(hisi_hba, ENT_INT_SRC_MSK3, 0xffff7aff);
+ 	else
+ 		hisi_sas_write32(hisi_hba, ENT_INT_SRC_MSK3, 0xfffe20ff);
+ 	hisi_sas_write32(hisi_hba, CHNL_PHYUPDOWN_INT_MSK, 0x0);
+-- 
+2.20.1
+

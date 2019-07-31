@@ -1,0 +1,31 @@
+From 454bc02382f8ed2eb3ebc7db4867ed419e3f0241 Mon Sep 17 00:00:00 2001
+From: Lijun Ou <oulijun@huawei.com>
+Date: Wed, 12 Dec 2018 17:49:09 +0800
+Subject: [PATCH 30/31] RDMA/hns: Modify the pbl ba page size for hip08
+Origin: https://git.kernel.org/linus/91fb4d83b88a7b544ce564c44167aad29d4154f0
+
+Modify the pbl ba page size to 16K for in order to support 4G MR size.
+
+Signed-off-by: Wei Hu (Xavier) <xavier.huwei@huawei.com>
+Signed-off-by: Lijun Ou <oulijun@huawei.com>
+Signed-off-by: Jason Gunthorpe <jgg@mellanox.com>
+---
+ drivers/infiniband/hw/hns/hns_roce_hw_v2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v2.c b/drivers/infiniband/hw/hns/hns_roce_hw_v2.c
+index 627f77a6e0a9..e521cc740120 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v2.c
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v2.c
+@@ -1235,7 +1235,7 @@ static int hns_roce_v2_profile(struct hns_roce_dev *hr_dev)
+ 	caps->mpt_ba_pg_sz	= 0;
+ 	caps->mpt_buf_pg_sz	= 0;
+ 	caps->mpt_hop_num	= HNS_ROCE_CONTEXT_HOP_NUM;
+-	caps->pbl_ba_pg_sz	= 0;
++	caps->pbl_ba_pg_sz	= 2;
+ 	caps->pbl_buf_pg_sz	= 0;
+ 	caps->pbl_hop_num	= HNS_ROCE_PBL_HOP_NUM;
+ 	caps->mtt_ba_pg_sz	= 0;
+-- 
+2.20.1
+

@@ -434,6 +434,13 @@ CONFIG_IIO_CROS_EC_LIGHT_PROX=m
 CONFIG_IIO_CROS_EC_BARO=m
 
 ##
+## file: drivers/infiniband/hw/hns/Kconfig
+##
+CONFIG_INFINIBAND_HNS=m
+CONFIG_INFINIBAND_HNS_HIP06=m
+CONFIG_INFINIBAND_HNS_HIP08=m
+
+##
 ## file: drivers/input/keyboard/Kconfig
 ##
 CONFIG_KEYBOARD_GPIO=m

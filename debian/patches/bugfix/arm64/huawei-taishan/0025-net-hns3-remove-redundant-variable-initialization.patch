@@ -1,0 +1,31 @@
+From 883a7a53d7f6a6494e3a0df73fb02f76ecc42bc1 Mon Sep 17 00:00:00 2001
+From: Peng Li <lipeng321@huawei.com>
+Date: Thu, 20 Dec 2018 11:52:06 +0800
+Subject: [PATCH 25/31] net: hns3: remove redundant variable initialization
+Origin: https://git.kernel.org/linus/1154bb26c879fea51c20aee167ddce4345caa255
+
+This patch removes the redundant variable initialization,
+as driver will devm_kzalloc to set value to hdev soon.
+
+Signed-off-by: Peng Li <lipeng321@huawei.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/hisilicon/hns3/hns3vf/hclgevf_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3vf/hclgevf_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3vf/hclgevf_main.c
+index 5570fb5dc2eb..dca51d9cfa4f 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3vf/hclgevf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3vf/hclgevf_main.c
+@@ -1360,7 +1360,7 @@ static int hclgevf_configure(struct hclgevf_dev *hdev)
+ static int hclgevf_alloc_hdev(struct hnae3_ae_dev *ae_dev)
+ {
+ 	struct pci_dev *pdev = ae_dev->pdev;
+-	struct hclgevf_dev *hdev = ae_dev->priv;
++	struct hclgevf_dev *hdev;
+ 
+ 	hdev = devm_kzalloc(&pdev->dev, sizeof(*hdev), GFP_KERNEL);
+ 	if (!hdev)
+-- 
+2.20.1
+

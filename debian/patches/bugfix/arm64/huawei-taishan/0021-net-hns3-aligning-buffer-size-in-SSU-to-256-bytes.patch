@@ -1,0 +1,147 @@
+From 234c314e892d40daa37e97e9057e04d3e3a0c285 Mon Sep 17 00:00:00 2001
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Date: Tue, 18 Dec 2018 19:37:58 +0800
+Subject: [PATCH 21/31] net: hns3: aligning buffer size in SSU to 256 bytes
+Origin: https://git.kernel.org/linus/b9a400ac295728b2d47445e09814e1880409b311
+
+The hardware expects the buffer size set to SSU is aligned to
+256 bytes, this patch aligns the buffer size to 256 byte using
+roundup or rounddown function.
+
+Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
+Signed-off-by: Peng Li <lipeng321@huawei.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ .../hisilicon/hns3/hns3pf/hclge_main.c        | 45 ++++++++++++-------
+ 1 file changed, 28 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+index 47cbf06ea405..42a38ca966d1 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+@@ -31,6 +31,10 @@ static int hclge_set_mta_filter_mode(struct hclge_dev *hdev,
+ 				     enum hclge_mta_dmac_sel_type mta_mac_sel,
+ 				     bool enable);
+ static int hclge_set_mtu(struct hnae3_handle *handle, int new_mtu);
++
++#define HCLGE_BUF_SIZE_UNIT	256
++
++static int hclge_set_mac_mtu(struct hclge_dev *hdev, int new_mps);
+ static int hclge_init_vlan_config(struct hclge_dev *hdev);
+ static int hclge_reset_ae_dev(struct hnae3_ae_dev *ae_dev);
+ 
+@@ -938,12 +942,16 @@ static int hclge_query_pf_resource(struct hclge_dev *hdev)
+ 	else
+ 		hdev->tx_buf_size = HCLGE_DEFAULT_TX_BUF;
+ 
++	hdev->tx_buf_size = roundup(hdev->tx_buf_size, HCLGE_BUF_SIZE_UNIT);
++
+ 	if (req->dv_buf_size)
+ 		hdev->dv_buf_size =
+ 			__le16_to_cpu(req->dv_buf_size) << HCLGE_BUF_UNIT_S;
+ 	else
+ 		hdev->dv_buf_size = HCLGE_DEFAULT_DV;
+ 
++	hdev->dv_buf_size = roundup(hdev->dv_buf_size, HCLGE_BUF_SIZE_UNIT);
++
+ 	if (hnae3_dev_roce_supported(hdev)) {
+ 		hdev->roce_base_msix_offset =
+ 		hnae3_get_field(__le16_to_cpu(req->msixcap_localid_ba_rocee),
+@@ -1596,48 +1604,50 @@ static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev,
+ {
+ 	u32 shared_buf_min, shared_buf_tc, shared_std;
+ 	int tc_num, pfc_enable_num;
+-	u32 shared_buf;
++	u32 shared_buf, aligned_mps;
+ 	u32 rx_priv;
+ 	int i;
+ 
+ 	tc_num = hclge_get_tc_num(hdev);
+ 	pfc_enable_num = hclge_get_pfc_enalbe_num(hdev);
++	aligned_mps = roundup(hdev->mps, HCLGE_BUF_SIZE_UNIT);
+ 
+ 	if (hnae3_dev_dcb_supported(hdev))
+-		shared_buf_min = 2 * hdev->mps + hdev->dv_buf_size;
++		shared_buf_min = 2 * aligned_mps + hdev->dv_buf_size;
+ 	else
+-		shared_buf_min = hdev->mps + HCLGE_NON_DCB_ADDITIONAL_BUF
++		shared_buf_min = aligned_mps + HCLGE_NON_DCB_ADDITIONAL_BUF
+ 					+ hdev->dv_buf_size;
+ 
+-	shared_buf_tc = pfc_enable_num * hdev->mps +
+-			(tc_num - pfc_enable_num) * hdev->mps / 2 +
+-			hdev->mps;
++	shared_buf_tc = pfc_enable_num * aligned_mps +
++			(tc_num - pfc_enable_num) * aligned_mps / 2 +
++			aligned_mps;
+ 	shared_std = max_t(u32, shared_buf_min, shared_buf_tc);
+ 
+ 	rx_priv = hclge_get_rx_priv_buff_alloced(buf_alloc);
+ 	if (rx_all <= rx_priv + shared_std)
+ 		return false;
+ 
+-	shared_buf = rx_all - rx_priv;
++	shared_buf = rounddown(rx_all - rx_priv, HCLGE_BUF_SIZE_UNIT);
+ 	buf_alloc->s_buf.buf_size = shared_buf;
+ 	if (hnae3_dev_dcb_supported(hdev)) {
+ 		buf_alloc->s_buf.self.high = shared_buf - hdev->dv_buf_size;
+ 		buf_alloc->s_buf.self.low = buf_alloc->s_buf.self.high
+-						- hdev->mps / 2;
++			- roundup(aligned_mps / 2, HCLGE_BUF_SIZE_UNIT);
+ 	} else {
+-		buf_alloc->s_buf.self.high = hdev->mps +
++		buf_alloc->s_buf.self.high = aligned_mps +
+ 						HCLGE_NON_DCB_ADDITIONAL_BUF;
+-		buf_alloc->s_buf.self.low = hdev->mps / 2;
++		buf_alloc->s_buf.self.low =
++			roundup(aligned_mps / 2, HCLGE_BUF_SIZE_UNIT);
+ 	}
+ 
+ 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
+ 		if ((hdev->hw_tc_map & BIT(i)) &&
+ 		    (hdev->tm_info.hw_pfc_map & BIT(i))) {
+-			buf_alloc->s_buf.tc_thrd[i].low = hdev->mps;
+-			buf_alloc->s_buf.tc_thrd[i].high = 2 * hdev->mps;
++			buf_alloc->s_buf.tc_thrd[i].low = aligned_mps;
++			buf_alloc->s_buf.tc_thrd[i].high = 2 * aligned_mps;
+ 		} else {
+ 			buf_alloc->s_buf.tc_thrd[i].low = 0;
+-			buf_alloc->s_buf.tc_thrd[i].high = hdev->mps;
++			buf_alloc->s_buf.tc_thrd[i].high = aligned_mps;
+ 		}
+ 	}
+ 
+@@ -1677,7 +1687,6 @@ static int hclge_tx_buffer_calc(struct hclge_dev *hdev,
+ static int hclge_rx_buffer_calc(struct hclge_dev *hdev,
+ 				struct hclge_pkt_buf_alloc *buf_alloc)
+ {
+-#define HCLGE_BUF_SIZE_UNIT	128
+ 	u32 rx_all = hdev->pkt_buf_size, aligned_mps;
+ 	int no_pfc_priv_num, pfc_priv_num;
+ 	struct hclge_priv_buf *priv;
+@@ -1703,9 +1712,11 @@ static int hclge_rx_buffer_calc(struct hclge_dev *hdev,
+ 			priv->enable = 1;
+ 			if (hdev->tm_info.hw_pfc_map & BIT(i)) {
+ 				priv->wl.low = aligned_mps;
+-				priv->wl.high = priv->wl.low + aligned_mps;
++				priv->wl.high =
++					roundup(priv->wl.low + aligned_mps,
++						HCLGE_BUF_SIZE_UNIT);
+ 				priv->buf_size = priv->wl.high +
+-						hdev->dv_buf_size;
++					hdev->dv_buf_size;
+ 			} else {
+ 				priv->wl.low = 0;
+ 				priv->wl.high = 2 * aligned_mps;
+@@ -1740,7 +1751,7 @@ static int hclge_rx_buffer_calc(struct hclge_dev *hdev,
+ 		priv->enable = 1;
+ 
+ 		if (hdev->tm_info.hw_pfc_map & BIT(i)) {
+-			priv->wl.low = 128;
++			priv->wl.low = 256;
+ 			priv->wl.high = priv->wl.low + aligned_mps;
+ 			priv->buf_size = priv->wl.high + hdev->dv_buf_size;
+ 		} else {
+-- 
+2.20.1
+

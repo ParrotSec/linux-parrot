@@ -1,0 +1,48 @@
+From 4d887b7901d59b472df97bd8a2f8bdeb43be7ced Mon Sep 17 00:00:00 2001
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Date: Tue, 18 Dec 2018 19:37:59 +0800
+Subject: [PATCH 22/31] net: hns3: fix a SSU buffer checking bug
+Origin: https://git.kernel.org/linus/af854724e51e4047f534ac6d19b3ef9fb3c35c49
+
+When caculating the SSU buffer, it first allocate tx and
+rx private buffer, then the remaining buffer is for rx
+shared buffer. The remaining buffer size should be at
+least bigger than or equal to the shared_std, which is the
+minimum shared buffer size required by the driver, but
+currently if the remaining buffer size is equal to the
+shared_std, it returns failure, which causes SSU buffer
+allocation failure problem.
+
+This patch fixes this problem by rounding up shared_std before
+checking the the remaining buffer size bigger than or equal to
+the shared_std.
+
+Fixes: 46a3df9f9718 ("net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support")
+Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
+Signed-off-by: Peng Li <lipeng321@huawei.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+index 42a38ca966d1..79232f584531 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+@@ -1621,10 +1621,11 @@ static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev,
+ 	shared_buf_tc = pfc_enable_num * aligned_mps +
+ 			(tc_num - pfc_enable_num) * aligned_mps / 2 +
+ 			aligned_mps;
+-	shared_std = max_t(u32, shared_buf_min, shared_buf_tc);
++	shared_std = roundup(max_t(u32, shared_buf_min, shared_buf_tc),
++			     HCLGE_BUF_SIZE_UNIT);
+ 
+ 	rx_priv = hclge_get_rx_priv_buff_alloced(buf_alloc);
+-	if (rx_all <= rx_priv + shared_std)
++	if (rx_all < rx_priv + shared_std)
+ 		return false;
+ 
+ 	shared_buf = rounddown(rx_all - rx_priv, HCLGE_BUF_SIZE_UNIT);
+-- 
+2.20.1
+

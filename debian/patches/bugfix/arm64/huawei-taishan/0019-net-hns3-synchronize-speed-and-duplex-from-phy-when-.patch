@@ -1,0 +1,35 @@
+From 4f28c6b52ffb62eb5a0a5a85af4fa10658fecee5 Mon Sep 17 00:00:00 2001
+From: Peng Li <lipeng321@huawei.com>
+Date: Tue, 18 Dec 2018 19:37:56 +0800
+Subject: [PATCH 19/31] net: hns3: synchronize speed and duplex from phy when
+ phy link up
+Origin: https://git.kernel.org/linus/0ad5ea5dbd6cb1e62bac547db5e61bab15af4f44
+
+Driver calls phy_connect_direct and registers hclge_mac_adjust_link
+to synchronize mac speed and duplex from phy. It is better to
+synchronize mac speed and duplex from phy when phy link up.
+
+Signed-off-by: Peng Li <lipeng321@huawei.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+index a75b70ce41f8..bdbec85265f4 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+@@ -181,6 +181,10 @@ static void hclge_mac_adjust_link(struct net_device *netdev)
+ 	int duplex, speed;
+ 	int ret;
+ 
++	/* When phy link down, do nothing */
++	if (netdev->phydev->link == 0)
++		return;
++
+ 	speed = netdev->phydev->speed;
+ 	duplex = netdev->phydev->duplex;
+ 
+-- 
+2.20.1
+

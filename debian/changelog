@@ -1,3 +1,32 @@
+linux (4.19.37-6parrot1) testing; urgency=medium
+
+  * Import new Debian release.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Wed, 31 Jul 2019 17:37:07 +0200
+
+linux (4.19.37-6) unstable; urgency=high
+
+  [ John Paul Adrian Glaubitz ]
+  * [sh4]: Check for kprobe trap number before trying to handle a kprobe trap
+
+  [ Salvatore Bonaccorso ]
+  * tcp: refine memory limit test in tcp_fragment() (Closes: #930904)
+  * ptrace: Fix ->ptracer_cred handling for PTRACE_TRACEME (CVE-2019-13272)
+
+  [ Steve McIntyre ]
+  * [arm64] Improve support for the Huawei TaiShan server platform
+    (Closes: #930554):
+    - Enable the HNS/ROCE Infiniband driver
+    - Backport fixes from 4.20 and 4.21 for HNS3 networking, hisi_sas SAS
+      and HNS/ROCE Infiniband
+    - Add module:drivers/scsi/hisi_sas/* to the ABI ignore list
+
+  [ Cyril Brulebois ]
+  * [arm] Backport DTB support for Rasperry Pi Compute Module 3.
+  * [arm64] Backport DTB support for Rasperry Pi Compute Module 3.
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Fri, 19 Jul 2019 00:23:17 +0200
+
 linux (4.19.37-5parrot1) testing; urgency=medium
 
   * Import new Debian release.
