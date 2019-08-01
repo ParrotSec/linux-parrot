@@ -1,5 +1,5 @@
 ee4a1d15d41bf60863ffc0d86d4b4891  debian/bin/gencontrol.py
-399931dac303f51d5bf34ea7cc9c68c7  debian/build/version-info
+46c600fdc94d5530f97543396747ae2c  debian/build/version-info
 74b180a87aa1f6377d9bf8a10368c657  debian/templates/control.main.in
 eda4623fb10d5ba1cefa8502ebaeb0fd  debian/templates/control.image-dbg.in
 1cfc49a285f1f37ce6415e811e5c737f  debian/templates/control.image-unsigned.in
@@ -25,7 +25,7 @@ d8fc0ea28c343fb12ed27606464cc80a  debian/templates/control.source.in
 0c86e2579f89e94a6cd144eb98593a5b  debian/templates/control.extra.in
 fe4456d48e3218fb8980c8577d03a7ae  debian/templates/control.config.in
 103ea5fb237e376b511ba638afc41837  debian/templates/control.headers.arch.in
-3103c3c1b70dfdd62e1d85beb543383a  debian/config/defines
+3ef69edd57972ec0240449e887a3dfe5  debian/config/defines
 d317561732748d137c4784c48ed7b7a9  debian/config/i386/defines
 32e264f468daa991fa1bafce9e1eee3c  debian/config/mips64el/defines
 8f2e4969633ff660d026f2b7e02e6336  debian/config/sh3/defines

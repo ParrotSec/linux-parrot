@@ -1,3 +1,9 @@
+linux (4.19.37-6parrot2) rolling; urgency=medium
+
+  * Include kernel minor version in package version.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Thu, 01 Aug 2019 09:05:03 +0200
+
 linux (4.19.37-6parrot1) testing; urgency=medium
 
   * Import new Debian release.
