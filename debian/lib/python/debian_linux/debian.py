@@ -224,7 +224,7 @@ class _VersionTest(unittest.TestCase):
 class VersionLinux(Version):
     _upstream_re = re.compile(r"""
 (?P<version>
-    \d+\.\d+\.\d+
+    \d+\.\d+
 )
 (?P<update>
     (?:\.\d+)?

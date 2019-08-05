@@ -1,3 +1,10 @@
+linux (4.19.37-6parrot3) rolling; urgency=medium
+
+  * Restore debian-style kernel versions.
+  * Force removal of older kernels with the old versioning policy.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Mon, 05 Aug 2019 14:04:11 +0200
+
 linux (4.19.37-6parrot2) rolling; urgency=medium
 
   * Include kernel minor version in package version.

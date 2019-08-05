@@ -3,5 +3,8 @@ Build-Profiles: <!stage1 !pkg.linux.nokernel>
 Depends: kmod, linux-base (>= 4.3~), linux-bootwrapper-@abiname@ [powerpc powerpcspe ppc64], ${misc:Depends}
 Recommends: firmware-linux-free, ${kernel:Recommends}
 Suggests: linux-doc-@version@, debian-kernel-handbook
+Breaks: linux-image-4.19.37-parrot1-amd64, linux-image-4.19.37-6parrot2-amd64
+Conflicts: linux-image-4.19.37-parrot1-amd64, linux-image-4.19.37-6parrot2-amd64
+Replaces: linux-image-4.19.37-parrot1-amd64, linux-image-4.19.37-6parrot2-amd64 
 Description: Linux @upstreamversion@ for @class@
  The Linux kernel @upstreamversion@ and modules for use on @longclass@.
