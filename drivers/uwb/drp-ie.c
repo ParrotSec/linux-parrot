@@ -1,20 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * UWB DRP IE management.
  *
  * Copyright (C) 2005-2006 Intel Corporation
  * Copyright (C) 2008 Cambridge Silicon Radio Ltd.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <linux/kernel.h>
 #include <linux/random.h>
@@ -125,9 +114,8 @@ static struct uwb_ie_drp *uwb_drp_ie_alloc(void)
 {
 	struct uwb_ie_drp *drp_ie;
 
-	drp_ie = kzalloc(sizeof(struct uwb_ie_drp) +
-			UWB_NUM_ZONES * sizeof(struct uwb_drp_alloc),
-			GFP_KERNEL);
+	drp_ie = kzalloc(struct_size(drp_ie, allocs, UWB_NUM_ZONES),
+			 GFP_KERNEL);
 	if (drp_ie)
 		drp_ie->hdr.element_id = UWB_IE_DRP;
 	return drp_ie;

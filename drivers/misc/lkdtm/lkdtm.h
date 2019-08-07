@@ -13,7 +13,7 @@ void lkdtm_BUG(void);
 void lkdtm_WARNING(void);
 void lkdtm_EXCEPTION(void);
 void lkdtm_LOOP(void);
-void lkdtm_OVERFLOW(void);
+void lkdtm_EXHAUST_STACK(void);
 void lkdtm_CORRUPT_STACK(void);
 void lkdtm_CORRUPT_STACK_STRONG(void);
 void lkdtm_UNALIGNED_LOAD_STORE_WRITE(void);
@@ -84,5 +84,9 @@ void lkdtm_USERCOPY_STACK_FRAME_TO(void);
 void lkdtm_USERCOPY_STACK_FRAME_FROM(void);
 void lkdtm_USERCOPY_STACK_BEYOND(void);
 void lkdtm_USERCOPY_KERNEL(void);
+void lkdtm_USERCOPY_KERNEL_DS(void);
+
+/* lkdtm_stackleak.c */
+void lkdtm_STACKLEAK_ERASING(void);
 
 #endif

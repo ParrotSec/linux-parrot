@@ -1,12 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * linux/arch/arm64/crypto/aes-ce.S - AES cipher for ARMv8 with
  *                                    Crypto Extensions
  *
  * Copyright (C) 2013 - 2017 Linaro Ltd <ard.biesheuvel@linaro.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/linkage.h>
@@ -16,6 +13,11 @@
 #define AES_ENDPROC(func)	ENDPROC(ce_ ## func)
 
 	.arch		armv8-a+crypto
+
+	xtsmask		.req	v16
+
+	.macro		xts_reload_mask, tmp
+	.endm
 
 	/* preload all round keys */
 	.macro		load_round_keys, rounds, rk

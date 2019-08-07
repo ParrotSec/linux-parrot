@@ -1,10 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) Sistina Software, Inc.  1997-2003 All rights reserved.
  * Copyright (C) 2004-2006 Red Hat, Inc.  All rights reserved.
- *
- * This copyrighted material is made available to anyone wishing to use,
- * modify, copy, or redistribute it subject to the terms and conditions
- * of the GNU General Public License version 2.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -19,6 +16,7 @@
 #include "gfs2.h"
 #include "incore.h"
 #include "glock.h"
+#include "rgrp.h"
 #include "util.h"
 
 struct kmem_cache *gfs2_glock_cachep __read_mostly;
@@ -181,6 +179,8 @@ int gfs2_consist_rgrpd_i(struct gfs2_rgrpd *rgd, int cluster_wide,
 {
 	struct gfs2_sbd *sdp = rgd->rd_sbd;
 	int rv;
+
+	gfs2_rgrp_dump(NULL, rgd->rd_gl);
 	rv = gfs2_lm_withdraw(sdp,
 			      "fatal: filesystem consistency error\n"
 			      "  RG = %llu\n"
@@ -256,12 +256,13 @@ void gfs2_io_error_bh_i(struct gfs2_sbd *sdp, struct buffer_head *bh,
 			const char *function, char *file, unsigned int line,
 			bool withdraw)
 {
-	fs_err(sdp,
-	       "fatal: I/O error\n"
-	       "  block = %llu\n"
-	       "  function = %s, file = %s, line = %u\n",
-	       (unsigned long long)bh->b_blocknr,
-	       function, file, line);
+	if (!test_bit(SDF_SHUTDOWN, &sdp->sd_flags))
+		fs_err(sdp,
+		       "fatal: I/O error\n"
+		       "  block = %llu\n"
+		       "  function = %s, file = %s, line = %u\n",
+		       (unsigned long long)bh->b_blocknr,
+		       function, file, line);
 	if (withdraw)
 		gfs2_lm_withdraw(sdp, NULL);
 }

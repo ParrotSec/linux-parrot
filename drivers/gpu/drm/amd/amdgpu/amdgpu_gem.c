@@ -31,6 +31,7 @@
 #include <drm/amdgpu_drm.h>
 #include "amdgpu.h"
 #include "amdgpu_display.h"
+#include "amdgpu_xgmi.h"
 
 void amdgpu_gem_object_free(struct drm_gem_object *gobj)
 {
@@ -54,10 +55,6 @@ int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
 
 	memset(&bp, 0, sizeof(bp));
 	*obj = NULL;
-	/* At least align on page size */
-	if (alignment < PAGE_SIZE) {
-		alignment = PAGE_SIZE;
-	}
 
 	bp.size = size;
 	bp.byte_align = alignment;
@@ -169,7 +166,7 @@ void amdgpu_gem_object_close(struct drm_gem_object *obj,
 	INIT_LIST_HEAD(&duplicates);
 
 	tv.bo = &bo->tbo;
-	tv.shared = true;
+	tv.num_shared = 1;
 	list_add(&tv.head, &list);
 
 	amdgpu_vm_get_pd_bo(vm, &list, &vm_pd);
@@ -244,16 +241,7 @@ int amdgpu_gem_create_ioctl(struct drm_device *dev, void *data,
 			return -EINVAL;
 		}
 		flags |= AMDGPU_GEM_CREATE_NO_CPU_ACCESS;
-		if (args->in.domains == AMDGPU_GEM_DOMAIN_GDS)
-			size = size << AMDGPU_GDS_SHIFT;
-		else if (args->in.domains == AMDGPU_GEM_DOMAIN_GWS)
-			size = size << AMDGPU_GWS_SHIFT;
-		else if (args->in.domains == AMDGPU_GEM_DOMAIN_OA)
-			size = size << AMDGPU_OA_SHIFT;
-		else
-			return -EINVAL;
 	}
-	size = roundup(size, PAGE_SIZE);
 
 	if (flags & AMDGPU_GEM_CREATE_VM_ALWAYS_VALID) {
 		r = amdgpu_bo_reserve(vm->root.base.bo, false);
@@ -572,16 +560,16 @@ int amdgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
-	if (args->va_address >= AMDGPU_VA_HOLE_START &&
-	    args->va_address < AMDGPU_VA_HOLE_END) {
+	if (args->va_address >= AMDGPU_GMC_HOLE_START &&
+	    args->va_address < AMDGPU_GMC_HOLE_END) {
 		dev_dbg(&dev->pdev->dev,
 			"va_address 0x%LX is in VA hole 0x%LX-0x%LX\n",
-			args->va_address, AMDGPU_VA_HOLE_START,
-			AMDGPU_VA_HOLE_END);
+			args->va_address, AMDGPU_GMC_HOLE_START,
+			AMDGPU_GMC_HOLE_END);
 		return -EINVAL;
 	}
 
-	args->va_address &= AMDGPU_VA_HOLE_MASK;
+	args->va_address &= AMDGPU_GMC_HOLE_MASK;
 
 	if ((args->flags & ~valid_flags) && (args->flags & ~prt_flags)) {
 		dev_dbg(&dev->pdev->dev, "invalid flags combination 0x%08X\n",
@@ -610,7 +598,10 @@ int amdgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 			return -ENOENT;
 		abo = gem_to_amdgpu_bo(gobj);
 		tv.bo = &abo->tbo;
-		tv.shared = !!(abo->flags & AMDGPU_GEM_CREATE_VM_ALWAYS_VALID);
+		if (abo->flags & AMDGPU_GEM_CREATE_VM_ALWAYS_VALID)
+			tv.num_shared = 1;
+		else
+			tv.num_shared = 0;
 		list_add(&tv.head, &list);
 	} else {
 		gobj = NULL;
@@ -637,11 +628,6 @@ int amdgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 
 	switch (args->operation) {
 	case AMDGPU_VA_OP_MAP:
-		r = amdgpu_vm_alloc_pts(adev, bo_va->base.vm, args->va_address,
-					args->map_size);
-		if (r)
-			goto error_backoff;
-
 		va_flags = amdgpu_gmc_get_pte_flags(adev, args->flags);
 		r = amdgpu_vm_bo_map(adev, bo_va, args->va_address,
 				     args->offset_in_bo, args->map_size,
@@ -657,11 +643,6 @@ int amdgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 						args->map_size);
 		break;
 	case AMDGPU_VA_OP_REPLACE:
-		r = amdgpu_vm_alloc_pts(adev, bo_va->base.vm, args->va_address,
-					args->map_size);
-		if (r)
-			goto error_backoff;
-
 		va_flags = amdgpu_gmc_get_pte_flags(adev, args->flags);
 		r = amdgpu_vm_bo_replace_map(adev, bo_va, args->va_address,
 					     args->offset_in_bo, args->map_size,
@@ -688,6 +669,7 @@ int amdgpu_gem_op_ioctl(struct drm_device *dev, void *data,
 	struct amdgpu_device *adev = dev->dev_private;
 	struct drm_amdgpu_gem_op *args = data;
 	struct drm_gem_object *gobj;
+	struct amdgpu_vm_bo_base *base;
 	struct amdgpu_bo *robj;
 	int r;
 
@@ -726,6 +708,15 @@ int amdgpu_gem_op_ioctl(struct drm_device *dev, void *data,
 			amdgpu_bo_unreserve(robj);
 			break;
 		}
+		for (base = robj->vm_bo; base; base = base->next)
+			if (amdgpu_xgmi_same_hive(amdgpu_ttm_adev(robj->tbo.bdev),
+				amdgpu_ttm_adev(base->vm->root.base.bo->tbo.bdev))) {
+				r = -EINVAL;
+				amdgpu_bo_unreserve(robj);
+				goto out;
+			}
+
+
 		robj->preferred_domains = args->value & (AMDGPU_GEM_DOMAIN_VRAM |
 							AMDGPU_GEM_DOMAIN_GTT |
 							AMDGPU_GEM_DOMAIN_CPU);
@@ -755,8 +746,17 @@ int amdgpu_mode_dumb_create(struct drm_file *file_priv,
 	struct amdgpu_device *adev = dev->dev_private;
 	struct drm_gem_object *gobj;
 	uint32_t handle;
+	u64 flags = AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
 	u32 domain;
 	int r;
+
+	/*
+	 * The buffer returned from this function should be cleared, but
+	 * it can only be done if the ring is enabled or we'll fail to
+	 * create the buffer.
+	 */
+	if (adev->mman.buffer_funcs_enabled)
+		flags |= AMDGPU_GEM_CREATE_VRAM_CLEARED;
 
 	args->pitch = amdgpu_align_pitch(adev, args->width,
 					 DIV_ROUND_UP(args->bpp, 8), 0);
@@ -764,8 +764,7 @@ int amdgpu_mode_dumb_create(struct drm_file *file_priv,
 	args->size = ALIGN(args->size, PAGE_SIZE);
 	domain = amdgpu_bo_get_preferred_pin_domain(adev,
 				amdgpu_display_supported_domains(adev));
-	r = amdgpu_gem_object_create(adev, args->size, 0, domain,
-				     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED,
+	r = amdgpu_gem_object_create(adev, args->size, 0, domain, flags,
 				     ttm_bo_type_device, NULL, &gobj);
 	if (r)
 		return -ENOMEM;

@@ -1,17 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Functions to manage eBPF programs attached to cgroups
  *
  * Copyright (c) 2016 Daniel Mack
- *
- * This file is subject to the terms and conditions of version 2 of the GNU
- * General Public License.  See the file COPYING in the main directory of the
- * Linux distribution for more details.
  */
 
 #include <linux/kernel.h>
 #include <linux/atomic.h>
 #include <linux/cgroup.h>
+#include <linux/filter.h>
 #include <linux/slab.h>
+#include <linux/sysctl.h>
+#include <linux/string.h>
 #include <linux/bpf.h>
 #include <linux/bpf-cgroup.h>
 #include <net/sock.h>
@@ -25,6 +25,7 @@ EXPORT_SYMBOL(cgroup_bpf_enabled_key);
  */
 void cgroup_bpf_put(struct cgroup *cgrp)
 {
+	enum bpf_cgroup_storage_type stype;
 	unsigned int type;
 
 	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.progs); type++) {
@@ -34,8 +35,10 @@ void cgroup_bpf_put(struct cgroup *cgrp)
 		list_for_each_entry_safe(pl, tmp, progs, node) {
 			list_del(&pl->node);
 			bpf_prog_put(pl->prog);
-			bpf_cgroup_storage_unlink(pl->storage);
-			bpf_cgroup_storage_free(pl->storage);
+			for_each_cgroup_storage_type(stype) {
+				bpf_cgroup_storage_unlink(pl->storage[stype]);
+				bpf_cgroup_storage_free(pl->storage[stype]);
+			}
 			kfree(pl);
 			static_branch_dec(&cgroup_bpf_enabled_key);
 		}
@@ -97,6 +100,7 @@ static int compute_effective_progs(struct cgroup *cgrp,
 				   enum bpf_attach_type type,
 				   struct bpf_prog_array __rcu **array)
 {
+	enum bpf_cgroup_storage_type stype;
 	struct bpf_prog_array *progs;
 	struct bpf_prog_list *pl;
 	struct cgroup *p = cgrp;
@@ -125,7 +129,9 @@ static int compute_effective_progs(struct cgroup *cgrp,
 				continue;
 
 			progs->items[cnt].prog = pl->prog;
-			progs->items[cnt].cgroup_storage = pl->storage;
+			for_each_cgroup_storage_type(stype)
+				progs->items[cnt].cgroup_storage[stype] =
+					pl->storage[stype];
 			cnt++;
 		}
 	} while ((p = cgroup_parent(p)));
@@ -224,6 +230,7 @@ cleanup:
  * @cgrp: The cgroup which descendants to traverse
  * @prog: A program to attach
  * @type: Type of attach operation
+ * @flags: Option flags
  *
  * Must be called with cgroup_mutex held.
  */
@@ -232,7 +239,9 @@ int __cgroup_bpf_attach(struct cgroup *cgrp, struct bpf_prog *prog,
 {
 	struct list_head *progs = &cgrp->bpf.progs[type];
 	struct bpf_prog *old_prog = NULL;
-	struct bpf_cgroup_storage *storage, *old_storage = NULL;
+	struct bpf_cgroup_storage *storage[MAX_BPF_CGROUP_STORAGE_TYPE],
+		*old_storage[MAX_BPF_CGROUP_STORAGE_TYPE] = {NULL};
+	enum bpf_cgroup_storage_type stype;
 	struct bpf_prog_list *pl;
 	bool pl_was_allocated;
 	int err;
@@ -254,34 +263,44 @@ int __cgroup_bpf_attach(struct cgroup *cgrp, struct bpf_prog *prog,
 	if (prog_list_length(progs) >= BPF_CGROUP_MAX_PROGS)
 		return -E2BIG;
 
-	storage = bpf_cgroup_storage_alloc(prog);
-	if (IS_ERR(storage))
-		return -ENOMEM;
+	for_each_cgroup_storage_type(stype) {
+		storage[stype] = bpf_cgroup_storage_alloc(prog, stype);
+		if (IS_ERR(storage[stype])) {
+			storage[stype] = NULL;
+			for_each_cgroup_storage_type(stype)
+				bpf_cgroup_storage_free(storage[stype]);
+			return -ENOMEM;
+		}
+	}
 
 	if (flags & BPF_F_ALLOW_MULTI) {
 		list_for_each_entry(pl, progs, node) {
 			if (pl->prog == prog) {
 				/* disallow attaching the same prog twice */
-				bpf_cgroup_storage_free(storage);
+				for_each_cgroup_storage_type(stype)
+					bpf_cgroup_storage_free(storage[stype]);
 				return -EINVAL;
 			}
 		}
 
 		pl = kmalloc(sizeof(*pl), GFP_KERNEL);
 		if (!pl) {
-			bpf_cgroup_storage_free(storage);
+			for_each_cgroup_storage_type(stype)
+				bpf_cgroup_storage_free(storage[stype]);
 			return -ENOMEM;
 		}
 
 		pl_was_allocated = true;
 		pl->prog = prog;
-		pl->storage = storage;
+		for_each_cgroup_storage_type(stype)
+			pl->storage[stype] = storage[stype];
 		list_add_tail(&pl->node, progs);
 	} else {
 		if (list_empty(progs)) {
 			pl = kmalloc(sizeof(*pl), GFP_KERNEL);
 			if (!pl) {
-				bpf_cgroup_storage_free(storage);
+				for_each_cgroup_storage_type(stype)
+					bpf_cgroup_storage_free(storage[stype]);
 				return -ENOMEM;
 			}
 			pl_was_allocated = true;
@@ -289,12 +308,15 @@ int __cgroup_bpf_attach(struct cgroup *cgrp, struct bpf_prog *prog,
 		} else {
 			pl = list_first_entry(progs, typeof(*pl), node);
 			old_prog = pl->prog;
-			old_storage = pl->storage;
-			bpf_cgroup_storage_unlink(old_storage);
+			for_each_cgroup_storage_type(stype) {
+				old_storage[stype] = pl->storage[stype];
+				bpf_cgroup_storage_unlink(old_storage[stype]);
+			}
 			pl_was_allocated = false;
 		}
 		pl->prog = prog;
-		pl->storage = storage;
+		for_each_cgroup_storage_type(stype)
+			pl->storage[stype] = storage[stype];
 	}
 
 	cgrp->bpf.flags[type] = flags;
@@ -304,21 +326,27 @@ int __cgroup_bpf_attach(struct cgroup *cgrp, struct bpf_prog *prog,
 		goto cleanup;
 
 	static_branch_inc(&cgroup_bpf_enabled_key);
-	if (old_storage)
-		bpf_cgroup_storage_free(old_storage);
+	for_each_cgroup_storage_type(stype) {
+		if (!old_storage[stype])
+			continue;
+		bpf_cgroup_storage_free(old_storage[stype]);
+	}
 	if (old_prog) {
 		bpf_prog_put(old_prog);
 		static_branch_dec(&cgroup_bpf_enabled_key);
 	}
-	bpf_cgroup_storage_link(storage, cgrp, type);
+	for_each_cgroup_storage_type(stype)
+		bpf_cgroup_storage_link(storage[stype], cgrp, type);
 	return 0;
 
 cleanup:
 	/* and cleanup the prog list */
 	pl->prog = old_prog;
-	bpf_cgroup_storage_free(pl->storage);
-	pl->storage = old_storage;
-	bpf_cgroup_storage_link(old_storage, cgrp, type);
+	for_each_cgroup_storage_type(stype) {
+		bpf_cgroup_storage_free(pl->storage[stype]);
+		pl->storage[stype] = old_storage[stype];
+		bpf_cgroup_storage_link(old_storage[stype], cgrp, type);
+	}
 	if (pl_was_allocated) {
 		list_del(&pl->node);
 		kfree(pl);
@@ -336,9 +364,10 @@ cleanup:
  * Must be called with cgroup_mutex held.
  */
 int __cgroup_bpf_detach(struct cgroup *cgrp, struct bpf_prog *prog,
-			enum bpf_attach_type type, u32 unused_flags)
+			enum bpf_attach_type type)
 {
 	struct list_head *progs = &cgrp->bpf.progs[type];
+	enum bpf_cgroup_storage_type stype;
 	u32 flags = cgrp->bpf.flags[type];
 	struct bpf_prog *old_prog = NULL;
 	struct bpf_prog_list *pl;
@@ -385,8 +414,10 @@ int __cgroup_bpf_detach(struct cgroup *cgrp, struct bpf_prog *prog,
 
 	/* now can actually delete it from this cgroup list */
 	list_del(&pl->node);
-	bpf_cgroup_storage_unlink(pl->storage);
-	bpf_cgroup_storage_free(pl->storage);
+	for_each_cgroup_storage_type(stype) {
+		bpf_cgroup_storage_unlink(pl->storage[stype]);
+		bpf_cgroup_storage_free(pl->storage[stype]);
+	}
 	kfree(pl);
 	if (list_empty(progs))
 		/* last program was detached, reset flags to zero */
@@ -523,6 +554,7 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
 {
 	unsigned int offset = skb->data - skb_network_header(skb);
 	struct sock *save_sk;
+	void *saved_data_end;
 	struct cgroup *cgrp;
 	int ret;
 
@@ -536,8 +568,13 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
 	save_sk = skb->sk;
 	skb->sk = sk;
 	__skb_push(skb, offset);
+
+	/* compute pointers for the bpf prog */
+	bpf_compute_and_save_data_end(skb, &saved_data_end);
+
 	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], skb,
-				 bpf_prog_run_save_cb);
+				 __bpf_prog_run_save_cb);
+	bpf_restore_data_end(skb, saved_data_end);
 	__skb_pull(skb, offset);
 	skb->sk = save_sk;
 	return ret == 1 ? 0 : -EPERM;
@@ -664,7 +701,7 @@ int __cgroup_bpf_check_dev_permission(short dev_type, u32 major, u32 minor,
 EXPORT_SYMBOL(__cgroup_bpf_check_dev_permission);
 
 static const struct bpf_func_proto *
-cgroup_dev_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+cgroup_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 {
 	switch (func_id) {
 	case BPF_FUNC_map_lookup_elem:
@@ -673,16 +710,31 @@ cgroup_dev_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_map_update_elem_proto;
 	case BPF_FUNC_map_delete_elem:
 		return &bpf_map_delete_elem_proto;
+	case BPF_FUNC_map_push_elem:
+		return &bpf_map_push_elem_proto;
+	case BPF_FUNC_map_pop_elem:
+		return &bpf_map_pop_elem_proto;
+	case BPF_FUNC_map_peek_elem:
+		return &bpf_map_peek_elem_proto;
 	case BPF_FUNC_get_current_uid_gid:
 		return &bpf_get_current_uid_gid_proto;
 	case BPF_FUNC_get_local_storage:
 		return &bpf_get_local_storage_proto;
+	case BPF_FUNC_get_current_cgroup_id:
+		return &bpf_get_current_cgroup_id_proto;
 	case BPF_FUNC_trace_printk:
 		if (capable(CAP_SYS_ADMIN))
 			return bpf_get_trace_printk_proto();
+		/* fall through */
 	default:
 		return NULL;
 	}
+}
+
+static const struct bpf_func_proto *
+cgroup_dev_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+{
+	return cgroup_base_func_proto(func_id, prog);
 }
 
 static bool cgroup_dev_is_valid_access(int off, int size,
@@ -721,4 +773,357 @@ const struct bpf_prog_ops cg_dev_prog_ops = {
 const struct bpf_verifier_ops cg_dev_verifier_ops = {
 	.get_func_proto		= cgroup_dev_func_proto,
 	.is_valid_access	= cgroup_dev_is_valid_access,
+};
+
+/**
+ * __cgroup_bpf_run_filter_sysctl - Run a program on sysctl
+ *
+ * @head: sysctl table header
+ * @table: sysctl table
+ * @write: sysctl is being read (= 0) or written (= 1)
+ * @buf: pointer to buffer passed by user space
+ * @pcount: value-result argument: value is size of buffer pointed to by @buf,
+ *	result is size of @new_buf if program set new value, initial value
+ *	otherwise
+ * @ppos: value-result argument: value is position at which read from or write
+ *	to sysctl is happening, result is new position if program overrode it,
+ *	initial value otherwise
+ * @new_buf: pointer to pointer to new buffer that will be allocated if program
+ *	overrides new value provided by user space on sysctl write
+ *	NOTE: it's caller responsibility to free *new_buf if it was set
+ * @type: type of program to be executed
+ *
+ * Program is run when sysctl is being accessed, either read or written, and
+ * can allow or deny such access.
+ *
+ * This function will return %-EPERM if an attached program is found and
+ * returned value != 1 during execution. In all other cases 0 is returned.
+ */
+int __cgroup_bpf_run_filter_sysctl(struct ctl_table_header *head,
+				   struct ctl_table *table, int write,
+				   void __user *buf, size_t *pcount,
+				   loff_t *ppos, void **new_buf,
+				   enum bpf_attach_type type)
+{
+	struct bpf_sysctl_kern ctx = {
+		.head = head,
+		.table = table,
+		.write = write,
+		.ppos = ppos,
+		.cur_val = NULL,
+		.cur_len = PAGE_SIZE,
+		.new_val = NULL,
+		.new_len = 0,
+		.new_updated = 0,
+	};
+	struct cgroup *cgrp;
+	int ret;
+
+	ctx.cur_val = kmalloc_track_caller(ctx.cur_len, GFP_KERNEL);
+	if (ctx.cur_val) {
+		mm_segment_t old_fs;
+		loff_t pos = 0;
+
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		if (table->proc_handler(table, 0, (void __user *)ctx.cur_val,
+					&ctx.cur_len, &pos)) {
+			/* Let BPF program decide how to proceed. */
+			ctx.cur_len = 0;
+		}
+		set_fs(old_fs);
+	} else {
+		/* Let BPF program decide how to proceed. */
+		ctx.cur_len = 0;
+	}
+
+	if (write && buf && *pcount) {
+		/* BPF program should be able to override new value with a
+		 * buffer bigger than provided by user.
+		 */
+		ctx.new_val = kmalloc_track_caller(PAGE_SIZE, GFP_KERNEL);
+		ctx.new_len = min_t(size_t, PAGE_SIZE, *pcount);
+		if (!ctx.new_val ||
+		    copy_from_user(ctx.new_val, buf, ctx.new_len))
+			/* Let BPF program decide how to proceed. */
+			ctx.new_len = 0;
+	}
+
+	rcu_read_lock();
+	cgrp = task_dfl_cgroup(current);
+	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], &ctx, BPF_PROG_RUN);
+	rcu_read_unlock();
+
+	kfree(ctx.cur_val);
+
+	if (ret == 1 && ctx.new_updated) {
+		*new_buf = ctx.new_val;
+		*pcount = ctx.new_len;
+	} else {
+		kfree(ctx.new_val);
+	}
+
+	return ret == 1 ? 0 : -EPERM;
+}
+EXPORT_SYMBOL(__cgroup_bpf_run_filter_sysctl);
+
+static ssize_t sysctl_cpy_dir(const struct ctl_dir *dir, char **bufp,
+			      size_t *lenp)
+{
+	ssize_t tmp_ret = 0, ret;
+
+	if (dir->header.parent) {
+		tmp_ret = sysctl_cpy_dir(dir->header.parent, bufp, lenp);
+		if (tmp_ret < 0)
+			return tmp_ret;
+	}
+
+	ret = strscpy(*bufp, dir->header.ctl_table[0].procname, *lenp);
+	if (ret < 0)
+		return ret;
+	*bufp += ret;
+	*lenp -= ret;
+	ret += tmp_ret;
+
+	/* Avoid leading slash. */
+	if (!ret)
+		return ret;
+
+	tmp_ret = strscpy(*bufp, "/", *lenp);
+	if (tmp_ret < 0)
+		return tmp_ret;
+	*bufp += tmp_ret;
+	*lenp -= tmp_ret;
+
+	return ret + tmp_ret;
+}
+
+BPF_CALL_4(bpf_sysctl_get_name, struct bpf_sysctl_kern *, ctx, char *, buf,
+	   size_t, buf_len, u64, flags)
+{
+	ssize_t tmp_ret = 0, ret;
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!(flags & BPF_F_SYSCTL_BASE_NAME)) {
+		if (!ctx->head)
+			return -EINVAL;
+		tmp_ret = sysctl_cpy_dir(ctx->head->parent, &buf, &buf_len);
+		if (tmp_ret < 0)
+			return tmp_ret;
+	}
+
+	ret = strscpy(buf, ctx->table->procname, buf_len);
+
+	return ret < 0 ? ret : tmp_ret + ret;
+}
+
+static const struct bpf_func_proto bpf_sysctl_get_name_proto = {
+	.func		= bpf_sysctl_get_name,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_PTR_TO_MEM,
+	.arg3_type	= ARG_CONST_SIZE,
+	.arg4_type	= ARG_ANYTHING,
+};
+
+static int copy_sysctl_value(char *dst, size_t dst_len, char *src,
+			     size_t src_len)
+{
+	if (!dst)
+		return -EINVAL;
+
+	if (!dst_len)
+		return -E2BIG;
+
+	if (!src || !src_len) {
+		memset(dst, 0, dst_len);
+		return -EINVAL;
+	}
+
+	memcpy(dst, src, min(dst_len, src_len));
+
+	if (dst_len > src_len) {
+		memset(dst + src_len, '\0', dst_len - src_len);
+		return src_len;
+	}
+
+	dst[dst_len - 1] = '\0';
+
+	return -E2BIG;
+}
+
+BPF_CALL_3(bpf_sysctl_get_current_value, struct bpf_sysctl_kern *, ctx,
+	   char *, buf, size_t, buf_len)
+{
+	return copy_sysctl_value(buf, buf_len, ctx->cur_val, ctx->cur_len);
+}
+
+static const struct bpf_func_proto bpf_sysctl_get_current_value_proto = {
+	.func		= bpf_sysctl_get_current_value,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_PTR_TO_UNINIT_MEM,
+	.arg3_type	= ARG_CONST_SIZE,
+};
+
+BPF_CALL_3(bpf_sysctl_get_new_value, struct bpf_sysctl_kern *, ctx, char *, buf,
+	   size_t, buf_len)
+{
+	if (!ctx->write) {
+		if (buf && buf_len)
+			memset(buf, '\0', buf_len);
+		return -EINVAL;
+	}
+	return copy_sysctl_value(buf, buf_len, ctx->new_val, ctx->new_len);
+}
+
+static const struct bpf_func_proto bpf_sysctl_get_new_value_proto = {
+	.func		= bpf_sysctl_get_new_value,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_PTR_TO_UNINIT_MEM,
+	.arg3_type	= ARG_CONST_SIZE,
+};
+
+BPF_CALL_3(bpf_sysctl_set_new_value, struct bpf_sysctl_kern *, ctx,
+	   const char *, buf, size_t, buf_len)
+{
+	if (!ctx->write || !ctx->new_val || !ctx->new_len || !buf || !buf_len)
+		return -EINVAL;
+
+	if (buf_len > PAGE_SIZE - 1)
+		return -E2BIG;
+
+	memcpy(ctx->new_val, buf, buf_len);
+	ctx->new_len = buf_len;
+	ctx->new_updated = 1;
+
+	return 0;
+}
+
+static const struct bpf_func_proto bpf_sysctl_set_new_value_proto = {
+	.func		= bpf_sysctl_set_new_value,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_PTR_TO_MEM,
+	.arg3_type	= ARG_CONST_SIZE,
+};
+
+static const struct bpf_func_proto *
+sysctl_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+{
+	switch (func_id) {
+	case BPF_FUNC_strtol:
+		return &bpf_strtol_proto;
+	case BPF_FUNC_strtoul:
+		return &bpf_strtoul_proto;
+	case BPF_FUNC_sysctl_get_name:
+		return &bpf_sysctl_get_name_proto;
+	case BPF_FUNC_sysctl_get_current_value:
+		return &bpf_sysctl_get_current_value_proto;
+	case BPF_FUNC_sysctl_get_new_value:
+		return &bpf_sysctl_get_new_value_proto;
+	case BPF_FUNC_sysctl_set_new_value:
+		return &bpf_sysctl_set_new_value_proto;
+	default:
+		return cgroup_base_func_proto(func_id, prog);
+	}
+}
+
+static bool sysctl_is_valid_access(int off, int size, enum bpf_access_type type,
+				   const struct bpf_prog *prog,
+				   struct bpf_insn_access_aux *info)
+{
+	const int size_default = sizeof(__u32);
+
+	if (off < 0 || off + size > sizeof(struct bpf_sysctl) || off % size)
+		return false;
+
+	switch (off) {
+	case offsetof(struct bpf_sysctl, write):
+		if (type != BPF_READ)
+			return false;
+		bpf_ctx_record_field_size(info, size_default);
+		return bpf_ctx_narrow_access_ok(off, size, size_default);
+	case offsetof(struct bpf_sysctl, file_pos):
+		if (type == BPF_READ) {
+			bpf_ctx_record_field_size(info, size_default);
+			return bpf_ctx_narrow_access_ok(off, size, size_default);
+		} else {
+			return size == size_default;
+		}
+	default:
+		return false;
+	}
+}
+
+static u32 sysctl_convert_ctx_access(enum bpf_access_type type,
+				     const struct bpf_insn *si,
+				     struct bpf_insn *insn_buf,
+				     struct bpf_prog *prog, u32 *target_size)
+{
+	struct bpf_insn *insn = insn_buf;
+
+	switch (si->off) {
+	case offsetof(struct bpf_sysctl, write):
+		*insn++ = BPF_LDX_MEM(
+			BPF_SIZE(si->code), si->dst_reg, si->src_reg,
+			bpf_target_off(struct bpf_sysctl_kern, write,
+				       FIELD_SIZEOF(struct bpf_sysctl_kern,
+						    write),
+				       target_size));
+		break;
+	case offsetof(struct bpf_sysctl, file_pos):
+		/* ppos is a pointer so it should be accessed via indirect
+		 * loads and stores. Also for stores additional temporary
+		 * register is used since neither src_reg nor dst_reg can be
+		 * overridden.
+		 */
+		if (type == BPF_WRITE) {
+			int treg = BPF_REG_9;
+
+			if (si->src_reg == treg || si->dst_reg == treg)
+				--treg;
+			if (si->src_reg == treg || si->dst_reg == treg)
+				--treg;
+			*insn++ = BPF_STX_MEM(
+				BPF_DW, si->dst_reg, treg,
+				offsetof(struct bpf_sysctl_kern, tmp_reg));
+			*insn++ = BPF_LDX_MEM(
+				BPF_FIELD_SIZEOF(struct bpf_sysctl_kern, ppos),
+				treg, si->dst_reg,
+				offsetof(struct bpf_sysctl_kern, ppos));
+			*insn++ = BPF_STX_MEM(
+				BPF_SIZEOF(u32), treg, si->src_reg, 0);
+			*insn++ = BPF_LDX_MEM(
+				BPF_DW, treg, si->dst_reg,
+				offsetof(struct bpf_sysctl_kern, tmp_reg));
+		} else {
+			*insn++ = BPF_LDX_MEM(
+				BPF_FIELD_SIZEOF(struct bpf_sysctl_kern, ppos),
+				si->dst_reg, si->src_reg,
+				offsetof(struct bpf_sysctl_kern, ppos));
+			*insn++ = BPF_LDX_MEM(
+				BPF_SIZE(si->code), si->dst_reg, si->dst_reg, 0);
+		}
+		*target_size = sizeof(u32);
+		break;
+	}
+
+	return insn - insn_buf;
+}
+
+const struct bpf_verifier_ops cg_sysctl_verifier_ops = {
+	.get_func_proto		= sysctl_func_proto,
+	.is_valid_access	= sysctl_is_valid_access,
+	.convert_ctx_access	= sysctl_convert_ctx_access,
+};
+
+const struct bpf_prog_ops cg_sysctl_prog_ops = {
 };

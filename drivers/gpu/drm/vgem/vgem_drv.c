@@ -427,7 +427,8 @@ static void vgem_release(struct drm_device *dev)
 }
 
 static struct drm_driver vgem_driver = {
-	.driver_features		= DRIVER_GEM | DRIVER_PRIME,
+	.driver_features		= DRIVER_GEM | DRIVER_PRIME |
+					  DRIVER_RENDER,
 	.release			= vgem_release,
 	.open				= vgem_open,
 	.postclose			= vgem_postclose,
@@ -500,7 +501,7 @@ out_free:
 static void __exit vgem_exit(void)
 {
 	drm_dev_unregister(&vgem_device->drm);
-	drm_dev_unref(&vgem_device->drm);
+	drm_dev_put(&vgem_device->drm);
 }
 
 module_init(vgem_init);

@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Device tree for LEGO MINDSTORMS EV3
  *
  * Copyright (C) 2017 David Lechner <david@lechnology.com>
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation, version 2.
  */
 
 /dts-v1/;
@@ -352,7 +349,8 @@
 		compatible = "ti,ads7957";
 		reg = <3>;
 		#io-channel-cells = <1>;
-		spi-max-frequency = <10000000>;
+		spi-max-frequency = <1000000>;
+		ti,spi-wdelay = <63>;
 		vref-supply = <&adc_ref>;
 	};
 };

@@ -634,7 +634,7 @@ ifneq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
 	$(call make-tools,tools/power/x86)
 endif
 
-install-cpupower: DH_OPTIONS = -plinux-cpupower -plibcpupower1 -plibcpupower-dev
+install-cpupower: DH_OPTIONS = -plinux-cpupower $(addprefix -p,$(filter libcpupower%,$(packages_enabled)))
 install-cpupower: DIR = $(CURDIR)/debian/cpupower-tmp
 install-cpupower: build-cpupower
 	dh_testdir
@@ -766,14 +766,15 @@ endif
 build-libbpf: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,tools/lib/bpf)
 
-install-libbpf: DH_OPTIONS = -plibbpf$(VERSION) -plibbpf-dev
+install-libbpf: DH_OPTIONS = $(addprefix -p,$(filter libbpf%,$(packages_enabled)))
+install-libbpf: SHLIB_PACKAGE = $(filter-out libbpf-dev,$(filter libbpf%,$(packages_enabled)))
 install-libbpf: DIR = $(CURDIR)/debian/libbpf-tmp
 install-libbpf: build-libbpf
 	dh_testdir
 	dh_testroot
 	dh_prep
 	$(call make-tools,tools/lib/bpf) install DESTDIR=$(DIR)
-	env -u DH_OPTIONS dh_install -plibbpf$(VERSION) --sourcedir=$(DIR) \
+	env -u DH_OPTIONS dh_install -p$(SHLIB_PACKAGE) --sourcedir=$(DIR) \
 		'usr/lib/*/libbpf.so.*'
 	dh_install --sourcedir=$(DIR)
 	dh_installchangelogs
@@ -783,8 +784,8 @@ endif
 	dh_strip
 	dh_compress
 	dh_fixperms
-	env -u DH_OPTIONS dh_makeshlibs -plibbpf$(VERSION) \
-		libbpf$(VERSION)
+	env -u DH_OPTIONS dh_makeshlibs -p$(SHLIB_PACKAGE) \
+		$(SHLIB_PACKAGE)
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol

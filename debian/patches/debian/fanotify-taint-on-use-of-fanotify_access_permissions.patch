@@ -12,12 +12,12 @@ actually used.
 ---
 --- a/fs/notify/fanotify/fanotify_user.c
 +++ b/fs/notify/fanotify/fanotify_user.c
-@@ -866,6 +866,14 @@ SYSCALL_DEFINE5(fanotify_mark, int, fano
+@@ -846,6 +846,14 @@ static int do_fanotify_mark(int fanotify
  	if (mask & ~valid_mask)
  		return -EINVAL;
  
 +#ifdef CONFIG_FANOTIFY_ACCESS_PERMISSIONS
-+	if (mask & FAN_ALL_PERM_EVENTS) {
++	if (mask & FANOTIFY_PERM_EVENTS) {
 +		pr_warn_once("%s (%d): Using fanotify permission checks may lead to deadlock; tainting kernel\n",
 +			     current->comm, current->pid);
 +		add_taint(TAINT_USER, LOCKDEP_STILL_OK);

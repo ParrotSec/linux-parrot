@@ -1,12 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Host AP crypt: host-based TKIP encryption implementation for Host AP driver
  *
  * Copyright (c) 2003-2004, Jouni Malinen <jkmaline@cc.hut.fi>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation. See README and COPYING for
- * more details.
  */
 
 #include <linux/module.h>
@@ -53,9 +49,9 @@ struct ieee80211_tkip_data {
 
 	int key_idx;
 
-	struct crypto_skcipher *rx_tfm_arc4;
+	struct crypto_sync_skcipher *rx_tfm_arc4;
 	struct crypto_shash *rx_tfm_michael;
-	struct crypto_skcipher *tx_tfm_arc4;
+	struct crypto_sync_skcipher *tx_tfm_arc4;
 	struct crypto_shash *tx_tfm_michael;
 
 	/* scratch buffers for virt_to_page() (crypto API) */
@@ -71,8 +67,7 @@ static void *ieee80211_tkip_init(int key_idx)
 		goto fail;
 	priv->key_idx = key_idx;
 
-	priv->tx_tfm_arc4 = crypto_alloc_skcipher("ecb(arc4)", 0,
-			CRYPTO_ALG_ASYNC);
+	priv->tx_tfm_arc4 = crypto_alloc_sync_skcipher("ecb(arc4)", 0, 0);
 	if (IS_ERR(priv->tx_tfm_arc4)) {
 		printk(KERN_DEBUG "ieee80211_crypt_tkip: could not allocate "
 				"crypto API arc4\n");
@@ -88,8 +83,7 @@ static void *ieee80211_tkip_init(int key_idx)
 		goto fail;
 	}
 
-	priv->rx_tfm_arc4 = crypto_alloc_skcipher("ecb(arc4)", 0,
-			CRYPTO_ALG_ASYNC);
+	priv->rx_tfm_arc4 = crypto_alloc_sync_skcipher("ecb(arc4)", 0, 0);
 	if (IS_ERR(priv->rx_tfm_arc4)) {
 		printk(KERN_DEBUG "ieee80211_crypt_tkip: could not allocate "
 				"crypto API arc4\n");
@@ -110,9 +104,9 @@ static void *ieee80211_tkip_init(int key_idx)
 fail:
 	if (priv) {
 		crypto_free_shash(priv->tx_tfm_michael);
-		crypto_free_skcipher(priv->tx_tfm_arc4);
+		crypto_free_sync_skcipher(priv->tx_tfm_arc4);
 		crypto_free_shash(priv->rx_tfm_michael);
-		crypto_free_skcipher(priv->rx_tfm_arc4);
+		crypto_free_sync_skcipher(priv->rx_tfm_arc4);
 		kfree(priv);
 	}
 
@@ -126,9 +120,9 @@ static void ieee80211_tkip_deinit(void *priv)
 
 	if (_priv) {
 		crypto_free_shash(_priv->tx_tfm_michael);
-		crypto_free_skcipher(_priv->tx_tfm_arc4);
+		crypto_free_sync_skcipher(_priv->tx_tfm_arc4);
 		crypto_free_shash(_priv->rx_tfm_michael);
-		crypto_free_skcipher(_priv->rx_tfm_arc4);
+		crypto_free_sync_skcipher(_priv->rx_tfm_arc4);
 	}
 	kfree(priv);
 }
@@ -333,14 +327,14 @@ static int ieee80211_tkip_encrypt(struct sk_buff *skb, int hdr_len, void *priv)
 		*pos++ = rc4key[2];
 	}
 
-	*pos++ = (tkey->key_idx << 6) | (1 << 5) /* Ext IV included */;
+	*pos++ = (tkey->key_idx << 6) | BIT(5) /* Ext IV included */;
 	*pos++ = tkey->tx_iv32 & 0xff;
 	*pos++ = (tkey->tx_iv32 >> 8) & 0xff;
 	*pos++ = (tkey->tx_iv32 >> 16) & 0xff;
 	*pos++ = (tkey->tx_iv32 >> 24) & 0xff;
 
 	if (!tcb_desc->bHwSec) {
-		SKCIPHER_REQUEST_ON_STACK(req, tkey->tx_tfm_arc4);
+		SYNC_SKCIPHER_REQUEST_ON_STACK(req, tkey->tx_tfm_arc4);
 
 		icv = skb_put(skb, 4);
 		crc = ~crc32_le(~0, pos, len);
@@ -348,9 +342,9 @@ static int ieee80211_tkip_encrypt(struct sk_buff *skb, int hdr_len, void *priv)
 		icv[1] = crc >> 8;
 		icv[2] = crc >> 16;
 		icv[3] = crc >> 24;
-		crypto_skcipher_setkey(tkey->tx_tfm_arc4, rc4key, 16);
+		crypto_sync_skcipher_setkey(tkey->tx_tfm_arc4, rc4key, 16);
 		sg_init_one(&sg, pos, len+4);
-		skcipher_request_set_tfm(req, tkey->tx_tfm_arc4);
+		skcipher_request_set_sync_tfm(req, tkey->tx_tfm_arc4);
 		skcipher_request_set_callback(req, 0, NULL, NULL);
 		skcipher_request_set_crypt(req, &sg, &sg, len + 4, NULL);
 		ret = crypto_skcipher_encrypt(req);
@@ -392,7 +386,7 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
 	hdr = (struct rtl_80211_hdr_4addr *) skb->data;
 	pos = skb->data + hdr_len;
 	keyidx = pos[3];
-	if (!(keyidx & (1 << 5))) {
+	if (!(keyidx & BIT(5))) {
 		if (net_ratelimit()) {
 			printk(KERN_DEBUG "TKIP: received packet without ExtIV"
 			       " flag from %pM\n", hdr->addr2);
@@ -418,7 +412,7 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
 	pos += 8;
 
 	if (!tcb_desc->bHwSec) {
-		SKCIPHER_REQUEST_ON_STACK(req, tkey->rx_tfm_arc4);
+		SYNC_SKCIPHER_REQUEST_ON_STACK(req, tkey->rx_tfm_arc4);
 
 		if (iv32 < tkey->rx_iv32 ||
 		(iv32 == tkey->rx_iv32 && iv16 <= tkey->rx_iv16)) {
@@ -440,10 +434,10 @@ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
 
 		plen = skb->len - hdr_len - 12;
 
-		crypto_skcipher_setkey(tkey->rx_tfm_arc4, rc4key, 16);
+		crypto_sync_skcipher_setkey(tkey->rx_tfm_arc4, rc4key, 16);
 		sg_init_one(&sg, pos, plen+4);
 
-		skcipher_request_set_tfm(req, tkey->rx_tfm_arc4);
+		skcipher_request_set_sync_tfm(req, tkey->rx_tfm_arc4);
 		skcipher_request_set_callback(req, 0, NULL, NULL);
 		skcipher_request_set_crypt(req, &sg, &sg, plen + 4, NULL);
 
@@ -505,7 +499,6 @@ static int michael_mic(struct crypto_shash *tfm_michael, u8 *key, u8 *hdr,
 	int err;
 
 	desc->tfm = tfm_michael;
-	desc->flags = 0;
 
 	if (crypto_shash_setkey(tfm_michael, key, 8))
 		return -1;
@@ -663,9 +656,9 @@ static int ieee80211_tkip_set_key(void *key, int len, u8 *seq, void *priv)
 	struct ieee80211_tkip_data *tkey = priv;
 	int keyidx;
 	struct crypto_shash *tfm = tkey->tx_tfm_michael;
-	struct crypto_skcipher *tfm2 = tkey->tx_tfm_arc4;
+	struct crypto_sync_skcipher *tfm2 = tkey->tx_tfm_arc4;
 	struct crypto_shash *tfm3 = tkey->rx_tfm_michael;
-	struct crypto_skcipher *tfm4 = tkey->rx_tfm_arc4;
+	struct crypto_sync_skcipher *tfm4 = tkey->rx_tfm_arc4;
 
 	keyidx = tkey->key_idx;
 	memset(tkey, 0, sizeof(*tkey));

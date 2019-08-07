@@ -6,8 +6,6 @@ CONFIG_RELOCATION_TABLE_SIZE=0x00140000
 CONFIG_RANDOMIZE_BASE=y
 CONFIG_KEXEC=y
 CONFIG_SECCOMP=y
-CONFIG_PCI=y
-# CONFIG_RAPIDIO is not set
 #. Ignored in 32-bit configurations
 CONFIG_MIPS32_O32=y
 CONFIG_MIPS32_N32=y
@@ -28,10 +26,20 @@ CONFIG_ATA=y
 # CONFIG_NIU is not set
 
 ##
+## file: drivers/pci/Kconfig
+##
+CONFIG_PCI=y
+
+##
 ## file: drivers/power/reset/Kconfig
 ##
 CONFIG_POWER_RESET=y
 CONFIG_POWER_RESET_SYSCON=y
+
+##
+## file: drivers/rapidio/Kconfig
+##
+# CONFIG_RAPIDIO is not set
 
 ##
 ## file: drivers/scsi/Kconfig

@@ -1,0 +1,44 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 29 May 2019 17:52:17 +0200
+Subject: [PATCH] sched/core: Schedule new worker even if PI-blocked
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+
+If a task is PI-blocked (blocking on sleeping spinlock) then we don't
+schedule a new kworker if we schedule out due to lock contention because
+!RT wouldn't do that as well. A spinlock disables preemption and worker
+wouldn't schedule out on lock contention (but spin) so it wouldn't start
+a new worker.
+
+On RT the RW-semaphore implementation uses an rtmutex so
+tsk_is_pi_blocked() will return true if a task blocks on it. In case we
+will skip scheduling a worker which may deadlock if one worker is
+waiting on progress from another worker. XFS is able to trigger this.
+
+Allow to schedule new worker if the current worker is PI-blocked.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/sched/core.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3469,7 +3469,7 @@ void __noreturn do_task_dead(void)
+ 
+ static inline void sched_submit_work(struct task_struct *tsk)
+ {
+-	if (!tsk->state || tsk_is_pi_blocked(tsk))
++	if (!tsk->state)
+ 		return;
+ 
+ 	/*
+@@ -3485,6 +3485,9 @@ static inline void sched_submit_work(str
+ 		preempt_enable_no_resched();
+ 	}
+ 
++	if (tsk_is_pi_blocked(tsk))
++		return;
++
+ 	/*
+ 	 * If we are going to sleep and we have plugged IO queued,
+ 	 * make sure to submit it to avoid deadlocks.

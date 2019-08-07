@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  *  cht_bsw_rt5672.c - ASoc Machine driver for Intel Cherryview-based platforms
  *                     Cherrytrail and Braswell, with RT5672 codec.
@@ -5,17 +6,9 @@
  *  Copyright (C) 2014 Intel Corp
  *  Author: Subhransu S. Prusty <subhransu.s.prusty@intel.com>
  *          Mengdong Lin <mengdong.lin@intel.com>
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; version 2 of the License.
- *
- *  This program is distributed in the hope that it will be useful, but
- *  WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  General Public License for more details.
  */
 
+#include <linux/input.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -212,6 +205,10 @@ static int cht_codec_init(struct snd_soc_pcm_runtime *runtime)
         if (ret)
                 return ret;
 
+	snd_jack_set_key(ctx->headset.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
+	snd_jack_set_key(ctx->headset.jack, SND_JACK_BTN_1, KEY_VOLUMEUP);
+	snd_jack_set_key(ctx->headset.jack, SND_JACK_BTN_2, KEY_VOLUMEDOWN);
+
 	rt5670_set_jack_detect(component, &ctx->headset);
 	if (ctx->mclk) {
 		/*
@@ -342,7 +339,7 @@ static int cht_suspend_pre(struct snd_soc_card *card)
 	struct snd_soc_component *component;
 	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(card);
 
-	list_for_each_entry(component, &card->component_dev_list, card_list) {
+	for_each_card_components(card, component) {
 		if (!strncmp(component->name,
 			     ctx->codec_name, sizeof(ctx->codec_name))) {
 
@@ -359,7 +356,7 @@ static int cht_resume_post(struct snd_soc_card *card)
 	struct snd_soc_component *component;
 	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(card);
 
-	list_for_each_entry(component, &card->component_dev_list, card_list) {
+	for_each_card_components(card, component) {
 		if (!strncmp(component->name,
 			     ctx->codec_name, sizeof(ctx->codec_name))) {
 
@@ -395,31 +392,39 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 	int ret_val = 0;
 	struct cht_mc_private *drv;
 	struct snd_soc_acpi_mach *mach = pdev->dev.platform_data;
-	const char *i2c_name;
+	const char *platform_name;
+	struct acpi_device *adev;
 	int i;
 
-	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_ATOMIC);
+	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 
 	strcpy(drv->codec_name, RT5672_I2C_DEFAULT);
 
 	/* fixup codec name based on HID */
-	if (mach) {
-		i2c_name = acpi_dev_get_first_match_name(mach->id, NULL, -1);
-		if (i2c_name) {
-			snprintf(drv->codec_name, sizeof(drv->codec_name),
-				 "i2c-%s", i2c_name);
-			for (i = 0; i < ARRAY_SIZE(cht_dailink); i++) {
-				if (!strcmp(cht_dailink[i].codec_name,
-					    RT5672_I2C_DEFAULT)) {
-					cht_dailink[i].codec_name =
-						drv->codec_name;
-					break;
-				}
+	adev = acpi_dev_get_first_match_dev(mach->id, NULL, -1);
+	if (adev) {
+		snprintf(drv->codec_name, sizeof(drv->codec_name),
+			 "i2c-%s", acpi_dev_name(adev));
+		put_device(&adev->dev);
+		for (i = 0; i < ARRAY_SIZE(cht_dailink); i++) {
+			if (!strcmp(cht_dailink[i].codec_name,
+				RT5672_I2C_DEFAULT)) {
+				cht_dailink[i].codec_name = drv->codec_name;
+				break;
 			}
 		}
 	}
+
+	/* override plaform name, if required */
+	snd_soc_card_cht.dev = &pdev->dev;
+	platform_name = mach->mach_params.platform;
+
+	ret_val = snd_soc_fixup_dai_links_platform_name(&snd_soc_card_cht,
+							platform_name);
+	if (ret_val)
+		return ret_val;
 
 	drv->mclk = devm_clk_get(&pdev->dev, "pmc_plt_clk_3");
 	if (IS_ERR(drv->mclk)) {
@@ -431,7 +436,6 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 	snd_soc_card_set_drvdata(&snd_soc_card_cht, drv);
 
 	/* register the soc card */
-	snd_soc_card_cht.dev = &pdev->dev;
 	ret_val = devm_snd_soc_register_card(&pdev->dev, &snd_soc_card_cht);
 	if (ret_val) {
 		dev_err(&pdev->dev,

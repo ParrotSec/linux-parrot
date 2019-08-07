@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * raid10.c : Multiple Devices driver for Linux
  *
@@ -6,16 +7,6 @@
  * RAID-10 support for md.
  *
  * Base on code in raid1.c.  See raid1.c for further copyright information.
- *
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * You should have received a copy of the GNU General Public License
- * (for example /usr/src/linux/COPYING); if not, write to the Free
- * Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <linux/slab.h>
@@ -25,6 +16,7 @@
 #include <linux/seq_file.h>
 #include <linux/ratelimit.h>
 #include <linux/kthread.h>
+#include <linux/raid/md_p.h>
 #include <trace/events/block.h>
 #include "md.h"
 #include "raid10.h"
@@ -1123,6 +1115,29 @@ static void raid10_unplug(struct blk_plug_cb *cb, bool from_schedule)
 	kfree(plug);
 }
 
+/*
+ * 1. Register the new request and wait if the reconstruction thread has put
+ * up a bar for new requests. Continue immediately if no resync is active
+ * currently.
+ * 2. If IO spans the reshape position.  Need to wait for reshape to pass.
+ */
+static void regular_request_wait(struct mddev *mddev, struct r10conf *conf,
+				 struct bio *bio, sector_t sectors)
+{
+	wait_barrier(conf);
+	while (test_bit(MD_RECOVERY_RESHAPE, &mddev->recovery) &&
+	    bio->bi_iter.bi_sector < conf->reshape_progress &&
+	    bio->bi_iter.bi_sector + sectors > conf->reshape_progress) {
+		raid10_log(conf->mddev, "wait reshape");
+		allow_barrier(conf);
+		wait_event(conf->wait_barrier,
+			   conf->reshape_progress <= bio->bi_iter.bi_sector ||
+			   conf->reshape_progress >= bio->bi_iter.bi_sector +
+			   sectors);
+		wait_barrier(conf);
+	}
+}
+
 static void raid10_read_request(struct mddev *mddev, struct bio *bio,
 				struct r10bio *r10_bio)
 {
@@ -1131,7 +1146,6 @@ static void raid10_read_request(struct mddev *mddev, struct bio *bio,
 	const int op = bio_op(bio);
 	const unsigned long do_sync = (bio->bi_opf & REQ_SYNC);
 	int max_sectors;
-	sector_t sectors;
 	struct md_rdev *rdev;
 	char b[BDEVNAME_SIZE];
 	int slot = r10_bio->read_slot;
@@ -1165,30 +1179,8 @@ static void raid10_read_request(struct mddev *mddev, struct bio *bio,
 		}
 		rcu_read_unlock();
 	}
-	/*
-	 * Register the new request and wait if the reconstruction
-	 * thread has put up a bar for new requests.
-	 * Continue immediately if no resync is active currently.
-	 */
-	wait_barrier(conf);
 
-	sectors = r10_bio->sectors;
-	while (test_bit(MD_RECOVERY_RESHAPE, &mddev->recovery) &&
-	    bio->bi_iter.bi_sector < conf->reshape_progress &&
-	    bio->bi_iter.bi_sector + sectors > conf->reshape_progress) {
-		/*
-		 * IO spans the reshape position.  Need to wait for reshape to
-		 * pass
-		 */
-		raid10_log(conf->mddev, "wait reshape");
-		allow_barrier(conf);
-		wait_event(conf->wait_barrier,
-			   conf->reshape_progress <= bio->bi_iter.bi_sector ||
-			   conf->reshape_progress >= bio->bi_iter.bi_sector +
-			   sectors);
-		wait_barrier(conf);
-	}
-
+	regular_request_wait(mddev, conf, bio, r10_bio->sectors);
 	rdev = read_balance(conf, r10_bio, &max_sectors);
 	if (!rdev) {
 		if (err_rdev) {
@@ -1333,30 +1325,8 @@ static void raid10_write_request(struct mddev *mddev, struct bio *bio,
 		finish_wait(&conf->wait_barrier, &w);
 	}
 
-	/*
-	 * Register the new request and wait if the reconstruction
-	 * thread has put up a bar for new requests.
-	 * Continue immediately if no resync is active currently.
-	 */
-	wait_barrier(conf);
-
 	sectors = r10_bio->sectors;
-	while (test_bit(MD_RECOVERY_RESHAPE, &mddev->recovery) &&
-	    bio->bi_iter.bi_sector < conf->reshape_progress &&
-	    bio->bi_iter.bi_sector + sectors > conf->reshape_progress) {
-		/*
-		 * IO spans the reshape position.  Need to wait for reshape to
-		 * pass
-		 */
-		raid10_log(conf->mddev, "wait reshape");
-		allow_barrier(conf);
-		wait_event(conf->wait_barrier,
-			   conf->reshape_progress <= bio->bi_iter.bi_sector ||
-			   conf->reshape_progress >= bio->bi_iter.bi_sector +
-			   sectors);
-		wait_barrier(conf);
-	}
-
+	regular_request_wait(mddev, conf, bio, sectors);
 	if (test_bit(MD_RECOVERY_RESHAPE, &mddev->recovery) &&
 	    (mddev->reshape_backwards
 	     ? (bio->bi_iter.bi_sector < conf->reshape_safe &&
@@ -3084,6 +3054,8 @@ static sector_t raid10_sync_request(struct mddev *mddev, sector_t sector_nr,
 			sector_t sect;
 			int must_sync;
 			int any_working;
+			int need_recover = 0;
+			int need_replace = 0;
 			struct raid10_info *mirror = &conf->mirrors[i];
 			struct md_rdev *mrdev, *mreplace;
 
@@ -3091,11 +3063,15 @@ static sector_t raid10_sync_request(struct mddev *mddev, sector_t sector_nr,
 			mrdev = rcu_dereference(mirror->rdev);
 			mreplace = rcu_dereference(mirror->replacement);
 
-			if ((mrdev == NULL ||
-			     test_bit(Faulty, &mrdev->flags) ||
-			     test_bit(In_sync, &mrdev->flags)) &&
-			    (mreplace == NULL ||
-			     test_bit(Faulty, &mreplace->flags))) {
+			if (mrdev != NULL &&
+			    !test_bit(Faulty, &mrdev->flags) &&
+			    !test_bit(In_sync, &mrdev->flags))
+				need_recover = 1;
+			if (mreplace != NULL &&
+			    !test_bit(Faulty, &mreplace->flags))
+				need_replace = 1;
+
+			if (!need_recover && !need_replace) {
 				rcu_read_unlock();
 				continue;
 			}
@@ -3218,7 +3194,7 @@ static sector_t raid10_sync_request(struct mddev *mddev, sector_t sector_nr,
 				r10_bio->devs[1].devnum = i;
 				r10_bio->devs[1].addr = to_addr;
 
-				if (!test_bit(In_sync, &mrdev->flags)) {
+				if (need_recover) {
 					bio = r10_bio->devs[1].bio;
 					bio->bi_next = biolist;
 					biolist = bio;
@@ -3235,16 +3211,11 @@ static sector_t raid10_sync_request(struct mddev *mddev, sector_t sector_nr,
 				bio = r10_bio->devs[1].repl_bio;
 				if (bio)
 					bio->bi_end_io = NULL;
-				/* Note: if mreplace != NULL, then bio
+				/* Note: if need_replace, then bio
 				 * cannot be NULL as r10buf_pool_alloc will
 				 * have allocated it.
-				 * So the second test here is pointless.
-				 * But it keeps semantic-checkers happy, and
-				 * this comment keeps human reviewers
-				 * happy.
 				 */
-				if (mreplace == NULL || bio == NULL ||
-				    test_bit(Faulty, &mreplace->flags))
+				if (!need_replace)
 					break;
 				bio->bi_next = biolist;
 				biolist = bio;
@@ -4293,12 +4264,46 @@ static int raid10_start_reshape(struct mddev *mddev)
 	spin_unlock_irq(&conf->device_lock);
 
 	if (mddev->delta_disks && mddev->bitmap) {
-		ret = md_bitmap_resize(mddev->bitmap,
-				       raid10_size(mddev, 0, conf->geo.raid_disks),
-				       0, 0);
+		struct mdp_superblock_1 *sb = NULL;
+		sector_t oldsize, newsize;
+
+		oldsize = raid10_size(mddev, 0, 0);
+		newsize = raid10_size(mddev, 0, conf->geo.raid_disks);
+
+		if (!mddev_is_clustered(mddev)) {
+			ret = md_bitmap_resize(mddev->bitmap, newsize, 0, 0);
+			if (ret)
+				goto abort;
+			else
+				goto out;
+		}
+
+		rdev_for_each(rdev, mddev) {
+			if (rdev->raid_disk > -1 &&
+			    !test_bit(Faulty, &rdev->flags))
+				sb = page_address(rdev->sb_page);
+		}
+
+		/*
+		 * some node is already performing reshape, and no need to
+		 * call md_bitmap_resize again since it should be called when
+		 * receiving BITMAP_RESIZE msg
+		 */
+		if ((sb && (le32_to_cpu(sb->feature_map) &
+			    MD_FEATURE_RESHAPE_ACTIVE)) || (oldsize == newsize))
+			goto out;
+
+		ret = md_bitmap_resize(mddev->bitmap, newsize, 0, 0);
 		if (ret)
 			goto abort;
+
+		ret = md_cluster_ops->resize_bitmaps(mddev, newsize, oldsize);
+		if (ret) {
+			md_bitmap_resize(mddev->bitmap, oldsize, 0, 0);
+			goto abort;
+		}
 	}
+out:
 	if (mddev->delta_disks > 0) {
 		rdev_for_each(rdev, mddev)
 			if (rdev->raid_disk < 0 &&
@@ -4575,6 +4580,32 @@ read_more:
 	r10_bio->master_bio = read_bio;
 	r10_bio->read_slot = r10_bio->devs[r10_bio->read_slot].devnum;
 
+	/*
+	 * Broadcast RESYNC message to other nodes, so all nodes would not
+	 * write to the region to avoid conflict.
+	*/
+	if (mddev_is_clustered(mddev) && conf->cluster_sync_high <= sector_nr) {
+		struct mdp_superblock_1 *sb = NULL;
+		int sb_reshape_pos = 0;
+
+		conf->cluster_sync_low = sector_nr;
+		conf->cluster_sync_high = sector_nr + CLUSTER_RESYNC_WINDOW_SECTORS;
+		sb = page_address(rdev->sb_page);
+		if (sb) {
+			sb_reshape_pos = le64_to_cpu(sb->reshape_position);
+			/*
+			 * Set cluster_sync_low again if next address for array
+			 * reshape is less than cluster_sync_low. Since we can't
+			 * update cluster_sync_low until it has finished reshape.
+			 */
+			if (sb_reshape_pos < conf->cluster_sync_low)
+				conf->cluster_sync_low = sb_reshape_pos;
+		}
+
+		md_cluster_ops->resync_info_update(mddev, conf->cluster_sync_low,
+							  conf->cluster_sync_high);
+	}
+
 	/* Now find the locations in the new layout */
 	__raid10_find_phys(&conf->geo, r10_bio);
 
@@ -4723,6 +4754,19 @@ static void end_reshape(struct r10conf *conf)
 			conf->mddev->queue->backing_dev_info->ra_pages = 2 * stripe;
 	}
 	conf->fullsync = 0;
+}
+
+static void raid10_update_reshape_pos(struct mddev *mddev)
+{
+	struct r10conf *conf = mddev->private;
+	sector_t lo, hi;
+
+	md_cluster_ops->resync_info_get(mddev, &lo, &hi);
+	if (((mddev->reshape_position <= hi) && (mddev->reshape_position >= lo))
+	    || mddev->reshape_position == MaxSector)
+		conf->reshape_progress = mddev->reshape_position;
+	else
+		WARN_ON_ONCE(1);
 }
 
 static int handle_reshape_read_error(struct mddev *mddev,
@@ -4893,6 +4937,7 @@ static struct md_personality raid10_personality =
 	.check_reshape	= raid10_check_reshape,
 	.start_reshape	= raid10_start_reshape,
 	.finish_reshape	= raid10_finish_reshape,
+	.update_reshape_pos = raid10_update_reshape_pos,
 	.congested	= raid10_congested,
 };
 

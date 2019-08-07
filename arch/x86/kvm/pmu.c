@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Kernel-based Virtual Machine -- Performance Monitoring Unit support
  *
@@ -7,10 +8,6 @@
  *   Avi Kivity   <avi@redhat.com>
  *   Gleb Natapov <gleb@redhat.com>
  *   Wei Huang    <wei@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
  */
 
 #include <linux/types.h>
@@ -131,8 +128,8 @@ static void pmc_reprogram_counter(struct kvm_pmc *pmc, u32 type,
 						 intr ? kvm_perf_overflow_intr :
 						 kvm_perf_overflow, pmc);
 	if (IS_ERR(event)) {
-		printk_once("kvm_pmu: event creation failed %ld\n",
-			    PTR_ERR(event));
+		pr_debug_ratelimited("kvm_pmu: event creation failed %ld for pmc->idx = %d\n",
+			    PTR_ERR(event), pmc->idx);
 		return;
 	}
 
@@ -281,21 +278,21 @@ static int kvm_pmu_rdpmc_vmware(struct kvm_vcpu *vcpu, unsigned idx, u64 *data)
 int kvm_pmu_rdpmc(struct kvm_vcpu *vcpu, unsigned idx, u64 *data)
 {
 	bool fast_mode = idx & (1u << 31);
+	struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
 	struct kvm_pmc *pmc;
-	u64 ctr_val;
+	u64 mask = fast_mode ? ~0u : ~0ull;
+
+	if (!pmu->version)
+		return 1;
 
 	if (is_vmware_backdoor_pmc(idx))
 		return kvm_pmu_rdpmc_vmware(vcpu, idx, data);
 
-	pmc = kvm_x86_ops->pmu_ops->msr_idx_to_pmc(vcpu, idx);
+	pmc = kvm_x86_ops->pmu_ops->msr_idx_to_pmc(vcpu, idx, &mask);
 	if (!pmc)
 		return 1;
 
-	ctr_val = pmc_read_counter(pmc);
-	if (fast_mode)
-		ctr_val = (u32)ctr_val;
-
-	*data = ctr_val;
+	*data = pmc_read_counter(pmc) & mask;
 	return 0;
 }
 

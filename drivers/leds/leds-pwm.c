@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * linux/drivers/leds-pwm.c
  *
@@ -6,10 +7,6 @@
  * Copyright 2009 Luotao Fu @ Pengutronix (l.fu@pengutronix.de)
  *
  * based on leds-gpio.c by Raphael Assenat <raph@8d.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/module.h>
@@ -74,12 +71,6 @@ static inline size_t sizeof_pwm_leds_priv(int num_leds)
 		      (sizeof(struct led_pwm_data) * num_leds);
 }
 
-static void led_pwm_cleanup(struct led_pwm_priv *priv)
-{
-	while (priv->num_leds--)
-		led_classdev_unregister(&priv->leds[priv->num_leds].cdev);
-}
-
 static int led_pwm_add(struct device *dev, struct led_pwm_priv *priv,
 		       struct led_pwm *led, struct device_node *child)
 {
@@ -120,7 +111,7 @@ static int led_pwm_add(struct device *dev, struct led_pwm_priv *priv,
 	if (!led_data->period && (led->pwm_period_ns > 0))
 		led_data->period = led->pwm_period_ns;
 
-	ret = led_classdev_register(dev, &led_data->cdev);
+	ret = devm_of_led_classdev_register(dev, child, &led_data->cdev);
 	if (ret == 0) {
 		priv->num_leds++;
 		led_pwm_set(&led_data->cdev, led_data->cdev.brightness);
@@ -191,21 +182,10 @@ static int led_pwm_probe(struct platform_device *pdev)
 		ret = led_pwm_create_of(&pdev->dev, priv);
 	}
 
-	if (ret) {
-		led_pwm_cleanup(priv);
+	if (ret)
 		return ret;
-	}
 
 	platform_set_drvdata(pdev, priv);
-
-	return 0;
-}
-
-static int led_pwm_remove(struct platform_device *pdev)
-{
-	struct led_pwm_priv *priv = platform_get_drvdata(pdev);
-
-	led_pwm_cleanup(priv);
 
 	return 0;
 }
@@ -218,7 +198,6 @@ MODULE_DEVICE_TABLE(of, of_pwm_leds_match);
 
 static struct platform_driver led_pwm_driver = {
 	.probe		= led_pwm_probe,
-	.remove		= led_pwm_remove,
 	.driver		= {
 		.name	= "leds_pwm",
 		.of_match_table = of_pwm_leds_match,

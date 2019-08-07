@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  *	scsi_pm.c	Copyright (C) 2010 Alan Stern
  *
@@ -8,6 +9,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/export.h>
 #include <linux/async.h>
+#include <linux/blk-pm.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_device.h>

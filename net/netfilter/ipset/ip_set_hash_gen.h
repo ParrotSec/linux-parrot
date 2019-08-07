@@ -1,8 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (C) 2013 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #ifndef _IP_SET_HASH_GEN_H
@@ -15,7 +12,7 @@
 
 #define __ipset_dereference_protected(p, c)	rcu_dereference_protected(p, c)
 #define ipset_dereference_protected(p, set) \
-	__ipset_dereference_protected(p, spin_is_locked(&(set)->lock))
+	__ipset_dereference_protected(p, lockdep_is_held(&(set)->lock))
 
 #define rcu_dereference_bh_nfnl(p)	rcu_dereference_bh_check(p, 1)
 
@@ -67,7 +64,7 @@ tune_ahash_max(u8 curr, u32 multi)
 
 /* A hash bucket */
 struct hbucket {
-	struct rcu_head rcu;	/* for call_rcu_bh */
+	struct rcu_head rcu;	/* for call_rcu */
 	/* Which positions are used in the array */
 	DECLARE_BITMAP(used, AHASH_MAX_TUNED);
 	u8 size;		/* size of the array */
@@ -625,7 +622,7 @@ retry:
 					goto cleanup;
 				}
 				m->size = AHASH_INIT_SIZE;
-				extsize = ext_size(AHASH_INIT_SIZE, dsize);
+				extsize += ext_size(AHASH_INIT_SIZE, dsize);
 				RCU_INIT_POINTER(hbucket(t, key), m);
 			} else if (m->pos >= m->size) {
 				struct hbucket *ht;
@@ -664,7 +661,7 @@ retry:
 	spin_unlock_bh(&set->lock);
 
 	/* Give time to other readers of the set */
-	synchronize_rcu_bh();
+	synchronize_rcu();
 
 	pr_debug("set %s resized from %u (%p) to %u (%p)\n", set->name,
 		 orig->htable_bits, orig, t->htable_bits, t);
@@ -1057,7 +1054,7 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
 	htable_bits = t->htable_bits;
 	rcu_read_unlock_bh();
 
-	nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
+	nested = nla_nest_start(skb, IPSET_ATTR_DATA);
 	if (!nested)
 		goto nla_put_failure;
 	if (nla_put_net32(skb, IPSET_ATTR_HASHSIZE,
@@ -1079,7 +1076,7 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
 		goto nla_put_failure;
 	if (unlikely(ip_set_put_flags(skb, set)))
 		goto nla_put_failure;
-	ipset_nest_end(skb, nested);
+	nla_nest_end(skb, nested);
 
 	return 0;
 nla_put_failure:
@@ -1124,7 +1121,7 @@ mtype_list(const struct ip_set *set,
 	void *incomplete;
 	int i, ret = 0;
 
-	atd = ipset_nest_start(skb, IPSET_ATTR_ADT);
+	atd = nla_nest_start(skb, IPSET_ATTR_ADT);
 	if (!atd)
 		return -EMSGSIZE;
 
@@ -1150,7 +1147,7 @@ mtype_list(const struct ip_set *set,
 				continue;
 			pr_debug("list hash %lu hbucket %p i %u, data %p\n",
 				 cb->args[IPSET_CB_ARG0], n, i, e);
-			nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
+			nested = nla_nest_start(skb, IPSET_ATTR_DATA);
 			if (!nested) {
 				if (cb->args[IPSET_CB_ARG0] == first) {
 					nla_nest_cancel(skb, atd);
@@ -1163,10 +1160,10 @@ mtype_list(const struct ip_set *set,
 				goto nla_put_failure;
 			if (ip_set_put_extensions(skb, set, e, true))
 				goto nla_put_failure;
-			ipset_nest_end(skb, nested);
+			nla_nest_end(skb, nested);
 		}
 	}
-	ipset_nest_end(skb, atd);
+	nla_nest_end(skb, atd);
 	/* Set listing finished */
 	cb->args[IPSET_CB_ARG0] = 0;
 
@@ -1180,7 +1177,7 @@ nla_put_failure:
 		cb->args[IPSET_CB_ARG0] = 0;
 		ret = -EMSGSIZE;
 	} else {
-		ipset_nest_end(skb, atd);
+		nla_nest_end(skb, atd);
 	}
 out:
 	rcu_read_unlock();

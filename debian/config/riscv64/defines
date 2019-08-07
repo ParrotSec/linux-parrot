@@ -4,7 +4,7 @@ featuresets:
  none
 
 [build]
-image-file: vmlinux
+image-file: arch/riscv/boot/Image
 vdso: true
 
 [image]

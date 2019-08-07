@@ -174,7 +174,6 @@ static int rvin_group_link_notify(struct media_link *link, u32 flags,
 
 	if (csi_id == -ENODEV) {
 		struct v4l2_subdev *sd;
-		unsigned int i;
 
 		/*
 		 * Make sure the source entity subdevice is registered as
@@ -272,8 +271,8 @@ static int rvin_group_init(struct rvin_group *group, struct rvin_dev *vin)
 	match = of_match_node(vin->dev->driver->of_match_table,
 			      vin->dev->of_node);
 
-	strlcpy(mdev->driver_name, KBUILD_MODNAME, sizeof(mdev->driver_name));
-	strlcpy(mdev->model, match->compatible, sizeof(mdev->model));
+	strscpy(mdev->driver_name, KBUILD_MODNAME, sizeof(mdev->driver_name));
+	strscpy(mdev->model, match->compatible, sizeof(mdev->model));
 	snprintf(mdev->bus_info, sizeof(mdev->bus_info), "platform:%s",
 		 dev_name(mdev->dev));
 
@@ -480,7 +479,7 @@ static int rvin_parallel_subdevice_attach(struct rvin_dev *vin,
 		return ret;
 
 	ret = v4l2_ctrl_add_handler(&vin->ctrl_handler, subdev->ctrl_handler,
-				    NULL);
+				    NULL, true);
 	if (ret < 0) {
 		v4l2_ctrl_handler_free(&vin->ctrl_handler);
 		return ret;
@@ -614,6 +613,8 @@ static int rvin_parallel_parse_v4l2(struct device *dev,
 static int rvin_parallel_init(struct rvin_dev *vin)
 {
 	int ret;
+
+	v4l2_async_notifier_init(&vin->notifier);
 
 	ret = v4l2_async_notifier_parse_fwnode_endpoints_by_port(
 		vin->dev, &vin->notifier, sizeof(struct rvin_parallel_entity),
@@ -765,6 +766,7 @@ static int rvin_mc_parse_of_endpoint(struct device *dev,
 				     struct v4l2_async_subdev *asd)
 {
 	struct rvin_dev *vin = dev_get_drvdata(dev);
+	int ret = 0;
 
 	if (vep->base.port != 1 || vep->base.id >= RVIN_CSI_MAX)
 		return -EINVAL;
@@ -775,37 +777,49 @@ static int rvin_mc_parse_of_endpoint(struct device *dev,
 		return -ENOTCONN;
 	}
 
+	mutex_lock(&vin->group->lock);
+
 	if (vin->group->csi[vep->base.id].fwnode) {
 		vin_dbg(vin, "OF device %pOF already handled\n",
 			to_of_node(asd->match.fwnode));
-		return -ENOTCONN;
+		ret = -ENOTCONN;
+		goto out;
 	}
 
 	vin->group->csi[vep->base.id].fwnode = asd->match.fwnode;
 
 	vin_dbg(vin, "Add group OF device %pOF to slot %u\n",
 		to_of_node(asd->match.fwnode), vep->base.id);
+out:
+	mutex_unlock(&vin->group->lock);
 
-	return 0;
+	return ret;
 }
 
 static int rvin_mc_parse_of_graph(struct rvin_dev *vin)
 {
-	unsigned int count = 0;
+	unsigned int count = 0, vin_mask = 0;
 	unsigned int i;
 	int ret;
 
 	mutex_lock(&vin->group->lock);
 
 	/* If not all VIN's are registered don't register the notifier. */
-	for (i = 0; i < RCAR_VIN_NUM; i++)
-		if (vin->group->vin[i])
+	for (i = 0; i < RCAR_VIN_NUM; i++) {
+		if (vin->group->vin[i]) {
 			count++;
+			vin_mask |= BIT(i);
+		}
+	}
 
 	if (vin->group->count != count) {
 		mutex_unlock(&vin->group->lock);
 		return 0;
 	}
+
+	mutex_unlock(&vin->group->lock);
+
+	v4l2_async_notifier_init(&vin->group->notifier);
 
 	/*
 	 * Have all VIN's look for CSI-2 subdevices. Some subdevices will
@@ -813,22 +827,18 @@ static int rvin_mc_parse_of_graph(struct rvin_dev *vin)
 	 * will only be registered once with the group notifier.
 	 */
 	for (i = 0; i < RCAR_VIN_NUM; i++) {
-		if (!vin->group->vin[i])
+		if (!(vin_mask & BIT(i)))
 			continue;
 
 		ret = v4l2_async_notifier_parse_fwnode_endpoints_by_port(
 				vin->group->vin[i]->dev, &vin->group->notifier,
 				sizeof(struct v4l2_async_subdev), 1,
 				rvin_mc_parse_of_endpoint);
-		if (ret) {
-			mutex_unlock(&vin->group->lock);
+		if (ret)
 			return ret;
-		}
 	}
 
-	mutex_unlock(&vin->group->lock);
-
-	if (!vin->group->notifier.num_subdevs)
+	if (list_empty(&vin->group->notifier.asd_list))
 		return 0;
 
 	vin->group->notifier.ops = &rvin_group_notify_ops;
@@ -1089,6 +1099,50 @@ static const struct rvin_info rcar_info_r8a77970 = {
 	.routes = rcar_info_r8a77970_routes,
 };
 
+static const struct rvin_group_route rcar_info_r8a77980_routes[] = {
+	{ .csi = RVIN_CSI40, .channel = 0, .vin = 0, .mask = BIT(0) | BIT(3) },
+	{ .csi = RVIN_CSI40, .channel = 1, .vin = 0, .mask = BIT(2) },
+	{ .csi = RVIN_CSI40, .channel = 0, .vin = 1, .mask = BIT(2) },
+	{ .csi = RVIN_CSI40, .channel = 1, .vin = 1, .mask = BIT(1) | BIT(3) },
+	{ .csi = RVIN_CSI40, .channel = 0, .vin = 2, .mask = BIT(1) },
+	{ .csi = RVIN_CSI40, .channel = 2, .vin = 2, .mask = BIT(3) },
+	{ .csi = RVIN_CSI40, .channel = 1, .vin = 3, .mask = BIT(0) },
+	{ .csi = RVIN_CSI40, .channel = 3, .vin = 3, .mask = BIT(3) },
+	{ .csi = RVIN_CSI41, .channel = 0, .vin = 4, .mask = BIT(0) | BIT(3) },
+	{ .csi = RVIN_CSI41, .channel = 1, .vin = 4, .mask = BIT(2) },
+	{ .csi = RVIN_CSI41, .channel = 0, .vin = 5, .mask = BIT(2) },
+	{ .csi = RVIN_CSI41, .channel = 1, .vin = 5, .mask = BIT(1) | BIT(3) },
+	{ .csi = RVIN_CSI41, .channel = 0, .vin = 6, .mask = BIT(1) },
+	{ .csi = RVIN_CSI41, .channel = 2, .vin = 6, .mask = BIT(3) },
+	{ .csi = RVIN_CSI41, .channel = 1, .vin = 7, .mask = BIT(0) },
+	{ .csi = RVIN_CSI41, .channel = 3, .vin = 7, .mask = BIT(3) },
+	{ /* Sentinel */ }
+};
+
+static const struct rvin_info rcar_info_r8a77980 = {
+	.model = RCAR_GEN3,
+	.use_mc = true,
+	.max_width = 4096,
+	.max_height = 4096,
+	.routes = rcar_info_r8a77980_routes,
+};
+
+static const struct rvin_group_route rcar_info_r8a77990_routes[] = {
+	{ .csi = RVIN_CSI40, .channel = 0, .vin = 4, .mask = BIT(0) | BIT(3) },
+	{ .csi = RVIN_CSI40, .channel = 0, .vin = 5, .mask = BIT(2) },
+	{ .csi = RVIN_CSI40, .channel = 1, .vin = 4, .mask = BIT(2) },
+	{ .csi = RVIN_CSI40, .channel = 1, .vin = 5, .mask = BIT(1) | BIT(3) },
+	{ /* Sentinel */ }
+};
+
+static const struct rvin_info rcar_info_r8a77990 = {
+	.model = RCAR_GEN3,
+	.use_mc = true,
+	.max_width = 4096,
+	.max_height = 4096,
+	.routes = rcar_info_r8a77990_routes,
+};
+
 static const struct rvin_group_route rcar_info_r8a77995_routes[] = {
 	{ /* Sentinel */ }
 };
@@ -1102,6 +1156,14 @@ static const struct rvin_info rcar_info_r8a77995 = {
 };
 
 static const struct of_device_id rvin_of_id_table[] = {
+	{
+		.compatible = "renesas,vin-r8a774a1",
+		.data = &rcar_info_r8a7796,
+	},
+	{
+		.compatible = "renesas,vin-r8a774c0",
+		.data = &rcar_info_r8a77990,
+	},
 	{
 		.compatible = "renesas,vin-r8a7778",
 		.data = &rcar_info_m1,
@@ -1145,6 +1207,14 @@ static const struct of_device_id rvin_of_id_table[] = {
 	{
 		.compatible = "renesas,vin-r8a77970",
 		.data = &rcar_info_r8a77970,
+	},
+	{
+		.compatible = "renesas,vin-r8a77980",
+		.data = &rcar_info_r8a77980,
+	},
+	{
+		.compatible = "renesas,vin-r8a77990",
+		.data = &rcar_info_r8a77990,
 	},
 	{
 		.compatible = "renesas,vin-r8a77995",

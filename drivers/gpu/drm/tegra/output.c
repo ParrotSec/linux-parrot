@@ -1,10 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2012 Avionic Design GmbH
  * Copyright (C) 2012 NVIDIA CORPORATION.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <drm/drm_atomic_helper.h>
@@ -36,7 +33,7 @@ int tegra_output_connector_get_modes(struct drm_connector *connector)
 	else if (output->ddc)
 		edid = drm_get_edid(connector, output->ddc);
 
-	cec_notifier_set_phys_addr_from_edid(output->notifier, edid);
+	cec_notifier_set_phys_addr_from_edid(output->cec, edid);
 	drm_connector_update_edid_property(connector, edid);
 
 	if (edid) {
@@ -73,7 +70,7 @@ tegra_output_connector_detect(struct drm_connector *connector, bool force)
 	}
 
 	if (status != connector_status_connected)
-		cec_notifier_phys_addr_invalidate(output->notifier);
+		cec_notifier_phys_addr_invalidate(output->cec);
 
 	return status;
 }
@@ -174,11 +171,18 @@ int tegra_output_probe(struct tegra_output *output)
 		disable_irq(output->hpd_irq);
 	}
 
+	output->cec = cec_notifier_get(output->dev);
+	if (!output->cec)
+		return -ENOMEM;
+
 	return 0;
 }
 
 void tegra_output_remove(struct tegra_output *output)
 {
+	if (output->cec)
+		cec_notifier_put(output->cec);
+
 	if (gpio_is_valid(output->hpd_gpio)) {
 		free_irq(output->hpd_irq, output);
 		gpio_free(output->hpd_gpio);

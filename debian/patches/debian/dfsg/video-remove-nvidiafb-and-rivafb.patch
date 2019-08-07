@@ -15,9 +15,9 @@ probably discontinued 10 years ago.
 ---
 --- a/drivers/video/fbdev/Kconfig
 +++ b/drivers/video/fbdev/Kconfig
-@@ -991,101 +991,6 @@ config FB_ATMEL_STN
+@@ -866,99 +866,6 @@ config FB_ATMEL
  	help
- 	  This enables support for the AT91/AT32 LCD Controller.
+ 	  This enables support for the AT91 LCD Controller.
  
 -config FB_NVIDIA
 -	tristate "nVidia Framebuffer Support"
@@ -39,10 +39,10 @@ probably discontinued 10 years ago.
 -	  module will be called nvidiafb.
 -
 -config FB_NVIDIA_I2C
--       bool "Enable DDC Support"
--       depends on FB_NVIDIA
--       select FB_DDC
--       help
+-	bool "Enable DDC Support"
+-	depends on FB_NVIDIA
+-	select FB_DDC
+-	help
 -	  This enables I2C support for nVidia Chipsets.  This is used
 -	  only for getting EDID information from the attached display
 -	  allowing for robust video mode handling and switching.
@@ -54,7 +54,6 @@ probably discontinued 10 years ago.
 -config FB_NVIDIA_DEBUG
 -	bool "Lots of debug output"
 -	depends on FB_NVIDIA
--	default n
 -	help
 -	  Say Y here if you want the nVidia driver to output all sorts
 -	  of debugging information to provide to the maintainer when
@@ -86,10 +85,10 @@ probably discontinued 10 years ago.
 -	  module will be called rivafb.
 -
 -config FB_RIVA_I2C
--       bool "Enable DDC Support"
--       depends on FB_RIVA
--       select FB_DDC
--       help
+-	bool "Enable DDC Support"
+-	depends on FB_RIVA
+-	select FB_DDC
+-	help
 -	  This enables I2C support for nVidia Chipsets.  This is used
 -	  only for getting EDID information from the attached display
 -	  allowing for robust video mode handling and switching.
@@ -101,7 +100,6 @@ probably discontinued 10 years ago.
 -config FB_RIVA_DEBUG
 -	bool "Lots of debug output"
 -	depends on FB_RIVA
--	default n
 -	help
 -	  Say Y here if you want the Riva driver to output all sorts
 -	  of debugging information to provide to the maintainer when
@@ -119,7 +117,7 @@ probably discontinued 10 years ago.
  	depends on FB && PCI
 --- a/drivers/video/fbdev/Makefile
 +++ b/drivers/video/fbdev/Makefile
-@@ -22,8 +22,6 @@ obj-$(CONFIG_FB_PM3)		  += pm3fb.o
+@@ -21,8 +21,6 @@ obj-$(CONFIG_FB_PM3)		  += pm3fb.o
  
  obj-$(CONFIG_FB_I740)		  += i740fb.o
  obj-$(CONFIG_FB_MATROX)		  += matrox/

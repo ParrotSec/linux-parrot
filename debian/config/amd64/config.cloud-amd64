@@ -17,13 +17,7 @@
 # CONFIG_AMD_NUMA is not set
 # CONFIG_ISA_DMA_API is not set
 # CONFIG_ISA is not set
-# CONFIG_EISA is not set
 # CONFIG_X86_X32 is not set
-
-##
-## file: arch/x86/Kconfig.debug
-##
-# CONFIG_EARLY_PRINTK_EFI is not set
 
 ##
 ## file: arch/x86/xen/Kconfig
@@ -33,11 +27,6 @@
 ##
 ## file: block/Kconfig.iosched
 ##
-CONFIG_IOSCHED_CFQ=m
-## choice: Default I/O scheduler
-# CONFIG_DEFAULT_CFQ is not set
-CONFIG_DEFAULT_NOOP=y
-## end choice
 CONFIG_MQ_IOSCHED_DEADLINE=m
 
 ##
@@ -145,7 +134,6 @@ CONFIG_ATA_PIIX=m
 ## file: drivers/block/Kconfig
 ##
 # CONFIG_BLK_DEV_FD is not set
-# CONFIG_BLK_DEV_DAC960 is not set
 # CONFIG_BLK_DEV_UMEM is not set
 # CONFIG_BLK_DEV_SKD is not set
 # CONFIG_BLK_DEV_SX8 is not set
@@ -175,7 +163,10 @@ CONFIG_XEN_BLKDEV_FRONTEND=m
 ##
 ## file: drivers/char/hw_random/Kconfig
 ##
-# CONFIG_HW_RANDOM is not set
+# CONFIG_HW_RANDOM_INTEL is not set
+# CONFIG_HW_RANDOM_AMD is not set
+# CONFIG_HW_RANDOM_GEODE is not set
+# CONFIG_HW_RANDOM_VIA is not set
 
 ##
 ## file: drivers/char/ipmi/Kconfig
@@ -228,6 +219,11 @@ CONFIG_XEN_BLKDEV_FRONTEND=m
 # CONFIG_EDAC is not set
 
 ##
+## file: drivers/eisa/Kconfig
+##
+# CONFIG_EISA is not set
+
+##
 ## file: drivers/extcon/Kconfig
 ##
 # CONFIG_EXTCON is not set
@@ -237,12 +233,6 @@ CONFIG_XEN_BLKDEV_FRONTEND=m
 ##
 # CONFIG_FIREWIRE is not set
 # CONFIG_FIREWIRE_NOSY is not set
-
-##
-## file: drivers/firmware/Kconfig
-##
-# CONFIG_DELL_RBU is not set
-# CONFIG_DCDBAS is not set
 
 ##
 ## file: drivers/fmc/Kconfig
@@ -901,6 +891,8 @@ CONFIG_HYPERV_NET=m
 ## file: drivers/platform/x86/Kconfig
 ##
 # CONFIG_X86_PLATFORM_DEVICES is not set
+# CONFIG_DCDBAS is not set
+# CONFIG_DELL_RBU is not set
 
 ##
 ## file: drivers/pnp/Kconfig
@@ -954,6 +946,8 @@ CONFIG_SCSI_FC_ATTRS=m
 # CONFIG_SCSI_ADVANSYS is not set
 # CONFIG_SCSI_ARCMSR is not set
 # CONFIG_SCSI_HPTIOP is not set
+# CONFIG_SCSI_MYRB is not set
+# CONFIG_SCSI_MYRS is not set
 CONFIG_HYPERV_STORAGE=m
 # CONFIG_LIBFC is not set
 # CONFIG_SCSI_SNIC is not set
@@ -1047,12 +1041,6 @@ CONFIG_HYPERV_STORAGE=m
 ## file: drivers/scsi/mvsas/Kconfig
 ##
 # CONFIG_SCSI_MVSAS is not set
-
-##
-## file: drivers/scsi/osd/Kconfig
-##
-# CONFIG_SCSI_OSD_INITIATOR is not set
-# CONFIG_SCSI_OSD_ULD is not set
 
 ##
 ## file: drivers/scsi/qla2xxx/Kconfig
@@ -1156,7 +1144,8 @@ CONFIG_HYPERV_STORAGE=m
 ##
 ## file: drivers/video/backlight/Kconfig
 ##
-# CONFIG_BACKLIGHT_LCD_SUPPORT is not set
+# CONFIG_LCD_CLASS_DEVICE is not set
+# CONFIG_BACKLIGHT_CLASS_DEVICE is not set
 
 ##
 ## file: drivers/video/fbdev/Kconfig
@@ -1199,8 +1188,8 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_IT8712F_WDT is not set
 # CONFIG_IT87_WDT is not set
 # CONFIG_HP_WATCHDOG is not set
-# CONFIG_KEMPLD_WDT is not set
 # CONFIG_HPWDT_NMI_DECODING is not set
+# CONFIG_KEMPLD_WDT is not set
 # CONFIG_SC1200_WDT is not set
 # CONFIG_PC87413_WDT is not set
 # CONFIG_NV_TCO is not set

@@ -37,7 +37,7 @@ Description: NIC drivers
  for the kernel.
 
 Package: nic-wireless-modules
-Depends: kernel-image, nic-shared-modules, usb-modules, mmc-core-modules, pcmcia-modules, crc-modules
+Depends: kernel-image, nic-shared-modules, usb-modules, mmc-core-modules, pcmcia-modules, crc-modules, rfkill-modules
 Priority: standard
 Description: Wireless NIC drivers
  This package contains wireless NIC drivers for the kernel.
@@ -236,7 +236,7 @@ Description: Frame buffer support
  This package contains Frame buffer drivers for the kernel.
 
 Package: input-modules
-Depends: kernel-image, usb-modules, i2c-modules
+Depends: kernel-image, usb-modules, i2c-modules, rfkill-modules
 Priority: optional
 Description: Input devices support
  This package contains input device drivers for the kernel.
@@ -411,6 +411,12 @@ Depends: kernel-image
 Priority: optional
 Description: MTD core
  This package contains the MTD core.
+
+Package: rfkill-modules
+Depends: kernel-image
+Priority: optional
+Description: rfkill modules
+ This package contains the rfkill module.
 
 Package: srm-modules
 Depends: kernel-image

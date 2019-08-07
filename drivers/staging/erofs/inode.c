@@ -19,13 +19,13 @@ static int read_inode(struct inode *inode, void *data)
 {
 	struct erofs_vnode *vi = EROFS_V(inode);
 	struct erofs_inode_v1 *v1 = data;
-	const unsigned advise = le16_to_cpu(v1->i_advise);
+	const unsigned int advise = le16_to_cpu(v1->i_advise);
 
 	vi->data_mapping_mode = __inode_data_mapping(advise);
 
 	if (unlikely(vi->data_mapping_mode >= EROFS_INODE_LAYOUT_MAX)) {
 		errln("unknown data mapping mode %u of nid %llu",
-			vi->data_mapping_mode, vi->nid);
+		      vi->data_mapping_mode, vi->nid);
 		DBG_BUGON(1);
 		return -EIO;
 	}
@@ -38,7 +38,7 @@ static int read_inode(struct inode *inode, void *data)
 
 		inode->i_mode = le16_to_cpu(v2->i_mode);
 		if (S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) ||
-						S_ISLNK(inode->i_mode)) {
+		    S_ISLNK(inode->i_mode)) {
 			vi->raw_blkaddr = le32_to_cpu(v2->i_u.raw_blkaddr);
 		} else if (S_ISCHR(inode->i_mode) || S_ISBLK(inode->i_mode)) {
 			inode->i_rdev =
@@ -68,7 +68,7 @@ static int read_inode(struct inode *inode, void *data)
 
 		inode->i_mode = le16_to_cpu(v1->i_mode);
 		if (S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) ||
-						S_ISLNK(inode->i_mode)) {
+		    S_ISLNK(inode->i_mode)) {
 			vi->raw_blkaddr = le32_to_cpu(v1->i_u.raw_blkaddr);
 		} else if (S_ISCHR(inode->i_mode) || S_ISBLK(inode->i_mode)) {
 			inode->i_rdev =
@@ -92,7 +92,7 @@ static int read_inode(struct inode *inode, void *data)
 		inode->i_size = le32_to_cpu(v1->i_size);
 	} else {
 		errln("unsupported on-disk inode version %u of nid %llu",
-			__inode_version(advise), vi->nid);
+		      __inode_version(advise), vi->nid);
 		DBG_BUGON(1);
 		return -EIO;
 	}
@@ -112,7 +112,8 @@ static int read_inode(struct inode *inode, void *data)
  * try_lock since it takes no much overhead and
  * will success immediately.
  */
-static int fill_inline_data(struct inode *inode, void *data, unsigned m_pofs)
+static int fill_inline_data(struct inode *inode, void *data,
+			    unsigned int m_pofs)
 {
 	struct erofs_vnode *vi = EROFS_V(inode);
 	struct erofs_sb_info *sbi = EROFS_I_SB(inode);
@@ -128,7 +129,7 @@ static int fill_inline_data(struct inode *inode, void *data, unsigned m_pofs)
 	if (S_ISLNK(inode->i_mode) && inode->i_size < PAGE_SIZE) {
 		char *lnk = erofs_kmalloc(sbi, inode->i_size + 1, GFP_KERNEL);
 
-		if (unlikely(lnk == NULL))
+		if (unlikely(!lnk))
 			return -ENOMEM;
 
 		m_pofs += vi->inode_isize + vi->xattr_isize;
@@ -158,7 +159,7 @@ static int fill_inode(struct inode *inode, int isdir)
 	void *data;
 	int err;
 	erofs_blk_t blkaddr;
-	unsigned ofs;
+	unsigned int ofs;
 
 	trace_erofs_fill_inode(inode, isdir);
 
@@ -172,7 +173,7 @@ static int fill_inode(struct inode *inode, int isdir)
 
 	if (IS_ERR(page)) {
 		errln("failed to get inode (nid: %llu) page, err %ld",
-			vi->nid, PTR_ERR(page));
+		      vi->nid, PTR_ERR(page));
 		return PTR_ERR(page);
 	}
 
@@ -183,32 +184,18 @@ static int fill_inode(struct inode *inode, int isdir)
 	if (!err) {
 		/* setup the new inode */
 		if (S_ISREG(inode->i_mode)) {
-#ifdef CONFIG_EROFS_FS_XATTR
-			inode->i_op = &erofs_generic_xattr_iops;
-#endif
+			inode->i_op = &erofs_generic_iops;
 			inode->i_fop = &generic_ro_fops;
 		} else if (S_ISDIR(inode->i_mode)) {
-			inode->i_op =
-#ifdef CONFIG_EROFS_FS_XATTR
-				&erofs_dir_xattr_iops;
-#else
-				&erofs_dir_iops;
-#endif
+			inode->i_op = &erofs_dir_iops;
 			inode->i_fop = &erofs_dir_fops;
 		} else if (S_ISLNK(inode->i_mode)) {
 			/* by default, page_get_link is used for symlink */
-			inode->i_op =
-#ifdef CONFIG_EROFS_FS_XATTR
-				&erofs_symlink_xattr_iops,
-#else
-				&page_symlink_inode_operations;
-#endif
+			inode->i_op = &erofs_symlink_iops;
 			inode_nohighmem(inode);
 		} else if (S_ISCHR(inode->i_mode) || S_ISBLK(inode->i_mode) ||
 			S_ISFIFO(inode->i_mode) || S_ISSOCK(inode->i_mode)) {
-#ifdef CONFIG_EROFS_FS_XATTR
-			inode->i_op = &erofs_special_inode_operations;
-#endif
+			inode->i_op = &erofs_generic_iops;
 			init_special_inode(inode, inode->i_mode, inode->i_rdev);
 		} else {
 			err = -EIO;
@@ -237,17 +224,54 @@ out_unlock:
 	return err;
 }
 
-struct inode *erofs_iget(struct super_block *sb,
-	erofs_nid_t nid, bool isdir)
+/*
+ * erofs nid is 64bits, but i_ino is 'unsigned long', therefore
+ * we should do more for 32-bit platform to find the right inode.
+ */
+#if BITS_PER_LONG == 32
+static int erofs_ilookup_test_actor(struct inode *inode, void *opaque)
 {
-	struct inode *inode = iget_locked(sb, nid);
+	const erofs_nid_t nid = *(erofs_nid_t *)opaque;
 
-	if (unlikely(inode == NULL))
+	return EROFS_V(inode)->nid == nid;
+}
+
+static int erofs_iget_set_actor(struct inode *inode, void *opaque)
+{
+	const erofs_nid_t nid = *(erofs_nid_t *)opaque;
+
+	inode->i_ino = erofs_inode_hash(nid);
+	return 0;
+}
+#endif
+
+static inline struct inode *erofs_iget_locked(struct super_block *sb,
+					      erofs_nid_t nid)
+{
+	const unsigned long hashval = erofs_inode_hash(nid);
+
+#if BITS_PER_LONG >= 64
+	/* it is safe to use iget_locked for >= 64-bit platform */
+	return iget_locked(sb, hashval);
+#else
+	return iget5_locked(sb, hashval, erofs_ilookup_test_actor,
+		erofs_iget_set_actor, &nid);
+#endif
+}
+
+struct inode *erofs_iget(struct super_block *sb,
+			 erofs_nid_t nid,
+			 bool isdir)
+{
+	struct inode *inode = erofs_iget_locked(sb, nid);
+
+	if (unlikely(!inode))
 		return ERR_PTR(-ENOMEM);
 
 	if (inode->i_state & I_NEW) {
 		int err;
 		struct erofs_vnode *vi = EROFS_V(inode);
+
 		vi->nid = nid;
 
 		err = fill_inode(inode, isdir);
@@ -261,29 +285,26 @@ struct inode *erofs_iget(struct super_block *sb,
 	return inode;
 }
 
+const struct inode_operations erofs_generic_iops = {
 #ifdef CONFIG_EROFS_FS_XATTR
-const struct inode_operations erofs_generic_xattr_iops = {
 	.listxattr = erofs_listxattr,
-};
 #endif
+	.get_acl = erofs_get_acl,
+};
 
-#ifdef CONFIG_EROFS_FS_XATTR
-const struct inode_operations erofs_symlink_xattr_iops = {
+const struct inode_operations erofs_symlink_iops = {
 	.get_link = page_get_link,
-	.listxattr = erofs_listxattr,
-};
-#endif
-
-const struct inode_operations erofs_special_inode_operations = {
 #ifdef CONFIG_EROFS_FS_XATTR
 	.listxattr = erofs_listxattr,
 #endif
+	.get_acl = erofs_get_acl,
 };
 
-#ifdef CONFIG_EROFS_FS_XATTR
-const struct inode_operations erofs_fast_symlink_xattr_iops = {
+const struct inode_operations erofs_fast_symlink_iops = {
 	.get_link = simple_get_link,
+#ifdef CONFIG_EROFS_FS_XATTR
 	.listxattr = erofs_listxattr,
-};
 #endif
+	.get_acl = erofs_get_acl,
+};
 

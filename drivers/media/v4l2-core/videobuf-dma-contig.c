@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * helper functions for physically contiguous capture buffers
  *
@@ -8,10 +9,6 @@
  *
  * Based on videobuf-vmalloc.c,
  * (c) 2007 Mauro Carvalho Chehab, <mchehab@kernel.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2
  */
 
 #include <linux/init.h>
@@ -248,7 +245,7 @@ static int __videobuf_iolock(struct videobuf_queue *q,
 
 		/* All handling should be done by __videobuf_mmap_mapper() */
 		if (!mem->vaddr) {
-			dev_err(q->dev, "memory is not alloced/mmapped.\n");
+			dev_err(q->dev, "memory is not allocated/mmapped.\n");
 			return -EINVAL;
 		}
 		break;

@@ -1,9 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015 Pablo Neira Ayuso <pablo@netfilter.org>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published by
- * the Free Software Foundation.
  */
 
 #include <linux/kernel.h>
@@ -52,8 +49,6 @@ static int nft_fwd_netdev_init(const struct nft_ctx *ctx,
 	priv->sreg_dev = nft_parse_register(tb[NFTA_FWD_SREG_DEV]);
 	return nft_validate_register_load(priv->sreg_dev, sizeof(int));
 }
-
-static const struct nft_expr_ops nft_fwd_netdev_ingress_ops;
 
 static int nft_fwd_netdev_dump(struct sk_buff *skb, const struct nft_expr *expr)
 {
@@ -168,8 +163,6 @@ static int nft_fwd_neigh_init(const struct nft_ctx *ctx,
 
 	return nft_validate_register_load(priv->sreg_addr, addr_len);
 }
-
-static const struct nft_expr_ops nft_fwd_netdev_ingress_ops;
 
 static int nft_fwd_neigh_dump(struct sk_buff *skb, const struct nft_expr *expr)
 {

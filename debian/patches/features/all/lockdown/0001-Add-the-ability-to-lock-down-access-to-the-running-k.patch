@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Date: Wed, 8 Nov 2017 15:11:31 +0000
-Subject: [01/29] Add the ability to lock down access to the running kernel
+Date: Mon, 18 Feb 2019 12:44:57 +0000
+Subject: [01/30] Add the ability to lock down access to the running kernel
  image
-Origin: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git/commit?id=6d350e2534bfaaaa3e523484b2ca44d22377e951
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git/commit?id=160a99536afc317b337212dd40eaba341702343e
 
 Provide a single call to allow kernel code to determine whether the system
 should be locked down, thereby disallowing various accesses that might
@@ -13,19 +13,19 @@ MSR registers and disallowing hibernation,
 Signed-off-by: David Howells <dhowells@redhat.com>
 Acked-by: James Morris <james.l.morris@oracle.com>
 ---
- include/linux/kernel.h   | 17 ++++++++++++++
- include/linux/security.h |  8 +++++++
- security/Kconfig         |  8 +++++++
- security/Makefile        |  3 +++
- security/lock_down.c     | 60 ++++++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 96 insertions(+)
+ include/linux/kernel.h   | 17 ++++++++++++
+ include/linux/security.h |  9 +++++-
+ security/Kconfig         |  8 ++++++
+ security/Makefile        |  3 ++
+ security/lock_down.c     | 60 ++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 96 insertions(+), 1 deletion(-)
  create mode 100644 security/lock_down.c
 
 diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 0ad4c3044cf9..362da2e4bf53 100644
+index 8f0e68e250a7..833bf32ce4e6 100644
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
-@@ -287,6 +287,23 @@ static inline void refcount_error_report(struct pt_regs *regs, const char *err)
+@@ -340,6 +340,23 @@ static inline void refcount_error_report(struct pt_regs *regs, const char *err)
  { }
  #endif
  
@@ -50,13 +50,14 @@ index 0ad4c3044cf9..362da2e4bf53 100644
  int __must_check _kstrtoul(const char *s, unsigned int base, unsigned long *res);
  int __must_check _kstrtol(const char *s, unsigned int base, long *res);
 diff --git a/include/linux/security.h b/include/linux/security.h
-index ce6265960d6c..310775476b68 100644
+index dbfb5a66babb..35f0be540e0b 100644
 --- a/include/linux/security.h
 +++ b/include/linux/security.h
-@@ -1753,5 +1753,13 @@ static inline void free_secdata(void *secdata)
- { }
+@@ -1793,5 +1793,12 @@ static inline void security_bpf_prog_free(struct bpf_prog_aux *aux)
  #endif /* CONFIG_SECURITY */
+ #endif /* CONFIG_BPF_SYSCALL */
  
+-#endif /* ! __LINUX_SECURITY_H */
 +#ifdef CONFIG_LOCK_DOWN_KERNEL
 +extern void __init init_lockdown(void);
 +#else
@@ -64,14 +65,13 @@ index ce6265960d6c..310775476b68 100644
 +{
 +}
 +#endif
-+
- #endif /* ! __LINUX_SECURITY_H */
  
++#endif /* ! __LINUX_SECURITY_H */
 diff --git a/security/Kconfig b/security/Kconfig
-index e8e449444e65..8e01fd59ae7e 100644
+index e4fe2f3c2c65..14a6f154805d 100644
 --- a/security/Kconfig
 +++ b/security/Kconfig
-@@ -205,6 +205,14 @@ config STATIC_USERMODEHELPER_PATH
+@@ -230,6 +230,14 @@ config STATIC_USERMODEHELPER_PATH
  	  If you wish for all usermode helper programs to be disabled,
  	  specify an empty string here (i.e. "").
  
@@ -83,14 +83,14 @@ index e8e449444e65..8e01fd59ae7e 100644
 +	  turns off various features that might otherwise allow access to the
 +	  kernel image (eg. setting MSR registers).
 +
- source security/selinux/Kconfig
- source security/smack/Kconfig
- source security/tomoyo/Kconfig
+ source "security/selinux/Kconfig"
+ source "security/smack/Kconfig"
+ source "security/tomoyo/Kconfig"
 diff --git a/security/Makefile b/security/Makefile
-index f2d71cdb8e19..8c4a43e3d4e0 100644
+index 4d2d3782ddef..507ac8c520ce 100644
 --- a/security/Makefile
 +++ b/security/Makefile
-@@ -29,3 +29,6 @@ obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
+@@ -30,3 +30,6 @@ obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
  # Object integrity file lists
  subdir-$(CONFIG_INTEGRITY)		+= integrity
  obj-$(CONFIG_INTEGRITY)			+= integrity/

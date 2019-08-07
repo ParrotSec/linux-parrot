@@ -1,10 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * aQuantia Corporation Network Driver
  * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
  */
 
 /* File hw_atl_b0_internal.h: Definition of Atlantic B0 chip specific
@@ -67,12 +64,6 @@
 #define HW_ATL_B0_MPI_SPEED_MSK         0xFFFFU
 #define HW_ATL_B0_MPI_SPEED_SHIFT       16U
 
-#define HW_ATL_B0_RATE_10G              BIT(0)
-#define HW_ATL_B0_RATE_5G               BIT(1)
-#define HW_ATL_B0_RATE_2G5              BIT(3)
-#define HW_ATL_B0_RATE_1G               BIT(4)
-#define HW_ATL_B0_RATE_100M             BIT(5)
-
 #define HW_ATL_B0_TXBUF_MAX  160U
 #define HW_ATL_B0_RXBUF_MAX  320U
 
@@ -84,7 +75,7 @@
 #define HW_ATL_B0_TC_MAX 1U
 #define HW_ATL_B0_RSS_MAX 8U
 
-#define HW_ATL_B0_LRO_RXD_MAX 2U
+#define HW_ATL_B0_LRO_RXD_MAX 16U
 #define HW_ATL_B0_RS_SLIP_ENABLED  0U
 
 /* (256k -1(max pay_len) - 54(header)) */

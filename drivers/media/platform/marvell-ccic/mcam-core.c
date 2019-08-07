@@ -200,7 +200,6 @@ struct mcam_vb_buffer {
 	struct list_head queue;
 	struct mcam_dma_desc *dma_desc;	/* Descriptor virtual address */
 	dma_addr_t dma_desc_pa;		/* Descriptor physical address */
-	int dma_desc_nent;		/* Number of mapped descriptors */
 };
 
 static inline struct mcam_vb_buffer *vb_to_mvb(struct vb2_v4l2_buffer *vb)
@@ -608,9 +607,11 @@ static void mcam_dma_contig_done(struct mcam_camera *cam, int frame)
 static void mcam_sg_next_buffer(struct mcam_camera *cam)
 {
 	struct mcam_vb_buffer *buf;
+	struct sg_table *sg_table;
 
 	buf = list_first_entry(&cam->buffers, struct mcam_vb_buffer, queue);
 	list_del_init(&buf->queue);
+	sg_table = vb2_dma_sg_plane_desc(&buf->vb_buf.vb2_buf, 0);
 	/*
 	 * Very Bad Not Good Things happen if you don't clear
 	 * C1_DESC_ENA before making any descriptor changes.
@@ -618,7 +619,7 @@ static void mcam_sg_next_buffer(struct mcam_camera *cam)
 	mcam_reg_clear_bit(cam, REG_CTRL1, C1_DESC_ENA);
 	mcam_reg_write(cam, REG_DMA_DESC_Y, buf->dma_desc_pa);
 	mcam_reg_write(cam, REG_DESC_LEN_Y,
-			buf->dma_desc_nent*sizeof(struct mcam_dma_desc));
+			sg_table->nents * sizeof(struct mcam_dma_desc));
 	mcam_reg_write(cam, REG_DESC_LEN_U, 0);
 	mcam_reg_write(cam, REG_DESC_LEN_V, 0);
 	mcam_reg_set_bit(cam, REG_CTRL1, C1_DESC_ENA);
@@ -794,7 +795,7 @@ static void mcam_ctlr_image(struct mcam_camera *cam)
 	/*
 	 * This field controls the generation of EOF(DVP only)
 	 */
-	if (cam->bus_type != V4L2_MBUS_CSI2)
+	if (cam->bus_type != V4L2_MBUS_CSI2_DPHY)
 		mcam_reg_set_bit(cam, REG_CTRL0,
 				C0_EOF_VSYNC | C0_VEDGE_CTRL);
 }
@@ -1023,7 +1024,7 @@ static int mcam_read_setup(struct mcam_camera *cam)
 		cam->calc_dphy(cam);
 	cam_dbg(cam, "camera: DPHY sets: dphy3=0x%x, dphy5=0x%x, dphy6=0x%x\n",
 			cam->dphy[0], cam->dphy[1], cam->dphy[2]);
-	if (cam->bus_type == V4L2_MBUS_CSI2)
+	if (cam->bus_type == V4L2_MBUS_CSI2_DPHY)
 		mcam_enable_mipi(cam);
 	else
 		mcam_disable_mipi(cam);
@@ -1303,9 +1304,9 @@ static int mcam_vidioc_querycap(struct file *file, void *priv,
 {
 	struct mcam_camera *cam = video_drvdata(file);
 
-	strcpy(cap->driver, "marvell_ccic");
-	strcpy(cap->card, "marvell_ccic");
-	strlcpy(cap->bus_info, cam->bus_info, sizeof(cap->bus_info));
+	strscpy(cap->driver, "marvell_ccic", sizeof(cap->driver));
+	strscpy(cap->card, "marvell_ccic", sizeof(cap->card));
+	strscpy(cap->bus_info, cam->bus_info, sizeof(cap->bus_info));
 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE |
 		V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
@@ -1318,8 +1319,8 @@ static int mcam_vidioc_enum_fmt_vid_cap(struct file *filp,
 {
 	if (fmt->index >= N_MCAM_FMTS)
 		return -EINVAL;
-	strlcpy(fmt->description, mcam_formats[fmt->index].desc,
-			sizeof(fmt->description));
+	strscpy(fmt->description, mcam_formats[fmt->index].desc,
+		sizeof(fmt->description));
 	fmt->pixelformat = mcam_formats[fmt->index].pixelformat;
 	return 0;
 }
@@ -1421,7 +1422,7 @@ static int mcam_vidioc_enum_input(struct file *filp, void *priv,
 		return -EINVAL;
 
 	input->type = V4L2_INPUT_TYPE_CAMERA;
-	strcpy(input->name, "Camera");
+	strscpy(input->name, "Camera", sizeof(input->name));
 	return 0;
 }
 

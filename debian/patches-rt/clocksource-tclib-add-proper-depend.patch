@@ -1,0 +1,25 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 29 May 2019 15:50:36 +0200
+Subject: clocksource: TCLIB: Add proper depend
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+
+Add a depends statement on ATMEL_TCLIB to ensure that it is not built on !ATMEL
+if COMPILE_TEST is enabled. The build will fail because the driver depends on
+`atmel_tc_divisors'.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/clocksource/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/clocksource/Kconfig
++++ b/drivers/clocksource/Kconfig
+@@ -424,7 +424,7 @@ config ATMEL_ST
+ 
+ config ATMEL_TCB_CLKSRC
+ 	bool "Atmel TC Block timer driver" if COMPILE_TEST
+-	depends on HAS_IOMEM
++	depends on HAS_IOMEM && ATMEL_TCLIB
+ 	select TIMER_OF if OF
+ 	help
+ 	  Support for Timer Counter Blocks on Atmel SoCs.

@@ -12,12 +12,6 @@ CONFIG_ARCH_BCM=y
 CONFIG_ARCH_BCM2835=y
 
 ##
-## file: drivers/base/Kconfig
-##
-CONFIG_DMA_CMA=y
-CONFIG_CMA_SIZE_MBYTES=32
-
-##
 ## file: drivers/bluetooth/Kconfig
 ##
 CONFIG_BT_HCIUART=m
@@ -99,6 +93,11 @@ CONFIG_SPI_BCM2835AUX=y
 CONFIG_SND_BCM2835=m
 
 ##
+## file: drivers/staging/vc04_services/bcm2835-camera/Kconfig
+##
+CONFIG_VIDEO_BCM2835=m
+
+##
 ## file: drivers/thermal/broadcom/Kconfig
 ##
 CONFIG_BCM2835_THERMAL=y
@@ -157,6 +156,12 @@ CONFIG_FB_SIMPLE=y
 ## file: drivers/watchdog/Kconfig
 ##
 CONFIG_BCM2835_WDT=y
+
+##
+## file: kernel/dma/Kconfig
+##
+CONFIG_DMA_CMA=y
+CONFIG_CMA_SIZE_MBYTES=32
 
 ##
 ## file: kernel/power/Kconfig

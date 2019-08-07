@@ -1,9 +1,6 @@
 Package: linux-headers-@abiname@@localversion@
 Build-Profiles: <!stage1 !pkg.linux.nokernel>
 Depends: linux-headers-@abiname@-common@localversion_headers@ (= ${source:Version}), linux-kbuild-@version@ (>= ${source:Version}), ${misc:Depends}
-Breaks: linux-headers-4.19.37-parrot1-common, linux-headers-4.19.37-parrot1-amd64, linux-headers-4.19.37-6parrot2-common, linux-headers-4.19.37-6parrot2-amd64
-Conflicts: linux-headers-4.19.37-parrot1-common, linux-headers-4.19.37-parrot1-amd64, linux-headers-4.19.37-6parrot2-common, linux-headers-4.19.37-6parrot2-amd64
-Replaces: linux-headers-4.19.37-parrot1-common, linux-headers-4.19.37-parrot1-amd64, linux-headers-4.19.37-6parrot2-common, linux-headers-4.19.37-6parrot2-amd64
 Description: Header files for Linux @abiname@@localversion@
  This package provides the architecture-specific kernel header files
  for Linux kernel @abiname@@localversion@, generally

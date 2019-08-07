@@ -11,7 +11,6 @@
 ##
 CONFIG_ARCH_MULTI_V5=y
 # CONFIG_ARCH_MULTI_V7 is not set
-CONFIG_PCI=y
 CONFIG_HIGHMEM=y
 CONFIG_UACCESS_WITH_MEMCPY=y
 CONFIG_ZBOOT_ROM_TEXT=0x0
@@ -94,7 +93,6 @@ CONFIG_ARM_THUMB=y
 ##
 ## file: block/Kconfig.iosched
 ##
-CONFIG_IOSCHED_DEADLINE=m
 CONFIG_MQ_IOSCHED_DEADLINE=m
 
 ##
@@ -323,17 +321,6 @@ CONFIG_ISDN_DRV_AVMB1_T1PCI=m
 CONFIG_ISDN_DRV_AVMB1_C4=m
 
 ##
-## file: drivers/isdn/hardware/eicon/Kconfig
-##
-CONFIG_CAPI_EICON=y
-CONFIG_ISDN_DIVAS=m
-CONFIG_ISDN_DIVAS_BRIPCI=y
-CONFIG_ISDN_DIVAS_PRIPCI=y
-CONFIG_ISDN_DIVAS_DIVACAPI=m
-CONFIG_ISDN_DIVAS_USERIDI=m
-CONFIG_ISDN_DIVAS_MAINT=m
-
-##
 ## file: drivers/leds/Kconfig
 ##
 CONFIG_LEDS_NS2=m
@@ -369,9 +356,7 @@ CONFIG_MMC_MVSDIO=m
 ## file: drivers/mtd/Kconfig
 ##
 CONFIG_MTD=m
-# CONFIG_MTD_REDBOOT_PARTS is not set
 CONFIG_MTD_CMDLINE_PARTS=m
-# CONFIG_MTD_AFS_PARTS is not set
 CONFIG_MTD_OF_PARTS=m
 CONFIG_MTD_BLOCK=m
 CONFIG_FTL=m
@@ -427,7 +412,8 @@ CONFIG_MTD_CFI_STAA=m
 ## file: drivers/mtd/maps/Kconfig
 ##
 # CONFIG_MTD_COMPLEX_MAPPINGS is not set
-CONFIG_MTD_PHYSMAP_OF=m
+CONFIG_MTD_PHYSMAP=m
+CONFIG_MTD_PHYSMAP_OF=y
 # CONFIG_MTD_IMPA7 is not set
 # CONFIG_MTD_INTEL_VR_NOR is not set
 # CONFIG_MTD_PLATRAM is not set
@@ -440,10 +426,16 @@ CONFIG_MTD_PHYSMAP_OF=m
 ##
 ## file: drivers/mtd/nand/raw/Kconfig
 ##
-CONFIG_MTD_NAND=m
-# CONFIG_MTD_NAND_DISKONCHIP is not set
+CONFIG_MTD_RAW_NAND=m
 # CONFIG_MTD_NAND_CAFE is not set
 CONFIG_MTD_NAND_ORION=m
+# CONFIG_MTD_NAND_DISKONCHIP is not set
+
+##
+## file: drivers/mtd/parsers/Kconfig
+##
+# CONFIG_MTD_AFS_PARTS is not set
+# CONFIG_MTD_REDBOOT_PARTS is not set
 
 ##
 ## file: drivers/mtd/spi-nor/Kconfig
@@ -523,6 +515,11 @@ CONFIG_MVMDIO=m
 ##
 CONFIG_MWIFIEX=m
 CONFIG_MWIFIEX_SDIO=m
+
+##
+## file: drivers/pci/Kconfig
+##
+CONFIG_PCI=y
 
 ##
 ## file: drivers/pci/controller/Kconfig
@@ -636,14 +633,9 @@ CONFIG_SPI_ORION=m
 # CONFIG_SSB is not set
 
 ##
-## file: drivers/staging/xgifb/Kconfig
-##
-CONFIG_FB_XGI=m
-
-##
 ## file: drivers/thermal/Kconfig
 ##
-CONFIG_THERMAL=m
+CONFIG_THERMAL=y
 CONFIG_KIRKWOOD_THERMAL=m
 
 ##
@@ -726,6 +718,11 @@ CONFIG_ORION_WATCHDOG=m
 # CONFIG_FS_DAX is not set
 
 ##
+## file: fs/crypto/Kconfig
+##
+# CONFIG_FS_ENCRYPTION is not set
+
+##
 ## file: fs/nls/Kconfig
 ##
 CONFIG_NLS=m
@@ -804,15 +801,6 @@ CONFIG_FLATMEM_MANUAL=y
 ## file: net/atm/Kconfig
 ##
 CONFIG_ATM=m
-
-##
-## file: net/ax25/Kconfig
-##
-CONFIG_HAMRADIO=y
-CONFIG_AX25=m
-# CONFIG_AX25_DAMA_SLAVE is not set
-CONFIG_NETROM=m
-CONFIG_ROSE=m
 
 ##
 ## file: net/ipv6/Kconfig

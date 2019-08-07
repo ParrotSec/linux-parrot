@@ -1,10 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) Sistina Software, Inc.  1997-2003 All rights reserved.
  * Copyright (C) 2004-2007 Red Hat, Inc.  All rights reserved.
- *
- * This copyrighted material is made available to anyone wishing to use,
- * modify, copy, or redistribute it subject to the terms and conditions
- * of the GNU General Public License version 2.
  */
 
 /*
@@ -1183,7 +1180,7 @@ static int print_message(struct gfs2_quota_data *qd, char *type)
  *
  * Returns: 0 on success.
  *                  min_req = ap->min_target ? ap->min_target : ap->target;
- *                  quota must allow atleast min_req blks for success and
+ *                  quota must allow at least min_req blks for success and
  *                  ap->allowed is set to the number of blocks allowed
  *
  *          -EDQUOT otherwise, quota violation. ap->allowed is set to number

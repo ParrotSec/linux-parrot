@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  *  linux/arch/arm/mach-mmp/irq.c
  *
@@ -6,10 +7,6 @@
  *
  *  Author:	Bin Yang <bin.yang@marvell.com>
  *              Haojian Zhuang <haojian.zhuang@gmail.com>
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License version 2 as
- *  published by the Free Software Foundation.
  */
 
 #include <linux/module.h>
@@ -179,7 +176,7 @@ static int mmp_irq_domain_xlate(struct irq_domain *d, struct device_node *node,
 	return 0;
 }
 
-const struct irq_domain_ops mmp_irq_domain_ops = {
+static const struct irq_domain_ops mmp_irq_domain_ops = {
 	.map		= mmp_irq_domain_map,
 	.xlate		= mmp_irq_domain_xlate,
 };

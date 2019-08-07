@@ -935,9 +935,8 @@ qed_iwarp_return_ep(struct qed_hwfn *p_hwfn, struct qed_iwarp_ep *ep)
 	}
 	spin_lock_bh(&p_hwfn->p_rdma_info->iwarp.iw_lock);
 
-	list_del(&ep->list_entry);
-	list_add_tail(&ep->list_entry,
-		      &p_hwfn->p_rdma_info->iwarp.ep_free_list);
+	list_move_tail(&ep->list_entry,
+		       &p_hwfn->p_rdma_info->iwarp.ep_free_list);
 
 	spin_unlock_bh(&p_hwfn->p_rdma_info->iwarp.iw_lock);
 }
@@ -2279,8 +2278,8 @@ static void qed_iwarp_process_pending_pkts(struct qed_hwfn *p_hwfn)
 		if (rc == -EBUSY)
 			break;
 
-		list_del(&mpa_buf->list_entry);
-		list_add_tail(&mpa_buf->list_entry, &iwarp_info->mpa_buf_list);
+		list_move_tail(&mpa_buf->list_entry,
+			       &iwarp_info->mpa_buf_list);
 
 		if (rc) {	/* different error, don't continue */
 			DP_NOTICE(p_hwfn, "process pkts failed rc=%d\n", rc);
@@ -2709,6 +2708,8 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
 	data.input.rx_num_desc = n_ooo_bufs * 2;
 	data.input.tx_num_desc = data.input.rx_num_desc;
 	data.input.tx_max_bds_per_packet = QED_IWARP_MAX_BDS_PER_FPDU;
+	data.input.tx_tc = PKT_LB_TC;
+	data.input.tx_dest = QED_LL2_TX_DEST_LB;
 	data.p_connection_handle = &iwarp_info->ll2_mpa_handle;
 	data.input.secondary_queue = true;
 	data.cbs = &cbs;

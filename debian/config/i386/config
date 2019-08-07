@@ -291,13 +291,6 @@ CONFIG_NET_VENDOR_SMSC=y
 CONFIG_SMC9194=m
 
 ##
-## file: drivers/net/hamradio/Kconfig
-##
-CONFIG_SCC=m
-# CONFIG_SCC_DELAY is not set
-# CONFIG_SCC_TRXECHO is not set
-
-##
 ## file: drivers/net/wan/Kconfig
 ##
 CONFIG_HOSTESS_SV11=m

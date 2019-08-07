@@ -104,8 +104,7 @@ static char *resp_state_name[] = {
 };
 
 /* rxe_recv calls here to add a request packet to the input queue */
-void rxe_resp_queue_pkt(struct rxe_dev *rxe, struct rxe_qp *qp,
-			struct sk_buff *skb)
+void rxe_resp_queue_pkt(struct rxe_qp *qp, struct sk_buff *skb)
 {
 	int must_sched;
 	struct rxe_pkt_info *pkt = SKB_TO_PKT(skb);
@@ -124,12 +123,9 @@ static inline enum resp_states get_req(struct rxe_qp *qp,
 	struct sk_buff *skb;
 
 	if (qp->resp.state == QP_STATE_ERROR) {
-		skb = skb_dequeue(&qp->req_pkts);
-		if (skb) {
-			/* drain request packet queue */
+		while ((skb = skb_dequeue(&qp->req_pkts))) {
 			rxe_drop_ref(qp);
 			kfree_skb(skb);
-			return RESPST_GET_REQ;
 		}
 
 		/* go drain recv wr queue */
@@ -435,6 +431,7 @@ static enum resp_states check_rkey(struct rxe_qp *qp,
 			qp->resp.va = reth_va(pkt);
 			qp->resp.rkey = reth_rkey(pkt);
 			qp->resp.resid = reth_len(pkt);
+			qp->resp.length = reth_len(pkt);
 		}
 		access = (pkt->mask & RXE_READ_MASK) ? IB_ACCESS_REMOTE_READ
 						     : IB_ACCESS_REMOTE_WRITE;
@@ -637,7 +634,7 @@ static struct sk_buff *prepare_ack_packet(struct rxe_qp *qp,
 	if (ack->mask & RXE_ATMACK_MASK)
 		atmack_set_orig(ack, qp->resp.atomic_orig);
 
-	err = rxe_prepare(rxe, ack, skb, &crc);
+	err = rxe_prepare(ack, skb, &crc);
 	if (err) {
 		kfree_skb(skb);
 		return NULL;
@@ -660,7 +657,6 @@ static struct sk_buff *prepare_ack_packet(struct rxe_qp *qp,
 static enum resp_states read_reply(struct rxe_qp *qp,
 				   struct rxe_pkt_info *req_pkt)
 {
-	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 	struct rxe_pkt_info ack_pkt;
 	struct sk_buff *skb;
 	int mtu = qp->mtu;
@@ -739,7 +735,7 @@ static enum resp_states read_reply(struct rxe_qp *qp,
 	p = payload_addr(&ack_pkt) + payload + bth_pad(&ack_pkt);
 	*p = ~icrc;
 
-	err = rxe_xmit_packet(rxe, qp, &ack_pkt, skb);
+	err = rxe_xmit_packet(qp, &ack_pkt, skb);
 	if (err) {
 		pr_err("Failed sending RDMA reply.\n");
 		return RESPST_ERR_RNR;
@@ -838,6 +834,7 @@ static enum resp_states do_complete(struct rxe_qp *qp,
 	struct ib_wc *wc = &cqe.ibwc;
 	struct ib_uverbs_wc *uwc = &cqe.uibwc;
 	struct rxe_recv_wqe *wqe = qp->resp.wqe;
+	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 
 	if (unlikely(!wqe))
 		return RESPST_CLEANUP;
@@ -855,11 +852,14 @@ static enum resp_states do_complete(struct rxe_qp *qp,
 	}
 
 	if (wc->status == IB_WC_SUCCESS) {
+		rxe_counter_inc(rxe, RXE_CNT_RDMA_RECV);
 		wc->opcode = (pkt->mask & RXE_IMMDT_MASK &&
 				pkt->mask & RXE_WRITE_MASK) ?
 					IB_WC_RECV_RDMA_WITH_IMM : IB_WC_RECV;
 		wc->vendor_err = 0;
-		wc->byte_len = wqe->dma.length - wqe->dma.resid;
+		wc->byte_len = (pkt->mask & RXE_IMMDT_MASK &&
+				pkt->mask & RXE_WRITE_MASK) ?
+					qp->resp.length : wqe->dma.length - wqe->dma.resid;
 
 		/* fields after byte_len are different between kernel and user
 		 * space
@@ -903,7 +903,6 @@ static enum resp_states do_complete(struct rxe_qp *qp,
 			}
 
 			if (pkt->mask & RXE_IETH_MASK) {
-				struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 				struct rxe_mem *rmr;
 
 				wc->wc_flags |= IB_WC_WITH_INVALIDATE;
@@ -955,7 +954,6 @@ static int send_ack(struct rxe_qp *qp, struct rxe_pkt_info *pkt,
 	int err = 0;
 	struct rxe_pkt_info ack_pkt;
 	struct sk_buff *skb;
-	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 
 	skb = prepare_ack_packet(qp, pkt, &ack_pkt, IB_OPCODE_RC_ACKNOWLEDGE,
 				 0, psn, syndrome, NULL);
@@ -964,7 +962,7 @@ static int send_ack(struct rxe_qp *qp, struct rxe_pkt_info *pkt,
 		goto err1;
 	}
 
-	err = rxe_xmit_packet(rxe, qp, &ack_pkt, skb);
+	err = rxe_xmit_packet(qp, &ack_pkt, skb);
 	if (err)
 		pr_err_ratelimited("Failed sending ack\n");
 
@@ -978,7 +976,6 @@ static int send_atomic_ack(struct rxe_qp *qp, struct rxe_pkt_info *pkt,
 	int rc = 0;
 	struct rxe_pkt_info ack_pkt;
 	struct sk_buff *skb;
-	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 	struct resp_res *res;
 
 	skb = prepare_ack_packet(qp, pkt, &ack_pkt,
@@ -1006,7 +1003,7 @@ static int send_atomic_ack(struct rxe_qp *qp, struct rxe_pkt_info *pkt,
 	res->last_psn  = ack_pkt.psn;
 	res->cur_psn   = ack_pkt.psn;
 
-	rc = rxe_xmit_packet(rxe, qp, &ack_pkt, skb);
+	rc = rxe_xmit_packet(qp, &ack_pkt, skb);
 	if (rc) {
 		pr_err_ratelimited("Failed sending ack\n");
 		rxe_drop_ref(qp);
@@ -1136,8 +1133,7 @@ static enum resp_states duplicate_request(struct rxe_qp *qp,
 		if (res) {
 			skb_get(res->atomic.skb);
 			/* Resend the result. */
-			rc = rxe_xmit_packet(to_rdev(qp->ibqp.device), qp,
-					     pkt, res->atomic.skb);
+			rc = rxe_xmit_packet(qp, pkt, res->atomic.skb);
 			if (rc) {
 				pr_err("Failed resending result. This flow is not handled - skb ignored\n");
 				rc = RESPST_CLEANUP;

@@ -1,9 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  *  arch/arm/include/asm/uaccess.h
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 #ifndef _ASMARM_UACCESS_H
 #define _ASMARM_UACCESS_H
@@ -59,7 +56,6 @@ extern int __put_user_bad(void);
  * Note that this is actually 0x1,0000,0000
  */
 #define KERNEL_DS	0x00000000
-#define get_ds()	(KERNEL_DS)
 
 #ifdef CONFIG_MMU
 
@@ -86,7 +82,8 @@ static inline void set_fs(mm_segment_t fs)
 #define __range_ok(addr, size) ({ \
 	unsigned long flag, roksum; \
 	__chk_user_ptr(addr);	\
-	__asm__("adds %1, %2, %3; sbcccs %1, %1, %0; movcc %0, #0" \
+	__asm__(".syntax unified\n" \
+		"adds %1, %2, %3; sbcscc %1, %1, %0; movcc %0, #0" \
 		: "=&r" (flag), "=&r" (roksum) \
 		: "r" (addr), "Ir" (size), "0" (current_thread_info()->addr_limit) \
 		: "cc"); \
@@ -112,10 +109,11 @@ static inline void __user *__uaccess_mask_range_ptr(const void __user *ptr,
 	unsigned long tmp;
 
 	asm volatile(
+	"	.syntax unified\n"
 	"	sub	%1, %3, #1\n"
 	"	subs	%1, %1, %0\n"
 	"	addhs	%1, %1, #1\n"
-	"	subhss	%1, %1, %2\n"
+	"	subshs	%1, %1, %2\n"
 	"	movlo	%0, #0\n"
 	: "+r" (safe_ptr), "=&r" (tmp)
 	: "r" (size), "r" (current_thread_info()->addr_limit)
@@ -279,7 +277,7 @@ static inline void set_fs(mm_segment_t fs)
 
 #endif /* CONFIG_MMU */
 
-#define access_ok(type, addr, size)	(__range_ok(addr, size) == 0)
+#define access_ok(addr, size)	(__range_ok(addr, size) == 0)
 
 #define user_addr_max() \
 	(uaccess_kernel() ? ~0UL : get_fs())
@@ -349,6 +347,13 @@ do {									\
 #define __get_user_asm_byte(x, addr, err)			\
 	__get_user_asm(x, addr, err, ldrb)
 
+#if __LINUX_ARM_ARCH__ >= 6
+
+#define __get_user_asm_half(x, addr, err)			\
+	__get_user_asm(x, addr, err, ldrh)
+
+#else
+
 #ifndef __ARMEB__
 #define __get_user_asm_half(x, __gu_addr, err)			\
 ({								\
@@ -366,6 +371,8 @@ do {									\
 	(x) = (__b1 << 8) | __b2;				\
 })
 #endif
+
+#endif /* __LINUX_ARM_ARCH__ >= 6 */
 
 #define __get_user_asm_word(x, addr, err)			\
 	__get_user_asm(x, addr, err, ldr)
@@ -442,6 +449,13 @@ do {									\
 #define __put_user_asm_byte(x, __pu_addr, err)			\
 	__put_user_asm(x, __pu_addr, err, strb)
 
+#if __LINUX_ARM_ARCH__ >= 6
+
+#define __put_user_asm_half(x, __pu_addr, err)			\
+	__put_user_asm(x, __pu_addr, err, strh)
+
+#else
+
 #ifndef __ARMEB__
 #define __put_user_asm_half(x, __pu_addr, err)			\
 ({								\
@@ -457,6 +471,8 @@ do {									\
 	__put_user_asm_byte(__temp, __pu_addr + 1, err);	\
 })
 #endif
+
+#endif /* __LINUX_ARM_ARCH__ >= 6 */
 
 #define __put_user_asm_word(x, __pu_addr, err)			\
 	__put_user_asm(x, __pu_addr, err, str)
@@ -560,7 +576,7 @@ raw_copy_to_user(void __user *to, const void *from, unsigned long n)
 
 static inline unsigned long __must_check clear_user(void __user *to, unsigned long n)
 {
-	if (access_ok(VERIFY_WRITE, to, n))
+	if (access_ok(to, n))
 		n = __clear_user(to, n);
 	return n;
 }

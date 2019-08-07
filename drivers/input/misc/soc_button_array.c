@@ -1,13 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Supports for the button array on SoC tablets originally running
  * Windows 8.
  *
  * (C) Copyright 2014 Intel Corporation
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; version 2
- * of the License.
  */
 
 #include <linux/module.h>
@@ -185,6 +181,10 @@ static int soc_button_parse_btn_desc(struct device *dev,
 		info->name = "power";
 		info->event_code = KEY_POWER;
 		info->wakeup = true;
+	} else if (upage == 0x01 && usage == 0xca) {
+		info->name = "rotation lock switch";
+		info->event_type = EV_SW;
+		info->event_code = SW_ROTATE_LOCK;
 	} else if (upage == 0x07 && usage == 0xe3) {
 		info->name = "home";
 		info->event_code = KEY_LEFTMETA;

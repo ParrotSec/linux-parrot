@@ -1,10 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # Makefile for the RISC-V Linux kernel
 #
 
 ifdef CONFIG_FTRACE
 CFLAGS_REMOVE_ftrace.o = -pg
-CFLAGS_REMOVE_setup.o = -pg
 endif
 
 extra-y += head.o
@@ -29,8 +29,7 @@ obj-y	+= vdso.o
 obj-y	+= cacheinfo.o
 obj-y	+= vdso/
 
-CFLAGS_setup.o := -mcmodel=medany
-
+obj-$(CONFIG_FPU)		+= fpu.o
 obj-$(CONFIG_SMP)		+= smpboot.o
 obj-$(CONFIG_SMP)		+= smp.o
 obj-$(CONFIG_MODULES)		+= module.o

@@ -1,19 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2007-2018  B.A.T.M.A.N. contributors:
+/* Copyright (C) 2007-2019  B.A.T.M.A.N. contributors:
  *
  * Marek Lindner, Simon Wunderlich
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "hard-interface.h"
@@ -764,11 +752,6 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
 	hard_iface->soft_iface = soft_iface;
 	bat_priv = netdev_priv(hard_iface->soft_iface);
 
-	if (bat_priv->num_ifaces >= UINT_MAX) {
-		ret = -ENOSPC;
-		goto err_dev;
-	}
-
 	ret = netdev_master_upper_dev_link(hard_iface->net_dev,
 					   soft_iface, NULL, NULL, NULL);
 	if (ret)
@@ -778,16 +761,7 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
 	if (ret < 0)
 		goto err_upper;
 
-	hard_iface->if_num = bat_priv->num_ifaces;
-	bat_priv->num_ifaces++;
 	hard_iface->if_status = BATADV_IF_INACTIVE;
-	ret = batadv_orig_hash_add_if(hard_iface, bat_priv->num_ifaces);
-	if (ret < 0) {
-		bat_priv->algo_ops->iface.disable(hard_iface);
-		bat_priv->num_ifaces--;
-		hard_iface->if_status = BATADV_IF_NOT_IN_USE;
-		goto err_upper;
-	}
 
 	kref_get(&hard_iface->refcount);
 	hard_iface->batman_adv_ptype.type = ethertype;
@@ -821,6 +795,9 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
 
 	batadv_hardif_recalc_extra_skbroom(soft_iface);
 
+	if (bat_priv->algo_ops->iface.enabled)
+		bat_priv->algo_ops->iface.enabled(hard_iface);
+
 out:
 	return 0;
 
@@ -832,6 +809,33 @@ err_dev:
 err:
 	batadv_hardif_put(hard_iface);
 	return ret;
+}
+
+/**
+ * batadv_hardif_cnt() - get number of interfaces enslaved to soft interface
+ * @soft_iface: soft interface to check
+ *
+ * This function is only using RCU for locking - the result can therefore be
+ * off when another functions is modifying the list at the same time. The
+ * caller can use the rtnl_lock to make sure that the count is accurate.
+ *
+ * Return: number of connected/enslaved hard interfaces
+ */
+static size_t batadv_hardif_cnt(const struct net_device *soft_iface)
+{
+	struct batadv_hard_iface *hard_iface;
+	size_t count = 0;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(hard_iface, &batadv_hardif_list, list) {
+		if (hard_iface->soft_iface != soft_iface)
+			continue;
+
+		count++;
+	}
+	rcu_read_unlock();
+
+	return count;
 }
 
 /**
@@ -856,9 +860,6 @@ void batadv_hardif_disable_interface(struct batadv_hard_iface *hard_iface,
 	dev_remove_pack(&hard_iface->batman_adv_ptype);
 	batadv_hardif_put(hard_iface);
 
-	bat_priv->num_ifaces--;
-	batadv_orig_hash_del_if(hard_iface, bat_priv->num_ifaces);
-
 	primary_if = batadv_primary_if_get_selected(bat_priv);
 	if (hard_iface == primary_if) {
 		struct batadv_hard_iface *new_if;
@@ -882,7 +883,7 @@ void batadv_hardif_disable_interface(struct batadv_hard_iface *hard_iface,
 	batadv_hardif_recalc_extra_skbroom(hard_iface->soft_iface);
 
 	/* nobody uses this interface anymore */
-	if (bat_priv->num_ifaces == 0) {
+	if (batadv_hardif_cnt(hard_iface->soft_iface) <= 1) {
 		batadv_gw_check_client_stop(bat_priv);
 
 		if (autodel == BATADV_IF_CLEANUP_AUTO)
@@ -918,7 +919,6 @@ batadv_hardif_add_interface(struct net_device *net_dev)
 	if (ret)
 		goto free_if;
 
-	hard_iface->if_num = 0;
 	hard_iface->net_dev = net_dev;
 	hard_iface->soft_iface = NULL;
 	hard_iface->if_status = BATADV_IF_NOT_IN_USE;
@@ -943,6 +943,7 @@ batadv_hardif_add_interface(struct net_device *net_dev)
 	batadv_check_known_mac_addr(hard_iface->net_dev);
 	kref_get(&hard_iface->refcount);
 	list_add_tail_rcu(&hard_iface->list, &batadv_hardif_list);
+	batadv_hardif_generation++;
 
 	return hard_iface;
 
@@ -985,6 +986,7 @@ void batadv_hardif_remove_interfaces(void)
 	list_for_each_entry_safe(hard_iface, hard_iface_tmp,
 				 &batadv_hardif_list, list) {
 		list_del_rcu(&hard_iface->list);
+		batadv_hardif_generation++;
 		batadv_hardif_remove_interface(hard_iface);
 	}
 	rtnl_unlock();
@@ -1046,6 +1048,7 @@ static int batadv_hard_if_event(struct notifier_block *this,
 	case NETDEV_UNREGISTER:
 	case NETDEV_PRE_TYPE_CHANGE:
 		list_del_rcu(&hard_iface->list);
+		batadv_hardif_generation++;
 
 		batadv_hardif_remove_interface(hard_iface);
 		break;

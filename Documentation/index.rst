@@ -22,10 +22,7 @@ The following describes the license of the Linux kernel source code
 (GPLv2), how to properly mark the license of individual files in the source
 tree, as well as links to the full license text.
 
-.. toctree::
-   :maxdepth: 2
-
-   process/license-rules.rst
+* :ref:`kernel_licensing`
 
 User-oriented documentation
 ---------------------------
@@ -37,6 +34,16 @@ trying to get it to work optimally on a given system.
    :maxdepth: 2
 
    admin-guide/index
+
+Firmware-related documentation
+------------------------------
+The following holds information on the kernel's expectations regarding the
+platform firmwares.
+
+.. toctree::
+   :maxdepth: 2
+
+   firmware-guide/index
 
 Application-developer documentation
 -----------------------------------
@@ -86,6 +93,7 @@ needed).
    media/index
    networking/index
    input/index
+   hwmon/index
    gpu/index
    security/index
    sound/index
@@ -93,6 +101,7 @@ needed).
    filesystems/index
    vm/index
    bpf/index
+   misc-devices/index
 
 Architecture-specific documentation
 -----------------------------------
@@ -103,7 +112,9 @@ implementation.
 .. toctree::
    :maxdepth: 2
 
+   x86/index
    sh/index
+   x86/index
 
 Filesystem Documentation
 ------------------------

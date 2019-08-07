@@ -1,13 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2013 Politecnico di Torino, Italy
  *                    TORSEC group -- http://security.polito.it
  *
  * Author: Roberto Sassu <roberto.sassu@polito.it>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation, version 2 of the
- * License.
  *
  * File: ima_template.c
  *      Helpers to manage template descriptors.
@@ -32,7 +28,7 @@ static struct ima_template_desc builtin_templates[] = {
 static LIST_HEAD(defined_templates);
 static DEFINE_SPINLOCK(template_list);
 
-static struct ima_template_field supported_fields[] = {
+static const struct ima_template_field supported_fields[] = {
 	{.field_id = "d", .field_init = ima_eventdigest_init,
 	 .field_show = ima_show_template_digest},
 	{.field_id = "n", .field_init = ima_eventname_init,
@@ -49,7 +45,7 @@ static struct ima_template_field supported_fields[] = {
 static struct ima_template_desc *ima_template;
 static struct ima_template_desc *lookup_template_desc(const char *name);
 static int template_desc_init_fields(const char *template_fmt,
-				     struct ima_template_field ***fields,
+				     const struct ima_template_field ***fields,
 				     int *num_fields);
 
 static int __init ima_template_setup(char *str)
@@ -125,7 +121,8 @@ static struct ima_template_desc *lookup_template_desc(const char *name)
 	return found ? template_desc : NULL;
 }
 
-static struct ima_template_field *lookup_template_field(const char *field_id)
+static const struct ima_template_field *
+lookup_template_field(const char *field_id)
 {
 	int i;
 
@@ -153,11 +150,11 @@ static int template_fmt_size(const char *template_fmt)
 }
 
 static int template_desc_init_fields(const char *template_fmt,
-				     struct ima_template_field ***fields,
+				     const struct ima_template_field ***fields,
 				     int *num_fields)
 {
 	const char *template_fmt_ptr;
-	struct ima_template_field *found_fields[IMA_TEMPLATE_NUM_FIELDS_MAX];
+	const struct ima_template_field *found_fields[IMA_TEMPLATE_NUM_FIELDS_MAX];
 	int template_num_fields;
 	int i, len;
 

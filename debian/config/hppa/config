@@ -28,7 +28,6 @@ CONFIG_PATA_LEGACY=m
 ## file: drivers/block/Kconfig
 ##
 # CONFIG_BLK_DEV_FD is not set
-# CONFIG_BLK_DEV_DAC960 is not set
 # CONFIG_BLK_DEV_UMEM is not set
 # CONFIG_BLK_DEV_SX8 is not set
 CONFIG_CDROM_PKTCDVD=m
@@ -52,6 +51,7 @@ CONFIG_PPDEV=m
 ##
 ## file: drivers/eisa/Kconfig
 ##
+CONFIG_EISA=y
 CONFIG_EISA_NAMES=y
 
 ##
@@ -364,9 +364,7 @@ CONFIG_HPPB=y
 CONFIG_IOMMU_CCIO=y
 CONFIG_GSC_LASI=y
 CONFIG_GSC_WAX=y
-CONFIG_EISA=y
 CONFIG_ISA=y
-CONFIG_PCI=y
 CONFIG_GSC_DINO=y
 CONFIG_PCI_LBA=y
 CONFIG_SUPERIO=y
@@ -374,6 +372,11 @@ CONFIG_CHASSIS_LCD_LED=y
 CONFIG_PDC_CHASSIS=y
 CONFIG_PDC_CHASSIS_WARN=y
 CONFIG_PDC_STABLE=y
+
+##
+## file: drivers/pci/Kconfig
+##
+CONFIG_PCI=y
 
 ##
 ## file: drivers/pci/hotplug/Kconfig
@@ -408,6 +411,8 @@ CONFIG_RTC_DRV_GENERIC=y
 ## file: drivers/scsi/Kconfig
 ##
 # CONFIG_SCSI_BUSLOGIC is not set
+# CONFIG_SCSI_MYRB is not set
+# CONFIG_SCSI_MYRS is not set
 # CONFIG_SCSI_DMX3191D is not set
 # CONFIG_SCSI_GDTH is not set
 # CONFIG_SCSI_GENERIC_NCR5380 is not set

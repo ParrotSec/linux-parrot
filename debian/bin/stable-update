@@ -127,7 +127,7 @@ def main(repo, new_ver):
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print('''\
-Usage: {} REPO VERSION"
+Usage: {} REPO VERSION
 REPO is the git repository to generate a changelog from
 VERSION is the stable version (without leading v)'''.format(sys.argv[0]),
               file=sys.stderr)

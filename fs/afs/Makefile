@@ -13,10 +13,12 @@ kafs-y := \
 	cmservice.o \
 	dir.o \
 	dir_edit.o \
+	dir_silly.o \
 	dynroot.o \
 	file.o \
 	flock.o \
 	fsclient.o \
+	fs_probe.o \
 	inode.o \
 	main.o \
 	misc.o \
@@ -29,9 +31,13 @@ kafs-y := \
 	super.o \
 	netdevices.o \
 	vlclient.o \
+	vl_list.o \
+	vl_probe.o \
+	vl_rotate.o \
 	volume.o \
 	write.o \
-	xattr.o
+	xattr.o \
+	yfsclient.o
 
 kafs-$(CONFIG_PROC_FS) += proc.o
 obj-$(CONFIG_AFS_FS)  := kafs.o

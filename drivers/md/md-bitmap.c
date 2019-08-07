@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * bitmap.c two-level bitmap (C) Peter T. Breuer (ptb@ot.uc3m.es) 2003
  *
@@ -490,10 +491,10 @@ void md_bitmap_print_sb(struct bitmap *bitmap)
 	pr_debug("         magic: %08x\n", le32_to_cpu(sb->magic));
 	pr_debug("       version: %d\n", le32_to_cpu(sb->version));
 	pr_debug("          uuid: %08x.%08x.%08x.%08x\n",
-		 le32_to_cpu(*(__u32 *)(sb->uuid+0)),
-		 le32_to_cpu(*(__u32 *)(sb->uuid+4)),
-		 le32_to_cpu(*(__u32 *)(sb->uuid+8)),
-		 le32_to_cpu(*(__u32 *)(sb->uuid+12)));
+		 le32_to_cpu(*(__le32 *)(sb->uuid+0)),
+		 le32_to_cpu(*(__le32 *)(sb->uuid+4)),
+		 le32_to_cpu(*(__le32 *)(sb->uuid+8)),
+		 le32_to_cpu(*(__le32 *)(sb->uuid+12)));
 	pr_debug("        events: %llu\n",
 		 (unsigned long long) le64_to_cpu(sb->events));
 	pr_debug("events cleared: %llu\n",
@@ -2288,9 +2289,9 @@ location_store(struct mddev *mddev, const char *buf, size_t len)
 			goto out;
 		}
 		if (mddev->pers) {
-			mddev->pers->quiesce(mddev, 1);
+			mddev_suspend(mddev);
 			md_bitmap_destroy(mddev);
-			mddev->pers->quiesce(mddev, 0);
+			mddev_resume(mddev);
 		}
 		mddev->bitmap_info.offset = 0;
 		if (mddev->bitmap_info.file) {
@@ -2327,8 +2328,8 @@ location_store(struct mddev *mddev, const char *buf, size_t len)
 			mddev->bitmap_info.offset = offset;
 			if (mddev->pers) {
 				struct bitmap *bitmap;
-				mddev->pers->quiesce(mddev, 1);
 				bitmap = md_bitmap_create(mddev, -1);
+				mddev_suspend(mddev);
 				if (IS_ERR(bitmap))
 					rv = PTR_ERR(bitmap);
 				else {
@@ -2337,11 +2338,12 @@ location_store(struct mddev *mddev, const char *buf, size_t len)
 					if (rv)
 						mddev->bitmap_info.offset = 0;
 				}
-				mddev->pers->quiesce(mddev, 0);
 				if (rv) {
 					md_bitmap_destroy(mddev);
+					mddev_resume(mddev);
 					goto out;
 				}
+				mddev_resume(mddev);
 			}
 		}
 	}

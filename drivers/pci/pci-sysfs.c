@@ -412,8 +412,7 @@ static ssize_t msi_bus_store(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RW(msi_bus);
 
-static ssize_t bus_rescan_store(struct bus_type *bus, const char *buf,
-				size_t count)
+static ssize_t rescan_store(struct bus_type *bus, const char *buf, size_t count)
 {
 	unsigned long val;
 	struct pci_bus *b = NULL;
@@ -429,7 +428,7 @@ static ssize_t bus_rescan_store(struct bus_type *bus, const char *buf,
 	}
 	return count;
 }
-static BUS_ATTR(rescan, (S_IWUSR|S_IWGRP), NULL, bus_rescan_store);
+static BUS_ATTR_WO(rescan);
 
 static struct attribute *pci_bus_attrs[] = {
 	&bus_attr_rescan.attr,
@@ -478,7 +477,7 @@ static ssize_t remove_store(struct device *dev, struct device_attribute *attr,
 		pci_stop_and_remove_bus_device_locked(to_pci_dev(dev));
 	return count;
 }
-static struct device_attribute dev_remove_attr = __ATTR(remove,
+static struct device_attribute dev_remove_attr = __ATTR_IGNORE_LOCKDEP(remove,
 							(S_IWUSR|S_IWGRP),
 							NULL, remove_store);
 
@@ -1112,8 +1111,7 @@ legacy_io_err:
 	kfree(b->legacy_io);
 	b->legacy_io = NULL;
 kzalloc_err:
-	printk(KERN_WARNING "pci: warning: could not create legacy I/O port and ISA memory resources to sysfs\n");
-	return;
+	dev_warn(&b->dev, "could not create legacy I/O port and ISA memory resources in sysfs\n");
 }
 
 void pci_remove_legacy_files(struct pci_bus *b)

@@ -164,11 +164,8 @@ define archhelp
 	@echo  '  zinstall	- Install compressed vmlinuz kernel'
 endef
 
-# we require gcc 3.3 or above to compile the kernel
-archprepare: checkbin
-checkbin:
-	@if test "$(cc-version)" -lt "0303"; then \
-		echo -n "Sorry, GCC v3.3 or above is required to build " ; \
-		echo "the kernel." ; \
-		false ; \
-	fi
+archclean:
+	$(Q)$(MAKE) $(clean)=$(boot)
+
+archheaders:
+	$(Q)$(MAKE) $(build)=arch/parisc/kernel/syscalls all

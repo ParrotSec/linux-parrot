@@ -1,12 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Driver for EIP97 cryptographic accelerator.
  *
  * Copyright (c) 2016 Ryder Lee <ryder.lee@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
  */
 
 #include <linux/clk.h>
@@ -453,17 +449,17 @@ static int mtk_desc_ring_alloc(struct mtk_cryp *cryp)
 		if (!ring[i])
 			goto err_cleanup;
 
-		ring[i]->cmd_base = dma_zalloc_coherent(cryp->dev,
-					   MTK_DESC_RING_SZ,
-					   &ring[i]->cmd_dma,
-					   GFP_KERNEL);
+		ring[i]->cmd_base = dma_alloc_coherent(cryp->dev,
+						       MTK_DESC_RING_SZ,
+						       &ring[i]->cmd_dma,
+						       GFP_KERNEL);
 		if (!ring[i]->cmd_base)
 			goto err_cleanup;
 
-		ring[i]->res_base = dma_zalloc_coherent(cryp->dev,
-					   MTK_DESC_RING_SZ,
-					   &ring[i]->res_dma,
-					   GFP_KERNEL);
+		ring[i]->res_base = dma_alloc_coherent(cryp->dev,
+						       MTK_DESC_RING_SZ,
+						       &ring[i]->res_dma,
+						       GFP_KERNEL);
 		if (!ring[i]->res_base)
 			goto err_cleanup;
 

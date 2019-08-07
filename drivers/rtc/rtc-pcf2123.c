@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * An SPI driver for the Philips PCF2123 RTC
  * Copyright 2009 Cyber Switching, Inc.
@@ -9,10 +10,6 @@
  *
  * Thanks to Christian Pellegrin <chripell@fsfe.org> for
  * the sysfs contributions to this driver.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  *
  * Please note that the CS is active high, so platform data
  * should look something like:
@@ -29,7 +26,6 @@
  *	},
  *	...
  *};
- *
  */
 
 #include <linux/bcd.h>
@@ -453,6 +449,7 @@ static int pcf2123_remove(struct spi_device *spi)
 #ifdef CONFIG_OF
 static const struct of_device_id pcf2123_dt_ids[] = {
 	{ .compatible = "nxp,rtc-pcf2123", },
+	{ .compatible = "microcrystal,rv2123", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, pcf2123_dt_ids);

@@ -372,9 +372,8 @@ static int gmac_setup_phy(struct net_device *netdev)
 		return -ENODEV;
 	netdev->phydev = phy;
 
-	phy->supported &= PHY_GBIT_FEATURES;
-	phy->supported |= SUPPORTED_Asym_Pause | SUPPORTED_Pause;
-	phy->advertising = phy->supported;
+	phy_set_max_speed(phy, SPEED_1000);
+	phy_support_asym_pause(phy);
 
 	/* set PHY interface type */
 	switch (phy->interface) {
@@ -1235,8 +1234,6 @@ static int gmac_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 	struct gmac_txq *txq;
 	int txq_num, nfrags;
 	union dma_rwptr rw;
-
-	SKB_FRAG_ASSERT(skb);
 
 	if (skb->len >= 0x10000)
 		goto out_drop_free;

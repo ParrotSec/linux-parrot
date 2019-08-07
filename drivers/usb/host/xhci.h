@@ -1010,6 +1010,15 @@ struct xhci_virt_device {
 	u8				real_port;
 	struct xhci_interval_bw_table	*bw_table;
 	struct xhci_tt_bw_info		*tt_info;
+	/*
+	 * flags for state tracking based on events and issued commands.
+	 * Software can not rely on states from output contexts because of
+	 * latency between events and xHC updating output context values.
+	 * See xhci 1.1 section 4.8.3 for more details
+	 */
+	unsigned long			flags;
+#define VDEV_PORT_ERROR			BIT(0) /* Port error, link inactive */
+
 	/* The current max exit latency for the enabled USB3 link states. */
 	u16				current_mel;
 	/* Used for the debugfs interfaces. */
@@ -1303,6 +1312,8 @@ enum xhci_setup_dev {
 #define TRB_IOC			(1<<5)
 /* The buffer pointer contains immediate data */
 #define TRB_IDT			(1<<6)
+/* TDs smaller than this might use IDT */
+#define TRB_IDT_MAX_SIZE	8
 
 /* Block Event Interrupt */
 #define	TRB_BEI			(1<<9)
@@ -1504,6 +1515,7 @@ static inline const char *xhci_trb_type_string(u8 type)
 /* How much data is left before the 64KB boundary? */
 #define TRB_BUFF_LEN_UP_TO_BOUNDARY(addr)	(TRB_MAX_BUFF_SIZE - \
 					(addr & (TRB_MAX_BUFF_SIZE - 1)))
+#define MAX_SOFT_RETRY		3
 
 struct xhci_segment {
 	union xhci_trb		*trbs;
@@ -1591,6 +1603,7 @@ struct xhci_ring {
 	 * if we own the TRB (if we are the consumer).  See section 4.9.1.
 	 */
 	u32			cycle_state;
+	unsigned int            err_count;
 	unsigned int		stream_id;
 	unsigned int		num_segs;
 	unsigned int		num_trbs_free;
@@ -1688,13 +1701,6 @@ struct xhci_bus_state {
  */
 #define	XHCI_MAX_REXIT_TIMEOUT_MS	20
 
-static inline unsigned int hcd_index(struct usb_hcd *hcd)
-{
-	if (hcd->speed >= HCD_USB3)
-		return 0;
-	else
-		return 1;
-}
 struct xhci_port {
 	__le32 __iomem		*addr;
 	int			hw_portnum;
@@ -1706,6 +1712,8 @@ struct xhci_hub {
 	struct xhci_port	**ports;
 	unsigned int		num_ports;
 	struct usb_hcd		*hcd;
+	/* keep track of bus suspend info */
+	struct xhci_bus_state   bus_state;
 	/* supported prococol extended capabiliy values */
 	u8			maj_rev;
 	u8			min_rev;
@@ -1854,18 +1862,15 @@ struct xhci_hcd {
 #define XHCI_SUSPEND_DELAY	BIT_ULL(30)
 #define XHCI_INTEL_USB_ROLE_SW	BIT_ULL(31)
 #define XHCI_ZERO_64B_REGS	BIT_ULL(32)
+#define XHCI_DEFAULT_PM_RUNTIME_ALLOW	BIT_ULL(33)
 #define XHCI_RESET_PLL_ON_DISCONNECT	BIT_ULL(34)
 #define XHCI_SNPS_BROKEN_SUSPEND    BIT_ULL(35)
 
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
-	/* There are two roothubs to keep track of bus suspend info for */
-	struct xhci_bus_state   bus_state[2];
 	struct xhci_port	*hw_ports;
 	struct xhci_hub		usb2_rhub;
 	struct xhci_hub		usb3_rhub;
-	/* support xHCI 0.96 spec USB2 software LPM */
-	unsigned		sw_lpm_support:1;
 	/* support xHCI 1.0 spec USB2 hardware LPM */
 	unsigned		hw_lpm_support:1;
 	/* Broken Suspend flag for SNPS Suspend resume issue */
@@ -2155,6 +2160,23 @@ static inline struct xhci_ring *xhci_urb_to_transfer_ring(struct xhci_hcd *xhci,
 					urb->stream_id);
 }
 
+/*
+ * TODO: As per spec Isochronous IDT transmissions are supported. We bypass
+ * them anyways as we where unable to find a device that matches the
+ * constraints.
+ */
+static inline bool xhci_urb_suitable_for_idt(struct urb *urb)
+{
+	if (!usb_endpoint_xfer_isoc(&urb->ep->desc) && usb_urb_dir_out(urb) &&
+	    usb_endpoint_maxp(&urb->ep->desc) >= TRB_IDT_MAX_SIZE &&
+	    urb->transfer_buffer_length <= TRB_IDT_MAX_SIZE &&
+	    !(urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP) &&
+	    !urb->num_sgs)
+		return true;
+
+	return false;
+}
+
 static inline char *xhci_slot_state_string(u32 state)
 {
 	switch (state) {
@@ -2387,6 +2409,35 @@ static inline const char *xhci_decode_trb(u32 field0, u32 field1, u32 field2,
 			field0, field1, field2, field3);
 	}
 
+	return str;
+}
+
+static inline const char *xhci_decode_ctrl_ctx(unsigned long drop,
+					       unsigned long add)
+{
+	static char	str[1024];
+	unsigned int	bit;
+	int		ret = 0;
+
+	if (drop) {
+		ret = sprintf(str, "Drop:");
+		for_each_set_bit(bit, &drop, 32)
+			ret += sprintf(str + ret, " %d%s",
+				       bit / 2,
+				       bit % 2 ? "in":"out");
+		ret += sprintf(str + ret, ", ");
+	}
+
+	if (add) {
+		ret += sprintf(str + ret, "Add:%s%s",
+			       (add & SLOT_FLAG) ? " slot":"",
+			       (add & EP0_FLAG) ? " ep0":"");
+		add &= ~(SLOT_FLAG | EP0_FLAG);
+		for_each_set_bit(bit, &add, 32)
+			ret += sprintf(str + ret, " %d%s",
+				       bit / 2,
+				       bit % 2 ? "in":"out");
+	}
 	return str;
 }
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  *  linux/fs/nfs/inode.c
  *
@@ -143,6 +144,7 @@ EXPORT_SYMBOL_GPL(nfs_sync_inode);
 
 /**
  * nfs_sync_mapping - helper to flush all mmapped dirty data to disk
+ * @mapping: pointer to struct address_space
  */
 int nfs_sync_mapping(struct address_space *mapping)
 {
@@ -857,15 +859,14 @@ static void nfs_init_lock_context(struct nfs_lock_context *l_ctx)
 
 static struct nfs_lock_context *__nfs_find_lock_context(struct nfs_open_context *ctx)
 {
-	struct nfs_lock_context *head = &ctx->lock_context;
-	struct nfs_lock_context *pos = head;
+	struct nfs_lock_context *pos;
 
-	do {
+	list_for_each_entry_rcu(pos, &ctx->lock_context.list, list) {
 		if (pos->lockowner != current->files)
 			continue;
-		refcount_inc(&pos->count);
-		return pos;
-	} while ((pos = list_entry(pos->list.next, typeof(*pos), list)) != head);
+		if (refcount_inc_not_zero(&pos->count))
+			return pos;
+	}
 	return NULL;
 }
 
@@ -874,10 +875,10 @@ struct nfs_lock_context *nfs_get_lock_context(struct nfs_open_context *ctx)
 	struct nfs_lock_context *res, *new = NULL;
 	struct inode *inode = d_inode(ctx->dentry);
 
-	spin_lock(&inode->i_lock);
+	rcu_read_lock();
 	res = __nfs_find_lock_context(ctx);
+	rcu_read_unlock();
 	if (res == NULL) {
-		spin_unlock(&inode->i_lock);
 		new = kmalloc(sizeof(*new), GFP_KERNEL);
 		if (new == NULL)
 			return ERR_PTR(-ENOMEM);
@@ -885,14 +886,18 @@ struct nfs_lock_context *nfs_get_lock_context(struct nfs_open_context *ctx)
 		spin_lock(&inode->i_lock);
 		res = __nfs_find_lock_context(ctx);
 		if (res == NULL) {
-			list_add_tail(&new->list, &ctx->lock_context.list);
-			new->open_context = ctx;
-			res = new;
-			new = NULL;
+			new->open_context = get_nfs_open_context(ctx);
+			if (new->open_context) {
+				list_add_tail_rcu(&new->list,
+						&ctx->lock_context.list);
+				res = new;
+				new = NULL;
+			} else
+				res = ERR_PTR(-EBADF);
 		}
+		spin_unlock(&inode->i_lock);
+		kfree(new);
 	}
-	spin_unlock(&inode->i_lock);
-	kfree(new);
 	return res;
 }
 EXPORT_SYMBOL_GPL(nfs_get_lock_context);
@@ -904,9 +909,10 @@ void nfs_put_lock_context(struct nfs_lock_context *l_ctx)
 
 	if (!refcount_dec_and_lock(&l_ctx->count, &inode->i_lock))
 		return;
-	list_del(&l_ctx->list);
+	list_del_rcu(&l_ctx->list);
 	spin_unlock(&inode->i_lock);
-	kfree(l_ctx);
+	put_nfs_open_context(ctx);
+	kfree_rcu(l_ctx, rcu_head);
 }
 EXPORT_SYMBOL_GPL(nfs_put_lock_context);
 
@@ -951,18 +957,17 @@ struct nfs_open_context *alloc_nfs_open_context(struct dentry *dentry,
 						struct file *filp)
 {
 	struct nfs_open_context *ctx;
-	struct rpc_cred *cred = rpc_lookup_cred();
-	if (IS_ERR(cred))
-		return ERR_CAST(cred);
+	const struct cred *cred = get_current_cred();
 
 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx) {
-		put_rpccred(cred);
+		put_cred(cred);
 		return ERR_PTR(-ENOMEM);
 	}
 	nfs_sb_active(dentry->d_sb);
 	ctx->dentry = dget(dentry);
 	ctx->cred = cred;
+	ctx->ll_cred = NULL;
 	ctx->state = NULL;
 	ctx->mode = f_mode;
 	ctx->flags = 0;
@@ -978,9 +983,9 @@ EXPORT_SYMBOL_GPL(alloc_nfs_open_context);
 
 struct nfs_open_context *get_nfs_open_context(struct nfs_open_context *ctx)
 {
-	if (ctx != NULL)
-		refcount_inc(&ctx->lock_context.count);
-	return ctx;
+	if (ctx != NULL && refcount_inc_not_zero(&ctx->lock_context.count))
+		return ctx;
+	return NULL;
 }
 EXPORT_SYMBOL_GPL(get_nfs_open_context);
 
@@ -989,21 +994,21 @@ static void __put_nfs_open_context(struct nfs_open_context *ctx, int is_sync)
 	struct inode *inode = d_inode(ctx->dentry);
 	struct super_block *sb = ctx->dentry->d_sb;
 
-	if (!list_empty(&ctx->list)) {
-		if (!refcount_dec_and_lock(&ctx->lock_context.count, &inode->i_lock))
-			return;
-		list_del(&ctx->list);
-		spin_unlock(&inode->i_lock);
-	} else if (!refcount_dec_and_test(&ctx->lock_context.count))
+	if (!refcount_dec_and_test(&ctx->lock_context.count))
 		return;
+	if (!list_empty(&ctx->list)) {
+		spin_lock(&inode->i_lock);
+		list_del_rcu(&ctx->list);
+		spin_unlock(&inode->i_lock);
+	}
 	if (inode != NULL)
 		NFS_PROTO(inode)->close_context(ctx, is_sync);
-	if (ctx->cred != NULL)
-		put_rpccred(ctx->cred);
+	put_cred(ctx->cred);
 	dput(ctx->dentry);
 	nfs_sb_deactive(sb);
+	put_rpccred(ctx->ll_cred);
 	kfree(ctx->mdsthreshold);
-	kfree(ctx);
+	kfree_rcu(ctx, rcu_head);
 }
 
 void put_nfs_open_context(struct nfs_open_context *ctx)
@@ -1027,10 +1032,7 @@ void nfs_inode_attach_open_context(struct nfs_open_context *ctx)
 	struct nfs_inode *nfsi = NFS_I(inode);
 
 	spin_lock(&inode->i_lock);
-	if (ctx->mode & FMODE_WRITE)
-		list_add(&ctx->list, &nfsi->open_files);
-	else
-		list_add_tail(&ctx->list, &nfsi->open_files);
+	list_add_tail_rcu(&ctx->list, &nfsi->open_files);
 	spin_unlock(&inode->i_lock);
 }
 EXPORT_SYMBOL_GPL(nfs_inode_attach_open_context);
@@ -1046,21 +1048,22 @@ EXPORT_SYMBOL_GPL(nfs_file_set_open_context);
 /*
  * Given an inode, search for an open context with the desired characteristics
  */
-struct nfs_open_context *nfs_find_open_context(struct inode *inode, struct rpc_cred *cred, fmode_t mode)
+struct nfs_open_context *nfs_find_open_context(struct inode *inode, const struct cred *cred, fmode_t mode)
 {
 	struct nfs_inode *nfsi = NFS_I(inode);
 	struct nfs_open_context *pos, *ctx = NULL;
 
-	spin_lock(&inode->i_lock);
-	list_for_each_entry(pos, &nfsi->open_files, list) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(pos, &nfsi->open_files, list) {
 		if (cred != NULL && pos->cred != cred)
 			continue;
 		if ((pos->mode & (FMODE_READ|FMODE_WRITE)) != mode)
 			continue;
 		ctx = get_nfs_open_context(pos);
-		break;
+		if (ctx)
+			break;
 	}
-	spin_unlock(&inode->i_lock);
+	rcu_read_unlock();
 	return ctx;
 }
 
@@ -1078,9 +1081,6 @@ void nfs_file_clear_open_context(struct file *filp)
 		if (ctx->error < 0)
 			invalidate_inode_pages2(inode->i_mapping);
 		filp->private_data = NULL;
-		spin_lock(&inode->i_lock);
-		list_move_tail(&ctx->list, &NFS_I(inode)->open_files);
-		spin_unlock(&inode->i_lock);
 		put_nfs_open_context_sync(ctx);
 	}
 }
@@ -1100,6 +1100,7 @@ int nfs_open(struct inode *inode, struct file *filp)
 	nfs_fscache_open_file(inode, filp);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(nfs_open);
 
 /*
  * This function is called whenever some part of NFS notices that
@@ -1191,8 +1192,8 @@ int nfs_attribute_cache_expired(struct inode *inode)
 
 /**
  * nfs_revalidate_inode - Revalidate the inode attributes
- * @server - pointer to nfs_server struct
- * @inode - pointer to inode struct
+ * @server: pointer to nfs_server struct
+ * @inode: pointer to inode struct
  *
  * Updates inode attribute information by retrieving the data from the server.
  */
@@ -1262,8 +1263,8 @@ out:
 
 /**
  * nfs_revalidate_mapping - Revalidate the pagecache
- * @inode - pointer to host inode
- * @mapping - pointer to mapping
+ * @inode: pointer to host inode
+ * @mapping: pointer to mapping
  */
 int nfs_revalidate_mapping(struct inode *inode,
 		struct address_space *mapping)
@@ -1329,19 +1330,11 @@ static bool nfs_file_has_writers(struct nfs_inode *nfsi)
 {
 	struct inode *inode = &nfsi->vfs_inode;
 
-	assert_spin_locked(&inode->i_lock);
-
 	if (!S_ISREG(inode->i_mode))
 		return false;
 	if (list_empty(&nfsi->open_files))
 		return false;
-	/* Note: This relies on nfsi->open_files being ordered with writers
-	 *       being placed at the head of the list.
-	 *       See nfs_inode_attach_open_context()
-	 */
-	return (list_first_entry(&nfsi->open_files,
-			struct nfs_open_context,
-			list)->mode & FMODE_WRITE) == FMODE_WRITE;
+	return inode_is_open_for_write(inode);
 }
 
 static bool nfs_file_has_buffered_writers(struct nfs_inode *nfsi)
@@ -1386,8 +1379,8 @@ static void nfs_wcc_update_inode(struct inode *inode, struct nfs_fattr *fattr)
 
 /**
  * nfs_check_inode_attributes - verify consistency of the inode attribute cache
- * @inode - pointer to inode
- * @fattr - updated attributes
+ * @inode: pointer to inode
+ * @fattr: updated attributes
  *
  * Verifies the attribute cache. If we have just changed the attributes,
  * so that fattr carries weak cache consistency data, then it may
@@ -1587,8 +1580,8 @@ EXPORT_SYMBOL_GPL(_nfs_display_fhandle);
 
 /**
  * nfs_inode_attrs_need_update - check if the inode attributes need updating
- * @inode - pointer to inode
- * @fattr - attributes
+ * @inode: pointer to inode
+ * @fattr: attributes
  *
  * Attempt to divine whether or not an RPC call reply carrying stale
  * attributes got scheduled after another call carrying updated ones.
@@ -1629,8 +1622,8 @@ static int nfs_refresh_inode_locked(struct inode *inode, struct nfs_fattr *fattr
 
 /**
  * nfs_refresh_inode - try to update the inode attribute cache
- * @inode - pointer to inode
- * @fattr - updated attributes
+ * @inode: pointer to inode
+ * @fattr: updated attributes
  *
  * Check that an RPC call that returned attributes has not overlapped with
  * other recent updates of the inode metadata, then decide whether it is
@@ -1664,8 +1657,8 @@ static int nfs_post_op_update_inode_locked(struct inode *inode,
 
 /**
  * nfs_post_op_update_inode - try to update the inode attribute cache
- * @inode - pointer to inode
- * @fattr - updated attributes
+ * @inode: pointer to inode
+ * @fattr: updated attributes
  *
  * After an operation that has changed the inode metadata, mark the
  * attribute cache as being invalid, then try to update it.
@@ -1694,8 +1687,8 @@ EXPORT_SYMBOL_GPL(nfs_post_op_update_inode);
 
 /**
  * nfs_post_op_update_inode_force_wcc_locked - update the inode attribute cache
- * @inode - pointer to inode
- * @fattr - updated attributes
+ * @inode: pointer to inode
+ * @fattr: updated attributes
  *
  * After an operation that has changed the inode metadata, mark the
  * attribute cache as being invalid, then try to update it. Fake up
@@ -1746,8 +1739,8 @@ out_noforce:
 
 /**
  * nfs_post_op_update_inode_force_wcc - try to update the inode attribute cache
- * @inode - pointer to inode
- * @fattr - updated attributes
+ * @inode: pointer to inode
+ * @fattr: updated attributes
  *
  * After an operation that has changed the inode metadata, mark the
  * attribute cache as being invalid, then try to update it. Fake up
@@ -2069,17 +2062,11 @@ struct inode *nfs_alloc_inode(struct super_block *sb)
 }
 EXPORT_SYMBOL_GPL(nfs_alloc_inode);
 
-static void nfs_i_callback(struct rcu_head *head)
+void nfs_free_inode(struct inode *inode)
 {
-	struct inode *inode = container_of(head, struct inode, i_rcu);
 	kmem_cache_free(nfs_inode_cachep, NFS_I(inode));
 }
-
-void nfs_destroy_inode(struct inode *inode)
-{
-	call_rcu(&inode->i_rcu, nfs_i_callback);
-}
-EXPORT_SYMBOL_GPL(nfs_destroy_inode);
+EXPORT_SYMBOL_GPL(nfs_free_inode);
 
 static inline void nfs4_init_once(struct nfs_inode *nfsi)
 {

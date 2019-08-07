@@ -3,7 +3,6 @@
 ##
 CONFIG_X86_32_IRIS=m
 # CONFIG_MATH_EMULATION is not set
-# CONFIG_EISA is not set
 CONFIG_OLPC=y
 CONFIG_OLPC_XO1_PM=y
 CONFIG_OLPC_XO1_RTC=y
@@ -24,6 +23,11 @@ CONFIG_MGEODE_LX=y
 ## end choice
 
 ##
+## file: drivers/eisa/Kconfig
+##
+# CONFIG_EISA is not set
+
+##
 ## file: drivers/i2c/Kconfig
 ##
 CONFIG_I2C_STUB=m
@@ -42,11 +46,6 @@ CONFIG_KEYBOARD_GPIO_POLLED=m
 ## file: drivers/input/mouse/Kconfig
 ##
 CONFIG_MOUSE_PS2_OLPC=y
-
-##
-## file: drivers/net/hamradio/Kconfig
-##
-# CONFIG_DMASCC is not set
 
 ##
 ## file: drivers/pci/hotplug/Kconfig

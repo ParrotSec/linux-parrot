@@ -37,6 +37,13 @@ parse_symbol() {
 	symbol=${symbol#\(}
 	symbol=${symbol%\)}
 
+	# Strip segment
+	local segment
+	if [[ $symbol == *:* ]] ; then
+		segment=${symbol%%:*}:
+		symbol=${symbol#*:}
+	fi
+
 	# Strip the symbol name so that we could look it up
 	local name=${symbol%+*}
 
@@ -66,7 +73,7 @@ parse_symbol() {
 	if [[ "${cache[$module,$address]+isset}" == "isset" ]]; then
 		local code=${cache[$module,$address]}
 	else
-		local code=$(addr2line -i -e "$objfile" "$address")
+		local code=$(${CROSS_COMPILE}addr2line -i -e "$objfile" "$address")
 		cache[$module,$address]=$code
 	fi
 
@@ -84,7 +91,7 @@ parse_symbol() {
 	code=${code//$'\n'/' '}
 
 	# Replace old address with pretty line numbers
-	symbol="$name ($code)"
+	symbol="$segment$name ($code)"
 }
 
 decode_code() {

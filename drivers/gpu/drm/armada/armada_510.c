@@ -1,15 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2012 Russell King
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  *
  * Armada 510 (aka Dove) variant support
  */
 #include <linux/clk.h>
 #include <linux/io.h>
-#include <drm/drm_crtc_helper.h>
+#include <drm/drm_probe_helper.h>
 #include "armada_crtc.h"
 #include "armada_drm.h"
 #include "armada_hw.h"

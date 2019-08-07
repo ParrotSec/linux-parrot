@@ -1898,6 +1898,7 @@ static void _qed_get_vport_stats(struct qed_dev *cdev,
 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
 		struct qed_ptt *p_ptt = IS_PF(cdev) ? qed_ptt_acquire(p_hwfn)
 						    :  NULL;
+		bool b_get_port_stats;
 
 		if (IS_PF(cdev)) {
 			/* The main vport index is relative first */
@@ -1912,8 +1913,9 @@ static void _qed_get_vport_stats(struct qed_dev *cdev,
 			continue;
 		}
 
+		b_get_port_stats = IS_PF(cdev) && IS_LEAD_HWFN(p_hwfn);
 		__qed_get_vport_stats(p_hwfn, p_ptt, stats, fw_vport,
-				      IS_PF(cdev) ? true : false);
+				      b_get_port_stats);
 
 out:
 		if (IS_PF(cdev) && p_ptt)
@@ -2871,7 +2873,8 @@ static int qed_get_coalesce(struct qed_dev *cdev, u16 *coal, void *handle)
 	p_hwfn = p_cid->p_owner;
 	rc = qed_get_queue_coalesce(p_hwfn, coal, handle);
 	if (rc)
-		DP_NOTICE(p_hwfn, "Unable to read queue coalescing\n");
+		DP_VERBOSE(cdev, QED_MSG_DEBUG,
+			   "Unable to read queue coalescing\n");
 
 	return rc;
 }

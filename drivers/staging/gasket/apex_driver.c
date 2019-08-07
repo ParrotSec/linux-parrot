@@ -138,9 +138,6 @@ static const struct gasket_mappable_region mappable_regions[NUM_REGIONS] = {
 	{ 0x48000, 0x1000 },
 };
 
-static const struct gasket_mappable_region cm_mappable_regions[1] = { { 0x0,
-	APEX_CH_MEM_BYTES } };
-
 /* Gasket device interrupts enums must be dense (i.e., no empty slots). */
 enum apex_interrupt {
 	APEX_INTERRUPT_INSTR_QUEUE = 0,
@@ -228,7 +225,6 @@ static struct gasket_interrupt_desc apex_interrupts[] = {
 	},
 };
 
-
 /* Allows device to enter power save upon driver close(). */
 static int allow_power_save = 1;
 
@@ -298,7 +294,7 @@ static int apex_enter_reset(struct gasket_dev *gasket_dev)
 
 	/*    - Wait for RAM shutdown. */
 	if (gasket_wait_with_reschedule(gasket_dev, APEX_BAR_INDEX,
-					APEX_BAR2_REG_SCU_3, 1 << 6, 1 << 6,
+					APEX_BAR2_REG_SCU_3, BIT(6), BIT(6),
 					APEX_RESET_DELAY, APEX_RESET_RETRY)) {
 		dev_err(gasket_dev->dev,
 			"RAM did not shut down within timeout (%d ms)\n",
@@ -344,7 +340,7 @@ static int apex_quit_reset(struct gasket_dev *gasket_dev)
 
 	/*    - Wait for RAM enable. */
 	if (gasket_wait_with_reschedule(gasket_dev, APEX_BAR_INDEX,
-					APEX_BAR2_REG_SCU_3, 1 << 6, 0,
+					APEX_BAR2_REG_SCU_3, BIT(6), 0,
 					APEX_RESET_DELAY, APEX_RESET_RETRY)) {
 		dev_err(gasket_dev->dev,
 			"RAM did not enable within timeout (%d ms)\n",
@@ -443,9 +439,7 @@ static int apex_reset(struct gasket_dev *gasket_dev)
 		if (ret)
 			return ret;
 	}
-	ret = apex_quit_reset(gasket_dev);
-
-	return ret;
+	return apex_quit_reset(gasket_dev);
 }
 
 /*
@@ -529,7 +523,7 @@ static ssize_t sysfs_show(struct device *device, struct device_attribute *attr,
 		return -ENODEV;
 	}
 
-	type = (enum sysfs_attribute_type)gasket_sysfs_get_attr(device, attr);
+	type = (enum sysfs_attribute_type)gasket_attr->data.attr_type;
 	switch (type) {
 	case ATTR_KERNEL_HIB_PAGE_TABLE_SIZE:
 		ret = scnprintf(buf, PAGE_SIZE, "%u\n",

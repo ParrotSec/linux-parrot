@@ -181,7 +181,7 @@ static void xhci_dbc_flush_endpoint_requests(struct dbc_ep *dep)
 		xhci_dbc_flush_single_request(req);
 }
 
-static void xhci_dbc_flush_reqests(struct xhci_dbc *dbc)
+static void xhci_dbc_flush_requests(struct xhci_dbc *dbc)
 {
 	xhci_dbc_flush_endpoint_requests(&dbc->eps[BULK_OUT]);
 	xhci_dbc_flush_endpoint_requests(&dbc->eps[BULK_IN]);
@@ -420,8 +420,6 @@ static int xhci_dbc_mem_init(struct xhci_hcd *xhci, gfp_t flags)
 	/* Setup strings and contexts: */
 	string_length = xhci_dbc_populate_strings(dbc->string);
 	xhci_dbc_init_contexts(xhci, string_length);
-
-	mmiowb();
 
 	xhci_dbc_eps_init(xhci);
 	dbc->state = DS_INITIALIZED;
@@ -688,7 +686,7 @@ static enum evtreturn xhci_dbc_do_handle_events(struct xhci_dbc *dbc)
 		    !(portsc & DBC_PORTSC_CONN_STATUS)) {
 			xhci_info(xhci, "DbC cable unplugged\n");
 			dbc->state = DS_ENABLED;
-			xhci_dbc_flush_reqests(dbc);
+			xhci_dbc_flush_requests(dbc);
 
 			return EVT_DISC;
 		}
@@ -698,7 +696,7 @@ static enum evtreturn xhci_dbc_do_handle_events(struct xhci_dbc *dbc)
 			xhci_info(xhci, "DbC port reset\n");
 			writel(portsc, &dbc->regs->portsc);
 			dbc->state = DS_ENABLED;
-			xhci_dbc_flush_reqests(dbc);
+			xhci_dbc_flush_requests(dbc);
 
 			return EVT_DISC;
 		}

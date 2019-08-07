@@ -1,19 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2014-2015 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published by
- * the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <drm/drm_print.h>
@@ -46,7 +35,6 @@ static void mdp5_plane_destroy(struct drm_plane *plane)
 {
 	struct mdp5_plane *mdp5_plane = to_mdp5_plane(plane);
 
-	drm_plane_helper_disable(plane, NULL);
 	drm_plane_cleanup(plane);
 
 	kfree(mdp5_plane);
@@ -126,7 +114,7 @@ static int mdp5_plane_atomic_set_property(struct drm_plane *plane,
 
 	SET_PROPERTY(zpos, ZPOS, uint8_t);
 
-	dev_err(dev->dev, "Invalid property\n");
+	DRM_DEV_ERROR(dev->dev, "Invalid property\n");
 	ret = -EINVAL;
 done:
 	return ret;
@@ -154,7 +142,7 @@ static int mdp5_plane_atomic_get_property(struct drm_plane *plane,
 
 	GET_PROPERTY(zpos, ZPOS, uint8_t);
 
-	dev_err(dev->dev, "Invalid property\n");
+	DRM_DEV_ERROR(dev->dev, "Invalid property\n");
 	ret = -EINVAL;
 done:
 	return ret;
@@ -185,7 +173,7 @@ static void mdp5_plane_reset(struct drm_plane *plane)
 	struct mdp5_plane_state *mdp5_state;
 
 	if (plane->state && plane->state->fb)
-		drm_framebuffer_unreference(plane->state->fb);
+		drm_framebuffer_put(plane->state->fb);
 
 	kfree(to_mdp5_plane_state(plane->state));
 	mdp5_state = kzalloc(sizeof(*mdp5_state), GFP_KERNEL);
@@ -228,7 +216,7 @@ static void mdp5_plane_destroy_state(struct drm_plane *plane,
 	struct mdp5_plane_state *pstate = to_mdp5_plane_state(state);
 
 	if (state->fb)
-		drm_framebuffer_unreference(state->fb);
+		drm_framebuffer_put(state->fb);
 
 	kfree(pstate);
 }
@@ -503,6 +491,8 @@ static int mdp5_plane_atomic_async_check(struct drm_plane *plane,
 static void mdp5_plane_atomic_async_update(struct drm_plane *plane,
 					   struct drm_plane_state *new_state)
 {
+	struct drm_framebuffer *old_fb = plane->state->fb;
+
 	plane->state->src_x = new_state->src_x;
 	plane->state->src_y = new_state->src_y;
 	plane->state->crtc_x = new_state->crtc_x;
@@ -525,6 +515,8 @@ static void mdp5_plane_atomic_async_update(struct drm_plane *plane,
 
 	*to_mdp5_plane_state(plane->state) =
 		*to_mdp5_plane_state(new_state);
+
+	new_state->fb = old_fb;
 }
 
 static const struct drm_plane_helper_funcs mdp5_plane_helper_funcs = {
@@ -659,7 +651,7 @@ static int calc_scalex_steps(struct drm_plane *plane,
 
 	ret = calc_phase_step(src, dest, &phasex_step);
 	if (ret) {
-		dev_err(dev, "X scaling (%d->%d) failed: %d\n", src, dest, ret);
+		DRM_DEV_ERROR(dev, "X scaling (%d->%d) failed: %d\n", src, dest, ret);
 		return ret;
 	}
 
@@ -684,7 +676,7 @@ static int calc_scaley_steps(struct drm_plane *plane,
 
 	ret = calc_phase_step(src, dest, &phasey_step);
 	if (ret) {
-		dev_err(dev, "Y scaling (%d->%d) failed: %d\n", src, dest, ret);
+		DRM_DEV_ERROR(dev, "Y scaling (%d->%d) failed: %d\n", src, dest, ret);
 		return ret;
 	}
 

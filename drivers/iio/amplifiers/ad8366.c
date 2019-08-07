@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * AD8366 SPI Dual-Digital Variable Gain Amplifier (VGA)
  *
  * Copyright 2012 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 
 #include <linux/device.h>
@@ -209,6 +208,6 @@ static struct spi_driver ad8366_driver = {
 
 module_spi_driver(ad8366_driver);
 
-MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
+MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD8366 VGA");
 MODULE_LICENSE("GPL v2");

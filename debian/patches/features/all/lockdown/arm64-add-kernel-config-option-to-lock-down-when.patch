@@ -21,18 +21,17 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
 [bwh: Forward-ported to 4.19.3: adjust context in update_fdt()]
 [dannf: Moved init_lockdown() call after uefi_init(), fixing SB detection]
 ---
- arch/arm64/Kconfig                      | 13 +++++++++++++
- drivers/firmware/efi/arm-init.c         |  7 +++++++
- drivers/firmware/efi/efi.c              |  3 ++-
- drivers/firmware/efi/libstub/arm-stub.c |  2 +-
- drivers/firmware/efi/libstub/efistub.h  |  1 +
- drivers/firmware/efi/libstub/fdt.c      |  7 +++++++
- include/linux/efi.h                     |  1 +
- 7 files changed, 32 insertions(+), 2 deletions(-)
+ drivers/firmware/efi/arm-init.c    | 4 ++++
+ drivers/firmware/efi/efi.c         | 3 ++-
+ drivers/firmware/efi/libstub/fdt.c | 6 ++++++
+ include/linux/efi.h                | 1 +
+ 4 files changed, 13 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/firmware/efi/arm-init.c b/drivers/firmware/efi/arm-init.c
+index 311cd349a862..e2a822271c20 100644
 --- a/drivers/firmware/efi/arm-init.c
 +++ b/drivers/firmware/efi/arm-init.c
-@@ -21,6 +21,7 @@
+@@ -17,6 +17,7 @@
  #include <linux/of_fdt.h>
  #include <linux/platform_device.h>
  #include <linux/screen_info.h>
@@ -40,7 +39,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  
  #include <asm/efi.h>
  
-@@ -257,6 +258,9 @@ void __init efi_init(void)
+@@ -253,6 +254,9 @@ void __init efi_init(void)
  		return;
  	}
  
@@ -50,9 +49,11 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  	reserve_regions();
  	efi_esrt_init();
  
+diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
+index 55b77c576c42..84ca9ea4562f 100644
 --- a/drivers/firmware/efi/efi.c
 +++ b/drivers/firmware/efi/efi.c
-@@ -657,7 +657,8 @@ static __initdata struct params fdt_para
+@@ -694,7 +694,8 @@ static __initdata struct params fdt_params[] = {
  	UEFI_PARAM("MemMap Address", "linux,uefi-mmap-start", mmap),
  	UEFI_PARAM("MemMap Size", "linux,uefi-mmap-size", mmap_size),
  	UEFI_PARAM("MemMap Desc. Size", "linux,uefi-mmap-desc-size", desc_size),
@@ -62,9 +63,11 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  };
  
  static __initdata struct params xen_fdt_params[] = {
+diff --git a/drivers/firmware/efi/libstub/fdt.c b/drivers/firmware/efi/libstub/fdt.c
+index 5440ba17a1c5..95e4002cd1a1 100644
 --- a/drivers/firmware/efi/libstub/fdt.c
 +++ b/drivers/firmware/efi/libstub/fdt.c
-@@ -159,6 +159,12 @@ static efi_status_t update_fdt(efi_syste
+@@ -151,6 +151,12 @@ static efi_status_t update_fdt(efi_system_table_t *sys_table, void *orig_fdt,
  		}
  	}
  
@@ -74,12 +77,14 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
 +	if (status)
 +		goto fdt_set_fail;
 +
- 	/* shrink the FDT back to its minimum size */
+ 	/* Shrink the FDT back to its minimum size: */
  	fdt_pack(fdt);
  
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index fb4b143c1f29..bb5d45d0bb1f 100644
 --- a/include/linux/efi.h
 +++ b/include/linux/efi.h
-@@ -786,6 +786,7 @@ struct efi_fdt_params {
+@@ -804,6 +804,7 @@ struct efi_fdt_params {
  	u32 mmap_size;
  	u32 desc_size;
  	u32 desc_ver;
@@ -87,3 +92,6 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  };
  
  typedef struct {
+-- 
+2.20.1
+

@@ -1,17 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * HackRF driver
  *
  * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
- *
- *    This program is free software; you can redistribute it and/or modify
- *    it under the terms of the GNU General Public License as published by
- *    the Free Software Foundation; either version 2 of the License, or
- *    (at your option) any later version.
- *
- *    This program is distributed in the hope that it will be useful,
- *    but WITHOUT ANY WARRANTY; without even the implied warranty of
- *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *    GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -918,8 +909,8 @@ static int hackrf_querycap(struct file *file, void *fh,
 	cap->capabilities = V4L2_CAP_SDR_CAPTURE | V4L2_CAP_TUNER |
 			    V4L2_CAP_SDR_OUTPUT | V4L2_CAP_MODULATOR |
 			    V4L2_CAP_DEVICE_CAPS | cap->device_caps;
-	strlcpy(cap->driver, KBUILD_MODNAME, sizeof(cap->driver));
-	strlcpy(cap->card, dev->rx_vdev.name, sizeof(cap->card));
+	strscpy(cap->driver, KBUILD_MODNAME, sizeof(cap->driver));
+	strscpy(cap->card, dev->rx_vdev.name, sizeof(cap->card));
 	usb_make_path(dev->udev, cap->bus_info, sizeof(cap->bus_info));
 
 	return 0;
@@ -1041,14 +1032,14 @@ static int hackrf_g_tuner(struct file *file, void *priv, struct v4l2_tuner *v)
 	dev_dbg(dev->dev, "index=%d\n", v->index);
 
 	if (v->index == 0) {
-		strlcpy(v->name, "HackRF ADC", sizeof(v->name));
+		strscpy(v->name, "HackRF ADC", sizeof(v->name));
 		v->type = V4L2_TUNER_SDR;
 		v->capability = V4L2_TUNER_CAP_1HZ | V4L2_TUNER_CAP_FREQ_BANDS;
 		v->rangelow  = bands_adc_dac[0].rangelow;
 		v->rangehigh = bands_adc_dac[0].rangehigh;
 		ret = 0;
 	} else if (v->index == 1) {
-		strlcpy(v->name, "HackRF RF", sizeof(v->name));
+		strscpy(v->name, "HackRF RF", sizeof(v->name));
 		v->type = V4L2_TUNER_RF;
 		v->capability = V4L2_TUNER_CAP_1HZ | V4L2_TUNER_CAP_FREQ_BANDS;
 		v->rangelow  = bands_rx_tx[0].rangelow;
@@ -1080,14 +1071,14 @@ static int hackrf_g_modulator(struct file *file, void *fh,
 	dev_dbg(dev->dev, "index=%d\n", a->index);
 
 	if (a->index == 0) {
-		strlcpy(a->name, "HackRF DAC", sizeof(a->name));
+		strscpy(a->name, "HackRF DAC", sizeof(a->name));
 		a->type = V4L2_TUNER_SDR;
 		a->capability = V4L2_TUNER_CAP_1HZ | V4L2_TUNER_CAP_FREQ_BANDS;
 		a->rangelow  = bands_adc_dac[0].rangelow;
 		a->rangehigh = bands_adc_dac[0].rangehigh;
 		ret = 0;
 	} else if (a->index == 1) {
-		strlcpy(a->name, "HackRF RF", sizeof(a->name));
+		strscpy(a->name, "HackRF RF", sizeof(a->name));
 		a->type = V4L2_TUNER_RF;
 		a->capability = V4L2_TUNER_CAP_1HZ | V4L2_TUNER_CAP_FREQ_BANDS;
 		a->rangelow  = bands_rx_tx[0].rangelow;

@@ -1,0 +1,32 @@
+From: Matthew Garrett <mjg59@srcf.ucam.org>
+Date: Mon, 18 Feb 2019 12:44:59 +0000
+Subject: [11/30] uswsusp: Disable when the kernel is locked down
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git/commit?id=09f7ab4f21803334d448cc44be9f383dede2ce0f
+
+uswsusp allows a user process to dump and then restore kernel state, which
+makes it possible to modify the running kernel.  Disable this if the kernel
+is locked down.
+
+Signed-off-by: Matthew Garrett <mjg59@srcf.ucam.org>
+Signed-off-by: David Howells <dhowells@redhat.com>
+Reviewed-by: "Lee, Chun-Yi" <jlee@suse.com>
+Reviewed-by: James Morris <james.l.morris@oracle.com>
+cc: linux-pm@vger.kernel.org
+---
+ kernel/power/user.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/kernel/power/user.c b/kernel/power/user.c
+index 2d8b60a3c86b..0305d513c274 100644
+--- a/kernel/power/user.c
++++ b/kernel/power/user.c
+@@ -52,6 +52,9 @@ static int snapshot_open(struct inode *inode, struct file *filp)
+ 	if (!hibernation_available())
+ 		return -EPERM;
+ 
++	if (kernel_is_locked_down("/dev/snapshot"))
++		return -EPERM;
++
+ 	lock_system_sleep();
+ 
+ 	if (!atomic_add_unless(&snapshot_device_available, -1, 0)) {

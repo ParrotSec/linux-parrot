@@ -123,11 +123,20 @@ int mac_link_state(struct net_device *ndev,
  * @mode: one of %MLO_AN_FIXED, %MLO_AN_PHY, %MLO_AN_INBAND.
  * @state: a pointer to a &struct phylink_link_state.
  *
+ * Note - not all members of @state are valid.  In particular,
+ * @state->lp_advertising, @state->link, @state->an_complete are never
+ * guaranteed to be correct, and so any mac_config() implementation must
+ * never reference these fields.
+ *
  * The action performed depends on the currently selected mode:
  *
  * %MLO_AN_FIXED, %MLO_AN_PHY:
  *   Configure the specified @state->speed, @state->duplex and
- *   @state->pause (%MLO_PAUSE_TX / %MLO_PAUSE_RX) mode.
+ *   @state->pause (%MLO_PAUSE_TX / %MLO_PAUSE_RX) modes over a link
+ *   specified by @state->interface.  @state->advertising may be used,
+ *   but is not required.  Other members of @state must be ignored.
+ *
+ *   Valid state members: interface, speed, duplex, pause, advertising.
  *
  * %MLO_AN_INBAND:
  *   place the link in an inband negotiation mode (such as 802.3z
@@ -149,6 +158,15 @@ int mac_link_state(struct net_device *ndev,
  *   configuration word. Nothing is advertised by the MAC. The MAC is
  *   responsible for reading the configuration word and configuring
  *   itself accordingly.
+ *
+ *   Valid state members: interface, an_enabled, pause, advertising.
+ *
+ * Implementations are expected to update the MAC to reflect the
+ * requested settings - i.o.w., if nothing has changed between two
+ * calls, no action is expected.  If only flow control settings have
+ * changed, flow control should be updated *without* taking the link
+ * down.  This "update" behaviour is critical to avoid bouncing the
+ * link up status.
  */
 void mac_config(struct net_device *ndev, unsigned int mode,
 		const struct phylink_link_state *state);
@@ -220,6 +238,7 @@ void phylink_ethtool_get_pauseparam(struct phylink *,
 int phylink_ethtool_set_pauseparam(struct phylink *,
 				   struct ethtool_pauseparam *);
 int phylink_get_eee_err(struct phylink *);
+int phylink_init_eee(struct phylink *, bool);
 int phylink_ethtool_get_eee(struct phylink *, struct ethtool_eee *);
 int phylink_ethtool_set_eee(struct phylink *, struct ethtool_eee *);
 int phylink_mii_ioctl(struct phylink *, struct ifreq *, int);

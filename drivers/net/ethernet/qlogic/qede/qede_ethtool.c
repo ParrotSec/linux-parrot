@@ -73,6 +73,7 @@ static const struct {
 } qede_tqstats_arr[] = {
 	QEDE_TQSTAT(xmit_pkts),
 	QEDE_TQSTAT(stopped_cnt),
+	QEDE_TQSTAT(tx_mem_alloc_err),
 };
 
 #define QEDE_STAT_OFFSET(stat_name, type, base) \
@@ -185,11 +186,13 @@ static const struct {
 
 enum {
 	QEDE_PRI_FLAG_CMT,
+	QEDE_PRI_FLAG_SMART_AN_SUPPORT, /* MFW supports SmartAN */
 	QEDE_PRI_FLAG_LEN,
 };
 
 static const char qede_private_arr[QEDE_PRI_FLAG_LEN][ETH_GSTRING_LEN] = {
 	"Coupled-Function",
+	"SmartAN capable",
 };
 
 enum qede_ethtool_tests {
@@ -403,8 +406,15 @@ static int qede_get_sset_count(struct net_device *dev, int stringset)
 static u32 qede_get_priv_flags(struct net_device *dev)
 {
 	struct qede_dev *edev = netdev_priv(dev);
+	u32 flags = 0;
 
-	return (!!(edev->dev_info.common.num_hwfns > 1)) << QEDE_PRI_FLAG_CMT;
+	if (edev->dev_info.common.num_hwfns > 1)
+		flags |= BIT(QEDE_PRI_FLAG_CMT);
+
+	if (edev->dev_info.common.smart_an)
+		flags |= BIT(QEDE_PRI_FLAG_SMART_AN_SUPPORT);
+
+	return flags;
 }
 
 struct qede_link_mode_mapping {
@@ -413,18 +423,42 @@ struct qede_link_mode_mapping {
 };
 
 static const struct qede_link_mode_mapping qed_lm_map[] = {
-	{QED_LM_FIBRE_BIT, ETHTOOL_LINK_MODE_FIBRE_BIT},
 	{QED_LM_Autoneg_BIT, ETHTOOL_LINK_MODE_Autoneg_BIT},
 	{QED_LM_Asym_Pause_BIT, ETHTOOL_LINK_MODE_Asym_Pause_BIT},
 	{QED_LM_Pause_BIT, ETHTOOL_LINK_MODE_Pause_BIT},
-	{QED_LM_1000baseT_Half_BIT, ETHTOOL_LINK_MODE_1000baseT_Half_BIT},
 	{QED_LM_1000baseT_Full_BIT, ETHTOOL_LINK_MODE_1000baseT_Full_BIT},
+	{QED_LM_10000baseT_Full_BIT, ETHTOOL_LINK_MODE_10000baseT_Full_BIT},
+	{QED_LM_2500baseX_Full_BIT, ETHTOOL_LINK_MODE_2500baseX_Full_BIT},
+	{QED_LM_Backplane_BIT, ETHTOOL_LINK_MODE_Backplane_BIT},
+	{QED_LM_1000baseKX_Full_BIT, ETHTOOL_LINK_MODE_1000baseKX_Full_BIT},
+	{QED_LM_10000baseKX4_Full_BIT, ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT},
 	{QED_LM_10000baseKR_Full_BIT, ETHTOOL_LINK_MODE_10000baseKR_Full_BIT},
-	{QED_LM_25000baseKR_Full_BIT, ETHTOOL_LINK_MODE_25000baseKR_Full_BIT},
+	{QED_LM_10000baseKR_Full_BIT, ETHTOOL_LINK_MODE_10000baseKR_Full_BIT},
+	{QED_LM_10000baseR_FEC_BIT, ETHTOOL_LINK_MODE_10000baseR_FEC_BIT},
+	{QED_LM_20000baseKR2_Full_BIT, ETHTOOL_LINK_MODE_20000baseKR2_Full_BIT},
+	{QED_LM_40000baseKR4_Full_BIT, ETHTOOL_LINK_MODE_40000baseKR4_Full_BIT},
+	{QED_LM_40000baseCR4_Full_BIT, ETHTOOL_LINK_MODE_40000baseCR4_Full_BIT},
+	{QED_LM_40000baseSR4_Full_BIT, ETHTOOL_LINK_MODE_40000baseSR4_Full_BIT},
 	{QED_LM_40000baseLR4_Full_BIT, ETHTOOL_LINK_MODE_40000baseLR4_Full_BIT},
+	{QED_LM_25000baseCR_Full_BIT, ETHTOOL_LINK_MODE_25000baseCR_Full_BIT},
+	{QED_LM_25000baseKR_Full_BIT, ETHTOOL_LINK_MODE_25000baseKR_Full_BIT},
+	{QED_LM_25000baseSR_Full_BIT, ETHTOOL_LINK_MODE_25000baseSR_Full_BIT},
+	{QED_LM_50000baseCR2_Full_BIT, ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT},
 	{QED_LM_50000baseKR2_Full_BIT, ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT},
 	{QED_LM_100000baseKR4_Full_BIT,
-	 ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT},
+		ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT},
+	{QED_LM_100000baseSR4_Full_BIT,
+		ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT},
+	{QED_LM_100000baseCR4_Full_BIT,
+		ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT},
+	{QED_LM_100000baseLR4_ER4_Full_BIT,
+		ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT},
+	{QED_LM_50000baseSR2_Full_BIT, ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT},
+	{QED_LM_1000baseX_Full_BIT, ETHTOOL_LINK_MODE_1000baseX_Full_BIT},
+	{QED_LM_10000baseCR_Full_BIT, ETHTOOL_LINK_MODE_10000baseCR_Full_BIT},
+	{QED_LM_10000baseSR_Full_BIT, ETHTOOL_LINK_MODE_10000baseSR_Full_BIT},
+	{QED_LM_10000baseLR_Full_BIT, ETHTOOL_LINK_MODE_10000baseLR_Full_BIT},
+	{QED_LM_10000baseLRM_Full_BIT, ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT},
 };
 
 #define QEDE_DRV_TO_ETHTOOL_CAPS(caps, lk_ksettings, name)	\
@@ -494,6 +528,7 @@ static int qede_set_link_ksettings(struct net_device *dev,
 	struct qede_dev *edev = netdev_priv(dev);
 	struct qed_link_output current_link;
 	struct qed_link_params params;
+	u32 sup_caps;
 
 	if (!edev->ops || !edev->ops->common->can_link_change(edev->cdev)) {
 		DP_INFO(edev, "Link settings are not allowed to be changed\n");
@@ -520,52 +555,85 @@ static int qede_set_link_ksettings(struct net_device *dev,
 		params.forced_speed = base->speed;
 		switch (base->speed) {
 		case SPEED_1000:
-			if (!(current_link.supported_caps &
-			      QED_LM_1000baseT_Full_BIT)) {
+			sup_caps = QED_LM_1000baseT_Full_BIT |
+					QED_LM_1000baseKX_Full_BIT |
+					QED_LM_1000baseX_Full_BIT;
+			if (!(current_link.supported_caps & sup_caps)) {
 				DP_INFO(edev, "1G speed not supported\n");
 				return -EINVAL;
 			}
-			params.adv_speeds = QED_LM_1000baseT_Full_BIT;
+			params.adv_speeds = current_link.supported_caps &
+						sup_caps;
 			break;
 		case SPEED_10000:
-			if (!(current_link.supported_caps &
-			      QED_LM_10000baseKR_Full_BIT)) {
+			sup_caps = QED_LM_10000baseT_Full_BIT |
+					QED_LM_10000baseKR_Full_BIT |
+					QED_LM_10000baseKX4_Full_BIT |
+					QED_LM_10000baseR_FEC_BIT |
+					QED_LM_10000baseCR_Full_BIT |
+					QED_LM_10000baseSR_Full_BIT |
+					QED_LM_10000baseLR_Full_BIT |
+					QED_LM_10000baseLRM_Full_BIT;
+			if (!(current_link.supported_caps & sup_caps)) {
 				DP_INFO(edev, "10G speed not supported\n");
 				return -EINVAL;
 			}
-			params.adv_speeds = QED_LM_10000baseKR_Full_BIT;
+			params.adv_speeds = current_link.supported_caps &
+						sup_caps;
+			break;
+		case SPEED_20000:
+			if (!(current_link.supported_caps &
+			    QED_LM_20000baseKR2_Full_BIT)) {
+				DP_INFO(edev, "20G speed not supported\n");
+				return -EINVAL;
+			}
+			params.adv_speeds = QED_LM_20000baseKR2_Full_BIT;
 			break;
 		case SPEED_25000:
-			if (!(current_link.supported_caps &
-			      QED_LM_25000baseKR_Full_BIT)) {
+			sup_caps = QED_LM_25000baseKR_Full_BIT |
+					QED_LM_25000baseCR_Full_BIT |
+					QED_LM_25000baseSR_Full_BIT;
+			if (!(current_link.supported_caps & sup_caps)) {
 				DP_INFO(edev, "25G speed not supported\n");
 				return -EINVAL;
 			}
-			params.adv_speeds = QED_LM_25000baseKR_Full_BIT;
+			params.adv_speeds = current_link.supported_caps &
+						sup_caps;
 			break;
 		case SPEED_40000:
-			if (!(current_link.supported_caps &
-			      QED_LM_40000baseLR4_Full_BIT)) {
+			sup_caps = QED_LM_40000baseLR4_Full_BIT |
+					QED_LM_40000baseKR4_Full_BIT |
+					QED_LM_40000baseCR4_Full_BIT |
+					QED_LM_40000baseSR4_Full_BIT;
+			if (!(current_link.supported_caps & sup_caps)) {
 				DP_INFO(edev, "40G speed not supported\n");
 				return -EINVAL;
 			}
-			params.adv_speeds = QED_LM_40000baseLR4_Full_BIT;
+			params.adv_speeds = current_link.supported_caps &
+						sup_caps;
 			break;
 		case SPEED_50000:
-			if (!(current_link.supported_caps &
-			      QED_LM_50000baseKR2_Full_BIT)) {
+			sup_caps = QED_LM_50000baseKR2_Full_BIT |
+					QED_LM_50000baseCR2_Full_BIT |
+					QED_LM_50000baseSR2_Full_BIT;
+			if (!(current_link.supported_caps & sup_caps)) {
 				DP_INFO(edev, "50G speed not supported\n");
 				return -EINVAL;
 			}
-			params.adv_speeds = QED_LM_50000baseKR2_Full_BIT;
+			params.adv_speeds = current_link.supported_caps &
+						sup_caps;
 			break;
 		case SPEED_100000:
-			if (!(current_link.supported_caps &
-			      QED_LM_100000baseKR4_Full_BIT)) {
+			sup_caps = QED_LM_100000baseKR4_Full_BIT |
+					QED_LM_100000baseSR4_Full_BIT |
+					QED_LM_100000baseCR4_Full_BIT |
+					QED_LM_100000baseLR4_ER4_Full_BIT;
+			if (!(current_link.supported_caps & sup_caps)) {
 				DP_INFO(edev, "100G speed not supported\n");
 				return -EINVAL;
 			}
-			params.adv_speeds = QED_LM_100000baseKR4_Full_BIT;
+			params.adv_speeds = current_link.supported_caps &
+						sup_caps;
 			break;
 		default:
 			DP_INFO(edev, "Unsupported speed %u\n", base->speed);
@@ -584,9 +652,9 @@ static void qede_get_drvinfo(struct net_device *ndev,
 {
 	char mfw[ETHTOOL_FWVERS_LEN], storm[ETHTOOL_FWVERS_LEN];
 	struct qede_dev *edev = netdev_priv(ndev);
+	char mbi[ETHTOOL_FWVERS_LEN];
 
 	strlcpy(info->driver, "qede", sizeof(info->driver));
-	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
 
 	snprintf(storm, ETHTOOL_FWVERS_LEN, "%d.%d.%d.%d",
 		 edev->dev_info.common.fw_major,
@@ -600,13 +668,27 @@ static void qede_get_drvinfo(struct net_device *ndev,
 		 (edev->dev_info.common.mfw_rev >> 8) & 0xFF,
 		 edev->dev_info.common.mfw_rev & 0xFF);
 
-	if ((strlen(storm) + strlen(mfw) + strlen("mfw storm  ")) <
-	    sizeof(info->fw_version)) {
+	if ((strlen(storm) + strlen(DRV_MODULE_VERSION) + strlen("[storm]  ")) <
+	    sizeof(info->version))
+		snprintf(info->version, sizeof(info->version),
+			 "%s [storm %s]", DRV_MODULE_VERSION, storm);
+	else
+		snprintf(info->version, sizeof(info->version),
+			 "%s %s", DRV_MODULE_VERSION, storm);
+
+	if (edev->dev_info.common.mbi_version) {
+		snprintf(mbi, ETHTOOL_FWVERS_LEN, "%d.%d.%d",
+			 (edev->dev_info.common.mbi_version &
+			  QED_MBI_VERSION_2_MASK) >> QED_MBI_VERSION_2_OFFSET,
+			 (edev->dev_info.common.mbi_version &
+			  QED_MBI_VERSION_1_MASK) >> QED_MBI_VERSION_1_OFFSET,
+			 (edev->dev_info.common.mbi_version &
+			  QED_MBI_VERSION_0_MASK) >> QED_MBI_VERSION_0_OFFSET);
 		snprintf(info->fw_version, sizeof(info->fw_version),
-			 "mfw %s storm %s", mfw, storm);
+			 "mbi %s [mfw %s]", mbi, mfw);
 	} else {
 		snprintf(info->fw_version, sizeof(info->fw_version),
-			 "%s %s", mfw, storm);
+			 "mfw %s", mfw);
 	}
 
 	strlcpy(info->bus_info, pci_name(edev->pdev), sizeof(info->bus_info));
@@ -1458,14 +1540,6 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
 	barrier();
 	writel(txq->tx_db.raw, txq->doorbell_addr);
 
-	/* mmiowb is needed to synchronize doorbell writes from more than one
-	 * processor. It guarantees that the write arrives to the device before
-	 * the queue lock is released and another start_xmit is called (possibly
-	 * on another CPU). Without this barrier, the next doorbell can bypass
-	 * this doorbell. This is applicable to IA64/Altix systems.
-	 */
-	mmiowb();
-
 	for (i = 0; i < QEDE_SELFTEST_POLL_COUNT; i++) {
 		if (qede_txq_has_work(txq))
 			break;
@@ -1595,8 +1669,11 @@ static int qede_selftest_run_loopback(struct qede_dev *edev, u32 loopback_mode)
 	/* Wait for loopback configuration to apply */
 	msleep_interruptible(500);
 
-	/* prepare the loopback packet */
-	pkt_size = edev->ndev->mtu + ETH_HLEN;
+	/* Setting max packet size to 1.5K to avoid data being split over
+	 * multiple BDs in cases where MTU > PAGE_SIZE.
+	 */
+	pkt_size = (((edev->ndev->mtu < ETH_DATA_LEN) ?
+		     edev->ndev->mtu : ETH_DATA_LEN) + ETH_HLEN);
 
 	skb = netdev_alloc_skb(edev->ndev, pkt_size);
 	if (!skb) {

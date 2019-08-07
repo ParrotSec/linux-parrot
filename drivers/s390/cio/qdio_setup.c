@@ -27,7 +27,6 @@ struct qaob *qdio_allocate_aob(void)
 {
 	return kmem_cache_zalloc(qdio_aob_cache, GFP_ATOMIC);
 }
-EXPORT_SYMBOL_GPL(qdio_allocate_aob);
 
 void qdio_release_aob(struct qaob *aob)
 {
@@ -151,6 +150,7 @@ static int __qdio_allocate_qs(struct qdio_q **irq_ptr_qs, int nr_queues)
 			return -ENOMEM;
 		}
 		irq_ptr_qs[i] = q;
+		INIT_LIST_HEAD(&q->entry);
 	}
 	return 0;
 }
@@ -179,10 +179,11 @@ static void setup_queues_misc(struct qdio_q *q, struct qdio_irq *irq_ptr,
 	q->mask = 1 << (31 - i);
 	q->nr = i;
 	q->handler = handler;
+	INIT_LIST_HEAD(&q->entry);
 }
 
 static void setup_storage_lists(struct qdio_q *q, struct qdio_irq *irq_ptr,
-				void **sbals_array, int i)
+				struct qdio_buffer **sbals_array, int i)
 {
 	struct qdio_q *prev;
 	int j;
@@ -213,8 +214,8 @@ static void setup_queues(struct qdio_irq *irq_ptr,
 			 struct qdio_initialize *qdio_init)
 {
 	struct qdio_q *q;
-	void **input_sbal_array = qdio_init->input_sbal_addr_array;
-	void **output_sbal_array = qdio_init->output_sbal_addr_array;
+	struct qdio_buffer **input_sbal_array = qdio_init->input_sbal_addr_array;
+	struct qdio_buffer **output_sbal_array = qdio_init->output_sbal_addr_array;
 	struct qdio_outbuf_state *output_sbal_state_array =
 				  qdio_init->output_sbal_state_array;
 	int i;
@@ -524,7 +525,7 @@ void qdio_print_subchannel_info(struct qdio_irq *irq_ptr,
 		 irq_ptr->schid.sch_no,
 		 is_thinint_irq(irq_ptr),
 		 (irq_ptr->sch_token) ? 1 : 0,
-		 (irq_ptr->qib.ac & QIB_AC_OUTBOUND_PCI_SUPPORTED) ? 1 : 0,
+		 pci_out_supported(irq_ptr) ? 1 : 0,
 		 css_general_characteristics.aif_tdd,
 		 (irq_ptr->siga_flag.input) ? "R" : " ",
 		 (irq_ptr->siga_flag.output) ? "W" : " ",

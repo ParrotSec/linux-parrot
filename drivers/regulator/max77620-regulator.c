@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Maxim MAX77620 Regulator driver
  *
@@ -5,10 +6,6 @@
  *
  * Author: Mallikarjun Kasoju <mkasoju@nvidia.com>
  *	Laxman Dewangan <ldewangan@nvidia.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
  */
 
 #include <linux/init.h>
@@ -690,6 +687,7 @@ static const struct regulator_ops max77620_regulator_ops = {
 			.active_discharge_mask = MAX77620_SD_CFG1_ADE_MASK, \
 			.active_discharge_reg = MAX77620_REG_##_id##_CFG, \
 			.type = REGULATOR_VOLTAGE,			\
+			.owner = THIS_MODULE,				\
 		},							\
 	}
 
@@ -721,6 +719,7 @@ static const struct regulator_ops max77620_regulator_ops = {
 			.active_discharge_mask = MAX77620_LDO_CFG2_ADE_MASK, \
 			.active_discharge_reg = MAX77620_REG_##_id##_CFG2, \
 			.type = REGULATOR_VOLTAGE,			\
+			.owner = THIS_MODULE,				\
 		},							\
 	}
 
@@ -801,7 +800,7 @@ static int max77620_regulator_probe(struct platform_device *pdev)
 			continue;
 
 		rdesc = &rinfo[id].desc;
-		pmic->rinfo[id] = &max77620_regs_info[id];
+		pmic->rinfo[id] = &rinfo[id];
 		pmic->enable_power_mode[id] = MAX77620_POWER_MODE_NORMAL;
 		pmic->reg_pdata[id].active_fps_src = -1;
 		pmic->reg_pdata[id].active_fps_pd_slot = -1;

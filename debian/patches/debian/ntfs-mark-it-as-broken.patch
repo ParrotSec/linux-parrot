@@ -8,9 +8,12 @@ CVE-2018-12931.  ntfs-3g is a better supported alternative.
 Make sure it can't be enabled even in custom kernels.
 
 ---
---- a/fs/ntfs/Kconfig
-+++ b/fs/ntfs/Kconfig
-@@ -1,5 +1,6 @@
+Index: debian-kernel/fs/ntfs/Kconfig
+===================================================================
+--- debian-kernel.orig/fs/ntfs/Kconfig
++++ debian-kernel/fs/ntfs/Kconfig
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0-only
  config NTFS_FS
  	tristate "NTFS file system support"
 +	depends on BROKEN

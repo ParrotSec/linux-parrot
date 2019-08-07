@@ -158,9 +158,6 @@ static int  amdgpu_debugfs_process_reg_op(bool read, struct file *f,
 	while (size) {
 		uint32_t value;
 
-		if (*pos > adev->rmmio_size)
-			goto end;
-
 		if (read) {
 			value = RREG32(*pos >> 2);
 			r = put_user(value, (uint32_t *)buf);
@@ -571,10 +568,9 @@ static ssize_t amdgpu_debugfs_sensor_read(struct file *f, char __user *buf,
 	idx = *pos >> 2;
 
 	valuesize = sizeof(values);
-	if (adev->powerplay.pp_funcs && adev->powerplay.pp_funcs->read_sensor)
-		r = amdgpu_dpm_read_sensor(adev, idx, &values[0], &valuesize);
-	else
-		return -EINVAL;
+	r = amdgpu_dpm_read_sensor(adev, idx, &values[0], &valuesize);
+	if (r)
+		return r;
 
 	if (size > valuesize)
 		return -EINVAL;
@@ -826,21 +822,13 @@ int amdgpu_debugfs_regs_init(struct amdgpu_device *adev)
 {
 	struct drm_minor *minor = adev->ddev->primary;
 	struct dentry *ent, *root = minor->debugfs_root;
-	unsigned i, j;
+	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(debugfs_regs); i++) {
 		ent = debugfs_create_file(debugfs_regs_names[i],
 					  S_IFREG | S_IRUGO, root,
 					  adev, debugfs_regs[i]);
-		if (IS_ERR(ent)) {
-			for (j = 0; j < i; j++) {
-				debugfs_remove(adev->debugfs_regs[i]);
-				adev->debugfs_regs[i] = NULL;
-			}
-			return PTR_ERR(ent);
-		}
-
-		if (!i)
+		if (!i && !IS_ERR_OR_NULL(ent))
 			i_size_write(ent->d_inode, adev->rmmio_size);
 		adev->debugfs_regs[i] = ent;
 	}

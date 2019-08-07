@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * This is a module which is used for logging packets to userspace via
  * nfetlink.
@@ -7,10 +8,6 @@
  *
  * Based on the old ipv4-only ipt_ULOG.c:
  * (C) 2000-2004 by Harald Welte <laforge@netfilter.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -148,7 +145,7 @@ static void
 instance_put(struct nfulnl_instance *inst)
 {
 	if (inst && refcount_dec_and_test(&inst->use))
-		call_rcu_bh(&inst->rcu, nfulnl_instance_free_rcu);
+		call_rcu(&inst->rcu, nfulnl_instance_free_rcu);
 }
 
 static void nfulnl_timer(struct timer_list *t);
@@ -540,7 +537,7 @@ __build_packet_message(struct nfnl_log_net *log,
 			goto nla_put_failure;
 	}
 
-	if (skb->tstamp) {
+	if (hooknum <= NF_INET_FORWARD && skb->tstamp) {
 		struct nfulnl_msg_packet_timestamp ts;
 		struct timespec64 kts = ktime_to_timespec64(skb->tstamp);
 		ts.sec = cpu_to_be64(kts.tv_sec);

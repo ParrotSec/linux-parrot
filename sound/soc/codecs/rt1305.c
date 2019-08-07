@@ -1,12 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * rt1305.c  --  RT1305 ALSA SoC amplifier component driver
  *
  * Copyright 2018 Realtek Semiconductor Corp.
  * Author: Shuming Fan <shumingf@realtek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/module.h>
@@ -963,7 +960,8 @@ static const struct regmap_config rt1305_regmap = {
 	.num_reg_defaults = ARRAY_SIZE(rt1305_reg),
 	.ranges = rt1305_ranges,
 	.num_ranges = ARRAY_SIZE(rt1305_ranges),
-	.use_single_rw = true,
+	.use_single_read = true,
+	.use_single_write = true,
 };
 
 #if defined(CONFIG_OF)

@@ -1,9 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016 Chelsio Communications, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/module.h>
@@ -935,8 +932,8 @@ cxgbit_offload_init(struct cxgbit_sock *csk, int iptype, __u8 *peer_ip,
 			goto out;
 		csk->mtu = ndev->mtu;
 		csk->tx_chan = cxgb4_port_chan(ndev);
-		csk->smac_idx = cxgb4_tp_smt_idx(cdev->lldi.adapter_type,
-						 cxgb4_port_viid(ndev));
+		csk->smac_idx =
+			       ((struct port_info *)netdev_priv(ndev))->smt_idx;
 		step = cdev->lldi.ntxq /
 			cdev->lldi.nchan;
 		csk->txq_idx = cxgb4_port_idx(ndev) * step;
@@ -971,8 +968,8 @@ cxgbit_offload_init(struct cxgbit_sock *csk, int iptype, __u8 *peer_ip,
 		port_id = cxgb4_port_idx(ndev);
 		csk->mtu = dst_mtu(dst);
 		csk->tx_chan = cxgb4_port_chan(ndev);
-		csk->smac_idx = cxgb4_tp_smt_idx(cdev->lldi.adapter_type,
-						 cxgb4_port_viid(ndev));
+		csk->smac_idx =
+			       ((struct port_info *)netdev_priv(ndev))->smt_idx;
 		step = cdev->lldi.ntxq /
 			cdev->lldi.nports;
 		csk->txq_idx = (port_id * step) +

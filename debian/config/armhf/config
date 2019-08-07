@@ -11,7 +11,6 @@ CONFIG_ARM_ERRATA_430973=y
 CONFIG_ARM_ERRATA_643719=y
 CONFIG_ARM_ERRATA_754327=y
 CONFIG_ARM_ERRATA_773022=y
-CONFIG_PCI=y
 CONFIG_SMP=y
 CONFIG_SMP_ON_UP=y
 CONFIG_MCPM=y
@@ -49,7 +48,6 @@ CONFIG_ARCH_EXYNOS=y
 # CONFIG_ARCH_EXYNOS3 is not set
 CONFIG_ARCH_EXYNOS4=y
 CONFIG_ARCH_EXYNOS5=y
-CONFIG_EXYNOS5420_MCPM=y
 
 ##
 ## file: arch/arm/mach-highbank/Kconfig
@@ -63,11 +61,21 @@ CONFIG_ARCH_MXC=y
 CONFIG_SOC_IMX51=y
 CONFIG_SOC_IMX53=y
 CONFIG_SOC_IMX6Q=y
+CONFIG_SOC_IMX6SL=y
+CONFIG_SOC_IMX6SLL=y
+CONFIG_SOC_IMX6SX=y
+CONFIG_SOC_IMX6UL=y
 
 ##
 ## file: arch/arm/mach-meson/Kconfig
 ##
 CONFIG_ARCH_MESON=y
+
+##
+## file: arch/arm/mach-mmp/Kconfig
+##
+CONFIG_ARCH_MMP=y
+CONFIG_MACH_MMP2_DT=y
 
 ##
 ## file: arch/arm/mach-mvebu/Kconfig
@@ -172,11 +180,6 @@ CONFIG_PATA_OF_PLATFORM=m
 CONFIG_ARM_CHARLCD=y
 
 ##
-## file: drivers/base/Kconfig
-##
-CONFIG_DMA_CMA=y
-
-##
 ## file: drivers/bluetooth/Kconfig
 ##
 CONFIG_BT_WILINK=m
@@ -211,6 +214,10 @@ CONFIG_SUN8I_DE2_CCU=y
 ##
 ## file: drivers/cpufreq/Kconfig
 ##
+## choice: Default CPUFreq governor
+# CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE is not set
+CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+## end choice
 CONFIG_CPUFREQ_DT=m
 
 ##
@@ -290,6 +297,11 @@ CONFIG_GPIO_TWL6040=y
 CONFIG_DRM=m
 
 ##
+## file: drivers/gpu/drm/armada/Kconfig
+##
+CONFIG_DRM_ARMADA=m
+
+##
 ## file: drivers/gpu/drm/bridge/synopsys/Kconfig
 ##
 CONFIG_DRM_DW_HDMI_AHB_AUDIO=m
@@ -322,6 +334,11 @@ CONFIG_DRM_IMX=m
 CONFIG_DRM_IMX_PARALLEL_DISPLAY=m
 CONFIG_DRM_IMX_LDB=m
 CONFIG_DRM_IMX_HDMI=m
+
+##
+## file: drivers/gpu/drm/lima/Kconfig
+##
+CONFIG_DRM_LIMA=m
 
 ##
 ## file: drivers/gpu/drm/nouveau/Kconfig
@@ -358,6 +375,11 @@ CONFIG_OMAP2_DSS_DSI=y
 ##
 CONFIG_DRM_PANEL_SIMPLE=m
 CONFIG_DRM_PANEL_RASPBERRYPI_TOUCHSCREEN=m
+
+##
+## file: drivers/gpu/drm/panfrost/Kconfig
+##
+CONFIG_DRM_PANFROST=m
 
 ##
 ## file: drivers/gpu/drm/rockchip/Kconfig
@@ -450,6 +472,7 @@ CONFIG_I2C_IMX=m
 CONFIG_I2C_MESON=m
 CONFIG_I2C_MV64XXX=m
 CONFIG_I2C_OMAP=y
+CONFIG_I2C_PXA=m
 CONFIG_I2C_RK3X=m
 CONFIG_I2C_S3C2410=y
 CONFIG_I2C_SUN6I_P2WI=m
@@ -522,6 +545,7 @@ CONFIG_MOUSE_ELAN_I2C=m
 ## file: drivers/input/serio/Kconfig
 ##
 CONFIG_SERIO_AMBAKMI=m
+CONFIG_SERIO_OLPC_APSP=m
 CONFIG_SERIO_SUN4I_PS2=m
 
 ##
@@ -646,6 +670,11 @@ CONFIG_TI_ST=m
 CONFIG_MMC=y
 
 ##
+## file: drivers/mmc/core/Kconfig
+##
+CONFIG_PWRSEQ_SD8787=m
+
+##
 ## file: drivers/mmc/host/Kconfig
 ##
 CONFIG_MMC_ARMMMCI=m
@@ -684,11 +713,11 @@ CONFIG_MTD_ONENAND_OMAP2=m
 ##
 ## file: drivers/mtd/nand/raw/Kconfig
 ##
-CONFIG_MTD_NAND=y
+CONFIG_MTD_RAW_NAND=y
 CONFIG_MTD_NAND_OMAP2=m
+CONFIG_MTD_NAND_ORION=m
 CONFIG_MTD_NAND_MARVELL=m
 CONFIG_MTD_NAND_GPMI_NAND=m
-CONFIG_MTD_NAND_ORION=m
 CONFIG_MTD_NAND_MXC=m
 CONFIG_MTD_NAND_SUNXI=m
 
@@ -697,6 +726,12 @@ CONFIG_MTD_NAND_SUNXI=m
 ##
 CONFIG_CAN_FLEXCAN=m
 CONFIG_CAN_SUN4I=m
+
+##
+## file: drivers/net/can/c_can/Kconfig
+##
+CONFIG_CAN_C_CAN=m
+CONFIG_CAN_C_CAN_PLATFORM=m
 
 ##
 ## file: drivers/net/dsa/Kconfig
@@ -826,7 +861,6 @@ CONFIG_DWMAC_SUNXI=m
 ##
 CONFIG_TI_DAVINCI_EMAC=m
 CONFIG_TI_DAVINCI_MDIO=m
-CONFIG_TI_DAVINCI_CPDMA=m
 CONFIG_TI_CPSW=m
 
 ##
@@ -834,16 +868,6 @@ CONFIG_TI_CPSW=m
 ##
 CONFIG_FDDI=y
 CONFIG_SKFP=m
-
-##
-## file: drivers/net/hamradio/Kconfig
-##
-# CONFIG_BPQETHER is not set
-# CONFIG_BAYCOM_SER_FDX is not set
-# CONFIG_BAYCOM_SER_HDX is not set
-# CONFIG_BAYCOM_PAR is not set
-# CONFIG_BAYCOM_EPP is not set
-# CONFIG_YAM is not set
 
 ##
 ## file: drivers/net/phy/Kconfig
@@ -893,6 +917,11 @@ CONFIG_NVMEM_SUNXI_SID=m
 CONFIG_MESON_MX_EFUSE=m
 
 ##
+## file: drivers/pci/Kconfig
+##
+CONFIG_PCI=y
+
+##
 ## file: drivers/pci/controller/Kconfig
 ##
 CONFIG_PCI_MVEBU=y
@@ -912,10 +941,16 @@ CONFIG_PHY_SUN4I_USB=m
 CONFIG_PHY_SUN9I_USB=m
 
 ##
+## file: drivers/phy/marvell/Kconfig
+##
+CONFIG_PHY_PXA_USB=m
+
+##
 ## file: drivers/phy/rockchip/Kconfig
 ##
 CONFIG_PHY_ROCKCHIP_DP=m
 CONFIG_PHY_ROCKCHIP_EMMC=m
+CONFIG_PHY_ROCKCHIP_INNO_HDMI=m
 CONFIG_PHY_ROCKCHIP_USB=m
 
 ##
@@ -998,7 +1033,7 @@ CONFIG_CHARGER_BQ2415X=m
 ##
 CONFIG_PWM=y
 CONFIG_PWM_BCM2835=m
-CONFIG_PWM_IMX=m
+CONFIG_PWM_IMX27=m
 CONFIG_PWM_MESON=m
 CONFIG_PWM_OMAP_DMTIMER=m
 CONFIG_PWM_ROCKCHIP=m
@@ -1105,16 +1140,23 @@ CONFIG_SPI_OMAP24XX=m
 CONFIG_SPI_TI_QSPI=m
 CONFIG_SPI_ORION=m
 CONFIG_SPI_PL022=m
+CONFIG_SPI_PXA2XX=m
 CONFIG_SPI_ROCKCHIP=m
 CONFIG_SPI_SUN4I=m
 CONFIG_SPI_SUN6I=m
 CONFIG_SPI_TEGRA114=m
 CONFIG_SPI_TEGRA20_SFLASH=m
+CONFIG_SPI_SLAVE=y
 
 ##
 ## file: drivers/staging/vc04_services/bcm2835-audio/Kconfig
 ##
 CONFIG_SND_BCM2835=m
+
+##
+## file: drivers/staging/vc04_services/bcm2835-camera/Kconfig
+##
+CONFIG_VIDEO_BCM2835=m
 
 ##
 ## file: drivers/thermal/Kconfig
@@ -1229,6 +1271,7 @@ CONFIG_USB_EHCI_MXC=m
 CONFIG_USB_EHCI_HCD_OMAP=y
 CONFIG_USB_EHCI_TEGRA=m
 CONFIG_USB_EHCI_EXYNOS=m
+CONFIG_USB_EHCI_MV=m
 CONFIG_USB_EHCI_HCD_PLATFORM=m
 CONFIG_USB_OHCI_HCD=m
 CONFIG_USB_OHCI_HCD_OMAP3=y
@@ -1316,10 +1359,16 @@ CONFIG_MESON_WATCHDOG=m
 CONFIG_BCM2835_WDT=m
 
 ##
+## file: kernel/dma/Kconfig
+##
+CONFIG_DMA_CMA=y
+
+##
 ## file: kernel/power/Kconfig
 ##
 CONFIG_SUSPEND=y
 CONFIG_APM_EMULATION=y
+CONFIG_ENERGY_MODEL=y
 
 ##
 ## file: mm/Kconfig
@@ -1362,12 +1411,6 @@ CONFIG_SND_BCM2835_SOC_I2S=m
 CONFIG_SND_SOC_SPDIF=y
 
 ##
-## file: sound/soc/davinci/Kconfig
-##
-CONFIG_SND_EDMA_SOC=m
-CONFIG_SND_DAVINCI_SOC_MCASP=m
-
-##
 ## file: sound/soc/fsl/Kconfig
 ##
 CONFIG_SND_IMX_SOC=m
@@ -1386,16 +1429,6 @@ CONFIG_SND_SIMPLE_CARD=m
 ## file: sound/soc/kirkwood/Kconfig
 ##
 CONFIG_SND_KIRKWOOD_SOC=m
-
-##
-## file: sound/soc/omap/Kconfig
-##
-CONFIG_SND_OMAP_SOC=m
-CONFIG_SND_OMAP_SOC_RX51=m
-CONFIG_SND_OMAP_SOC_AM3517EVM=m
-CONFIG_SND_OMAP_SOC_OMAP_TWL4030=m
-CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040=m
-CONFIG_SND_OMAP_SOC_OMAP3_PANDORA=m
 
 ##
 ## file: sound/soc/rockchip/Kconfig
@@ -1425,4 +1458,13 @@ CONFIG_SND_SOC_TEGRA_TRIMSLICE=m
 CONFIG_SND_SOC_TEGRA_ALC5632=m
 CONFIG_SND_SOC_TEGRA_MAX98090=m
 CONFIG_SND_SOC_TEGRA_RT5677=m
+
+##
+## file: sound/soc/ti/Kconfig
+##
+CONFIG_SND_SOC_DAVINCI_MCASP=m
+CONFIG_SND_SOC_NOKIA_RX51=m
+CONFIG_SND_SOC_OMAP3_PANDORA=m
+CONFIG_SND_SOC_OMAP3_TWL4030=m
+CONFIG_SND_SOC_OMAP_ABE_TWL6040=m
 

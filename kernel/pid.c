@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Generic pidhash and scalable, time-bounded PID allocator
  *
@@ -31,8 +32,7 @@
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/rculist.h>
-#include <linux/bootmem.h>
-#include <linux/hash.h>
+#include <linux/memblock.h>
 #include <linux/pid_namespace.h>
 #include <linux/init_task.h>
 #include <linux/syscalls.h>

@@ -1,13 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *  Point-to-Point Tunneling Protocol for Linux
  *
  *	Authors: Dmitry Kozlov <xeb@mail.ru>
- *
- *	This program is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU General Public License
- *	as published by the Free Software Foundation; either version
- *	2 of the License, or (at your option) any later version.
- *
  */
 
 #include <linux/string.h>
@@ -323,11 +318,6 @@ allow_packet:
 			if (skb->len < 3)
 				goto drop;
 			skb_pull(skb, 2);
-		}
-
-		if ((*skb->data) & 1) {
-			/* protocol is compressed */
-			*(u8 *)skb_push(skb, 1) = 0;
 		}
 
 		skb->ip_summed = CHECKSUM_NONE;

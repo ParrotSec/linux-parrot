@@ -1,14 +1,14 @@
-From: Matthew Garrett <matthew.garrett@nebula.com>
-Date: Wed, 8 Nov 2017 15:11:34 +0000
-Subject: [15/29] ACPI: Limit access to custom_method when the kernel is locked
+From: Matthew Garrett <mjg59@srcf.ucam.org>
+Date: Mon, 18 Feb 2019 12:44:59 +0000
+Subject: [15/30] ACPI: Limit access to custom_method when the kernel is locked
  down
-Origin: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git/commit?id=5ff99c830aacf02f25816a0da427216fb63ba16d
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git/commit?id=e043939bb24a551d6303b5338041ce2828ca1b66
 
 custom_method effectively allows arbitrary access to system memory, making
 it possible for an attacker to circumvent restrictions on module loading.
 Disable it if the kernel is locked down.
 
-Signed-off-by: Matthew Garrett <matthew.garrett@nebula.com>
+Signed-off-by: Matthew Garrett <mjg59@srcf.ucam.org>
 Signed-off-by: David Howells <dhowells@redhat.com>
 Reviewed-by: "Lee, Chun-Yi" <jlee@suse.com>
 cc: linux-acpi@vger.kernel.org
@@ -17,7 +17,7 @@ cc: linux-acpi@vger.kernel.org
  1 file changed, 3 insertions(+)
 
 diff --git a/drivers/acpi/custom_method.c b/drivers/acpi/custom_method.c
-index c68e72414a67..b33fba70ec51 100644
+index 4451877f83b6..ac8a90dc7096 100644
 --- a/drivers/acpi/custom_method.c
 +++ b/drivers/acpi/custom_method.c
 @@ -29,6 +29,9 @@ static ssize_t cm_write(struct file *file, const char __user * user_buf,

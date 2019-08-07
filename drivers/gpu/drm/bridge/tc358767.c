@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * tc358767 eDP bridge driver
  *
@@ -12,16 +13,6 @@
  *
  * Copyright (C) 2012 Texas Instruments
  * Author: Rob Clark <robdclark@gmail.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <linux/clk.h>
@@ -34,11 +25,11 @@
 #include <linux/slab.h>
 
 #include <drm/drm_atomic_helper.h>
-#include <drm/drm_crtc_helper.h>
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_of.h>
 #include <drm/drm_panel.h>
+#include <drm/drm_probe_helper.h>
 
 /* Registers */
 
@@ -208,7 +199,7 @@ struct tc_data {
 	/* display edid */
 	struct edid		*edid;
 	/* current mode */
-	struct drm_display_mode	*mode;
+	const struct drm_display_mode	*mode;
 
 	u32			rev;
 	u8			assr;
@@ -657,7 +648,8 @@ err_dpcd_read:
 	return ret;
 }
 
-static int tc_set_video_mode(struct tc_data *tc, struct drm_display_mode *mode)
+static int tc_set_video_mode(struct tc_data *tc,
+			     const struct drm_display_mode *mode)
 {
 	int ret;
 	int vid_sync_dly;
@@ -1136,8 +1128,8 @@ static enum drm_mode_status tc_connector_mode_valid(struct drm_connector *connec
 }
 
 static void tc_bridge_mode_set(struct drm_bridge *bridge,
-			       struct drm_display_mode *mode,
-			       struct drm_display_mode *adj)
+			       const struct drm_display_mode *mode,
+			       const struct drm_display_mode *adj)
 {
 	struct tc_data *tc = bridge_to_tc(bridge);
 
@@ -1149,6 +1141,13 @@ static int tc_connector_get_modes(struct drm_connector *connector)
 	struct tc_data *tc = connector_to_tc(connector);
 	struct edid *edid;
 	unsigned int count;
+	int ret;
+
+	ret = tc_get_display_props(tc);
+	if (ret < 0) {
+		dev_err(tc->dev, "failed to read display props: %d\n", ret);
+		return 0;
+	}
 
 	if (tc->panel && tc->panel->funcs && tc->panel->funcs->get_modes) {
 		count = tc->panel->funcs->get_modes(tc->panel);
@@ -1209,7 +1208,8 @@ static int tc_bridge_attach(struct drm_bridge *bridge)
 	/* Create eDP connector */
 	drm_connector_helper_add(&tc->connector, &tc_connector_helper_funcs);
 	ret = drm_connector_init(drm, &tc->connector, &tc_connector_funcs,
-				 DRM_MODE_CONNECTOR_eDP);
+				 tc->panel ? DRM_MODE_CONNECTOR_eDP :
+				 DRM_MODE_CONNECTOR_DisplayPort);
 	if (ret)
 		return ret;
 
@@ -1220,8 +1220,8 @@ static int tc_bridge_attach(struct drm_bridge *bridge)
 					 &bus_format, 1);
 	tc->connector.display_info.bus_flags =
 		DRM_BUS_FLAG_DE_HIGH |
-		DRM_BUS_FLAG_PIXDATA_NEGEDGE |
-		DRM_BUS_FLAG_SYNC_NEGEDGE;
+		DRM_BUS_FLAG_PIXDATA_DRIVE_NEGEDGE |
+		DRM_BUS_FLAG_SYNC_DRIVE_NEGEDGE;
 	drm_connector_attach_encoder(&tc->connector, tc->bridge.encoder);
 
 	return 0;

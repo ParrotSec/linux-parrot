@@ -1,12 +1,10 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2011 - 2012 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com
  *
  * header file for Samsung EXYNOS5 SoC series G-Scaler driver
 
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #ifndef GSC_CORE_H_
@@ -392,8 +390,7 @@ int gsc_try_fmt_mplane(struct gsc_ctx *ctx, struct v4l2_format *f);
 void gsc_set_frame_size(struct gsc_frame *frame, int width, int height);
 int gsc_g_fmt_mplane(struct gsc_ctx *ctx, struct v4l2_format *f);
 void gsc_check_crop_change(u32 tmp_w, u32 tmp_h, u32 *w, u32 *h);
-int gsc_g_crop(struct gsc_ctx *ctx, struct v4l2_crop *cr);
-int gsc_try_crop(struct gsc_ctx *ctx, struct v4l2_crop *cr);
+int gsc_try_selection(struct gsc_ctx *ctx, struct v4l2_selection *s);
 int gsc_cal_prescaler_ratio(struct gsc_variant *var, u32 src, u32 dst,
 							u32 *ratio);
 void gsc_get_prescaler_shfactor(u32 hratio, u32 vratio, u32 *sh);

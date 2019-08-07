@@ -17,11 +17,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  arch/arm/mm/flush.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm/mm/flush.c b/arch/arm/mm/flush.c
-index 58469623b015..5345f86c56d2 100644
---- a/arch/arm/mm/flush.c
-+++ b/arch/arm/mm/flush.c
-@@ -295,6 +295,7 @@ void __sync_icache_dcache(pte_t pteval)
+Index: debian-kernel/arch/arm/mm/flush.c
+===================================================================
+--- debian-kernel.orig/arch/arm/mm/flush.c
++++ debian-kernel/arch/arm/mm/flush.c
+@@ -292,6 +292,7 @@ void __sync_icache_dcache(pte_t pteval)
  	if (pte_exec(pteval))
  		__flush_icache_all();
  }

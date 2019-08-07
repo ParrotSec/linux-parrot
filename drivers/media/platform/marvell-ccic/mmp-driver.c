@@ -1,11 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Support for the camera device found on Marvell MMP processors; known
  * to work with the Armada 610 as used in the OLPC 1.75 system.
  *
  * Copyright 2011 Jonathan Corbet <corbet@lwn.net>
- *
- * This file may be distributed under the terms of the GNU General
- * Public License, version 2.
  */
 
 #include <linux/init.h>
@@ -240,8 +238,8 @@ static void mmpcam_calc_dphy(struct mcam_camera *mcam)
 	 *  bit 8 ~ bit 15: HS_SETTLE
 	 *   Time interval during which the HS
 	 *   receiver shall ignore any Data Lane
-	 *   HS transistions.
-	 *   The vaule has been calibrated on
+	 *   HS transitions.
+	 *   The value has been calibrated on
 	 *   different boards. It seems to work well.
 	 *
 	 *  More detail please refer
@@ -362,7 +360,7 @@ static int mmpcam_probe(struct platform_device *pdev)
 	mcam->mclk_div = pdata->mclk_div;
 	mcam->bus_type = pdata->bus_type;
 	mcam->dphy = pdata->dphy;
-	if (mcam->bus_type == V4L2_MBUS_CSI2) {
+	if (mcam->bus_type == V4L2_MBUS_CSI2_DPHY) {
 		cam->mipi_clk = devm_clk_get(mcam->dev, "mipi");
 		if ((IS_ERR(cam->mipi_clk) && mcam->dphy[2] == 0))
 			return PTR_ERR(cam->mipi_clk);
@@ -371,7 +369,7 @@ static int mmpcam_probe(struct platform_device *pdev)
 	mcam->lane = pdata->lane;
 	mcam->chip_id = MCAM_ARMADA610;
 	mcam->buffer_mode = B_DMA_sg;
-	strlcpy(mcam->bus_info, "platform:mmp-camera", sizeof(mcam->bus_info));
+	strscpy(mcam->bus_info, "platform:mmp-camera", sizeof(mcam->bus_info));
 	spin_lock_init(&mcam->dev_lock);
 	/*
 	 * Get our I/O memory.

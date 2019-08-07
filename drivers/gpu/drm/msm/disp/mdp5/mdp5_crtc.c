@@ -1,26 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published by
- * the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/sort.h>
 #include <drm/drm_mode.h>
 #include <drm/drm_crtc.h>
-#include <drm/drm_crtc_helper.h>
 #include <drm/drm_flip_work.h>
+#include <drm/drm_probe_helper.h>
 
 #include "mdp5_kms.h"
 
@@ -173,7 +162,7 @@ static void unref_cursor_worker(struct drm_flip_work *work, void *val)
 	struct mdp5_kms *mdp5_kms = get_kms(&mdp5_crtc->base);
 	struct msm_kms *kms = &mdp5_kms->base.base;
 
-	msm_gem_put_iova(val, kms->aspace);
+	msm_gem_unpin_iova(val, kms->aspace);
 	drm_gem_object_put_unlocked(val);
 }
 
@@ -384,14 +373,7 @@ static void mdp5_crtc_mode_set_nofb(struct drm_crtc *crtc)
 
 	mode = &crtc->state->adjusted_mode;
 
-	DBG("%s: set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
-			crtc->name, mode->base.id, mode->name,
-			mode->vrefresh, mode->clock,
-			mode->hdisplay, mode->hsync_start,
-			mode->hsync_end, mode->htotal,
-			mode->vdisplay, mode->vsync_start,
-			mode->vsync_end, mode->vtotal,
-			mode->type, mode->flags);
+	DBG("%s: set mode: " DRM_MODE_FMT, crtc->name, DRM_MODE_ARG(mode));
 
 	mixer_width = mode->hdisplay;
 	if (r_mixer)
@@ -662,7 +644,7 @@ static int mdp5_crtc_atomic_check(struct drm_crtc *crtc,
 
 	ret = mdp5_crtc_setup_pipeline(crtc, state, need_right_mixer);
 	if (ret) {
-		dev_err(dev->dev, "couldn't assign mixers %d\n", ret);
+		DRM_DEV_ERROR(dev->dev, "couldn't assign mixers %d\n", ret);
 		return ret;
 	}
 
@@ -679,7 +661,7 @@ static int mdp5_crtc_atomic_check(struct drm_crtc *crtc,
 	 * and that we don't have conflicting mixer stages:
 	 */
 	if ((cnt + start - 1) >= hw_cfg->lm.nb_stages) {
-		dev_err(dev->dev, "too many planes! cnt=%d, start stage=%d\n",
+		DRM_DEV_ERROR(dev->dev, "too many planes! cnt=%d, start stage=%d\n",
 			cnt, start);
 		return -EINVAL;
 	}
@@ -879,7 +861,7 @@ static int mdp5_crtc_cursor_set(struct drm_crtc *crtc,
 	}
 
 	if ((width > CURSOR_WIDTH) || (height > CURSOR_HEIGHT)) {
-		dev_err(dev->dev, "bad cursor size: %dx%d\n", width, height);
+		DRM_DEV_ERROR(dev->dev, "bad cursor size: %dx%d\n", width, height);
 		return -EINVAL;
 	}
 
@@ -903,7 +885,7 @@ static int mdp5_crtc_cursor_set(struct drm_crtc *crtc,
 	if (!cursor_bo)
 		return -ENOENT;
 
-	ret = msm_gem_get_iova(cursor_bo, kms->aspace,
+	ret = msm_gem_get_and_pin_iova(cursor_bo, kms->aspace,
 			&mdp5_crtc->cursor.iova);
 	if (ret)
 		return -EINVAL;
@@ -924,7 +906,7 @@ static int mdp5_crtc_cursor_set(struct drm_crtc *crtc,
 set_cursor:
 	ret = mdp5_ctl_set_cursor(ctl, pipeline, 0, cursor_enable);
 	if (ret) {
-		dev_err(dev->dev, "failed to %sable cursor: %d\n",
+		DRM_DEV_ERROR(dev->dev, "failed to %sable cursor: %d\n",
 				cursor_enable ? "en" : "dis", ret);
 		goto end;
 	}

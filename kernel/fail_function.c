@@ -173,8 +173,7 @@ static void fei_debugfs_remove_attr(struct fei_attr *attr)
 	struct dentry *dir;
 
 	dir = debugfs_lookup(attr->kp.symbol_name, fei_debugfs_dir);
-	if (dir)
-		debugfs_remove_recursive(dir);
+	debugfs_remove_recursive(dir);
 }
 
 static int fei_kprobe_handler(struct kprobe *kp, struct pt_regs *regs)
@@ -211,7 +210,7 @@ static int fei_seq_show(struct seq_file *m, void *v)
 {
 	struct fei_attr *attr = list_entry(v, struct fei_attr, list);
 
-	seq_printf(m, "%pf\n", attr->kp.addr);
+	seq_printf(m, "%ps\n", attr->kp.addr);
 	return 0;
 }
 

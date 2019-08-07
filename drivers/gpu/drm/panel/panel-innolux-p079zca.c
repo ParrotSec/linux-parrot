@@ -1,10 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2017, Fuzhou Rockchip Electronics Co., Ltd
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  */
 
 #include <linux/backlight.h>
@@ -505,8 +501,7 @@ static int innolux_panel_add(struct mipi_dsi_device *dsi,
 
 static void innolux_panel_del(struct innolux_panel *innolux)
 {
-	if (innolux->base.dev)
-		drm_panel_remove(&innolux->base);
+	drm_panel_remove(&innolux->base);
 }
 
 static int innolux_panel_probe(struct mipi_dsi_device *dsi)

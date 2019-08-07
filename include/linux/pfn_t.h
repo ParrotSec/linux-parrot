@@ -9,6 +9,8 @@
  * PFN_SG_LAST - pfn references a page and is the last scatterlist entry
  * PFN_DEV - pfn is not covered by system memmap by default
  * PFN_MAP - pfn has a dynamic page mapping established by a device driver
+ * PFN_SPECIAL - for CONFIG_FS_DAX_LIMITED builds to allow XIP, but not
+ *		 get_user_pages
  */
 #define PFN_FLAGS_MASK (((u64) (~PAGE_MASK)) << (BITS_PER_LONG_LONG - PAGE_SHIFT))
 #define PFN_SG_CHAIN (1ULL << (BITS_PER_LONG_LONG - 1))
@@ -66,7 +68,7 @@ static inline phys_addr_t pfn_t_to_phys(pfn_t pfn)
 
 static inline void *pfn_t_to_virt(pfn_t pfn)
 {
-	if (pfn_t_has_page(pfn))
+	if (pfn_t_has_page(pfn) && !is_device_private_page(pfn_t_to_page(pfn)))
 		return __va(pfn_t_to_phys(pfn));
 	return NULL;
 }

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * coreboot_table.h
  *
@@ -6,15 +7,6 @@
  * Copyright 2014 Gerd Hoffmann <kraxel@redhat.com>
  * Copyright 2017 Google Inc.
  * Copyright 2017 Samuel Holland <samuel@sholland.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License v2.0 as published by
- * the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #ifndef __COREBOOT_TABLE_H
@@ -90,11 +82,5 @@ int coreboot_driver_register(struct coreboot_driver *driver);
 
 /* Unregister a driver that uses the data from a coreboot table. */
 void coreboot_driver_unregister(struct coreboot_driver *driver);
-
-/* Initialize coreboot table module given a pointer to iomem */
-int coreboot_table_init(struct device *dev, void __iomem *ptr);
-
-/* Cleanup coreboot table module */
-int coreboot_table_exit(void);
 
 #endif /* __COREBOOT_TABLE_H */

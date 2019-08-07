@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /* Kernel module to match the bridge port in and
  * out device for IP packets coming into contact with a bridge. */
 
 /* (C) 2001-2003 Bart De Schuymer <bdschuym@pandora.be>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/module.h>
@@ -33,7 +30,7 @@ physdev_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	/* Not a bridged IP packet or no info available yet:
 	 * LOCAL_OUT/mangle and LOCAL_OUT/nat don't know if
 	 * the destination device will be a bridge. */
-	if (!skb->nf_bridge) {
+	if (!nf_bridge_info_exists(skb)) {
 		/* Return MATCH if the invert flags of the used options are on */
 		if ((info->bitmask & XT_PHYSDEV_OP_BRIDGED) &&
 		    !(info->invert & XT_PHYSDEV_OP_BRIDGED))

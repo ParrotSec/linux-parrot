@@ -27,7 +27,6 @@
 #include <linux/init.h>
 
 #include <linux/acpi.h>
-#include <linux/bootmem.h>
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/cpu.h>
@@ -1059,9 +1058,7 @@ check_bugs (void)
 
 static int __init run_dmi_scan(void)
 {
-	dmi_scan_machine();
-	dmi_memdev_walk();
-	dmi_set_dump_stack_arch_desc();
+	dmi_setup();
 	return 0;
 }
 core_initcall(run_dmi_scan);

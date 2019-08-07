@@ -37,7 +37,9 @@ struct in_device {
 	unsigned long		mr_v1_seen;
 	unsigned long		mr_v2_seen;
 	unsigned long		mr_maxdelay;
-	unsigned char		mr_qrv;
+	unsigned long		mr_qi;		/* Query Interval */
+	unsigned long		mr_qri;		/* Query Response Interval */
+	unsigned char		mr_qrv;		/* Query Robustness Variable */
 	unsigned char		mr_gq_running;
 	unsigned char		mr_ifc_count;
 	struct timer_list	mr_gq_timer;	/* general query timer */
@@ -233,6 +235,20 @@ static inline struct in_device *in_dev_get(const struct net_device *dev)
 static inline struct in_device *__in_dev_get_rtnl(const struct net_device *dev)
 {
 	return rtnl_dereference(dev->ip_ptr);
+}
+
+/* called with rcu_read_lock or rtnl held */
+static inline bool ip_ignore_linkdown(const struct net_device *dev)
+{
+	struct in_device *in_dev;
+	bool rc = false;
+
+	in_dev = rcu_dereference_rtnl(dev->ip_ptr);
+	if (in_dev &&
+	    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev))
+		rc = true;
+
+	return rc;
 }
 
 static inline struct neigh_parms *__in_dev_arp_parms_get_rcu(const struct net_device *dev)

@@ -1,12 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Thunderbolt control channel messages
  *
  * Copyright (C) 2014 Andreas Noever <andreas.noever@gmail.com>
  * Copyright (C) 2017, Intel Corporation
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #ifndef _TB_MSGS
@@ -493,6 +490,17 @@ struct tb_xdp_header {
 	struct tb_xdomain_header xd_hdr;
 	uuid_t uuid;
 	u32 type;
+};
+
+struct tb_xdp_uuid {
+	struct tb_xdp_header hdr;
+};
+
+struct tb_xdp_uuid_response {
+	struct tb_xdp_header hdr;
+	uuid_t src_uuid;
+	u32 src_route_hi;
+	u32 src_route_lo;
 };
 
 struct tb_xdp_properties {

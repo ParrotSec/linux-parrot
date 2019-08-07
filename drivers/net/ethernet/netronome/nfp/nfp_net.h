@@ -1,35 +1,5 @@
-/*
- * Copyright (C) 2015-2017 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/* Copyright (C) 2015-2018 Netronome Systems, Inc. */
 
 /*
  * nfp_net.h
@@ -188,6 +158,7 @@ struct nfp_net_tx_desc {
 			__le16 data_len; /* Length of frame + meta data */
 		} __packed;
 		__le32 vals[4];
+		__le64 vals8[2];
 	};
 };
 
@@ -568,11 +539,17 @@ struct nfp_net_dp {
  * @shared_handler:     Handler for shared interrupts
  * @shared_name:        Name for shared interrupt
  * @me_freq_mhz:        ME clock_freq (MHz)
- * @reconfig_lock:	Protects HW reconfiguration request regs/machinery
+ * @reconfig_lock:	Protects @reconfig_posted, @reconfig_timer_active,
+ *			@reconfig_sync_present and HW reconfiguration request
+ *			regs/machinery from async requests (sync must take
+ *			@bar_lock)
  * @reconfig_posted:	Pending reconfig bits coming from async sources
  * @reconfig_timer_active:  Timer for reading reconfiguration results is pending
  * @reconfig_sync_present:  Some thread is performing synchronous reconfig
  * @reconfig_timer:	Timer for async reading of reconfig results
+ * @reconfig_in_progress_update:	Update FW is processing now (debug only)
+ * @bar_lock:		vNIC config BAR access lock, protects: update,
+ *			mailbox area
  * @link_up:            Is the link up?
  * @link_status_lock:	Protects @link_* and ensures atomicity with BAR reading
  * @rx_coalesce_usecs:      RX interrupt moderation usecs delay parameter
@@ -641,6 +618,9 @@ struct nfp_net {
 	bool reconfig_timer_active;
 	bool reconfig_sync_present;
 	struct timer_list reconfig_timer;
+	u32 reconfig_in_progress_update;
+
+	struct mutex bar_lock;
 
 	u32 rx_coalesce_usecs;
 	u32 rx_coalesce_max_frames;
@@ -866,6 +846,16 @@ static inline void nfp_ctrl_unlock(struct nfp_net *nn)
 	spin_unlock_bh(&nn->r_vecs[0].lock);
 }
 
+static inline void nn_ctrl_bar_lock(struct nfp_net *nn)
+{
+	mutex_lock(&nn->bar_lock);
+}
+
+static inline void nn_ctrl_bar_unlock(struct nfp_net *nn)
+{
+	mutex_unlock(&nn->bar_lock);
+}
+
 /* Globals */
 extern const char nfp_driver_version[];
 
@@ -881,7 +871,7 @@ void nfp_net_get_fw_version(struct nfp_net_fw_version *fw_ver,
 			    void __iomem *ctrl_bar);
 
 struct nfp_net *
-nfp_net_alloc(struct pci_dev *pdev, bool needs_netdev,
+nfp_net_alloc(struct pci_dev *pdev, void __iomem *ctrl_bar, bool needs_netdev,
 	      unsigned int max_tx_rings, unsigned int max_rx_rings);
 void nfp_net_free(struct nfp_net *nn);
 
@@ -898,6 +888,9 @@ unsigned int nfp_net_rss_key_sz(struct nfp_net *nn);
 void nfp_net_rss_write_itbl(struct nfp_net *nn);
 void nfp_net_rss_write_key(struct nfp_net *nn);
 void nfp_net_coalesce_write_cfg(struct nfp_net *nn);
+int nfp_net_mbox_lock(struct nfp_net *nn, unsigned int data_size);
+int nfp_net_mbox_reconfig(struct nfp_net *nn, u32 mbox_cmd);
+int nfp_net_mbox_reconfig_and_unlock(struct nfp_net *nn, u32 mbox_cmd);
 
 unsigned int
 nfp_net_irqs_alloc(struct pci_dev *pdev, struct msix_entry *irq_entries,

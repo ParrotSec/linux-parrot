@@ -1,12 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * SuperH Pin Function Controller GPIO driver.
  *
  * Copyright (C) 2008 Magnus Damm
  * Copyright (C) 2009 - 2012 Paul Mundt
- *
- * This file is subject to the terms and conditions of the GNU General Public
- * License.  See the file "COPYING" in the main directory of this archive
- * for more details.
  */
 
 #include <linux/device.h>
@@ -255,7 +252,7 @@ static int gpio_pin_setup(struct sh_pfc_chip *chip)
  * Function GPIOs
  */
 
-#ifdef CONFIG_SUPERH
+#ifdef CONFIG_PINCTRL_SH_FUNC_GPIO
 static int gpio_function_request(struct gpio_chip *gc, unsigned offset)
 {
 	static bool __print_once;
@@ -295,7 +292,7 @@ static int gpio_function_setup(struct sh_pfc_chip *chip)
 
 	return 0;
 }
-#endif
+#endif /* CONFIG_PINCTRL_SH_FUNC_GPIO */
 
 /* -----------------------------------------------------------------------------
  * Register/unregister
@@ -372,7 +369,7 @@ int sh_pfc_register_gpiochip(struct sh_pfc *pfc)
 	if (IS_ENABLED(CONFIG_OF) && pfc->dev->of_node)
 		return 0;
 
-#ifdef CONFIG_SUPERH
+#ifdef CONFIG_PINCTRL_SH_FUNC_GPIO
 	/*
 	 * Register the GPIO to pin mappings. As pins with GPIO ports
 	 * must come first in the ranges, skip the pins without GPIO
@@ -400,7 +397,7 @@ int sh_pfc_register_gpiochip(struct sh_pfc *pfc)
 	chip = sh_pfc_add_gpiochip(pfc, gpio_function_setup, NULL);
 	if (IS_ERR(chip))
 		return PTR_ERR(chip);
-#endif /* CONFIG_SUPERH */
+#endif /* CONFIG_PINCTRL_SH_FUNC_GPIO */
 
 	return 0;
 }

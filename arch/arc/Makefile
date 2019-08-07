@@ -1,12 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # Copyright (C) 2004, 2007-2010, 2011-2012 Synopsys, Inc. (www.synopsys.com)
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
-#
 
 KBUILD_DEFCONFIG := nsim_hs_defconfig
+
+ifeq ($(CROSS_COMPILE),)
+CROSS_COMPILE := $(call cc-cross-prefix, arc-linux- arceb-linux-)
+endif
 
 cflags-y	+= -fno-common -pipe -fno-builtin -mmedium-calls -D__linux__
 cflags-$(CONFIG_ISA_ARCOMPACT)	+= -mA7
@@ -27,6 +28,12 @@ cflags-$(CONFIG_ARC_HAS_LLSC)		+= -mlock
 cflags-$(CONFIG_ARC_HAS_SWAPE)		+= -mswape
 
 ifdef CONFIG_ISA_ARCV2
+
+ifdef CONFIG_ARC_USE_UNALIGNED_MEM_ACCESS
+cflags-y				+= -munaligned-access
+else
+cflags-y				+= -mno-unaligned-access
+endif
 
 ifndef CONFIG_ARC_HAS_LL64
 cflags-y				+= -mno-ll64
@@ -101,12 +108,6 @@ boot_targets += uImage uImage.bin uImage.gz
 
 $(boot_targets): vmlinux
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
-
-%.dtb %.dtb.S %.dtb.o: scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts $(boot)/dts/$@
-
-dtbs: scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts
 
 archclean:
 	$(Q)$(MAKE) $(clean)=$(boot)

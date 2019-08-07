@@ -1,10 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2016 Linaro.
  * Viresh Kumar <viresh.kumar@linaro.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/err.h>
@@ -58,6 +55,7 @@ static const struct of_device_id whitelist[] __initconst = {
 	{ .compatible = "renesas,r8a73a4", },
 	{ .compatible = "renesas,r8a7740", },
 	{ .compatible = "renesas,r8a7743", },
+	{ .compatible = "renesas,r8a7744", },
 	{ .compatible = "renesas,r8a7745", },
 	{ .compatible = "renesas,r8a7778", },
 	{ .compatible = "renesas,r8a7779", },
@@ -78,7 +76,10 @@ static const struct of_device_id whitelist[] __initconst = {
 	{ .compatible = "rockchip,rk3328", },
 	{ .compatible = "rockchip,rk3366", },
 	{ .compatible = "rockchip,rk3368", },
-	{ .compatible = "rockchip,rk3399", },
+	{ .compatible = "rockchip,rk3399",
+	  .data = &(struct cpufreq_dt_platform_data)
+		{ .have_governor_per_policy = true, },
+	},
 
 	{ .compatible = "st-ericsson,u8500", },
 	{ .compatible = "st-ericsson,u8540", },
@@ -115,6 +116,7 @@ static const struct of_device_id blacklist[] __initconst = {
 	{ .compatible = "mediatek,mt8176", },
 
 	{ .compatible = "nvidia,tegra124", },
+	{ .compatible = "nvidia,tegra210", },
 
 	{ .compatible = "qcom,apq8096", },
 	{ .compatible = "qcom,msm8996", },

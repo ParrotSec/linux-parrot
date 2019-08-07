@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * linux/fs/ceph/acl.c
  *
  * Copyright (C) 2013 Guangliang Zhao, <lucienchao@gmail.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public
- * License v2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 021110-1307, USA.
  */
 
 #include <linux/ceph/ceph_debug.h>
@@ -104,6 +91,11 @@ int ceph_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	struct timespec64 old_ctime = inode->i_ctime;
 	umode_t new_mode = inode->i_mode, old_mode = inode->i_mode;
 
+	if (ceph_snap(inode) != CEPH_NOSNAP) {
+		ret = -EROFS;
+		goto out;
+	}
+
 	switch (type) {
 	case ACL_TYPE_ACCESS:
 		name = XATTR_NAME_POSIX_ACL_ACCESS;
@@ -136,11 +128,6 @@ int ceph_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 		ret = posix_acl_to_xattr(&init_user_ns, acl, value, size);
 		if (ret < 0)
 			goto out_free;
-	}
-
-	if (ceph_snap(inode) != CEPH_NOSNAP) {
-		ret = -EROFS;
-		goto out_free;
 	}
 
 	if (new_mode != old_mode) {
@@ -206,10 +193,9 @@ int ceph_pre_init_acls(struct inode *dir, umode_t *mode,
 	tmp_buf = kmalloc(max(val_size1, val_size2), GFP_KERNEL);
 	if (!tmp_buf)
 		goto out_err;
-	pagelist = kmalloc(sizeof(struct ceph_pagelist), GFP_KERNEL);
+	pagelist = ceph_pagelist_alloc(GFP_KERNEL);
 	if (!pagelist)
 		goto out_err;
-	ceph_pagelist_init(pagelist);
 
 	err = ceph_pagelist_reserve(pagelist, PAGE_SIZE);
 	if (err)

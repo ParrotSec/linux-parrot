@@ -79,7 +79,7 @@ static size_t ceph_vxattrcb_layout(struct ceph_inode_info *ci, char *val,
 	const char *ns_field = " pool_namespace=";
 	char buf[128];
 	size_t len, total_len = 0;
-	int ret;
+	ssize_t ret;
 
 	pool_ns = ceph_try_get_string(ci->i_layout.pool_ns);
 
@@ -103,11 +103,8 @@ static size_t ceph_vxattrcb_layout(struct ceph_inode_info *ci, char *val,
 	if (pool_ns)
 		total_len += strlen(ns_field) + pool_ns->len;
 
-	if (!size) {
-		ret = total_len;
-	} else if (total_len > size) {
-		ret = -ERANGE;
-	} else {
+	ret = total_len;
+	if (size >= total_len) {
 		memcpy(val, buf, len);
 		ret = len;
 		if (pool_name) {
@@ -228,8 +225,19 @@ static size_t ceph_vxattrcb_dir_rctime(struct ceph_inode_info *ci, char *val,
 			ci->i_rctime.tv_nsec);
 }
 
-/* quotas */
+/* dir pin */
+static bool ceph_vxattrcb_dir_pin_exists(struct ceph_inode_info *ci)
+{
+	return ci->i_dir_pin != -ENODATA;
+}
 
+static size_t ceph_vxattrcb_dir_pin(struct ceph_inode_info *ci, char *val,
+                                    size_t size)
+{
+	return snprintf(val, size, "%d", (int)ci->i_dir_pin);
+}
+
+/* quotas */
 static bool ceph_vxattrcb_quota_exists(struct ceph_inode_info *ci)
 {
 	bool ret = false;
@@ -314,6 +322,13 @@ static struct ceph_vxattr ceph_dir_vxattrs[] = {
 	XATTR_RSTAT_FIELD(dir, rsubdirs),
 	XATTR_RSTAT_FIELD(dir, rbytes),
 	XATTR_RSTAT_FIELD(dir, rctime),
+	{
+		.name = "ceph.dir.pin",
+		.name_size = sizeof("ceph.dir_pin"),
+		.getxattr_cb = ceph_vxattrcb_dir_pin,
+		.exists_cb = ceph_vxattrcb_dir_pin_exists,
+		.flags = VXATTR_FLAG_HIDDEN,
+	},
 	{
 		.name = "ceph.quota",
 		.name_size = sizeof("ceph.quota"),
@@ -817,8 +832,11 @@ ssize_t __ceph_getxattr(struct inode *inode, const char *name, void *value,
 		if (err)
 			return err;
 		err = -ENODATA;
-		if (!(vxattr->exists_cb && !vxattr->exists_cb(ci)))
+		if (!(vxattr->exists_cb && !vxattr->exists_cb(ci))) {
 			err = vxattr->getxattr_cb(ci, value, size);
+			if (size && size < err)
+				err = -ERANGE;
+		}
 		return err;
 	}
 
@@ -951,11 +969,10 @@ static int ceph_sync_setxattr(struct inode *inode, const char *name,
 
 	if (size > 0) {
 		/* copy value into pagelist */
-		pagelist = kmalloc(sizeof(*pagelist), GFP_NOFS);
+		pagelist = ceph_pagelist_alloc(GFP_NOFS);
 		if (!pagelist)
 			return -ENOMEM;
 
-		ceph_pagelist_init(pagelist);
 		err = ceph_pagelist_append(pagelist, value, size);
 		if (err)
 			goto out;

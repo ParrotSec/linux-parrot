@@ -1,10 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2012 Russell King
  *  Rewritten from the dovefb driver, and Armada510 manuals.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 #include <linux/clk.h>
 #include <linux/component.h>
@@ -12,7 +9,7 @@
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
-#include <drm/drm_crtc_helper.h>
+#include <drm/drm_probe_helper.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_atomic_helper.h>
 #include "armada_crtc.h"
@@ -270,13 +267,7 @@ static void armada_drm_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	tm = adj->crtc_vtotal - adj->crtc_vsync_end;
 
 	DRM_DEBUG_KMS("[CRTC:%d:%s] mode " DRM_MODE_FMT "\n",
-		      crtc->base.id, crtc->name,
-		      adj->base.id, adj->name, adj->vrefresh, adj->clock,
-		      adj->crtc_hdisplay, adj->crtc_hsync_start,
-		      adj->crtc_hsync_end, adj->crtc_htotal,
-		      adj->crtc_vdisplay, adj->crtc_vsync_start,
-		      adj->crtc_vsync_end, adj->crtc_vtotal,
-		      adj->type, adj->flags);
+		      crtc->base.id, crtc->name, DRM_MODE_ARG(adj));
 	DRM_DEBUG_KMS("lm %d rm %d tm %d bm %d\n", lm, rm, tm, bm);
 
 	/* Now compute the divider for real */

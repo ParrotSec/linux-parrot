@@ -109,6 +109,7 @@ enum amd_powergating_state {
 #define AMD_PG_SUPPORT_GFX_PIPELINE		(1 << 12)
 #define AMD_PG_SUPPORT_MMHUB			(1 << 13)
 #define AMD_PG_SUPPORT_VCN			(1 << 14)
+#define AMD_PG_SUPPORT_VCN_DPG	(1 << 15)
 
 enum PP_FEATURE_MASK {
 	PP_SCLK_DPM_MASK = 0x1,
@@ -129,8 +130,14 @@ enum PP_FEATURE_MASK {
 	PP_GFXOFF_MASK = 0x8000,
 	PP_ACG_MASK = 0x10000,
 	PP_STUTTER_MODE = 0x20000,
+	PP_AVFS_MASK = 0x40000,
 };
 
+enum DC_FEATURE_MASK {
+	DC_FBC_MASK = 0x1,
+};
+
+enum amd_dpm_forced_level;
 /**
  * struct amd_ip_funcs - general hooks for managing amdgpu IP Blocks
  */
@@ -180,6 +187,8 @@ struct amd_ip_funcs {
 				     enum amd_powergating_state state);
 	/** @get_clockgating_state: get current clockgating status */
 	void (*get_clockgating_state)(void *handle, u32 *flags);
+	/** @enable_umd_pstate: enable UMD powerstate */
+	int (*enable_umd_pstate)(void *handle, enum amd_dpm_forced_level *level);
 };
 
 

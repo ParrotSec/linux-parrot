@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * HT handling
  *
@@ -8,10 +9,6 @@
  * Copyright 2007, Michael Wu <flamingice@sourmilk.net>
  * Copyright 2007-2010, Intel Corporation
  * Copyright 2017	Intel Deutschland GmbH
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/ieee80211.h>
@@ -106,6 +103,15 @@ void ieee80211_apply_htcap_overrides(struct ieee80211_sub_if_data *sdata,
 	/* Allow user to enable 40 MHz intolerant bit. */
 	__check_htcap_enable(ht_capa, ht_capa_mask, ht_cap,
 			     IEEE80211_HT_CAP_40MHZ_INTOLERANT);
+
+	/* Allow user to enable TX STBC bit  */
+	__check_htcap_enable(ht_capa, ht_capa_mask, ht_cap,
+			     IEEE80211_HT_CAP_TX_STBC);
+
+	/* Allow user to configure RX STBC bits */
+	if (ht_capa_mask->cap_info & cpu_to_le16(IEEE80211_HT_CAP_RX_STBC))
+		ht_cap->cap |= le16_to_cpu(ht_capa->cap_info) &
+					IEEE80211_HT_CAP_RX_STBC;
 
 	/* Allow user to decrease AMPDU factor */
 	if (ht_capa_mask->ampdu_params_info &

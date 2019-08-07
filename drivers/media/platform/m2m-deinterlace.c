@@ -1,13 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * V4L2 deinterlacing support.
  *
  * Copyright (c) 2012 Vista Silicon S.L.
  * Javier Martin <javier.martin@vista-silicon.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version
  */
 
 #include <linux/module.h>
@@ -438,9 +434,9 @@ static void deinterlace_device_run(void *priv)
 static int vidioc_querycap(struct file *file, void *priv,
 			   struct v4l2_capability *cap)
 {
-	strlcpy(cap->driver, MEM2MEM_NAME, sizeof(cap->driver));
-	strlcpy(cap->card, MEM2MEM_NAME, sizeof(cap->card));
-	strlcpy(cap->bus_info, MEM2MEM_NAME, sizeof(cap->card));
+	strscpy(cap->driver, MEM2MEM_NAME, sizeof(cap->driver));
+	strscpy(cap->card, MEM2MEM_NAME, sizeof(cap->card));
+	strscpy(cap->bus_info, MEM2MEM_NAME, sizeof(cap->card));
 	/*
 	 * This is only a mem-to-mem video device. The capture and output
 	 * device capability flags are left only for backward compatibility
@@ -474,7 +470,7 @@ static int enum_fmt(struct v4l2_fmtdesc *f, u32 type)
 	if (i < NUM_FORMATS) {
 		/* Format found */
 		fmt = &formats[i];
-		strlcpy(f->description, fmt->name, sizeof(f->description));
+		strscpy(f->description, fmt->name, sizeof(f->description));
 		f->pixelformat = fmt->fourcc;
 		return 0;
 	}

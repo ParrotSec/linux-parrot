@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 
 /*
  * Local APIC virtualization
@@ -13,9 +14,6 @@
  *   Yaozu (Eddie) Dong <eddie.dong@intel.com>
  *
  * Based on Xen 3.1 code, Copyright (c) 2004, Intel Corporation.
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
  */
 
 #include <linux/kvm_host.h>
@@ -69,6 +67,10 @@
 
 #define APIC_BROADCAST			0xFF
 #define X2APIC_BROADCAST		0xFFFFFFFFul
+
+#define LAPIC_TIMER_ADVANCE_ADJUST_DONE 100
+/* step-by-step approximation to mitigate fluctuation */
+#define LAPIC_TIMER_ADVANCE_ADJUST_STEP 8
 
 static inline int apic_test_vector(int vec, void *bitmap)
 {
@@ -133,6 +135,7 @@ static inline bool kvm_apic_map_get_logical_dest(struct kvm_apic_map *map,
 		if (offset <= max_apic_id) {
 			u8 cluster_size = min(max_apic_id - offset + 1, 16U);
 
+			offset = array_index_nospec(offset, map->max_apic_id + 1);
 			*cluster = &map->phys_map[offset];
 			*mask = dest_id & (0xffff >> (16 - cluster_size));
 		} else {
@@ -176,7 +179,8 @@ static void recalculate_apic_map(struct kvm *kvm)
 			max_id = max(max_id, kvm_x2apic_id(vcpu->arch.apic));
 
 	new = kvzalloc(sizeof(struct kvm_apic_map) +
-	                   sizeof(struct kvm_lapic *) * ((u64)max_id + 1), GFP_KERNEL);
+	                   sizeof(struct kvm_lapic *) * ((u64)max_id + 1),
+			   GFP_KERNEL_ACCOUNT);
 
 	if (!new)
 		goto out;
@@ -246,10 +250,9 @@ static inline void apic_set_spiv(struct kvm_lapic *apic, u32 val)
 
 	if (enabled != apic->sw_enabled) {
 		apic->sw_enabled = enabled;
-		if (enabled) {
+		if (enabled)
 			static_key_slow_dec_deferred(&apic_sw_disabled);
-			recalculate_apic_map(apic->vcpu->kvm);
-		} else
+		else
 			static_key_slow_inc(&apic_sw_disabled.key);
 	}
 }
@@ -896,7 +899,8 @@ static inline bool kvm_apic_map_get_dest_lapic(struct kvm *kvm,
 		if (irq->dest_id > map->max_apic_id) {
 			*bitmap = 0;
 		} else {
-			*dst = &map->phys_map[irq->dest_id];
+			u32 dest_id = array_index_nospec(irq->dest_id, map->max_apic_id + 1);
+			*dst = &map->phys_map[dest_id];
 			*bitmap = 1;
 		}
 		return true;
@@ -960,14 +964,14 @@ bool kvm_irq_delivery_to_apic_fast(struct kvm *kvm, struct kvm_lapic *src,
 	map = rcu_dereference(kvm->arch.apic_map);
 
 	ret = kvm_apic_map_get_dest_lapic(kvm, &src, irq, map, &dst, &bitmap);
-	if (ret)
+	if (ret) {
+		*r = 0;
 		for_each_set_bit(i, &bitmap, 16) {
 			if (!dst[i])
 				continue;
-			if (*r < 0)
-				*r = 0;
 			*r += kvm_apic_set_irq(dst[i]->vcpu, irq, dest_map);
 		}
+	}
 
 	rcu_read_unlock();
 	return ret;
@@ -1031,6 +1035,7 @@ static int __apic_accept_irq(struct kvm_lapic *apic, int delivery_mode,
 	switch (delivery_mode) {
 	case APIC_DM_LOWEST:
 		vcpu->arch.apic_arb_prio++;
+		/* fall through */
 	case APIC_DM_FIXED:
 		if (unlikely(trig_mode && !level))
 			break;
@@ -1447,7 +1452,7 @@ static void apic_timer_expired(struct kvm_lapic *apic)
 	if (swait_active(q))
 		swake_up_one(q);
 
-	if (apic_lvtt_tscdeadline(apic))
+	if (apic_lvtt_tscdeadline(apic) || ktimer->hv_timer_in_use)
 		ktimer->expired_tscdeadline = ktimer->tscdeadline;
 }
 
@@ -1474,13 +1479,31 @@ static bool lapic_timer_int_injected(struct kvm_vcpu *vcpu)
 	return false;
 }
 
+static inline void __wait_lapic_expire(struct kvm_vcpu *vcpu, u64 guest_cycles)
+{
+	u64 timer_advance_ns = vcpu->arch.apic->lapic_timer.timer_advance_ns;
+
+	/*
+	 * If the guest TSC is running at a different ratio than the host, then
+	 * convert the delay to nanoseconds to achieve an accurate delay.  Note
+	 * that __delay() uses delay_tsc whenever the hardware has TSC, thus
+	 * always for VMX enabled hardware.
+	 */
+	if (vcpu->arch.tsc_scaling_ratio == kvm_default_tsc_scaling_ratio) {
+		__delay(min(guest_cycles,
+			nsec_to_cycles(vcpu, timer_advance_ns)));
+	} else {
+		u64 delay_ns = guest_cycles * 1000000ULL;
+		do_div(delay_ns, vcpu->arch.virtual_tsc_khz);
+		ndelay(min_t(u32, delay_ns, timer_advance_ns));
+	}
+}
+
 void wait_lapic_expire(struct kvm_vcpu *vcpu)
 {
 	struct kvm_lapic *apic = vcpu->arch.apic;
-	u64 guest_tsc, tsc_deadline;
-
-	if (!lapic_in_kernel(vcpu))
-		return;
+	u32 timer_advance_ns = apic->lapic_timer.timer_advance_ns;
+	u64 guest_tsc, tsc_deadline, ns;
 
 	if (apic->lapic_timer.expired_tscdeadline == 0)
 		return;
@@ -1493,15 +1516,37 @@ void wait_lapic_expire(struct kvm_vcpu *vcpu)
 	guest_tsc = kvm_read_l1_tsc(vcpu, rdtsc());
 	trace_kvm_wait_lapic_expire(vcpu->vcpu_id, guest_tsc - tsc_deadline);
 
-	/* __delay is delay_tsc whenever the hardware has TSC, thus always.  */
 	if (guest_tsc < tsc_deadline)
-		__delay(min(tsc_deadline - guest_tsc,
-			nsec_to_cycles(vcpu, lapic_timer_advance_ns)));
+		__wait_lapic_expire(vcpu, tsc_deadline - guest_tsc);
+
+	if (!apic->lapic_timer.timer_advance_adjust_done) {
+		/* too early */
+		if (guest_tsc < tsc_deadline) {
+			ns = (tsc_deadline - guest_tsc) * 1000000ULL;
+			do_div(ns, vcpu->arch.virtual_tsc_khz);
+			timer_advance_ns -= min((u32)ns,
+				timer_advance_ns / LAPIC_TIMER_ADVANCE_ADJUST_STEP);
+		} else {
+		/* too late */
+			ns = (guest_tsc - tsc_deadline) * 1000000ULL;
+			do_div(ns, vcpu->arch.virtual_tsc_khz);
+			timer_advance_ns += min((u32)ns,
+				timer_advance_ns / LAPIC_TIMER_ADVANCE_ADJUST_STEP);
+		}
+		if (abs(guest_tsc - tsc_deadline) < LAPIC_TIMER_ADVANCE_ADJUST_DONE)
+			apic->lapic_timer.timer_advance_adjust_done = true;
+		if (unlikely(timer_advance_ns > 5000)) {
+			timer_advance_ns = 0;
+			apic->lapic_timer.timer_advance_adjust_done = true;
+		}
+		apic->lapic_timer.timer_advance_ns = timer_advance_ns;
+	}
 }
 
 static void start_sw_tscdeadline(struct kvm_lapic *apic)
 {
-	u64 guest_tsc, tscdeadline = apic->lapic_timer.tscdeadline;
+	struct kvm_timer *ktimer = &apic->lapic_timer;
+	u64 guest_tsc, tscdeadline = ktimer->tscdeadline;
 	u64 ns = 0;
 	ktime_t expire;
 	struct kvm_vcpu *vcpu = apic->vcpu;
@@ -1516,13 +1561,15 @@ static void start_sw_tscdeadline(struct kvm_lapic *apic)
 
 	now = ktime_get();
 	guest_tsc = kvm_read_l1_tsc(vcpu, rdtsc());
-	if (likely(tscdeadline > guest_tsc)) {
-		ns = (tscdeadline - guest_tsc) * 1000000ULL;
-		do_div(ns, this_tsc_khz);
+
+	ns = (tscdeadline - guest_tsc) * 1000000ULL;
+	do_div(ns, this_tsc_khz);
+
+	if (likely(tscdeadline > guest_tsc) &&
+	    likely(ns > apic->lapic_timer.timer_advance_ns)) {
 		expire = ktime_add_ns(now, ns);
-		expire = ktime_sub_ns(expire, lapic_timer_advance_ns);
-		hrtimer_start(&apic->lapic_timer.timer,
-				expire, HRTIMER_MODE_ABS_PINNED);
+		expire = ktime_sub_ns(expire, ktimer->timer_advance_ns);
+		hrtimer_start(&ktimer->timer, expire, HRTIMER_MODE_ABS_PINNED);
 	} else
 		apic_timer_expired(apic);
 
@@ -1647,37 +1694,42 @@ static void cancel_hv_timer(struct kvm_lapic *apic)
 static bool start_hv_timer(struct kvm_lapic *apic)
 {
 	struct kvm_timer *ktimer = &apic->lapic_timer;
-	int r;
+	struct kvm_vcpu *vcpu = apic->vcpu;
+	bool expired;
 
 	WARN_ON(preemptible());
 	if (!kvm_x86_ops->set_hv_timer)
 		return false;
 
-	if (!apic_lvtt_period(apic) && atomic_read(&ktimer->pending))
-		return false;
-
 	if (!ktimer->tscdeadline)
 		return false;
 
-	r = kvm_x86_ops->set_hv_timer(apic->vcpu, ktimer->tscdeadline);
-	if (r < 0)
+	if (kvm_x86_ops->set_hv_timer(vcpu, ktimer->tscdeadline, &expired))
 		return false;
 
 	ktimer->hv_timer_in_use = true;
 	hrtimer_cancel(&ktimer->timer);
 
 	/*
-	 * Also recheck ktimer->pending, in case the sw timer triggered in
-	 * the window.  For periodic timer, leave the hv timer running for
-	 * simplicity, and the deadline will be recomputed on the next vmexit.
+	 * To simplify handling the periodic timer, leave the hv timer running
+	 * even if the deadline timer has expired, i.e. rely on the resulting
+	 * VM-Exit to recompute the periodic timer's target expiration.
 	 */
-	if (!apic_lvtt_period(apic) && (r || atomic_read(&ktimer->pending))) {
-		if (r)
+	if (!apic_lvtt_period(apic)) {
+		/*
+		 * Cancel the hv timer if the sw timer fired while the hv timer
+		 * was being programmed, or if the hv timer itself expired.
+		 */
+		if (atomic_read(&ktimer->pending)) {
+			cancel_hv_timer(apic);
+		} else if (expired) {
 			apic_timer_expired(apic);
-		return false;
+			cancel_hv_timer(apic);
+		}
 	}
 
-	trace_kvm_hv_timer_state(apic->vcpu->vcpu_id, true);
+	trace_kvm_hv_timer_state(vcpu->vcpu_id, ktimer->hv_timer_in_use);
+
 	return true;
 }
 
@@ -1701,8 +1753,13 @@ static void start_sw_timer(struct kvm_lapic *apic)
 static void restart_apic_timer(struct kvm_lapic *apic)
 {
 	preempt_disable();
+
+	if (!apic_lvtt_period(apic) && atomic_read(&apic->lapic_timer.pending))
+		goto out;
+
 	if (!start_hv_timer(apic))
 		start_sw_timer(apic);
+out:
 	preempt_enable();
 }
 
@@ -1852,6 +1909,7 @@ int kvm_lapic_reg_write(struct kvm_lapic *apic, u32 reg, u32 val)
 
 	case APIC_LVT0:
 		apic_manage_nmi_watchdog(apic, val);
+		/* fall through */
 	case APIC_LVTTHMR:
 	case APIC_LVTPC:
 	case APIC_LVT1:
@@ -2228,20 +2286,20 @@ static enum hrtimer_restart apic_timer_fn(struct hrtimer *data)
 		return HRTIMER_NORESTART;
 }
 
-int kvm_create_lapic(struct kvm_vcpu *vcpu)
+int kvm_create_lapic(struct kvm_vcpu *vcpu, int timer_advance_ns)
 {
 	struct kvm_lapic *apic;
 
 	ASSERT(vcpu != NULL);
 	apic_debug("apic_init %d\n", vcpu->vcpu_id);
 
-	apic = kzalloc(sizeof(*apic), GFP_KERNEL);
+	apic = kzalloc(sizeof(*apic), GFP_KERNEL_ACCOUNT);
 	if (!apic)
 		goto nomem;
 
 	vcpu->arch.apic = apic;
 
-	apic->regs = (void *)get_zeroed_page(GFP_KERNEL);
+	apic->regs = (void *)get_zeroed_page(GFP_KERNEL_ACCOUNT);
 	if (!apic->regs) {
 		printk(KERN_ERR "malloc apic regs error for vcpu %x\n",
 		       vcpu->vcpu_id);
@@ -2252,6 +2310,14 @@ int kvm_create_lapic(struct kvm_vcpu *vcpu)
 	hrtimer_init(&apic->lapic_timer.timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_ABS_PINNED);
 	apic->lapic_timer.timer.function = apic_timer_fn;
+	if (timer_advance_ns == -1) {
+		apic->lapic_timer.timer_advance_ns = 1000;
+		apic->lapic_timer.timer_advance_adjust_done = false;
+	} else {
+		apic->lapic_timer.timer_advance_ns = timer_advance_ns;
+		apic->lapic_timer.timer_advance_adjust_done = true;
+	}
+
 
 	/*
 	 * APIC is created enabled. This will prevent kvm_lapic_set_base from
@@ -2273,7 +2339,7 @@ int kvm_apic_has_interrupt(struct kvm_vcpu *vcpu)
 	struct kvm_lapic *apic = vcpu->arch.apic;
 	u32 ppr;
 
-	if (!apic_enabled(apic))
+	if (!kvm_apic_hw_enabled(apic))
 		return -1;
 
 	__apic_update_ppr(apic, &ppr);
@@ -2391,7 +2457,7 @@ int kvm_apic_set_state(struct kvm_vcpu *vcpu, struct kvm_lapic_state *s)
 	r = kvm_apic_state_fixup(vcpu, s, true);
 	if (r)
 		return r;
-	memcpy(vcpu->arch.apic->regs, s->regs, sizeof *s);
+	memcpy(vcpu->arch.apic->regs, s->regs, sizeof(*s));
 
 	recalculate_apic_map(vcpu->kvm);
 	kvm_apic_set_version(vcpu);
@@ -2626,17 +2692,25 @@ int kvm_hv_vapic_msr_read(struct kvm_vcpu *vcpu, u32 reg, u64 *data)
 	return 0;
 }
 
-int kvm_lapic_enable_pv_eoi(struct kvm_vcpu *vcpu, u64 data)
+int kvm_lapic_enable_pv_eoi(struct kvm_vcpu *vcpu, u64 data, unsigned long len)
 {
 	u64 addr = data & ~KVM_MSR_ENABLED;
+	struct gfn_to_hva_cache *ghc = &vcpu->arch.pv_eoi.data;
+	unsigned long new_len;
+
 	if (!IS_ALIGNED(addr, 4))
 		return 1;
 
 	vcpu->arch.pv_eoi.msr_val = data;
 	if (!pv_eoi_enabled(vcpu))
 		return 0;
-	return kvm_gfn_to_hva_cache_init(vcpu->kvm, &vcpu->arch.pv_eoi.data,
-					 addr, sizeof(u8));
+
+	if (addr == ghc->gpa && len <= ghc->len)
+		new_len = ghc->len;
+	else
+		new_len = len;
+
+	return kvm_gfn_to_hva_cache_init(vcpu->kvm, ghc, addr, new_len);
 }
 
 void kvm_apic_accept_events(struct kvm_vcpu *vcpu)

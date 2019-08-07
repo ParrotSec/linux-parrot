@@ -41,6 +41,7 @@ int load_kallsyms(void)
 		syms[i].name = strdup(func);
 		i++;
 	}
+	fclose(f);
 	sym_cnt = i;
 	qsort(syms, sym_cnt, sizeof(struct ksym), ksym_cmp);
 	return 0;
@@ -50,6 +51,10 @@ struct ksym *ksym_search(long key)
 {
 	int start = 0, end = sym_cnt;
 	int result;
+
+	/* kallsyms not loaded. return NULL */
+	if (sym_cnt <= 0)
+		return NULL;
 
 	while (start < end) {
 		size_t mid = start + (end - start) / 2;
@@ -124,10 +129,11 @@ struct perf_event_sample {
 	char data[];
 };
 
-static enum bpf_perf_event_ret bpf_perf_event_print(void *event, void *priv)
+static enum bpf_perf_event_ret
+bpf_perf_event_print(struct perf_event_header *hdr, void *private_data)
 {
-	struct perf_event_sample *e = event;
-	perf_event_print_fn fn = priv;
+	struct perf_event_sample *e = (struct perf_event_sample *)hdr;
+	perf_event_print_fn fn = private_data;
 	int ret;
 
 	if (e->header.type == PERF_RECORD_SAMPLE) {

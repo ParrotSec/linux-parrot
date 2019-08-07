@@ -1,13 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2012-2013 Avionic Design GmbH
  * Copyright (C) 2012 NVIDIA CORPORATION.  All rights reserved.
  *
  * Based on the KMS/FB CMA helpers
  *   Copyright (C) 2012 Analog Device Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/console.h>
@@ -15,6 +12,7 @@
 #include "drm.h"
 #include "gem.h"
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_modeset_helper.h>
 
 #ifdef CONFIG_DRM_FBDEV_EMULATION
 static inline struct tegra_fbdev *to_tegra_fbdev(struct drm_fb_helper *helper)
@@ -254,12 +252,9 @@ static int tegra_fbdev_probe(struct drm_fb_helper *helper,
 	helper->fb = fb;
 	helper->fbdev = info;
 
-	info->par = helper;
-	info->flags = FBINFO_FLAG_DEFAULT;
 	info->fbops = &tegra_fb_ops;
 
-	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->format->depth);
-	drm_fb_helper_fill_var(info, helper, fb->width, fb->height);
+	drm_fb_helper_fill_info(info, helper, sizes);
 
 	offset = info->var.xoffset * bytes_per_pixel +
 		 info->var.yoffset * fb->pitches[0];
@@ -356,7 +351,7 @@ static void tegra_fbdev_exit(struct tegra_fbdev *fbdev)
 		/* Undo the special mapping we made in fbdev probe. */
 		if (bo && bo->pages) {
 			vunmap(bo->vaddr);
-			bo->vaddr = 0;
+			bo->vaddr = NULL;
 		}
 
 		drm_framebuffer_remove(fbdev->fb);
@@ -410,27 +405,5 @@ void tegra_drm_fb_exit(struct drm_device *drm)
 	struct tegra_drm *tegra = drm->dev_private;
 
 	tegra_fbdev_exit(tegra->fbdev);
-#endif
-}
-
-void tegra_drm_fb_suspend(struct drm_device *drm)
-{
-#ifdef CONFIG_DRM_FBDEV_EMULATION
-	struct tegra_drm *tegra = drm->dev_private;
-
-	console_lock();
-	drm_fb_helper_set_suspend(&tegra->fbdev->base, 1);
-	console_unlock();
-#endif
-}
-
-void tegra_drm_fb_resume(struct drm_device *drm)
-{
-#ifdef CONFIG_DRM_FBDEV_EMULATION
-	struct tegra_drm *tegra = drm->dev_private;
-
-	console_lock();
-	drm_fb_helper_set_suspend(&tegra->fbdev->base, 0);
-	console_unlock();
 #endif
 }

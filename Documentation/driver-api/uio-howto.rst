@@ -276,8 +276,8 @@ fields of ``struct uio_mem``:
 -  ``int memtype``: Required if the mapping is used. Set this to
    ``UIO_MEM_PHYS`` if you you have physical memory on your card to be
    mapped. Use ``UIO_MEM_LOGICAL`` for logical memory (e.g. allocated
-   with :c:func:`kmalloc()`). There's also ``UIO_MEM_VIRTUAL`` for
-   virtual memory.
+   with :c:func:`__get_free_pages()` but not kmalloc()). There's also
+   ``UIO_MEM_VIRTUAL`` for virtual memory.
 
 -  ``phys_addr_t addr``: Required if the mapping is used. Fill in the
    address of your memory block. This address is the one that appears in
@@ -463,8 +463,8 @@ Getting information about your UIO device
 
 Information about all UIO devices is available in sysfs. The first thing
 you should do in your driver is check ``name`` and ``version`` to make
-sure your talking to the right device and that its kernel driver has the
-version you expect.
+sure you're talking to the right device and that its kernel driver has
+the version you expect.
 
 You should also make sure that the memory mapping you need exists and
 has the size you expect.

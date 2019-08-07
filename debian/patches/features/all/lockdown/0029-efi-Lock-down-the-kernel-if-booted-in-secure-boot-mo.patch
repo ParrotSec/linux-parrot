@@ -1,7 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Date: Wed, 8 Nov 2017 15:11:37 +0000
-Subject: [29/29] efi: Lock down the kernel if booted in secure boot mode
-Origin: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git/commit?id=a364bd945ffc141a7b17cb331bda0d8ad68f7e72
+Date: Tue, 27 Feb 2018 10:04:55 +0000
+Subject: [29/30] efi: Lock down the kernel if booted in secure boot mode
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git/commit?id=2a4bd6c3b06a87cdf200b3a77282f0dac0131453
 
 UEFI Secure Boot provides a mechanism for ensuring that the firmware will
 only load signed bootloaders and kernels.  Certain use cases may also
@@ -14,15 +14,16 @@ Acked-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
 cc: linux-efi@vger.kernel.org
 ---
  arch/x86/kernel/setup.c |  6 ++++--
+ fs/debugfs/inode.c      |  2 +-
  security/Kconfig        | 14 ++++++++++++++
  security/lock_down.c    |  1 +
- 3 files changed, 19 insertions(+), 2 deletions(-)
+ 4 files changed, 20 insertions(+), 3 deletions(-)
 
-diff --git a/arch/x86/kernel/setup.c b/arch/x86/kernel/setup.c
-index 7c2162f9e769..4e38327efb2e 100644
---- a/arch/x86/kernel/setup.c
-+++ b/arch/x86/kernel/setup.c
-@@ -64,6 +64,7 @@
+Index: debian-kernel/arch/x86/kernel/setup.c
+===================================================================
+--- debian-kernel.orig/arch/x86/kernel/setup.c
++++ debian-kernel/arch/x86/kernel/setup.c
+@@ -66,6 +66,7 @@
  #include <linux/dma-mapping.h>
  #include <linux/ctype.h>
  #include <linux/uaccess.h>
@@ -30,17 +31,17 @@ index 7c2162f9e769..4e38327efb2e 100644
  
  #include <linux/percpu.h>
  #include <linux/crash_dump.h>
-@@ -1039,6 +1040,9 @@ void __init setup_arch(char **cmdline_p)
+@@ -1012,6 +1013,9 @@ void __init setup_arch(char **cmdline_p)
  	if (efi_enabled(EFI_BOOT))
  		efi_init();
  
 +	efi_set_secure_boot(boot_params.secure_boot);
 +	init_lockdown();
 +
- 	dmi_scan_machine();
- 	dmi_memdev_walk();
- 	dmi_set_dump_stack_arch_desc();
-@@ -1197,8 +1201,6 @@ void __init setup_arch(char **cmdline_p)
+ 	dmi_setup();
+ 
+ 	/*
+@@ -1164,8 +1168,6 @@ void __init setup_arch(char **cmdline_p)
  	/* Allocate bigger log buffer */
  	setup_log_buf(1);
  
@@ -49,11 +50,24 @@ index 7c2162f9e769..4e38327efb2e 100644
  	reserve_initrd();
  
  	acpi_table_upgrade();
-diff --git a/security/Kconfig b/security/Kconfig
-index 1e997be94ba2..a4fa8b826039 100644
---- a/security/Kconfig
-+++ b/security/Kconfig
-@@ -222,6 +222,20 @@ config ALLOW_LOCKDOWN_LIFT_BY_SYSRQ
+Index: debian-kernel/fs/debugfs/inode.c
+===================================================================
+--- debian-kernel.orig/fs/debugfs/inode.c
++++ debian-kernel/fs/debugfs/inode.c
+@@ -40,7 +40,7 @@ static bool debugfs_registered;
+ static int debugfs_setattr(struct dentry *dentry, struct iattr *ia)
+ {
+ 	if ((ia->ia_valid & (ATTR_MODE | ATTR_UID | ATTR_GID)) &&
+-	    kernel_is_locked_down("debugfs"))
++	    kernel_is_locked_down("changing perms in debugfs"))
+ 		return -EPERM;
+ 	return simple_setattr(dentry, ia);
+ }
+Index: debian-kernel/security/Kconfig
+===================================================================
+--- debian-kernel.orig/security/Kconfig
++++ debian-kernel/security/Kconfig
+@@ -256,6 +256,20 @@ config ALLOW_LOCKDOWN_LIFT_BY_SYSRQ
  	  Allow the lockdown on a kernel to be lifted, by pressing a SysRq key
  	  combination on a wired keyboard.
  
@@ -71,13 +85,13 @@ index 1e997be94ba2..a4fa8b826039 100644
 +	  Enabling this option turns on results in kernel lockdown being
 +	  triggered if EFI Secure Boot is set.
 +
- 
- source security/selinux/Kconfig
- source security/smack/Kconfig
-diff --git a/security/lock_down.c b/security/lock_down.c
-index 2c6b00f0c229..527f7e51dc8d 100644
---- a/security/lock_down.c
-+++ b/security/lock_down.c
+ source "security/selinux/Kconfig"
+ source "security/smack/Kconfig"
+ source "security/tomoyo/Kconfig"
+Index: debian-kernel/security/lock_down.c
+===================================================================
+--- debian-kernel.orig/security/lock_down.c
++++ debian-kernel/security/lock_down.c
 @@ -12,6 +12,7 @@
  #include <linux/security.h>
  #include <linux/export.h>

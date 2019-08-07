@@ -1,16 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Huawei HiNIC PCI Express Linux driver
  * Copyright(c) 2017 Huawei Technologies Co., Ltd
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- * for more details.
- *
  */
 
 #ifndef HINIC_PORT_H
@@ -70,6 +61,11 @@ enum hinic_speed {
 	HINIC_SPEED_100GB_LINK,
 
 	HINIC_SPEED_UNKNOWN = 0xFF,
+};
+
+enum hinic_tso_state {
+	HINIC_TSO_DISABLE = 0,
+	HINIC_TSO_ENABLE  = 1,
 };
 
 struct hinic_port_mac_cmd {
@@ -167,6 +163,26 @@ struct hinic_port_cap {
 	u8      rsvd2[3];
 };
 
+struct hinic_tso_config {
+	u8	status;
+	u8	version;
+	u8	rsvd0[6];
+
+	u16	func_id;
+	u16	rsvd1;
+	u8	tso_en;
+	u8	resv2[3];
+};
+
+struct hinic_checksum_offload {
+	u8	status;
+	u8	version;
+	u8	rsvd0[6];
+
+	u16	func_id;
+	u16	rsvd1;
+	u32	rx_csum_offload;
+};
 int hinic_port_add_mac(struct hinic_dev *nic_dev, const u8 *addr,
 		       u16 vlan_id);
 
@@ -195,4 +211,7 @@ int hinic_port_set_func_state(struct hinic_dev *nic_dev,
 int hinic_port_get_cap(struct hinic_dev *nic_dev,
 		       struct hinic_port_cap *port_cap);
 
+int hinic_port_set_tso(struct hinic_dev *nic_dev, enum hinic_tso_state state);
+
+int hinic_set_rx_csum_offload(struct hinic_dev *nic_dev, u32 en);
 #endif

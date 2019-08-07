@@ -62,11 +62,6 @@ CONFIG_Q40=y
 # CONFIG_BLK_DEV_INTEGRITY is not set
 
 ##
-## file: block/Kconfig.iosched
-##
-CONFIG_IOSCHED_DEADLINE=m
-
-##
 ## file: block/partitions/Kconfig
 ##
 CONFIG_PARTITION_ADVANCED=y
@@ -560,7 +555,8 @@ CONFIG_SERIAL_8250_RUNTIME_UARTS=4
 ##
 ## file: drivers/video/backlight/Kconfig
 ##
-# CONFIG_BACKLIGHT_LCD_SUPPORT is not set
+# CONFIG_LCD_CLASS_DEVICE is not set
+# CONFIG_BACKLIGHT_CLASS_DEVICE is not set
 
 ##
 ## file: drivers/video/fbdev/Kconfig
@@ -649,11 +645,6 @@ CONFIG_BINFMT_MISC=m
 ## file: fs/efs/Kconfig
 ##
 # CONFIG_EFS_FS is not set
-
-##
-## file: fs/exofs/Kconfig
-##
-# CONFIG_EXOFS_FS is not set
 
 ##
 ## file: fs/f2fs/Kconfig

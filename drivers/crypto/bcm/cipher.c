@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright 2016 Broadcom
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License, version 2, as
- * published by the Free Software Foundation (the "GPL").
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License version 2 (GPLv2) for more details.
- *
- * You should have received a copy of the GNU General Public License
- * version 2 (GPLv2) along with this source code.
  */
 
 #include <linux/err.h>
@@ -717,7 +706,7 @@ static int handle_ahash_req(struct iproc_reqctx_s *rctx)
 	 */
 	unsigned int new_data_len;
 
-	unsigned int chunk_start = 0;
+	unsigned int __maybe_unused chunk_start = 0;
 	u32 db_size;	 /* Length of data field, incl gcm and hash padding */
 	int pad_len = 0; /* total pad len, including gcm, hash, stat padding */
 	u32 data_pad_len = 0;	/* length of GCM/CCM padding */
@@ -1675,8 +1664,6 @@ static void spu_rx_callback(struct mbox_client *cl, void *msg)
 	struct spu_hw *spu = &iproc_priv.spu;
 	struct brcm_message *mssg = msg;
 	struct iproc_reqctx_s *rctx;
-	struct iproc_ctx_s *ctx;
-	struct crypto_async_request *areq;
 	int err = 0;
 
 	rctx = mssg->ctx;
@@ -1686,8 +1673,6 @@ static void spu_rx_callback(struct mbox_client *cl, void *msg)
 		err = -EFAULT;
 		goto cb_finish;
 	}
-	areq = rctx->parent;
-	ctx = rctx->ctx;
 
 	/* process the SPU status */
 	err = spu->spu_status_process(rctx->msg_buf.rx_stat);
@@ -1822,7 +1807,7 @@ static int des_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 	if (keylen == DES_KEY_SIZE) {
 		if (des_ekey(tmp, key) == 0) {
 			if (crypto_ablkcipher_get_flags(cipher) &
-			    CRYPTO_TFM_REQ_WEAK_KEY) {
+			    CRYPTO_TFM_REQ_FORBID_WEAK_KEYS) {
 				u32 flags = CRYPTO_TFM_RES_WEAK_KEY;
 
 				crypto_ablkcipher_set_flags(cipher, flags);
@@ -1844,13 +1829,14 @@ static int threedes_setkey(struct crypto_ablkcipher *cipher, const u8 *key,
 	struct iproc_ctx_s *ctx = crypto_ablkcipher_ctx(cipher);
 
 	if (keylen == (DES_KEY_SIZE * 3)) {
-		const u32 *K = (const u32 *)key;
-		u32 flags = CRYPTO_TFM_RES_BAD_KEY_SCHED;
+		u32 flags;
+		int ret;
 
-		if (!((K[0] ^ K[2]) | (K[1] ^ K[3])) ||
-		    !((K[2] ^ K[4]) | (K[3] ^ K[5]))) {
+		flags = crypto_ablkcipher_get_flags(cipher);
+		ret = __des3_verify_key(&flags, key);
+		if (unlikely(ret)) {
 			crypto_ablkcipher_set_flags(cipher, flags);
-			return -EINVAL;
+			return ret;
 		}
 
 		ctx->cipher_type = CIPHER_TYPE_3DES;
@@ -2143,7 +2129,6 @@ static int ahash_init(struct ahash_request *req)
 			goto err_hash;
 		}
 		ctx->shash->tfm = hash;
-		ctx->shash->flags = 0;
 
 		/* Set the key using data we already have from setkey */
 		if (ctx->authkeylen > 0) {
@@ -2876,7 +2861,7 @@ static int aead_authenc_setkey(struct crypto_aead *cipher,
 
 			if (des_ekey(tmp, keys.enckey) == 0) {
 				if (crypto_aead_get_flags(cipher) &
-				    CRYPTO_TFM_REQ_WEAK_KEY) {
+				    CRYPTO_TFM_REQ_FORBID_WEAK_KEYS) {
 					crypto_aead_set_flags(cipher, flags);
 					return -EINVAL;
 				}
@@ -2889,13 +2874,13 @@ static int aead_authenc_setkey(struct crypto_aead *cipher,
 		break;
 	case CIPHER_ALG_3DES:
 		if (ctx->enckeylen == (DES_KEY_SIZE * 3)) {
-			const u32 *K = (const u32 *)keys.enckey;
-			u32 flags = CRYPTO_TFM_RES_BAD_KEY_SCHED;
+			u32 flags;
 
-			if (!((K[0] ^ K[2]) | (K[1] ^ K[3])) ||
-			    !((K[2] ^ K[4]) | (K[3] ^ K[5]))) {
+			flags = crypto_aead_get_flags(cipher);
+			ret = __des3_verify_key(&flags, keys.enckey);
+			if (unlikely(ret)) {
 				crypto_aead_set_flags(cipher, flags);
-				return -EINVAL;
+				return ret;
 			}
 
 			ctx->cipher_type = CIPHER_TYPE_3DES;
@@ -3850,7 +3835,6 @@ static struct iproc_alg_s driver_algs[] = {
 			.cra_driver_name = "ctr-aes-iproc",
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_ablkcipher = {
-					   /* .geniv = "chainiv", */
 					   .min_keysize = AES_MIN_KEY_SIZE,
 					   .max_keysize = AES_MAX_KEY_SIZE,
 					   .ivsize = AES_BLOCK_SIZE,
@@ -4587,7 +4571,6 @@ static int spu_register_ablkcipher(struct iproc_alg_s *driver_alg)
 	crypto->cra_priority = cipher_pri;
 	crypto->cra_alignmask = 0;
 	crypto->cra_ctxsize = sizeof(struct iproc_ctx_s);
-	INIT_LIST_HEAD(&crypto->cra_list);
 
 	crypto->cra_init = ablkcipher_cra_init;
 	crypto->cra_exit = generic_cra_exit;
@@ -4634,12 +4617,16 @@ static int spu_register_ahash(struct iproc_alg_s *driver_alg)
 	hash->halg.statesize = sizeof(struct spu_hash_export_s);
 
 	if (driver_alg->auth_info.mode != HASH_MODE_HMAC) {
-		hash->setkey = ahash_setkey;
 		hash->init = ahash_init;
 		hash->update = ahash_update;
 		hash->final = ahash_final;
 		hash->finup = ahash_finup;
 		hash->digest = ahash_digest;
+		if ((driver_alg->auth_info.alg == HASH_ALG_AES) &&
+		    ((driver_alg->auth_info.mode == HASH_MODE_XCBC) ||
+		    (driver_alg->auth_info.mode == HASH_MODE_CMAC))) {
+			hash->setkey = ahash_setkey;
+		}
 	} else {
 		hash->setkey = ahash_hmac_setkey;
 		hash->init = ahash_hmac_init;
@@ -4669,7 +4656,6 @@ static int spu_register_aead(struct iproc_alg_s *driver_alg)
 	aead->base.cra_priority = aead_pri;
 	aead->base.cra_alignmask = 0;
 	aead->base.cra_ctxsize = sizeof(struct iproc_ctx_s);
-	INIT_LIST_HEAD(&aead->base.cra_list);
 
 	aead->base.cra_flags |= CRYPTO_ALG_ASYNC;
 	/* setkey set in alg initialization */

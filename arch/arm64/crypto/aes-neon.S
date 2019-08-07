@@ -1,11 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * linux/arch/arm64/crypto/aes-neon.S - AES cipher for ARMv8 NEON
  *
  * Copyright (C) 2013 - 2017 Linaro Ltd. <ard.biesheuvel@linaro.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/linkage.h>
@@ -13,6 +10,12 @@
 
 #define AES_ENTRY(func)		ENTRY(neon_ ## func)
 #define AES_ENDPROC(func)	ENDPROC(neon_ ## func)
+
+	xtsmask		.req	v7
+
+	.macro		xts_reload_mask, tmp
+	xts_load_mask	\tmp
+	.endm
 
 	/* multiply by polynomial 'x' in GF(2^8) */
 	.macro		mul_by_x, out, in, temp, const

@@ -153,6 +153,7 @@ static ssize_t fault_opcodes_write(struct file *file, const char __user *buf,
 		char *dash;
 		unsigned long range_start, range_end, i;
 		bool remove = false;
+		unsigned long bound = 1U << BITS_PER_BYTE;
 
 		end = strchr(ptr, ',');
 		if (end)
@@ -178,6 +179,10 @@ static ssize_t fault_opcodes_write(struct file *file, const char __user *buf,
 				    BITS_PER_BYTE);
 			break;
 		}
+		/* Check the inputs */
+		if (range_start >= bound || range_end >= bound)
+			break;
+
 		for (i = range_start; i <= range_end; i++) {
 			if (remove)
 				clear_bit(i, fault->opcodes);
@@ -250,6 +255,7 @@ void hfi1_fault_exit_debugfs(struct hfi1_ibdev *ibd)
 int hfi1_fault_init_debugfs(struct hfi1_ibdev *ibd)
 {
 	struct dentry *parent = ibd->hfi1_ibdev_dbg;
+	struct dentry *fault_dir;
 
 	ibd->fault = kzalloc(sizeof(*ibd->fault), GFP_KERNEL);
 	if (!ibd->fault)
@@ -269,45 +275,31 @@ int hfi1_fault_init_debugfs(struct hfi1_ibdev *ibd)
 	bitmap_zero(ibd->fault->opcodes,
 		    sizeof(ibd->fault->opcodes) * BITS_PER_BYTE);
 
-	ibd->fault->dir =
-		fault_create_debugfs_attr("fault", parent,
-					  &ibd->fault->attr);
-	if (IS_ERR(ibd->fault->dir)) {
+	fault_dir =
+		fault_create_debugfs_attr("fault", parent, &ibd->fault->attr);
+	if (IS_ERR(fault_dir)) {
 		kfree(ibd->fault);
 		ibd->fault = NULL;
 		return -ENOENT;
 	}
+	ibd->fault->dir = fault_dir;
 
-	DEBUGFS_SEQ_FILE_CREATE(fault_stats, ibd->fault->dir, ibd);
-	if (!debugfs_create_bool("enable", 0600, ibd->fault->dir,
-				 &ibd->fault->enable))
-		goto fail;
-	if (!debugfs_create_bool("suppress_err", 0600,
-				 ibd->fault->dir,
-				 &ibd->fault->suppress_err))
-		goto fail;
-	if (!debugfs_create_bool("opcode_mode", 0600, ibd->fault->dir,
-				 &ibd->fault->opcode))
-		goto fail;
-	if (!debugfs_create_file("opcodes", 0600, ibd->fault->dir,
-				 ibd->fault, &__fault_opcodes_fops))
-		goto fail;
-	if (!debugfs_create_u64("skip_pkts", 0600,
-				ibd->fault->dir,
-				&ibd->fault->fault_skip))
-		goto fail;
-	if (!debugfs_create_u64("skip_usec", 0600,
-				ibd->fault->dir,
-				&ibd->fault->fault_skip_usec))
-		goto fail;
-	if (!debugfs_create_u8("direction", 0600, ibd->fault->dir,
-			       &ibd->fault->direction))
-		goto fail;
+	debugfs_create_file("fault_stats", 0444, fault_dir, ibd,
+			    &_fault_stats_file_ops);
+	debugfs_create_bool("enable", 0600, fault_dir, &ibd->fault->enable);
+	debugfs_create_bool("suppress_err", 0600, fault_dir,
+			    &ibd->fault->suppress_err);
+	debugfs_create_bool("opcode_mode", 0600, fault_dir,
+			    &ibd->fault->opcode);
+	debugfs_create_file("opcodes", 0600, fault_dir, ibd->fault,
+			    &__fault_opcodes_fops);
+	debugfs_create_u64("skip_pkts", 0600, fault_dir,
+			   &ibd->fault->fault_skip);
+	debugfs_create_u64("skip_usec", 0600, fault_dir,
+			   &ibd->fault->fault_skip_usec);
+	debugfs_create_u8("direction", 0600, fault_dir, &ibd->fault->direction);
 
 	return 0;
-fail:
-	hfi1_fault_exit_debugfs(ibd);
-	return -ENOMEM;
 }
 
 bool hfi1_dbg_fault_suppress_err(struct hfi1_ibdev *ibd)
