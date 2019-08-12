@@ -140,8 +140,7 @@ struct ftrace_likely_data {
  * Do not use __always_inline here, since currently it expands to inline again
  * (which would break users of __always_inline).
  */
-#if !defined(CONFIG_ARCH_SUPPORTS_OPTIMIZED_INLINING) || \
-	!defined(CONFIG_OPTIMIZE_INLINING)
+#if !defined(CONFIG_OPTIMIZE_INLINING)
 #define inline inline __attribute__((__always_inline__)) __gnu_inline \
 	__maybe_unused notrace
 #else
@@ -186,6 +185,10 @@ struct ftrace_likely_data {
 
 #ifndef asm_volatile_goto
 #define asm_volatile_goto(x...) asm goto(x)
+#endif
+
+#ifndef __no_fgcse
+# define __no_fgcse
 #endif
 
 /* Are two types/vars the same type (ignoring qualifiers)? */

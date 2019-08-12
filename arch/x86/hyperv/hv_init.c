@@ -1,20 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * X86 specific Hyper-V initialization code.
  *
  * Copyright (C) 2016, Microsoft, Inc.
  *
  * Author : K. Y. Srinivasan <kys@microsoft.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
- * NON INFRINGEMENT.  See the GNU General Public License for more
- * details.
- *
  */
 
 #include <linux/efi.h>
@@ -121,8 +111,17 @@ static int hv_cpu_init(unsigned int cpu)
 	if (!hv_vp_assist_page)
 		return 0;
 
-	if (!*hvp)
-		*hvp = __vmalloc(PAGE_SIZE, GFP_KERNEL, PAGE_KERNEL);
+	/*
+	 * The VP ASSIST PAGE is an "overlay" page (see Hyper-V TLFS's Section
+	 * 5.2.1 "GPA Overlay Pages"). Here it must be zeroed out to make sure
+	 * we always write the EOI MSR in hv_apic_eoi_write() *after* the
+	 * EOI optimization is disabled in hv_cpu_die(), otherwise a CPU may
+	 * not be stopped in the case of CPU offlining and the VM will hang.
+	 */
+	if (!*hvp) {
+		*hvp = __vmalloc(PAGE_SIZE, GFP_KERNEL | __GFP_ZERO,
+				 PAGE_KERNEL);
+	}
 
 	if (*hvp) {
 		u64 val;

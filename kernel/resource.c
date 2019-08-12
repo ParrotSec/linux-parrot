@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  *	linux/kernel/resource.c
  *
@@ -325,7 +326,7 @@ EXPORT_SYMBOL(release_resource);
  *
  * If a resource is found, returns 0 and @*res is overwritten with the part
  * of the resource that's within [@start..@end]; if none is found, returns
- * -1 or -EINVAL for other invalid parameters.
+ * -ENODEV.  Returns -EINVAL for invalid parameters.
  *
  * This function walks the whole tree and not just first level children
  * unless @first_lvl is true.
@@ -364,16 +365,16 @@ static int find_next_iomem_res(resource_size_t start, resource_size_t end,
 			break;
 	}
 
-	read_unlock(&resource_lock);
-	if (!p)
-		return -1;
+	if (p) {
+		/* copy data */
+		res->start = max(start, p->start);
+		res->end = min(end, p->end);
+		res->flags = p->flags;
+		res->desc = p->desc;
+	}
 
-	/* copy data */
-	res->start = max(start, p->start);
-	res->end = min(end, p->end);
-	res->flags = p->flags;
-	res->desc = p->desc;
-	return 0;
+	read_unlock(&resource_lock);
+	return p ? 0 : -ENODEV;
 }
 
 static int __walk_iomem_res_desc(resource_size_t start, resource_size_t end,
@@ -520,9 +521,12 @@ EXPORT_SYMBOL_GPL(page_is_ram);
 int region_intersects(resource_size_t start, size_t size, unsigned long flags,
 		      unsigned long desc)
 {
-	resource_size_t end = start + size - 1;
+	struct resource res;
 	int type = 0; int other = 0;
 	struct resource *p;
+
+	res.start = start;
+	res.end = start + size - 1;
 
 	read_lock(&resource_lock);
 	for (p = iomem_resource.child; p ; p = p->sibling) {
@@ -530,11 +534,7 @@ int region_intersects(resource_size_t start, size_t size, unsigned long flags,
 				((desc == IORES_DESC_NONE) ||
 				 (desc == p->desc)));
 
-		if (start >= p->start && start <= p->end)
-			is_type ? type++ : other++;
-		if (end >= p->start && end <= p->end)
-			is_type ? type++ : other++;
-		if (p->start >= start && p->end <= end)
+		if (resource_overlaps(p, &res))
 			is_type ? type++ : other++;
 	}
 	read_unlock(&resource_lock);

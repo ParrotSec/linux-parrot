@@ -151,8 +151,9 @@ static int ib_umem_notifier_invalidate_range_start(struct mmu_notifier *mn,
 {
 	struct ib_ucontext_per_mm *per_mm =
 		container_of(mn, struct ib_ucontext_per_mm, mn);
+	int rc;
 
-	if (range->blockable)
+	if (mmu_notifier_range_blockable(range))
 		down_read(&per_mm->umem_rwsem);
 	else if (!down_read_trylock(&per_mm->umem_rwsem))
 		return -EAGAIN;
@@ -167,10 +168,14 @@ static int ib_umem_notifier_invalidate_range_start(struct mmu_notifier *mn,
 		return 0;
 	}
 
-	return rbt_ib_umem_for_each_in_range(&per_mm->umem_tree, range->start,
-					     range->end,
-					     invalidate_range_start_trampoline,
-					     range->blockable, NULL);
+	rc = rbt_ib_umem_for_each_in_range(&per_mm->umem_tree, range->start,
+					   range->end,
+					   invalidate_range_start_trampoline,
+					   mmu_notifier_range_blockable(range),
+					   NULL);
+	if (rc)
+		up_read(&per_mm->umem_rwsem);
+	return rc;
 }
 
 static int invalidate_range_end_trampoline(struct ib_umem_odp *item, u64 start,
@@ -241,7 +246,7 @@ static struct ib_ucontext_per_mm *alloc_per_mm(struct ib_ucontext *ctx,
 	per_mm->mm = mm;
 	per_mm->umem_tree = RB_ROOT_CACHED;
 	init_rwsem(&per_mm->umem_rwsem);
-	per_mm->active = ctx->invalidate_range;
+	per_mm->active = true;
 
 	rcu_read_lock();
 	per_mm->tgid = get_task_pid(current->group_leader, PIDTYPE_PID);
@@ -417,9 +422,6 @@ int ib_umem_odp_get(struct ib_umem_odp *umem_odp, int access)
 		h = hstate_vma(vma);
 		umem->page_shift = huge_page_shift(h);
 		up_read(&mm->mmap_sem);
-		umem->hugetlb = 1;
-	} else {
-		umem->hugetlb = 0;
 	}
 
 	mutex_init(&umem_odp->umem_mutex);
@@ -503,7 +505,6 @@ static int ib_umem_odp_map_dma_single_page(
 	struct ib_umem *umem = &umem_odp->umem;
 	struct ib_device *dev = umem->context->device;
 	dma_addr_t dma_addr;
-	int stored_page = 0;
 	int remove_existing_mapping = 0;
 	int ret = 0;
 
@@ -527,8 +528,7 @@ static int ib_umem_odp_map_dma_single_page(
 		}
 		umem_odp->dma_list[page_index] = dma_addr | access_mask;
 		umem_odp->page_list[page_index] = page;
-		umem->npages++;
-		stored_page = 1;
+		umem_odp->npages++;
 	} else if (umem_odp->page_list[page_index] == page) {
 		umem_odp->dma_list[page_index] |= access_mask;
 	} else {
@@ -540,11 +540,9 @@ static int ib_umem_odp_map_dma_single_page(
 	}
 
 out:
-	/* On Demand Paging - avoid pinning the page */
-	if (umem->context->invalidate_range || !stored_page)
-		put_page(page);
+	put_page(page);
 
-	if (remove_existing_mapping && umem->context->invalidate_range) {
+	if (remove_existing_mapping) {
 		ib_umem_notifier_start_account(umem_odp);
 		umem->context->invalidate_range(
 			umem_odp,
@@ -754,12 +752,9 @@ void ib_umem_odp_unmap_dma_pages(struct ib_umem_odp *umem_odp, u64 virt,
 				 */
 				set_page_dirty(head_page);
 			}
-			/* on demand pinning support */
-			if (!umem->context->invalidate_range)
-				put_page(page);
 			umem_odp->page_list[idx] = NULL;
 			umem_odp->dma_list[idx] = 0;
-			umem->npages--;
+			umem_odp->npages--;
 		}
 	}
 	mutex_unlock(&umem_odp->umem_mutex);

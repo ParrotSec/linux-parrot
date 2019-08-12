@@ -811,8 +811,8 @@ static int register_process(struct device_queue_manager *dqm,
 
 	retval = dqm->asic_ops.update_qpd(dqm, qpd);
 
-	if (dqm->processes_count++ == 0)
-		amdgpu_amdkfd_set_compute_idle(dqm->dev->kgd, false);
+	dqm->processes_count++;
+	kfd_inc_compute_active(dqm->dev);
 
 	dqm_unlock(dqm);
 
@@ -835,9 +835,8 @@ static int unregister_process(struct device_queue_manager *dqm,
 		if (qpd == cur->qpd) {
 			list_del(&cur->list);
 			kfree(cur);
-			if (--dqm->processes_count == 0)
-				amdgpu_amdkfd_set_compute_idle(
-					dqm->dev->kgd, true);
+			dqm->processes_count--;
+			kfd_dec_compute_active(dqm->dev);
 			goto out;
 		}
 	}
@@ -1269,12 +1268,17 @@ int amdkfd_fence_wait_timeout(unsigned int *fence_addr,
 	return 0;
 }
 
-static int unmap_sdma_queues(struct device_queue_manager *dqm,
-				unsigned int sdma_engine)
+static int unmap_sdma_queues(struct device_queue_manager *dqm)
 {
-	return pm_send_unmap_queue(&dqm->packets, KFD_QUEUE_TYPE_SDMA,
-			KFD_UNMAP_QUEUES_FILTER_DYNAMIC_QUEUES, 0, false,
-			sdma_engine);
+	int i, retval = 0;
+
+	for (i = 0; i < dqm->dev->device_info->num_sdma_engines; i++) {
+		retval = pm_send_unmap_queue(&dqm->packets, KFD_QUEUE_TYPE_SDMA,
+			KFD_UNMAP_QUEUES_FILTER_DYNAMIC_QUEUES, 0, false, i);
+		if (retval)
+			return retval;
+	}
+	return retval;
 }
 
 /* dqm->lock mutex has to be locked before calling this function */
@@ -1313,10 +1317,8 @@ static int unmap_queues_cpsch(struct device_queue_manager *dqm,
 	pr_debug("Before destroying queues, sdma queue count is : %u\n",
 		dqm->sdma_queue_count);
 
-	if (dqm->sdma_queue_count > 0) {
-		unmap_sdma_queues(dqm, 0);
-		unmap_sdma_queues(dqm, 1);
-	}
+	if (dqm->sdma_queue_count > 0)
+		unmap_sdma_queues(dqm);
 
 	retval = pm_send_unmap_queue(&dqm->packets, KFD_QUEUE_TYPE_COMPUTE,
 			filter, filter_param, false, 0);
@@ -1539,6 +1541,7 @@ static int process_termination_nocpsch(struct device_queue_manager *dqm,
 			list_del(&cur->list);
 			kfree(cur);
 			dqm->processes_count--;
+			kfd_dec_compute_active(dqm->dev);
 			break;
 		}
 	}
@@ -1626,6 +1629,7 @@ static int process_termination_cpsch(struct device_queue_manager *dqm,
 			list_del(&cur->list);
 			kfree(cur);
 			dqm->processes_count--;
+			kfd_dec_compute_active(dqm->dev);
 			break;
 		}
 	}

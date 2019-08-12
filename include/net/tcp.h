@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * INET		An implementation of the TCP/IP protocol suite for the LINUX
  *		operating system.  INET is implemented using the  BSD Socket
@@ -9,11 +10,6 @@
  *
  * Authors:	Ross Biro
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
- *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  */
 #ifndef _TCP_H
 #define _TCP_H
@@ -55,6 +51,8 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
 
 #define MAX_TCP_HEADER	(128 + MAX_HEADER)
 #define MAX_TCP_OPTION_SPACE 40
+#define TCP_MIN_SND_MSS		48
+#define TCP_MIN_GSO_SIZE	(TCP_MIN_SND_MSS - MAX_TCP_OPTION_SPACE)
 
 /*
  * Never offer a window over 32767 without using window scaling. Some
@@ -1065,7 +1063,8 @@ void tcp_get_default_congestion_control(struct net *net, char *name);
 void tcp_get_available_congestion_control(char *buf, size_t len);
 void tcp_get_allowed_congestion_control(char *buf, size_t len);
 int tcp_set_allowed_congestion_control(char *allowed);
-int tcp_set_congestion_control(struct sock *sk, const char *name, bool load, bool reinit);
+int tcp_set_congestion_control(struct sock *sk, const char *name, bool load,
+			       bool reinit, bool cap_net_admin);
 u32 tcp_slow_start(struct tcp_sock *tp, u32 acked);
 void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked);
 
@@ -1314,7 +1313,7 @@ static inline void tcp_update_wl(struct tcp_sock *tp, u32 seq)
 static inline __sum16 tcp_v4_check(int len, __be32 saddr,
 				   __be32 daddr, __wsum base)
 {
-	return csum_tcpudp_magic(saddr,daddr,len,IPPROTO_TCP,base);
+	return csum_tcpudp_magic(saddr, daddr, len, IPPROTO_TCP, base);
 }
 
 static inline bool tcp_checksum_complete(struct sk_buff *skb)
@@ -1675,6 +1674,11 @@ void tcp_write_queue_purge(struct sock *sk);
 static inline struct sk_buff *tcp_rtx_queue_head(const struct sock *sk)
 {
 	return skb_rb_first(&sk->tcp_rtx_queue);
+}
+
+static inline struct sk_buff *tcp_rtx_queue_tail(const struct sock *sk)
+{
+	return skb_rb_last(&sk->tcp_rtx_queue);
 }
 
 static inline struct sk_buff *tcp_write_queue_head(const struct sock *sk)
@@ -2198,7 +2202,7 @@ extern struct static_key_false tcp_have_smc;
 void clean_acked_data_enable(struct inet_connection_sock *icsk,
 			     void (*cad)(struct sock *sk, u32 ack_seq));
 void clean_acked_data_disable(struct inet_connection_sock *icsk);
-
+void clean_acked_data_flush(void);
 #endif
 
 #endif	/* _TCP_H */

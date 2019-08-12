@@ -66,7 +66,8 @@ int iwl_pcie_ctxt_info_gen3_init(struct iwl_trans *trans,
 	void *iml_img;
 	u32 control_flags = 0;
 	int ret;
-	int cmdq_size = max_t(u32, TFD_CMD_SLOTS, trans->cfg->min_txq_size);
+	int cmdq_size = max_t(u32, IWL_CMD_QUEUE_SIZE,
+			      trans->cfg->min_txq_size);
 
 	/* Allocate prph scratch */
 	prph_scratch = dma_alloc_coherent(trans->dev, sizeof(*prph_scratch),
@@ -168,7 +169,7 @@ int iwl_pcie_ctxt_info_gen3_init(struct iwl_trans *trans,
 
 	memcpy(iml_img, trans->iml, trans->iml_len);
 
-	iwl_enable_interrupts(trans);
+	iwl_enable_fw_load_int_ctx_info(trans);
 
 	/* kick FW self load */
 	iwl_write64(trans, CSR_CTXT_INFO_ADDR,

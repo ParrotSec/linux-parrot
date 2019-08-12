@@ -42,6 +42,22 @@ const char* btrfs_compress_type2str(enum btrfs_compression_type type)
 	return NULL;
 }
 
+bool btrfs_compress_is_valid_type(const char *str, size_t len)
+{
+	int i;
+
+	for (i = 1; i < ARRAY_SIZE(btrfs_compress_types); i++) {
+		size_t comp_len = strlen(btrfs_compress_types[i]);
+
+		if (len < comp_len)
+			continue;
+
+		if (!strncmp(btrfs_compress_types[i], str, comp_len))
+			return true;
+	}
+	return false;
+}
+
 static int btrfs_decompress_bio(struct compressed_bio *cb);
 
 static inline int compressed_bio_size(struct btrfs_fs_info *fs_info,
@@ -160,7 +176,6 @@ csum_failed:
 	if (cb->errors) {
 		bio_io_error(cb->orig_bio);
 	} else {
-		int i;
 		struct bio_vec *bvec;
 		struct bvec_iter_all iter_all;
 
@@ -169,7 +184,7 @@ csum_failed:
 		 * checked so the end_io handlers know about it
 		 */
 		ASSERT(!bio_flagged(bio, BIO_CLONED));
-		bio_for_each_segment_all(bvec, cb->orig_bio, i, iter_all)
+		bio_for_each_segment_all(bvec, cb->orig_bio, iter_all)
 			SetPageChecked(bvec->bv_page);
 
 		bio_endio(cb->orig_bio);
@@ -251,7 +266,7 @@ static void end_compressed_bio_write(struct bio *bio)
 	cb->compressed_pages[0]->mapping = cb->inode->i_mapping;
 	btrfs_writepage_endio_finish_ordered(cb->compressed_pages[0],
 			cb->start, cb->start + cb->len - 1,
-			bio->bi_status ? BLK_STS_OK : BLK_STS_NOTSUPP);
+			bio->bi_status == BLK_STS_OK);
 	cb->compressed_pages[0]->mapping = NULL;
 
 	end_compressed_writeback(inode, cb);
@@ -1009,6 +1024,7 @@ int btrfs_compress_pages(unsigned int type_level, struct address_space *mapping,
 	struct list_head *workspace;
 	int ret;
 
+	level = btrfs_compress_op[type]->set_level(level);
 	workspace = get_workspace(type, level);
 	ret = btrfs_compress_op[type]->compress_pages(workspace, mapping,
 						      start, pages,

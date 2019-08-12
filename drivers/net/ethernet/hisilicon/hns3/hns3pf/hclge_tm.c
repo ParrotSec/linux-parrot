@@ -54,7 +54,8 @@ static int hclge_shaper_para_calc(u32 ir, u8 shaper_level,
 	u32 tick;
 
 	/* Calc tick */
-	if (shaper_level >= HCLGE_SHAPER_LVL_CNT)
+	if (shaper_level >= HCLGE_SHAPER_LVL_CNT ||
+	    ir > HCLGE_ETHER_MAX_RATE)
 		return -EINVAL;
 
 	tick = tick_array[shaper_level];
@@ -1124,6 +1125,9 @@ static int hclge_tm_schd_mode_vnet_base_cfg(struct hclge_vport *vport)
 	int ret;
 	u8 i;
 
+	if (vport->vport_id >= HNAE3_MAX_TC)
+		return -EINVAL;
+
 	ret = hclge_tm_pri_schd_mode_cfg(hdev, vport->vport_id);
 	if (ret)
 		return ret;
@@ -1331,8 +1335,11 @@ int hclge_pause_setup_hw(struct hclge_dev *hdev, bool init)
 	ret = hclge_pfc_setup_hw(hdev);
 	if (init && ret == -EOPNOTSUPP)
 		dev_warn(&hdev->pdev->dev, "GE MAC does not support pfc\n");
-	else
+	else if (ret) {
+		dev_err(&hdev->pdev->dev, "config pfc failed! ret = %d\n",
+			ret);
 		return ret;
+	}
 
 	return hclge_tm_bp_setup(hdev);
 }

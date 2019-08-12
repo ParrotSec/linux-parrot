@@ -1,14 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Line 6 Pod HD
  *
  * Copyright (C) 2011 Stefan Hajnoczi <stefanha@gmail.com>
  * Copyright (C) 2015 Andrej Krutak <dev@andree.sk>
  * Copyright (C) 2017 Hans P. Moller <hmoller@uc.cl>
- *
- *	This program is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU General Public License as
- *	published by the Free Software Foundation, version 2.
- *
  */
 
 #include <linux/usb.h>
@@ -417,7 +413,7 @@ static const struct line6_properties podhd_properties_table[] = {
 		.name = "POD HD500",
 		.capabilities	= LINE6_CAP_PCM
 				| LINE6_CAP_HWMON,
-		.altsetting = 1,
+		.altsetting = 0,
 		.ep_ctrl_r = 0x81,
 		.ep_ctrl_w = 0x01,
 		.ep_audio_r = 0x86,

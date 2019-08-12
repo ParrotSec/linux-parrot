@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * builtin-trace.c
  *
@@ -12,8 +13,6 @@
  * Initially based on the 'trace' prototype by Thomas Gleixner:
  *
  * http://lwn.net/Articles/415728/ ("Announcing a new utility: 'trace'")
- *
- * Released under the GPL v2. (and only v2, not any later version)
  */
 
 #include <traceevent/event-parse.h>
@@ -998,10 +997,10 @@ static struct thread_trace *thread_trace__new(void)
 {
 	struct thread_trace *ttrace =  zalloc(sizeof(struct thread_trace));
 
-	if (ttrace)
+	if (ttrace) {
 		ttrace->files.max = -1;
-
-	ttrace->syscall_stats = intlist__new(NULL);
+		ttrace->syscall_stats = intlist__new(NULL);
+	}
 
 	return ttrace;
 }
