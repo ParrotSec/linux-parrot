@@ -1,3 +1,10 @@
+linux (5.2.7-2parrot1) testing; urgency=medium
+
+  * Import new Debian release.
+  * Include Parrot patches.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Mon, 12 Aug 2019 15:16:33 +0200
+
 linux (5.2.7-1) unstable; urgency=medium
 
   * New upstream stable update:
