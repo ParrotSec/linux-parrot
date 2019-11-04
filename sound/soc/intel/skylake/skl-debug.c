@@ -188,7 +188,7 @@ static ssize_t fw_softreg_read(struct file *file, char __user *user_buf,
 	memset(d->fw_read_buff, 0, FW_REG_BUF);
 
 	if (w0_stat_sz > 0)
-		__iowrite32_copy(d->fw_read_buff, fw_reg_addr, w0_stat_sz >> 2);
+		__ioread32_copy(d->fw_read_buff, fw_reg_addr, w0_stat_sz >> 2);
 
 	for (offset = 0; offset < FW_REG_SIZE; offset += 16) {
 		ret += snprintf(tmp + ret, FW_REG_BUF - ret, "%#.4x: ", offset);
@@ -250,4 +250,13 @@ struct skl_debug *skl_debugfs_init(struct skl *skl)
 err:
 	debugfs_remove_recursive(d->fs);
 	return NULL;
+}
+
+void skl_debugfs_exit(struct skl *skl)
+{
+	struct skl_debug *d = skl->debugfs;
+
+	debugfs_remove_recursive(d->fs);
+
+	d = NULL;
 }

@@ -142,24 +142,27 @@ bool rq_depth_calc_max_depth(struct rq_depth *rqd)
 	return ret;
 }
 
-void rq_depth_scale_up(struct rq_depth *rqd)
+/* Returns true on success and false if scaling up wasn't possible */
+bool rq_depth_scale_up(struct rq_depth *rqd)
 {
 	/*
 	 * Hit max in previous round, stop here
 	 */
 	if (rqd->scaled_max)
-		return;
+		return false;
 
 	rqd->scale_step--;
 
 	rqd->scaled_max = rq_depth_calc_max_depth(rqd);
+	return true;
 }
 
 /*
  * Scale rwb down. If 'hard_throttle' is set, do it quicker, since we
- * had a latency violation.
+ * had a latency violation. Returns true on success and returns false if
+ * scaling down wasn't possible.
  */
-void rq_depth_scale_down(struct rq_depth *rqd, bool hard_throttle)
+bool rq_depth_scale_down(struct rq_depth *rqd, bool hard_throttle)
 {
 	/*
 	 * Stop scaling down when we've hit the limit. This also prevents
@@ -167,7 +170,7 @@ void rq_depth_scale_down(struct rq_depth *rqd, bool hard_throttle)
 	 * keep up.
 	 */
 	if (rqd->max_depth == 1)
-		return;
+		return false;
 
 	if (rqd->scale_step < 0 && hard_throttle)
 		rqd->scale_step = 0;
@@ -176,6 +179,7 @@ void rq_depth_scale_down(struct rq_depth *rqd, bool hard_throttle)
 
 	rqd->scaled_max = false;
 	rq_depth_calc_max_depth(rqd);
+	return true;
 }
 
 struct rq_qos_wait_data {
@@ -202,6 +206,7 @@ static int rq_qos_wake_function(struct wait_queue_entry *curr,
 		return -1;
 
 	data->got_token = true;
+	smp_wmb();
 	list_del_init(&curr->entry);
 	wake_up_process(data->task);
 	return 1;
@@ -244,7 +249,9 @@ void rq_qos_wait(struct rq_wait *rqw, void *private_data,
 		return;
 
 	prepare_to_wait_exclusive(&rqw->wait, &data.wq, TASK_UNINTERRUPTIBLE);
+	has_sleeper = !wq_has_single_sleeper(&rqw->wait);
 	do {
+		/* The memory barrier in set_task_state saves us here. */
 		if (data.got_token)
 			break;
 		if (!has_sleeper && acquire_inflight_cb(rqw, private_data)) {
@@ -255,12 +262,14 @@ void rq_qos_wait(struct rq_wait *rqw, void *private_data,
 			 * which means we now have two. Put our local token
 			 * and wake anyone else potentially waiting for one.
 			 */
+			smp_rmb();
 			if (data.got_token)
 				cleanup_cb(rqw, private_data);
 			break;
 		}
 		io_schedule();
-		has_sleeper = false;
+		has_sleeper = true;
+		set_current_state(TASK_UNINTERRUPTIBLE);
 	} while (1);
 	finish_wait(&rqw->wait, &data.wq);
 }

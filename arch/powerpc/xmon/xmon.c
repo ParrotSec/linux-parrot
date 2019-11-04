@@ -2450,7 +2450,9 @@ static void dump_one_paca(int cpu)
 	DUMP(p, canary, "%#-*lx");
 #endif
 	DUMP(p, saved_r1, "%#-*llx");
+#ifdef CONFIG_PPC_BOOK3E
 	DUMP(p, trap_save, "%#-*x");
+#endif
 	DUMP(p, irq_soft_mask, "%#-*x");
 	DUMP(p, irq_happened, "%#-*x");
 #ifdef CONFIG_MMIOWB
@@ -2532,13 +2534,16 @@ static void dump_pacas(void)
 static void dump_one_xive(int cpu)
 {
 	unsigned int hwid = get_hard_smp_processor_id(cpu);
+	bool hv = cpu_has_feature(CPU_FTR_HVMODE);
 
-	opal_xive_dump(XIVE_DUMP_TM_HYP, hwid);
-	opal_xive_dump(XIVE_DUMP_TM_POOL, hwid);
-	opal_xive_dump(XIVE_DUMP_TM_OS, hwid);
-	opal_xive_dump(XIVE_DUMP_TM_USER, hwid);
-	opal_xive_dump(XIVE_DUMP_VP, hwid);
-	opal_xive_dump(XIVE_DUMP_EMU_STATE, hwid);
+	if (hv) {
+		opal_xive_dump(XIVE_DUMP_TM_HYP, hwid);
+		opal_xive_dump(XIVE_DUMP_TM_POOL, hwid);
+		opal_xive_dump(XIVE_DUMP_TM_OS, hwid);
+		opal_xive_dump(XIVE_DUMP_TM_USER, hwid);
+		opal_xive_dump(XIVE_DUMP_VP, hwid);
+		opal_xive_dump(XIVE_DUMP_EMU_STATE, hwid);
+	}
 
 	if (setjmp(bus_error_jmp) != 0) {
 		catch_memory_errors = 0;
@@ -3092,7 +3097,7 @@ static void show_pte(unsigned long addr)
 
 	printf("pgd  @ 0x%px\n", pgdir);
 
-	if (pgd_huge(*pgdp)) {
+	if (pgd_is_leaf(*pgdp)) {
 		format_pte(pgdp, pgd_val(*pgdp));
 		return;
 	}
@@ -3105,7 +3110,7 @@ static void show_pte(unsigned long addr)
 		return;
 	}
 
-	if (pud_huge(*pudp)) {
+	if (pud_is_leaf(*pudp)) {
 		format_pte(pudp, pud_val(*pudp));
 		return;
 	}
@@ -3119,7 +3124,7 @@ static void show_pte(unsigned long addr)
 		return;
 	}
 
-	if (pmd_huge(*pmdp)) {
+	if (pmd_is_leaf(*pmdp)) {
 		format_pte(pmdp, pmd_val(*pmdp));
 		return;
 	}

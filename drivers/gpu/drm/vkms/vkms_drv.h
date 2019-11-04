@@ -20,14 +20,6 @@
 
 extern bool enable_cursor;
 
-static const u32 vkms_formats[] = {
-	DRM_FORMAT_XRGB8888,
-};
-
-static const u32 vkms_cursor_formats[] = {
-	DRM_FORMAT_ARGB8888,
-};
-
 struct vkms_crc_data {
 	struct drm_framebuffer fb;
 	struct drm_rect src, dst;
@@ -56,6 +48,8 @@ struct vkms_plane_state {
 struct vkms_crtc_state {
 	struct drm_crtc_state base;
 	struct work_struct crc_work;
+
+	bool crc_pending;
 	u64 frame_start;
 	u64 frame_end;
 };
@@ -113,10 +107,10 @@ bool vkms_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
 			       int *max_error, ktime_t *vblank_time,
 			       bool in_vblank_irq);
 
-int vkms_output_init(struct vkms_device *vkmsdev);
+int vkms_output_init(struct vkms_device *vkmsdev, int index);
 
 struct drm_plane *vkms_plane_init(struct vkms_device *vkmsdev,
-				  enum drm_plane_type type);
+				  enum drm_plane_type type, int index);
 
 /* Gem stuff */
 struct drm_gem_object *vkms_gem_create(struct drm_device *dev,
@@ -136,6 +130,8 @@ int vkms_gem_vmap(struct drm_gem_object *obj);
 void vkms_gem_vunmap(struct drm_gem_object *obj);
 
 /* CRC Support */
+const char *const *vkms_get_crc_sources(struct drm_crtc *crtc,
+					size_t *count);
 int vkms_set_crc_source(struct drm_crtc *crtc, const char *src_name);
 int vkms_verify_crc_source(struct drm_crtc *crtc, const char *source_name,
 			   size_t *values_cnt);

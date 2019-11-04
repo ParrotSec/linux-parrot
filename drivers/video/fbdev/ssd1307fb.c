@@ -432,7 +432,7 @@ static int ssd1307fb_init(struct ssd1307fb_par *par)
 	if (ret < 0)
 		return ret;
 
-	ret = ssd1307fb_write_cmd(par->client, 0x0);
+	ret = ssd1307fb_write_cmd(par->client, par->page_offset);
 	if (ret < 0)
 		return ret;
 
@@ -555,10 +555,8 @@ static int ssd1307fb_probe(struct i2c_client *client,
 	}
 
 	info = framebuffer_alloc(sizeof(struct ssd1307fb_par), &client->dev);
-	if (!info) {
-		dev_err(&client->dev, "Couldn't allocate framebuffer.\n");
+	if (!info)
 		return -ENOMEM;
-	}
 
 	par = info->par;
 	par->info = info;

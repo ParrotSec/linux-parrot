@@ -28,7 +28,8 @@
 #include "genelf.h"
 #include "../builtin.h"
 
-#include "sane_ctype.h"
+#include <linux/ctype.h>
+#include <linux/zalloc.h>
 
 struct jit_buf_desc {
 	struct perf_data *output;
@@ -395,7 +396,7 @@ static int jit_repipe_code_load(struct jit_buf_desc *jd, union jr_entry *jr)
 	size_t size;
 	u16 idr_size;
 	const char *sym;
-	uint32_t count;
+	uint64_t count;
 	int ret, csize, usize;
 	pid_t pid, tid;
 	struct {
@@ -418,7 +419,7 @@ static int jit_repipe_code_load(struct jit_buf_desc *jd, union jr_entry *jr)
 		return -1;
 
 	filename = event->mmap2.filename;
-	size = snprintf(filename, PATH_MAX, "%s/jitted-%d-%u.so",
+	size = snprintf(filename, PATH_MAX, "%s/jitted-%d-%" PRIu64 ".so",
 			jd->dir,
 			pid,
 			count);
@@ -431,14 +432,12 @@ static int jit_repipe_code_load(struct jit_buf_desc *jd, union jr_entry *jr)
 			   jd->unwinding_data, jd->eh_frame_hdr_size, jd->unwinding_size);
 
 	if (jd->debug_data && jd->nr_debug_entries) {
-		free(jd->debug_data);
-		jd->debug_data = NULL;
+		zfree(&jd->debug_data);
 		jd->nr_debug_entries = 0;
 	}
 
 	if (jd->unwinding_data && jd->eh_frame_hdr_size) {
-		free(jd->unwinding_data);
-		jd->unwinding_data = NULL;
+		zfree(&jd->unwinding_data);
 		jd->eh_frame_hdr_size = 0;
 		jd->unwinding_mapped_size = 0;
 		jd->unwinding_size = 0;
@@ -531,7 +530,7 @@ static int jit_repipe_code_move(struct jit_buf_desc *jd, union jr_entry *jr)
 		return -1;
 
 	filename = event->mmap2.filename;
-	size = snprintf(filename, PATH_MAX, "%s/jitted-%d-%"PRIu64,
+	size = snprintf(filename, PATH_MAX, "%s/jitted-%d-%" PRIu64 ".so",
 	         jd->dir,
 	         pid,
 		 jr->move.code_index);

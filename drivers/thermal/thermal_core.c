@@ -243,36 +243,42 @@ int thermal_build_list_of_policies(char *buf)
 	return count;
 }
 
-static int __init thermal_register_governors(void)
-{
-	int result;
-
-	result = thermal_gov_step_wise_register();
-	if (result)
-		return result;
-
-	result = thermal_gov_fair_share_register();
-	if (result)
-		return result;
-
-	result = thermal_gov_bang_bang_register();
-	if (result)
-		return result;
-
-	result = thermal_gov_user_space_register();
-	if (result)
-		return result;
-
-	return thermal_gov_power_allocator_register();
-}
-
 static void __init thermal_unregister_governors(void)
 {
-	thermal_gov_step_wise_unregister();
-	thermal_gov_fair_share_unregister();
-	thermal_gov_bang_bang_unregister();
-	thermal_gov_user_space_unregister();
-	thermal_gov_power_allocator_unregister();
+	struct thermal_governor **governor;
+
+	for_each_governor_table(governor)
+		thermal_unregister_governor(*governor);
+}
+
+static int __init thermal_register_governors(void)
+{
+	int ret = 0;
+	struct thermal_governor **governor;
+
+	for_each_governor_table(governor) {
+		ret = thermal_register_governor(*governor);
+		if (ret) {
+			pr_err("Failed to register governor: '%s'",
+			       (*governor)->name);
+			break;
+		}
+
+		pr_info("Registered thermal governor '%s'",
+			(*governor)->name);
+	}
+
+	if (ret) {
+		struct thermal_governor **gov;
+
+		for_each_governor_table(gov) {
+			if (gov == governor)
+				break;
+			thermal_unregister_governor(*gov);
+		}
+	}
+
+	return ret;
 }
 
 /*
@@ -298,7 +304,7 @@ static void thermal_zone_device_set_polling(struct thermal_zone_device *tz,
 				 &tz->poll_queue,
 				 msecs_to_jiffies(delay));
 	else
-		cancel_delayed_work(&tz->poll_queue);
+		cancel_delayed_work_sync(&tz->poll_queue);
 }
 
 static void monitor_thermal_zone(struct thermal_zone_device *tz)

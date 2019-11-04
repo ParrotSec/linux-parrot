@@ -26,6 +26,7 @@
 #include "volumes.h"
 #include "qgroup.h"
 #include "compression.h"
+#include "delalloc-space.h"
 
 static struct kmem_cache *btrfs_inode_defrag_cachep;
 /*
@@ -1550,30 +1551,20 @@ static noinline int check_can_nocow(struct btrfs_inode *inode, loff_t pos,
 {
 	struct btrfs_fs_info *fs_info = inode->root->fs_info;
 	struct btrfs_root *root = inode->root;
-	struct btrfs_ordered_extent *ordered;
 	u64 lockstart, lockend;
 	u64 num_bytes;
 	int ret;
 
 	ret = btrfs_start_write_no_snapshotting(root);
 	if (!ret)
-		return -ENOSPC;
+		return -EAGAIN;
 
 	lockstart = round_down(pos, fs_info->sectorsize);
 	lockend = round_up(pos + *write_bytes,
 			   fs_info->sectorsize) - 1;
 
-	while (1) {
-		lock_extent(&inode->io_tree, lockstart, lockend);
-		ordered = btrfs_lookup_ordered_range(inode, lockstart,
-						     lockend - lockstart + 1);
-		if (!ordered) {
-			break;
-		}
-		unlock_extent(&inode->io_tree, lockstart, lockend);
-		btrfs_start_ordered_extent(&inode->vfs_inode, ordered, 1);
-		btrfs_put_ordered_extent(ordered);
-	}
+	btrfs_lock_and_flush_ordered_range(&inode->io_tree, inode, lockstart,
+					   lockend, NULL);
 
 	num_bytes = lockend - lockstart + 1;
 	ret = can_nocow_extent(&inode->vfs_inode, lockstart, &num_bytes,
@@ -1600,7 +1591,6 @@ static noinline ssize_t btrfs_buffered_write(struct kiocb *iocb,
 	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
 	struct btrfs_root *root = BTRFS_I(inode)->root;
 	struct page **pages = NULL;
-	struct extent_state *cached_state = NULL;
 	struct extent_changeset *data_reserved = NULL;
 	u64 release_bytes = 0;
 	u64 lockstart;
@@ -1620,6 +1610,7 @@ static noinline ssize_t btrfs_buffered_write(struct kiocb *iocb,
 		return -ENOMEM;
 
 	while (iov_iter_count(i) > 0) {
+		struct extent_state *cached_state = NULL;
 		size_t offset = offset_in_page(pos);
 		size_t sector_offset;
 		size_t write_bytes = min(iov_iter_count(i),
@@ -1767,9 +1758,20 @@ again:
 		if (copied > 0)
 			ret = btrfs_dirty_pages(inode, pages, dirty_pages,
 						pos, copied, &cached_state);
+
+		/*
+		 * If we have not locked the extent range, because the range's
+		 * start offset is >= i_size, we might still have a non-NULL
+		 * cached extent state, acquired while marking the extent range
+		 * as delalloc through btrfs_dirty_pages(). Therefore free any
+		 * possible cached extent state to avoid a memory leak.
+		 */
 		if (extents_locked)
 			unlock_extent_cached(&BTRFS_I(inode)->io_tree,
 					     lockstart, lockend, &cached_state);
+		else
+			free_extent_state(cached_state);
+
 		btrfs_delalloc_release_extents(BTRFS_I(inode), reserve_bytes,
 					       true);
 		if (ret) {
@@ -2806,9 +2808,9 @@ static int btrfs_fallocate_update_isize(struct inode *inode,
 }
 
 enum {
-	RANGE_BOUNDARY_WRITTEN_EXTENT = 0,
-	RANGE_BOUNDARY_PREALLOC_EXTENT = 1,
-	RANGE_BOUNDARY_HOLE = 2,
+	RANGE_BOUNDARY_WRITTEN_EXTENT,
+	RANGE_BOUNDARY_PREALLOC_EXTENT,
+	RANGE_BOUNDARY_HOLE,
 };
 
 static int btrfs_zero_range_check_range_boundary(struct inode *inode,

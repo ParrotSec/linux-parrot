@@ -272,7 +272,7 @@ int64_t opal_xive_get_vp_info(uint64_t vp,
 int64_t opal_xive_set_vp_info(uint64_t vp,
 			      uint64_t flags,
 			      uint64_t report_cl_pair);
-int64_t opal_xive_allocate_irq(uint32_t chip_id);
+int64_t opal_xive_allocate_irq_raw(uint32_t chip_id);
 int64_t opal_xive_free_irq(uint32_t girq);
 int64_t opal_xive_sync(uint32_t type, uint32_t id);
 int64_t opal_xive_dump(uint32_t type, uint32_t id);
@@ -283,8 +283,6 @@ int64_t opal_xive_set_queue_state(uint64_t vp, uint32_t prio,
 				  uint32_t qtoggle,
 				  uint32_t qindex);
 int64_t opal_xive_get_vp_state(uint64_t vp, __be64 *out_w01);
-int64_t opal_pci_set_p2p(uint64_t phb_init, uint64_t phb_target,
-			uint64_t desc, uint16_t pe_number);
 
 int64_t opal_imc_counters_init(uint32_t type, uint64_t address,
 							uint64_t cpu_pir);

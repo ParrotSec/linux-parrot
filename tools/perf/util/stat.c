@@ -6,6 +6,7 @@
 #include "evlist.h"
 #include "evsel.h"
 #include "thread_map.h"
+#include <linux/zalloc.h>
 
 void update_stats(struct stats *stats, u64 val)
 {
@@ -132,7 +133,7 @@ static void perf_evsel__free_stat_priv(struct perf_evsel *evsel)
 	struct perf_stat_evsel *ps = evsel->stats;
 
 	if (ps)
-		free(ps->group_data);
+		zfree(&ps->group_data);
 	zfree(&evsel->stats);
 }
 
@@ -152,6 +153,15 @@ static void perf_evsel__free_prev_raw_counts(struct perf_evsel *evsel)
 {
 	perf_counts__delete(evsel->prev_raw_counts);
 	evsel->prev_raw_counts = NULL;
+}
+
+static void perf_evsel__reset_prev_raw_counts(struct perf_evsel *evsel)
+{
+	if (evsel->prev_raw_counts) {
+		evsel->prev_raw_counts->aggr.val = 0;
+		evsel->prev_raw_counts->aggr.ena = 0;
+		evsel->prev_raw_counts->aggr.run = 0;
+       }
 }
 
 static int perf_evsel__alloc_stats(struct perf_evsel *evsel, bool alloc_raw)
@@ -202,6 +212,14 @@ void perf_evlist__reset_stats(struct perf_evlist *evlist)
 		perf_evsel__reset_stat_priv(evsel);
 		perf_evsel__reset_counts(evsel);
 	}
+}
+
+void perf_evlist__reset_prev_raw_counts(struct perf_evlist *evlist)
+{
+	struct perf_evsel *evsel;
+
+	evlist__for_each_entry(evlist, evsel)
+		perf_evsel__reset_prev_raw_counts(evsel);
 }
 
 static void zero_per_pkg(struct perf_evsel *counter)
@@ -272,6 +290,7 @@ process_counter_values(struct perf_stat_config *config, struct perf_evsel *evsel
 	switch (config->aggr_mode) {
 	case AGGR_THREAD:
 	case AGGR_CORE:
+	case AGGR_DIE:
 	case AGGR_SOCKET:
 	case AGGR_NONE:
 		if (!evsel->snapshot)
