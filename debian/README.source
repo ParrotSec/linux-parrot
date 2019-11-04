@@ -253,6 +253,8 @@ Several build profiles are understood and supported:
   with nopython as the build-dependencies will be unsatisfiable otherwise.
 - nopython: Disable Python bindings.  This currently disables building the
   linux-perf-<version> package, as the perf program embeds Python.
+- pkg.linux.nometa: Exclude most meta-packages.  The linux-compiler-* and
+  linux-headers-*-all* packages can still be built.
 
 Build rules
 ===========

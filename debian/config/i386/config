@@ -172,12 +172,6 @@ CONFIG_MOUSE_PC110PAD=m
 # CONFIG_INTEL_IOMMU is not set
 
 ##
-## file: drivers/isdn/hardware/avm/Kconfig
-##
-CONFIG_ISDN_DRV_AVMB1_B1ISA=m
-CONFIG_ISDN_DRV_AVMB1_T1ISA=m
-
-##
 ## file: drivers/leds/Kconfig
 ##
 CONFIG_LEDS_WRAP=m
@@ -399,6 +393,12 @@ CONFIG_COMEDI_PCMDA12=m
 CONFIG_COMEDI_PCMMIO=m
 CONFIG_COMEDI_PCMUIO=m
 CONFIG_COMEDI_MULTIQ3=m
+
+##
+## file: drivers/staging/isdn/avm/Kconfig
+##
+CONFIG_ISDN_DRV_AVMB1_B1ISA=m
+CONFIG_ISDN_DRV_AVMB1_T1ISA=m
 
 ##
 ## file: drivers/staging/olpc_dcon/Kconfig

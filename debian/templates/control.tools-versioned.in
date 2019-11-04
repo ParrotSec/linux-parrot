@@ -40,7 +40,7 @@ Description: Performance analysis tools for Linux @version@
 
 Package: linux-bootwrapper-@abiname@
 Build-Profiles: <!stage1 !pkg.linux.notools>
-Architecture: powerpc powerpcspe ppc64
+Architecture: powerpc ppc64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Multi-Arch: foreign
 Description: Boot wrapper tools for Linux @version@ on PowerPC

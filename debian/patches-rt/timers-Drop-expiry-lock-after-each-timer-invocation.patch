@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Thu, 10 Jan 2019 13:00:07 +0100
 Subject: [PATCH] timers: Drop expiry lock after each timer invocation
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
 
 The ->expiry_lock lock is held until every timer is expired. So if a
 __del_timer_sync() caller blocks on the lock then it has to wait until

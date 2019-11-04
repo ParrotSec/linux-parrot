@@ -16,8 +16,7 @@ install-stem: vmlinuz
 breaks: xserver-xorg-input-vmmouse (<< 1:13.0.99)
 
 [relations]
-gcc-8: gcc-8 (>= 8-20180123-1~) <!stage1 !cross !pkg.linux.nokernel>, gcc-8-x86-64-linux-gnu (>= 8-20180123-1~) <!stage1 cross !pkg.linux.nokernel>
-headers%gcc-8: linux-compiler-gcc-8-x86
+headers%gcc-9: linux-compiler-gcc-9-x86
 
 [amd64_description]
 hardware: 64-bit PCs

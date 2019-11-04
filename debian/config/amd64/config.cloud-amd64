@@ -235,11 +235,6 @@ CONFIG_XEN_BLKDEV_FRONTEND=m
 # CONFIG_FIREWIRE_NOSY is not set
 
 ##
-## file: drivers/fmc/Kconfig
-##
-# CONFIG_FMC is not set
-
-##
 ## file: drivers/fpga/Kconfig
 ##
 # CONFIG_FPGA is not set

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import sys
-import deb822
+from debian import deb822
 import glob
 import os
 import os.path

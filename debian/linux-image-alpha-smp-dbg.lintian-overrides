@@ -1,0 +1,2 @@
+linux-image-alpha-smp-dbg: wrong-section-according-to-package-name linux-image-alpha-smp-dbg => debug
+linux-image-alpha-smp-dbg: debug-package-should-be-priority-extra linux-image-alpha-smp-dbg

@@ -36,6 +36,7 @@ class Gencontrol(Base):
             'template': 'linux-image-%s-signed-template' % arch,
             'upstreamversion': self.version.linux_upstream,
             'version': self.version.linux_version,
+            'source_suffix': '',
             'source_upstream': self.version.upstream,
             'abiname': self.abiname,
             'imagebinaryversion': image_binary_version,
@@ -147,7 +148,15 @@ class Gencontrol(Base):
         super(Gencontrol, self).do_flavour_setup(vars, makeflags, arch,
                                                  featureset, flavour, extra)
 
+        config_description = self.config.merge('description', arch, featureset,
+                                               flavour)
         config_image = self.config.merge('image', arch, featureset, flavour)
+
+        vars['flavour'] = vars['localversion'][1:]
+        vars['class'] = config_description['hardware']
+        vars['longclass'] = (config_description.get('hardware-long')
+                             or vars['class'])
+
         vars['image-stem'] = config_image.get('install-stem')
         makeflags['IMAGE_INSTALL_STEM'] = vars['image-stem']
 
@@ -187,15 +196,34 @@ class Gencontrol(Base):
             image_package_name
             + ' (= %(imagebinaryversion)s) [%(arch)s]' % vars)
 
-        packages_signed = self.process_packages(
+        packages_own = self.process_packages(
             self.templates['control.image'], vars)
-        merge_packages(packages, packages_signed, arch)
+        assert len(packages_own) == 1
+        cmds_binary_arch = ["$(MAKE) -f debian/rules.real install-signed "
+                            "PACKAGE_NAME='%s' %s" %
+                            (packages_own[0]['Package'], makeflags)]
 
-        cmds_binary_arch = []
-        for i in packages_signed:
-            cmds_binary_arch += ["$(MAKE) -f debian/rules.real install-signed "
+        if self.config.merge('packages').get('meta', True):
+            packages_meta = self.process_packages(
+                self.templates['control.image.meta'], vars)
+            assert len(packages_meta) == 1
+
+            # Don't pretend to support build-profiles
+            del packages_meta[0]['Build-Profiles']
+
+            packages_own.extend(packages_meta)
+            cmds_binary_arch += ["$(MAKE) -f debian/rules.real install-meta "
                                  "PACKAGE_NAME='%s' %s" %
-                                 (i['Package'], makeflags)]
+                                 (packages_meta[0]['Package'], makeflags)]
+
+            # Include a bug presubj message directing reporters to the real
+            # image package.
+            self._substitute_file(
+                "image.meta.bug-presubj", vars,
+                self.template_debian_dir +
+                "/linux-image%s.bug-presubj" % vars['localversion'])
+
+        merge_packages(packages, packages_own, arch)
         makefile.add('binary-arch_%s_%s_%s_real' % (arch, featureset, flavour),
                      cmds=cmds_binary_arch)
 

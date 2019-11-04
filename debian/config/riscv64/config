@@ -4,15 +4,14 @@
 CONFIG_SMP=y
 
 ##
+## file: arch/riscv/Kconfig.socs
+##
+CONFIG_SOC_SIFIVE=y
+
+##
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_SATA_AHCI_PLATFORM=m
-
-##
-## file: drivers/clk/sifive/Kconfig
-##
-CONFIG_CLK_SIFIVE=y
-CONFIG_CLK_SIFIVE_FU540_PRCI=y
 
 ##
 ## file: drivers/gpu/drm/Kconfig
@@ -21,9 +20,14 @@ CONFIG_DRM=m
 CONFIG_DRM_RADEON=m
 
 ##
-## file: drivers/irqchip/Kconfig
+## file: drivers/mmc/Kconfig
 ##
-CONFIG_SIFIVE_PLIC=y
+CONFIG_MMC=m
+
+##
+## file: drivers/mmc/host/Kconfig
+##
+CONFIG_MMC_SPI=m
 
 ##
 ## file: drivers/net/ethernet/cadence/Kconfig
@@ -41,6 +45,11 @@ CONFIG_PCI=y
 CONFIG_PCIE_XILINX=y
 
 ##
+## file: drivers/spi/Kconfig
+##
+CONFIG_SPI_SIFIVE=m
+
+##
 ## file: drivers/tty/hvc/Kconfig
 ##
 CONFIG_HVC_RISCV_SBI=y
@@ -48,8 +57,7 @@ CONFIG_HVC_RISCV_SBI=y
 ##
 ## file: drivers/tty/serial/Kconfig
 ##
-CONFIG_SERIAL_SIFIVE=y
-CONFIG_SERIAL_SIFIVE_CONSOLE=y
+CONFIG_SERIAL_EARLYCON_RISCV_SBI=y
 
 ##
 ## file: drivers/tty/serial/8250/Kconfig

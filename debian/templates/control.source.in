@@ -1,6 +1,6 @@
 Section: kernel
 Priority: optional
-Maintainer: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>
+Maintainer: Parrot Dev Team <team@parrotsec.org>
 Uploaders: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>
 Standards-Version: 4.2.0
 Build-Depends:
@@ -32,7 +32,9 @@ Build-Depends-Arch:
 # linux-kbuild), perf (host arch), libbpf (host arch)
  libelf-dev:native [amd64] <!stage1 !pkg.linux.nokernel>,
  libelf-dev <!stage1 !pkg.linux.notools>,
+# used by upstream headers_install target and by debian/rules.d/tools/usb/usbip
+ rsync,
 Rules-Requires-Root: no
-Vcs-Git: https://nest.parrotsec.org/debian-packages/linux.git
-Vcs-Browser: https://nest.parrotsec.org/debian-packages/linux.git
+Vcs-Git: https://nest.parrotsec.org/debian-packages/linux
+Vcs-Browser: https://nest.parrotsec.org/debian-packages/linux
 Homepage: https://www.kernel.org/

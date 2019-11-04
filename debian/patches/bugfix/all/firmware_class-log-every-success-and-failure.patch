@@ -25,11 +25,9 @@ format to detect missing firmware.
  drivers/base/firmware_loader/main.c     | 15 ++++++++-------
  2 files changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/base/firmware_loader/fallback.c b/drivers/base/firmware_loader/fallback.c
-index b5c865fe263b..366d37011cd8 100644
 --- a/drivers/base/firmware_loader/fallback.c
 +++ b/drivers/base/firmware_loader/fallback.c
-@@ -604,7 +604,7 @@ static int fw_load_from_user_helper(struct firmware *firmware,
+@@ -557,7 +557,7 @@ static int fw_load_from_user_helper(stru
  	if (opt_flags & FW_OPT_NOWAIT) {
  		timeout = usermodehelper_read_lock_wait(timeout);
  		if (!timeout) {
@@ -38,12 +36,10 @@ index b5c865fe263b..366d37011cd8 100644
  				name);
  			return -EBUSY;
  		}
-diff --git a/drivers/base/firmware_loader/main.c b/drivers/base/firmware_loader/main.c
-index 7eaaf5ee5ba6..ad5a6f813175 100644
 --- a/drivers/base/firmware_loader/main.c
 +++ b/drivers/base/firmware_loader/main.c
-@@ -328,21 +328,22 @@ fw_get_filesystem_firmware(struct device *device, struct fw_priv *fw_priv)
- 		rc = kernel_read_file_from_path(path, &fw_priv->data, &size,
+@@ -496,14 +496,12 @@ fw_get_filesystem_firmware(struct device
+ 		rc = kernel_read_file_from_path(path, &buffer, &size,
  						msize, id);
  		if (rc) {
 -			if (rc != -ENOENT)
@@ -56,12 +52,21 @@ index 7eaaf5ee5ba6..ad5a6f813175 100644
 +				path, rc);
  			continue;
  		}
--		dev_dbg(device, "direct-loading %s\n", fw_priv->fw_name);
 +		dev_info(device, "firmware: direct-loading firmware %s\n",
 +			 fw_priv->fw_name);
- 		fw_priv->size = size;
- 		fw_state_done(fw_priv);
- 		break;
+ 		if (decompress) {
+ 			dev_dbg(device, "f/w decompressing %s\n",
+ 				fw_priv->fw_name);
+@@ -516,8 +514,6 @@ fw_get_filesystem_firmware(struct device
+ 				continue;
+ 			}
+ 		} else {
+-			dev_dbg(device, "direct-loading %s\n",
+-				fw_priv->fw_name);
+ 			if (!fw_priv->data)
+ 				fw_priv->data = buffer;
+ 			fw_priv->size = size;
+@@ -527,6 +523,10 @@ fw_get_filesystem_firmware(struct device
  	}
  	__putname(path);
  
@@ -72,6 +77,3 @@ index 7eaaf5ee5ba6..ad5a6f813175 100644
  	return rc;
  }
  
--- 
-2.20.1
-

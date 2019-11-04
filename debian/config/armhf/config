@@ -591,14 +591,23 @@ CONFIG_BCM2835_MBOX=y
 ## file: drivers/media/Kconfig
 ##
 CONFIG_MEDIA_SUPPORT=y
-CONFIG_MEDIA_CONTROLLER=y
 CONFIG_VIDEO_V4L2_SUBDEV_API=y
+
+##
+## file: drivers/media/mc/Kconfig
+##
+CONFIG_MEDIA_CONTROLLER=y
 
 ##
 ## file: drivers/media/platform/Kconfig
 ##
 CONFIG_VIDEO_OMAP3=m
 CONFIG_VIDEO_TI_VPE=m
+
+##
+## file: drivers/media/platform/marvell-ccic/Kconfig
+##
+CONFIG_VIDEO_MMP_CAMERA=m
 
 ##
 ## file: drivers/media/platform/omap/Kconfig
@@ -875,7 +884,7 @@ CONFIG_SKFP=m
 CONFIG_MDIO_SUN4I=y
 
 ##
-## file: drivers/net/wireless/broadcom/brcm80211/Kconfig
+## file: drivers/net/wireless/broadcom/brcm80211/brcmfmac/Kconfig
 ##
 CONFIG_BRCMFMAC=m
 CONFIG_BRCMFMAC_SDIO=y
@@ -995,6 +1004,12 @@ CONFIG_PINCTRL_WM8850=y
 CONFIG_CROS_EC_SPI=m
 
 ##
+## file: drivers/platform/olpc/Kconfig
+##
+CONFIG_OLPC_XO175=y
+CONFIG_OLPC_XO175_EC=m
+
+##
 ## file: drivers/power/avs/Kconfig
 ##
 CONFIG_POWER_AVS=y
@@ -1014,6 +1029,7 @@ CONFIG_POWER_RESET_SYSCON_POWEROFF=y
 ##
 ## file: drivers/power/supply/Kconfig
 ##
+CONFIG_BATTERY_OLPC=m
 CONFIG_BATTERY_SBS=m
 CONFIG_BATTERY_BQ27XXX=m
 CONFIG_CHARGER_AXP20X=m

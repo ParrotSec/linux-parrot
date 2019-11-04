@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 17 May 2019 23:22:34 +0200
 Subject: [PATCH] locking/lockdep: Don't complain about incorrect name for no
  validate class
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
 
 [ Upstream commit 978315462d3ea3cf6cfacd34c563ec1eb02a3aa5 ]
 

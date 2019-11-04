@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Mon, 27 May 2019 16:54:04 +0200
 Subject: [PATCH] hrtimer: Introduce expiry spin lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
 
 When deleting a hrtimer, it is possible, that the CPU has to spin, because the
 hrtimer is marked as running. This is done via cpu_relax() and repeating trying to

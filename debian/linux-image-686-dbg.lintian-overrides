@@ -1,0 +1,2 @@
+linux-image-686-dbg: wrong-section-according-to-package-name linux-image-686-dbg => debug
+linux-image-686-dbg: debug-package-should-be-priority-extra linux-image-686-dbg

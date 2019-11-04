@@ -85,6 +85,11 @@ CONFIG_SYSV68_PARTITION=y
 # CONFIG_ACCESSIBILITY is not set
 
 ##
+## file: crypto/Kconfig
+##
+CONFIG_CRYPTO_MANAGER_DISABLE_TESTS=y
+
+##
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_PATA_FALCON=m

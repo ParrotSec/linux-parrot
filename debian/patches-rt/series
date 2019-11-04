@@ -47,6 +47,7 @@ printk-only-allow-kernel-to-emergency-message.patch
 printk-devkmsg-llseek-reset-clear-if-it-is-lost.patch
 printk-print-rate-limitted-message-as-info.patch
 printk-kmsg_dump-remove-mutex-usage.patch
+printk-devkmsg-read-Return-EPIPE-when-the-first-mess.patch
 
 ############################################################
 # POSTED
@@ -62,19 +63,24 @@ drm-i915-Don-t-disable-interrupts-independently-of-t.patch
 locking-lockdep-Don-t-complain-about-incorrect-name-.patch
 arm-imx6-cpuidle-Use-raw_spinlock_t.patch
 x86-ldt-Initialize-the-context-lock-for-init_mm.patch
+i2c-exynos5-Remove-IRQF_ONESHOT.patch
+i2c-hix5hd2-Remove-IRQF_ONESHOT.patch
+sched-deadline-Ensure-inactive_timer-runs-in-hardirq.patch
+thermal-x86_pkg_temp-make-pkg_temp_lock-a-raw-spinlo.patch
 
 ############################################################
 # Ready for posting
 ############################################################
 efi-Allow-efi-runtime.patch
+dma-buf-Use-seqlock_t-instread-disabling-preemption.patch
 
 softirq-Add-preemptible-softirq.patch
+rcu-Acquire-RCU-lock-when-disabling-BHs.patch
 sched-swait-Add-swait_event_lock_irq.patch
 # WORKQUEUE
 workqueue-Make-alloc-apply-free_workqueue_attrs-stat.patch
 workqueue-Remove-GPF-argument-from-alloc_workqueue_a.patch
 workqueue-Convert-the-locks-to-raw-type.patch
-sched-core-Schedule-new-worker-even-if-PI-blocked.patch
 # The two below use a workqueue as workaround
 fs-aio-simple-simple-work.patch
 block-blk-mq-move-blk_queue_usage_counter_release-in.patch
@@ -98,19 +104,21 @@ timers-Drop-expiry-lock-after-each-timer-invocation.patch
 hrtimer-Introduce-expiry-spin-lock.patch
 posix-timers-move-rcu-out-of-union.patch
 posix-timers-expiry-lock.patch
+posix-timers-Unlock-expiry-lock-in-the-early-return.patch
 
 ###############################################################
 # Stuff broken upstream and upstream wants something different
 ###############################################################
 NFSv4-replace-seqcount_t-with-a-seqlock_t.patch
 kernel-sched-Provide-a-pointer-to-the-valid-CPU-mask.patch
+sched-__set_cpus_allowed_ptr-Check-cpus_mask-not-cpu.patch
 add_migrate_disable.patch
 sched-migrate_disable-Add-export_symbol_gpl-for-__mi.patch
+sched-Remove-dead-__migrate_disabled-check.patch
 
 # Those two should vanish soon (not use PIT during bootup)
 at91_dont_enable_disable_clock.patch
 clocksource-tclib-allow-higher-clockrates.patch
-clocksource-tclib-add-proper-depend.patch
 
 # Timekeeping split jiffies lock. Needs a good argument :)
 timekeeping-split-jiffies-lock.patch
@@ -218,6 +226,11 @@ hrtimer-consolidate-hrtimer_init-hrtimer_init_sleepe.patch
 hrtimer-by-timers-by-default-into-the-softirq-context.patch
 sched-fair-Make-the-hrtimers-non-hard-again.patch
 hrtimer-move-state-change-before-hrtimer_cancel-in-d.patch
+0001-hrtimer-Use-READ_ONCE-to-access-timer-base-in-hrimer.patch
+0002-hrtimer-Don-t-grab-the-expiry-lock-for-non-soft-hrti.patch
+0003-hrtimer-Prevent-using-hrtimer_grab_expiry_lock-on-mi.patch
+hrtimer-Add-a-missing-bracket-and-hide-migration_bas.patch
+KVM-arm-arm64-Let-the-timer-expire-in-hardirq-contex.patch
 
 # POSIX-CPU-TIMERS
 posix-timers-thread-posix-cpu-timers-on-rt.patch
@@ -232,6 +245,7 @@ sched-might-sleep-do-not-account-rcu-depth.patch
 cond-resched-lock-rt-tweak.patch
 sched-disable-ttwu-queue.patch
 rt-Increase-decrease-the-nr-of-migratory-tasks-when-.patch
+sched-migrate-disable-Protect-cpus_ptr-with-lock.patch
 
 # MIGRATE DISABLE AND PER CPU
 hotplug-light-get-online-cpus.patch
@@ -280,8 +294,10 @@ locking-don-t-check-for-__LINUX_SPINLOCK_TYPES_H-on-.patch
 
 # RCU
 rcu-Eliminate-softirq-processing-from-rcutree.patch
+rcu-Use-rcuc-threads-on-PREEMPT_RT-as-we-did.patch
 srcu-replace-local_irqsave-with-a-locallock.patch
 rcu-enable-rcu_normal_after_boot-by-default-for-RT.patch
+rcutorture-Avoid-problematic-critical-section-nestin.patch
 
 # DRIVERS SERIAL
 drivers-tty-fix-omap-lock-crap.patch
@@ -367,6 +383,7 @@ random-make-it-work-on-rt.patch
 cpu-hotplug--Implement-CPU-pinning.patch
 sched-Allow-pinned-user-tasks-to-be-awakened-to-the-.patch
 hotplug-duct-tape-RT-rwlock-usage-for-non-RT.patch
+sched-migrate_dis-enable-Use-sleeping_lock-to-annota.patch
 
 # NET
 upstream-net-rt-remove-preemption-disabling-in-netif_rx.patch
@@ -383,9 +400,12 @@ lockdep-selftest-fix-warnings-due-to-missing-PREEMPT.patch
 preempt-lazy-support.patch
 ftrace-Fix-trace-header-alignment.patch
 x86-preempt-lazy.patch
+x86-preempt-Check-preemption-level-before-looking-at.patch
 arm-preempt-lazy-support.patch
 powerpc-preempt-lazy-support.patch
 arch-arm64-Add-lazy-preempt-support.patch
+arm64-preempt-Fixup-lazy-preempt.patch
+arm64-preempt-Check-preemption-level-before-looking-.patch
 
 # DRIVERS
 connector-cn_proc-Protect-send_msg-with-a-local-lock.patch
@@ -399,6 +419,8 @@ drmradeoni915_Use_preempt_disableenable_rt()_where_recommended.patch
 drmi915_Use_local_lockunlock_irq()_in_intel_pipe_update_startend().patch
 drm-i915-disable-tracing-on-RT.patch
 drm-i915-skip-DRM_I915_LOW_LEVEL_TRACEPOINTS-with-NO.patch
+drm-i915-Don-t-disable-interrupts-for-intel_engine_b.patch
+drm-i915-Drop-the-IRQ-off-asserts.patch
 
 # CGROUPS
 cpuset-Convert-callback_lock-to-raw_spinlock_t.patch

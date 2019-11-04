@@ -1,20 +1,21 @@
+debian/gitignore.patch
+
 # Disable features broken by exclusion of upstream files
 debian/dfsg/arch-powerpc-platforms-8xx-ucode-disable.patch
 debian/dfsg/drivers-media-dvb-dvb-usb-af9005-disable.patch
 debian/dfsg/vs6624-disable.patch
 debian/dfsg/drivers-net-appletalk-cops.patch
 debian/dfsg/video-remove-nvidiafb-and-rivafb.patch
+debian/dfsg/documentation-fix-broken-link-to-cipso-draft.patch
 
 # Changes to support package build system
 debian/version.patch
 debian/uname-version-timestamp.patch
 debian/kernelvariables.patch
-debian/gitignore.patch
 debian/ia64-hardcode-arch-script-output.patch
 debian/mips-disable-werror.patch
 debian/mips-boston-disable-its.patch
 debian/arch-sh4-fix-uimage-build.patch
-debian/powerpcspe-omit-uimage.patch
 debian/tools-perf-version.patch
 debian/tools-perf-install.patch
 debian/wireless-add-debian-wireless-regdb-certificates.patch
@@ -52,6 +53,8 @@ debian/sched-autogroup-disabled.patch
 debian/yama-disable-by-default.patch
 debian/add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by-default.patch
 features/all/security-perf-allow-further-restriction-of-perf_event_open.patch
+features/x86/intel-iommu-add-option-to-exclude-integrated-gpu-only.patch
+features/x86/intel-iommu-add-kconfig-option-to-exclude-igpu-by-default.patch
 
 # Disable autoloading/probing of various drivers by default
 debian/cdc_ncm-cdc_mbim-use-ncm-by-default.patch
@@ -68,27 +71,24 @@ bugfix/arm/arm-dts-kirkwood-fix-sata-pinmux-ing-for-ts419.patch
 bugfix/arm64/dts-rockchip-correct-voltage-selector-firefly-RK3399.patch
 bugfix/x86/perf-tools-fix-unwind-build-on-i386.patch
 bugfix/sh/sh-boot-do-not-use-hyphen-in-exported-variable-name.patch
-bugfix/sh/sh-check-for-kprobe-trap-number-before-trying-to-handle-a-kprobe-trap.patch
-bugfix/powerpc/powerpc-lib-sstep-fix-building-for-powerpcspe.patch
-bugfix/powerpc/powerpc-lib-makefile-don-t-pull-in-quad.o-for-32-bit.patch
 bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
-bugfix/powerpc/powerpc-fix-mcpu-options-for-spe-only-compiler.patch
+bugfix/riscv64/riscv-Fix-memblock-reservation-for-device-tree-blob.patch
+bugfix/riscv64/RISC-V-Clear-load-reservations-while-restoring-hart-.patch
 
 # Arch features
-features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
-features/riscv64/RISC-V-Add-Image-header.patch
 
 # Miscellaneous bug fixes
 bugfix/all/disable-some-marvell-phys.patch
 bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
+bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
 
 # Miscellaneous features
 
@@ -124,6 +124,7 @@ features/all/lockdown/0028-efi-Add-an-EFI_SECURE_BOOT-flag-to-indicate-secure-b.
 features/all/lockdown/0029-efi-Lock-down-the-kernel-if-booted-in-secure-boot-mo.patch
 features/all/lockdown/0030-lockdown-Print-current-comm-in-restriction-messages.patch
 features/all/lockdown/0031-tracefs-Restrict-tracefs-when-the-kernel-is-locked-d.patch
+features/all/lockdown/tracefs-fix-potential-null-dereference-in-default_fi.patch
 features/all/lockdown/0032-efi-Restrict-efivar_ssdt_load-when-the-kernel-is-loc.patch
 # some missing pieces
 features/all/lockdown/enable-cold-boot-attack-mitigation.patch
@@ -143,6 +144,8 @@ features/all/db-mok-keyring/modsign-make-shash-allocation-failure-fatal.patch
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 debian/ntfs-mark-it-as-broken.patch
+bugfix/all/RDMA-cxgb4-Do-not-dma-memory-off-of-the-stack.patch
+bugfix/all/ath6kl-fix-a-NULL-ptr-deref-bug-in-ath6kl_usb_alloc_.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -159,7 +162,8 @@ bugfix/all/libcpupower-hide-private-function.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/tools-lib-api-fs-fs.c-fix-misuse-of-strncpy.patch
 bugfix/all/usbip-fix-misuse-of-strncpy.patch
-bugfix/x86/tools-x86_energy_perf_policy-fix-uninitialized-varia.patch
+bugfix/all/usbip-network-fix-unaligned-member-access.patch
+bugfix/all/tools-perf-pmu-events-fix-reproducibility.patch
 
 # wireless: Disable regulatory.db direct loading (until we sort out signing)
 debian/wireless-disable-regulatory.db-direct-loading.patch

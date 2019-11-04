@@ -10,11 +10,11 @@ a pre-built objtool.
  Makefile | 22 +++++++++++-----------
  1 file changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/Makefile b/Makefile
-index b5865d9d8c85..4009cf7e0488 100644
---- a/Makefile
-+++ b/Makefile
-@@ -957,17 +957,6 @@ export mod_sign_cmd
+Index: debian-kernel/Makefile
+===================================================================
+--- debian-kernel.orig/Makefile
++++ debian-kernel/Makefile
+@@ -989,17 +989,6 @@ export mod_sign_cmd
  
  HOST_LIBELF_LIBS = $(shell pkg-config libelf --libs 2>/dev/null || echo -lelf)
  
@@ -31,8 +31,8 @@ index b5865d9d8c85..4009cf7e0488 100644
 -
  PHONY += prepare0
  
- ifeq ($(KBUILD_EXTMOD),)
-@@ -1112,6 +1101,17 @@ uapi-asm-generic:
+ export MODORDER := $(if $(KBUILD_EXTMOD),$(KBUILD_EXTMOD)/)modules.order
+@@ -1140,6 +1129,17 @@ uapi-asm-generic:
  	$(Q)$(MAKE) $(asm-generic)=arch/$(SRCARCH)/include/generated/uapi/asm \
  	generic=include/uapi/asm-generic
  
@@ -50,6 +50,3 @@ index b5865d9d8c85..4009cf7e0488 100644
  PHONY += prepare-objtool
  prepare-objtool: $(objtool_target)
  ifeq ($(SKIP_STACK_VALIDATION),1)
--- 
-2.20.1
-

@@ -2,7 +2,7 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Linux kernel
 Source: https://www.kernel.org/pub/linux/kernel/
 Files-Excluded: Documentation/netlabel/draft-ietf-cipso-ipsecurity-01.txt
- arch/powerpc/sysdev/micropatch.c
+ arch/powerpc/platforms/8xx/micropatch.c
  drivers/media/usb/dvb-usb/af9005-script.h
  drivers/media/i2c/vs6624.c
  drivers/net/appletalk/cops*
@@ -22,6 +22,7 @@ License: GPL-2
 Files: debian/*
 Copyright: 1996-2006 Manoj Srivastava
            2005-2012 Debian kernel team
+           2006-2009 Bastian Blank <waldi@debian.org>
 License: GPL-2
 
 Files: debian/rules.d/tools/hv/check-hyperv.c

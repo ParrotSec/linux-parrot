@@ -40,3 +40,4 @@ soc_button_array ?
 hyperv-keyboard ?
 virtio_console ?
 virtio_input ?
+olpc_apsp ?

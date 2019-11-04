@@ -1,7 +1,7 @@
 Subject: x86: Support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 01 Nov 2012 11:03:47 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
 
 Implement the x86 pieces for lazy preempt.
 
@@ -76,7 +76,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	call	preempt_schedule_irq
 --- a/arch/x86/entry/entry_64.S
 +++ b/arch/x86/entry/entry_64.S
-@@ -646,7 +646,23 @@ GLOBAL(swapgs_restore_regs_and_return_to
+@@ -670,7 +670,23 @@ GLOBAL(swapgs_restore_regs_and_return_to
  	btl	$9, EFLAGS(%rsp)		/* were interrupts off? */
  	jnc	1f
  	cmpl	$0, PER_CPU_VAR(__preempt_count)

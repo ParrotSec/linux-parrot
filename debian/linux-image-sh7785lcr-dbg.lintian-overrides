@@ -1,0 +1,2 @@
+linux-image-sh7785lcr-dbg: wrong-section-according-to-package-name linux-image-sh7785lcr-dbg => debug
+linux-image-sh7785lcr-dbg: debug-package-should-be-priority-extra linux-image-sh7785lcr-dbg

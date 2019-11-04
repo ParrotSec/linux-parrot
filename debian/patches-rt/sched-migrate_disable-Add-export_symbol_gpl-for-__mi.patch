@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Oct 2018 17:34:50 +0200
 Subject: [PATCH] sched/migrate_disable: Add export_symbol_gpl for
  __migrate_disabled
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
 
 Jonathan reported that lttng/modules can't use __migrate_disabled().
 This function is only used by sched/core itself and the tracing

@@ -28,11 +28,9 @@ is missing, except for the pre-R600 case.
  drivers/gpu/drm/radeon/radeon_drv.c     | 30 +++++++++++++++++++++++++
  2 files changed, 59 insertions(+)
 
-diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-index 1e2cc9d68a05..5744014f28ac 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-@@ -33,6 +33,8 @@
+@@ -35,6 +35,8 @@
  #include <linux/pm_runtime.h>
  #include <linux/vga_switcheroo.h>
  #include <drm/drm_probe_helper.h>
@@ -41,7 +39,7 @@ index 1e2cc9d68a05..5744014f28ac 100644
  
  #include "amdgpu.h"
  #include "amdgpu_irq.h"
-@@ -929,6 +931,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
+@@ -1012,6 +1014,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
  
  static struct drm_driver kms_driver;
  
@@ -70,7 +68,7 @@ index 1e2cc9d68a05..5744014f28ac 100644
  static int amdgpu_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -947,6 +971,11 @@ static int amdgpu_pci_probe(struct pci_dev *pdev,
+@@ -1030,6 +1054,11 @@ static int amdgpu_pci_probe(struct pci_d
  		return -ENODEV;
  	}
  
@@ -82,20 +80,18 @@ index 1e2cc9d68a05..5744014f28ac 100644
  	/* Get rid of things like offb */
  	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, 0, "amdgpudrmfb");
  	if (ret)
-diff --git a/drivers/gpu/drm/radeon/radeon_drv.c b/drivers/gpu/drm/radeon/radeon_drv.c
-index 2e96c886392b..1d54b3e5f489 100644
 --- a/drivers/gpu/drm/radeon/radeon_drv.c
 +++ b/drivers/gpu/drm/radeon/radeon_drv.c
-@@ -44,6 +44,8 @@
- 
- #include <drm/drm_crtc_helper.h>
+@@ -47,6 +47,8 @@
  #include <drm/drm_probe_helper.h>
+ #include <drm/drm_vblank.h>
+ #include <drm/radeon_drm.h>
 +#include <linux/namei.h>
 +#include <linux/path.h>
  
- /*
-  * KMS wrapper.
-@@ -317,6 +319,28 @@ static struct drm_driver kms_driver;
+ #include "radeon_drv.h"
+ 
+@@ -322,6 +324,28 @@ static struct drm_driver kms_driver;
  
  bool radeon_device_is_virtual(void);
  
@@ -124,7 +120,7 @@ index 2e96c886392b..1d54b3e5f489 100644
  static int radeon_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -325,6 +349,12 @@ static int radeon_pci_probe(struct pci_dev *pdev,
+@@ -330,6 +354,12 @@ static int radeon_pci_probe(struct pci_d
  	if (vga_switcheroo_client_probe_defer(pdev))
  		return -EPROBE_DEFER;
  

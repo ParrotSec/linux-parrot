@@ -24,5 +24,5 @@ hardware: 64-bit PA-RISC
 hardware-long: HP PA-RISC 64-bit systems with support for more than 4 GB RAM
 
 [relations]
-gcc-8: gcc-8 <!stage1 !cross !pkg.linux.nokernel>, gcc-8-hppa-linux-gnu <!stage1 cross !pkg.linux.nokernel>, binutils-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>, gcc-8-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>
+gcc-9: gcc-9 <!stage1 !cross !pkg.linux.nokernel>, gcc-9-hppa-linux-gnu <!stage1 cross !pkg.linux.nokernel>, binutils-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>, gcc-9-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>
 

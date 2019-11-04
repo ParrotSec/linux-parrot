@@ -43,11 +43,9 @@ cc: Thomas Gleixner <tglx@linutronix.de>
  fs/debugfs/inode.c | 30 ++++++++++++++++++++++++++++--
  2 files changed, 56 insertions(+), 2 deletions(-)
 
-diff --git a/fs/debugfs/file.c b/fs/debugfs/file.c
-index 4fce1da7db23..c33042c1eff3 100644
 --- a/fs/debugfs/file.c
 +++ b/fs/debugfs/file.c
-@@ -136,6 +136,25 @@ void debugfs_file_put(struct dentry *dentry)
+@@ -136,6 +136,25 @@ void debugfs_file_put(struct dentry *den
  }
  EXPORT_SYMBOL_GPL(debugfs_file_put);
  
@@ -73,7 +71,7 @@ index 4fce1da7db23..c33042c1eff3 100644
  static int open_proxy_open(struct inode *inode, struct file *filp)
  {
  	struct dentry *dentry = F_DENTRY(filp);
-@@ -147,6 +166,11 @@ static int open_proxy_open(struct inode *inode, struct file *filp)
+@@ -147,6 +166,11 @@ static int open_proxy_open(struct inode
  		return r == -EIO ? -ENOENT : r;
  
  	real_fops = debugfs_real_fops(filp);
@@ -85,7 +83,7 @@ index 4fce1da7db23..c33042c1eff3 100644
  	real_fops = fops_get(real_fops);
  	if (!real_fops) {
  		/* Huh? Module did not clean up after itself at exit? */
-@@ -272,6 +296,10 @@ static int full_proxy_open(struct inode *inode, struct file *filp)
+@@ -272,6 +296,10 @@ static int full_proxy_open(struct inode
  		return r == -EIO ? -ENOENT : r;
  
  	real_fops = debugfs_real_fops(filp);
@@ -96,11 +94,9 @@ index 4fce1da7db23..c33042c1eff3 100644
  	real_fops = fops_get(real_fops);
  	if (!real_fops) {
  		/* Huh? Module did not cleanup after itself at exit? */
-diff --git a/fs/debugfs/inode.c b/fs/debugfs/inode.c
-index 29c68c5d44d5..3a62dbfd3840 100644
 --- a/fs/debugfs/inode.c
 +++ b/fs/debugfs/inode.c
-@@ -32,6 +32,31 @@ static struct vfsmount *debugfs_mount;
+@@ -35,6 +35,31 @@ static struct vfsmount *debugfs_mount;
  static int debugfs_mount_count;
  static bool debugfs_registered;
  
@@ -132,7 +128,7 @@ index 29c68c5d44d5..3a62dbfd3840 100644
  static struct inode *debugfs_get_inode(struct super_block *sb)
  {
  	struct inode *inode = new_inode(sb);
-@@ -356,6 +381,7 @@ static struct dentry *__debugfs_create_file(const char *name, umode_t mode,
+@@ -369,6 +394,7 @@ static struct dentry *__debugfs_create_f
  	inode->i_mode = mode;
  	inode->i_private = data;
  
@@ -140,8 +136,8 @@ index 29c68c5d44d5..3a62dbfd3840 100644
  	inode->i_fop = proxy_fops;
  	dentry->d_fsdata = (void *)((unsigned long)real_fops |
  				DEBUGFS_FSDATA_IS_REAL_FOPS_BIT);
-@@ -516,7 +542,7 @@ struct dentry *debugfs_create_dir(const char *name, struct dentry *parent)
- 		return failed_creating(dentry);
+@@ -532,7 +558,7 @@ struct dentry *debugfs_create_dir(const
+ 	}
  
  	inode->i_mode = S_IFDIR | S_IRWXU | S_IRUGO | S_IXUGO;
 -	inode->i_op = &simple_dir_inode_operations;
@@ -149,7 +145,7 @@ index 29c68c5d44d5..3a62dbfd3840 100644
  	inode->i_fop = &simple_dir_operations;
  
  	/* directory inodes start off with i_nlink == 2 (for "." entry) */
-@@ -611,7 +637,7 @@ struct dentry *debugfs_create_symlink(const char *name, struct dentry *parent,
+@@ -632,7 +658,7 @@ struct dentry *debugfs_create_symlink(co
  		return failed_creating(dentry);
  	}
  	inode->i_mode = S_IFLNK | S_IRWXUGO;

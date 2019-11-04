@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Thu, 10 Jan 2019 13:00:06 +0100
 Subject: [PATCH] timers: Introduce expiry spin lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
 
 When del_timer_sync() is called, it is possible, that the CPU has to
 spin, because the timer is marked as running. The function will

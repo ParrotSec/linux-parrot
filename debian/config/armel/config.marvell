@@ -300,25 +300,13 @@ CONFIG_INPUT_TOUCHSCREEN=y
 ## file: drivers/isdn/Kconfig
 ##
 CONFIG_ISDN=y
-CONFIG_ISDN_CAPI=m
 
 ##
 ## file: drivers/isdn/capi/Kconfig
 ##
+CONFIG_ISDN_CAPI=m
 CONFIG_ISDN_CAPI_CAPI20=m
 CONFIG_ISDN_CAPI_MIDDLEWARE=y
-CONFIG_ISDN_CAPI_CAPIDRV=m
-
-##
-## file: drivers/isdn/hardware/avm/Kconfig
-##
-CONFIG_CAPI_AVM=y
-CONFIG_ISDN_DRV_AVMB1_B1PCI=m
-CONFIG_ISDN_DRV_AVMB1_B1PCIV4=y
-CONFIG_ISDN_DRV_AVMB1_B1PCMCIA=m
-CONFIG_ISDN_DRV_AVMB1_AVM_CS=m
-CONFIG_ISDN_DRV_AVMB1_T1PCI=m
-CONFIG_ISDN_DRV_AVMB1_C4=m
 
 ##
 ## file: drivers/leds/Kconfig
@@ -631,6 +619,17 @@ CONFIG_SPI_ORION=m
 ## file: drivers/ssb/Kconfig
 ##
 # CONFIG_SSB is not set
+
+##
+## file: drivers/staging/isdn/avm/Kconfig
+##
+CONFIG_CAPI_AVM=y
+CONFIG_ISDN_DRV_AVMB1_B1PCI=m
+CONFIG_ISDN_DRV_AVMB1_B1PCIV4=y
+CONFIG_ISDN_DRV_AVMB1_B1PCMCIA=m
+CONFIG_ISDN_DRV_AVMB1_AVM_CS=m
+CONFIG_ISDN_DRV_AVMB1_T1PCI=m
+CONFIG_ISDN_DRV_AVMB1_C4=m
 
 ##
 ## file: drivers/thermal/Kconfig

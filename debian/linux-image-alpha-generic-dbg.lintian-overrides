@@ -1,0 +1,2 @@
+linux-image-alpha-generic-dbg: wrong-section-according-to-package-name linux-image-alpha-generic-dbg => debug
+linux-image-alpha-generic-dbg: debug-package-should-be-priority-extra linux-image-alpha-generic-dbg

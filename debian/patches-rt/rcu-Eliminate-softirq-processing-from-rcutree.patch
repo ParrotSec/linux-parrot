@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 20 Mar 2019 22:13:33 +0100
 Subject: [PATCH] rcu: Enable elimination of Tree-RCU softirq processing
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
 
 Some workloads need to change kthread priority for RCU core processing
 without affecting other softirq work.  This commit therefore introduces

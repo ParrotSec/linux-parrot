@@ -7,14 +7,17 @@ Allow make variables to be overridden for each flavour by a file in
 the build tree, .kernelvariables.
 
 We currently use this for ARCH, KERNELRELEASE, CC, and in some cases
-also CROSS_COMPILE, CFLAGS_KERNEL and CFLAGS_MODULE.
+also CROSS_COMPILE, KCFLAGS.
 
 This file can only be read after we establish the build tree, and all
 use of $(ARCH) needs to be moved after this.
 
+[bwh: Updated for 5.3: include .kernelvariables from current directory
+ rather than using undefined $(obj).]
+---
 --- a/Makefile
 +++ b/Makefile
-@@ -320,31 +320,6 @@ SUBARCH := $(shell uname -m | sed -e s/i
+@@ -363,31 +363,6 @@ include scripts/subarch.include
  # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
  ARCH		?= $(SUBARCH)
  
@@ -46,11 +49,11 @@ use of $(ARCH) needs to be moved after this.
  KCONFIG_CONFIG	?= .config
  export KCONFIG_CONFIG
  
-@@ -397,6 +372,30 @@ CFLAGS_KERNEL	=
+@@ -442,6 +417,30 @@ CFLAGS_KERNEL	=
  AFLAGS_KERNEL	=
  LDFLAGS_vmlinux =
  
-+-include $(obj)/.kernelvariables
++-include .kernelvariables
 +
 +# Architecture as present in compile.h
 +UTS_MACHINE 	:= $(ARCH)

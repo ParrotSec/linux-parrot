@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <linux/kernel.h>
+#include <linux/zalloc.h>
 
 const char perf_usage_string[] =
 	"perf [--version] [--help] [OPTIONS] COMMAND [ARGS]";
@@ -439,6 +440,9 @@ int main(int argc, const char **argv)
 		cmd = "perf-help";
 
 	srandom(time(NULL));
+
+	/* Setting $PERF_CONFIG makes perf read _only_ the given config file. */
+	config_exclusive_filename = getenv("PERF_CONFIG");
 
 	err = perf_config(perf_default_config, NULL);
 	if (err)

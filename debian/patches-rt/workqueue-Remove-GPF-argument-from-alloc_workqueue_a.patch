@@ -2,7 +2,7 @@ From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 21 May 2019 16:39:56 +0200
 Subject: [PATCH] workqueue: Remove GPF argument from
  alloc_workqueue_attrs()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2-rt1.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
 
 All callers use GFP_KERNEL. No point in having that argument.
 

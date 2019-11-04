@@ -1,0 +1,2 @@
+linux-image-sparc64-smp-dbg: wrong-section-according-to-package-name linux-image-sparc64-smp-dbg => debug
+linux-image-sparc64-smp-dbg: debug-package-should-be-priority-extra linux-image-sparc64-smp-dbg

@@ -19,6 +19,11 @@ CONFIG_PARISC_PAGE_SIZE_4KB=y
 # CONFIG_PARTITION_ADVANCED is not set
 
 ##
+## file: crypto/Kconfig
+##
+CONFIG_CRYPTO_MANAGER_DISABLE_TESTS=y
+
+##
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_PATA_NS87415=m

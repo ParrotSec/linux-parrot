@@ -19,6 +19,11 @@ CONFIG_SH_FPU=y
 CONFIG_SH_STORE_QUEUES=y
 
 ##
+## file: crypto/Kconfig
+##
+CONFIG_CRYPTO_MANAGER_DISABLE_TESTS=y
+
+##
 ## file: arch/sh/drivers/Kconfig
 ##
 CONFIG_HEARTBEAT=y

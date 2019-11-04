@@ -832,32 +832,22 @@ CONFIG_TOUCHSCREEN_SURFACE3_SPI=m
 ##
 CONFIG_INTEL_IOMMU=y
 CONFIG_INTEL_IOMMU_SVM=y
-# CONFIG_INTEL_IOMMU_DEFAULT_ON is not set
+## choice: Default state of Intel DMA Remapping Devices
+CONFIG_INTEL_IOMMU_DEFAULT_ON_INTGPU_OFF=y
+## end choice
 CONFIG_IRQ_REMAP=y
 
 ##
 ## file: drivers/isdn/Kconfig
 ##
 CONFIG_ISDN=y
-CONFIG_ISDN_CAPI=m
 
 ##
 ## file: drivers/isdn/capi/Kconfig
 ##
+CONFIG_ISDN_CAPI=m
 CONFIG_ISDN_CAPI_CAPI20=m
 CONFIG_ISDN_CAPI_MIDDLEWARE=y
-CONFIG_ISDN_CAPI_CAPIDRV=m
-
-##
-## file: drivers/isdn/hardware/avm/Kconfig
-##
-CONFIG_CAPI_AVM=y
-CONFIG_ISDN_DRV_AVMB1_B1PCI=m
-CONFIG_ISDN_DRV_AVMB1_B1PCIV4=y
-CONFIG_ISDN_DRV_AVMB1_B1PCMCIA=m
-CONFIG_ISDN_DRV_AVMB1_AVM_CS=m
-CONFIG_ISDN_DRV_AVMB1_T1PCI=m
-CONFIG_ISDN_DRV_AVMB1_C4=m
 
 ##
 ## file: drivers/leds/Kconfig
@@ -1265,7 +1255,7 @@ CONFIG_PCI_ATMEL=m
 CONFIG_PCMCIA_ATMEL=m
 
 ##
-## file: drivers/net/wireless/broadcom/brcm80211/Kconfig
+## file: drivers/net/wireless/broadcom/brcm80211/brcmfmac/Kconfig
 ##
 #. Sony Vaio laptops
 CONFIG_BRCMFMAC_SDIO=y
@@ -1629,6 +1619,17 @@ CONFIG_COMEDI_USBDUXSIGMA=m
 CONFIG_COMEDI_VMK80XX=m
 CONFIG_COMEDI_8255_SA=m
 CONFIG_COMEDI_KCOMEDILIB=m
+
+##
+## file: drivers/staging/isdn/avm/Kconfig
+##
+CONFIG_CAPI_AVM=y
+CONFIG_ISDN_DRV_AVMB1_B1PCI=m
+CONFIG_ISDN_DRV_AVMB1_B1PCIV4=y
+CONFIG_ISDN_DRV_AVMB1_B1PCMCIA=m
+CONFIG_ISDN_DRV_AVMB1_AVM_CS=m
+CONFIG_ISDN_DRV_AVMB1_T1PCI=m
+CONFIG_ISDN_DRV_AVMB1_C4=m
 
 ##
 ## file: drivers/staging/media/Kconfig

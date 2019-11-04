@@ -114,7 +114,7 @@ CONFIG_TEGRA_ACONNECT=y
 ## file: drivers/char/hw_random/Kconfig
 ##
 CONFIG_HW_RANDOM_BCM2835=m
-# CONFIG_HW_RANDOM_OMAP is not set
+CONFIG_HW_RANDOM_OMAP=m
 CONFIG_HW_RANDOM_HISI=m
 CONFIG_HW_RANDOM_XGENE=m
 CONFIG_HW_RANDOM_MESON=m
@@ -395,6 +395,7 @@ CONFIG_I2C_GPIO=m
 CONFIG_I2C_MESON=m
 CONFIG_I2C_MV64XXX=m
 CONFIG_I2C_PXA=m
+CONFIG_I2C_QCOM_GENI=m
 CONFIG_I2C_QUP=m
 CONFIG_I2C_RK3X=m
 CONFIG_I2C_TEGRA=m
@@ -441,7 +442,7 @@ CONFIG_IIO_CROS_EC_BARO=m
 ##
 ## file: drivers/infiniband/hw/hns/Kconfig
 ##
-CONFIG_INFINIBAND_HNS=m
+CONFIG_INFINIBAND_HNS=y
 CONFIG_INFINIBAND_HNS_HIP06=m
 CONFIG_INFINIBAND_HNS_HIP08=m
 
@@ -741,7 +742,7 @@ CONFIG_MESON_GXL_PHY=m
 CONFIG_WCN36XX=m
 
 ##
-## file: drivers/net/wireless/broadcom/brcm80211/Kconfig
+## file: drivers/net/wireless/broadcom/brcm80211/brcmfmac/Kconfig
 ##
 CONFIG_BRCMFMAC_SDIO=y
 
@@ -1279,6 +1280,11 @@ CONFIG_CMA_SIZE_MBYTES=64
 ## file: kernel/power/Kconfig
 ##
 CONFIG_ENERGY_MODEL=y
+
+##
+## file: lib/vdso/Kconfig
+##
+CONFIG_CROSS_COMPILE_COMPAT_VDSO="arm-linux-gnueabihf-"
 
 ##
 ## file: mm/Kconfig

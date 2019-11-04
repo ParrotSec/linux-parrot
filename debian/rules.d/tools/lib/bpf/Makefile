@@ -12,6 +12,7 @@ MAKE_BPF := +$(MAKE) -C $(top_srcdir)/$(OUTDIR) O=$(CURDIR)
 MAKE_BPF += prefix=/usr
 MAKE_BPF += libdir_relative=lib/$(DEB_HOST_MULTIARCH)
 MAKE_BPF += V=$(KBUILD_VERBOSE)
+MAKE_BPF += ARCH=$(KERNEL_ARCH)
 
 all:
 	$(MAKE_BPF)

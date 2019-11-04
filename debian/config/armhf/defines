@@ -12,7 +12,7 @@ vdso: true
 install-stem: vmlinuz
 
 [relations]
-headers%gcc-8: linux-compiler-gcc-8-arm
+headers%gcc-9: linux-compiler-gcc-9-arm
 
 [armmp_description]
 hardware: ARMv7 multiplatform compatible SoCs

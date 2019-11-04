@@ -52,6 +52,7 @@ class Gencontrol(Base):
             'headers-all': config.SchemaItemBoolean(),
             'installer': config.SchemaItemBoolean(),
             'libc-dev': config.SchemaItemBoolean(),
+            'meta': config.SchemaItemBoolean(),
             'tools-unversioned': config.SchemaItemBoolean(),
             'tools-versioned': config.SchemaItemBoolean(),
             'source': config.SchemaItemBoolean(),
@@ -85,6 +86,7 @@ class Gencontrol(Base):
             'SOURCEVERSION': self.version.complete,
         })
         makeflags['SOURCE_BASENAME'] = self.vars['source_basename']
+        makeflags['SOURCE_SUFFIX'] = self.vars['source_suffix']
 
         # Prepare to generate debian/tests/control
         self.tests_control = self.process_packages(
@@ -171,18 +173,33 @@ class Gencontrol(Base):
     def do_main_packages(self, packages, vars, makeflags, extra):
         packages.extend(self.process_packages(
             self.templates["control.main"], self.vars))
+
+        # Only build the metapackages if their names won't exactly match
+        # the packages they depend on
+        do_meta = self.config.merge('packages').get('meta', True) \
+            and vars['source_suffix'] != '-' + vars['version']
+
         if self.config.merge('packages').get('docs', True):
             packages.extend(self.process_packages(
                 self.templates["control.docs"], self.vars))
+            if do_meta:
+                packages.extend(self.process_packages(
+                    self.templates["control.docs.meta"], vars))
         if self.config.merge('packages').get('tools-unversioned', True):
             packages.extend(self.process_packages(
                 self.templates["control.tools-unversioned"], self.vars))
         if self.config.merge('packages').get('tools-versioned', True):
             packages.extend(self.process_packages(
                 self.templates["control.tools-versioned"], self.vars))
+            if do_meta:
+                packages.extend(self.process_packages(
+                    self.templates["control.tools-versioned.meta"], vars))
         if self.config.merge('packages').get('source', True):
             packages.extend(self.process_packages(
                 self.templates["control.sourcebin"], self.vars))
+            if do_meta:
+                packages.extend(self.process_packages(
+                    self.templates["control.sourcebin.meta"], vars))
 
         self._substitute_file('perf.lintian-overrides', self.vars,
                               'debian/linux-perf-%s.lintian-overrides' %
@@ -322,7 +339,7 @@ class Gencontrol(Base):
         ('compiler', 'COMPILER', False),
         ('compiler-filename', 'COMPILER', True),
         ('kernel-arch', 'KERNEL_ARCH', False),
-        ('cflags', 'CFLAGS_KERNEL', True),
+        ('cflags', 'KCFLAGS', True),
         ('override-host-type', 'OVERRIDE_HOST_TYPE', True),
     )
 
@@ -347,6 +364,7 @@ class Gencontrol(Base):
                                                flavour)
         config_image = self.config.merge('image', arch, featureset, flavour)
 
+        vars['flavour'] = vars['localversion'][1:]
         vars['class'] = config_description['hardware']
         vars['longclass'] = (config_description.get('hardware-long')
                              or vars['class'])
@@ -371,6 +389,7 @@ class Gencontrol(Base):
         headers = self.templates["control.headers"]
         assert len(headers) == 1
 
+        do_meta = self.config.merge('packages').get('meta', True)
         config_entry_base = self.config.merge('base', arch, featureset,
                                               flavour)
         config_entry_build = self.config.merge('build', arch, featureset,
@@ -469,12 +488,28 @@ class Gencontrol(Base):
         packages_own.append(image_main)
         makeflags['IMAGE_PACKAGE_NAME'] = image_main['Package']
 
+        # The image meta-packages will depend on signed linux-image
+        # packages where applicable, so should be built from the
+        # signed source packages
+        if do_meta and not build_signed:
+            packages_own.extend(self.process_packages(
+                self.templates["control.image.meta"], vars))
+
+            # Include a bug presubj message directing reporters to the real
+            # image package.
+            self._substitute_file(
+                "image.meta.bug-presubj", vars,
+                "debian/linux-image%s.bug-presubj" % vars['localversion'])
+
         package_headers = self.process_package(headers[0], vars)
         package_headers['Depends'].extend(relations_compiler_headers)
         packages_own.append(package_headers)
         if extra.get('headers_arch_depends'):
             extra['headers_arch_depends'].append('%s (= ${binary:Version})' %
                                                  packages_own[-1]['Package'])
+        if do_meta:
+            packages_own.extend(self.process_packages(
+                self.templates["control.headers.meta"], vars))
 
         if config_entry_build.get('vdso', False):
             makeflags['VDSO'] = True
@@ -496,6 +531,13 @@ class Gencontrol(Base):
             makeflags['DEBUG'] = True
             packages_own.extend(self.process_packages(
                 self.templates['control.image-dbg'], vars))
+            if do_meta:
+                packages_own.extend(self.process_packages(
+                    self.templates["control.image-dbg.meta"], vars))
+                self._substitute_file(
+                    'image-dbg.meta.lintian-overrides', vars,
+                    'debian/linux-image%s-dbg.lintian-overrides' %
+                    vars['localversion'])
 
         merge_packages(packages, packages_own, arch)
 
@@ -626,6 +668,8 @@ class Gencontrol(Base):
             'source_package': self.changelog[0].source,
             'abiname': self.abiname_version + self.abiname_part,
         }
+        self.vars['source_suffix'] = \
+            self.changelog[0].source[len(self.vars['source_basename']):]
         self.config['version', ] = {'source': self.version.complete,
                                     'upstream': self.version.linux_upstream,
                                     'abiname_base': self.abiname_version,
