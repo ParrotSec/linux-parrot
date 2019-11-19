@@ -54,10 +54,6 @@ class Gencontrol(Base):
 
         self.image_packages = []
 
-    def _substitute_file(self, template, vars, target, append=False):
-        with codecs.open(target, 'a' if append else 'w', 'utf-8') as f:
-            f.write(self.substitute(self.templates[template], vars))
-
     def do_main_setup(self, vars, makeflags, extra):
         makeflags['VERSION'] = self.version.linux_version
         makeflags['GENCONTROL_ARGS'] = (
@@ -110,7 +106,7 @@ class Gencontrol(Base):
 
     def do_main_recurse(self, packages, makefile, vars, makeflags, extra):
         # Each signed source package only covers a single architecture
-        self.do_arch(packages, makefile, self.vars['arch'], vars.copy(),
+        self.do_arch(packages, makefile, vars['arch'], vars.copy(),
                      makeflags.copy(), extra)
 
     def do_extra(self, packages, makefile):
@@ -216,33 +212,19 @@ class Gencontrol(Base):
                                  "PACKAGE_NAME='%s' %s" %
                                  (packages_meta[0]['Package'], makeflags)]
 
-            # Include a bug presubj message directing reporters to the real
-            # image package.
-            self._substitute_file(
-                "image.meta.bug-presubj", vars,
-                self.template_debian_dir +
-                "/linux-image%s.bug-presubj" % vars['localversion'])
+            self.substitute_debhelper_config(
+                'image.meta', vars,
+                'linux-image%(localversion)s' % vars,
+                output_dir=self.template_debian_dir)
 
         merge_packages(packages, packages_own, arch)
         makefile.add('binary-arch_%s_%s_%s_real' % (arch, featureset, flavour),
                      cmds=cmds_binary_arch)
 
-        os.makedirs(self.package_dir + '/usr/share/lintian/overrides', 0o755,
-                    exist_ok=True)
-        with open(self.package_dir
-                  + '/usr/share/lintian/overrides/%(template)s' % self.vars,
-                  'a') as lintian_overrides:
-            for script_base in ['postinst', 'postrm', 'preinst', 'prerm']:
-                script_name = (self.template_debian_dir
-                               + '/linux-image-%s%s.%s'
-                               % (vars['abiname'], vars['localversion'],
-                                  script_base))
-                self._substitute_file('image.%s' % script_base, vars,
-                                      script_name)
-                lintian_overrides.write('%s: script-not-executable %s\n' %
-                                        (self.vars['template'],
-                                         os.path.relpath(script_name,
-                                                         self.package_dir)))
+        self.substitute_debhelper_config(
+            'image', vars,
+            'linux-image-%(abiname)s%(localversion)s' % vars,
+            output_dir=self.template_debian_dir)
 
     def write(self, packages, makefile):
         self.write_changelog()

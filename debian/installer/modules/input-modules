@@ -33,6 +33,7 @@ hid-zydacron -
 wacom -
 
 # Miscellaneous input drivers
+atmel_mxt_ts ?
 synaptics_usb ?
 wistron_btns ?
 gpio_keys ?

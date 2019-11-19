@@ -23,21 +23,32 @@ class Templates(object):
             for dir in self.dirs:
                 filename = "%s/%s%s" % (dir, name, suffix)
                 if os.path.exists(filename):
-                    f = codecs.open(filename, 'r', 'utf-8')
-                    if prefix == 'control':
-                        return read_control(f)
-                    if prefix == 'tests-control':
-                        return read_tests_control(f)
-                    return f.read()
+                    with codecs.open(filename, 'r', 'utf-8') as f:
+                        mode = os.stat(f.fileno()).st_mode
+                        if prefix == 'control':
+                            return (read_control(f), mode)
+                        if prefix == 'tests-control':
+                            return (read_tests_control(f), mode)
+                        return (f.read(), mode)
+
+    def _get(self, key):
+        try:
+            return self._cache[key]
+        except KeyError:
+            self._cache[key] = value = self._read(key)
+            return value
 
     def get(self, key, default=None):
-        if key in self._cache:
-            return self._cache[key]
-
-        value = self._cache.setdefault(key, self._read(key))
+        value = self._get(key)
         if value is None:
             return default
-        return value
+        return value[0]
+
+    def get_mode(self, key):
+        value = self._get(key)
+        if value is None:
+            return None
+        return value[1]
 
 
 def read_control(f):

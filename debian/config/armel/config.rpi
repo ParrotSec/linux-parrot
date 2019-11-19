@@ -71,7 +71,7 @@ CONFIG_MMC_SDHCI_IPROC=y
 CONFIG_MMC_BCM2835=y
 
 ##
-## file: drivers/net/wireless/broadcom/brcm80211/Kconfig
+## file: drivers/net/wireless/broadcom/brcm80211/brcmfmac/Kconfig
 ##
 CONFIG_BRCMFMAC_SDIO=y
 

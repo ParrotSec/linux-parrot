@@ -1,8 +1,7 @@
 [abi]
-abiname: 1parrot1
+abiname: 2parrot1
 ignore-changes:
  __cpuhp_*
- __xive_vm_h_*
  bpf_analyzer
  cxl_*
  dax_flush
@@ -10,8 +9,6 @@ ignore-changes:
  inet_add_protocol
  inet_del_protocol
  iommu_device_*
- kvm_async_pf_task_wait
- kvmppc_*
  mm_iommu_*
  mv_mbus_*
  perf_*
@@ -19,7 +16,6 @@ ignore-changes:
  register_key_type
  unregister_cxl_calls
  *_hw_breakpoint
- module:arch/x86/kvm/*
  module:drivers/crypto/ccp/*
  module:drivers/hv/*
  module:drivers/gpu/drm/sun4i/*
@@ -82,6 +78,22 @@ ignore-changes:
  nf_nat_masquerade_ipv6_register_notifier
 # ignore changes to hisi_sas/*
  module:drivers/scsi/hisi_sas/*
+# KVM internal
+ __gfn_*
+ __kvmhv_*
+ __kvm_*
+ __xive_vm_h_*
+ gfn_*
+ h_ipi_redirect
+ halt_poll_ns*
+ kvm_*
+ kvmhv_*
+ kvmppc_*
+ mark_page_dirty
+ vcpu_*
+ module:arch/powerpc/kvm/*
+ module:arch/s390/kvm/*
+ module:arch/x86/kvm/*
 
 [base]
 arches:

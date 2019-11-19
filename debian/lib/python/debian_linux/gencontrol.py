@@ -1,4 +1,5 @@
 import codecs
+import os
 import re
 from collections import OrderedDict
 
@@ -349,6 +350,24 @@ class Gencontrol(object):
             return vars[match.group(1)]
 
         return re.sub(r'@([-_a-z0-9]+)@', subst, str(s))
+
+    # Substitute kernel version etc. into maintainer scripts,
+    # bug presubj message and lintian overrides
+    def substitute_debhelper_config(self, prefix, vars, package_name,
+                                    output_dir='debian'):
+        for id in ['bug-presubj', 'lintian-overrides', 'maintscript',
+                   'postinst', 'postrm', 'preinst', 'prerm']:
+            name = '%s.%s' % (prefix, id)
+            try:
+                template = self.templates[name]
+            except KeyError:
+                continue
+            else:
+                target = '%s/%s.%s' % (output_dir, package_name, id)
+                with open(target, 'w') as f:
+                    f.write(self.substitute(template, vars))
+                    os.chmod(f.fileno(),
+                             self.templates.get_mode(name) & 0o777)
 
     def merge_build_depends(self, packages):
         # Merge Build-Depends pseudo-fields from binary packages into the

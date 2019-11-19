@@ -1,0 +1,71 @@
+From: Will Deacon <will@kernel.org>
+Date: Mon, 7 Oct 2019 13:03:12 +0100
+Subject: arm64: Kconfig: Make CONFIG_COMPAT_VDSO a proper Kconfig option
+Origin: https://git.kernel.org/linus/7c4791c9efca8c105a86022f7d5532aeaa819125
+Bug-Debian: https://bugs.debian.org/943953
+
+CONFIG_COMPAT_VDSO is defined by passing '-DCONFIG_COMPAT_VDSO' to the
+compiler when the generic compat vDSO code is in use. It's much cleaner
+and simpler to expose this as a proper Kconfig option (like x86 does),
+so do that and remove the bodge.
+
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Will Deacon <will@kernel.org>
+[bwh: Backported to 5.3: adjust context]
+---
+ arch/arm64/Kconfig  | 15 +++++++++++++--
+ arch/arm64/Makefile |  5 -----
+ 2 files changed, 13 insertions(+), 7 deletions(-)
+
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -111,7 +111,6 @@ config ARM64
+ 	select GENERIC_STRNLEN_USER
+ 	select GENERIC_TIME_VSYSCALL
+ 	select GENERIC_GETTIMEOFDAY
+-	select GENERIC_COMPAT_VDSO if (!CPU_BIG_ENDIAN && COMPAT && "$(CROSS_COMPILE_COMPAT)" != "")
+ 	select HANDLE_DOMAIN_IRQ
+ 	select HARDIRQS_SW_RESEND
+ 	select HAVE_PCI
+@@ -1149,7 +1148,7 @@ menuconfig COMPAT
+ if COMPAT
+ 
+ config KUSER_HELPERS
+-	bool "Enable kuser helpers page for 32 bit applications"
++	bool "Enable kuser helpers page for 32-bit applications"
+ 	default y
+ 	help
+ 	  Warning: disabling this option may break 32-bit user programs.
+@@ -1175,6 +1174,18 @@ config KUSER_HELPERS
+ 	  Say N here only if you are absolutely certain that you do not
+ 	  need these helpers; otherwise, the safe option is to say Y.
+ 
++config COMPAT_VDSO
++	bool "Enable vDSO for 32-bit applications"
++	depends on !CPU_BIG_ENDIAN && "$(CROSS_COMPILE_COMPAT)" != ""
++	select GENERIC_COMPAT_VDSO
++	default y
++	help
++	  Place in the process address space of 32-bit applications an
++	  ELF shared object providing fast implementations of gettimeofday
++	  and clock_gettime.
++
++	  You must have a 32-bit build of glibc 2.22 or later for programs
++	  to seamlessly take advantage of this.
+ 
+ menuconfig ARMV8_DEPRECATED
+ 	bool "Emulate deprecated/obsolete ARMv8 instructions"
+--- a/arch/arm64/Makefile
++++ b/arch/arm64/Makefile
+@@ -54,11 +54,6 @@ COMPATCC ?= $(CROSS_COMPILE_COMPAT)gcc
+ endif
+ export COMPATCC
+ 
+-ifeq ($(CONFIG_GENERIC_COMPAT_VDSO), y)
+-  export CONFIG_COMPAT_VDSO := y
+-  compat_vdso := -DCONFIG_COMPAT_VDSO=1
+-endif
+-
+ KBUILD_CFLAGS	+= -mgeneral-regs-only $(lseinstr) $(brokengasinst) $(compat_vdso)
+ KBUILD_CFLAGS	+= -fno-asynchronous-unwind-tables
+ KBUILD_CFLAGS	+= $(call cc-disable-warning, psabi)

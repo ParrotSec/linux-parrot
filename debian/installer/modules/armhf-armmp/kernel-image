@@ -21,3 +21,6 @@ axp20x_usb_power ?
 
 # Watchdog needed for reboot
 sunxi_wdt ?
+
+# Regulator-SoC synchronization
+rockchip-io-domain ?

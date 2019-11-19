@@ -75,8 +75,7 @@ bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
-bugfix/riscv64/riscv-Fix-memblock-reservation-for-device-tree-blob.patch
-bugfix/riscv64/RISC-V-Clear-load-reservations-while-restoring-hart-.patch
+bugfix/arm64/arm64-kconfig-make-config_compat_vdso-a-proper-kconf.patch
 
 # Arch features
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
@@ -91,6 +90,7 @@ debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
 
 # Miscellaneous features
+features/all/random-try-to-actively-add-entropy-rather-than-passi.patch
 
 # Lockdown (formerly 'securelevel') patchset
 features/all/lockdown/0001-Add-the-ability-to-lock-down-access-to-the-running-k.patch
@@ -140,12 +140,42 @@ features/all/db-mok-keyring/0002-MODSIGN-load-blacklist-from-MOKx.patch
 features/all/db-mok-keyring/0003-MODSIGN-checking-the-blacklisted-hash-before-loading-a-kernel-module.patch
 features/all/db-mok-keyring/0004-MODSIGN-check-the-attributes-of-db-and-mok.patch
 features/all/db-mok-keyring/modsign-make-shash-allocation-failure-fatal.patch
+features/all/db-mok-keyring/KEYS-Make-use-of-platform-keyring-for-module-signature.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 debian/ntfs-mark-it-as-broken.patch
-bugfix/all/RDMA-cxgb4-Do-not-dma-memory-off-of-the-stack.patch
-bugfix/all/ath6kl-fix-a-NULL-ptr-deref-bug-in-ath6kl_usb_alloc_.patch
+bugfix/x86/taa/0001-x86-msr-Add-the-IA32_TSX_CTRL-MSR.patch
+bugfix/x86/taa/0002-x86-cpu-Add-a-helper-function-x86_read_arch_cap_msr.patch
+bugfix/x86/taa/0003-x86-cpu-Add-a-tsx-cmdline-option-with-TSX-disabled-b.patch
+bugfix/x86/taa/0004-x86-speculation-taa-Add-mitigation-for-TSX-Async-Abo.patch
+bugfix/x86/taa/0005-x86-speculation-taa-Add-sysfs-reporting-for-TSX-Asyn.patch
+bugfix/x86/taa/0006-kvm-x86-Export-MDS_NO-0-to-guests-when-TSX-is-enable.patch
+bugfix/x86/taa/0007-x86-tsx-Add-auto-option-to-the-tsx-cmdline-parameter.patch
+bugfix/x86/taa/0008-x86-speculation-taa-Add-documentation-for-TSX-Async-.patch
+bugfix/x86/taa/0009-x86-tsx-Add-config-options-to-set-tsx-on-off-auto.patch
+bugfix/x86/taa/0010-x86-speculation-taa-Fix-printing-of-TAA_MSG_SMT-on-I.patch
+bugfix/x86/itlb_multihit/0001-kvm-x86-powerpc-do-not-allow-clearing-largepages-deb.patch
+bugfix/x86/itlb_multihit/0001-x86-bugs-Add-ITLB_MULTIHIT-bug-infrastructure.patch
+bugfix/x86/itlb_multihit/0002-x86-cpu-Add-Tremont-to-the-cpu-vulnerability-whiteli.patch
+bugfix/x86/itlb_multihit/0003-cpu-speculation-Uninline-and-export-CPU-mitigations-.patch
+bugfix/x86/itlb_multihit/0004-kvm-mmu-ITLB_MULTIHIT-mitigation.patch
+bugfix/x86/itlb_multihit/0005-kvm-Add-helper-function-for-creating-VM-worker-threa.patch
+bugfix/x86/itlb_multihit/0006-kvm-x86-mmu-Recovery-of-shattered-NX-large-pages.patch
+bugfix/x86/itlb_multihit/0007-Documentation-Add-ITLB_MULTIHIT-documentation.patch
+bugfix/x86/i915/0001-drm-i915-Rename-gen7-cmdparser-tables.patch
+bugfix/x86/i915/0002-drm-i915-Disable-Secure-Batches-for-gen6.patch
+bugfix/x86/i915/0003-drm-i915-Remove-Master-tables-from-cmdparser.patch
+bugfix/x86/i915/0004-drm-i915-Add-support-for-mandatory-cmdparsing.patch
+bugfix/x86/i915/0005-drm-i915-Support-ro-ppgtt-mapped-cmdparser-shadow-bu.patch
+bugfix/x86/i915/0006-drm-i915-Allow-parsing-of-unsized-batches.patch
+bugfix/x86/i915/0007-drm-i915-Add-gen9-BCS-cmdparsing.patch
+bugfix/x86/i915/0008-drm-i915-cmdparser-Use-explicit-goto-for-error-paths.patch
+bugfix/x86/i915/0009-drm-i915-cmdparser-Add-support-for-backward-jumps.patch
+bugfix/x86/i915/0010-drm-i915-cmdparser-Ignore-Length-operands-during-com.patch
+bugfix/x86/i915/0011-drm-i915-Lower-RM-timeout-to-avoid-DSI-hard-hangs.patch
+bugfix/x86/i915/0012-drm-i915-gen8-Add-RC6-CTX-corruption-WA.patch
+bugfix/x86/i915/drm-i915-cmdparser-fix-jump-whitelist-clearing.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -170,5 +200,21 @@ debian/wireless-disable-regulatory.db-direct-loading.patch
 
 # overlay: allow mounting in user namespaces
 debian/overlayfs-permit-mounts-in-userns.patch
+
+# ena: Update to 5.4-rc5
+features/all/ena/0001-net-ena-don-t-wake-up-tx-queue-when-down.patch
+features/all/ena/0002-net-ena-add-intr_moder_rx_interval-to-struct-ena_com.patch
+features/all/ena/0003-net-ena-switch-to-dim-algorithm-for-rx-adaptive-inte.patch
+features/all/ena/0004-net-ena-reimplement-set-get_coalesce.patch
+features/all/ena/0005-net-ena-enable-the-interrupt_moderation-in-driver_su.patch
+features/all/ena/0006-net-ena-remove-code-duplication-in-ena_com_update_no.patch
+features/all/ena/0007-net-ena-remove-old-adaptive-interrupt-moderation-cod.patch
+features/all/ena/0008-net-ena-remove-ena_restore_ethtool_params-and-releva.patch
+features/all/ena/0009-net-ena-remove-all-old-adaptive-rx-interrupt-moderat.patch
+features/all/ena/0010-net-ena-fix-update-of-interrupt-moderation-register.patch
+features/all/ena/0011-net-ena-fix-retrieval-of-nonadaptive-interrupt-moder.patch
+features/all/ena/0012-net-ena-fix-incorrect-update-of-intr_delay_resolutio.patch
+features/all/ena/0013-net-ena-Select-DIMLIB-for-ENA_ETHERNET.patch
+features/all/ena/0014-net-ena-clean-up-indentation-issue.patch
 
 # ABI maintenance

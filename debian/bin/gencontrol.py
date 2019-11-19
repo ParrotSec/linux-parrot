@@ -73,10 +73,6 @@ class Gencontrol(Base):
             if src in data or not optional:
                 makeflags[dst] = data[src]
 
-    def _substitute_file(self, template, vars, target, append=False):
-        with open(target, 'a' if append else 'w') as f:
-            f.write(self.substitute(self.templates[template], vars))
-
     def do_main_setup(self, vars, makeflags, extra):
         super(Gencontrol, self).do_main_setup(vars, makeflags, extra)
         makeflags.update({
@@ -85,8 +81,8 @@ class Gencontrol(Base):
             'ABINAME': self.abiname_version + self.abiname_part,
             'SOURCEVERSION': self.version.complete,
         })
-        makeflags['SOURCE_BASENAME'] = self.vars['source_basename']
-        makeflags['SOURCE_SUFFIX'] = self.vars['source_suffix']
+        makeflags['SOURCE_BASENAME'] = vars['source_basename']
+        makeflags['SOURCE_SUFFIX'] = vars['source_suffix']
 
         # Prepare to generate debian/tests/control
         self.tests_control = self.process_packages(
@@ -172,7 +168,7 @@ class Gencontrol(Base):
 
     def do_main_packages(self, packages, vars, makeflags, extra):
         packages.extend(self.process_packages(
-            self.templates["control.main"], self.vars))
+            self.templates["control.main"], vars))
 
         # Only build the metapackages if their names won't exactly match
         # the packages they depend on
@@ -181,29 +177,35 @@ class Gencontrol(Base):
 
         if self.config.merge('packages').get('docs', True):
             packages.extend(self.process_packages(
-                self.templates["control.docs"], self.vars))
+                self.templates["control.docs"], vars))
             if do_meta:
                 packages.extend(self.process_packages(
                     self.templates["control.docs.meta"], vars))
+                self.substitute_debhelper_config(
+                    'docs.meta', vars,
+                    '%(source_basename)s-doc%(source_suffix)s' % vars)
         if self.config.merge('packages').get('tools-unversioned', True):
             packages.extend(self.process_packages(
-                self.templates["control.tools-unversioned"], self.vars))
+                self.templates["control.tools-unversioned"], vars))
         if self.config.merge('packages').get('tools-versioned', True):
             packages.extend(self.process_packages(
-                self.templates["control.tools-versioned"], self.vars))
+                self.templates["control.tools-versioned"], vars))
+            self.substitute_debhelper_config('perf', vars,
+                                              'linux-perf-%(version)s' % vars)
             if do_meta:
                 packages.extend(self.process_packages(
                     self.templates["control.tools-versioned.meta"], vars))
+                self.substitute_debhelper_config('perf.meta', vars,
+                                                  'linux-perf')
         if self.config.merge('packages').get('source', True):
             packages.extend(self.process_packages(
-                self.templates["control.sourcebin"], self.vars))
+                self.templates["control.sourcebin"], vars))
             if do_meta:
                 packages.extend(self.process_packages(
                     self.templates["control.sourcebin.meta"], vars))
-
-        self._substitute_file('perf.lintian-overrides', self.vars,
-                              'debian/linux-perf-%s.lintian-overrides' %
-                              self.vars['version'])
+                self.substitute_debhelper_config(
+                    'sourcebin.meta', vars,
+                    '%(source_basename)s-source%(source_suffix)s' % vars)
 
     def do_indep_featureset_setup(self, vars, makeflags, featureset, extra):
         makeflags['LOCALVERSION'] = vars['localversion']
@@ -341,6 +343,7 @@ class Gencontrol(Base):
         ('kernel-arch', 'KERNEL_ARCH', False),
         ('cflags', 'KCFLAGS', True),
         ('override-host-type', 'OVERRIDE_HOST_TYPE', True),
+        ('cross-compile-compat', 'CROSS_COMPILE_COMPAT', True),
     )
 
     flavour_makeflags_build = (
@@ -494,12 +497,9 @@ class Gencontrol(Base):
         if do_meta and not build_signed:
             packages_own.extend(self.process_packages(
                 self.templates["control.image.meta"], vars))
-
-            # Include a bug presubj message directing reporters to the real
-            # image package.
-            self._substitute_file(
-                "image.meta.bug-presubj", vars,
-                "debian/linux-image%s.bug-presubj" % vars['localversion'])
+            self.substitute_debhelper_config(
+                "image.meta", vars,
+                "linux-image%(localversion)s" % vars)
 
         package_headers = self.process_package(headers[0], vars)
         package_headers['Depends'].extend(relations_compiler_headers)
@@ -510,6 +510,9 @@ class Gencontrol(Base):
         if do_meta:
             packages_own.extend(self.process_packages(
                 self.templates["control.headers.meta"], vars))
+            self.substitute_debhelper_config(
+                'headers.meta', vars,
+                'linux-headers%(localversion)s' % vars)
 
         if config_entry_build.get('vdso', False):
             makeflags['VDSO'] = True
@@ -534,10 +537,9 @@ class Gencontrol(Base):
             if do_meta:
                 packages_own.extend(self.process_packages(
                     self.templates["control.image-dbg.meta"], vars))
-                self._substitute_file(
-                    'image-dbg.meta.lintian-overrides', vars,
-                    'debian/linux-image%s-dbg.lintian-overrides' %
-                    vars['localversion'])
+                self.substitute_debhelper_config(
+                    'image-dbg.meta', vars,
+                    'linux-image%(localversion)s-dbg' % vars)
 
         merge_packages(packages, packages_own, arch)
 
@@ -608,9 +610,8 @@ class Gencontrol(Base):
         if build_signed:
             makeflags['KCONFIG_OPTIONS'] += ' -o MODULE_SIG=y'
         # Add "salt" to fix #872263
-        makeflags['KCONFIG_OPTIONS'] += (' -o "BUILD_SALT=\\"%s%s\\""' %
-                                         (vars['abiname'],
-                                          vars['localversion']))
+        makeflags['KCONFIG_OPTIONS'] += \
+            ' -o "BUILD_SALT=\\"%(abiname)s%(localversion)s\\""' % vars
 
         cmds_binary_arch = ["$(MAKE) -f debian/rules.real binary-arch-flavour "
                             "%s" %
@@ -632,22 +633,14 @@ class Gencontrol(Base):
                      cmds=["$(MAKE) -f debian/rules.real %s %s" %
                            (merged_config, makeflags)])
 
-        # Substitute kernel version etc. into maintainer scripts,
-        # translations and lintian overrides
-        self._substitute_file('headers.postinst', vars,
-                              'debian/linux-headers-%s%s.postinst' %
-                              (vars['abiname'], vars['localversion']))
-        for name in ['postinst', 'postrm', 'preinst', 'prerm']:
-            self._substitute_file('image.%s' % name, vars,
-                                  'debian/%s.%s' %
-                                  (image_main['Package'], name))
+        self.substitute_debhelper_config(
+            'headers', vars,
+            'linux-headers-%(abiname)s%(localversion)s' % vars)
+        self.substitute_debhelper_config('image', vars, image_main['Package'])
         if build_debug:
-            debug_lintian_over = (
-                'debian/linux-image-%s%s-dbg.lintian-overrides' %
-                (vars['abiname'], vars['localversion']))
-            self._substitute_file('image-dbg.lintian-overrides', vars,
-                                  debug_lintian_over)
-            os.chmod(debug_lintian_over, 0o755)
+            self.substitute_debhelper_config(
+                'image-dbg', vars,
+                'linux-image-%(abiname)s%(localversion)s-dbg' % vars)
 
     def process_changelog(self):
         version = self.version = self.changelog[0].version
