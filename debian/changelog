@@ -1,3 +1,10 @@
+linux (5.3.9-3parrot1) rolling-testing; urgency=medium
+
+  * Import new Debian release.
+  * Import wireless patches.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Fri, 22 Nov 2019 18:04:38 +0100
+
 linux (5.3.9-3) unstable; urgency=medium
 
   * [arm64,armhf,powerpc*,s390x] KVM: Add more exports to ABI ignore list
