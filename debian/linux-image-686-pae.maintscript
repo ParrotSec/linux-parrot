@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-686-pae linux-image-5.3.0-2parrot1-686-pae 5.2+107 linux-image-686-pae
+dir_to_symlink /usr/share/doc/linux-image-686-pae linux-image-5.3.0-2parrot2-686-pae 5.2+107 linux-image-686-pae
