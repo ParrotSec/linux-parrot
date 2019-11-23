@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-arm64 linux-headers-5.3.0-2parrot2-arm64 5.2+107 linux-headers-arm64
+dir_to_symlink /usr/share/doc/linux-headers-arm64 linux-headers-5.3.0-3parrot3-arm64 5.2+107 linux-headers-arm64

@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-armmp linux-headers-5.3.0-2parrot2-armmp 5.2+107 linux-headers-armmp
+dir_to_symlink /usr/share/doc/linux-headers-armmp linux-headers-5.3.0-3parrot3-armmp 5.2+107 linux-headers-armmp

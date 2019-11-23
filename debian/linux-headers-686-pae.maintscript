@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-686-pae linux-headers-5.3.0-2parrot2-686-pae 5.2+107 linux-headers-686-pae
+dir_to_symlink /usr/share/doc/linux-headers-686-pae linux-headers-5.3.0-3parrot3-686-pae 5.2+107 linux-headers-686-pae

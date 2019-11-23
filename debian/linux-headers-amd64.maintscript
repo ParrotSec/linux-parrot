@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-amd64 linux-headers-5.3.0-2parrot2-amd64 5.2+107 linux-headers-amd64
+dir_to_symlink /usr/share/doc/linux-headers-amd64 linux-headers-5.3.0-3parrot3-amd64 5.2+107 linux-headers-amd64
