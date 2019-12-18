@@ -40,6 +40,7 @@
 #include <linux/socket.h>
 #include <linux/tcp.h>
 #include <linux/skmsg.h>
+#include <linux/mutex.h>
 #include <linux/netdevice.h>
 
 #include <net/tcp.h>
@@ -120,7 +121,6 @@ struct tls_rec {
 	struct list_head list;
 	int tx_ready;
 	int tx_flags;
-	int inplace_crypto;
 
 	struct sk_msg msg_plaintext;
 	struct sk_msg msg_encrypted;
@@ -268,6 +268,10 @@ struct tls_context {
 
 	bool in_tcp_sendpages;
 	bool pending_open_record_frags;
+
+	struct mutex tx_lock; /* protects partially_sent_* fields and
+			       * per-type TX fields
+			       */
 	unsigned long flags;
 
 	/* cache cold stuff */
@@ -359,6 +363,8 @@ int tls_set_sw_offload(struct sock *sk, struct tls_context *ctx, int tx);
 void tls_sw_strparser_arm(struct sock *sk, struct tls_context *ctx);
 void tls_sw_strparser_done(struct tls_context *tls_ctx);
 int tls_sw_sendmsg(struct sock *sk, struct msghdr *msg, size_t size);
+int tls_sw_sendpage_locked(struct sock *sk, struct page *page,
+			   int offset, size_t size, int flags);
 int tls_sw_sendpage(struct sock *sk, struct page *page,
 		    int offset, size_t size, int flags);
 void tls_sw_cancel_work_tx(struct tls_context *tls_ctx);
@@ -401,7 +407,7 @@ int tls_push_sg(struct sock *sk, struct tls_context *ctx,
 		int flags);
 int tls_push_partial_record(struct sock *sk, struct tls_context *ctx,
 			    int flags);
-bool tls_free_partial_record(struct sock *sk, struct tls_context *ctx);
+void tls_free_partial_record(struct sock *sk, struct tls_context *ctx);
 
 static inline struct tls_msg *tls_msg(struct sk_buff *skb)
 {
