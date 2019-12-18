@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-armmp-lpae linux-image-5.3.0-3parrot3-armmp-lpae 5.2+107 linux-image-armmp-lpae
+dir_to_symlink /usr/share/doc/linux-image-armmp-lpae linux-image-5.3.0-3parrot1-armmp-lpae 5.2+107 linux-image-armmp-lpae

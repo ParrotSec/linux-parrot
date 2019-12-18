@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-powerpc linux-headers-5.3.0-3parrot3-powerpc 5.2+107 linux-headers-powerpc
+dir_to_symlink /usr/share/doc/linux-headers-powerpc linux-headers-5.3.0-3parrot1-powerpc 5.2+107 linux-headers-powerpc

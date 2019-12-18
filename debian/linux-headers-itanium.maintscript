@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-itanium linux-headers-5.3.0-3parrot3-itanium 5.2+107 linux-headers-itanium
+dir_to_symlink /usr/share/doc/linux-headers-itanium linux-headers-5.3.0-3parrot1-itanium 5.2+107 linux-headers-itanium

@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-alpha-smp linux-image-5.3.0-3parrot3-alpha-smp 5.2+107 linux-image-alpha-smp
+dir_to_symlink /usr/share/doc/linux-image-alpha-smp linux-image-5.3.0-3parrot1-alpha-smp 5.2+107 linux-image-alpha-smp
