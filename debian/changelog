@@ -1,3 +1,10 @@
+linux (5.3.15-1parrot2) rolling-testing; urgency=medium
+
+  * Rebuild kernel packages.
+  * Increase kernel abiname version.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Tue, 24 Dec 2019 13:47:21 +0100
+
 linux (5.3.15-1parrot1) rolling-testing; urgency=medium
 
   * Import new upstream release.

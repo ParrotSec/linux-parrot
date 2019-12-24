@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-mips32r6el-dbg linux-image-5.3.0-3parrot1-mips32r6el-dbg 5.2+107 linux-image-mips32r6el-dbg
+dir_to_symlink /usr/share/doc/linux-image-mips32r6el-dbg linux-image-5.3.0-3parrot4-mips32r6el-dbg 5.2+107 linux-image-mips32r6el-dbg

@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-m68k linux-image-5.3.0-3parrot1-m68k 5.2+107 linux-image-m68k
+dir_to_symlink /usr/share/doc/linux-image-m68k linux-image-5.3.0-3parrot4-m68k 5.2+107 linux-image-m68k

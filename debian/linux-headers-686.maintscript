@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-686 linux-headers-5.3.0-3parrot1-686 5.2+107 linux-headers-686
+dir_to_symlink /usr/share/doc/linux-headers-686 linux-headers-5.3.0-3parrot4-686 5.2+107 linux-headers-686

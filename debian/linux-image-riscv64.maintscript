@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-riscv64 linux-image-5.3.0-3parrot1-riscv64 5.2+107 linux-image-riscv64
+dir_to_symlink /usr/share/doc/linux-image-riscv64 linux-image-5.3.0-3parrot4-riscv64 5.2+107 linux-image-riscv64
