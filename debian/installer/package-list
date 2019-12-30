@@ -52,7 +52,6 @@ Description: Shared NIC drivers
 
 Package: serial-modules
 Depends: kernel-image, pcmcia-modules
-Depends_ia64: kernel-image, pcmcia-modules, sn-modules
 Priority: optional
 Description: Serial drivers
  This package contains serial drivers for the kernel.
@@ -432,16 +431,10 @@ Description: IDE support
  This package contains core IDE support for the kernel.
 
 Package: ide-modules
-Depends: kernel-image, ide-core-modules, sn-modules
+Depends: kernel-image, ide-core-modules
 Priority: standard
 Description: IDE drivers
  This package contains IDE drivers for the kernel.
-
-Package: sn-modules
-Depends: kernel-image
-Priority: optional
-Description: SN modules
- This package contains SN modules for Altix systems
 
 Package: hypervisor-modules
 Depends: kernel-image

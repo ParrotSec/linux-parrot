@@ -21,16 +21,15 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
  Documentation/admin-guide/kernel-parameters.txt |    4 ++
  arch/x86/Kconfig                                |    8 ++++
- arch/x86/entry/common.c                         |   11 +++++-
- arch/x86/entry/syscall_64.c                     |   41 ++++++++++++++++++++++++
+ arch/x86/entry/common.c                         |    3 +
+ arch/x86/entry/syscall_64.c                     |   46 ++++++++++++++++++++++++
  arch/x86/include/asm/elf.h                      |    4 +-
- arch/x86/include/asm/syscall.h                  |   13 +++++++
- arch/x86/include/asm/unistd.h                   |    4 +-
- 7 files changed, 80 insertions(+), 5 deletions(-)
+ arch/x86/include/asm/syscall.h                  |   13 ++++++
+ 6 files changed, 76 insertions(+), 2 deletions(-)
 
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4458,6 +4458,10 @@
+@@ -4678,6 +4678,10 @@
  
  	switches=	[HW,M68k]
  
@@ -43,7 +42,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  			on older distributions. When this option is enabled
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -2893,6 +2893,14 @@ config COMPAT_32
+@@ -2901,6 +2901,14 @@ config COMPAT_32
  	select HAVE_UID16
  	select OLD_SIGSUSPEND3
  
@@ -60,31 +59,16 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	depends on IA32_EMULATION || X86_X32
 --- a/arch/x86/entry/common.c
 +++ b/arch/x86/entry/common.c
-@@ -284,12 +284,21 @@ __visible void do_syscall_64(unsigned lo
- 	 * table.  The only functional difference is the x32 bit in
- 	 * regs->orig_ax, which changes the behavior of some syscalls.
- 	 */
--	nr &= __SYSCALL_MASK;
--	if (likely(nr < NR_syscalls)) {
-+	if (x32_enabled) {
-+		nr &= ~__X32_SYSCALL_BIT;
-+		if (unlikely(nr >= NR_syscalls))
-+			goto bad;
+@@ -289,7 +289,8 @@ __visible void do_syscall_64(unsigned lo
  		nr = array_index_nospec(nr, NR_syscalls);
-+		goto good;
-+	} else {
-+		nr &= ~0U;
-+		if (unlikely(nr >= NR_non_x32_syscalls))
-+			goto bad;
-+		nr = array_index_nospec(nr, NR_non_x32_syscalls);
-+good:
  		regs->ax = sys_call_table[nr](regs);
- 	}
--
-+bad:
- 	syscall_return_slowpath(regs);
- }
- #endif
+ #ifdef CONFIG_X86_X32_ABI
+-	} else if (likely((nr & __X32_SYSCALL_BIT) &&
++	} else if (x32_enabled &&
++		   likely((nr & __X32_SYSCALL_BIT) &&
+ 			  (nr & ~__X32_SYSCALL_BIT) < X32_NR_syscalls)) {
+ 		nr = array_index_nospec(nr & ~__X32_SYSCALL_BIT,
+ 					X32_NR_syscalls);
 --- a/arch/x86/entry/syscall_64.c
 +++ b/arch/x86/entry/syscall_64.c
 @@ -4,6 +4,9 @@
@@ -97,13 +81,10 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #include <asm/asm-offsets.h>
  #include <asm/syscall.h>
  
-@@ -23,3 +26,50 @@ asmlinkage const sys_call_ptr_t sys_call
- 	[0 ... __NR_syscall_max] = &sys_ni_syscall,
- #include <asm/syscalls_64.h>
- };
-+
-+#ifdef CONFIG_X86_X32_ABI
-+
+@@ -47,4 +50,47 @@ asmlinkage const sys_call_ptr_t x32_sys_
+ #undef __SYSCALL_64
+ #undef __SYSCALL_X32
+ 
 +/* Maybe enable x32 syscalls */
 +
 +#if defined(CONFIG_X86_X32_DISABLED)
@@ -147,7 +128,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +
 +arch_param_cb(x32, &x32_param_ops, NULL, 0444);
 +
-+#endif
+ #endif
 --- a/arch/x86/include/asm/elf.h
 +++ b/arch/x86/include/asm/elf.h
 @@ -11,6 +11,7 @@
@@ -170,7 +151,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  # error "The following code assumes __USER32_DS == __USER_DS"
 --- a/arch/x86/include/asm/syscall.h
 +++ b/arch/x86/include/asm/syscall.h
-@@ -16,6 +16,7 @@
+@@ -13,6 +13,7 @@
  #include <uapi/linux/audit.h>
  #include <linux/sched.h>
  #include <linux/err.h>
@@ -178,8 +159,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #include <asm/asm-offsets.h>	/* For NR_syscalls */
  #include <asm/thread_info.h>	/* for TS_COMPAT */
  #include <asm/unistd.h>
-@@ -39,6 +40,18 @@ extern const sys_call_ptr_t sys_call_tab
- extern const sys_call_ptr_t ia32_sys_call_table[];
+@@ -40,6 +41,18 @@ extern const sys_call_ptr_t ia32_sys_cal
+ extern const sys_call_ptr_t x32_sys_call_table[];
  #endif
  
 +#if defined(CONFIG_X86_X32_ABI)
@@ -197,17 +178,3 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  /*
   * Only the low 32 bits of orig_ax are meaningful, so we return int.
   * This importantly ignores the high bits on 64-bit, so comparisons
---- a/arch/x86/include/asm/unistd.h
-+++ b/arch/x86/include/asm/unistd.h
-@@ -6,9 +6,9 @@
- 
- 
- # ifdef CONFIG_X86_X32_ABI
--#  define __SYSCALL_MASK (~(__X32_SYSCALL_BIT))
-+#  define NR_non_x32_syscalls 512
- # else
--#  define __SYSCALL_MASK (~0)
-+#  define NR_non_x32_syscalls NR_syscalls
- # endif
- 
- # ifdef CONFIG_X86_32

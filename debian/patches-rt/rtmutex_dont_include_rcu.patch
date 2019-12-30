@@ -1,6 +1,6 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Subject: rbtree: don't include the rcu header
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 The RCU header pulls in spinlock.h and fails due not yet defined types:
 
@@ -20,9 +20,9 @@ a new header file which can be included by both users.
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  include/linux/rbtree.h             |    2 -
- include/linux/rcu_assign_pointer.h |   63 +++++++++++++++++++++++++++++++++++++
- include/linux/rcupdate.h           |   57 ---------------------------------
- 3 files changed, 65 insertions(+), 57 deletions(-)
+ include/linux/rcu_assign_pointer.h |   62 +++++++++++++++++++++++++++++++++++++
+ include/linux/rcupdate.h           |   56 ---------------------------------
+ 3 files changed, 64 insertions(+), 56 deletions(-)
 
 --- a/include/linux/rbtree.h
 +++ b/include/linux/rbtree.h
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	unsigned long  __rb_parent_color;
 --- /dev/null
 +++ b/include/linux/rcu_assign_pointer.h
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,62 @@
 +/* SPDX-License-Identifier: GPL-2.0+ */
 +#ifndef __LINUX_RCU_ASSIGN_POINTER_H__
 +#define __LINUX_RCU_ASSIGN_POINTER_H__
@@ -88,17 +88,16 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 + * please be careful when making changes to rcu_assign_pointer() and the
 + * other macros that it invokes.
 + */
-+#define rcu_assign_pointer(p, v)					      \
-+({									      \
-+	uintptr_t _r_a_p__v = (uintptr_t)(v);				      \
-+	rcu_check_sparse(p, __rcu);				      \
-+									      \
-+	if (__builtin_constant_p(v) && (_r_a_p__v) == (uintptr_t)NULL)	      \
-+		WRITE_ONCE((p), (typeof(p))(_r_a_p__v));		      \
-+	else								      \
-+		smp_store_release(&p, RCU_INITIALIZER((typeof(p))_r_a_p__v)); \
-+	_r_a_p__v;							      \
-+})
++#define rcu_assign_pointer(p, v)					\
++do {									\
++	uintptr_t _r_a_p__v = (uintptr_t)(v);				\
++	rcu_check_sparse(p, __rcu);					\
++									\
++	if (__builtin_constant_p(v) && (_r_a_p__v) == (uintptr_t)NULL)	\
++		WRITE_ONCE((p), (typeof(p))(_r_a_p__v));		\
++	else								\
++		smp_store_release(&p, RCU_INITIALIZER((typeof(p))_r_a_p__v));	\
++} while (0)
 +
 +#endif
 --- a/include/linux/rcupdate.h
@@ -111,7 +110,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #define ULONG_CMP_GE(a, b)	(ULONG_MAX / 2 >= (a) - (b))
  #define ULONG_CMP_LT(a, b)	(ULONG_MAX / 2 < (a) - (b))
-@@ -301,13 +302,6 @@ static inline void rcu_preempt_sleep_che
+@@ -308,13 +309,6 @@ static inline void rcu_preempt_sleep_che
   * (e.g., __srcu), should this make sense in the future.
   */
  
@@ -125,7 +124,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #define __rcu_access_pointer(p, space) \
  ({ \
  	typeof(*p) *_________p1 = (typeof(*p) *__force)READ_ONCE(p); \
-@@ -336,55 +330,6 @@ static inline void rcu_preempt_sleep_che
+@@ -343,54 +337,6 @@ static inline void rcu_preempt_sleep_che
  })
  
  /**
@@ -166,16 +165,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 - * other macros that it invokes.
 - */
 -#define rcu_assign_pointer(p, v)					      \
--({									      \
+-do {									      \
 -	uintptr_t _r_a_p__v = (uintptr_t)(v);				      \
--	rcu_check_sparse(p, __rcu);				      \
+-	rcu_check_sparse(p, __rcu);					      \
 -									      \
 -	if (__builtin_constant_p(v) && (_r_a_p__v) == (uintptr_t)NULL)	      \
 -		WRITE_ONCE((p), (typeof(p))(_r_a_p__v));		      \
 -	else								      \
 -		smp_store_release(&p, RCU_INITIALIZER((typeof(p))_r_a_p__v)); \
--	_r_a_p__v;							      \
--})
+-} while (0)
 -
 -/**
   * rcu_swap_protected() - swap an RCU and a regular pointer

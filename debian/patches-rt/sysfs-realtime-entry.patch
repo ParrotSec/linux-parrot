@@ -1,7 +1,7 @@
 Subject: sysfs: Add /sys/kernel/realtime entry
 From: Clark Williams <williams@redhat.com>
 Date: Sat Jul 30 21:55:53 2011 -0500
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Add a /sys/kernel entry to indicate that the kernel is a
 realtime kernel.
@@ -24,7 +24,7 @@ Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
  
  #endif /* CONFIG_CRASH_CORE */
  
-+#if defined(CONFIG_PREEMPT_RT_FULL)
++#if defined(CONFIG_PREEMPT_RT)
 +static ssize_t realtime_show(struct kobject *kobj,
 +			     struct kobj_attribute *attr, char *buf)
 +{
@@ -40,7 +40,7 @@ Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
  	&rcu_expedited_attr.attr,
  	&rcu_normal_attr.attr,
  #endif
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	&realtime_attr.attr,
 +#endif
  	NULL

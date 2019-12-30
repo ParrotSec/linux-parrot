@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:53 +0100
 Subject: [PATCH 15/25] printk: print history for new consoles
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 When new consoles register, they currently print how many messages
 they have missed. However, many (or all) of those messages may still
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  };
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -1550,6 +1550,77 @@ static void format_text(struct printk_lo
+@@ -1560,6 +1560,77 @@ static void format_text(struct printk_lo
  	}
  }
  
@@ -106,7 +106,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Call the console drivers, asking them to write out
   * log_buf[start] to log_buf[end - 1].
-@@ -1568,6 +1639,10 @@ static void call_console_drivers(u64 seq
+@@ -1578,6 +1649,10 @@ static void call_console_drivers(u64 seq
  	for_each_console(con) {
  		if (!(con->flags & CON_ENABLED))
  			continue;

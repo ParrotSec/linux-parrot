@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 12 Oct 2017 17:34:38 +0200
 Subject: rtmutex: add ww_mutex addon for mutex-rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
@@ -20,11 +20,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #include "rtmutex_common.h"
  
-@@ -1239,6 +1240,40 @@ EXPORT_SYMBOL(__rt_spin_lock_init);
+@@ -1244,6 +1245,40 @@ EXPORT_SYMBOL(__rt_spin_lock_init);
  
- #endif /* PREEMPT_RT_FULL */
+ #endif /* PREEMPT_RT */
  
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	static inline int __sched
 +__mutex_lock_check_stamp(struct rt_mutex *lock, struct ww_acquire_ctx *ctx)
 +{
@@ -61,7 +61,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static inline int
  try_to_take_rt_mutex(struct rt_mutex *lock, struct task_struct *task,
  		     struct rt_mutex_waiter *waiter)
-@@ -1499,7 +1534,8 @@ void rt_mutex_init_waiter(struct rt_mute
+@@ -1522,7 +1557,8 @@ void rt_mutex_init_waiter(struct rt_mute
  static int __sched
  __rt_mutex_slowlock(struct rt_mutex *lock, int state,
  		    struct hrtimer_sleeper *timeout,
@@ -71,7 +71,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	int ret = 0;
  
-@@ -1517,6 +1553,12 @@ static int __sched
+@@ -1540,6 +1576,12 @@ static int __sched
  			break;
  		}
  
@@ -84,7 +84,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		raw_spin_unlock_irq(&lock->wait_lock);
  
  		debug_rt_mutex_print_deadlock(waiter);
-@@ -1551,16 +1593,106 @@ static void rt_mutex_handle_deadlock(int
+@@ -1574,16 +1616,106 @@ static void rt_mutex_handle_deadlock(int
  	}
  }
  
@@ -128,7 +128,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	ww_ctx->acquired++;
 +}
 +
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +static void ww_mutex_account_lock(struct rt_mutex *lock,
 +				  struct ww_acquire_ctx *ww_ctx)
 +{
@@ -172,7 +172,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	int ret;
  
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	if (ww_ctx) {
 +		struct ww_mutex *ww;
 +
@@ -192,7 +192,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	set_current_state(state);
  
-@@ -1570,14 +1702,24 @@ int __sched rt_mutex_slowlock_locked(str
+@@ -1593,14 +1725,24 @@ int __sched rt_mutex_slowlock_locked(str
  
  	ret = task_blocks_on_rt_mutex(lock, waiter, current, chwalk);
  
@@ -220,7 +220,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	/*
-@@ -1594,7 +1736,8 @@ int __sched rt_mutex_slowlock_locked(str
+@@ -1617,7 +1759,8 @@ int __sched rt_mutex_slowlock_locked(str
  static int __sched
  rt_mutex_slowlock(struct rt_mutex *lock, int state,
  		  struct hrtimer_sleeper *timeout,
@@ -230,7 +230,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct rt_mutex_waiter waiter;
  	unsigned long flags;
-@@ -1612,7 +1755,8 @@ rt_mutex_slowlock(struct rt_mutex *lock,
+@@ -1635,7 +1778,8 @@ rt_mutex_slowlock(struct rt_mutex *lock,
  	 */
  	raw_spin_lock_irqsave(&lock->wait_lock, flags);
  
@@ -240,7 +240,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
  
-@@ -1742,29 +1886,33 @@ static bool __sched rt_mutex_slowunlock(
+@@ -1765,29 +1909,33 @@ static bool __sched rt_mutex_slowunlock(
   */
  static inline int
  rt_mutex_fastlock(struct rt_mutex *lock, int state,
@@ -278,7 +278,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static inline int
-@@ -1809,7 +1957,7 @@ rt_mutex_fastunlock(struct rt_mutex *loc
+@@ -1832,7 +1980,7 @@ rt_mutex_fastunlock(struct rt_mutex *loc
  int __sched __rt_mutex_lock_state(struct rt_mutex *lock, int state)
  {
  	might_sleep();
@@ -287,7 +287,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -1929,6 +2077,7 @@ rt_mutex_timed_lock(struct rt_mutex *loc
+@@ -1952,6 +2100,7 @@ rt_mutex_timed_lock(struct rt_mutex *loc
  	mutex_acquire(&lock->dep_map, 0, 0, _RET_IP_);
  	ret = rt_mutex_timed_fastlock(lock, TASK_INTERRUPTIBLE, timeout,
  				       RT_MUTEX_MIN_CHAINWALK,
@@ -295,7 +295,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				       rt_mutex_slowlock);
  	if (ret)
  		mutex_release(&lock->dep_map, 1, _RET_IP_);
-@@ -2248,7 +2397,7 @@ int rt_mutex_wait_proxy_lock(struct rt_m
+@@ -2321,7 +2470,7 @@ int rt_mutex_wait_proxy_lock(struct rt_m
  	raw_spin_lock_irq(&lock->wait_lock);
  	/* sleep on the mutex */
  	set_current_state(TASK_INTERRUPTIBLE);
@@ -304,7 +304,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * try_to_take_rt_mutex() sets the waiter bit unconditionally. We might
  	 * have to fix that up.
-@@ -2333,3 +2482,99 @@ bool rt_mutex_cleanup_proxy_lock(struct
+@@ -2391,3 +2540,99 @@ bool rt_mutex_cleanup_proxy_lock(struct
  
  	return cleanup;
  }
@@ -335,7 +335,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	return 0;
 +}
 +
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +int __sched
 +ww_mutex_lock_interruptible(struct ww_mutex *lock, struct ww_acquire_ctx *ctx)
 +{
@@ -406,7 +406,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#endif
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
-@@ -162,6 +162,7 @@ extern void rt_mutex_postunlock(struct w
+@@ -165,6 +165,7 @@ extern void rt_mutex_postunlock(struct w
  				struct wake_q_head *wake_sleeper_q);
  
  /* RW semaphore special interface */
@@ -414,7 +414,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  extern int __rt_mutex_lock_state(struct rt_mutex *lock, int state);
  extern int __rt_mutex_trylock(struct rt_mutex *lock);
-@@ -169,6 +170,7 @@ extern void __rt_mutex_unlock(struct rt_
+@@ -172,6 +173,7 @@ extern void __rt_mutex_unlock(struct rt_
  int __sched rt_mutex_slowlock_locked(struct rt_mutex *lock, int state,
  				     struct hrtimer_sleeper *timeout,
  				     enum rtmutex_chainwalk chwalk,

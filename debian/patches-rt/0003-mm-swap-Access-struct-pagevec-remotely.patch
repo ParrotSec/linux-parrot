@@ -1,0 +1,137 @@
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Thu, 18 Apr 2019 11:09:06 +0200
+Subject: [PATCH 3/4] mm/swap: Access struct pagevec remotely
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+
+When the newly introduced static key would be enabled, struct pagevec is
+locked during access. So it is possible to access it from a remote CPU. The
+advantage is that the work can be done from the "requesting" CPU without
+firing a worker on a remote CPU and waiting for it to complete the work.
+
+No functional change because static key is not enabled.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/page_alloc.c |   19 ++++++++------
+ mm/swap.c       |   75 +++++++++++++++++++++++++++++++++-----------------------
+ 2 files changed, 57 insertions(+), 37 deletions(-)
+
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -2999,15 +2999,20 @@ void drain_all_pages(struct zone *zone)
+ 			cpumask_clear_cpu(cpu, &cpus_with_pcps);
+ 	}
+ 
+-	for_each_cpu(cpu, &cpus_with_pcps) {
+-		struct pcpu_drain *drain = per_cpu_ptr(&pcpu_drain, cpu);
++	if (static_branch_likely(&use_pvec_lock)) {
++		for_each_cpu(cpu, &cpus_with_pcps)
++			drain_cpu_pages(cpu, zone);
++	} else {
++		for_each_cpu(cpu, &cpus_with_pcps) {
++			struct pcpu_drain *drain = per_cpu_ptr(&pcpu_drain, cpu);
+ 
+-		drain->zone = zone;
+-		INIT_WORK(&drain->work, drain_local_pages_wq);
+-		queue_work_on(cpu, mm_percpu_wq, &drain->work);
++			drain->zone = zone;
++			INIT_WORK(&drain->work, drain_local_pages_wq);
++			queue_work_on(cpu, mm_percpu_wq, &drain->work);
++		}
++		for_each_cpu(cpu, &cpus_with_pcps)
++			flush_work(&per_cpu_ptr(&pcpu_drain, cpu)->work);
+ 	}
+-	for_each_cpu(cpu, &cpus_with_pcps)
+-		flush_work(&per_cpu_ptr(&pcpu_drain, cpu)->work);
+ 
+ 	mutex_unlock(&pcpu_drain_mutex);
+ }
+--- a/mm/swap.c
++++ b/mm/swap.c
+@@ -834,39 +834,54 @@ static void lru_add_drain_per_cpu(struct
+  */
+ void lru_add_drain_all(void)
+ {
+-	static DEFINE_MUTEX(lock);
+-	static struct cpumask has_work;
+-	int cpu;
+-
+-	/*
+-	 * Make sure nobody triggers this path before mm_percpu_wq is fully
+-	 * initialized.
+-	 */
+-	if (WARN_ON(!mm_percpu_wq))
+-		return;
+-
+-	mutex_lock(&lock);
+-	cpumask_clear(&has_work);
+-
+-	for_each_online_cpu(cpu) {
+-		struct work_struct *work = &per_cpu(lru_add_drain_work, cpu);
+-
+-		if (pagevec_count(&per_cpu(lru_add_pvec.pvec, cpu)) ||
+-		    pagevec_count(&per_cpu(lru_rotate_pvecs.pvec, cpu)) ||
+-		    pagevec_count(&per_cpu(lru_deactivate_file_pvecs.pvec, cpu)) ||
+-		    pagevec_count(&per_cpu(lru_deactivate_pvecs.pvec, cpu)) ||
+-		    pagevec_count(&per_cpu(lru_lazyfree_pvecs.pvec, cpu)) ||
+-		    need_activate_page_drain(cpu)) {
+-			INIT_WORK(work, lru_add_drain_per_cpu);
+-			queue_work_on(cpu, mm_percpu_wq, work);
+-			cpumask_set_cpu(cpu, &has_work);
++	if (static_branch_likely(&use_pvec_lock)) {
++		int cpu;
++
++		for_each_online_cpu(cpu) {
++			if (pagevec_count(&per_cpu(lru_add_pvec.pvec, cpu)) ||
++			    pagevec_count(&per_cpu(lru_rotate_pvecs.pvec, cpu)) ||
++			    pagevec_count(&per_cpu(lru_deactivate_file_pvecs.pvec, cpu)) ||
++			    pagevec_count(&per_cpu(lru_deactivate_pvecs.pvec, cpu)) ||
++			    pagevec_count(&per_cpu(lru_lazyfree_pvecs.pvec, cpu)) ||
++			    need_activate_page_drain(cpu)) {
++				lru_add_drain_cpu(cpu);
++			}
++		}
++	} else {
++		static DEFINE_MUTEX(lock);
++		static struct cpumask has_work;
++		int cpu;
++
++		/*
++		 * Make sure nobody triggers this path before mm_percpu_wq
++		 * is fully initialized.
++		 */
++		if (WARN_ON(!mm_percpu_wq))
++			return;
++
++		mutex_lock(&lock);
++		cpumask_clear(&has_work);
++
++		for_each_online_cpu(cpu) {
++			struct work_struct *work = &per_cpu(lru_add_drain_work, cpu);
++
++			if (pagevec_count(&per_cpu(lru_add_pvec.pvec, cpu)) ||
++			    pagevec_count(&per_cpu(lru_rotate_pvecs.pvec, cpu)) ||
++			    pagevec_count(&per_cpu(lru_deactivate_file_pvecs.pvec, cpu)) ||
++			    pagevec_count(&per_cpu(lru_deactivate_pvecs.pvec, cpu)) ||
++			    pagevec_count(&per_cpu(lru_lazyfree_pvecs.pvec, cpu)) ||
++			    need_activate_page_drain(cpu)) {
++				INIT_WORK(work, lru_add_drain_per_cpu);
++				queue_work_on(cpu, mm_percpu_wq, work);
++				cpumask_set_cpu(cpu, &has_work);
++			}
+ 		}
+-	}
+ 
+-	for_each_cpu(cpu, &has_work)
+-		flush_work(&per_cpu(lru_add_drain_work, cpu));
++		for_each_cpu(cpu, &has_work)
++			flush_work(&per_cpu(lru_add_drain_work, cpu));
+ 
+-	mutex_unlock(&lock);
++		mutex_unlock(&lock);
++	}
+ }
+ #else
+ void lru_add_drain_all(void)

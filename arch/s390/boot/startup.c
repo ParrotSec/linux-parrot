@@ -120,6 +120,11 @@ static void handle_relocs(unsigned long offset)
 	}
 }
 
+static void clear_bss_section(void)
+{
+	memset((void *)vmlinux.default_lma + vmlinux.image_size, 0, vmlinux.bss_size);
+}
+
 void startup_kernel(void)
 {
 	unsigned long random_lma;
@@ -159,11 +164,17 @@ void startup_kernel(void)
 	} else if (__kaslr_offset)
 		memcpy((void *)vmlinux.default_lma, img, vmlinux.image_size);
 
+	clear_bss_section();
 	copy_bootdata();
 	if (IS_ENABLED(CONFIG_RELOCATABLE))
 		handle_relocs(__kaslr_offset);
 
 	if (__kaslr_offset) {
+		/*
+		 * Save KASLR offset for early dumps, before vmcore_info is set.
+		 * Mark as uneven to distinguish from real vmcore_info pointer.
+		 */
+		S390_lowcore.vmcore_info = __kaslr_offset | 0x1UL;
 		/* Clear non-relocated kernel */
 		if (IS_ENABLED(CONFIG_KERNEL_UNCOMPRESSED))
 			memset(img, 0, vmlinux.image_size);

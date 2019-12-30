@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:49 +0100
 Subject: [PATCH 11/25] printk_safe: remove printk safe code
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 vprintk variants are now NMI-safe so there is no longer a need for
 the "safe" calls.
@@ -121,7 +121,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  extern int kptr_restrict;
 --- a/init/main.c
 +++ b/init/main.c
-@@ -669,7 +669,6 @@ asmlinkage __visible void __init start_k
+@@ -693,7 +693,6 @@ asmlinkage __visible void __init start_k
  	boot_init_stack_canary();
  
  	time_init();
@@ -131,7 +131,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	call_function_init();
 --- a/kernel/kexec_core.c
 +++ b/kernel/kexec_core.c
-@@ -970,7 +970,6 @@ void crash_kexec(struct pt_regs *regs)
+@@ -972,7 +972,6 @@ void crash_kexec(struct pt_regs *regs)
  	old_cpu = atomic_cmpxchg(&panic_cpu, PANIC_CPU_INVALID, this_cpu);
  	if (old_cpu == PANIC_CPU_INVALID) {
  		/* This is the 1st CPU which comes here, so go ahead. */
@@ -141,7 +141,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/*
 --- a/kernel/panic.c
 +++ b/kernel/panic.c
-@@ -228,7 +228,6 @@ void panic(const char *fmt, ...)
+@@ -237,7 +237,6 @@ void panic(const char *fmt, ...)
  	 * Bypass the panic_cpu check and call __crash_kexec directly.
  	 */
  	if (!_crash_kexec_post_notifiers) {
@@ -149,7 +149,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		__crash_kexec(NULL);
  
  		/*
-@@ -252,8 +251,6 @@ void panic(const char *fmt, ...)
+@@ -261,8 +260,6 @@ void panic(const char *fmt, ...)
  	 */
  	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
  
@@ -215,7 +215,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -#endif /* CONFIG_PRINTK */
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -1726,13 +1726,6 @@ static bool cont_add(u32 caller_id, int
+@@ -1736,13 +1736,6 @@ static bool cont_add(u32 caller_id, int
  }
  #endif /* 0 */
  
@@ -229,7 +229,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /* ring buffer used as memory allocator for temporary sprint buffers */
  DECLARE_STATIC_PRINTKRB(sprint_rb,
  			ilog2(PRINTK_RECORD_MAX + sizeof(struct prb_entry) +
-@@ -1801,6 +1794,11 @@ asmlinkage int vprintk_emit(int facility
+@@ -1811,6 +1804,11 @@ asmlinkage int vprintk_emit(int facility
  }
  EXPORT_SYMBOL(vprintk_emit);
  
@@ -241,7 +241,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  asmlinkage int vprintk(const char *fmt, va_list args)
  {
  	return vprintk_func(fmt, args);
-@@ -3201,5 +3199,4 @@ void kmsg_dump_rewind(struct kmsg_dumper
+@@ -3211,5 +3209,4 @@ void kmsg_dump_rewind(struct kmsg_dumper
  	logbuf_unlock_irqrestore(flags);
  }
  EXPORT_SYMBOL_GPL(kmsg_dump_rewind);
@@ -667,7 +667,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -}
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
-@@ -8874,7 +8874,6 @@ void ftrace_dump(enum ftrace_dump_mode o
+@@ -8908,7 +8908,6 @@ void ftrace_dump(enum ftrace_dump_mode o
  	tracing_off();
  
  	local_irq_save(flags);
@@ -675,7 +675,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Simulate the iterator */
  	trace_init_global_iter(&iter);
-@@ -8951,7 +8950,6 @@ void ftrace_dump(enum ftrace_dump_mode o
+@@ -8985,7 +8984,6 @@ void ftrace_dump(enum ftrace_dump_mode o
  		atomic_dec(&per_cpu_ptr(iter.trace_buffer->data, cpu)->disabled);
  	}
  	atomic_dec(&dump_running);

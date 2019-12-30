@@ -2,7 +2,7 @@ From: "Luis Claudio R. Goncalves" <lclaudio@uudg.org>
 Date: Tue, 25 Jun 2019 11:28:04 -0300
 Subject: [PATCH] mm/zswap: Do not disable preemption in
  zswap_frontswap_store()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Zswap causes "BUG: scheduling while atomic" by blocking on a rt_spin_lock() with
 preemption disabled. The preemption is disabled by get_cpu_var() in
@@ -74,7 +74,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include <linux/types.h>
  #include <linux/atomic.h>
  #include <linux/frontswap.h>
-@@ -981,6 +982,8 @@ static void zswap_fill_page(void *ptr, u
+@@ -980,6 +981,8 @@ static void zswap_fill_page(void *ptr, u
  	memset_l(page, value, PAGE_SIZE / sizeof(unsigned long));
  }
  
@@ -98,7 +98,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (ret) {
  		ret = -EINVAL;
  		goto put_dstmem;
-@@ -1085,7 +1087,7 @@ static int zswap_frontswap_store(unsigne
+@@ -1086,7 +1088,7 @@ static int zswap_frontswap_store(unsigne
  	memcpy(buf, &zhdr, hlen);
  	memcpy(buf + hlen, dst, dlen);
  	zpool_unmap_handle(entry->pool->zpool, handle);
@@ -107,7 +107,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* populate entry */
  	entry->offset = offset;
-@@ -1113,7 +1115,7 @@ static int zswap_frontswap_store(unsigne
+@@ -1114,7 +1116,7 @@ static int zswap_frontswap_store(unsigne
  	return 0;
  
  put_dstmem:

@@ -1,0 +1,4 @@
+usr/include/traceevent
+usr/lib/*/libtraceevent.a
+usr/lib/*/libtraceevent.so
+usr/lib/*/pkgconfig

@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 26 Mar 2019 18:31:54 +0100
 Subject: [PATCH] powerpc/pseries/iommu: Use a locallock instead
  local_irq_save()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 The locallock protects the per-CPU variable tce_page. The function
 attempts to allocate memory while tce_page is protected (by disabling
@@ -26,7 +26,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include <asm/io.h>
  #include <asm/prom.h>
  #include <asm/rtas.h>
-@@ -177,6 +178,7 @@ static int tce_build_pSeriesLP(struct io
+@@ -178,6 +179,7 @@ static int tce_build_pSeriesLP(struct io
  }
  
  static DEFINE_PER_CPU(__be64 *, tce_page);
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static int tce_buildmulti_pSeriesLP(struct iommu_table *tbl, long tcenum,
  				     long npages, unsigned long uaddr,
-@@ -197,7 +199,8 @@ static int tce_buildmulti_pSeriesLP(stru
+@@ -198,7 +200,8 @@ static int tce_buildmulti_pSeriesLP(stru
  		                           direction, attrs);
  	}
  
@@ -44,7 +44,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	tcep = __this_cpu_read(tce_page);
  
-@@ -208,7 +211,7 @@ static int tce_buildmulti_pSeriesLP(stru
+@@ -209,7 +212,7 @@ static int tce_buildmulti_pSeriesLP(stru
  		tcep = (__be64 *)__get_free_page(GFP_ATOMIC);
  		/* If allocation fails, fall back to the loop implementation */
  		if (!tcep) {
@@ -53,7 +53,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			return tce_build_pSeriesLP(tbl, tcenum, npages, uaddr,
  					    direction, attrs);
  		}
-@@ -242,7 +245,7 @@ static int tce_buildmulti_pSeriesLP(stru
+@@ -243,7 +246,7 @@ static int tce_buildmulti_pSeriesLP(stru
  		tcenum += limit;
  	} while (npages > 0 && !rc);
  
@@ -62,7 +62,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (unlikely(rc == H_NOT_ENOUGH_RESOURCES)) {
  		ret = (int)rc;
-@@ -400,13 +403,14 @@ static int tce_setrange_multi_pSeriesLP(
+@@ -401,13 +404,14 @@ static int tce_setrange_multi_pSeriesLP(
  	u64 rc = 0;
  	long l, limit;
  
@@ -79,7 +79,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			return -ENOMEM;
  		}
  		__this_cpu_write(tce_page, tcep);
-@@ -452,7 +456,7 @@ static int tce_setrange_multi_pSeriesLP(
+@@ -453,7 +457,7 @@ static int tce_setrange_multi_pSeriesLP(
  
  	/* error cleanup: caller will clear whole range */
  

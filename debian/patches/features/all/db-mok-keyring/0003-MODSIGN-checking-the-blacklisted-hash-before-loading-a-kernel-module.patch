@@ -21,27 +21,20 @@ Cc: James Bottomley <James.Bottomley@HansenPartnership.com>
 Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 [Rebased by Luca Boccassi]
 ---
- kernel/module_signing.c | 61 +++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 59 insertions(+), 2 deletions(-)
+ kernel/module_signing.c | 59 +++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 57 insertions(+), 2 deletions(-)
 
+diff --git a/kernel/module_signing.c b/kernel/module_signing.c
+index 9d9fc678c91d..0f041a21f418 100644
 --- a/kernel/module_signing.c
 +++ b/kernel/module_signing.c
-@@ -7,9 +7,12 @@
- 
- #include <linux/kernel.h>
- #include <linux/errno.h>
-+#include <linux/module.h>
+@@ -12,15 +12,62 @@
  #include <linux/string.h>
  #include <linux/verification.h>
  #include <crypto/public_key.h>
 +#include <crypto/hash.h>
 +#include <keys/system_keyring.h>
  #include "module-internal.h"
- 
- enum pkey_id_type {
-@@ -38,19 +41,66 @@ struct module_signature {
- 	__be32	sig_len;	/* Length of signature data */
- };
  
 +static int mod_is_hash_blacklisted(const void *mod, size_t verifylen)
 +{
@@ -96,20 +89,20 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	struct module_signature ms;
 -	size_t sig_len, modlen = info->len;
 +	size_t sig_len, modlen = info->len, wholelen;
-+	int ret;;
+ 	int ret;
  
  	pr_devel("==>%s(,%zu)\n", __func__, modlen);
- 
+@@ -28,6 +75,7 @@ int mod_verify_sig(const void *mod, struct load_info *info)
  	if (modlen <= sizeof(ms))
  		return -EBADMSG;
  
 +	wholelen = modlen + sizeof(MODULE_SIG_STRING) - 1;
  	memcpy(&ms, mod + (modlen - sizeof(ms)), sizeof(ms));
- 	modlen -= sizeof(ms);
  
-@@ -78,8 +128,15 @@ int mod_verify_sig(const void *mod, struct load_info *info)
- 		return -EBADMSG;
- 	}
+ 	ret = mod_check_sig(&ms, modlen, info->name);
+@@ -38,8 +86,15 @@ int mod_verify_sig(const void *mod, struct load_info *info)
+ 	modlen -= sig_len + sizeof(ms);
+ 	info->len = modlen;
  
 -	return verify_pkcs7_signature(mod, modlen, mod + modlen, sig_len,
 +	ret = verify_pkcs7_signature(mod, modlen, mod + modlen, sig_len,
@@ -124,3 +117,6 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 +
 +	return ret;
  }
+-- 
+2.23.0
+

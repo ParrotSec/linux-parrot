@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Wed, 24 Apr 2019 16:36:04 +0200
 Subject: [PATCH] printk: kmsg_dump: remove mutex usage
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 The kmsg dumper can be called from any context, but the dumping
 helpers were using a mutex to synchronize the iterator against
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -369,8 +369,6 @@ static u64 syslog_seq;
+@@ -379,8 +379,6 @@ static u64 syslog_seq;
  static size_t syslog_partial;
  static bool syslog_time;
  
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /* the next printk record to read after the last 'clear' command */
  static u64 clear_seq;
  
-@@ -2867,6 +2865,7 @@ module_param_named(always_kmsg_dump, alw
+@@ -2877,6 +2875,7 @@ module_param_named(always_kmsg_dump, alw
   */
  void kmsg_dump(enum kmsg_dump_reason reason)
  {
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct kmsg_dumper *dumper;
  
  	if ((reason > KMSG_DUMP_OOPS) && !always_kmsg_dump)
-@@ -2877,16 +2876,18 @@ void kmsg_dump(enum kmsg_dump_reason rea
+@@ -2887,16 +2886,18 @@ void kmsg_dump(enum kmsg_dump_reason rea
  		if (dumper->max_reason && reason > dumper->max_reason)
  			continue;
  
@@ -63,7 +63,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  	rcu_read_unlock();
  }
-@@ -2998,9 +2999,7 @@ bool kmsg_dump_get_line(struct kmsg_dump
+@@ -3008,9 +3009,7 @@ bool kmsg_dump_get_line(struct kmsg_dump
  {
  	bool ret;
  
@@ -73,7 +73,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return ret;
  }
-@@ -3152,9 +3151,7 @@ void kmsg_dump_rewind_nolock(struct kmsg
+@@ -3162,9 +3161,7 @@ void kmsg_dump_rewind_nolock(struct kmsg
   */
  void kmsg_dump_rewind(struct kmsg_dumper *dumper)
  {

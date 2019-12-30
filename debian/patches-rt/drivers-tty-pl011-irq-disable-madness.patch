@@ -1,7 +1,7 @@
 Subject: tty/serial/pl011: Make the locking work on RT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 08 Jan 2013 21:36:51 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 The lock is a sleeping lock and local_irq_save() is not the optimsation
 we are looking for. Redo it to make it work on -RT and non-RT.
@@ -13,7 +13,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/drivers/tty/serial/amba-pl011.c
 +++ b/drivers/tty/serial/amba-pl011.c
-@@ -2216,13 +2216,19 @@ pl011_console_write(struct console *co,
+@@ -2214,13 +2214,19 @@ pl011_console_write(struct console *co,
  
  	clk_enable(uap->clk);
  
@@ -36,7 +36,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	/*
  	 *	First save the CR then disable the interrupts
-@@ -2248,8 +2254,7 @@ pl011_console_write(struct console *co,
+@@ -2246,8 +2252,7 @@ pl011_console_write(struct console *co,
  		pl011_write(old_cr, uap, REG_CR);
  
  	if (locked)

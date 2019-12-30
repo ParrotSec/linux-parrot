@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:54 +0100
 Subject: [PATCH 16/25] printk: implement CON_PRINTBUFFER
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 If the CON_PRINTBUFFER flag is not set, do not replay the history
 for that console.
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -409,10 +409,6 @@ static u32 log_first_idx;
+@@ -419,10 +419,6 @@ static u32 log_first_idx;
  static u64 log_next_seq;
  static u32 log_next_idx;
  
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /* the next printk record to read after the last 'clear' command */
  static u64 clear_seq;
  static u32 clear_idx;
-@@ -1640,8 +1636,12 @@ static void call_console_drivers(u64 seq
+@@ -1650,8 +1646,12 @@ static void call_console_drivers(u64 seq
  		if (!(con->flags & CON_ENABLED))
  			continue;
  		if (!con->wrote_history) {
@@ -40,7 +40,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		}
  		if (!con->write)
  			continue;
-@@ -1871,8 +1871,6 @@ EXPORT_SYMBOL(printk);
+@@ -1881,8 +1881,6 @@ EXPORT_SYMBOL(printk);
  
  static u64 syslog_seq;
  static u32 syslog_idx;
@@ -49,7 +49,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static u64 log_first_seq;
  static u32 log_first_idx;
  static u64 log_next_seq;
-@@ -2196,15 +2194,6 @@ void console_flush_on_panic(enum con_flu
+@@ -2206,15 +2204,6 @@ void console_flush_on_panic(enum con_flu
  	 */
  	console_trylock();
  	console_may_schedule = 0;
@@ -65,7 +65,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	console_unlock();
  }
  
-@@ -2283,7 +2272,6 @@ early_param("keep_bootcon", keep_bootcon
+@@ -2293,7 +2282,6 @@ early_param("keep_bootcon", keep_bootcon
  void register_console(struct console *newcon)
  {
  	int i;
@@ -73,7 +73,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct console *bcon = NULL;
  	struct console_cmdline *c;
  	static bool has_preferred;
-@@ -2399,16 +2387,6 @@ void register_console(struct console *ne
+@@ -2409,16 +2397,6 @@ void register_console(struct console *ne
  	if (newcon->flags & CON_EXTENDED)
  		nr_ext_console_drivers++;
  

@@ -1,0 +1,36 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 10 Oct 2019 16:54:45 +0200
+Subject: [PATCH] BPF: Disable on PREEMPT_RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+
+Disable BPF on PREEMPT_RT because
+- it allocates and frees memory in atomic context
+- it uses up_read_non_owner()
+- BPF_PROG_RUN() expects to be invoked in non-preemptible context
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ init/Kconfig    |    1 +
+ net/kcm/Kconfig |    1 +
+ 2 files changed, 2 insertions(+)
+
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1629,6 +1629,7 @@ config KALLSYMS_BASE_RELATIVE
+ # syscall, maps, verifier
+ config BPF_SYSCALL
+ 	bool "Enable bpf() system call"
++	depends on !PREEMPT_RT
+ 	select BPF
+ 	select IRQ_WORK
+ 	default n
+--- a/net/kcm/Kconfig
++++ b/net/kcm/Kconfig
+@@ -3,6 +3,7 @@
+ config AF_KCM
+ 	tristate "KCM sockets"
+ 	depends on INET
++	depends on !PREEMPT_RT
+ 	select BPF_SYSCALL
+ 	select STREAM_PARSER
+ 	---help---

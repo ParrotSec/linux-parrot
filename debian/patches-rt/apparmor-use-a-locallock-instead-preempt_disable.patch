@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 11 Oct 2017 17:43:49 +0200
 Subject: apparmor: use a locallock instead preempt_disable()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 get_buffers() disables preemption which acts as a lock for the per-CPU
 variable. Since we can't disable preemption here on RT, a local_lock is
@@ -32,7 +32,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #define for_each_cpu_buffer(I) for ((I) = 0; (I) < MAX_PATH_BUFFERS; (I)++)
  
 -#ifdef CONFIG_DEBUG_PREEMPT
-+#ifdef CONFIG_PREEMPT_RT_BASE
++#ifdef CONFIG_PREEMPT_RT
 +static inline void AA_BUG_PREEMPT_ENABLED(const char *s)
 +{
 +	struct local_irq_lock *lv;

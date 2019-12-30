@@ -176,7 +176,19 @@ CONFIG_XEN_BLKDEV_FRONTEND=m
 ##
 ## file: drivers/char/tpm/Kconfig
 ##
-# CONFIG_TCG_TPM is not set
+CONFIG_TCG_TPM=m
+# CONFIG_HW_RANDOM_TPM is not set
+CONFIG_TCG_TIS=m
+# CONFIG_TCG_TIS_SPI is not set
+# CONFIG_TCG_TIS_I2C_ATMEL is not set
+# CONFIG_TCG_TIS_I2C_INFINEON is not set
+# CONFIG_TCG_TIS_I2C_NUVOTON is not set
+# CONFIG_TCG_NSC is not set
+# CONFIG_TCG_ATMEL is not set
+# CONFIG_TCG_INFINEON is not set
+CONFIG_TCG_XEN=m
+CONFIG_TCG_CRB=m
+CONFIG_TCG_VTPM_PROXY=m
 
 ##
 ## file: drivers/char/xillybus/Kconfig
@@ -444,7 +456,6 @@ CONFIG_HYPERV_KEYBOARD=m
 ##
 # CONFIG_IBM_ASM is not set
 # CONFIG_PHANTOM is not set
-# CONFIG_SGI_IOC4 is not set
 # CONFIG_TIFM_CORE is not set
 # CONFIG_TIFM_7XX1 is not set
 # CONFIG_ENCLOSURE_SERVICES is not set
@@ -1149,6 +1160,11 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_STAGING is not set
 
 ##
+## file: drivers/staging/uwb/Kconfig
+##
+# CONFIG_UWB is not set
+
+##
 ## file: drivers/target/Kconfig
 ##
 # CONFIG_TARGET_CORE is not set
@@ -1190,17 +1206,11 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_SERIAL_8250_EXAR is not set
 # CONFIG_SERIAL_8250_RSA is not set
 # CONFIG_SERIAL_8250_MID is not set
-# CONFIG_SERIAL_8250_MOXA is not set
 
 ##
 ## file: drivers/usb/Kconfig
 ##
 # CONFIG_USB_SUPPORT is not set
-
-##
-## file: drivers/uwb/Kconfig
-##
-# CONFIG_UWB is not set
 
 ##
 ## file: drivers/video/backlight/Kconfig

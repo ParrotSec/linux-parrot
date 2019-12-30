@@ -1,7 +1,7 @@
 Subject: mm, rt: kmap_atomic scheduling
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Thu, 28 Jul 2011 10:43:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 In fact, with migrate_disable() existing one could play games with
 kmap_atomic. You could save/restore the kmap_atomic slots on context
@@ -39,11 +39,11 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  #include <asm/pgtable.h>
  #include <asm/ldt.h>
-@@ -202,6 +203,35 @@ start_thread(struct pt_regs *regs, unsig
+@@ -196,6 +197,35 @@ start_thread(struct pt_regs *regs, unsig
  }
  EXPORT_SYMBOL_GPL(start_thread);
  
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +static void switch_kmaps(struct task_struct *prev_p, struct task_struct *next_p)
 +{
 +	int i;
@@ -75,7 +75,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  /*
   *	switch_to(x,y) should switch tasks from x to y.
-@@ -272,6 +302,8 @@ EXPORT_SYMBOL_GPL(start_thread);
+@@ -266,6 +296,8 @@ EXPORT_SYMBOL_GPL(start_thread);
  
  	switch_to_extra(prev_p, next_p);
  
@@ -104,7 +104,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
  	BUG_ON(!pte_none(*(kmap_pte-idx)));
 -	set_pte(kmap_pte-idx, mk_pte(page, prot));
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	current->kmap_pte[type] = pte;
 +#endif
 +	set_pte(kmap_pte-idx, pte);
@@ -115,7 +115,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  		 * is a bad idea also, in case the page changes cacheability
  		 * attributes or becomes a protected page in a hypervisor.
  		 */
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +		current->kmap_pte[type] = __pte(0);
 +#endif
  		kpte_clear_flush(kmap_pte-idx, vaddr);
@@ -145,7 +145,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  	idx = type + KM_TYPE_NR * smp_processor_id();
  	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
 -	set_pte(kmap_pte - idx, pfn_pte(pfn, prot));
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	current->kmap_pte[type] = pte;
 +#endif
 +	set_pte(kmap_pte - idx, pte);
@@ -156,7 +156,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  		 * is a bad idea also, in case the page changes cacheability
  		 * attributes or becomes a protected page in a hypervisor.
  		 */
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +		current->kmap_pte[type] = __pte(0);
 +#endif
  		kpte_clear_flush(kmap_pte-idx, vaddr);
@@ -186,13 +186,13 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  #if defined(CONFIG_HIGHMEM) || defined(CONFIG_X86_32)
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  DECLARE_PER_CPU(int, __kmap_atomic_idx);
 +#endif
  
  static inline int kmap_atomic_idx_push(void)
  {
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  	int idx = __this_cpu_inc_return(__kmap_atomic_idx) - 1;
  
 -#ifdef CONFIG_DEBUG_HIGHMEM
@@ -211,7 +211,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  static inline int kmap_atomic_idx(void)
  {
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  	return __this_cpu_read(__kmap_atomic_idx) - 1;
 +#else
 +	return current->kmap_idx - 1;
@@ -221,7 +221,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  static inline void kmap_atomic_idx_pop(void)
  {
 -#ifdef CONFIG_DEBUG_HIGHMEM
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
 +# ifdef CONFIG_DEBUG_HIGHMEM
  	int idx = __this_cpu_dec_return(__kmap_atomic_idx);
  
@@ -240,19 +240,19 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -29,6 +29,7 @@
- #include <linux/mm_types_task.h>
+@@ -31,6 +31,7 @@
  #include <linux/task_io_accounting.h>
+ #include <linux/posix-timers.h>
  #include <linux/rseq.h>
 +#include <asm/kmap_types.h>
  
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
-@@ -1217,6 +1218,12 @@ struct task_struct {
- #ifdef CONFIG_PREEMPT_RT_BASE
- 	struct rcu_head			put_rcu;
+@@ -1270,6 +1271,12 @@ struct task_struct {
+ 	unsigned int			sequential_io;
+ 	unsigned int			sequential_io_avg;
  #endif
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +# if defined CONFIG_HIGHMEM || defined CONFIG_X86_32
 +	int				kmap_idx;
 +	pte_t				kmap_pte[KM_TYPE_NR];
@@ -286,7 +286,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  #include <asm/tlbflush.h>
  
 -
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  #if defined(CONFIG_HIGHMEM) || defined(CONFIG_X86_32)
  DEFINE_PER_CPU(int, __kmap_atomic_idx);
 +EXPORT_PER_CPU_SYMBOL(__kmap_atomic_idx);

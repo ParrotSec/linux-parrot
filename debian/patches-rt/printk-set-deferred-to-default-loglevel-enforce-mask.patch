@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 14 Feb 2019 23:13:30 +0100
 Subject: [PATCH] printk: set deferred to default loglevel, enforce mask
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 All messages printed via vpritnk_deferred() were being
 automatically treated as emergency messages.
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -1941,7 +1941,7 @@ asmlinkage int vprintk_emit(int facility
+@@ -1951,7 +1951,7 @@ asmlinkage int vprintk_emit(int facility
  	 * - text points to beginning of text
  	 * - there is room before text for prefix
  	 */
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if ((lflags & LOG_CONT) || !(lflags & LOG_NEWLINE)) {
  		 cont_add(ctx, cpu, caller_id, facility, level, lflags, text, text_len);
-@@ -2734,7 +2734,7 @@ late_initcall(init_printk_kthread);
+@@ -2744,7 +2744,7 @@ late_initcall(init_printk_kthread);
  
  static int vprintk_deferred(const char *fmt, va_list args)
  {

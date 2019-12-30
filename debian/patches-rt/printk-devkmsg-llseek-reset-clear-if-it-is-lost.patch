@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 22 Feb 2019 23:02:44 +0100
 Subject: [PATCH] printk: devkmsg: llseek: reset clear if it is lost
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 SEEK_DATA will seek to the last clear record. If this clear record
 is no longer in the ring buffer, devkmsg_llseek() will go into an
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -751,6 +751,7 @@ static loff_t devkmsg_llseek(struct file
+@@ -761,6 +761,7 @@ static loff_t devkmsg_llseek(struct file
  {
  	struct devkmsg_user *user = file->private_data;
  	loff_t ret;
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (!user)
  		return -EBADF;
-@@ -773,7 +774,7 @@ static loff_t devkmsg_llseek(struct file
+@@ -783,7 +784,7 @@ static loff_t devkmsg_llseek(struct file
  		 * changes no global state, and does not clear anything.
  		 */
  		for (;;) {
@@ -33,7 +33,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			ret = prb_iter_seek(&user->iter, clear_seq);
  			if (ret > 0) {
  				/* seeked to clear seq */
-@@ -790,6 +791,10 @@ static loff_t devkmsg_llseek(struct file
+@@ -800,6 +801,10 @@ static loff_t devkmsg_llseek(struct file
  				break;
  			}
  			/* iterator invalid, start over */

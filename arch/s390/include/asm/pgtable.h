@@ -86,6 +86,7 @@ extern unsigned long zero_page_mask;
  */
 extern unsigned long VMALLOC_START;
 extern unsigned long VMALLOC_END;
+#define VMALLOC_DEFAULT_SIZE	((128UL << 30) - MODULES_LEN)
 extern struct page *vmemmap;
 
 #define VMEM_MAX_PHYS ((unsigned long) vmemmap)
@@ -996,9 +997,9 @@ static inline pte_t pte_mkhuge(pte_t pte)
 #define IPTE_NODAT	0x400
 #define IPTE_GUEST_ASCE	0x800
 
-static inline void __ptep_ipte(unsigned long address, pte_t *ptep,
-			       unsigned long opt, unsigned long asce,
-			       int local)
+static __always_inline void __ptep_ipte(unsigned long address, pte_t *ptep,
+					unsigned long opt, unsigned long asce,
+					int local)
 {
 	unsigned long pto = (unsigned long) ptep;
 
@@ -1019,8 +1020,8 @@ static inline void __ptep_ipte(unsigned long address, pte_t *ptep,
 		: [r1] "a" (pto), [m4] "i" (local) : "memory");
 }
 
-static inline void __ptep_ipte_range(unsigned long address, int nr,
-				     pte_t *ptep, int local)
+static __always_inline void __ptep_ipte_range(unsigned long address, int nr,
+					      pte_t *ptep, int local)
 {
 	unsigned long pto = (unsigned long) ptep;
 
@@ -1172,8 +1173,6 @@ void gmap_pmdp_idte_global(struct mm_struct *mm, unsigned long vmaddr);
 static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 			      pte_t *ptep, pte_t entry)
 {
-	if (!MACHINE_HAS_NX)
-		pte_val(entry) &= ~_PAGE_NOEXEC;
 	if (pte_present(entry))
 		pte_val(entry) &= ~_PAGE_UNUSED;
 	if (mm_has_pgste(mm))
@@ -1190,6 +1189,8 @@ static inline pte_t mk_pte_phys(unsigned long physpage, pgprot_t pgprot)
 {
 	pte_t __pte;
 	pte_val(__pte) = physpage + pgprot_val(pgprot);
+	if (!MACHINE_HAS_NX)
+		pte_val(__pte) &= ~_PAGE_NOEXEC;
 	return pte_mkyoung(__pte);
 }
 
@@ -1435,9 +1436,9 @@ static inline void __pmdp_csp(pmd_t *pmdp)
 #define IDTE_NODAT	0x1000
 #define IDTE_GUEST_ASCE	0x2000
 
-static inline void __pmdp_idte(unsigned long addr, pmd_t *pmdp,
-			       unsigned long opt, unsigned long asce,
-			       int local)
+static __always_inline void __pmdp_idte(unsigned long addr, pmd_t *pmdp,
+					unsigned long opt, unsigned long asce,
+					int local)
 {
 	unsigned long sto;
 
@@ -1461,9 +1462,9 @@ static inline void __pmdp_idte(unsigned long addr, pmd_t *pmdp,
 	}
 }
 
-static inline void __pudp_idte(unsigned long addr, pud_t *pudp,
-			       unsigned long opt, unsigned long asce,
-			       int local)
+static __always_inline void __pudp_idte(unsigned long addr, pud_t *pudp,
+					unsigned long opt, unsigned long asce,
+					int local)
 {
 	unsigned long r3o;
 
@@ -1681,12 +1682,6 @@ extern void s390_reset_cmma(struct mm_struct *mm);
 /* s390 has a private copy of get unmapped area to deal with cache synonyms */
 #define HAVE_ARCH_UNMAPPED_AREA
 #define HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
-
-/*
- * No page table caches to initialise
- */
-static inline void pgtable_cache_init(void) { }
-static inline void check_pgt_cache(void) { }
 
 #include <asm-generic/pgtable.h>
 

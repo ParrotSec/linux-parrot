@@ -20,7 +20,7 @@ actually used.
 +	if (mask & FANOTIFY_PERM_EVENTS) {
 +		pr_warn_once("%s (%d): Using fanotify permission checks may lead to deadlock; tainting kernel\n",
 +			     current->comm, current->pid);
-+		add_taint(TAINT_USER, LOCKDEP_STILL_OK);
++		add_taint(TAINT_AUX, LOCKDEP_STILL_OK);
 +	}
 +#endif
 +

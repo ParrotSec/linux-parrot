@@ -14,7 +14,7 @@ Index: debian-kernel/Makefile
 ===================================================================
 --- debian-kernel.orig/Makefile
 +++ debian-kernel/Makefile
-@@ -989,17 +989,6 @@ export mod_sign_cmd
+@@ -993,17 +993,6 @@ export mod_sign_cmd
  
  HOST_LIBELF_LIBS = $(shell pkg-config libelf --libs 2>/dev/null || echo -lelf)
  
@@ -31,8 +31,8 @@ Index: debian-kernel/Makefile
 -
  PHONY += prepare0
  
- export MODORDER := $(if $(KBUILD_EXTMOD),$(KBUILD_EXTMOD)/)modules.order
-@@ -1140,6 +1129,17 @@ uapi-asm-generic:
+ export MODORDER := $(extmod-prefix)modules.order
+@@ -1122,6 +1111,17 @@ uapi-asm-generic:
  	$(Q)$(MAKE) $(asm-generic)=arch/$(SRCARCH)/include/generated/uapi/asm \
  	generic=include/uapi/asm-generic
  

@@ -1,7 +1,7 @@
 From: Mikulas Patocka <mpatocka@redhat.com>
 Date: Mon, 13 Nov 2017 12:56:53 -0500
 Subject: [PATCH] locking/rt-mutex: fix deadlock in device mapper / block-IO
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 When some block device driver creates a bio and submits it to another
 block device driver, the bio is added to current->bio_list (in order to
@@ -13,7 +13,7 @@ is called when device mapper driver blocks. It redirects bios queued on
 current->bio_list to helper workqueues, so that these bios can proceed
 even if the driver is blocked.
 
-The problem with CONFIG_PREEMPT_RT_FULL is that when the device mapper
+The problem with CONFIG_PREEMPT_RT is that when the device mapper
 driver blocks, it won't call flush_current_bio_list (because
 tsk_is_pi_blocked returns true in sched_submit_work), so deadlocks in
 block device stack can happen.
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #include "rtmutex_common.h"
  
-@@ -1895,6 +1896,15 @@ rt_mutex_fastlock(struct rt_mutex *lock,
+@@ -1918,6 +1919,15 @@ rt_mutex_fastlock(struct rt_mutex *lock,
  	if (likely(rt_mutex_cmpxchg_acquire(lock, NULL, current)))
  		return 0;
  
@@ -62,7 +62,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return slowfn(lock, state, NULL, RT_MUTEX_MIN_CHAINWALK, ww_ctx);
  }
  
-@@ -1912,6 +1922,9 @@ rt_mutex_timed_fastlock(struct rt_mutex
+@@ -1935,6 +1945,9 @@ rt_mutex_timed_fastlock(struct rt_mutex
  	    likely(rt_mutex_cmpxchg_acquire(lock, NULL, current)))
  		return 0;
  

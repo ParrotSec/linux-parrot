@@ -6,7 +6,7 @@ Build-Depends: libpci-dev
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: CPU power management tools for Linux
  The cpupower command allows inspection and control of cpufreq and
- cpuidle tunables for hardware that support these features.  It
+ cpuidle tunables for hardware that supports these features.  It
  replaces "cpufreq-info" and "cpufreq-set" in cpufrequtils.
  .
  ${cpupower:Arch-Description}
@@ -17,6 +17,9 @@ Section: libs
 Architecture: linux-any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: CPU frequency and voltage scaling tools for Linux (libraries)
+ libcpupower is a library for inspecting and controlling cpufreq and
+ cpuidle tunables.
+ .
  This package contains the shared library.
 
 Package: libcpupower-dev
@@ -28,7 +31,10 @@ Provides: libcpufreq-dev
 Conflicts: libcpufreq-dev
 Replaces: libcpufreq-dev
 Description: CPU frequency and voltage scaling tools for Linux (development files)
- This package contains the 'power/cpupower' headers and library shared objects.
+ libcpupower is a library for inspecting and controlling cpufreq and
+ cpuidle tunables.
+ .
+ This package is needed to compile programs against libcpupower.
 
 Package: usbip
 Build-Profiles: <!stage1 !pkg.linux.notools>
@@ -99,6 +105,8 @@ Description: Support daemons for Linux running on Hyper-V
 #Description: Runtime locking correctness validator (shared library)
 # liblockdep is a library for programs that use the pthreads API, which can
 # be used to detect actual and potential deadlocks and other locking bugs.
+# .
+# This package contains the shared library.
 #
 #Package: liblockdep-dev
 #Build-Profiles: <!stage1 !pkg.linux.notools>
@@ -109,6 +117,8 @@ Description: Support daemons for Linux running on Hyper-V
 #Description: Runtime locking correctness validator (development files)
 # liblockdep is a library for programs that use the pthreads API, which can
 # be used to detect actual and potential deadlocks and other locking bugs.
+# .
+# This package is needed to compile programs against liblockdep.
 
 Package: libbpf0
 Build-Profiles: <!stage1 !pkg.linux.notools>
@@ -119,6 +129,8 @@ Multi-Arch: same
 Description: eBPF helper library (shared library)
  libbpf is a library for loading eBPF programs and reading and
  manipulating eBPF objects from user-space.
+ .
+ This package contains the shared library.
 
 Package: libbpf-dev
 Build-Profiles: <!stage1 !pkg.linux.notools>
@@ -129,3 +141,41 @@ Multi-Arch: same
 Description: eBPF helper library (development files)
  libbpf is a library for loading eBPF programs and reading and
  manipulating eBPF objects from user-space.
+ .
+ This package is needed to compile programs against libbpf.
+
+Package: libtraceevent1
+Build-Profiles: <!stage1 !pkg.linux.notools>
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Section: libs
+Multi-Arch: same
+Description: Linux kernel trace event library (shared library)
+ The libtraceevent library provides APIs to access kernel tracepoint events,
+ located in the tracefs file system under the events directory.
+ .
+ This package contains the shared library.
+
+Package: libtraceevent-dev
+Build-Profiles: <!stage1 !pkg.linux.notools>
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libtraceevent1 (= ${binary:Version})
+Section: libdevel
+Multi-Arch: same
+Description: Linux kernel trace event library (development files)
+ The libtraceevent library provides APIs to access kernel tracepoint events,
+ located in the tracefs file system under the events directory.
+ .
+ This package is needed to compile programs against libtraceevent1.
+
+Package: libtraceevent1-plugin
+Build-Profiles: <!stage1 !pkg.linux.notools>
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libtraceevent1 (= ${binary:Version})
+Section: libs
+Multi-Arch: same
+Description: Linux kernel trace event library (plugins)
+ The libtraceevent library provides APIs to access kernel tracepoint events,
+ located in the tracefs file system under the events directory.
+ .
+ This package provides the plugins needed by the programs using libtraceevent1.

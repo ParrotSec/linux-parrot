@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Aug 2013 18:21:04 +0200
 Subject: ptrace: fix ptrace vs tasklist_lock race
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 As explained by Alexander Fyodorov <halcy@yandex.ru>:
 
@@ -31,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -103,12 +103,8 @@ struct task_group;
+@@ -107,12 +107,8 @@ struct task_group;
  					 __TASK_TRACED | EXIT_DEAD | EXIT_ZOMBIE | \
  					 TASK_PARKED)
  
@@ -44,7 +44,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #define task_contributes_to_load(task)	((task->state & TASK_UNINTERRUPTIBLE) != 0 && \
  					 (task->flags & PF_FROZEN) == 0 && \
  					 (task->state & TASK_NOLOAD) == 0)
-@@ -1731,6 +1727,51 @@ static inline int test_tsk_need_resched(
+@@ -1772,6 +1768,51 @@ static inline int test_tsk_need_resched(
  	return unlikely(test_tsk_thread_flag(tsk,TIF_NEED_RESCHED));
  }
  
@@ -52,7 +52,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +{
 +	if (task->state & (__TASK_STOPPED | __TASK_TRACED))
 +		return true;
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	if (task->saved_state & (__TASK_STOPPED | __TASK_TRACED))
 +		return true;
 +#endif
@@ -63,7 +63,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +{
 +	bool traced_stopped;
 +
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	unsigned long flags;
 +
 +	raw_spin_lock_irqsave(&task->pi_lock, flags);
@@ -81,7 +81,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +
 +	if (task->state & __TASK_TRACED)
 +		return true;
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	/* in case the task is sleeping on tasklist_lock */
 +	raw_spin_lock_irq(&task->pi_lock);
 +	if (task->state & __TASK_TRACED)
@@ -98,7 +98,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * explicit rescheduling in places that are safe. The return
 --- a/kernel/ptrace.c
 +++ b/kernel/ptrace.c
-@@ -175,7 +175,14 @@ static bool ptrace_freeze_traced(struct
+@@ -180,7 +180,14 @@ static bool ptrace_freeze_traced(struct
  
  	spin_lock_irq(&task->sighand->siglock);
  	if (task_is_traced(task) && !__fatal_signal_pending(task)) {
@@ -116,7 +116,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	spin_unlock_irq(&task->sighand->siglock);
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1395,6 +1395,18 @@ int migrate_swap(struct task_struct *cur
+@@ -1899,6 +1899,18 @@ int migrate_swap(struct task_struct *cur
  }
  #endif /* CONFIG_NUMA_BALANCING */
  
@@ -135,7 +135,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * wait_task_inactive - wait for a thread to unschedule.
   *
-@@ -1439,7 +1451,7 @@ unsigned long wait_task_inactive(struct
+@@ -1943,7 +1955,7 @@ unsigned long wait_task_inactive(struct
  		 * is actually now running somewhere else!
  		 */
  		while (task_running(rq, p)) {
@@ -144,7 +144,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				return 0;
  			cpu_relax();
  		}
-@@ -1454,7 +1466,8 @@ unsigned long wait_task_inactive(struct
+@@ -1958,7 +1970,8 @@ unsigned long wait_task_inactive(struct
  		running = task_running(rq, p);
  		queued = task_on_rq_queued(p);
  		ncsw = 0;

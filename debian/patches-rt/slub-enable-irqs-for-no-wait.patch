@@ -1,7 +1,7 @@
 Subject: slub: Enable irqs for __GFP_WAIT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 09 Jan 2013 12:08:15 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 SYSTEM_RUNNING might be too late for enabling interrupts. Allocations
 with GFP_WAIT can happen before that. So use this as an indicator.
@@ -13,9 +13,9 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -1621,10 +1621,18 @@ static struct page *allocate_slab(struct
+@@ -1627,10 +1627,18 @@ static struct page *allocate_slab(struct
  	void *start, *p, *next;
- 	int idx, order;
+ 	int idx;
  	bool shuffle;
 +	bool enableirqs = false;
  
@@ -24,7 +24,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	if (gfpflags_allow_blocking(flags))
 +		enableirqs = true;
 +
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	if (system_state > SYSTEM_BOOTING)
 +		enableirqs = true;
 +#endif
@@ -32,7 +32,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		local_irq_enable();
  
  	flags |= s->allocflags;
-@@ -1684,7 +1692,7 @@ static struct page *allocate_slab(struct
+@@ -1689,7 +1697,7 @@ static struct page *allocate_slab(struct
  	page->frozen = 1;
  
  out:

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 20 Oct 2017 11:29:53 +0200
 Subject: [PATCH] fs/dcache: disable preemption on i_dir_seq's write side
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 i_dir_seq is an opencoded seqcounter. Based on the code it looks like we
 could have two writers in parallel despite the fact that the d_lock is
@@ -18,13 +18,12 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  fs/dcache.c        |   12 +++++++-----
  fs/inode.c         |    2 +-
- fs/libfs.c         |    6 ++++--
  include/linux/fs.h |    2 +-
- 4 files changed, 13 insertions(+), 9 deletions(-)
+ 3 files changed, 9 insertions(+), 7 deletions(-)
 
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2418,9 +2418,10 @@ EXPORT_SYMBOL(d_rehash);
+@@ -2482,9 +2482,10 @@ EXPORT_SYMBOL(d_rehash);
  static inline unsigned start_dir_add(struct inode *dir)
  {
  
@@ -37,7 +36,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			return n;
  		cpu_relax();
  	}
-@@ -2428,7 +2429,8 @@ static inline unsigned start_dir_add(str
+@@ -2492,7 +2493,8 @@ static inline unsigned start_dir_add(str
  
  static inline void end_dir_add(struct inode *dir, unsigned n)
  {
@@ -47,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static void d_wait_lookup(struct dentry *dentry)
-@@ -2461,7 +2463,7 @@ struct dentry *d_alloc_parallel(struct d
+@@ -2525,7 +2527,7 @@ struct dentry *d_alloc_parallel(struct d
  
  retry:
  	rcu_read_lock();
@@ -56,7 +55,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	r_seq = read_seqbegin(&rename_lock);
  	dentry = __d_lookup_rcu(parent, name, &d_seq);
  	if (unlikely(dentry)) {
-@@ -2489,7 +2491,7 @@ struct dentry *d_alloc_parallel(struct d
+@@ -2553,7 +2555,7 @@ struct dentry *d_alloc_parallel(struct d
  	}
  
  	hlist_bl_lock(b);
@@ -76,39 +75,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	inode->i_rdev = 0;
  	inode->dirtied_when = 0;
  
---- a/fs/libfs.c
-+++ b/fs/libfs.c
-@@ -91,7 +91,7 @@ static struct dentry *next_positive(stru
- 				    struct list_head *from,
- 				    int count)
- {
--	unsigned *seq = &parent->d_inode->i_dir_seq, n;
-+	unsigned *seq = &parent->d_inode->__i_dir_seq, n;
- 	struct dentry *res;
- 	struct list_head *p;
- 	bool skipped;
-@@ -124,8 +124,9 @@ static struct dentry *next_positive(stru
- static void move_cursor(struct dentry *cursor, struct list_head *after)
- {
- 	struct dentry *parent = cursor->d_parent;
--	unsigned n, *seq = &parent->d_inode->i_dir_seq;
-+	unsigned n, *seq = &parent->d_inode->__i_dir_seq;
- 	spin_lock(&parent->d_lock);
-+	preempt_disable_rt();
- 	for (;;) {
- 		n = *seq;
- 		if (!(n & 1) && cmpxchg(seq, n, n + 1) == n)
-@@ -138,6 +139,7 @@ static void move_cursor(struct dentry *c
- 	else
- 		list_add_tail(&cursor->d_child, &parent->d_subdirs);
- 	smp_store_release(seq, n + 2);
-+	preempt_enable_rt();
- 	spin_unlock(&parent->d_lock);
- }
- 
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -709,7 +709,7 @@ struct inode {
+@@ -716,7 +716,7 @@ struct inode {
  		struct block_device	*i_bdev;
  		struct cdev		*i_cdev;
  		char			*i_link;

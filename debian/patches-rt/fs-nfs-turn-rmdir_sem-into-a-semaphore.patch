@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 15 Sep 2016 10:51:27 +0200
 Subject: [PATCH] fs/nfs: turn rmdir_sem into a semaphore
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 The RW semaphore had a reader side which used the _non_owner version
 because it most likely took the reader lock in one thread and released it
@@ -22,11 +22,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/fs/nfs/dir.c
 +++ b/fs/nfs/dir.c
-@@ -1812,7 +1812,11 @@ int nfs_rmdir(struct inode *dir, struct
+@@ -1825,7 +1825,11 @@ int nfs_rmdir(struct inode *dir, struct
  
  	trace_nfs_rmdir_enter(dir, dentry);
  	if (d_really_is_positive(dentry)) {
-+#ifdef CONFIG_PREEMPT_RT_BASE
++#ifdef CONFIG_PREEMPT_RT
 +		down(&NFS_I(d_inode(dentry))->rmdir_sem);
 +#else
  		down_write(&NFS_I(d_inode(dentry))->rmdir_sem);
@@ -34,11 +34,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		error = NFS_PROTO(dir)->rmdir(dir, &dentry->d_name);
  		/* Ensure the VFS deletes this inode */
  		switch (error) {
-@@ -1822,7 +1826,11 @@ int nfs_rmdir(struct inode *dir, struct
+@@ -1835,7 +1839,11 @@ int nfs_rmdir(struct inode *dir, struct
  		case -ENOENT:
  			nfs_dentry_handle_enoent(dentry);
  		}
-+#ifdef CONFIG_PREEMPT_RT_BASE
++#ifdef CONFIG_PREEMPT_RT
 +		up(&NFS_I(d_inode(dentry))->rmdir_sem);
 +#else
  		up_write(&NFS_I(d_inode(dentry))->rmdir_sem);
@@ -48,11 +48,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	trace_nfs_rmdir_exit(dir, dentry, error);
 --- a/fs/nfs/inode.c
 +++ b/fs/nfs/inode.c
-@@ -2090,7 +2090,11 @@ static void init_once(void *foo)
+@@ -2105,7 +2105,11 @@ static void init_once(void *foo)
  	atomic_long_set(&nfsi->nrequests, 0);
  	atomic_long_set(&nfsi->commit_info.ncommit, 0);
  	atomic_set(&nfsi->commit_info.rpcs_out, 0);
-+#ifdef CONFIG_PREEMPT_RT_BASE
++#ifdef CONFIG_PREEMPT_RT
 +	sema_init(&nfsi->rmdir_sem, 1);
 +#else
  	init_rwsem(&nfsi->rmdir_sem);
@@ -66,7 +66,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		rpc_restart_call_prepare(task);
  }
  
-+#ifdef CONFIG_PREEMPT_RT_BASE
++#ifdef CONFIG_PREEMPT_RT
 +static void nfs_down_anon(struct semaphore *sema)
 +{
 +	down(sema);
@@ -129,7 +129,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Readers: in-flight sillydelete RPC calls */
  	/* Writers: rmdir */
-+#ifdef CONFIG_PREEMPT_RT_BASE
++#ifdef CONFIG_PREEMPT_RT
 +	struct semaphore        rmdir_sem;
 +#else
  	struct rw_semaphore	rmdir_sem;

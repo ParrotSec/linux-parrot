@@ -6,10 +6,10 @@ flavours:
 kernel-arch: mips
 
 [build]
-image-file: vmlinux
+image-file: vmlinuz
 
 [image]
-install-stem: vmlinux
+install-stem: vmlinuz
 
 [5kc-malta_description]
 hardware: MIPS Malta
@@ -32,4 +32,6 @@ hardware: Octeon
 hardware-long: Cavium Networks Octeon
 
 [octeon_image]
+image-file: vmlinux
+install-stem: vmlinux
 configs: kernelarch-mips/config.octeon

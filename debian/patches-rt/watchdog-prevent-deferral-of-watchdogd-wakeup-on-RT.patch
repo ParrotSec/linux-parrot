@@ -1,19 +1,19 @@
 From: Julia Cartwright <julia@ni.com>
 Date: Fri, 28 Sep 2018 21:03:51 +0000
 Subject: [PATCH] watchdog: prevent deferral of watchdogd wakeup on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
-When PREEMPT_RT_FULL is enabled, all hrtimer expiry functions are
-deferred for execution into the context of ktimersoftd unless otherwise
+When PREEMPT_RT is enabled, all hrtimer expiry functions are
+deferred for execution into the context of ksoftirqd unless otherwise
 annotated.
 
 Deferring the expiry of the hrtimer used by the watchdog core, however,
 is a waste, as the callback does nothing but queue a kthread work item
 and wakeup watchdogd.
 
-It's worst then that, too: the deferral through ktimersoftd also means
+It's worst then that, too: the deferral through ksoftirqd also means
 that for correct behavior a user must adjust the scheduling parameters
-of both watchdogd _and_ ktimersoftd, which is unnecessary and has other
+of both watchdogd _and_ ksoftirqd, which is unnecessary and has other
 side effects (like causing unrelated expiry functions to execute at
 potentially elevated priority).
 
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/watchdog/watchdog_dev.c
 +++ b/drivers/watchdog/watchdog_dev.c
-@@ -147,7 +147,7 @@ static inline void watchdog_update_worke
+@@ -158,7 +158,7 @@ static inline void watchdog_update_worke
  		ktime_t t = watchdog_next_keepalive(wdd);
  
  		if (t > 0)
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	} else {
  		hrtimer_cancel(&wd_data->timer);
  	}
-@@ -166,7 +166,7 @@ static int __watchdog_ping(struct watchd
+@@ -177,7 +177,7 @@ static int __watchdog_ping(struct watchd
  	if (ktime_after(earliest_keepalive, now)) {
  		hrtimer_start(&wd_data->timer,
  			      ktime_sub(earliest_keepalive, now),
@@ -55,7 +55,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return 0;
  	}
  
-@@ -945,7 +945,7 @@ static int watchdog_cdev_register(struct
+@@ -971,7 +971,7 @@ static int watchdog_cdev_register(struct
  		return -ENODEV;
  
  	kthread_init_work(&wd_data->work, watchdog_ping_work);
@@ -64,7 +64,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	wd_data->timer.function = watchdog_timer_expired;
  
  	if (wdd->id == 0) {
-@@ -992,7 +992,7 @@ static int watchdog_cdev_register(struct
+@@ -1019,7 +1019,7 @@ static int watchdog_cdev_register(struct
  		__module_get(wdd->ops->owner);
  		kref_get(&wd_data->kref);
  		if (handle_boot_enabled)

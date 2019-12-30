@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 16 Feb 2019 09:02:00 +0100
 Subject: [PATCH] serial: 8250: export symbols which are used by symbols
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
@@ -11,7 +11,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/tty/serial/8250/8250_port.c
 +++ b/drivers/tty/serial/8250/8250_port.c
-@@ -2084,6 +2084,7 @@ void clear_ier(struct uart_8250_port *up
+@@ -2025,6 +2025,7 @@ void clear_ier(struct uart_8250_port *up
  	}
  	console_atomic_unlock(flags);
  }
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  void restore_ier(struct uart_8250_port *up)
  {
-@@ -2095,6 +2096,7 @@ void restore_ier(struct uart_8250_port *
+@@ -2036,6 +2037,7 @@ void restore_ier(struct uart_8250_port *
  		serial_port_out(port, UART_IER, atomic_read(&ier_value));
  	console_atomic_unlock(flags);
  }
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -2247,6 +2247,7 @@ int is_console_locked(void)
+@@ -2257,6 +2257,7 @@ int is_console_locked(void)
  {
  	return console_locked;
  }

@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-loongson-3-dbg linux-image-5.3.0-3parrot4-loongson-3-dbg 5.2+107 linux-image-loongson-3-dbg
+dir_to_symlink /usr/share/doc/linux-image-loongson-3-dbg linux-image-5.4.0-1parrot1-loongson-3-dbg 5.2+107 linux-image-loongson-3-dbg

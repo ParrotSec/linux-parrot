@@ -75,7 +75,8 @@ bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
-bugfix/arm64/arm64-kconfig-make-config_compat_vdso-a-proper-kconf.patch
+bugfix/ppc64el/libbpf-fix-readelf-output-parsing-on-powerpc-with-re.patch
+bugfix/arm/ARM-dts-bcm283x-Fix-critical-trip-point.patch
 
 # Arch features
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
@@ -90,43 +91,12 @@ debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
 
 # Miscellaneous features
-features/all/random-try-to-actively-add-entropy-rather-than-passi.patch
 
-# Lockdown (formerly 'securelevel') patchset
-features/all/lockdown/0001-Add-the-ability-to-lock-down-access-to-the-running-k.patch
-features/all/lockdown/0002-Add-a-SysRq-option-to-lift-kernel-lockdown.patch
-features/all/lockdown/0003-ima-require-secure_boot-rules-in-lockdown-mode.patch
-features/all/lockdown/0004-Enforce-module-signatures-if-the-kernel-is-locked-do.patch
-features/all/lockdown/0005-Restrict-dev-mem-kmem-port-when-the-kernel-is-locked.patch
-features/all/lockdown/0006-kexec_load-Disable-at-runtime-if-the-kernel-is-locke.patch
-features/all/lockdown/0007-Copy-secure_boot-flag-in-boot-params-across-kexec-re.patch
-features/all/lockdown/0008-kexec_file-split-KEXEC_VERIFY_SIG-into-KEXEC_SIG-and.patch
-features/all/lockdown/0009-kexec_file-Restrict-at-runtime-if-the-kernel-is-lock.patch
-features/all/lockdown/0010-hibernate-Disable-when-the-kernel-is-locked-down.patch
-features/all/lockdown/0011-uswsusp-Disable-when-the-kernel-is-locked-down.patch
-features/all/lockdown/0012-PCI-Lock-down-BAR-access-when-the-kernel-is-locked-d.patch
-features/all/lockdown/0013-x86-Lock-down-IO-port-access-when-the-kernel-is-lock.patch
-features/all/lockdown/0014-x86-msr-Restrict-MSR-access-when-the-kernel-is-locke.patch
-features/all/lockdown/0015-ACPI-Limit-access-to-custom_method-when-the-kernel-i.patch
-features/all/lockdown/0016-acpi-Ignore-acpi_rsdp-kernel-param-when-the-kernel-h.patch
-features/all/lockdown/0017-acpi-Disable-ACPI-table-override-if-the-kernel-is-lo.patch
-features/all/lockdown/0018-acpi-Disable-APEI-error-injection-if-the-kernel-is-l.patch
-features/all/lockdown/0019-Prohibit-PCMCIA-CIS-storage-when-the-kernel-is-locke.patch
-features/all/lockdown/0020-Lock-down-TIOCSSERIAL.patch
-features/all/lockdown/0021-Lock-down-module-params-that-specify-hardware-parame.patch
-features/all/lockdown/0022-x86-mmiotrace-Lock-down-the-testmmiotrace-module.patch
-features/all/lockdown/0023-Lock-down-proc-kcore.patch
-features/all/lockdown/0024-Lock-down-kprobes.patch
-features/all/lockdown/0025-bpf-Restrict-kernel-image-access-functions-when-the-.patch
-features/all/lockdown/0026-Lock-down-perf.patch
-features/all/lockdown/0027-debugfs-Restrict-debugfs-when-the-kernel-is-locked-d.patch
-features/all/lockdown/0028-efi-Add-an-EFI_SECURE_BOOT-flag-to-indicate-secure-b.patch
-features/all/lockdown/0029-efi-Lock-down-the-kernel-if-booted-in-secure-boot-mo.patch
-features/all/lockdown/0030-lockdown-Print-current-comm-in-restriction-messages.patch
-features/all/lockdown/0031-tracefs-Restrict-tracefs-when-the-kernel-is-locked-d.patch
-features/all/lockdown/tracefs-fix-potential-null-dereference-in-default_fi.patch
-features/all/lockdown/0032-efi-Restrict-efivar_ssdt_load-when-the-kernel-is-loc.patch
-# some missing pieces
+# Lockdown missing pieces
+features/all/lockdown/tracing-Do-not-create-directories-if-lockdown-is-in-.patch
+features/all/lockdown/efi-add-an-efi_secure_boot-flag-to-indicate-secure-b.patch
+features/all/lockdown/efi-lock-down-the-kernel-if-booted-in-secure-boot-mo.patch
+features/all/lockdown/add-a-sysrq-option-to-lift-kernel-lockdown.patch
 features/all/lockdown/enable-cold-boot-attack-mitigation.patch
 features/all/lockdown/mtd-disable-slram-and-phram-when-locked-down.patch
 features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
@@ -163,27 +133,16 @@ bugfix/all/tools-lib-api-fs-fs.c-fix-misuse-of-strncpy.patch
 bugfix/all/usbip-fix-misuse-of-strncpy.patch
 bugfix/all/usbip-network-fix-unaligned-member-access.patch
 bugfix/all/tools-perf-pmu-events-fix-reproducibility.patch
+bugfix/all/0001-libtraceevent-Fix-header-installation.patch
+bugfix/all/0002-libtraceevent-Fix-lib-installation-with-O.patch
+bugfix/all/0003-libtraceevent-Copy-pkg-config-file-to-output-folder-.patch
+bugfix/all/0004-libtraceevent-allow-custom-libdir-path.patch
+bugfix/all/0005-libtraceevent-Add-dependency-on-libdl.patch
 
 # wireless: Disable regulatory.db direct loading (until we sort out signing)
 debian/wireless-disable-regulatory.db-direct-loading.patch
 
 # overlay: allow mounting in user namespaces
 debian/overlayfs-permit-mounts-in-userns.patch
-
-# ena: Update to 5.4-rc5
-features/all/ena/0001-net-ena-don-t-wake-up-tx-queue-when-down.patch
-features/all/ena/0002-net-ena-add-intr_moder_rx_interval-to-struct-ena_com.patch
-features/all/ena/0003-net-ena-switch-to-dim-algorithm-for-rx-adaptive-inte.patch
-features/all/ena/0004-net-ena-reimplement-set-get_coalesce.patch
-features/all/ena/0005-net-ena-enable-the-interrupt_moderation-in-driver_su.patch
-features/all/ena/0006-net-ena-remove-code-duplication-in-ena_com_update_no.patch
-features/all/ena/0007-net-ena-remove-old-adaptive-interrupt-moderation-cod.patch
-features/all/ena/0008-net-ena-remove-ena_restore_ethtool_params-and-releva.patch
-features/all/ena/0009-net-ena-remove-all-old-adaptive-rx-interrupt-moderat.patch
-features/all/ena/0010-net-ena-fix-update-of-interrupt-moderation-register.patch
-features/all/ena/0011-net-ena-fix-retrieval-of-nonadaptive-interrupt-moder.patch
-features/all/ena/0012-net-ena-fix-incorrect-update-of-intr_delay_resolutio.patch
-features/all/ena/0013-net-ena-Select-DIMLIB-for-ENA_ETHERNET.patch
-features/all/ena/0014-net-ena-clean-up-indentation-issue.patch
 
 # ABI maintenance

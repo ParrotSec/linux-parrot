@@ -35,6 +35,7 @@ CONFIG_CPU_IDLE=y
 ## file: drivers/gpu/drm/Kconfig
 ##
 CONFIG_DRM=m
+CONFIG_DRM_AMDGPU=m
 CONFIG_DRM_RADEON=m
 
 ##

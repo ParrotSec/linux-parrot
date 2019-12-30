@@ -1,7 +1,7 @@
 Subject: rt: Add local irq locks
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 20 Jun 2011 09:03:47 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Introduce locallock. For !RT this maps to preempt_disable()/
 local_irq_disable() so there is not much that changes. For RT this will
@@ -13,20 +13,20 @@ is held and the owner is preempted.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- include/linux/locallock.h |  271 ++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/locallock.h |  281 ++++++++++++++++++++++++++++++++++++++++++++++
  include/linux/percpu.h    |   29 ++++
- 2 files changed, 300 insertions(+)
+ 2 files changed, 310 insertions(+)
 
 --- /dev/null
 +++ b/include/linux/locallock.h
-@@ -0,0 +1,271 @@
+@@ -0,0 +1,281 @@
 +#ifndef _LINUX_LOCALLOCK_H
 +#define _LINUX_LOCALLOCK_H
 +
 +#include <linux/percpu.h>
 +#include <linux/spinlock.h>
 +
-+#ifdef CONFIG_PREEMPT_RT_BASE
++#ifdef CONFIG_PREEMPT_RT
 +
 +#ifdef CONFIG_DEBUG_SPINLOCK
 +# define LL_WARN(cond)	WARN_ON(cond)
@@ -244,6 +244,14 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +
 +#define put_locked_var(lvar, var)	local_unlock(lvar);
 +
++#define get_locked_ptr(lvar, var)					\
++	({								\
++		local_lock(lvar);					\
++		this_cpu_ptr(var);					\
++	})
++
++#define put_locked_ptr(lvar, var)	local_unlock(lvar);
++
 +#define local_lock_cpu(lvar)						\
 +	({								\
 +		local_lock(lvar);					\
@@ -252,7 +260,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +
 +#define local_unlock_cpu(lvar)			local_unlock(lvar)
 +
-+#else /* PREEMPT_RT_BASE */
++#else /* PREEMPT_RT */
 +
 +#define DEFINE_LOCAL_IRQ_LOCK(lvar)		__typeof__(const int) lvar
 +#define DECLARE_LOCAL_IRQ_LOCK(lvar)		extern __typeof__(const int) lvar
@@ -284,6 +292,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +
 +#define get_locked_var(lvar, var)		get_cpu_var(var)
 +#define put_locked_var(lvar, var)		put_cpu_var(var)
++#define get_locked_ptr(lvar, var)		get_cpu_ptr(var)
++#define put_locked_ptr(lvar, var)		put_cpu_ptr(var)
 +
 +#define local_lock_cpu(lvar)			get_cpu()
 +#define local_unlock_cpu(lvar)			put_cpu()
@@ -297,7 +307,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define PERCPU_MODULE_RESERVE		0
  #endif
  
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +
 +#define get_local_var(var) (*({	\
 +	migrate_disable();	\

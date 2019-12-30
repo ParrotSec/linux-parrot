@@ -2,43 +2,70 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 10 Apr 2019 11:01:37 +0200
 Subject: [PATCH] drm/i915: Don't disable interrupts independently of the
  lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
-The locks (timeline->lock and rq->lock) need to be taken with disabled
-interrupts. This is done in __retire_engine_request() by disabling the
+The locks (active.lock and rq->lock) need to be taken with disabled
+interrupts. This is done in i915_request_retire() by disabling the
 interrupts independently of the locks itself.
 While local_irq_disable()+spin_lock() equals spin_lock_irq() on vanilla
-it does not on RT. Also, it is not obvious if there is a special reason
-to why the interrupts are disabled independently of the lock.
+it does not on PREEMPT_RT.
+Chris Wilson confirmed that local_irq_disable() was just introduced as
+an optimisation to avoid enabling/disabling interrupts during
+lock/unlock combo.
 
 Enable/disable interrupts as part of the locking instruction.
 
+Cc: Chris Wilson <chris@chris-wilson.co.uk>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/gpu/drm/i915/i915_request.c |    8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/gpu/drm/i915/i915_request.c |   12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
 --- a/drivers/gpu/drm/i915/i915_request.c
 +++ b/drivers/gpu/drm/i915/i915_request.c
-@@ -202,9 +202,7 @@ static void __retire_engine_request(stru
+@@ -205,14 +205,14 @@ static void remove_from_engine(struct i9
+ 	 * check that the rq still belongs to the newly locked engine.
+ 	 */
+ 	locked = READ_ONCE(rq->engine);
+-	spin_lock(&locked->active.lock);
++	spin_lock_irq(&locked->active.lock);
+ 	while (unlikely(locked != (engine = READ_ONCE(rq->engine)))) {
+ 		spin_unlock(&locked->active.lock);
+ 		spin_lock(&engine->active.lock);
+ 		locked = engine;
+ 	}
+ 	list_del(&rq->sched.link);
+-	spin_unlock(&locked->active.lock);
++	spin_unlock_irq(&locked->active.lock);
+ }
  
- 	GEM_BUG_ON(!i915_request_completed(rq));
+ static bool i915_request_retire(struct i915_request *rq)
+@@ -272,8 +272,6 @@ static bool i915_request_retire(struct i
+ 		active->retire(active, rq);
+ 	}
  
 -	local_irq_disable();
 -
--	spin_lock(&engine->timeline.lock);
-+	spin_lock_irq(&engine->timeline.lock);
- 	GEM_BUG_ON(!list_is_first(&rq->link, &engine->timeline.requests));
- 	list_del_init(&rq->link);
- 	spin_unlock(&engine->timeline.lock);
-@@ -219,9 +217,7 @@ static void __retire_engine_request(stru
- 		GEM_BUG_ON(!atomic_read(&rq->i915->gt_pm.rps.num_waiters));
- 		atomic_dec(&rq->i915->gt_pm.rps.num_waiters);
+ 	/*
+ 	 * We only loosely track inflight requests across preemption,
+ 	 * and so we may find ourselves attempting to retire a _completed_
+@@ -282,7 +280,7 @@ static bool i915_request_retire(struct i
+ 	 */
+ 	remove_from_engine(rq);
+ 
+-	spin_lock(&rq->lock);
++	spin_lock_irq(&rq->lock);
+ 	i915_request_mark_complete(rq);
+ 	if (!i915_request_signaled(rq))
+ 		dma_fence_signal_locked(&rq->fence);
+@@ -297,9 +295,7 @@ static bool i915_request_retire(struct i
+ 		__notify_execute_cb(rq);
  	}
+ 	GEM_BUG_ON(!list_empty(&rq->execute_cb));
 -	spin_unlock(&rq->lock);
 -
 -	local_irq_enable();
 +	spin_unlock_irq(&rq->lock);
  
- 	/*
- 	 * The backing object for the context is done after switching to the
+ 	remove_from_client(rq);
+ 	list_del(&rq->link);

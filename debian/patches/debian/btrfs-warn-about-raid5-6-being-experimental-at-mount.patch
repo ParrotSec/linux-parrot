@@ -27,7 +27,7 @@ Signed-off-by: Adam Borowski <kilobyte@angband.pl>
 +	    BTRFS_BLOCK_GROUP_RAID56_MASK) {
 +		btrfs_alert(fs_info,
 +		"btrfs RAID5/6 is EXPERIMENTAL and has known data-loss bugs");
-+		add_taint(TAINT_USER, LOCKDEP_STILL_OK);
++		add_taint(TAINT_AUX, LOCKDEP_STILL_OK);
 +	}
 +
  	/*

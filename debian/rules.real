@@ -69,7 +69,8 @@ build-arch-arch: \
 	$(call if_package, linux-cpupower,               build-cpupower) \
 	$(call if_package, liblockdep-dev,               build-liblockdep) \
 	$(call if_package, libbpf-dev,                   build-libbpf) \
-	$(call if_package, hyperv-daemons,               build-hyperv-daemons)
+	$(call if_package, hyperv-daemons,               build-hyperv-daemons) \
+	$(call if_package, libtraceevent-dev,            build-libtraceevent)
 binary-arch-arch: \
 	$(call if_package, $(SOURCE_BASENAME)-config-$(VERSION), install-config_$(ARCH)) \
 	$(call if_package, linux-headers-$(ABINAME)-all, install-headers_$(ARCH)) \
@@ -83,7 +84,8 @@ binary-arch-arch: \
 	$(call if_package, linux-cpupower,               install-cpupower) \
 	$(call if_package, liblockdep-dev,               install-liblockdep) \
 	$(call if_package, libbpf-dev,                   install-libbpf) \
-	$(call if_package, hyperv-daemons,               install-hyperv-daemons)
+	$(call if_package, hyperv-daemons,               install-hyperv-daemons) \
+	$(call if_package, libtraceevent-dev,            install-libtraceevent)
 
 build-indep: \
 	$(call if_package, $(SOURCE_BASENAME)-doc-$(VERSION), $(STAMPS_DIR)/build-doc)
@@ -577,14 +579,6 @@ install-udeb_$(ARCH):
 ifneq (,$(filter linux-image-%,$(packages_enabled)))
 	dh_testdir
 	dh_prep
-ifeq ($(UDEB_UNSIGNED_TEST_BUILD),True)
-# kernel-wedge doesn't expect a -unsigned suffix; work around that for now
-	while read flavour; do \
-		rm -f debian/linux-image-$(ABINAME)-$$flavour; \
-		ln -s linux-image-$(ABINAME)-$$flavour-unsigned \
-			debian/linux-image-$(ABINAME)-$$flavour; \
-	done < <(awk '!/^#/ { print $$3 }' $(KW_CONFIG_DIR)/kernel-versions)
-endif
 	kernel-wedge install-files $(ABINAME)
 	kernel-wedge check $(PACKAGE_NAMES)
 	dh_fixperms
@@ -905,6 +899,35 @@ install-bootwrapper: build-bootwrapper
 	dh_strip
 	dh_compress
 	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+build-libtraceevent: $(STAMPS_DIR)/build-tools-headers
+	$(call make-tools,tools/lib/traceevent)
+
+install-libtraceevent: DH_OPTIONS = $(addprefix -p,$(filter libtraceevent%,$(packages_enabled)))
+install-libtraceevent: SHLIB_PACKAGE = $(filter-out libtraceevent%-plugin,$(filter-out libtraceevent-dev,$(filter libtraceevent%,$(packages_enabled))))
+install-libtraceevent: DIR = $(CURDIR)/debian/libtraceevent-tmp
+install-libtraceevent: build-libtraceevent
+	dh_testdir
+	dh_testroot
+	dh_prep
+	$(call make-tools,tools/lib/traceevent) install DESTDIR=$(DIR)
+	env -u DH_OPTIONS dh_install -p$(SHLIB_PACKAGE) --sourcedir=$(DIR) \
+		'usr/lib/*/libtraceevent.so.*'
+	dh_install --sourcedir=$(DIR)
+	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
+	dh_installdocs
+endif
+	dh_strip
+	dh_compress
+	dh_fixperms
+	env -u DH_OPTIONS dh_makeshlibs -p$(SHLIB_PACKAGE) \
+		$(SHLIB_PACKAGE)
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol

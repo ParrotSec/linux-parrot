@@ -13,9 +13,11 @@ corresponding to "on", "off", and "on,intgpu_off".
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
---- a/drivers/iommu/Kconfig
-+++ b/drivers/iommu/Kconfig
-@@ -212,14 +212,28 @@ config INTEL_IOMMU_SVM
+Index: debian-kernel/drivers/iommu/Kconfig
+===================================================================
+--- debian-kernel.orig/drivers/iommu/Kconfig
++++ debian-kernel/drivers/iommu/Kconfig
+@@ -213,14 +213,28 @@ config INTEL_IOMMU_SVM
  	  to access DMA resources through process address space by
  	  means of a Process Address Space ID (PASID).
  
@@ -51,11 +53,13 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  config INTEL_IOMMU_BROKEN_GFX_WA
  	bool "Workaround broken graphics drivers (going away soon)"
---- a/drivers/iommu/intel-iommu.c
-+++ b/drivers/iommu/intel-iommu.c
-@@ -348,18 +348,14 @@ static bool device_is_rmrr_locked(struct
- static int intel_iommu_attach_device(struct iommu_domain *domain,
- 				     struct device *dev);
+Index: debian-kernel/drivers/iommu/intel-iommu.c
+===================================================================
+--- debian-kernel.orig/drivers/iommu/intel-iommu.c
++++ debian-kernel/drivers/iommu/intel-iommu.c
+@@ -354,18 +354,14 @@ static int intel_iommu_attach_device(str
+ static phys_addr_t intel_iommu_iova_to_phys(struct iommu_domain *domain,
+ 					    dma_addr_t iova);
  
 -#ifdef CONFIG_INTEL_IOMMU_DEFAULT_ON
 -int dmar_disabled = 0;
@@ -74,7 +78,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  static int dmar_forcedac;
  static int intel_iommu_strict;
  static int intel_iommu_superpage = 1;
-@@ -436,6 +432,7 @@ static int __init intel_iommu_setup(char
+@@ -446,6 +442,7 @@ static int __init intel_iommu_setup(char
  	while (*str) {
  		if (!strncmp(str, "on", 2)) {
  			dmar_disabled = 0;

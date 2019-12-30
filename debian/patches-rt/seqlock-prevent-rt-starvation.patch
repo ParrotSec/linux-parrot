@@ -1,7 +1,7 @@
 Subject: seqlock: Prevent rt starvation
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 22 Feb 2012 12:03:30 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 If a low prio writer gets preempted while holding the seqlock write
 locked, a high prio reader spins forever on RT.
@@ -67,7 +67,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /*
   * Read side functions for starting and finalizing a read side section.
   */
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  static inline unsigned read_seqbegin(const seqlock_t *sl)
  {
  	return read_seqcount_begin(&sl->seqcount);

@@ -1,5 +1,5 @@
 #include <mtd-modules>
-m25p80
+spi-nor
 cfi_probe
 gen_probe
 jedec_probe

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 14:35:49 +0200
 Subject: [PATCH] fs/dcache: use swait_queue instead of waitqueue
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 __d_lookup_done() invokes wake_up_all() while holding a hlist_bl_lock()
 which disables preemption. As a workaround convert it to swait.
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/fs/afs/dir_silly.c
 +++ b/fs/afs/dir_silly.c
-@@ -207,7 +207,7 @@ int afs_silly_iput(struct dentry *dentry
+@@ -202,7 +202,7 @@ int afs_silly_iput(struct dentry *dentry
  	struct dentry *alias;
  	int ret;
  
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2435,21 +2435,24 @@ static inline void end_dir_add(struct in
+@@ -2499,21 +2499,24 @@ static inline void end_dir_add(struct in
  
  static void d_wait_lookup(struct dentry *dentry)
  {
@@ -82,7 +82,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	unsigned int hash = name->hash;
  	struct hlist_bl_head *b = in_lookup_hash(parent, hash);
-@@ -2564,7 +2567,7 @@ void __d_lookup_done(struct dentry *dent
+@@ -2628,7 +2631,7 @@ void __d_lookup_done(struct dentry *dent
  	hlist_bl_lock(b);
  	dentry->d_flags &= ~DCACHE_PAR_LOOKUP;
  	__hlist_bl_del(&dentry->d_u.d_in_lookup_hash);
@@ -104,7 +104,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/*
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -1643,7 +1643,7 @@ static struct dentry *__lookup_slow(cons
+@@ -1637,7 +1637,7 @@ static struct dentry *__lookup_slow(cons
  {
  	struct dentry *dentry, *old;
  	struct inode *inode = dir->d_inode;
@@ -113,7 +113,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Don't go there if it's already dead */
  	if (unlikely(IS_DEADDIR(inode)))
-@@ -3133,7 +3133,7 @@ static int lookup_open(struct nameidata
+@@ -3125,7 +3125,7 @@ static int lookup_open(struct nameidata
  	struct dentry *dentry;
  	int error, create_error = 0;
  	umode_t mode = op->mode;
@@ -124,7 +124,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return -ENOENT;
 --- a/fs/nfs/dir.c
 +++ b/fs/nfs/dir.c
-@@ -441,7 +441,7 @@ static
+@@ -445,7 +445,7 @@ static
  void nfs_prime_dcache(struct dentry *parent, struct nfs_entry *entry)
  {
  	struct qstr filename = QSTR_INIT(entry->name, entry->len);
@@ -133,7 +133,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct dentry *dentry;
  	struct dentry *alias;
  	struct inode *dir = d_inode(parent);
-@@ -1492,7 +1492,7 @@ int nfs_atomic_open(struct inode *dir, s
+@@ -1496,7 +1496,7 @@ int nfs_atomic_open(struct inode *dir, s
  		    struct file *file, unsigned open_flags,
  		    umode_t mode)
  {
@@ -164,7 +164,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	spin_lock(&dentry->d_lock);
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
-@@ -1892,7 +1892,7 @@ bool proc_fill_cache(struct file *file,
+@@ -1891,7 +1891,7 @@ bool proc_fill_cache(struct file *file,
  
  	child = d_hash_and_lookup(dir, &qname);
  	if (!child) {
@@ -175,7 +175,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			goto end_instantiate;
 --- a/fs/proc/proc_sysctl.c
 +++ b/fs/proc/proc_sysctl.c
-@@ -698,7 +698,7 @@ static bool proc_sys_fill_cache(struct f
+@@ -702,7 +702,7 @@ static bool proc_sys_fill_cache(struct f
  
  	child = d_lookup(dir, &qname);
  	if (!child) {
@@ -217,7 +217,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	long timeout;
 --- a/kernel/sched/swait.c
 +++ b/kernel/sched/swait.c
-@@ -70,6 +70,7 @@ void swake_up_all(struct swait_queue_hea
+@@ -51,6 +51,7 @@ void swake_up_all(struct swait_queue_hea
  	struct swait_queue *curr;
  	LIST_HEAD(tmp);
  

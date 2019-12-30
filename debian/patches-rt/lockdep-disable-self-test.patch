@@ -4,7 +4,7 @@ Subject: [PATCH] lockdep: disable self-test
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 The self-test wasn't always 100% accurate for RT. We disabled a few
 tests which failed because they had a different semantic for RT. Some
@@ -18,12 +18,12 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -1268,7 +1268,7 @@ config DEBUG_ATOMIC_SLEEP
+@@ -1248,7 +1248,7 @@ config DEBUG_ATOMIC_SLEEP
  
  config DEBUG_LOCKING_API_SELFTESTS
  	bool "Locking API boot-time self-tests"
 -	depends on DEBUG_KERNEL
-+	depends on DEBUG_KERNEL && !PREEMPT_RT_FULL
++	depends on DEBUG_KERNEL && !PREEMPT_RT
  	help
  	  Say Y here if you want the kernel to run a short self-test during
  	  bootup. The self-test checks whether common types of locking bugs

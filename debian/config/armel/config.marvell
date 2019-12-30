@@ -26,6 +26,7 @@ CONFIG_VFP=y
 ##
 ## file: arch/arm/Kconfig.debug
 ##
+# CONFIG_DEBUG_WX is not set
 ## choice: Kernel low-level debugging port
 # CONFIG_DEBUG_ICEDCC is not set
 CONFIG_DEBUG_LL_UART_8250=y
@@ -344,8 +345,6 @@ CONFIG_MMC_MVSDIO=m
 ## file: drivers/mtd/Kconfig
 ##
 CONFIG_MTD=m
-CONFIG_MTD_CMDLINE_PARTS=m
-CONFIG_MTD_OF_PARTS=m
 CONFIG_MTD_BLOCK=m
 CONFIG_FTL=m
 CONFIG_NFTL=m
@@ -422,6 +421,8 @@ CONFIG_MTD_NAND_ORION=m
 ##
 ## file: drivers/mtd/parsers/Kconfig
 ##
+CONFIG_MTD_CMDLINE_PARTS=m
+CONFIG_MTD_OF_PARTS=m
 # CONFIG_MTD_AFS_PARTS is not set
 # CONFIG_MTD_REDBOOT_PARTS is not set
 
@@ -832,6 +833,11 @@ CONFIG_PACKET=m
 ## file: security/integrity/Kconfig
 ##
 # CONFIG_INTEGRITY is not set
+
+##
+## file: security/lockdown/Kconfig
+##
+# CONFIG_SECURITY_LOCKDOWN_LSM is not set
 
 ##
 ## file: sound/soc/Kconfig

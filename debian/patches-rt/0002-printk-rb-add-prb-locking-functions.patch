@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:40 +0100
 Subject: [PATCH 02/25] printk-rb: add prb locking functions
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Add processor-reentrant spin locking functions. These allow
 restricting the number of possible contexts to 2, which can simplify
@@ -68,7 +68,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#endif /*_LINUX_PRINTK_RINGBUFFER_H */
 --- a/lib/Makefile
 +++ b/lib/Makefile
-@@ -30,7 +30,7 @@ endif
+@@ -26,7 +26,7 @@ endif
  
  lib-y := ctype.o string.o vsprintf.o cmdline.o \
  	 rbtree.o radix-tree.o timerqueue.o xarray.o \

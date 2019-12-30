@@ -1,10 +1,10 @@
 From: Josh Cartwright <josh.cartwright@ni.com>
 Date: Wed, 28 Jan 2015 13:08:45 -0600
 Subject: lockdep: selftest: fix warnings due to missing PREEMPT_RT conditionals
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 "lockdep: Selftest: Only do hardirq context test for raw spinlock"
-disabled the execution of certain tests with PREEMPT_RT_FULL, but did
+disabled the execution of certain tests with PREEMPT_RT, but did
 not prevent the tests from still being defined.  This leads to warnings
 like:
 
@@ -15,7 +15,7 @@ like:
   ./linux/lib/locking-selftest.c:580:1: warning: 'irqsafe1_soft_spin_12' defined but not used [-Wunused-function]
   ...
 
-Fixed by wrapping the test definitions in #ifndef CONFIG_PREEMPT_RT_FULL
+Fixed by wrapping the test definitions in #ifndef CONFIG_PREEMPT_RT
 conditionals.
 
 
@@ -33,7 +33,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include "locking-selftest-spin-hardirq.h"
  GENERATE_PERMUTATIONS_2_EVENTS(irqsafe1_hard_spin)
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
 +
  #include "locking-selftest-rlock-hardirq.h"
  GENERATE_PERMUTATIONS_2_EVENTS(irqsafe1_hard_rlock)
@@ -47,7 +47,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #undef E1
  #undef E2
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  /*
   * Enabling hardirqs with a softirq-safe lock held:
   */
@@ -64,7 +64,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include "locking-selftest-spin-hardirq.h"
  GENERATE_PERMUTATIONS_2_EVENTS(irqsafe2B_hard_spin)
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
 +
  #include "locking-selftest-rlock-hardirq.h"
  GENERATE_PERMUTATIONS_2_EVENTS(irqsafe2B_hard_rlock)
@@ -82,7 +82,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include "locking-selftest-spin-hardirq.h"
  GENERATE_PERMUTATIONS_3_EVENTS(irqsafe3_hard_spin)
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
 +
  #include "locking-selftest-rlock-hardirq.h"
  GENERATE_PERMUTATIONS_3_EVENTS(irqsafe3_hard_rlock)
@@ -100,7 +100,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include "locking-selftest-spin-hardirq.h"
  GENERATE_PERMUTATIONS_3_EVENTS(irqsafe4_hard_spin)
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
 +
  #include "locking-selftest-rlock-hardirq.h"
  GENERATE_PERMUTATIONS_3_EVENTS(irqsafe4_hard_rlock)
@@ -115,7 +115,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #undef E2
  #undef E3
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
 +
  /*
   * read-lock / write-lock irq inversion.
@@ -126,7 +126,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 +#endif
 +
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
 +
  /*
   * read-lock / write-lock recursion that is actually safe.

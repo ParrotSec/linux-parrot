@@ -381,27 +381,28 @@ static void gfs2_size_hint(struct file *filep, loff_t offset, size_t size)
 /**
  * gfs2_allocate_page_backing - Allocate blocks for a write fault
  * @page: The (locked) page to allocate backing for
+ * @length: Size of the allocation
  *
  * We try to allocate all the blocks required for the page in one go.  This
  * might fail for various reasons, so we keep trying until all the blocks to
  * back this page are allocated.  If some of the blocks are already allocated,
  * that is ok too.
  */
-static int gfs2_allocate_page_backing(struct page *page)
+static int gfs2_allocate_page_backing(struct page *page, unsigned int length)
 {
 	u64 pos = page_offset(page);
-	u64 size = PAGE_SIZE;
 
 	do {
 		struct iomap iomap = { };
 
-		if (gfs2_iomap_get_alloc(page->mapping->host, pos, 1, &iomap))
+		if (gfs2_iomap_get_alloc(page->mapping->host, pos, length, &iomap))
 			return -EIO;
 
-		iomap.length = min(iomap.length, size);
-		size -= iomap.length;
+		if (length < iomap.length)
+			iomap.length = length;
+		length -= iomap.length;
 		pos += iomap.length;
-	} while (size > 0);
+	} while (length > 0);
 
 	return 0;
 }
@@ -501,7 +502,7 @@ static vm_fault_t gfs2_page_mkwrite(struct vm_fault *vmf)
 	if (gfs2_is_stuffed(ip))
 		ret = gfs2_unstuff_dinode(ip, page);
 	if (ret == 0)
-		ret = gfs2_allocate_page_backing(page);
+		ret = gfs2_allocate_page_backing(page, PAGE_SIZE);
 
 out_trans_end:
 	if (ret)
@@ -1049,7 +1050,7 @@ static long __gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t 
 			rblocks += data_blocks ? data_blocks : 1;
 
 		error = gfs2_trans_begin(sdp, rblocks,
-					 PAGE_SIZE/sdp->sd_sb.sb_bsize);
+					 PAGE_SIZE >> inode->i_blkbits);
 		if (error)
 			goto out_trans_fail;
 
@@ -1065,11 +1066,10 @@ static long __gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t 
 		gfs2_quota_unlock(ip);
 	}
 
-	if (!(mode & FALLOC_FL_KEEP_SIZE) && (pos + count) > inode->i_size) {
+	if (!(mode & FALLOC_FL_KEEP_SIZE) && (pos + count) > inode->i_size)
 		i_size_write(inode, pos + count);
-		file_update_time(file);
-		mark_inode_dirty(inode);
-	}
+	file_update_time(file);
+	mark_inode_dirty(inode);
 
 	if ((file->f_flags & O_DSYNC) || IS_SYNC(file->f_mapping->host))
 		return vfs_fsync_range(file, pos, pos + count - 1,

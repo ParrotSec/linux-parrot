@@ -4,7 +4,7 @@ Subject: [PATCH] crypto: limit more FPU-enabled sections
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Those crypto drivers use SSE/AVX/… for their crypto work and in order to
 do so in kernel they need to enable the "FPU" in kernel mode which
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 --- a/arch/x86/crypto/chacha_glue.c
 +++ b/arch/x86/crypto/chacha_glue.c
 @@ -127,7 +127,6 @@ static int chacha_simd_stream_xor(struct
- 				  struct chacha_ctx *ctx, u8 *iv)
+ 				  const struct chacha_ctx *ctx, const u8 *iv)
  {
  	u32 *state, state_buf[16 + 2] __aligned(8);
 -	int next_yield = 4096; /* bytes until next FPU yield */
@@ -79,7 +79,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * Use fpregs_lock() while editing CPU's FPU registers or fpu->state.
 --- a/arch/x86/kernel/fpu/core.c
 +++ b/arch/x86/kernel/fpu/core.c
-@@ -134,6 +134,18 @@ void kernel_fpu_end(void)
+@@ -113,6 +113,18 @@ void kernel_fpu_end(void)
  }
  EXPORT_SYMBOL_GPL(kernel_fpu_end);
  

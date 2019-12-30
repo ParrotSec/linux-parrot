@@ -1,0 +1,71 @@
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Date: Sat, 7 Dec 2019 11:14:40 +0000
+Subject: [PATCH 4/5] libtraceevent: Allow custom libdir path
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c09982f8e2bae80a66232630ec4ba50afacea486
+
+When I use prefix=/usr and try to install libtraceevent in my laptop it
+tries to install in /usr/lib64. I am not having any folder as /usr/lib64
+and also the debian policy doesnot allow installing in /usr/lib64. It
+should be in /usr/lib/x86_64-linux-gnu/.
+
+Quote: No package for a 64 bit architecture may install files in
+	/usr/lib64/ or in a subdirectory of it.
+
+ref: https://www.debian.org/doc/debian-policy/ch-opersys.html
+
+Make it more flexible by allowing to mention libdir_relative while
+installing so that distros can mention the path according to their
+policy or use the default one.
+
+Signed-off-by: Sudipm Mukherjee <sudipm.mukherjee@gmail.com>
+Reviewed-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+Cc: Sudipm Mukherjee <sudipm.mukherjee@gmail.com>
+Cc: linux-trace-devel@vger.kernel.org
+Link: http://lore.kernel.org/lkml/20191207111440.6574-1-sudipm.mukherjee@gmail.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ tools/lib/traceevent/Makefile         | 5 +++--
+ tools/lib/traceevent/plugins/Makefile | 5 +++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/tools/lib/traceevent/Makefile b/tools/lib/traceevent/Makefile
+index c5a03356a999..c874c017c636 100644
+--- a/tools/lib/traceevent/Makefile
++++ b/tools/lib/traceevent/Makefile
+@@ -39,11 +39,12 @@ DESTDIR_SQ = '$(subst ','\'',$(DESTDIR))'
+ 
+ LP64 := $(shell echo __LP64__ | ${CC} ${CFLAGS} -E -x c - | tail -n 1)
+ ifeq ($(LP64), 1)
+-  libdir_relative = lib64
++  libdir_relative_temp = lib64
+ else
+-  libdir_relative = lib
++  libdir_relative_temp = lib
+ endif
+ 
++libdir_relative ?= $(libdir_relative_temp)
+ prefix ?= /usr/local
+ libdir = $(prefix)/$(libdir_relative)
+ man_dir = $(prefix)/share/man
+diff --git a/tools/lib/traceevent/plugins/Makefile b/tools/lib/traceevent/plugins/Makefile
+index f440989fa55e..349bb81482ab 100644
+--- a/tools/lib/traceevent/plugins/Makefile
++++ b/tools/lib/traceevent/plugins/Makefile
+@@ -32,11 +32,12 @@ DESTDIR_SQ = '$(subst ','\'',$(DESTDIR))'
+ 
+ LP64 := $(shell echo __LP64__ | ${CC} ${CFLAGS} -E -x c - | tail -n 1)
+ ifeq ($(LP64), 1)
+-  libdir_relative = lib64
++  libdir_relative_tmp = lib64
+ else
+-  libdir_relative = lib
++  libdir_relative_tmp = lib
+ endif
+ 
++libdir_relative ?= $(libdir_relative_tmp)
+ prefix ?= /usr/local
+ libdir = $(prefix)/$(libdir_relative)
+ 
+-- 
+2.11.0
+

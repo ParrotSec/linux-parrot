@@ -20,10 +20,15 @@ forget to update the hardcoded values.
 Including the scripts in linux-kbuild will avoid this manual step
 altogether, and allow for the possibility of other archs to provide
 their own scripts in the future.
+---
+ arch/ia64/Makefile | 17 ++---------------
+ 1 file changed, 2 insertions(+), 15 deletions(-)
 
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+index 32240000dc0c..27c1b0bc39c1 100644
 --- a/arch/ia64/Makefile
 +++ b/arch/ia64/Makefile
-@@ -30,16 +30,7 @@ cflags-y	:= -pipe $(EXTRA) -ffixed-r13 -
+@@ -28,16 +28,7 @@ cflags-y	:= -pipe $(EXTRA) -ffixed-r13 -mfixed-range=f12-f15,f32-f127 \
  		   -falign-functions=32 -frename-registers -fno-optimize-sibling-calls
  KBUILD_CFLAGS_KERNEL := -mconstant-gp
  
@@ -39,32 +44,35 @@ their own scripts in the future.
 -endif
 +KBUILD_CPPFLAGS += -DHAVE_WORKING_TEXT_ALIGN -DHAVE_MODEL_SMALL_ATTRIBUTE -DHAVE_SERIALIZE_DIRECTIVE
  
- KBUILD_CFLAGS += $(cflags-y)
- head-y := arch/ia64/kernel/head.o
-@@ -65,7 +56,7 @@ boot := arch/ia64/hp/sim/boot
+ quiet_cmd_gzip = GZIP    $@
+ cmd_gzip = cat $(real-prereqs) | gzip -n -f -9 > $@
+@@ -57,7 +48,7 @@ drivers-$(CONFIG_OPROFILE)	+= arch/ia64/oprofile/
  
- PHONY += boot compressed check
+ PHONY += compressed check
  
 -all: compressed unwcheck
 +all: compressed
  
  compressed: vmlinux.gz
  
-@@ -74,9 +65,6 @@ vmlinuz: vmlinux.gz
- vmlinux.gz: vmlinux
- 	$(Q)$(MAKE) $(build)=$(boot) $@
+@@ -69,9 +60,6 @@ vmlinux.gz: vmlinux.bin FORCE
+ vmlinux.bin: vmlinux FORCE
+ 	$(call if_changed,objcopy)
  
 -unwcheck: vmlinux
 -	-$(Q)READELF=$(READELF) $(PYTHON) $(srctree)/arch/ia64/scripts/unwcheck.py $<
 -
  archclean:
- 	$(Q)$(MAKE) $(clean)=$(boot)
  
-@@ -92,7 +80,6 @@ define archhelp
+ archheaders:
+@@ -85,7 +73,6 @@ install: vmlinux.gz
+ define archhelp
    echo '* compressed	- Build compressed kernel image'
    echo '  install	- Install compressed kernel image'
-   echo '  boot		- Build vmlinux and bootloader for Ski simulator'
 -  echo '* unwcheck	- Check vmlinux for invalid unwind info'
  endef
  
  archprepare: make_nr_irqs_h
+-- 
+2.23.0
+

@@ -1,7 +1,7 @@
 Subject: random: Make it work on rt
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 21 Aug 2012 20:38:50 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Delegate the random insertion to the forced threaded interrupt
 handler. Store the return IP of the hard interrupt handler in the irq
@@ -11,15 +11,33 @@ entropy.
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 ---
- drivers/char/random.c   |   11 +++++------
- drivers/hv/hv.c         |    4 +++-
- drivers/hv/vmbus_drv.c  |    4 +++-
- include/linux/irqdesc.h |    1 +
- include/linux/random.h  |    2 +-
- kernel/irq/handle.c     |    8 +++++++-
- kernel/irq/manage.c     |    6 ++++++
- 7 files changed, 26 insertions(+), 10 deletions(-)
+ arch/x86/kernel/cpu/mshyperv.c |    3 ++-
+ drivers/char/random.c          |   11 +++++------
+ drivers/hv/hyperv_vmbus.h      |    1 +
+ drivers/hv/vmbus_drv.c         |    5 ++++-
+ include/linux/irqdesc.h        |    1 +
+ include/linux/random.h         |    2 +-
+ kernel/irq/handle.c            |    8 +++++++-
+ kernel/irq/manage.c            |    6 ++++++
+ 8 files changed, 27 insertions(+), 10 deletions(-)
 
+--- a/arch/x86/kernel/cpu/mshyperv.c
++++ b/arch/x86/kernel/cpu/mshyperv.c
+@@ -77,12 +77,13 @@ EXPORT_SYMBOL_GPL(hv_remove_vmbus_irq);
+ __visible void __irq_entry hv_stimer0_vector_handler(struct pt_regs *regs)
+ {
+ 	struct pt_regs *old_regs = set_irq_regs(regs);
++	u64 ip = regs ? instruction_pointer(regs) : 0;
+ 
+ 	entering_irq();
+ 	inc_irq_stat(hyperv_stimer0_count);
+ 	if (hv_stimer0_handler)
+ 		hv_stimer0_handler();
+-	add_interrupt_randomness(HYPERV_STIMER0_VECTOR, 0);
++	add_interrupt_randomness(HYPERV_STIMER0_VECTOR, 0, ip);
+ 	ack_APIC_irq();
+ 
+ 	exiting_irq();
 --- a/drivers/char/random.c
 +++ b/drivers/char/random.c
 @@ -1305,28 +1305,27 @@ static __u32 get_reg(struct fast_pool *f
@@ -56,25 +74,27 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	fast_mix(fast_pool);
  	add_interrupt_bench(cycles);
---- a/drivers/hv/hv.c
-+++ b/drivers/hv/hv.c
-@@ -97,10 +97,12 @@ int hv_post_message(union hv_connection_
- static void hv_stimer0_isr(void)
- {
- 	struct hv_per_cpu_context *hv_cpu;
-+	struct pt_regs *regs = get_irq_regs();
-+	u64 ip = regs ? instruction_pointer(regs) : 0;
+--- a/drivers/hv/hyperv_vmbus.h
++++ b/drivers/hv/hyperv_vmbus.h
+@@ -18,6 +18,7 @@
+ #include <linux/atomic.h>
+ #include <linux/hyperv.h>
+ #include <linux/interrupt.h>
++#include <linux/irq.h>
  
- 	hv_cpu = this_cpu_ptr(hv_context.cpu_context);
- 	hv_cpu->clk_evt->event_handler(hv_cpu->clk_evt);
--	add_interrupt_randomness(stimer0_vector, 0);
-+	add_interrupt_randomness(stimer0_vector, 0, ip);
- }
+ #include "hv_trace.h"
  
- static int hv_ce_set_next_event(unsigned long delta,
 --- a/drivers/hv/vmbus_drv.c
 +++ b/drivers/hv/vmbus_drv.c
-@@ -1122,6 +1122,8 @@ static void vmbus_isr(void)
+@@ -22,6 +22,7 @@
+ #include <linux/clockchips.h>
+ #include <linux/cpu.h>
+ #include <linux/sched/task_stack.h>
++#include <linux/irq.h>
+ 
+ #include <asm/mshyperv.h>
+ #include <linux/delay.h>
+@@ -1199,6 +1200,8 @@ static void vmbus_isr(void)
  	void *page_addr = hv_cpu->synic_event_page;
  	struct hv_message *msg;
  	union hv_synic_event_flags *event;
@@ -83,7 +103,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	bool handled = false;
  
  	if (unlikely(page_addr == NULL))
-@@ -1165,7 +1167,7 @@ static void vmbus_isr(void)
+@@ -1243,7 +1246,7 @@ static void vmbus_isr(void)
  			tasklet_schedule(&hv_cpu->msg_dpc);
  	}
  
@@ -104,7 +124,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	const struct cpumask	*percpu_affinity;
 --- a/include/linux/random.h
 +++ b/include/linux/random.h
-@@ -32,7 +32,7 @@ static inline void add_latent_entropy(vo
+@@ -33,7 +33,7 @@ static inline void add_latent_entropy(vo
  
  extern void add_input_randomness(unsigned int type, unsigned int code,
  				 unsigned int value) __latent_entropy;
@@ -125,7 +145,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	retval = __handle_irq_event_percpu(desc, &flags);
  
 -	add_interrupt_randomness(desc->irq_data.irq, flags);
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	desc->random_ip = ip;
 +#else
 +	add_interrupt_randomness(desc->irq_data.irq, flags, ip);
@@ -135,11 +155,11 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		note_interrupt(desc, retval);
 --- a/kernel/irq/manage.c
 +++ b/kernel/irq/manage.c
-@@ -1101,6 +1101,12 @@ static int irq_thread(void *data)
+@@ -1099,6 +1099,12 @@ static int irq_thread(void *data)
  		if (action_ret == IRQ_WAKE_THREAD)
  			irq_wake_secondary(desc, action);
  
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +		migrate_disable();
 +		add_interrupt_randomness(action->irq, 0,
 +				 desc->random_ip ^ (unsigned long) action);

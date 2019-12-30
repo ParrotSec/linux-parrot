@@ -23,6 +23,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm_runtime.h>
+#include <trace/events/spi.h>
 
 /* SPI register offsets */
 #define SPI_CR					0x0000
@@ -1182,10 +1183,8 @@ static int atmel_spi_setup(struct spi_device *spi)
 	as = spi_master_get_devdata(spi->master);
 
 	/* see notes above re chipselect */
-	if (!atmel_spi_is_v2(as)
-			&& spi->chip_select == 0
-			&& (spi->mode & SPI_CS_HIGH)) {
-		dev_dbg(&spi->dev, "setup: can't be active-high\n");
+	if (!as->use_cs_gpios && (spi->mode & SPI_CS_HIGH)) {
+		dev_warn(&spi->dev, "setup: non GPIO CS can't be active-high\n");
 		return -EINVAL;
 	}
 
@@ -1409,9 +1408,13 @@ static int atmel_spi_transfer_one_message(struct spi_master *master,
 	msg->actual_length = 0;
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+		trace_spi_transfer_start(msg, xfer);
+
 		ret = atmel_spi_one_transfer(master, msg, xfer);
 		if (ret)
 			goto msg_done;
+
+		trace_spi_transfer_stop(msg, xfer);
 	}
 
 	if (as->use_pdc)

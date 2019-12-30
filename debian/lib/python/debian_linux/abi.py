@@ -1,6 +1,6 @@
 class Symbol(object):
-    def __init__(self, name, module, version, export):
-        self.name, self.module = name, module
+    def __init__(self, name, namespace, module, version, export):
+        self.name, self.namespace, self.module = name, namespace, module
         self.version, self.export = version, export
 
     def __eq__(self, other):
@@ -11,6 +11,8 @@ class Symbol(object):
         # upgrade time, not compile time, so moving a symbol between
         # modules is not an ABI change.  Compare everything else.
         if self.name != other.name:
+            return False
+        if self.namespace != other.namespace:
             return False
         if self.version != other.version:
             return False
@@ -33,10 +35,10 @@ class Symbols(dict):
 
     def read(self, file):
         for line in file:
-            version, name, module, export = line.strip().split()
-            self[name] = Symbol(name, module, version, export)
+            version, name, namespace, module, export = line.split('\t')
+            self[name] = Symbol(name, namespace, module, version, export)
 
     def write(self, file):
         for s in sorted(self.values(), key=lambda i: i.name):
-            file.write("%s %s %s %s\n" %
-                       (s.version, s.name, s.module, s.export))
+            file.write("%s\t%s\t%s\t%s\n" %
+                       (s.version, s.name, s.namespace, s.module, s.export))

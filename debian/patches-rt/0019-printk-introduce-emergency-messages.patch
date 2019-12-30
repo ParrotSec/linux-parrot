@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:57 +0100
 Subject: [PATCH 19/25] printk: introduce emergency messages
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Console messages are generally either critical or non-critical.
 Critical messages are messages such as crashes or sysrq output.
@@ -82,7 +82,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  };
  EXPORT_SYMBOL_GPL(console_printk);
  
-@@ -488,6 +490,9 @@ static u32 log_next(u32 idx)
+@@ -498,6 +500,9 @@ static u32 log_next(u32 idx)
  	return idx + msg->len;
  }
  
@@ -92,7 +92,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /* insert record into the buffer, discard old ones, update heads */
  static int log_store(u32 caller_id, int facility, int level,
  		     enum log_flags flags, u64 ts_nsec, u16 cpu,
-@@ -1631,7 +1636,7 @@ static void printk_write_history(struct
+@@ -1641,7 +1646,7 @@ static void printk_write_history(struct
   * The console_lock must be held.
   */
  static void call_console_drivers(u64 seq, const char *ext_text, size_t ext_len,
@@ -101,7 +101,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct console *con;
  
-@@ -1651,6 +1656,18 @@ static void call_console_drivers(u64 seq
+@@ -1661,6 +1666,18 @@ static void call_console_drivers(u64 seq
  			con->wrote_history = 1;
  			con->printk_seq = seq - 1;
  		}
@@ -120,7 +120,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (!con->write)
  			continue;
  		if (!cpu_online(raw_smp_processor_id()) &&
-@@ -1770,8 +1787,12 @@ asmlinkage int vprintk_emit(int facility
+@@ -1780,8 +1797,12 @@ asmlinkage int vprintk_emit(int facility
  
  	cpu = raw_smp_processor_id();
  
@@ -135,7 +135,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* strip and flag a trailing newline */
  	if (text_len && text[text_len-1] == '\n') {
-@@ -1804,6 +1825,14 @@ asmlinkage int vprintk_emit(int facility
+@@ -1814,6 +1835,14 @@ asmlinkage int vprintk_emit(int facility
  	if (dict)
  		lflags |= LOG_NEWLINE;
  
@@ -150,7 +150,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	printed_len = log_store(caller_id, facility, level, lflags, ts_nsec, cpu,
  				dict, dictlen, text, text_len);
  
-@@ -1896,7 +1925,7 @@ static ssize_t msg_print_ext_body(char *
+@@ -1906,7 +1935,7 @@ static ssize_t msg_print_ext_body(char *
  				  char *dict, size_t dict_len,
  				  char *text, size_t text_len) { return 0; }
  static void call_console_drivers(u64 seq, const char *ext_text, size_t ext_len,
@@ -159,7 +159,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static size_t msg_print_text(const struct printk_log *msg, bool syslog,
  			     bool time, char *buf, size_t size) { return 0; }
  static bool suppress_message_printing(int level) { return false; }
-@@ -2629,7 +2658,7 @@ static int printk_kthread_func(void *dat
+@@ -2639,7 +2668,7 @@ static int printk_kthread_func(void *dat
  
  		console_lock();
  		call_console_drivers(master_seq, ext_text,
@@ -168,7 +168,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (len > 0 || ext_len > 0)
  			printk_delay(msg->level);
  		console_unlock();
-@@ -3033,6 +3062,76 @@ void kmsg_dump_rewind(struct kmsg_dumper
+@@ -3043,6 +3072,76 @@ void kmsg_dump_rewind(struct kmsg_dumper
  	logbuf_unlock_irqrestore(flags);
  }
  EXPORT_SYMBOL_GPL(kmsg_dump_rewind);

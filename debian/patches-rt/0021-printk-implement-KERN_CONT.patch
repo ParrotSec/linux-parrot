@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:59 +0100
 Subject: [PATCH 21/25] printk: implement KERN_CONT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Implement KERN_CONT based on the printing CPU rather than on the
 printing task. As long as the KERN_CONT messages are coming from the
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -1699,8 +1699,6 @@ static inline u32 printk_caller_id(void)
+@@ -1709,8 +1709,6 @@ static inline u32 printk_caller_id(void)
  		0x80000000 + raw_smp_processor_id();
  }
  
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Continuation lines are buffered, and not committed to the record buffer
   * until the line is complete, or a race forces it. The line fragments
-@@ -1711,52 +1709,55 @@ static struct cont {
+@@ -1721,52 +1719,55 @@ static struct cont {
  	char buf[LOG_LINE_MAX];
  	size_t len;			/* length == 0 means unused buffer */
  	u32 caller_id;			/* printk_caller_id() of first print */
@@ -105,7 +105,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  /* ring buffer used as memory allocator for temporary sprint buffers */
  DECLARE_STATIC_PRINTKRB(sprint_rb,
-@@ -1768,6 +1769,7 @@ asmlinkage int vprintk_emit(int facility
+@@ -1778,6 +1779,7 @@ asmlinkage int vprintk_emit(int facility
  			    const char *fmt, va_list args)
  {
  	const u32 caller_id = printk_caller_id();
@@ -113,7 +113,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	enum log_flags lflags = 0;
  	int printed_len = 0;
  	struct prb_handle h;
-@@ -1833,8 +1835,15 @@ asmlinkage int vprintk_emit(int facility
+@@ -1843,8 +1845,15 @@ asmlinkage int vprintk_emit(int facility
  	 */
  	printk_emergency(rbuf, level, ts_nsec, cpu, text, text_len);
  

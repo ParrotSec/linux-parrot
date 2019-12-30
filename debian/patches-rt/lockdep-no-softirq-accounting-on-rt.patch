@@ -1,7 +1,7 @@
 Subject: lockdep: Make it RT aware
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 18:51:23 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 teach lockdep that we don't really do softirqs on -RT.
 
@@ -33,7 +33,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  # define lockdep_softirq_exit()		do { } while (0)
  #endif
 +
-+#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_PREEMPT_RT_FULL)
++#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_PREEMPT_RT)
 +# define lockdep_softirq_enter()		\
 +do {						\
 +	current->softirq_context++;		\
@@ -52,15 +52,15 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	defined(CONFIG_PREEMPT_TRACER)
 --- a/kernel/locking/lockdep.c
 +++ b/kernel/locking/lockdep.c
-@@ -4244,6 +4244,7 @@ static void check_flags(unsigned long fl
+@@ -4410,6 +4410,7 @@ static void check_flags(unsigned long fl
  		}
  	}
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  	/*
  	 * We dont accurately track softirq state in e.g.
  	 * hardirq contexts (such as on 4KSTACKS), so only
-@@ -4258,6 +4259,7 @@ static void check_flags(unsigned long fl
+@@ -4424,6 +4425,7 @@ static void check_flags(unsigned long fl
  			DEBUG_LOCKS_WARN_ON(!current->softirqs_enabled);
  		}
  	}

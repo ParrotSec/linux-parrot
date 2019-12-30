@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed 02 Dec 2015 11:34:07 +0100
 Subject: rtmutex: trylock is okay on -RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 non-RT kernel could deadlock on rt_mutex_trylock() in softirq context. On
 -RT we don't run softirqs in IRQ context but in thread context so it is
@@ -14,15 +14,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
-@@ -1584,7 +1584,11 @@ int __sched rt_mutex_trylock(struct rt_m
- {
- 	int ret;
+@@ -1962,7 +1962,11 @@ EXPORT_SYMBOL_GPL(rt_mutex_timed_lock);
  
-+#ifdef CONFIG_PREEMPT_RT_FULL
+ int __sched __rt_mutex_trylock(struct rt_mutex *lock)
+ {
++#ifdef CONFIG_PREEMPT_RT
 +	if (WARN_ON_ONCE(in_irq() || in_nmi()))
 +#else
  	if (WARN_ON_ONCE(in_irq() || in_nmi() || in_serving_softirq()))
 +#endif
  		return 0;
  
- 	ret = rt_mutex_fasttrylock(lock, rt_mutex_slowtrylock);
+ 	return rt_mutex_fasttrylock(lock, rt_mutex_slowtrylock);

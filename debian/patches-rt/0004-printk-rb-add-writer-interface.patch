@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:42 +0100
 Subject: [PATCH 04/25] printk-rb: add writer interface
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Add the writer functions prb_reserve() and prb_commit(). These make
 use of processor-reentrant spin locks to limit the number of possible

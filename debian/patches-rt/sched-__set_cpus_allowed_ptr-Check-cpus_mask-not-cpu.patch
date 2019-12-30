@@ -1,8 +1,8 @@
 From: Scott Wood <swood@redhat.com>
 Date: Sat, 27 Jul 2019 00:56:32 -0500
-Subject: [PATCH] sched: __set_cpus_allowed_ptr: Check cpus_mask, not
+Subject: [PATCH] sched: __set_cpus_allowed_ptr(): Check cpus_mask, not
  cpus_ptr
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 This function is concerned with the long-term cpu mask, not the
 transitory mask the task might have while migrate disabled.  Before
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1126,7 +1126,7 @@ static int __set_cpus_allowed_ptr(struct
+@@ -1680,7 +1680,7 @@ static int __set_cpus_allowed_ptr(struct
  		goto out;
  	}
  
@@ -27,4 +27,4 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	if (cpumask_equal(&p->cpus_mask, new_mask))
  		goto out;
  
- 	if (!cpumask_intersects(new_mask, cpu_valid_mask)) {
+ 	dest_cpu = cpumask_any_and(cpu_valid_mask, new_mask);

@@ -1,7 +1,7 @@
 Subject: timekeeping: Split jiffies seqlock
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 14 Feb 2013 22:36:59 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Replace jiffies_lock seqlock with a simple seqcounter and a rawlock so
 it can be taken in atomic context on RT.
@@ -115,7 +115,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return period;
  }
  
-@@ -659,10 +664,10 @@ static ktime_t tick_nohz_next_event(stru
+@@ -661,10 +666,10 @@ static ktime_t tick_nohz_next_event(stru
  
  	/* Read jiffies and the time when jiffies were updated last */
  	do {
@@ -130,7 +130,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
 --- a/kernel/time/timekeeping.c
 +++ b/kernel/time/timekeeping.c
-@@ -2392,8 +2392,10 @@ EXPORT_SYMBOL(hardpps);
+@@ -2397,8 +2397,10 @@ EXPORT_SYMBOL(hardpps);
   */
  void xtime_update(unsigned long ticks)
  {

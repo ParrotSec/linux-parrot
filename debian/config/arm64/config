@@ -39,6 +39,11 @@ CONFIG_CRYPTO_AES_ARM64_CE_BLK=m
 # CONFIG_CRYPTO_AES_ARM64_NEON_BLK is not set
 
 ##
+## file: arch/arm64/Kconfig.debug
+##
+CONFIG_DEBUG_WX=y
+
+##
 ## file: arch/arm64/kvm/Kconfig
 ##
 CONFIG_VIRTUALIZATION=y
@@ -144,6 +149,11 @@ CONFIG_COMMON_CLK_HI655X=y
 CONFIG_COMMON_CLK_XGENE=y
 
 ##
+## file: drivers/clk/bcm/Kconfig
+##
+CONFIG_CLK_RASPBERRYPI=y
+
+##
 ## file: drivers/clk/hisilicon/Kconfig
 ##
 CONFIG_STUB_CLK_HI6220=y
@@ -177,6 +187,7 @@ CONFIG_CPUFREQ_DT=m
 ##
 CONFIG_ACPI_CPPC_CPUFREQ=m
 CONFIG_ARM_ARMADA_37XX_CPUFREQ=m
+CONFIG_ARM_RASPBERRYPI_CPUFREQ=m
 
 ##
 ## file: drivers/cpuidle/Kconfig.arm
@@ -350,6 +361,7 @@ CONFIG_ROCKCHIP_DW_MIPI_DSI=y
 ##
 CONFIG_DRM_SUN4I=m
 CONFIG_DRM_SUN8I_DW_HDMI=m
+CONFIG_DRM_SUN8I_MIXER=m
 
 ##
 ## file: drivers/gpu/drm/tegra/Kconfig
@@ -517,8 +529,7 @@ CONFIG_TEGRA_MC=y
 ## file: drivers/mfd/Kconfig
 ##
 CONFIG_MFD_AXP20X_RSB=m
-CONFIG_MFD_CROS_EC=y
-CONFIG_MFD_CROS_EC_CHARDEV=m
+CONFIG_MFD_CROS_EC_DEV=m
 CONFIG_MFD_HI655X_PMIC=m
 CONFIG_MFD_MAX77620=y
 CONFIG_MFD_QCOM_RPM=m
@@ -914,7 +925,10 @@ CONFIG_PINCTRL_QCOM_SSBI_PMIC=y
 ##
 ## file: drivers/platform/chrome/Kconfig
 ##
+#. Obsolete compatibility option
+# CONFIG_MFD_CROS_EC is not set
 CONFIG_CHROME_PLATFORMS=y
+CONFIG_CROS_EC=m
 CONFIG_CROS_EC_I2C=m
 CONFIG_CROS_EC_SPI=m
 CONFIG_CROS_KBD_LED_BACKLIGHT=m
@@ -1118,11 +1132,6 @@ CONFIG_QCOM_SPMI_TEMP_ALARM=m
 ## file: drivers/thermal/tegra/Kconfig
 ##
 CONFIG_TEGRA_SOCTHERM=y
-
-##
-## file: drivers/tty/serdev/Kconfig
-##
-CONFIG_SERIAL_DEV_BUS=m
 
 ##
 ## file: drivers/tty/serial/Kconfig

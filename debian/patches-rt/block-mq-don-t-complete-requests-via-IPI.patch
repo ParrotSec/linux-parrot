@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Jan 2015 15:10:08 +0100
 Subject: block/mq: don't complete requests via IPI
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 The IPI runs in hardirq context and there are sleeping locks. Assume caches are
 shared and complete them on the local CPU.
@@ -13,7 +13,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
-@@ -605,8 +605,16 @@ static void __blk_mq_complete_request(st
+@@ -612,8 +612,16 @@ static void __blk_mq_complete_request(st
  	}
  
  	cpu = get_cpu_light();
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	 * Avoid SMP function calls for completions because they acquire
 +	 * sleeping spinlocks on RT.
 +	 */
-+#ifdef CONFIG_PREEMPT_RT_FULL
++#ifdef CONFIG_PREEMPT_RT
 +	shared = true;
 +#else
  	if (!test_bit(QUEUE_FLAG_SAME_FORCE, &q->queue_flags))

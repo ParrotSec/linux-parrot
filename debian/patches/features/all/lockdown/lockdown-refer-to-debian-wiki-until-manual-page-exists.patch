@@ -10,23 +10,23 @@ doesn't even seem to have been submitted yet.  For now, refer to the
 Debian wiki.
 
 ---
---- a/security/lock_down.c
-+++ b/security/lock_down.c
-@@ -28,7 +28,7 @@ static void __init lock_kernel_down(cons
- {
- 	if (!kernel_locked_down) {
- 		kernel_locked_down = true;
--		pr_notice("Kernel is locked down from %s; see man kernel_lockdown.7\n",
-+		pr_notice("Kernel is locked down from %s; see https://wiki.debian.org/SecureBoot\n",
- 			  where);
+--- a/security/lockdown/lockdown.c
++++ b/security/lockdown/lockdown.c
+@@ -53,7 +53,7 @@ int lock_kernel_down(const char *where,
+ 		return -EPERM;
+ 
+ 	kernel_locked_down = level;
+-	pr_notice("Kernel is locked down from %s; see man kernel_lockdown.7\n",
++	pr_notice("Kernel is locked down from %s; see https://wiki.debian.org/SecureBoot\n",
+ 		  where);
+ 	return 0;
+ }
+@@ -87,7 +87,7 @@ static int lockdown_is_locked_down(enum
+ 
+ 	if (kernel_locked_down >= what) {
+ 		if (lockdown_reasons[what])
+-			pr_notice("Lockdown: %s: %s is restricted; see man kernel_lockdown.7\n",
++			pr_notice("Lockdown: %s: %s is restricted; see https://wiki.debian.org/SecureBoot\n",
+ 				  current->comm, lockdown_reasons[what]);
+ 		return -EPERM;
  	}
- }
-@@ -60,7 +60,7 @@ void __init init_lockdown(void)
- bool __kernel_is_locked_down(const char *what, bool first)
- {
- 	if (what && first && kernel_locked_down)
--		pr_notice("Lockdown: %s: %s is restricted; see man kernel_lockdown.7\n",
-+		pr_notice("Lockdown: %s: %s is restricted; see https://wiki.debian.org/SecureBoot\n",
- 			  current->comm, what);
- 	return kernel_locked_down;
- }

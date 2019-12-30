@@ -1,10 +1,10 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Aug 2019 16:38:43 +0200
 Subject: [PATCH] dma-buf: Use seqlock_t instread disabling preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 "dma reservation" disables preemption while acquiring the write access
-for "seqcount" and then may acquire a spinlock_t.
+for "seqcount".
 
 Replace the seqcount with a seqlock_t which provides seqcount like
 semantic and lock for writer.
@@ -13,15 +13,15 @@ Link: https://lkml.kernel.org/r/f410b429-db86-f81c-7c67-f563fa808b62@free.fr
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  drivers/dma-buf/dma-buf.c                        |    8 ++--
- drivers/dma-buf/reservation.c                    |   40 ++++++++---------------
+ drivers/dma-buf/dma-resv.c                       |   45 ++++++++---------------
  drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c |    6 +--
- drivers/gpu/drm/i915/i915_gem.c                  |   10 ++---
- include/linux/reservation.h                      |    4 +-
- 5 files changed, 28 insertions(+), 40 deletions(-)
+ drivers/gpu/drm/i915/gem/i915_gem_busy.c         |    6 +--
+ include/linux/dma-resv.h                         |    4 +-
+ 5 files changed, 27 insertions(+), 42 deletions(-)
 
 --- a/drivers/dma-buf/dma-buf.c
 +++ b/drivers/dma-buf/dma-buf.c
-@@ -168,7 +168,7 @@ static __poll_t dma_buf_poll(struct file
+@@ -214,7 +214,7 @@ static __poll_t dma_buf_poll(struct file
  		return 0;
  
  retry:
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	rcu_read_lock();
  
  	fobj = rcu_dereference(resv->fence);
-@@ -177,7 +177,7 @@ static __poll_t dma_buf_poll(struct file
+@@ -223,7 +223,7 @@ static __poll_t dma_buf_poll(struct file
  	else
  		shared_count = 0;
  	fence_excl = rcu_dereference(resv->fence_excl);
@@ -39,7 +39,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		rcu_read_unlock();
  		goto retry;
  	}
-@@ -1034,12 +1034,12 @@ static int dma_buf_debug_show(struct seq
+@@ -1189,12 +1189,12 @@ static int dma_buf_debug_show(struct seq
  
  		robj = buf_obj->resv;
  		while (true) {
@@ -54,28 +54,33 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				break;
  			rcu_read_unlock();
  		}
---- a/drivers/dma-buf/reservation.c
-+++ b/drivers/dma-buf/reservation.c
-@@ -110,15 +110,13 @@ int reservation_object_reserve_shared(st
- 	new->shared_count = j;
- 	new->shared_max = max;
+--- a/drivers/dma-buf/dma-resv.c
++++ b/drivers/dma-buf/dma-resv.c
+@@ -49,12 +49,6 @@
+ DEFINE_WD_CLASS(reservation_ww_class);
+ EXPORT_SYMBOL(reservation_ww_class);
  
--	preempt_disable();
--	write_seqcount_begin(&obj->seq);
-+	write_seqlock(&obj->seq);
- 	/*
- 	 * RCU_INIT_POINTER can be used here,
- 	 * seqcount provides the necessary barriers
- 	 */
- 	RCU_INIT_POINTER(obj->fence, new);
--	write_seqcount_end(&obj->seq);
--	preempt_enable();
-+	write_sequnlock(&obj->seq);
+-struct lock_class_key reservation_seqcount_class;
+-EXPORT_SYMBOL(reservation_seqcount_class);
+-
+-const char reservation_seqcount_string[] = "reservation_seqcount";
+-EXPORT_SYMBOL(reservation_seqcount_string);
+-
+ /**
+  * dma_resv_list_alloc - allocate fence list
+  * @shared_max: number of fences we need space for
+@@ -103,8 +97,7 @@ void dma_resv_init(struct dma_resv *obj)
+ {
+ 	ww_mutex_init(&obj->lock, &reservation_ww_class);
  
- 	if (!old)
- 		return 0;
-@@ -158,8 +156,7 @@ void reservation_object_add_shared_fence
- 	fobj = reservation_object_get_list(obj);
+-	__seqcount_init(&obj->seq, reservation_seqcount_string,
+-			&reservation_seqcount_class);
++	seqlock_init(&obj->seq);
+ 	RCU_INIT_POINTER(obj->fence, NULL);
+ 	RCU_INIT_POINTER(obj->fence_excl, NULL);
+ }
+@@ -234,8 +227,7 @@ void dma_resv_add_shared_fence(struct dm
+ 	fobj = dma_resv_get_list(obj);
  	count = fobj->shared_count;
  
 -	preempt_disable();
@@ -83,18 +88,18 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	write_seqlock(&obj->seq);
  
  	for (i = 0; i < count; ++i) {
- 		struct dma_fence *old_fence;
-@@ -181,8 +178,7 @@ void reservation_object_add_shared_fence
+ 
+@@ -255,8 +247,7 @@ void dma_resv_add_shared_fence(struct dm
  	/* pointer update must be visible before we extend the shared_count */
  	smp_store_mb(fobj->shared_count, count);
  
 -	write_seqcount_end(&obj->seq);
 -	preempt_enable();
 +	write_sequnlock(&obj->seq);
+ 	dma_fence_put(old);
  }
- EXPORT_SYMBOL(reservation_object_add_shared_fence);
- 
-@@ -209,14 +205,11 @@ void reservation_object_add_excl_fence(s
+ EXPORT_SYMBOL(dma_resv_add_shared_fence);
+@@ -283,14 +274,12 @@ void dma_resv_add_excl_fence(struct dma_
  	if (fence)
  		dma_fence_get(fence);
  
@@ -102,6 +107,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	write_seqcount_begin(&obj->seq);
 -	/* write_seqcount_begin provides the necessary memory barrier */
 +	write_seqlock(&obj->seq);
++	/* write_seqlock provides the necessary memory barrier */
  	RCU_INIT_POINTER(obj->fence_excl, fence);
  	if (old)
  		old->shared_count = 0;
@@ -111,23 +117,24 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* inplace update, no shared fences */
  	while (i--)
-@@ -298,13 +291,10 @@ int reservation_object_copy_fences(struc
- 	src_list = reservation_object_get_list(dst);
- 	old = reservation_object_get_excl(dst);
+@@ -368,13 +357,11 @@ int dma_resv_copy_fences(struct dma_resv
+ 	src_list = dma_resv_get_list(dst);
+ 	old = dma_resv_get_excl(dst);
  
 -	preempt_disable();
 -	write_seqcount_begin(&dst->seq);
 -	/* write_seqcount_begin provides the necessary memory barrier */
 +	write_seqlock(&dst->seq);
++	/* write_seqlock provides the necessary memory barrier */
  	RCU_INIT_POINTER(dst->fence_excl, new);
  	RCU_INIT_POINTER(dst->fence, dst_list);
 -	write_seqcount_end(&dst->seq);
 -	preempt_enable();
 +	write_sequnlock(&dst->seq);
  
- 	if (src_list)
- 		kfree_rcu(src_list, rcu);
-@@ -345,7 +335,7 @@ int reservation_object_get_fences_rcu(st
+ 	dma_resv_list_free(src_list);
+ 	dma_fence_put(old);
+@@ -414,7 +401,7 @@ int dma_resv_get_fences_rcu(struct dma_r
  		shared_count = i = 0;
  
  		rcu_read_lock();
@@ -136,7 +143,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		fence_excl = rcu_dereference(obj->fence_excl);
  		if (fence_excl && !dma_fence_get_rcu(fence_excl))
-@@ -394,7 +384,7 @@ int reservation_object_get_fences_rcu(st
+@@ -456,7 +443,7 @@ int dma_resv_get_fences_rcu(struct dma_r
  			}
  		}
  
@@ -145,7 +152,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			while (i--)
  				dma_fence_put(shared[i]);
  			dma_fence_put(fence_excl);
-@@ -443,7 +433,7 @@ long reservation_object_wait_timeout_rcu
+@@ -507,7 +494,7 @@ long dma_resv_wait_timeout_rcu(struct dm
  
  retry:
  	shared_count = 0;
@@ -154,7 +161,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	rcu_read_lock();
  	i = -1;
  
-@@ -490,7 +480,7 @@ long reservation_object_wait_timeout_rcu
+@@ -553,7 +540,7 @@ long dma_resv_wait_timeout_rcu(struct dm
  
  	rcu_read_unlock();
  	if (fence) {
@@ -163,7 +170,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			dma_fence_put(fence);
  			goto retry;
  		}
-@@ -546,7 +536,7 @@ bool reservation_object_test_signaled_rc
+@@ -607,7 +594,7 @@ bool dma_resv_test_signaled_rcu(struct d
  retry:
  	ret = true;
  	shared_count = 0;
@@ -172,7 +179,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (test_all) {
  		unsigned i;
-@@ -567,7 +557,7 @@ bool reservation_object_test_signaled_rc
+@@ -627,7 +614,7 @@ bool dma_resv_test_signaled_rcu(struct d
  				break;
  		}
  
@@ -181,7 +188,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			goto retry;
  	}
  
-@@ -580,7 +570,7 @@ bool reservation_object_test_signaled_rc
+@@ -639,7 +626,7 @@ bool dma_resv_test_signaled_rcu(struct d
  			if (ret < 0)
  				goto retry;
  
@@ -192,7 +199,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
-@@ -250,11 +250,9 @@ static int amdgpu_amdkfd_remove_eviction
+@@ -252,11 +252,9 @@ static int amdgpu_amdkfd_remove_eviction
  	new->shared_count = k;
  
  	/* Install the new fence list, seqcount provides the barriers */
@@ -206,64 +213,50 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Drop the references to the removed fences or move them to ef_list */
  	for (i = j, k = 0; i < old->shared_count; ++i) {
---- a/drivers/gpu/drm/i915/i915_gem.c
-+++ b/drivers/gpu/drm/i915/i915_gem.c
-@@ -449,7 +449,7 @@ i915_gem_object_wait_reservation(struct
- 				 unsigned int flags,
- 				 long timeout)
- {
--	unsigned int seq = __read_seqcount_begin(&resv->seq);
-+	unsigned int seq = read_seqbegin(&resv->seq);
- 	struct dma_fence *excl;
- 	bool prune_fences = false;
+--- a/drivers/gpu/drm/i915/gem/i915_gem_busy.c
++++ b/drivers/gpu/drm/i915/gem/i915_gem_busy.c
+@@ -75,7 +75,6 @@ busy_check_writer(const struct dma_fence
  
-@@ -500,9 +500,9 @@ i915_gem_object_wait_reservation(struct
- 	 * signaled and that the reservation object has not been changed (i.e.
- 	 * no new fences have been added).
- 	 */
--	if (prune_fences && !__read_seqcount_retry(&resv->seq, seq)) {
-+	if (prune_fences && !read_seqretry(&resv->seq, seq)) {
- 		if (reservation_object_trylock(resv)) {
--			if (!__read_seqcount_retry(&resv->seq, seq))
-+			if (!read_seqretry(&resv->seq, seq))
- 				reservation_object_add_excl_fence(resv, NULL);
- 			reservation_object_unlock(resv);
- 		}
-@@ -3943,7 +3943,7 @@ i915_gem_busy_ioctl(struct drm_device *d
+ 	return __busy_set_if_active(fence, __busy_write_id);
+ }
+-
+ int
+ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
+ 		    struct drm_file *file)
+@@ -110,7 +109,8 @@ i915_gem_busy_ioctl(struct drm_device *d
  	 *
  	 */
  retry:
--	seq = raw_read_seqcount(&obj->resv->seq);
-+	seq = read_seqbegin(&obj->resv->seq);
+-	seq = raw_read_seqcount(&obj->base.resv->seq);
++	/* XXX raw_read_seqcount() does not wait for the WRTIE to finish */
++	seq = read_seqbegin(&obj->base.resv->seq);
  
  	/* Translate the exclusive fence to the READ *and* WRITE engine */
- 	args->busy = busy_check_writer(rcu_dereference(obj->resv->fence_excl));
-@@ -3961,7 +3961,7 @@ i915_gem_busy_ioctl(struct drm_device *d
+ 	args->busy =
+@@ -129,7 +129,7 @@ i915_gem_busy_ioctl(struct drm_device *d
  		}
  	}
  
--	if (args->busy && read_seqcount_retry(&obj->resv->seq, seq))
-+	if (args->busy && read_seqretry(&obj->resv->seq, seq))
+-	if (args->busy && read_seqcount_retry(&obj->base.resv->seq, seq))
++	if (args->busy && read_seqretry(&obj->base.resv->seq, seq))
  		goto retry;
  
  	err = 0;
---- a/include/linux/reservation.h
-+++ b/include/linux/reservation.h
-@@ -71,7 +71,7 @@ struct reservation_object_list {
+--- a/include/linux/dma-resv.h
++++ b/include/linux/dma-resv.h
+@@ -65,13 +65,13 @@ struct dma_resv_list {
+ /**
+  * struct dma_resv - a reservation object manages fences for a buffer
+  * @lock: update side lock
+- * @seq: sequence count for managing RCU read-side synchronization
++ * @seq: sequence lock for managing RCU read-side synchronization
+  * @fence_excl: the exclusive fence, if there is one currently
+  * @fence: list of current shared fences
   */
- struct reservation_object {
+ struct dma_resv {
  	struct ww_mutex lock;
 -	seqcount_t seq;
 +	seqlock_t seq;
  
  	struct dma_fence __rcu *fence_excl;
- 	struct reservation_object_list __rcu *fence;
-@@ -90,7 +90,7 @@ reservation_object_init(struct reservati
- {
- 	ww_mutex_init(&obj->lock, &reservation_ww_class);
- 
--	__seqcount_init(&obj->seq, reservation_seqcount_string, &reservation_seqcount_class);
-+	seqlock_init(&obj->seq);
- 	RCU_INIT_POINTER(obj->fence, NULL);
- 	RCU_INIT_POINTER(obj->fence_excl, NULL);
- }
+ 	struct dma_resv_list __rcu *fence;

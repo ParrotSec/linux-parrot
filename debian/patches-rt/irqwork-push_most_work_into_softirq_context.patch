@@ -1,7 +1,7 @@
 Subject: irqwork: push most work into softirq context
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 23 Jun 2015 15:32:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Initially we defered all irqwork into softirq because we didn't want the
 latency spikes if perf or another user was busy and delayed the RT task.
@@ -45,7 +45,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static inline void irq_work_run(void) { }
  #endif
  
-+#if defined(CONFIG_IRQ_WORK) && defined(CONFIG_PREEMPT_RT_FULL)
++#if defined(CONFIG_IRQ_WORK) && defined(CONFIG_PREEMPT_RT)
 +void irq_work_tick_soft(void);
 +#else
 +static inline void irq_work_tick_soft(void) { }
@@ -67,7 +67,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static void __irq_work_queue_local(struct irq_work *work)
  {
 +	struct llist_head *list;
-+	bool lazy_work, realtime = IS_ENABLED(CONFIG_PREEMPT_RT_FULL);
++	bool lazy_work, realtime = IS_ENABLED(CONFIG_PREEMPT_RT);
 +
 +	lazy_work = work->flags & IRQ_WORK_LAZY;
 +
@@ -97,7 +97,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/* Arch remote IPI send/receive backend aren't NMI safe */
  		WARN_ON_ONCE(in_nmi());
 -		if (llist_add(&work->llnode, &per_cpu(raised_list, cpu)))
-+		if (IS_ENABLED(CONFIG_PREEMPT_RT_FULL) && !(work->flags & IRQ_WORK_HARD_IRQ))
++		if (IS_ENABLED(CONFIG_PREEMPT_RT) && !(work->flags & IRQ_WORK_HARD_IRQ))
 +			list = &per_cpu(lazy_list, cpu);
 +		else
 +			list = &per_cpu(raised_list, cpu);
@@ -122,7 +122,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct llist_node *llnode;
  	unsigned long flags;
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
 +	/*
 +	 * nort: On RT IRQ-work may run in SOFTIRQ context.
 +	 */
@@ -137,7 +137,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	irq_work_run_list(this_cpu_ptr(&raised_list));
 -	irq_work_run_list(this_cpu_ptr(&lazy_list));
-+	if (IS_ENABLED(CONFIG_PREEMPT_RT_FULL)) {
++	if (IS_ENABLED(CONFIG_PREEMPT_RT)) {
 +		/*
 +		 * NOTE: we raise softirq via IPI for safety,
 +		 * and execute in irq_work_tick() to move the
@@ -155,11 +155,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!llist_empty(raised) && !arch_irq_work_has_interrupt())
  		irq_work_run_list(raised);
 +
-+	if (!IS_ENABLED(CONFIG_PREEMPT_RT_FULL))
++	if (!IS_ENABLED(CONFIG_PREEMPT_RT))
 +		irq_work_run_list(this_cpu_ptr(&lazy_list));
 +}
 +
-+#if defined(CONFIG_IRQ_WORK) && defined(CONFIG_PREEMPT_RT_FULL)
++#if defined(CONFIG_IRQ_WORK) && defined(CONFIG_PREEMPT_RT)
 +void irq_work_tick_soft(void)
 +{
  	irq_work_run_list(this_cpu_ptr(&lazy_list));
@@ -170,7 +170,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * Synchronize against the irq_work @entry, ensures the entry is not
 --- a/kernel/rcu/tree.c
 +++ b/kernel/rcu/tree.c
-@@ -1076,6 +1076,7 @@ static int rcu_implicit_dynticks_qs(stru
+@@ -1096,6 +1096,7 @@ static int rcu_implicit_dynticks_qs(stru
  		    !rdp->rcu_iw_pending && rdp->rcu_iw_gp_seq != rnp->gp_seq &&
  		    (rnp->ffmask & rdp->grpmask)) {
  			init_irq_work(&rdp->rcu_iw, rcu_iw_handler);
@@ -200,7 +200,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
 --- a/kernel/time/timer.c
 +++ b/kernel/time/timer.c
-@@ -1727,6 +1727,8 @@ static __latent_entropy void run_timer_s
+@@ -1783,6 +1783,8 @@ static __latent_entropy void run_timer_s
  {
  	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
  

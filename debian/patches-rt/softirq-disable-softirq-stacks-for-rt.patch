@@ -1,7 +1,7 @@
 Subject: softirq: Disable softirq stacks for RT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 18 Jul 2011 13:59:17 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Disable extra stacks for softirqs. We want to preempt softirqs and
 having them on special IRQ-stack does not make this easier.
@@ -24,7 +24,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void *softirq_ctx[NR_CPUS] __read_mostly;
  void *hardirq_ctx[NR_CPUS] __read_mostly;
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  void do_softirq_own_stack(void)
  {
  	call_do_softirq(softirq_ctx[smp_processor_id()]);
@@ -39,7 +39,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
   * We store the saved ksp_limit in the unused part
   * of the STACK_FRAME_OVERHEAD
   */
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  _GLOBAL(call_do_softirq)
  	mflr	r0
  	stw	r0,4(r1)
@@ -57,7 +57,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	.text
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  _GLOBAL(call_do_softirq)
  	mflr	r0
  	std	r0,16(r1)
@@ -75,7 +75,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	hardirq_ctx[cpu] = NULL;
  }
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  void do_softirq_own_stack(void)
  {
  	struct thread_info *curctx;
@@ -93,7 +93,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	set_irq_regs(old_regs);
  }
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  void do_softirq_own_stack(void)
  {
  	void *orig_sp, *sp = softirq_stack[smp_processor_id()];
@@ -107,15 +107,15 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  void fixup_irqs(void)
 --- a/arch/x86/entry/entry_64.S
 +++ b/arch/x86/entry/entry_64.S
-@@ -1056,6 +1056,7 @@ EXPORT_SYMBOL(native_load_gs_index)
+@@ -1074,6 +1074,7 @@ EXPORT_SYMBOL(native_load_gs_index)
  	jmp	2b
  	.previous
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  /* Call softirq on interrupt stack. Interrupts are off. */
  ENTRY(do_softirq_own_stack)
  	pushq	%rbp
-@@ -1066,6 +1067,7 @@ ENTRY(do_softirq_own_stack)
+@@ -1084,6 +1085,7 @@ ENTRY(do_softirq_own_stack)
  	leaveq
  	ret
  ENDPROC(do_softirq_own_stack)
@@ -129,7 +129,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return 0;
  }
  
-+#ifndef CONFIG_PREEMPT_RT_FULL
++#ifndef CONFIG_PREEMPT_RT
  void do_softirq_own_stack(void)
  {
  	struct irq_stack *irqstk;
@@ -139,16 +139,16 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
 +#endif
  
- bool handle_irq(struct irq_desc *desc, struct pt_regs *regs)
+ void handle_irq(struct irq_desc *desc, struct pt_regs *regs)
  {
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
-@@ -545,7 +545,7 @@ struct softirq_action
+@@ -546,7 +546,7 @@ struct softirq_action
  asmlinkage void do_softirq(void);
  asmlinkage void __do_softirq(void);
  
 -#ifdef __ARCH_HAS_DO_SOFTIRQ
-+#if defined(__ARCH_HAS_DO_SOFTIRQ) && !defined(CONFIG_PREEMPT_RT_FULL)
++#if defined(__ARCH_HAS_DO_SOFTIRQ) && !defined(CONFIG_PREEMPT_RT)
  void do_softirq_own_stack(void);
  #else
  static inline void do_softirq_own_stack(void)

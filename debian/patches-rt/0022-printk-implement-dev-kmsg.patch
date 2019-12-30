@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:30:00 +0100
 Subject: [PATCH 22/25] printk: implement /dev/kmsg
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Since printk messages are now logged to a new ring buffer, update
 the /dev/kmsg functions to pull the messages from there.
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  int vprintk(const char *s, va_list args)
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -663,10 +663,11 @@ static ssize_t msg_print_ext_body(char *
+@@ -673,10 +673,11 @@ static ssize_t msg_print_ext_body(char *
  /* /dev/kmsg - userspace message inject/listen interface */
  struct devkmsg_user {
  	u64 seq;
@@ -59,7 +59,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  };
  
  static __printf(3, 4) __cold
-@@ -749,9 +750,11 @@ static ssize_t devkmsg_read(struct file
+@@ -759,9 +760,11 @@ static ssize_t devkmsg_read(struct file
  			    size_t count, loff_t *ppos)
  {
  	struct devkmsg_user *user = file->private_data;
@@ -72,7 +72,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (!user)
  		return -EBADF;
-@@ -760,52 +763,67 @@ static ssize_t devkmsg_read(struct file
+@@ -770,52 +773,67 @@ static ssize_t devkmsg_read(struct file
  	if (ret)
  		return ret;
  
@@ -166,7 +166,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  out:
  	mutex_unlock(&user->lock);
  	return ret;
-@@ -814,19 +832,21 @@ static ssize_t devkmsg_read(struct file
+@@ -824,19 +842,21 @@ static ssize_t devkmsg_read(struct file
  static loff_t devkmsg_llseek(struct file *file, loff_t offset, int whence)
  {
  	struct devkmsg_user *user = file->private_data;
@@ -192,7 +192,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		break;
  	case SEEK_DATA:
  		/*
-@@ -834,40 +854,83 @@ static loff_t devkmsg_llseek(struct file
+@@ -844,40 +864,83 @@ static loff_t devkmsg_llseek(struct file
  		 * like issued by 'dmesg -c'. Reading /dev/kmsg itself
  		 * changes no global state, and does not clear anything.
  		 */
@@ -291,7 +291,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return ret;
  }
-@@ -897,10 +960,7 @@ static int devkmsg_open(struct inode *in
+@@ -907,10 +970,7 @@ static int devkmsg_open(struct inode *in
  
  	mutex_init(&user->lock);
  

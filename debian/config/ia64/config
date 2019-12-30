@@ -25,13 +25,6 @@ CONFIG_IA64_PRINT_HAZARDS=y
 # CONFIG_IA64_DEBUG_IRQ is not set
 
 ##
-## file: arch/ia64/hp/sim/Kconfig
-##
-# CONFIG_HP_SIMETH is not set
-# CONFIG_HP_SIMSERIAL is not set
-# CONFIG_HP_SIMSCSI is not set
-
-##
 ## file: block/partitions/Kconfig
 ##
 CONFIG_ACORN_PARTITION=y
@@ -99,9 +92,6 @@ CONFIG_CDROM_PKTCDVD_BUFFERS=8
 ##
 ## file: drivers/char/Kconfig
 ##
-CONFIG_SGI_SNSC=y
-CONFIG_SGI_TIOCX=y
-CONFIG_SGI_MBCS=m
 CONFIG_PRINTER=m
 # CONFIG_LP_CONSOLE is not set
 CONFIG_PPDEV=m
@@ -121,8 +111,6 @@ CONFIG_AGP=y
 CONFIG_AGP_I460=y
 #. Workaround
 CONFIG_AGP_HP_ZX1=y
-#. Workaround
-CONFIG_AGP_SGI_TIOCA=y
 
 ##
 ## file: drivers/char/ipmi/Kconfig
@@ -268,7 +256,6 @@ CONFIG_BLK_DEV_IDETAPE=m
 # CONFIG_BLK_DEV_PDC202XX_OLD is not set
 # CONFIG_BLK_DEV_PDC202XX_NEW is not set
 # CONFIG_BLK_DEV_SVWKS is not set
-CONFIG_BLK_DEV_SGIIOC4=m
 # CONFIG_BLK_DEV_SIIMAGE is not set
 # CONFIG_BLK_DEV_SLC90E66 is not set
 CONFIG_BLK_DEV_TRM290=m
@@ -518,9 +505,6 @@ CONFIG_LANMEDIA=m
 CONFIG_PCI200SYN=m
 CONFIG_WANXL=m
 CONFIG_FARSYNC=m
-CONFIG_DSCC4=m
-# CONFIG_DSCC4_PCISYNC is not set
-# CONFIG_DSCC4_PCI_RST is not set
 CONFIG_DLCI=m
 CONFIG_DLCI_MAX=8
 
@@ -574,7 +558,6 @@ CONFIG_USB_ZD1201=m
 ## file: drivers/pci/hotplug/Kconfig
 ##
 CONFIG_HOTPLUG_PCI=y
-CONFIG_HOTPLUG_PCI_SGI=y
 
 ##
 ## file: drivers/pcmcia/Kconfig
@@ -627,11 +610,6 @@ CONFIG_PCMCIA_QLOGIC=m
 CONFIG_PCMCIA_SYM53C500=m
 
 ##
-## file: drivers/sn/Kconfig
-##
-CONFIG_SGI_IOC3=m
-
-##
 ## file: drivers/staging/isdn/avm/Kconfig
 ##
 CONFIG_CAPI_AVM=y
@@ -664,10 +642,7 @@ CONFIG_N_HDLC=m
 ##
 ## file: drivers/tty/serial/Kconfig
 ##
-CONFIG_SERIAL_SGI_L1_CONSOLE=y
 CONFIG_SERIAL_JSM=m
-CONFIG_SERIAL_SGI_IOC4=m
-CONFIG_SERIAL_SGI_IOC3=m
 
 ##
 ## file: drivers/tty/serial/8250/Kconfig

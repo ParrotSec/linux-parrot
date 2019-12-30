@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:30:02 +0100
 Subject: [PATCH 24/25] printk: implement kmsg_dump
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Since printk messages are now logged to a new ring buffer, update
 the kmsg_dump functions to pull the messages from there.
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #ifdef CONFIG_PRINTK
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -407,13 +407,13 @@ static size_t syslog_partial;
+@@ -417,13 +417,13 @@ static size_t syslog_partial;
  static bool syslog_time;
  
  /* index and sequence number of the first record stored in the buffer */
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /* the next printk record to read after the last 'clear' command */
  static u64 clear_seq;
  static u32 clear_idx;
-@@ -460,38 +460,6 @@ static char *log_dict(const struct print
+@@ -470,38 +470,6 @@ static char *log_dict(const struct print
  	return (char *)msg + sizeof(struct printk_log) + msg->text_len;
  }
  
@@ -85,7 +85,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static void printk_emergency(char *buffer, int level, u64 ts_nsec, u16 cpu,
  			     char *text, u16 text_len);
  
-@@ -2110,9 +2078,7 @@ EXPORT_SYMBOL(printk);
+@@ -2120,9 +2088,7 @@ EXPORT_SYMBOL(printk);
  #define printk_time		false
  
  static u64 syslog_seq;
@@ -95,7 +95,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static char *log_text(const struct printk_log *msg) { return NULL; }
  static char *log_dict(const struct printk_log *msg) { return NULL; }
  static struct printk_log *log_from_idx(u32 idx) { return NULL; }
-@@ -3022,7 +2988,6 @@ module_param_named(always_kmsg_dump, alw
+@@ -3032,7 +2998,6 @@ module_param_named(always_kmsg_dump, alw
  void kmsg_dump(enum kmsg_dump_reason reason)
  {
  	struct kmsg_dumper *dumper;
@@ -103,7 +103,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if ((reason > KMSG_DUMP_OOPS) && !always_kmsg_dump)
  		return;
-@@ -3035,12 +3000,7 @@ void kmsg_dump(enum kmsg_dump_reason rea
+@@ -3045,12 +3010,7 @@ void kmsg_dump(enum kmsg_dump_reason rea
  		/* initialize iterator with data about the stored records */
  		dumper->active = true;
  
@@ -117,7 +117,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/* invoke dumper which will iterate over records */
  		dumper->dump(dumper, reason);
-@@ -3073,33 +3033,67 @@ void kmsg_dump(enum kmsg_dump_reason rea
+@@ -3083,33 +3043,67 @@ void kmsg_dump(enum kmsg_dump_reason rea
  bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
  			       char *line, size_t size, size_t *len)
  {
@@ -200,7 +200,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -3122,12 +3116,11 @@ bool kmsg_dump_get_line_nolock(struct km
+@@ -3132,12 +3126,11 @@ bool kmsg_dump_get_line_nolock(struct km
  bool kmsg_dump_get_line(struct kmsg_dumper *dumper, bool syslog,
  			char *line, size_t size, size_t *len)
  {
@@ -215,7 +215,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return ret;
  }
-@@ -3155,74 +3148,101 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
+@@ -3165,74 +3158,101 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
  bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  			  char *buf, size_t size, size_t *len)
  {
@@ -293,7 +293,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	/* move first record forward until length fits into the buffer */
 -	seq = dumper->cur_seq;
 -	idx = dumper->cur_idx;
--	while (l > size && seq < dumper->next_seq) {
+-	while (l >= size && seq < dumper->next_seq) {
 -		struct printk_log *msg = log_from_idx(idx);
 +	/* count the total bytes after seq */
 +	textlen = count_remaining(&iter, end_seq, msgbuf,
@@ -369,7 +369,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
  
-@@ -3238,10 +3258,8 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
+@@ -3248,10 +3268,8 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
   */
  void kmsg_dump_rewind_nolock(struct kmsg_dumper *dumper)
  {
@@ -382,7 +382,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -3254,11 +3272,9 @@ void kmsg_dump_rewind_nolock(struct kmsg
+@@ -3264,11 +3282,9 @@ void kmsg_dump_rewind_nolock(struct kmsg
   */
  void kmsg_dump_rewind(struct kmsg_dumper *dumper)
  {

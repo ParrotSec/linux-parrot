@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 26 Jul 2018 18:52:00 +0200
 Subject: [PATCH] crypto: cryptd - add a lock instead
  preempt_disable/local_bh_disable
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 cryptd has a per-CPU lock which protected with local_bh_disable() and
 preempt_disable().
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/crypto/cryptd.c
 +++ b/crypto/cryptd.c
-@@ -34,6 +34,7 @@ MODULE_PARM_DESC(cryptd_max_cpu_qlen, "S
+@@ -36,6 +36,7 @@ static struct workqueue_struct *cryptd_w
  struct cryptd_cpu_queue {
  	struct crypto_queue queue;
  	struct work_struct work;
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  };
  
  struct cryptd_queue {
-@@ -103,6 +104,7 @@ static int cryptd_init_queue(struct cryp
+@@ -105,6 +106,7 @@ static int cryptd_init_queue(struct cryp
  		cpu_queue = per_cpu_ptr(queue->cpu_queue, cpu);
  		crypto_init_queue(&cpu_queue->queue, max_cpu_qlen);
  		INIT_WORK(&cpu_queue->work, cryptd_queue_worker);
@@ -36,9 +36,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  	pr_info("cryptd: max_cpu_qlen set to %d\n", max_cpu_qlen);
  	return 0;
-@@ -127,8 +129,10 @@ static int cryptd_enqueue_request(struct
+@@ -129,8 +131,10 @@ static int cryptd_enqueue_request(struct
  	struct cryptd_cpu_queue *cpu_queue;
- 	atomic_t *refcnt;
+ 	refcount_t *refcnt;
  
 -	cpu = get_cpu();
 -	cpu_queue = this_cpu_ptr(queue->cpu_queue);
@@ -49,8 +49,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	err = crypto_enqueue_request(&cpu_queue->queue, request);
  
  	refcnt = crypto_tfm_ctx(request->tfm);
-@@ -144,7 +148,7 @@ static int cryptd_enqueue_request(struct
- 	atomic_inc(refcnt);
+@@ -146,7 +150,7 @@ static int cryptd_enqueue_request(struct
+ 	refcount_inc(refcnt);
  
  out_put_cpu:
 -	put_cpu();
@@ -58,7 +58,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return err;
  }
-@@ -160,16 +164,11 @@ static void cryptd_queue_worker(struct w
+@@ -162,16 +166,11 @@ static void cryptd_queue_worker(struct w
  	cpu_queue = container_of(work, struct cryptd_cpu_queue, work);
  	/*
  	 * Only handle one request at a time to avoid hogging crypto workqueue.

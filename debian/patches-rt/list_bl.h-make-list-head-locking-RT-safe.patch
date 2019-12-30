@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
 Date: Fri, 21 Jun 2013 15:07:25 -0400
 Subject: list_bl: Make list head locking RT safe
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 As per changes in include/linux/jbd_common.h for avoiding the
 bit_spin_locks on RT ("fs: jbd/jbd2: Make state lock and journal
@@ -46,10 +46,12 @@ concern.
 
 
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+[julia@ni.com: Use #define instead static inline to avoid false positive from
+               lockdep]
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/list_bl.h |   28 ++++++++++++++++++++++++++--
- 1 file changed, 26 insertions(+), 2 deletions(-)
+ include/linux/list_bl.h |   30 ++++++++++++++++++++++++++++--
+ 1 file changed, 28 insertions(+), 2 deletions(-)
 
 --- a/include/linux/list_bl.h
 +++ b/include/linux/list_bl.h
@@ -61,11 +63,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include <linux/bit_spinlock.h>
  
  /*
-@@ -33,13 +34,22 @@
+@@ -33,13 +34,24 @@
  
  struct hlist_bl_head {
  	struct hlist_bl_node *first;
-+#ifdef CONFIG_PREEMPT_RT_BASE
++#ifdef CONFIG_PREEMPT_RT
 +	raw_spinlock_t lock;
 +#endif
  };
@@ -76,21 +78,23 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -#define INIT_HLIST_BL_HEAD(ptr) \
 -	((ptr)->first = NULL)
 +
-+static inline void INIT_HLIST_BL_HEAD(struct hlist_bl_head *h)
-+{
-+	h->first = NULL;
-+#ifdef CONFIG_PREEMPT_RT_BASE
-+	raw_spin_lock_init(&h->lock);
++#ifdef CONFIG_PREEMPT_RT
++#define INIT_HLIST_BL_HEAD(h)		\
++do {					\
++	(h)->first = NULL;		\
++	raw_spin_lock_init(&(h)->lock);	\
++} while (0)
++#else
++#define INIT_HLIST_BL_HEAD(h) (h)->first = NULL
 +#endif
-+}
  
  static inline void INIT_HLIST_BL_NODE(struct hlist_bl_node *h)
  {
-@@ -145,12 +155,26 @@ static inline void hlist_bl_del_init(str
+@@ -145,12 +157,26 @@ static inline void hlist_bl_del_init(str
  
  static inline void hlist_bl_lock(struct hlist_bl_head *b)
  {
-+#ifndef CONFIG_PREEMPT_RT_BASE
++#ifndef CONFIG_PREEMPT_RT
  	bit_spin_lock(0, (unsigned long *)b);
 +#else
 +	raw_spin_lock(&b->lock);
@@ -102,7 +106,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static inline void hlist_bl_unlock(struct hlist_bl_head *b)
  {
-+#ifndef CONFIG_PREEMPT_RT_BASE
++#ifndef CONFIG_PREEMPT_RT
  	__bit_spin_unlock(0, (unsigned long *)b);
 +#else
 +#if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)

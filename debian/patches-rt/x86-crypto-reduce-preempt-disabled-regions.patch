@@ -1,7 +1,7 @@
 Subject: x86: crypto: Reduce preempt disabled regions
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Mon, 14 Nov 2011 18:19:27 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Restrict the preempt disabled regions to the actual floating point
 operations and enable preemption for the administrative actions.
@@ -19,7 +19,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/x86/crypto/aesni-intel_glue.c
 +++ b/arch/x86/crypto/aesni-intel_glue.c
-@@ -402,14 +402,14 @@ static int ecb_encrypt(struct skcipher_r
+@@ -387,14 +387,14 @@ static int ecb_encrypt(struct skcipher_r
  
  	err = skcipher_walk_virt(&walk, req, true);
  
@@ -36,7 +36,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return err;
  }
-@@ -424,14 +424,14 @@ static int ecb_decrypt(struct skcipher_r
+@@ -409,14 +409,14 @@ static int ecb_decrypt(struct skcipher_r
  
  	err = skcipher_walk_virt(&walk, req, true);
  
@@ -53,7 +53,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return err;
  }
-@@ -446,14 +446,14 @@ static int cbc_encrypt(struct skcipher_r
+@@ -431,14 +431,14 @@ static int cbc_encrypt(struct skcipher_r
  
  	err = skcipher_walk_virt(&walk, req, true);
  
@@ -70,7 +70,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return err;
  }
-@@ -468,14 +468,14 @@ static int cbc_decrypt(struct skcipher_r
+@@ -453,14 +453,14 @@ static int cbc_decrypt(struct skcipher_r
  
  	err = skcipher_walk_virt(&walk, req, true);
  
@@ -87,7 +87,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	return err;
  }
-@@ -525,18 +525,20 @@ static int ctr_crypt(struct skcipher_req
+@@ -510,18 +510,20 @@ static int ctr_crypt(struct skcipher_req
  
  	err = skcipher_walk_virt(&walk, req, true);
  

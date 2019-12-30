@@ -18,6 +18,7 @@ CONFIG_CRYPTO_AES_ARM=m
 ##
 ## file: arch/arm/Kconfig.debug
 ##
+CONFIG_DEBUG_WX=y
 CONFIG_DEBUG_LL=y
 CONFIG_EARLY_PRINTK=y
 

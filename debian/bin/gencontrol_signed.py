@@ -309,7 +309,7 @@ linux-signed-@arch@ (@signedsourceversion@) @distribution@; urgency=@urgency@
                 for name in files:
                     if name.endswith('.ko'):
                         package_modules.append(
-                            '%s/%s' % 
+                            '%s/%s' %
                             (root[(len(package_dir) + 1):], name))
             package_modules.sort()
             for module in package_modules:

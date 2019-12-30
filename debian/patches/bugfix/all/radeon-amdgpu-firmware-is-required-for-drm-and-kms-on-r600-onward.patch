@@ -28,18 +28,20 @@ is missing, except for the pre-R600 case.
  drivers/gpu/drm/radeon/radeon_drv.c     | 30 +++++++++++++++++++++++++
  2 files changed, 59 insertions(+)
 
---- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-+++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-@@ -35,6 +35,8 @@
- #include <linux/pm_runtime.h>
+Index: debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+===================================================================
+--- debian-kernel.orig/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -36,6 +36,8 @@
  #include <linux/vga_switcheroo.h>
  #include <drm/drm_probe_helper.h>
+ #include <linux/mmu_notifier.h>
 +#include <linux/namei.h>
 +#include <linux/path.h>
  
  #include "amdgpu.h"
  #include "amdgpu_irq.h"
-@@ -1012,6 +1014,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
+@@ -1030,6 +1032,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
  
  static struct drm_driver kms_driver;
  
@@ -68,7 +70,7 @@ is missing, except for the pre-R600 case.
  static int amdgpu_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -1065,6 +1089,11 @@ static int amdgpu_pci_probe(struct pci_d
+@@ -1083,6 +1107,11 @@ static int amdgpu_pci_probe(struct pci_d
  	}
  #endif
  
@@ -80,9 +82,11 @@ is missing, except for the pre-R600 case.
  	/* Get rid of things like offb */
  	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, 0, "amdgpudrmfb");
  	if (ret)
---- a/drivers/gpu/drm/radeon/radeon_drv.c
-+++ b/drivers/gpu/drm/radeon/radeon_drv.c
-@@ -47,6 +47,8 @@
+Index: debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
+===================================================================
+--- debian-kernel.orig/drivers/gpu/drm/radeon/radeon_drv.c
++++ debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
+@@ -48,6 +48,8 @@
  #include <drm/drm_probe_helper.h>
  #include <drm/drm_vblank.h>
  #include <drm/radeon_drm.h>
@@ -91,7 +95,7 @@ is missing, except for the pre-R600 case.
  
  #include "radeon_drv.h"
  
-@@ -322,6 +324,28 @@ static struct drm_driver kms_driver;
+@@ -321,6 +323,28 @@ static struct drm_driver kms_driver;
  
  bool radeon_device_is_virtual(void);
  
@@ -120,7 +124,7 @@ is missing, except for the pre-R600 case.
  static int radeon_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -361,6 +385,12 @@ static int radeon_pci_probe(struct pci_d
+@@ -360,6 +384,12 @@ static int radeon_pci_probe(struct pci_d
  	if (vga_switcheroo_client_probe_defer(pdev))
  		return -EPROBE_DEFER;
  

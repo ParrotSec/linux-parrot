@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:30:03 +0100
 Subject: [PATCH 25/25] printk: remove unused code
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.2/older/patches-5.2.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
 
 Code relating to the safe context and anything dealing with the
 previous log buffer implementation is no longer in use. Remove it.
@@ -69,7 +69,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  int console_printk[5] = {
  	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
-@@ -356,41 +355,6 @@ struct printk_log {
+@@ -366,41 +365,6 @@ struct printk_log {
  #endif
  ;
  
@@ -111,7 +111,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  DECLARE_STATIC_PRINTKRB_CPULOCK(printk_cpulock);
  
  #ifdef CONFIG_PRINTK
-@@ -400,23 +364,15 @@ DECLARE_STATIC_PRINTKRB(printk_rb, CONFI
+@@ -410,23 +374,15 @@ DECLARE_STATIC_PRINTKRB(printk_rb, CONFI
  static DEFINE_MUTEX(syslog_lock);
  DECLARE_STATIC_PRINTKRB_ITER(syslog_iter, &printk_rb);
  
@@ -136,7 +136,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #ifdef CONFIG_PRINTK_CALLER
  #define PREFIX_MAX		48
-@@ -428,24 +384,16 @@ static u32 clear_idx;
+@@ -438,24 +394,16 @@ static u32 clear_idx;
  #define LOG_LEVEL(v)		((v) & 0x07)
  #define LOG_FACILITY(v)		((v) >> 3 & 0xff)
  
@@ -163,7 +163,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /* human readable text of the record */
-@@ -970,11 +918,6 @@ const struct file_operations kmsg_fops =
+@@ -980,11 +928,6 @@ const struct file_operations kmsg_fops =
   */
  void log_buf_vmcoreinfo_setup(void)
  {
@@ -175,7 +175,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * Export struct printk_log size and field offsets. User space tools can
  	 * parse it and detect any changes to structure down the line.
-@@ -990,6 +933,8 @@ void log_buf_vmcoreinfo_setup(void)
+@@ -1000,6 +943,8 @@ void log_buf_vmcoreinfo_setup(void)
  }
  #endif
  
@@ -184,7 +184,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /* requested log_buf_len from kernel cmdline */
  static unsigned long __initdata new_log_buf_len;
  
-@@ -1055,9 +1000,12 @@ static void __init log_buf_add_cpu(void)
+@@ -1065,9 +1010,12 @@ static void __init log_buf_add_cpu(void)
  #else /* !CONFIG_SMP */
  static inline void log_buf_add_cpu(void) {}
  #endif /* CONFIG_SMP */
@@ -197,7 +197,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	unsigned long flags;
  	char *new_log_buf;
  	unsigned int free;
-@@ -1089,6 +1037,7 @@ void __init setup_log_buf(int early)
+@@ -1099,6 +1047,7 @@ void __init setup_log_buf(int early)
  	pr_info("log_buf_len: %u bytes\n", log_buf_len);
  	pr_info("early log buf free: %u(%u%%)\n",
  		free, (free * 100) / __LOG_BUF_LEN);
@@ -205,7 +205,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static bool __read_mostly ignore_loglevel;
-@@ -2009,7 +1958,7 @@ asmlinkage int vprintk_emit(int facility
+@@ -2019,7 +1968,7 @@ asmlinkage int vprintk_emit(int facility
  }
  EXPORT_SYMBOL(vprintk_emit);
  
@@ -214,7 +214,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	return vprintk_emit(0, LOGLEVEL_DEFAULT, NULL, 0, fmt, args);
  }
-@@ -2070,31 +2019,6 @@ asmlinkage __visible int printk(const ch
+@@ -2080,31 +2029,6 @@ asmlinkage __visible int printk(const ch
  	return r;
  }
  EXPORT_SYMBOL(printk);
@@ -246,7 +246,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif /* CONFIG_PRINTK */
  
  #ifdef CONFIG_EARLY_PRINTK
-@@ -2391,15 +2315,10 @@ void console_unblank(void)
+@@ -2401,15 +2325,10 @@ void console_unblank(void)
  void console_flush_on_panic(enum con_flush_mode mode)
  {
  	/*
@@ -265,7 +265,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /*
-@@ -2748,43 +2667,6 @@ static int __init printk_late_init(void)
+@@ -2758,43 +2677,6 @@ static int __init printk_late_init(void)
  late_initcall(printk_late_init);
  
  #if defined CONFIG_PRINTK
@@ -309,7 +309,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static int printk_kthread_func(void *data)
  {
  	struct prb_iterator iter;
-@@ -2850,22 +2732,9 @@ static int __init init_printk_kthread(vo
+@@ -2860,22 +2742,9 @@ static int __init init_printk_kthread(vo
  }
  late_initcall(init_printk_kthread);
  
