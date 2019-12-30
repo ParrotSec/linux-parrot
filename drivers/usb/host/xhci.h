@@ -2050,6 +2050,7 @@ int xhci_start(struct xhci_hcd *xhci);
 int xhci_reset(struct xhci_hcd *xhci);
 int xhci_run(struct usb_hcd *hcd);
 int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks);
+void xhci_shutdown(struct usb_hcd *hcd);
 void xhci_init_driver(struct hc_driver *drv,
 		      const struct xhci_driver_overrides *over);
 int xhci_disable_slot(struct xhci_hcd *xhci, u32 slot_id);
@@ -2337,12 +2338,13 @@ static inline const char *xhci_decode_trb(u32 field0, u32 field1, u32 field2,
 		break;
 	case TRB_RESET_EP:
 		sprintf(str,
-			"%s: ctx %08x%08x slot %d ep %d flags %c",
+			"%s: ctx %08x%08x slot %d ep %d flags %c:%c",
 			xhci_trb_type_string(type),
 			field1, field0,
 			TRB_TO_SLOT_ID(field3),
 			/* Macro decrements 1, maybe it shouldn't?!? */
 			TRB_TO_EP_INDEX(field3) + 1,
+			field3 & TRB_TSP ? 'T' : 't',
 			field3 & TRB_CYCLE ? 'C' : 'c');
 		break;
 	case TRB_STOP_RING:

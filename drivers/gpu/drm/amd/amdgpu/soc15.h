@@ -28,8 +28,8 @@
 #include "nbio_v7_0.h"
 #include "nbio_v7_4.h"
 
-#define SOC15_FLUSH_GPU_TLB_NUM_WREG		4
-#define SOC15_FLUSH_GPU_TLB_NUM_REG_WAIT	1
+#define SOC15_FLUSH_GPU_TLB_NUM_WREG		6
+#define SOC15_FLUSH_GPU_TLB_NUM_REG_WAIT	3
 
 extern const struct amd_ip_funcs soc15_common_ip_funcs;
 
@@ -77,6 +77,7 @@ void soc15_program_register_sequence(struct amdgpu_device *adev,
 
 int vega10_reg_base_init(struct amdgpu_device *adev);
 int vega20_reg_base_init(struct amdgpu_device *adev);
+int arct_reg_base_init(struct amdgpu_device *adev);
 
 void vega10_doorbell_index_init(struct amdgpu_device *adev);
 void vega20_doorbell_index_init(struct amdgpu_device *adev);

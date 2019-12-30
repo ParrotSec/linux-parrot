@@ -25,6 +25,7 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/acpi.h>
 #include <linux/dmi.h>
 #include <asm/io.h>
@@ -524,26 +525,10 @@ static void acpi_ec_enable_event(struct acpi_ec *ec)
 }
 
 #ifdef CONFIG_PM_SLEEP
-static bool acpi_ec_query_flushed(struct acpi_ec *ec)
+static void __acpi_ec_flush_work(void)
 {
-	bool flushed;
-	unsigned long flags;
-
-	spin_lock_irqsave(&ec->lock, flags);
-	flushed = !ec->nr_pending_queries;
-	spin_unlock_irqrestore(&ec->lock, flags);
-	return flushed;
-}
-
-static void __acpi_ec_flush_event(struct acpi_ec *ec)
-{
-	/*
-	 * When ec_freeze_events is true, we need to flush events in
-	 * the proper position before entering the noirq stage.
-	 */
-	wait_event(ec->wait, acpi_ec_query_flushed(ec));
-	if (ec_query_wq)
-		flush_workqueue(ec_query_wq);
+	flush_scheduled_work(); /* flush ec->work */
+	flush_workqueue(ec_query_wq); /* flush queries */
 }
 
 static void acpi_ec_disable_event(struct acpi_ec *ec)
@@ -553,15 +538,21 @@ static void acpi_ec_disable_event(struct acpi_ec *ec)
 	spin_lock_irqsave(&ec->lock, flags);
 	__acpi_ec_disable_event(ec);
 	spin_unlock_irqrestore(&ec->lock, flags);
-	__acpi_ec_flush_event(ec);
+
+	/*
+	 * When ec_freeze_events is true, we need to flush events in
+	 * the proper position before entering the noirq stage.
+	 */
+	__acpi_ec_flush_work();
 }
 
 void acpi_ec_flush_work(void)
 {
-	if (first_ec)
-		__acpi_ec_flush_event(first_ec);
+	/* Without ec_query_wq there is nothing to flush. */
+	if (!ec_query_wq)
+		return;
 
-	flush_scheduled_work();
+	__acpi_ec_flush_work();
 }
 #endif /* CONFIG_PM_SLEEP */
 
@@ -1046,24 +1037,6 @@ void acpi_ec_unblock_transactions(void)
 	 */
 	if (first_ec)
 		acpi_ec_start(first_ec, true);
-}
-
-void acpi_ec_mark_gpe_for_wake(void)
-{
-	if (first_ec && !ec_no_wakeup)
-		acpi_mark_gpe_for_wake(NULL, first_ec->gpe);
-}
-
-void acpi_ec_set_gpe_wake_mask(u8 action)
-{
-	if (first_ec && !ec_no_wakeup)
-		acpi_set_gpe_wake_mask(NULL, first_ec->gpe, action);
-}
-
-void acpi_ec_dispatch_gpe(void)
-{
-	if (first_ec)
-		acpi_dispatch_gpe(NULL, first_ec->gpe);
 }
 
 /* --------------------------------------------------------------------------
@@ -1931,7 +1904,7 @@ static int acpi_ec_suspend(struct device *dev)
 	struct acpi_ec *ec =
 		acpi_driver_data(to_acpi_device(dev));
 
-	if (acpi_sleep_no_ec_events() && ec_freeze_events)
+	if (!pm_suspend_no_platform() && ec_freeze_events)
 		acpi_ec_disable_event(ec);
 	return 0;
 }
@@ -1948,8 +1921,7 @@ static int acpi_ec_suspend_noirq(struct device *dev)
 	    ec->reference_count >= 1)
 		acpi_set_gpe(NULL, ec->gpe, ACPI_GPE_DISABLE);
 
-	if (acpi_sleep_no_ec_events())
-		acpi_ec_enter_noirq(ec);
+	acpi_ec_enter_noirq(ec);
 
 	return 0;
 }
@@ -1958,8 +1930,7 @@ static int acpi_ec_resume_noirq(struct device *dev)
 {
 	struct acpi_ec *ec = acpi_driver_data(to_acpi_device(dev));
 
-	if (acpi_sleep_no_ec_events())
-		acpi_ec_leave_noirq(ec);
+	acpi_ec_leave_noirq(ec);
 
 	if (ec_no_wakeup && test_bit(EC_FLAGS_STARTED, &ec->flags) &&
 	    ec->reference_count >= 1)
@@ -1976,7 +1947,35 @@ static int acpi_ec_resume(struct device *dev)
 	acpi_ec_enable_event(ec);
 	return 0;
 }
-#endif
+
+void acpi_ec_mark_gpe_for_wake(void)
+{
+	if (first_ec && !ec_no_wakeup)
+		acpi_mark_gpe_for_wake(NULL, first_ec->gpe);
+}
+EXPORT_SYMBOL_GPL(acpi_ec_mark_gpe_for_wake);
+
+void acpi_ec_set_gpe_wake_mask(u8 action)
+{
+	if (pm_suspend_no_platform() && first_ec && !ec_no_wakeup)
+		acpi_set_gpe_wake_mask(NULL, first_ec->gpe, action);
+}
+
+bool acpi_ec_dispatch_gpe(void)
+{
+	u32 ret;
+
+	if (!first_ec)
+		return false;
+
+	ret = acpi_dispatch_gpe(NULL, first_ec->gpe);
+	if (ret == ACPI_INTERRUPT_HANDLED) {
+		pm_pr_dbg("EC GPE dispatched\n");
+		return true;
+	}
+	return false;
+}
+#endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops acpi_ec_pm = {
 	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(acpi_ec_suspend_noirq, acpi_ec_resume_noirq)

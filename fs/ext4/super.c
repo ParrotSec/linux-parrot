@@ -1107,6 +1107,9 @@ static int ext4_drop_inode(struct inode *inode)
 {
 	int drop = generic_drop_inode(inode);
 
+	if (!drop)
+		drop = fscrypt_drop_inode(inode);
+
 	trace_ext4_drop_inode(inode, drop);
 	return drop;
 }
@@ -1169,9 +1172,9 @@ void ext4_clear_inode(struct inode *inode)
 {
 	invalidate_inode_buffers(inode);
 	clear_inode(inode);
-	dquot_drop(inode);
 	ext4_discard_preallocations(inode);
 	ext4_es_remove_extent(inode, 0, EXT_MAX_BLOCKS);
+	dquot_drop(inode);
 	if (EXT4_I(inode)->jinode) {
 		jbd2_journal_release_jbd_inode(EXT4_JOURNAL(inode),
 					       EXT4_I(inode)->jinode);
@@ -1179,6 +1182,7 @@ void ext4_clear_inode(struct inode *inode)
 		EXT4_I(inode)->jinode = NULL;
 	}
 	fscrypt_put_encryption_info(inode);
+	fsverity_cleanup_inode(inode);
 }
 
 static struct inode *ext4_nfs_get_inode(struct super_block *sb,
@@ -1874,6 +1878,13 @@ static int handle_mount_opt(struct super_block *sb, char *opt, int token,
 	} else if (token == Opt_commit) {
 		if (arg == 0)
 			arg = JBD2_DEFAULT_MAX_COMMIT_AGE;
+		else if (arg > INT_MAX / HZ) {
+			ext4_msg(sb, KERN_ERR,
+				 "Invalid commit interval %d, "
+				 "must be smaller than %d",
+				 arg, INT_MAX / HZ);
+			return -1;
+		}
 		sbi->s_commit_interval = HZ * arg;
 	} else if (token == Opt_debug_want_extra_isize) {
 		sbi->s_want_extra_isize = arg;
@@ -4038,8 +4049,21 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 			       sbi->s_inode_size);
 			goto failed_mount;
 		}
-		if (sbi->s_inode_size > EXT4_GOOD_OLD_INODE_SIZE)
-			sb->s_time_gran = 1 << (EXT4_EPOCH_BITS - 2);
+		/*
+		 * i_atime_extra is the last extra field available for [acm]times in
+		 * struct ext4_inode. Checking for that field should suffice to ensure
+		 * we have extra space for all three.
+		 */
+		if (sbi->s_inode_size >= offsetof(struct ext4_inode, i_atime_extra) +
+			sizeof(((struct ext4_inode *)0)->i_atime_extra)) {
+			sb->s_time_gran = 1;
+			sb->s_time_max = EXT4_EXTRA_TIMESTAMP_MAX;
+		} else {
+			sb->s_time_gran = NSEC_PER_SEC;
+			sb->s_time_max = EXT4_NON_EXTRA_TIMESTAMP_MAX;
+		}
+
+		sb->s_time_min = EXT4_TIMESTAMP_MIN;
 	}
 
 	sbi->s_desc_size = le16_to_cpu(es->s_desc_size);
@@ -4275,6 +4299,9 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 #ifdef CONFIG_FS_ENCRYPTION
 	sb->s_cop = &ext4_cryptops;
 #endif
+#ifdef CONFIG_FS_VERITY
+	sb->s_vop = &ext4_verityops;
+#endif
 #ifdef CONFIG_QUOTA
 	sb->dq_op = &ext4_quota_operations;
 	if (ext4_has_feature_quota(sb))
@@ -4419,6 +4446,11 @@ no_journal:
 	    (blocksize != PAGE_SIZE)) {
 		ext4_msg(sb, KERN_ERR,
 			 "Unsupported blocksize for fs encryption");
+		goto failed_mount_wq;
+	}
+
+	if (ext4_has_feature_verity(sb) && blocksize != PAGE_SIZE) {
+		ext4_msg(sb, KERN_ERR, "Unsupported blocksize for fs-verity");
 		goto failed_mount_wq;
 	}
 
@@ -6098,6 +6130,10 @@ static int __init ext4_init_fs(void)
 
 	err = ext4_init_pending();
 	if (err)
+		goto out7;
+
+	err = ext4_init_post_read_processing();
+	if (err)
 		goto out6;
 
 	err = ext4_init_pageio();
@@ -6138,8 +6174,10 @@ out3:
 out4:
 	ext4_exit_pageio();
 out5:
-	ext4_exit_pending();
+	ext4_exit_post_read_processing();
 out6:
+	ext4_exit_pending();
+out7:
 	ext4_exit_es();
 
 	return err;
@@ -6156,6 +6194,7 @@ static void __exit ext4_exit_fs(void)
 	ext4_exit_sysfs();
 	ext4_exit_system_zone();
 	ext4_exit_pageio();
+	ext4_exit_post_read_processing();
 	ext4_exit_es();
 	ext4_exit_pending();
 }
