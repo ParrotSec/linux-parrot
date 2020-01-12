@@ -41,7 +41,9 @@ configs: kernelarch-mips/config.loongson-3
 hardware: Octeon
 hardware-long: Cavium Networks Octeon
 
-[octeon_image]
+[octeon_build]
 image-file: vmlinux
+
+[octeon_image]
 install-stem: vmlinux
 configs: kernelarch-mips/config.octeon

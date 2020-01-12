@@ -52,6 +52,7 @@ Reported-by: Andre Przywara <andre.przywara@arm.com>
 Signed-off-by: Julien Grall <julien.grall@arm.com>
 Acked-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+[Salvatore Bonaccorso: Backport to 5.4.7 for context changes]
 ---
  lib/ubsan.c |   64 +++++++++++++++++++++---------------------------------------
  1 file changed, 23 insertions(+), 41 deletions(-)
@@ -244,24 +245,25 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct type_descriptor *rhs_type = data->rhs_type;
  	struct type_descriptor *lhs_type = data->lhs_type;
  	char rhs_str[VALUE_LENGTH];
-@@ -378,7 +363,7 @@ void __ubsan_handle_shift_out_of_bounds(
+@@ -379,7 +364,7 @@
  	if (suppress_report(&data->location))
- 		return;
+ 		goto out;
  
 -	ubsan_prologue(&data->location, &flags);
 +	ubsan_prologue(&data->location);
  
  	val_to_string(rhs_str, sizeof(rhs_str), rhs_type, rhs);
  	val_to_string(lhs_str, sizeof(lhs_str), lhs_type, lhs);
-@@ -401,18 +386,16 @@ void __ubsan_handle_shift_out_of_bounds(
+@@ -402,7 +387,7 @@
  			lhs_str, rhs_str,
  			lhs_type->type_name);
  
 -	ubsan_epilogue(&flags);
 +	ubsan_epilogue();
+ out:
+ 	user_access_restore(ua_flags);
  }
- EXPORT_SYMBOL(__ubsan_handle_shift_out_of_bounds);
- 
+@@ -411,11 +396,9 @@
  
  void __ubsan_handle_builtin_unreachable(struct unreachable_data *data)
  {

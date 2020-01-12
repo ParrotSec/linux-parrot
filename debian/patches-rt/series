@@ -23,16 +23,12 @@ lib-ubsan-Don-t-seralize-UBSAN-report.patch
 
 # 5a6446626d7e062b47a5cc1cf27d5060e60bb0d9
 workqueue-Convert-for_each_wq-to-use-built-in-list-c.patch
-# df4393424af3fbdcd5c404077176082a8ce459c4
-x86-ioapic-Prevent-inconsistent-state-when-moving-an.patch
 # 2579a4eefc04d1c23eef8f3f0db3309f955e5792
 x86-ioapic-Rename-misnamed-functions.patch
 # 9e8d42a0f7eb9056f8bdb241b91738b5a2923f4c
 percpu-refcount-use-normal-instead-of-RCU-sched.patch
 # 1dfffa0051eae890ce36924651ecff60df5d779e
 drm-i915-Don-t-disable-interrupts-independently-of-t.patch
-# a19f89335f4bda3d77d991c96583e3e51856acbb
-watchdog-prevent-deferral-of-watchdogd-wakeup-on-RT.patch
 # de678bc63cc659d056a5ff3a3b11866d3eb4c1a9
 block-Don-t-disable-interrupts-in-trigger_softirq.patch
 # 0492747c72a3db0425a234abafb763c5b28c845d
