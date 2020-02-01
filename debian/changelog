@@ -1,3 +1,9 @@
+linux (5.4.13-3parrot2) rolling; urgency=medium
+
+  * Rebuild kernel.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sat, 01 Feb 2020 13:01:45 +0100
+
 linux (5.4.13-3parrot1) rolling-testing; urgency=medium
 
   * Import new Debian release.
