@@ -35,6 +35,6 @@ Build-Depends-Arch:
 # used by upstream headers_install target and by debian/rules.d/tools/usb/usbip
  rsync,
 Rules-Requires-Root: no
-Vcs-Git: https://salsa.debian.org/kernel-team/linux.git
-Vcs-Browser: https://salsa.debian.org/kernel-team/linux
+Vcs-Git: https://nest.parrot.sh/packages/kernel/linux.git
+Vcs-Browser: https://nest.parrot.sh/packages/kernel/linux
 Homepage: https://www.kernel.org/

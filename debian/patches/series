@@ -76,7 +76,6 @@ bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
 bugfix/ppc64el/libbpf-fix-readelf-output-parsing-on-powerpc-with-re.patch
-bugfix/arm/ARM-dts-bcm283x-Fix-critical-trip-point.patch
 
 # Arch features
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
@@ -93,7 +92,6 @@ bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
 # Miscellaneous features
 
 # Lockdown missing pieces
-features/all/lockdown/tracing-Do-not-create-directories-if-lockdown-is-in-.patch
 features/all/lockdown/efi-add-an-efi_secure_boot-flag-to-indicate-secure-b.patch
 features/all/lockdown/efi-lock-down-the-kernel-if-booted-in-secure-boot-mo.patch
 features/all/lockdown/add-a-sysrq-option-to-lift-kernel-lockdown.patch
@@ -134,8 +132,6 @@ bugfix/all/usbip-fix-misuse-of-strncpy.patch
 bugfix/all/usbip-network-fix-unaligned-member-access.patch
 bugfix/all/tools-perf-pmu-events-fix-reproducibility.patch
 bugfix/all/0001-libtraceevent-Fix-header-installation.patch
-bugfix/all/0002-libtraceevent-Fix-lib-installation-with-O.patch
-bugfix/all/0003-libtraceevent-Copy-pkg-config-file-to-output-folder-.patch
 bugfix/all/0004-libtraceevent-allow-custom-libdir-path.patch
 bugfix/all/0005-libtraceevent-Add-dependency-on-libdl.patch
 

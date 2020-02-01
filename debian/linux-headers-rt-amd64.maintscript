@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-rt-amd64 linux-headers-5.4.0-2parrot1-rt-amd64 5.2+107 linux-headers-rt-amd64
+dir_to_symlink /usr/share/doc/linux-headers-rt-amd64 linux-headers-5.4.0-3parrot1-rt-amd64 5.2+107 linux-headers-rt-amd64

@@ -29,7 +29,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4678,6 +4678,10 @@
+@@ -4711,6 +4711,10 @@
  
  	switches=	[HW,M68k]
  
@@ -42,7 +42,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  			on older distributions. When this option is enabled
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -2901,6 +2901,14 @@ config COMPAT_32
+@@ -2946,6 +2946,14 @@ config COMPAT_32
  	select HAVE_UID16
  	select OLD_SIGSUSPEND3
  
@@ -78,10 +78,10 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +#include <linux/moduleparam.h>
 +#undef MODULE_PARAM_PREFIX
 +#define MODULE_PARAM_PREFIX "syscall."
+ #include <linux/syscalls.h>
  #include <asm/asm-offsets.h>
  #include <asm/syscall.h>
- 
-@@ -47,4 +50,47 @@ asmlinkage const sys_call_ptr_t x32_sys_
+@@ -53,4 +56,47 @@ asmlinkage const sys_call_ptr_t x32_sys_
  #undef __SYSCALL_64
  #undef __SYSCALL_X32
  

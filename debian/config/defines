@@ -1,5 +1,5 @@
 [abi]
-abiname: 2parrot1
+abiname: 3parrot1
 ignore-changes:
  __cpuhp_*
  bpf_analyzer
@@ -25,6 +25,7 @@ ignore-changes:
  module:drivers/net/ethernet/**
  module:drivers/net/wireless/**
  module:drivers/nvdimm/*
+ module:drivers/nvme/**
  module:drivers/power/supply/bq27xxx_battery
  module:drivers/scsi/cxgbi/*
  module:drivers/scsi/libiscs*

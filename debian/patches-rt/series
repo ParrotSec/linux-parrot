@@ -7,8 +7,6 @@
 ############################################################
 # e950cca3f3c40902a052a78a36b3fac1f8a62d19
 lib-smp_processor_id-Don-t-use-cpumask_equal.patch
-# ce5c31db3645b649a31044a4d8b6057f6c723702
-lib-ubsan-Don-t-seralize-UBSAN-report.patch
 
 # 2019-08-09 14:42 Jan Kara [PATCH 0/7 v2] jbd2: Bit spinlock conversions
 # + fixups due to Buffer-heads rom above
