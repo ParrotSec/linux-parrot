@@ -2,7 +2,7 @@ From: "Uladzislau Rezki (Sony)" <urezki@gmail.com>
 Date: Sat, 30 Nov 2019 17:54:33 -0800
 Subject: [PATCH] mm/vmalloc: remove preempt_disable/enable when doing
  preloading
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Some background.  The preemption was disabled before to guarantee that a
 preloaded object is available for a CPU, it was stored for.  That was

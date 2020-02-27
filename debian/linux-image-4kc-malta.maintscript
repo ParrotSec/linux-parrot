@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-4kc-malta linux-image-5.4.0-3parrot1-4kc-malta 5.2+107 linux-image-4kc-malta
+dir_to_symlink /usr/share/doc/linux-image-4kc-malta linux-image-5.4.0-4parrot1-4kc-malta 5.2+107 linux-image-4kc-malta

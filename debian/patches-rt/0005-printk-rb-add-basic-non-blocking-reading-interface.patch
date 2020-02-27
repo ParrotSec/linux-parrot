@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:43 +0100
 Subject: [PATCH 05/25] printk-rb: add basic non-blocking reading interface
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Add reader iterator static declaration/initializer, dynamic
 initializer, and functions to iterate and retrieve ring buffer data.

@@ -2,7 +2,7 @@ From: "Luis Claudio R. Goncalves" <lclaudio@uudg.org>
 Date: Tue, 25 Jun 2019 11:28:04 -0300
 Subject: [PATCH] mm/zswap: Do not disable preemption in
  zswap_frontswap_store()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Zswap causes "BUG: scheduling while atomic" by blocking on a rt_spin_lock() with
 preemption disabled. The preemption is disabled by get_cpu_var() in

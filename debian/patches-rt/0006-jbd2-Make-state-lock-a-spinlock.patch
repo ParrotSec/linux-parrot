@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 9 Aug 2019 14:42:32 +0200
 Subject: [PATCH 6/7] jbd2: Make state lock a spinlock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Bit-spinlocks are problematic on PREEMPT_RT if functions which might sleep
 on RT, e.g. spin_lock(), alloc/free(), are invoked inside the lock held
@@ -64,7 +64,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		}
  		jbd2_journal_refile_buffer(journal, jh);
  	}
-@@ -928,7 +928,7 @@ void jbd2_journal_commit_transaction(jou
+@@ -930,7 +930,7 @@ void jbd2_journal_commit_transaction(jou
  		 * done with it.
  		 */
  		get_bh(bh);
@@ -73,7 +73,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		J_ASSERT_JH(jh,	jh->b_transaction == commit_transaction);
  
  		/*
-@@ -1024,7 +1024,7 @@ void jbd2_journal_commit_transaction(jou
+@@ -1026,7 +1026,7 @@ void jbd2_journal_commit_transaction(jou
  		}
  		JBUFFER_TRACE(jh, "refile or unfile buffer");
  		drop_ref = __jbd2_journal_refile_buffer(jh);

@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 14 Feb 2019 23:13:30 +0100
 Subject: [PATCH] printk: set deferred to default loglevel, enforce mask
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 All messages printed via vpritnk_deferred() were being
 automatically treated as emergency messages.

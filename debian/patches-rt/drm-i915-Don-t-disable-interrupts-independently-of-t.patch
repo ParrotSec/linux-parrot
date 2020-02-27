@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 10 Apr 2019 11:01:37 +0200
 Subject: [PATCH] drm/i915: Don't disable interrupts independently of the
  lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 The locks (active.lock and rq->lock) need to be taken with disabled
 interrupts. This is done in i915_request_retire() by disabling the

@@ -1,0 +1,32 @@
+From: Scott Wood <swood@redhat.com>
+Date: Fri, 24 Jan 2020 06:11:47 -0500
+Subject: [PATCH] sched: migrate_enable: Remove __schedule() call
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+
+We can rely on preempt_enable() to schedule.  Besides simplifying the
+code, this potentially allows sequences such as the following to be
+permitted:
+
+migrate_disable();
+preempt_disable();
+migrate_enable();
+preempt_enable();
+
+Suggested-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Scott Wood <swood@redhat.com>
+Reviewed-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/sched/core.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -8171,7 +8171,6 @@ void migrate_enable(void)
+ 
+ 		stop_one_cpu_nowait(task_cpu(p), migration_cpu_stop,
+ 				    arg, work);
+-		__schedule(true);
+ 	}
+ 
+ out:

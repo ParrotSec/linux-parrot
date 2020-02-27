@@ -2,7 +2,7 @@ From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 15 Nov 2019 18:54:20 +0100
 Subject: [PATCH] fs/buffer: Make BH_Uptodate_Lock bit_spin_lock a regular
  spinlock_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Bit spinlocks are problematic if PREEMPT_RT is enabled, because they
 disable preemption, which is undesired for latency reasons and breaks when
@@ -103,7 +103,7 @@ after
  	return;
  }
  EXPORT_SYMBOL(end_buffer_async_write);
-@@ -3368,6 +3362,7 @@ struct buffer_head *alloc_buffer_head(gf
+@@ -3345,6 +3339,7 @@ struct buffer_head *alloc_buffer_head(gf
  	struct buffer_head *ret = kmem_cache_zalloc(bh_cachep, gfp_flags);
  	if (ret) {
  		INIT_LIST_HEAD(&ret->b_assoc_buffers);

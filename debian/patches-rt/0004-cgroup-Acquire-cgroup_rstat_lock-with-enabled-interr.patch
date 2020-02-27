@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 16 Aug 2019 12:49:36 +0200
 Subject: [PATCH 4/4] cgroup: Acquire cgroup_rstat_lock with enabled interrupts
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 There is no need to disable interrupts while cgroup_rstat_lock is
 acquired. The lock is never used in-IRQ context so a simple spin_lock()

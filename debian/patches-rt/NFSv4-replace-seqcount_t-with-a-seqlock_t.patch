@@ -5,7 +5,7 @@ Cc:     Anna Schumaker <anna.schumaker@netapp.com>,
         linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
         tglx@linutronix.de
 Subject: NFSv4: replace seqcount_t with a seqlock_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 The raw_write_seqcount_begin() in nfs4_reclaim_open_state() causes a
 preempt_disable() on -RT. The spin_lock()/spin_unlock() in that section does
@@ -59,7 +59,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/fs/nfs/nfs4proc.c
 +++ b/fs/nfs/nfs4proc.c
-@@ -2956,7 +2956,7 @@ static int _nfs4_open_and_get_state(stru
+@@ -2965,7 +2965,7 @@ static int _nfs4_open_and_get_state(stru
  	unsigned int seq;
  	int ret;
  
@@ -68,7 +68,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	ret = _nfs4_proc_open(opendata, ctx);
  	if (ret != 0)
-@@ -2998,7 +2998,7 @@ static int _nfs4_open_and_get_state(stru
+@@ -3007,7 +3007,7 @@ static int _nfs4_open_and_get_state(stru
  
  	if (d_inode(dentry) == state->inode) {
  		nfs_inode_attach_open_context(ctx);

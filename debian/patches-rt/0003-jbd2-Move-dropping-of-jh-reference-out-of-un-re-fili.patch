@@ -2,7 +2,7 @@ From: Jan Kara <jack@suse.cz>
 Date: Fri, 9 Aug 2019 14:42:29 +0200
 Subject: [PATCH 3/7] jbd2: Move dropping of jh reference out of un/re-filing
  functions
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 __jbd2_journal_unfile_buffer() and __jbd2_journal_refile_buffer() drop
 transaction's jh reference when they remove jh from a transaction. This
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/fs/jbd2/commit.c
 +++ b/fs/jbd2/commit.c
-@@ -918,6 +918,7 @@ void jbd2_journal_commit_transaction(jou
+@@ -920,6 +920,7 @@ void jbd2_journal_commit_transaction(jou
  		transaction_t *cp_transaction;
  		struct buffer_head *bh;
  		int try_to_free = 0;
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		jh = commit_transaction->t_forget;
  		spin_unlock(&journal->j_list_lock);
-@@ -1022,8 +1023,10 @@ void jbd2_journal_commit_transaction(jou
+@@ -1024,8 +1025,10 @@ void jbd2_journal_commit_transaction(jou
  				try_to_free = 1;
  		}
  		JBUFFER_TRACE(jh, "refile or unfile buffer");

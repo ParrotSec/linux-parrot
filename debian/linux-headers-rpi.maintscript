@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-rpi linux-headers-5.4.0-3parrot1-rpi 5.2+107 linux-headers-rpi
+dir_to_symlink /usr/share/doc/linux-headers-rpi linux-headers-5.4.0-4parrot1-rpi 5.2+107 linux-headers-rpi

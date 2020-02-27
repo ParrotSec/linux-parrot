@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 18 Apr 2019 11:09:06 +0200
 Subject: [PATCH 3/4] mm/swap: Access struct pagevec remotely
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 When the newly introduced static key would be enabled, struct pagevec is
 locked during access. So it is possible to access it from a remote CPU. The
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -2999,15 +2999,20 @@ void drain_all_pages(struct zone *zone)
+@@ -2988,15 +2988,20 @@ void drain_all_pages(struct zone *zone)
  			cpumask_clear_cpu(cpu, &cpus_with_pcps);
  	}
  

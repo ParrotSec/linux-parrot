@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-octeon linux-headers-5.4.0-3parrot1-octeon 5.2+107 linux-headers-octeon
+dir_to_symlink /usr/share/doc/linux-headers-octeon linux-headers-5.4.0-4parrot1-octeon 5.2+107 linux-headers-octeon

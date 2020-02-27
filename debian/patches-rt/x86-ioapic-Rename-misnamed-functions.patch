@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 17 Oct 2019 12:19:02 +0200
 Subject: [PATCH] x86/ioapic: Rename misnamed functions
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 ioapic_irqd_[un]mask() are misnomers as both functions do way more than
 masking and unmasking the interrupt line. Both deal with the moving the

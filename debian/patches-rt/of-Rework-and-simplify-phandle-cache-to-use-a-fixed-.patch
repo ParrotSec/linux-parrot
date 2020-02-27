@@ -1,7 +1,7 @@
 From: Rob Herring <robh@kernel.org>
 Date: Wed, 11 Dec 2019 17:23:45 -0600
 Subject: [PATCH] of: Rework and simplify phandle cache to use a fixed size
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 The phandle cache was added to speed up of_find_node_by_phandle() by
 avoiding walking the whole DT to find a matching phandle. The
@@ -286,7 +286,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static inline void of_overlay_mutex_unlock(void) {};
 --- a/drivers/of/overlay.c
 +++ b/drivers/of/overlay.c
-@@ -971,8 +971,6 @@ static int of_overlay_apply(const void *
+@@ -974,8 +974,6 @@ static int of_overlay_apply(const void *
  		goto err_free_overlay_changeset;
  	}
  
@@ -295,7 +295,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	ret = __of_changeset_apply_notify(&ovcs->cset);
  	if (ret)
  		pr_err("overlay apply changeset entry notify error %d\n", ret);
-@@ -1215,17 +1213,9 @@ int of_overlay_remove(int *ovcs_id)
+@@ -1218,17 +1216,9 @@ int of_overlay_remove(int *ovcs_id)
  
  	list_del(&ovcs->ovcs_list);
  

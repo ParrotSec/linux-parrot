@@ -1,24 +1,22 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:31:14 +0200
 Subject: rtmutex: wire up RT's locking
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  include/Kbuild                   |    7 +++++++
  include/linux/mutex.h            |   20 +++++++++++++-------
- include/linux/percpu-rwsem.h     |    4 ++--
  include/linux/rwsem.h            |   12 ++++++++++++
  include/linux/spinlock.h         |   12 +++++++++++-
  include/linux/spinlock_api_smp.h |    4 +++-
  include/linux/spinlock_types.h   |   11 ++++++++---
  kernel/locking/Makefile          |   10 +++++++---
- kernel/locking/rwsem.c           |    8 ++++++++
- kernel/locking/rwsem.h           |    2 ++
+ kernel/locking/rwsem.c           |    7 +++++++
  kernel/locking/spinlock.c        |    7 +++++++
  kernel/locking/spinlock_debug.c  |    5 +++++
- 12 files changed, 85 insertions(+), 17 deletions(-)
+ 10 files changed, 80 insertions(+), 15 deletions(-)
 
 --- a/include/Kbuild
 +++ b/include/Kbuild
@@ -79,26 +77,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#endif /* !PREEMPT_RT */
 +
  #endif /* __LINUX_MUTEX_H */
---- a/include/linux/percpu-rwsem.h
-+++ b/include/linux/percpu-rwsem.h
-@@ -119,7 +119,7 @@ static inline void percpu_rwsem_release(
- 					bool read, unsigned long ip)
- {
- 	lock_release(&sem->rw_sem.dep_map, 1, ip);
--#ifdef CONFIG_RWSEM_SPIN_ON_OWNER
-+#if defined(CONFIG_RWSEM_SPIN_ON_OWNER) && !defined(CONFIG_PREEMPT_RT)
- 	if (!read)
- 		atomic_long_set(&sem->rw_sem.owner, RWSEM_OWNER_UNKNOWN);
- #endif
-@@ -129,7 +129,7 @@ static inline void percpu_rwsem_acquire(
- 					bool read, unsigned long ip)
- {
- 	lock_acquire(&sem->rw_sem.dep_map, 0, 1, read, 1, NULL, ip);
--#ifdef CONFIG_RWSEM_SPIN_ON_OWNER
-+#if defined(CONFIG_RWSEM_SPIN_ON_OWNER) && !defined(CONFIG_PREEMPT_RT)
- 	if (!read)
- 		atomic_long_set(&sem->rw_sem.owner, (long)current);
- #endif
 --- a/include/linux/rwsem.h
 +++ b/include/linux/rwsem.h
 @@ -16,6 +16,11 @@
@@ -113,7 +91,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
  #include <linux/osq_lock.h>
  #endif
-@@ -121,6 +126,13 @@ static inline int rwsem_is_contended(str
+@@ -115,6 +120,13 @@ static inline int rwsem_is_contended(str
  	return !list_empty(&sem->wait_list);
  }
  
@@ -232,16 +210,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  obj-$(CONFIG_WW_MUTEX_SELFTEST) += test-ww_mutex.o
 --- a/kernel/locking/rwsem.c
 +++ b/kernel/locking/rwsem.c
-@@ -29,6 +29,8 @@
+@@ -28,6 +28,7 @@
+ #include <linux/rwsem.h>
  #include <linux/atomic.h>
  
- #include "rwsem.h"
-+
 +#ifndef CONFIG_PREEMPT_RT
  #include "lock_events.h"
  
  /*
-@@ -1335,6 +1337,7 @@ static struct rw_semaphore *rwsem_downgr
+@@ -1332,6 +1333,7 @@ static struct rw_semaphore *rwsem_downgr
  	return sem;
  }
  
@@ -249,7 +226,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * lock for reading
   */
-@@ -1485,6 +1488,7 @@ static inline void __downgrade_write(str
+@@ -1482,6 +1484,7 @@ static inline void __downgrade_write(str
  	if (tmp & RWSEM_FLAG_WAITERS)
  		rwsem_downgrade_wake(sem);
  }
@@ -257,7 +234,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  /*
   * lock for reading
-@@ -1616,6 +1620,7 @@ void _down_write_nest_lock(struct rw_sem
+@@ -1613,6 +1616,7 @@ void _down_write_nest_lock(struct rw_sem
  }
  EXPORT_SYMBOL(_down_write_nest_lock);
  
@@ -265,7 +242,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  void down_read_non_owner(struct rw_semaphore *sem)
  {
  	might_sleep();
-@@ -1623,6 +1628,7 @@ void down_read_non_owner(struct rw_semap
+@@ -1620,6 +1624,7 @@ void down_read_non_owner(struct rw_semap
  	__rwsem_set_reader_owned(sem, NULL);
  }
  EXPORT_SYMBOL(down_read_non_owner);
@@ -273,7 +250,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  void down_write_nested(struct rw_semaphore *sem, int subclass)
  {
-@@ -1647,11 +1653,13 @@ int __sched down_write_killable_nested(s
+@@ -1644,11 +1649,13 @@ int __sched down_write_killable_nested(s
  }
  EXPORT_SYMBOL(down_write_killable_nested);
  
@@ -287,18 +264,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#endif
  
  #endif
---- a/kernel/locking/rwsem.h
-+++ b/kernel/locking/rwsem.h
-@@ -4,7 +4,9 @@
- #define __INTERNAL_RWSEM_H
- #include <linux/rwsem.h>
- 
-+#ifndef CONFIG_PREEMPT_RT
- extern void __down_read(struct rw_semaphore *sem);
- extern void __up_read(struct rw_semaphore *sem);
-+#endif
- 
- #endif /* __INTERNAL_RWSEM_H */
 --- a/kernel/locking/spinlock.c
 +++ b/kernel/locking/spinlock.c
 @@ -124,8 +124,11 @@ void __lockfunc __raw_##op##_lock_bh(loc

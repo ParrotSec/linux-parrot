@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 15 Nov 2019 21:37:22 +0100
 Subject: [PATCH] block: Don't disable interrupts in trigger_softirq()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 trigger_softirq() is always invoked as a SMP-function call which is
 always invoked with disables interrupts.

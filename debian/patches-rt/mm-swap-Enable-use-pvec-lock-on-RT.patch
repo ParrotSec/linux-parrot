@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 12 Aug 2019 11:20:44 +0200
 Subject: [PATCH] mm/swap: Enable use pvec lock on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 On RT we also need to avoid preempt disable/IRQ-off regions so have to enable
 the locking while accessing pvecs.

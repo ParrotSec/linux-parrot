@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 18 Apr 2019 11:09:05 +0200
 Subject: [PATCH 2/4] mm/swap: Add static key dependent pagevec locking
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 The locking of struct pagevec is done by disabling preemption. In case the
 struct has be accessed form interrupt context then interrupts are

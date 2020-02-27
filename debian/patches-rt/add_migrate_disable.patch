@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 27 May 2017 19:02:06 +0200
 Subject: kernel/sched/core: add migrate_disable()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 [bristot@redhat.com: rt: Increase/decrease the nr of migratory tasks when enabling/disabling migration
  Link: https://lkml.kernel.org/r/e981d271cbeca975bca710e2fbcc6078c09741b0.1498482127.git.bristot@redhat.com
@@ -139,7 +139,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif
 --- a/include/linux/smp.h
 +++ b/include/linux/smp.h
-@@ -222,6 +222,9 @@ static inline int get_boot_cpu_id(void)
+@@ -221,6 +221,9 @@ static inline int get_boot_cpu_id(void)
  #define get_cpu()		({ preempt_disable(); __smp_processor_id(); })
  #define put_cpu()		preempt_enable()
  

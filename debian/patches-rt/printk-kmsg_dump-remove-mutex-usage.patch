@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Wed, 24 Apr 2019 16:36:04 +0200
 Subject: [PATCH] printk: kmsg_dump: remove mutex usage
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 The kmsg dumper can be called from any context, but the dumping
 helpers were using a mutex to synchronize the iterator against

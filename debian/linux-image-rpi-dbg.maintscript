@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-rpi-dbg linux-image-5.4.0-3parrot1-rpi-dbg 5.2+107 linux-image-rpi-dbg
+dir_to_symlink /usr/share/doc/linux-image-rpi-dbg linux-image-5.4.0-4parrot1-rpi-dbg 5.2+107 linux-image-rpi-dbg

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 10 Oct 2019 16:54:45 +0200
 Subject: [PATCH] BPF: Disable on PREEMPT_RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Disable BPF on PREEMPT_RT because
 - it allocates and frees memory in atomic context
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1629,6 +1629,7 @@ config KALLSYMS_BASE_RELATIVE
+@@ -1630,6 +1630,7 @@ config KALLSYMS_BASE_RELATIVE
  # syscall, maps, verifier
  config BPF_SYSCALL
  	bool "Enable bpf() system call"

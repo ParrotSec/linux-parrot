@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Sun, 17 Feb 2019 03:11:20 +0100
 Subject: [PATCH] printk: only allow kernel to emergency message
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Emergency messages exist as a mechanism for the kernel to
 communicate critical information to users. It is not meant for

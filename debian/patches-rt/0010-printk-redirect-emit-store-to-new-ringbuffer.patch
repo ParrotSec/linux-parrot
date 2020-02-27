@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:48 +0100
 Subject: [PATCH 10/25] printk: redirect emit/store to new ringbuffer
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 vprintk_emit and vprintk_store are the main functions that all printk
 variants eventually go through. Change these to store the message in

@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 26 Jul 2018 09:13:42 +0200
 Subject: [PATCH] arm64: KVM: Invoke compute_layout() before alternatives are
  applied
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 compute_layout() is invoked as part of an alternative fixup under
 stop_machine(). This function invokes get_random_long() which acquires a

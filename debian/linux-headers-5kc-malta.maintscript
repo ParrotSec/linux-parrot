@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-5kc-malta linux-headers-5.4.0-3parrot1-5kc-malta 5.2+107 linux-headers-5kc-malta
+dir_to_symlink /usr/share/doc/linux-headers-5kc-malta linux-headers-5.4.0-4parrot1-5kc-malta 5.2+107 linux-headers-5kc-malta

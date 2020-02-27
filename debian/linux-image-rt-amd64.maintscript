@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-rt-amd64 linux-image-5.4.0-3parrot1-rt-amd64 5.2+107 linux-image-rt-amd64
+dir_to_symlink /usr/share/doc/linux-image-rt-amd64 linux-image-5.4.0-4parrot1-rt-amd64 5.2+107 linux-image-rt-amd64

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 22 May 2019 12:43:56 +0200
 Subject: [PATCH 4/4] workqueue: Convert the locks to raw type
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 After all the workqueue and the timer rework, we can finally make the
 worker_pool lock raw.
@@ -32,7 +32,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static DECLARE_SWAIT_QUEUE_HEAD(wq_manager_wait); /* wait for manager to go away */
  
  static LIST_HEAD(workqueues);		/* PR: list of all workqueues */
-@@ -826,7 +826,7 @@ static struct worker *first_idle_worker(
+@@ -833,7 +833,7 @@ static struct worker *first_idle_worker(
   * Wake up the first idle worker of @pool.
   *
   * CONTEXT:
@@ -41,7 +41,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void wake_up_worker(struct worker_pool *pool)
  {
-@@ -879,7 +879,7 @@ void wq_worker_sleeping(struct task_stru
+@@ -886,7 +886,7 @@ void wq_worker_sleeping(struct task_stru
  		return;
  
  	worker->sleeping = 1;
@@ -50,7 +50,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * The counterpart of the following dec_and_test, implied mb,
-@@ -898,7 +898,7 @@ void wq_worker_sleeping(struct task_stru
+@@ -905,7 +905,7 @@ void wq_worker_sleeping(struct task_stru
  		if (next)
  			wake_up_process(next->task);
  	}
@@ -59,7 +59,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -909,7 +909,7 @@ void wq_worker_sleeping(struct task_stru
+@@ -916,7 +916,7 @@ void wq_worker_sleeping(struct task_stru
   * the scheduler to get a worker's last known identity.
   *
   * CONTEXT:
@@ -68,7 +68,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   *
   * This function is called during schedule() when a kworker is going
   * to sleep. It's used by psi to identify aggregation workers during
-@@ -940,7 +940,7 @@ work_func_t wq_worker_last_func(struct t
+@@ -947,7 +947,7 @@ work_func_t wq_worker_last_func(struct t
   * Set @flags in @worker->flags and adjust nr_running accordingly.
   *
   * CONTEXT:
@@ -77,7 +77,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static inline void worker_set_flags(struct worker *worker, unsigned int flags)
  {
-@@ -965,7 +965,7 @@ static inline void worker_set_flags(stru
+@@ -972,7 +972,7 @@ static inline void worker_set_flags(stru
   * Clear @flags in @worker->flags and adjust nr_running accordingly.
   *
   * CONTEXT:
@@ -86,7 +86,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static inline void worker_clr_flags(struct worker *worker, unsigned int flags)
  {
-@@ -1013,7 +1013,7 @@ static inline void worker_clr_flags(stru
+@@ -1020,7 +1020,7 @@ static inline void worker_clr_flags(stru
   * actually occurs, it should be easy to locate the culprit work function.
   *
   * CONTEXT:
@@ -95,7 +95,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   *
   * Return:
   * Pointer to worker which is executing @work if found, %NULL
-@@ -1048,7 +1048,7 @@ static struct worker *find_worker_execut
+@@ -1055,7 +1055,7 @@ static struct worker *find_worker_execut
   * nested inside outer list_for_each_entry_safe().
   *
   * CONTEXT:
@@ -104,7 +104,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void move_linked_works(struct work_struct *work, struct list_head *head,
  			      struct work_struct **nextp)
-@@ -1126,9 +1126,9 @@ static void put_pwq_unlocked(struct pool
+@@ -1133,9 +1133,9 @@ static void put_pwq_unlocked(struct pool
  		 * As both pwqs and pools are RCU protected, the
  		 * following lock operations are safe.
  		 */
@@ -116,7 +116,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  }
  
-@@ -1161,7 +1161,7 @@ static void pwq_activate_first_delayed(s
+@@ -1168,7 +1168,7 @@ static void pwq_activate_first_delayed(s
   * decrement nr_in_flight of its pwq and handle workqueue flushing.
   *
   * CONTEXT:
@@ -125,7 +125,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void pwq_dec_nr_in_flight(struct pool_workqueue *pwq, int color)
  {
-@@ -1260,7 +1260,7 @@ static int try_to_grab_pending(struct wo
+@@ -1267,7 +1267,7 @@ static int try_to_grab_pending(struct wo
  	if (!pool)
  		goto fail;
  
@@ -134,7 +134,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * work->data is guaranteed to point to pwq only while the work
  	 * item is queued on pwq->wq, and both updating work->data to point
-@@ -1289,11 +1289,11 @@ static int try_to_grab_pending(struct wo
+@@ -1296,11 +1296,11 @@ static int try_to_grab_pending(struct wo
  		/* work->data points to pwq iff queued, point to pool */
  		set_work_pool_and_keep_pending(work, pool->id);
  
@@ -148,7 +148,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  fail:
  	rcu_read_unlock();
  	local_irq_restore(*flags);
-@@ -1314,7 +1314,7 @@ static int try_to_grab_pending(struct wo
+@@ -1321,7 +1321,7 @@ static int try_to_grab_pending(struct wo
   * work_struct flags.
   *
   * CONTEXT:
@@ -157,7 +157,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void insert_work(struct pool_workqueue *pwq, struct work_struct *work,
  			struct list_head *head, unsigned int extra_flags)
-@@ -1429,7 +1429,7 @@ static void __queue_work(int cpu, struct
+@@ -1436,7 +1436,7 @@ static void __queue_work(int cpu, struct
  	if (last_pool && last_pool != pwq->pool) {
  		struct worker *worker;
  
@@ -166,7 +166,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		worker = find_worker_executing_work(last_pool, work);
  
-@@ -1437,11 +1437,11 @@ static void __queue_work(int cpu, struct
+@@ -1444,11 +1444,11 @@ static void __queue_work(int cpu, struct
  			pwq = worker->current_pwq;
  		} else {
  			/* meh... not running there, queue here */
@@ -181,7 +181,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	/*
-@@ -1454,7 +1454,7 @@ static void __queue_work(int cpu, struct
+@@ -1461,7 +1461,7 @@ static void __queue_work(int cpu, struct
  	 */
  	if (unlikely(!pwq->refcnt)) {
  		if (wq->flags & WQ_UNBOUND) {
@@ -190,7 +190,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			cpu_relax();
  			goto retry;
  		}
-@@ -1486,7 +1486,7 @@ static void __queue_work(int cpu, struct
+@@ -1493,7 +1493,7 @@ static void __queue_work(int cpu, struct
  	insert_work(pwq, work, worklist, work_flags);
  
  out:
@@ -199,7 +199,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	rcu_read_unlock();
  }
  
-@@ -1757,7 +1757,7 @@ EXPORT_SYMBOL(queue_rcu_work);
+@@ -1764,7 +1764,7 @@ EXPORT_SYMBOL(queue_rcu_work);
   * necessary.
   *
   * LOCKING:
@@ -208,7 +208,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void worker_enter_idle(struct worker *worker)
  {
-@@ -1797,7 +1797,7 @@ static void worker_enter_idle(struct wor
+@@ -1804,7 +1804,7 @@ static void worker_enter_idle(struct wor
   * @worker is leaving idle state.  Update stats.
   *
   * LOCKING:
@@ -217,7 +217,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void worker_leave_idle(struct worker *worker)
  {
-@@ -1935,11 +1935,11 @@ static struct worker *create_worker(stru
+@@ -1942,11 +1942,11 @@ static struct worker *create_worker(stru
  	worker_attach_to_pool(worker, pool);
  
  	/* start the newly created worker */
@@ -231,7 +231,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return worker;
  
-@@ -1958,7 +1958,7 @@ static struct worker *create_worker(stru
+@@ -1965,7 +1965,7 @@ static struct worker *create_worker(stru
   * be idle.
   *
   * CONTEXT:
@@ -240,7 +240,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void destroy_worker(struct worker *worker)
  {
-@@ -1984,7 +1984,7 @@ static void idle_worker_timeout(struct t
+@@ -1991,7 +1991,7 @@ static void idle_worker_timeout(struct t
  {
  	struct worker_pool *pool = from_timer(pool, t, idle_timer);
  
@@ -249,7 +249,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	while (too_many_workers(pool)) {
  		struct worker *worker;
-@@ -2002,7 +2002,7 @@ static void idle_worker_timeout(struct t
+@@ -2009,7 +2009,7 @@ static void idle_worker_timeout(struct t
  		destroy_worker(worker);
  	}
  
@@ -258,7 +258,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static void send_mayday(struct work_struct *work)
-@@ -2033,8 +2033,8 @@ static void pool_mayday_timeout(struct t
+@@ -2040,8 +2040,8 @@ static void pool_mayday_timeout(struct t
  	struct worker_pool *pool = from_timer(pool, t, mayday_timer);
  	struct work_struct *work;
  
@@ -269,7 +269,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (need_to_create_worker(pool)) {
  		/*
-@@ -2047,8 +2047,8 @@ static void pool_mayday_timeout(struct t
+@@ -2054,8 +2054,8 @@ static void pool_mayday_timeout(struct t
  			send_mayday(work);
  	}
  
@@ -280,7 +280,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	mod_timer(&pool->mayday_timer, jiffies + MAYDAY_INTERVAL);
  }
-@@ -2067,7 +2067,7 @@ static void pool_mayday_timeout(struct t
+@@ -2074,7 +2074,7 @@ static void pool_mayday_timeout(struct t
   * may_start_working() %true.
   *
   * LOCKING:
@@ -289,7 +289,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * multiple times.  Does GFP_KERNEL allocations.  Called only from
   * manager.
   */
-@@ -2076,7 +2076,7 @@ static void maybe_create_worker(struct w
+@@ -2083,7 +2083,7 @@ static void maybe_create_worker(struct w
  __acquires(&pool->lock)
  {
  restart:
@@ -298,7 +298,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* if we don't make progress in MAYDAY_INITIAL_TIMEOUT, call for help */
  	mod_timer(&pool->mayday_timer, jiffies + MAYDAY_INITIAL_TIMEOUT);
-@@ -2092,7 +2092,7 @@ static void maybe_create_worker(struct w
+@@ -2099,7 +2099,7 @@ static void maybe_create_worker(struct w
  	}
  
  	del_timer_sync(&pool->mayday_timer);
@@ -307,7 +307,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * This is necessary even after a new worker was just successfully
  	 * created as @pool->lock was dropped and the new worker might have
-@@ -2115,7 +2115,7 @@ static void maybe_create_worker(struct w
+@@ -2122,7 +2122,7 @@ static void maybe_create_worker(struct w
   * and may_start_working() is true.
   *
   * CONTEXT:
@@ -316,7 +316,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * multiple times.  Does GFP_KERNEL allocations.
   *
   * Return:
-@@ -2154,7 +2154,7 @@ static bool manage_workers(struct worker
+@@ -2161,7 +2161,7 @@ static bool manage_workers(struct worker
   * call this function to process a work.
   *
   * CONTEXT:
@@ -325,7 +325,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void process_one_work(struct worker *worker, struct work_struct *work)
  __releases(&pool->lock)
-@@ -2236,7 +2236,7 @@ static void process_one_work(struct work
+@@ -2243,7 +2243,7 @@ static void process_one_work(struct work
  	 */
  	set_work_pool_and_clear_pending(work, pool->id);
  
@@ -334,7 +334,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	lock_map_acquire(&pwq->wq->lockdep_map);
  	lock_map_acquire(&lockdep_map);
-@@ -2291,7 +2291,7 @@ static void process_one_work(struct work
+@@ -2298,7 +2298,7 @@ static void process_one_work(struct work
  	 */
  	cond_resched();
  
@@ -343,7 +343,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* clear cpu intensive status */
  	if (unlikely(cpu_intensive))
-@@ -2317,7 +2317,7 @@ static void process_one_work(struct work
+@@ -2324,7 +2324,7 @@ static void process_one_work(struct work
   * fetches a work from the top and executes it.
   *
   * CONTEXT:
@@ -352,7 +352,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * multiple times.
   */
  static void process_scheduled_works(struct worker *worker)
-@@ -2359,11 +2359,11 @@ static int worker_thread(void *__worker)
+@@ -2366,11 +2366,11 @@ static int worker_thread(void *__worker)
  	/* tell the scheduler that this is a workqueue worker */
  	set_pf_worker(true);
  woke_up:
@@ -366,7 +366,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		WARN_ON_ONCE(!list_empty(&worker->entry));
  		set_pf_worker(false);
  
-@@ -2429,7 +2429,7 @@ static int worker_thread(void *__worker)
+@@ -2436,7 +2436,7 @@ static int worker_thread(void *__worker)
  	 */
  	worker_enter_idle(worker);
  	__set_current_state(TASK_IDLE);
@@ -375,7 +375,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	schedule();
  	goto woke_up;
  }
-@@ -2483,7 +2483,7 @@ static int rescuer_thread(void *__rescue
+@@ -2490,7 +2490,7 @@ static int rescuer_thread(void *__rescue
  	should_stop = kthread_should_stop();
  
  	/* see whether any pwq is asking for help */
@@ -384,7 +384,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	while (!list_empty(&wq->maydays)) {
  		struct pool_workqueue *pwq = list_first_entry(&wq->maydays,
-@@ -2495,11 +2495,11 @@ static int rescuer_thread(void *__rescue
+@@ -2502,11 +2502,11 @@ static int rescuer_thread(void *__rescue
  		__set_current_state(TASK_RUNNING);
  		list_del_init(&pwq->mayday_node);
  
@@ -398,7 +398,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/*
  		 * Slurp in all works issued via this workqueue and
-@@ -2528,7 +2528,7 @@ static int rescuer_thread(void *__rescue
+@@ -2535,7 +2535,7 @@ static int rescuer_thread(void *__rescue
  			 * incur MAYDAY_INTERVAL delay inbetween.
  			 */
  			if (need_to_create_worker(pool)) {
@@ -407,7 +407,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				/*
  				 * Queue iff we aren't racing destruction
  				 * and somebody else hasn't queued it already.
-@@ -2537,7 +2537,7 @@ static int rescuer_thread(void *__rescue
+@@ -2544,7 +2544,7 @@ static int rescuer_thread(void *__rescue
  					get_pwq(pwq);
  					list_add_tail(&pwq->mayday_node, &wq->maydays);
  				}
@@ -416,7 +416,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			}
  		}
  
-@@ -2555,14 +2555,14 @@ static int rescuer_thread(void *__rescue
+@@ -2562,14 +2562,14 @@ static int rescuer_thread(void *__rescue
  		if (need_more_worker(pool))
  			wake_up_worker(pool);
  
@@ -434,7 +434,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (should_stop) {
  		__set_current_state(TASK_RUNNING);
-@@ -2642,7 +2642,7 @@ static void wq_barrier_func(struct work_
+@@ -2649,7 +2649,7 @@ static void wq_barrier_func(struct work_
   * underneath us, so we can't reliably determine pwq from @target.
   *
   * CONTEXT:
@@ -443,7 +443,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static void insert_wq_barrier(struct pool_workqueue *pwq,
  			      struct wq_barrier *barr,
-@@ -2729,7 +2729,7 @@ static bool flush_workqueue_prep_pwqs(st
+@@ -2736,7 +2736,7 @@ static bool flush_workqueue_prep_pwqs(st
  	for_each_pwq(pwq, wq) {
  		struct worker_pool *pool = pwq->pool;
  
@@ -452,7 +452,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		if (flush_color >= 0) {
  			WARN_ON_ONCE(pwq->flush_color != -1);
-@@ -2746,7 +2746,7 @@ static bool flush_workqueue_prep_pwqs(st
+@@ -2753,7 +2753,7 @@ static bool flush_workqueue_prep_pwqs(st
  			pwq->work_color = work_color;
  		}
  
@@ -461,7 +461,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	if (flush_color >= 0 && atomic_dec_and_test(&wq->nr_pwqs_to_flush))
-@@ -2946,9 +2946,9 @@ void drain_workqueue(struct workqueue_st
+@@ -2953,9 +2953,9 @@ void drain_workqueue(struct workqueue_st
  	for_each_pwq(pwq, wq) {
  		bool drained;
  
@@ -473,7 +473,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		if (drained)
  			continue;
-@@ -2984,7 +2984,7 @@ static bool start_flush_work(struct work
+@@ -2991,7 +2991,7 @@ static bool start_flush_work(struct work
  		return false;
  	}
  
@@ -482,7 +482,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* see the comment in try_to_grab_pending() with the same code */
  	pwq = get_work_pwq(work);
  	if (pwq) {
-@@ -3000,7 +3000,7 @@ static bool start_flush_work(struct work
+@@ -3007,7 +3007,7 @@ static bool start_flush_work(struct work
  	check_flush_dependency(pwq->wq, work);
  
  	insert_wq_barrier(pwq, barr, work, worker);
@@ -491,7 +491,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * Force a lock recursion deadlock when using flush_work() inside a
-@@ -3019,7 +3019,7 @@ static bool start_flush_work(struct work
+@@ -3026,7 +3026,7 @@ static bool start_flush_work(struct work
  	rcu_read_unlock();
  	return true;
  already_gone:
@@ -500,7 +500,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	rcu_read_unlock();
  	return false;
  }
-@@ -3412,7 +3412,7 @@ static bool wqattrs_equal(const struct w
+@@ -3419,7 +3419,7 @@ static bool wqattrs_equal(const struct w
   */
  static int init_worker_pool(struct worker_pool *pool)
  {
@@ -509,7 +509,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	pool->id = -1;
  	pool->cpu = -1;
  	pool->node = NUMA_NO_NODE;
-@@ -3538,7 +3538,7 @@ static void put_unbound_pool(struct work
+@@ -3545,7 +3545,7 @@ static void put_unbound_pool(struct work
  	 * @pool's workers from blocking on attach_mutex.  We're the last
  	 * manager and @pool gets freed with the flag set.
  	 */
@@ -518,7 +518,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	swait_event_lock_irq(wq_manager_wait,
  			    !(pool->flags & POOL_MANAGER_ACTIVE), pool->lock);
  	pool->flags |= POOL_MANAGER_ACTIVE;
-@@ -3546,7 +3546,7 @@ static void put_unbound_pool(struct work
+@@ -3553,7 +3553,7 @@ static void put_unbound_pool(struct work
  	while ((worker = first_idle_worker(pool)))
  		destroy_worker(worker);
  	WARN_ON(pool->nr_workers || pool->nr_idle);
@@ -527,7 +527,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	mutex_lock(&wq_pool_attach_mutex);
  	if (!list_empty(&pool->workers))
-@@ -3702,7 +3702,7 @@ static void pwq_adjust_max_active(struct
+@@ -3709,7 +3709,7 @@ static void pwq_adjust_max_active(struct
  		return;
  
  	/* this function can be called during early boot w/ irq disabled */
@@ -536,7 +536,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * During [un]freezing, the caller is responsible for ensuring that
-@@ -3725,7 +3725,7 @@ static void pwq_adjust_max_active(struct
+@@ -3732,7 +3732,7 @@ static void pwq_adjust_max_active(struct
  		pwq->max_active = 0;
  	}
  
@@ -545,7 +545,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /* initialize newly alloced @pwq which is associated with @wq and @pool */
-@@ -4127,9 +4127,9 @@ static void wq_update_unbound_numa(struc
+@@ -4134,9 +4134,9 @@ static void wq_update_unbound_numa(struc
  
  use_dfl_pwq:
  	mutex_lock(&wq->mutex);
@@ -557,7 +557,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	old_pwq = numa_pwq_tbl_install(wq, node, wq->dfl_pwq);
  out_unlock:
  	mutex_unlock(&wq->mutex);
-@@ -4342,9 +4342,9 @@ void destroy_workqueue(struct workqueue_
+@@ -4349,9 +4349,9 @@ void destroy_workqueue(struct workqueue_
  		struct worker *rescuer = wq->rescuer;
  
  		/* this prevents new queueing */
@@ -569,7 +569,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/* rescuer will empty maydays list before exiting */
  		kthread_stop(rescuer->task);
-@@ -4540,10 +4540,10 @@ unsigned int work_busy(struct work_struc
+@@ -4547,10 +4547,10 @@ unsigned int work_busy(struct work_struc
  	rcu_read_lock();
  	pool = get_work_pool(work);
  	if (pool) {
@@ -582,7 +582,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  	rcu_read_unlock();
  
-@@ -4750,10 +4750,10 @@ void show_workqueue_state(void)
+@@ -4757,10 +4757,10 @@ void show_workqueue_state(void)
  		pr_info("workqueue %s: flags=0x%x\n", wq->name, wq->flags);
  
  		for_each_pwq(pwq, wq) {
@@ -595,7 +595,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			/*
  			 * We could be printing a lot from atomic context, e.g.
  			 * sysrq-t -> show_workqueue_state(). Avoid triggering
-@@ -4767,7 +4767,7 @@ void show_workqueue_state(void)
+@@ -4774,7 +4774,7 @@ void show_workqueue_state(void)
  		struct worker *worker;
  		bool first = true;
  
@@ -604,7 +604,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (pool->nr_workers == pool->nr_idle)
  			goto next_pool;
  
-@@ -4786,7 +4786,7 @@ void show_workqueue_state(void)
+@@ -4793,7 +4793,7 @@ void show_workqueue_state(void)
  		}
  		pr_cont("\n");
  	next_pool:
@@ -613,7 +613,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/*
  		 * We could be printing a lot from atomic context, e.g.
  		 * sysrq-t -> show_workqueue_state(). Avoid triggering
-@@ -4816,7 +4816,7 @@ void wq_worker_comm(char *buf, size_t si
+@@ -4823,7 +4823,7 @@ void wq_worker_comm(char *buf, size_t si
  		struct worker_pool *pool = worker->pool;
  
  		if (pool) {
@@ -622,7 +622,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			/*
  			 * ->desc tracks information (wq name or
  			 * set_worker_desc()) for the latest execution.  If
-@@ -4830,7 +4830,7 @@ void wq_worker_comm(char *buf, size_t si
+@@ -4837,7 +4837,7 @@ void wq_worker_comm(char *buf, size_t si
  					scnprintf(buf + off, size - off, "-%s",
  						  worker->desc);
  			}
@@ -631,7 +631,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		}
  	}
  
-@@ -4861,7 +4861,7 @@ static void unbind_workers(int cpu)
+@@ -4868,7 +4868,7 @@ static void unbind_workers(int cpu)
  
  	for_each_cpu_worker_pool(pool, cpu) {
  		mutex_lock(&wq_pool_attach_mutex);
@@ -640,7 +640,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/*
  		 * We've blocked all attach/detach operations. Make all workers
-@@ -4875,7 +4875,7 @@ static void unbind_workers(int cpu)
+@@ -4882,7 +4882,7 @@ static void unbind_workers(int cpu)
  
  		pool->flags |= POOL_DISASSOCIATED;
  
@@ -649,7 +649,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		mutex_unlock(&wq_pool_attach_mutex);
  
  		/*
-@@ -4901,9 +4901,9 @@ static void unbind_workers(int cpu)
+@@ -4908,9 +4908,9 @@ static void unbind_workers(int cpu)
  		 * worker blocking could lead to lengthy stalls.  Kick off
  		 * unbound chain execution of currently pending work items.
  		 */
@@ -661,7 +661,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  }
  
-@@ -4930,7 +4930,7 @@ static void rebind_workers(struct worker
+@@ -4937,7 +4937,7 @@ static void rebind_workers(struct worker
  		WARN_ON_ONCE(set_cpus_allowed_ptr(worker->task,
  						  pool->attrs->cpumask) < 0);
  
@@ -670,7 +670,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	pool->flags &= ~POOL_DISASSOCIATED;
  
-@@ -4969,7 +4969,7 @@ static void rebind_workers(struct worker
+@@ -4976,7 +4976,7 @@ static void rebind_workers(struct worker
  		WRITE_ONCE(worker->flags, worker_flags);
  	}
  

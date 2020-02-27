@@ -4,7 +4,7 @@ Subject: [PATCH] percpu-refcount: use normal instead of RCU-sched"
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 This is a revert of commit
    a4244454df129 ("percpu-refcount: use RCU-sched insted of normal RCU")

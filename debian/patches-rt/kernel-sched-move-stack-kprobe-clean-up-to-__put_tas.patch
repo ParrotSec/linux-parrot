@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 21 Nov 2016 19:31:08 +0100
 Subject: [PATCH] kernel/sched: move stack + kprobe clean up to
  __put_task_struct()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 There is no need to free the stack before the task struct (except for reasons
 mentioned in commit 68f24b08ee89 ("sched/core: Free the stack early if

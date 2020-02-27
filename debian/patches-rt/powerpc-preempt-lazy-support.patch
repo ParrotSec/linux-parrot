@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 1 Nov 2012 10:14:11 +0100
 Subject: powerpc: Add support for lazy preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Implement the powerpc pieces for lazy preempt.
 
@@ -16,14 +16,14 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/powerpc/Kconfig
 +++ b/arch/powerpc/Kconfig
-@@ -221,6 +221,7 @@ config PPC
+@@ -221,6 +221,7 @@
  	select HAVE_HARDLOCKUP_DETECTOR_PERF	if PERF_EVENTS && HAVE_PERF_EVENTS_NMI && !HAVE_HARDLOCKUP_DETECTOR_ARCH
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
 +	select HAVE_PREEMPT_LAZY
- 	select HAVE_RCU_TABLE_FREE		if SMP
- 	select HAVE_RCU_TABLE_NO_INVALIDATE	if HAVE_RCU_TABLE_FREE
+ 	select HAVE_RCU_TABLE_FREE
  	select HAVE_MMU_GATHER_PAGE_SIZE
+ 	select HAVE_REGS_AND_STACK_ACCESS_API
 --- a/arch/powerpc/include/asm/thread_info.h
 +++ b/arch/powerpc/include/asm/thread_info.h
 @@ -30,6 +30,8 @@
@@ -35,7 +35,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	unsigned long	local_flags;		/* private flags for thread */
  #ifdef CONFIG_LIVEPATCH
  	unsigned long *livepatch_sp;
-@@ -80,11 +82,12 @@ void arch_setup_new_exec(void);
+@@ -80,11 +82,12 @@
  #define TIF_SINGLESTEP		8	/* singlestepping active */
  #define TIF_NOHZ		9	/* in adaptive nohz mode */
  #define TIF_SECCOMP		10	/* secure computing */
@@ -51,7 +51,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define TIF_EMULATE_STACK_STORE	16	/* Is an instruction emulation
  						for stack store? */
  #define TIF_MEMDIE		17	/* is terminating due to OOM killer */
-@@ -93,6 +96,9 @@ void arch_setup_new_exec(void);
+@@ -93,6 +96,9 @@
  #endif
  #define TIF_POLLING_NRFLAG	19	/* true if poll_idle() is polling TIF_NEED_RESCHED */
  #define TIF_32BIT		20	/* 32 bit binary */
@@ -61,7 +61,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  /* as above, but as bit values */
  #define _TIF_SYSCALL_TRACE	(1<<TIF_SYSCALL_TRACE)
-@@ -112,6 +118,7 @@ void arch_setup_new_exec(void);
+@@ -112,6 +118,7 @@
  #define _TIF_SYSCALL_TRACEPOINT	(1<<TIF_SYSCALL_TRACEPOINT)
  #define _TIF_EMULATE_STACK_STORE	(1<<TIF_EMULATE_STACK_STORE)
  #define _TIF_NOHZ		(1<<TIF_NOHZ)
@@ -69,7 +69,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define _TIF_FSCHECK		(1<<TIF_FSCHECK)
  #define _TIF_SYSCALL_EMU	(1<<TIF_SYSCALL_EMU)
  #define _TIF_SYSCALL_DOTRACE	(_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
-@@ -121,8 +128,9 @@ void arch_setup_new_exec(void);
+@@ -121,8 +128,9 @@
  #define _TIF_USER_WORK_MASK	(_TIF_SIGPENDING | _TIF_NEED_RESCHED | \
  				 _TIF_NOTIFY_RESUME | _TIF_UPROBE | \
  				 _TIF_RESTORE_TM | _TIF_PATCH_PENDING | \
@@ -82,7 +82,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /* Don't move TLF_NAPPING without adjusting the code in entry_32.S */
 --- a/arch/powerpc/kernel/asm-offsets.c
 +++ b/arch/powerpc/kernel/asm-offsets.c
-@@ -167,6 +167,7 @@ int main(void)
+@@ -167,6 +167,7 @@
  	OFFSET(TI_FLAGS, thread_info, flags);
  	OFFSET(TI_LOCAL_FLAGS, thread_info, local_flags);
  	OFFSET(TI_PREEMPT, thread_info, preempt_count);
@@ -92,7 +92,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	OFFSET(DCACHEL1BLOCKSIZE, ppc64_caches, l1d.block_size);
 --- a/arch/powerpc/kernel/entry_32.S
 +++ b/arch/powerpc/kernel/entry_32.S
-@@ -400,7 +400,9 @@
+@@ -401,7 +401,9 @@
  	MTMSRD(r10)
  	lwz	r9,TI_FLAGS(r2)
  	li	r8,-MAX_ERRNO
@@ -103,7 +103,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	bne-	syscall_exit_work
  	cmplw	0,r3,r8
  	blt+	syscall_exit_cont
-@@ -515,13 +517,13 @@ END_FTR_SECTION_IFSET(CPU_FTR_NEED_PAIRE
+@@ -516,13 +518,13 @@
  	b	syscall_dotrace_cont
  
  syscall_exit_work:
@@ -119,7 +119,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	bne-	1f
  	lwz	r11,_CCR(r1)			/* Load CR */
  	neg	r3,r3
-@@ -530,12 +532,12 @@ END_FTR_SECTION_IFSET(CPU_FTR_NEED_PAIRE
+@@ -531,12 +533,12 @@
  
  1:	stw	r6,RESULT(r1)	/* Save result */
  	stw	r3,GPR3(r1)	/* Update return value */
@@ -134,7 +134,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	addi	r12,r2,TI_FLAGS
  3:	lwarx	r8,0,r12
  	andc	r8,r8,r11
-@@ -903,7 +905,14 @@ user_exc_return:		/* r10 contains MSR_KE
+@@ -904,7 +906,14 @@
  	cmpwi	0,r0,0		/* if non-zero, just restore regs and return */
  	bne	restore_kuap
  	andi.	r8,r8,_TIF_NEED_RESCHED
@@ -149,7 +149,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	lwz	r3,_MSR(r1)
  	andi.	r0,r3,MSR_EE	/* interrupts off? */
  	beq	restore_kuap	/* don't schedule if so */
-@@ -1224,7 +1233,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_NEED_PAIRE
+@@ -1225,7 +1234,7 @@
  #endif /* !(CONFIG_4xx || CONFIG_BOOKE) */
  
  do_work:			/* r10 contains MSR_KERNEL here */
@@ -158,7 +158,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	do_user_signal
  
  do_resched:			/* r10 contains MSR_KERNEL here */
-@@ -1245,7 +1254,7 @@ do_resched:			/* r10 contains MSR_KERNEL
+@@ -1246,7 +1255,7 @@
  	SYNC
  	MTMSRD(r10)		/* disable interrupts */
  	lwz	r9,TI_FLAGS(r2)
@@ -169,7 +169,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	restore_user
 --- a/arch/powerpc/kernel/entry_64.S
 +++ b/arch/powerpc/kernel/entry_64.S
-@@ -240,7 +240,9 @@ system_call:			/* label this so stack tr
+@@ -240,7 +240,9 @@
  
  	ld	r9,TI_FLAGS(r12)
  	li	r11,-MAX_ERRNO
@@ -180,7 +180,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	bne-	.Lsyscall_exit_work
  
  	andi.	r0,r8,MSR_FP
-@@ -363,25 +365,25 @@ END_FTR_SECTION_IFSET(CPU_FTR_HAS_PPR)
+@@ -363,25 +365,25 @@
  	/* If TIF_RESTOREALL is set, don't scribble on either r3 or ccr.
  	 If TIF_NOERROR is set, just save r3 as it is. */
  
@@ -210,7 +210,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	addi	r12,r12,TI_FLAGS
  3:	ldarx	r10,0,r12
  	andc	r10,r10,r11
-@@ -786,7 +788,7 @@ END_FTR_SECTION_IFCLR(CPU_FTR_ARCH_207S)
+@@ -786,7 +788,7 @@
  	bl	restore_math
  	b	restore
  #endif
@@ -219,7 +219,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	beq	2f
  	bl	restore_interrupts
  	SCHEDULE_USER
-@@ -848,10 +850,18 @@ END_FTR_SECTION_IFCLR(CPU_FTR_ARCH_207S)
+@@ -848,10 +850,18 @@
  
  #ifdef CONFIG_PREEMPTION
  	/* Check if we need to preempt */

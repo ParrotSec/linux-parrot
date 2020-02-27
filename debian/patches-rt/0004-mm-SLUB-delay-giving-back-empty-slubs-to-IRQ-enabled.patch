@@ -2,7 +2,7 @@ From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 21 Jun 2018 17:29:19 +0200
 Subject: [PATCH 4/4] mm/SLUB: delay giving back empty slubs to IRQ enabled
  regions
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 __free_slab() is invoked with disabled interrupts which increases the
 irq-off time while __free_pages() is doing the work.
@@ -90,7 +90,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	LIST_HEAD(tofree);
 +	int cpu;
 +
- 	on_each_cpu_cond(has_cpu_slab, flush_cpu_slab, s, 1, GFP_ATOMIC);
+ 	on_each_cpu_cond(has_cpu_slab, flush_cpu_slab, s, 1);
 +	for_each_online_cpu(cpu) {
 +		struct slub_free_list *f;
 +

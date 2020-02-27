@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Thu, 18 Apr 2019 11:09:04 +0200
 Subject: [PATCH 1/4] mm/page_alloc: Split drain_local_pages()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Splitting the functionality of drain_local_pages() into a separate
 function. This is a preparatory work for introducing the static key
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  void page_alloc_init_late(void);
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -2894,6 +2894,14 @@ static void drain_pages(unsigned int cpu
+@@ -2883,6 +2883,14 @@ static void drain_pages(unsigned int cpu
  	}
  }
  
@@ -43,7 +43,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Spill all of this CPU's per-cpu pages back into the buddy allocator.
   *
-@@ -2904,10 +2912,7 @@ void drain_local_pages(struct zone *zone
+@@ -2893,10 +2901,7 @@ void drain_local_pages(struct zone *zone
  {
  	int cpu = smp_processor_id();
  

@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 26 Sep 2019 12:29:05 +0200
 Subject: [PATCH] drm/i915: Don't disable interrupts for
  intel_engine_breadcrumbs_irq()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 The function intel_engine_breadcrumbs_irq() is always invoked from an interrupt
 handler and for that reason it invokes (as an optimisation) only spin_lock()

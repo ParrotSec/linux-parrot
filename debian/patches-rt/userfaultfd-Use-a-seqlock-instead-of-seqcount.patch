@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 18 Dec 2019 12:25:09 +0100
 Subject: [PATCH] userfaultfd: Use a seqlock instead of seqcount
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 On RT write_seqcount_begin() disables preemption which leads to warning
 in add_wait_queue() while the spinlock_t is acquired.
@@ -60,7 +60,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (need_wakeup)
  		__wake_userfault(ctx, range);
  }
-@@ -1935,7 +1935,7 @@ static void init_once_userfaultfd_ctx(vo
+@@ -1939,7 +1939,7 @@ static void init_once_userfaultfd_ctx(vo
  	init_waitqueue_head(&ctx->fault_wqh);
  	init_waitqueue_head(&ctx->event_wqh);
  	init_waitqueue_head(&ctx->fd_wqh);

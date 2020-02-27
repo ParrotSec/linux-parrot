@@ -882,6 +882,7 @@ static void fuse_send_readpages(struct fuse_io_args *ia, struct file *file)
 	struct fuse_args_pages *ap = &ia->ap;
 	loff_t pos = page_offset(ap->pages[0]);
 	size_t count = ap->num_pages << PAGE_SHIFT;
+	ssize_t res;
 	int err;
 
 	ap->args.out_pages = true;
@@ -896,7 +897,8 @@ static void fuse_send_readpages(struct fuse_io_args *ia, struct file *file)
 		if (!err)
 			return;
 	} else {
-		err = fuse_simple_request(fc, &ap->args);
+		res = fuse_simple_request(fc, &ap->args);
+		err = res < 0 ? res : 0;
 	}
 	fuse_readpages_end(fc, &ap->args, err);
 }
@@ -1463,6 +1465,7 @@ ssize_t fuse_direct_io(struct fuse_io_priv *io, struct iov_iter *iter,
 		}
 		ia = NULL;
 		if (nres < 0) {
+			iov_iter_revert(iter, nbytes);
 			err = nres;
 			break;
 		}
@@ -1471,8 +1474,10 @@ ssize_t fuse_direct_io(struct fuse_io_priv *io, struct iov_iter *iter,
 		count -= nres;
 		res += nres;
 		pos += nres;
-		if (nres != nbytes)
+		if (nres != nbytes) {
+			iov_iter_revert(iter, nbytes - nres);
 			break;
+		}
 		if (count) {
 			max_pages = iov_iter_npages(iter, fc->max_pages);
 			ia = fuse_io_alloc(io, max_pages);

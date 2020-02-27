@@ -1,7 +1,7 @@
 Subject: arm: Add support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 31 Oct 2012 12:04:11 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Implement the arm pieces for lazy preempt.
 
@@ -17,7 +17,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/arm/Kconfig
 +++ b/arch/arm/Kconfig
-@@ -102,6 +102,7 @@ config ARM
+@@ -103,6 +103,7 @@ config ARM
  	select HAVE_PERF_EVENTS
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP

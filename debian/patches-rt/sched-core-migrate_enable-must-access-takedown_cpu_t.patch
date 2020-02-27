@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 29 Nov 2019 17:24:55 +0100
 Subject: [PATCH] sched/core: migrate_enable() must access takedown_cpu_task on
  !HOTPLUG_CPU
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 The variable takedown_cpu_task is never declared/used on !HOTPLUG_CPU
 except for migrate_enable(). This leads to a link error.

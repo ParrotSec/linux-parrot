@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 22 Feb 2019 23:02:44 +0100
 Subject: [PATCH] printk: devkmsg: llseek: reset clear if it is lost
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 SEEK_DATA will seek to the last clear record. If this clear record
 is no longer in the ring buffer, devkmsg_llseek() will go into an

@@ -1,7 +1,7 @@
 From: Jan Kara <jack@suse.cz>
 Date: Fri, 9 Aug 2019 14:42:31 +0200
 Subject: [PATCH 5/7] jbd2: Don't call __bforget() unnecessarily
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 jbd2_journal_forget() jumps to 'not_jbd' branch which calls __bforget()
 in cases where the buffer is clean which is pointless. In case of failed

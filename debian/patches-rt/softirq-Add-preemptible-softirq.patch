@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 20 May 2019 13:09:08 +0200
 Subject: [PATCH] softirq: Add preemptible softirq
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Add preemptible softirq for RT's needs. By removing the softirq count
 from the preempt counter, the softirq becomes preemptible. A per-CPU
@@ -466,7 +466,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   *   GCC does not inline them incorrectly. ]
 --- a/kernel/time/tick-sched.c
 +++ b/kernel/time/tick-sched.c
-@@ -899,14 +899,7 @@ static bool can_stop_idle_tick(int cpu,
+@@ -903,14 +903,7 @@ static bool can_stop_idle_tick(int cpu,
  		return false;
  
  	if (unlikely(local_softirq_pending())) {

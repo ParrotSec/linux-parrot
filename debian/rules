@@ -77,7 +77,6 @@ clean: debian/control
 	dh_testdir
 	rm -rf $(CLEAN_PATTERNS)
 	dh_clean
-	rm -r debian/lib/python/debian_linux/__pycache__/ || true
 
 CONTROL_FILES = $(BUILD_DIR)/version-info $(wildcard debian/templates/*.in)
 CONTROL_FILES += debian/config/defines $(wildcard debian/config/*/defines) $(wildcard debian/config/*/*/defines)

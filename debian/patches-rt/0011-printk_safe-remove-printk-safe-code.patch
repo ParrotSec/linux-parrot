@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:49 +0100
 Subject: [PATCH 11/25] printk_safe: remove printk safe code
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 vprintk variants are now NMI-safe so there is no longer a need for
 the "safe" calls.
@@ -121,7 +121,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  extern int kptr_restrict;
 --- a/init/main.c
 +++ b/init/main.c
-@@ -693,7 +693,6 @@ asmlinkage __visible void __init start_k
+@@ -694,7 +694,6 @@ asmlinkage __visible void __init start_k
  	boot_init_stack_canary();
  
  	time_init();
@@ -667,7 +667,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -}
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
-@@ -8908,7 +8908,6 @@ void ftrace_dump(enum ftrace_dump_mode o
+@@ -8927,7 +8927,6 @@ void ftrace_dump(enum ftrace_dump_mode o
  	tracing_off();
  
  	local_irq_save(flags);
@@ -675,7 +675,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Simulate the iterator */
  	trace_init_global_iter(&iter);
-@@ -8985,7 +8984,6 @@ void ftrace_dump(enum ftrace_dump_mode o
+@@ -9004,7 +9003,6 @@ void ftrace_dump(enum ftrace_dump_mode o
  		atomic_dec(&per_cpu_ptr(iter.trace_buffer->data, cpu)->disabled);
  	}
  	atomic_dec(&dump_running);

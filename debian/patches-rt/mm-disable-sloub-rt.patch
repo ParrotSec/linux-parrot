@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:44:03 -0500
 Subject: mm: Allow only SLUB on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Memory allocation disables interrupts as part of the allocation and freeing
 process. For -RT it is important that this section remain short and don't
@@ -23,7 +23,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1805,6 +1805,7 @@ choice
+@@ -1806,6 +1806,7 @@ choice
  
  config SLAB
  	bool "SLAB"
@@ -31,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	select HAVE_HARDENED_USERCOPY_ALLOCATOR
  	help
  	  The regular slab allocator that is established and known to work
-@@ -1825,6 +1826,7 @@ config SLUB
+@@ -1826,6 +1827,7 @@ config SLUB
  config SLOB
  	depends on EXPERT
  	bool "SLOB (Simple Allocator)"

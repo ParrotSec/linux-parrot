@@ -19,8 +19,6 @@ lib-smp_processor_id-Don-t-use-cpumask_equal.patch
 0006-jbd2-Make-state-lock-a-spinlock.patch
 0007-jbd2-Free-journal-head-outside-of-locked-region.patch
 
-# 5a6446626d7e062b47a5cc1cf27d5060e60bb0d9
-workqueue-Convert-for_each_wq-to-use-built-in-list-c.patch
 # 2579a4eefc04d1c23eef8f3f0db3309f955e5792
 x86-ioapic-Rename-misnamed-functions.patch
 # 9e8d42a0f7eb9056f8bdb241b91738b5a2923f4c
@@ -82,6 +80,18 @@ printk-kmsg_dump-remove-mutex-usage.patch
 printk-devkmsg-read-Return-EPIPE-when-the-first-mess.patch
 printk-handle-iterating-while-buffer-changing.patch
 printk-hack-out-emergency-loglevel-usage.patch
+serial-8250-only-atomic-lock-for-console.patch
+serial-8250-fsl-ingenic-mtk-fix-atomic-console.patch
+
+# 2020-01-31 16:07 Peter Zijlstra [PATCH -v2 0/7] locking: Percpu-rwsem rewrite
+# https://lkml.kernel.org/r/20200131150703.194229898@infradead.org
+0001-locking-percpu-rwsem-lockdep-Make-percpu-rwsem-use-i.patch
+0002-locking-percpu-rwsem-Convert-to-bool.patch
+0003-locking-percpu-rwsem-Move-__this_cpu_inc-into-the-sl.patch
+0004-locking-percpu-rwsem-Extract-__percpu_down_read_tryl.patch
+0005-locking-percpu-rwsem-Remove-the-embedded-rwsem.patch
+0006-locking-percpu-rwsem-Fold-__percpu_up_read.patch
+0007-locking-percpu-rwsem-Add-might_sleep-for-writer-lock.patch
 
 ############################################################
 # POSTED
@@ -99,7 +109,15 @@ thermal-x86_pkg_temp-make-pkg_temp_lock-a-raw-spinlo.patch
 perf-core-Add-SRCU-annotation-for-pmus-list-walk.patch
 
 # 20191219170834.4tah3prf2gdothz4@linutronix.de
+# in akpm
 kmemleak-Turn-kmemleak_lock-and-object-lock-to-raw_s.patch
+
+# 20200117090137.1205765-2-bigeasy@linutronix.de
+smp-Use-smp_cond_func_t-as-type-for-the-conditional-.patch
+# 20200117144106.hptwafmclfoyptdq@linutronix.de
+smp-Add-a-smp_cond_func_t-argument-to-smp_call_funct.patch
+# 20200117090137.1205765-4-bigeasy@linutronix.de
+smp-Remove-allocation-mask-from-on_each_cpu_cond.patch
 
 ############################################################
 # Ready for posting
@@ -218,6 +236,7 @@ x86-Disable-HAVE_ARCH_JUMP_LABEL.patch
 # local locks & migrate disable
 # Rework, write proper changelog and argument
 rt-local-irq-lock.patch
+locallock-Include-header-for-the-current-macro.patch
 
 # Move post local lock
 softirq-Add-preemptible-softirq.patch
@@ -255,6 +274,7 @@ slub-disable-SLUB_CPU_PARTIAL.patch
 # MM
 mm-memcontrol-Don-t-call-schedule_work_on-in-preempt.patch
 mm-memcontrol-do_not_disable_irq.patch
+mm-memcontrol-Move-misplaced-local_unlock_irqrestore.patch
 mm_zsmalloc_copy_with_get_cpu_var_and_locking.patch
 mm-zswap-Do-not-disable-preemption-in-zswap_frontswa.patch
 
@@ -275,9 +295,6 @@ completion-use-simple-wait-queues.patch
 # HRTIMERS
 # Check whether schedule_hrtimeout() could be hard always
 hrtimer-Allow-raw-wakeups-during-boot.patch
-
-# Check, Changelog ...
-hrtimer-move-state-change-before-hrtimer_cancel-in-d.patch
 
 # POSIX-CPU-TIMERS
 posix-timers-thread-posix-cpu-timers-on-rt.patch
@@ -347,6 +364,8 @@ sched-__set_cpus_allowed_ptr-Check-cpus_mask-not-cpu.patch
 add_migrate_disable.patch
 sched-core-migrate_enable-must-access-takedown_cpu_t.patch
 sched-migrate_enable-Use-stop_one_cpu_nowait.patch
+sched-migrate_enable-Use-per-cpu-cpu_stop_work.patch
+sched-migrate_enable-Remove-__schedule-call.patch
 ftrace-migrate-disable-tracing.patch
 futex-workaround-migrate_disable-enable-in-different.patch
 locking-don-t-check-for-__LINUX_SPINLOCK_TYPES_H-on-.patch

@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:30:00 +0100
 Subject: [PATCH 22/25] printk: implement /dev/kmsg
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Since printk messages are now logged to a new ring buffer, update
 the /dev/kmsg functions to pull the messages from there.

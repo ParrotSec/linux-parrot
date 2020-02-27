@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 16 Aug 2019 12:25:35 +0200
 Subject: [PATCH 3/4] cgroup: Remove `may_sleep' from
  cgroup_rstat_flush_locked()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 cgroup_rstat_flush_locked() is always invoked with `may_sleep' set to
 true so that this case can be made default and the parameter removed.

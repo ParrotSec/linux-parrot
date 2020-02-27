@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 9 Aug 2019 14:42:33 +0200
 Subject: [PATCH 7/7] jbd2: Free journal head outside of locked region
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 On PREEMPT_RT bit-spinlocks have the same semantics as on PREEMPT_RT=n,
 i.e. they disable preemption. That means functions which are not safe to be

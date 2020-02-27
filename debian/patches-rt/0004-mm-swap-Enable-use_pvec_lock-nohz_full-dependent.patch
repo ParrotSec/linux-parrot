@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Date: Thu, 18 Apr 2019 11:09:07 +0200
 Subject: [PATCH 4/4] mm/swap: Enable "use_pvec_lock" nohz_full dependent
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 When a system runs with CONFIG_NO_HZ_FULL enabled, the tick of CPUs listed
 in 'nohz_full=' kernel command line parameter should be stopped whenever

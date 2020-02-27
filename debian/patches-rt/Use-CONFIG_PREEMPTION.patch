@@ -1,14 +1,11 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 26 Jul 2019 11:30:49 +0200
 Subject: [PATCH] Use CONFIG_PREEMPTION
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Thisi is an all-in-one patch of the current `PREEMPTION' branch.
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-[Salvatore Bonaccorso: Refresh for context changes in 5.4.8 in
-arch/powerpc/kernel/traps.c due to d7e02f7b7991 ("powerpc/book3s/mm: Update
-Oops message to print the correct translation in use")]
 ---
  Documentation/RCU/Design/Expedited-Grace-Periods/Expedited-Grace-Periods.html |    8 -
  Documentation/RCU/Design/Requirements/Requirements.html                       |   24 ++--
@@ -87,7 +84,7 @@ Oops message to print the correct translation in use")]
 
 --- a/Documentation/RCU/Design/Expedited-Grace-Periods/Expedited-Grace-Periods.html
 +++ b/Documentation/RCU/Design/Expedited-Grace-Periods/Expedited-Grace-Periods.html
-@@ -56,8 +56,8 @@
+@@ -56,8 +56,8 @@ sections.
  RCU-preempt Expedited Grace Periods</a></h2>
  
  <p>
@@ -98,7 +95,7 @@ Oops message to print the correct translation in use")]
  expedited grace period is shown in the following diagram:
  
  <p><img src="ExpRCUFlow.svg" alt="ExpRCUFlow.svg" width="55%">
-@@ -140,8 +140,8 @@
+@@ -140,8 +140,8 @@ or offline, among other things.
  RCU-sched Expedited Grace Periods</a></h2>
  
  <p>
@@ -111,7 +108,7 @@ Oops message to print the correct translation in use")]
  <p><img src="ExpSchedFlow.svg" alt="ExpSchedFlow.svg" width="55%">
 --- a/Documentation/RCU/Design/Requirements/Requirements.html
 +++ b/Documentation/RCU/Design/Requirements/Requirements.html
-@@ -106,7 +106,7 @@
+@@ -106,7 +106,7 @@ big RCU read-side critical section.
  Production-quality implementations of <tt>rcu_read_lock()</tt> and
  <tt>rcu_read_unlock()</tt> are extremely lightweight, and in
  fact have exactly zero overhead in Linux kernels built for production
@@ -120,7 +117,7 @@ Oops message to print the correct translation in use")]
  
  <p>
  This guarantee allows ordering to be enforced with extremely low
-@@ -1499,7 +1499,7 @@
+@@ -1499,7 +1499,7 @@ costs have plummeted.
  However, as I learned from Matt Mackall's
  <a href="http://elinux.org/Linux_Tiny-FAQ">bloatwatch</a>
  efforts, memory footprint is critically important on single-CPU systems with
@@ -129,7 +126,7 @@ Oops message to print the correct translation in use")]
  <a href="https://lkml.kernel.org/g/20090113221724.GA15307@linux.vnet.ibm.com">tiny RCU</a>
  was born.
  Josh Triplett has since taken over the small-memory banner with his
-@@ -1887,7 +1887,7 @@
+@@ -1887,7 +1887,7 @@ constructs, there are limitations.
  <p>
  Implementations of RCU for which <tt>rcu_read_lock()</tt>
  and <tt>rcu_read_unlock()</tt> generate no code, such as
@@ -138,7 +135,7 @@ Oops message to print the correct translation in use")]
  nested arbitrarily deeply.
  After all, there is no overhead.
  Except that if all these instances of <tt>rcu_read_lock()</tt>
-@@ -2229,7 +2229,7 @@
+@@ -2229,7 +2229,7 @@ be a no-op.
  <p>
  However, once the scheduler has spawned its first kthread, this early
  boot trick fails for <tt>synchronize_rcu()</tt> (as well as for
@@ -147,7 +144,7 @@ Oops message to print the correct translation in use")]
  kernels.
  The reason is that an RCU read-side critical section might be preempted,
  which means that a subsequent <tt>synchronize_rcu()</tt> really does have
-@@ -2568,7 +2568,7 @@
+@@ -2568,7 +2568,7 @@ The compiler must not be permitted to tr
  
  <p>
  If the compiler did make this transformation in a
@@ -156,7 +153,7 @@ Oops message to print the correct translation in use")]
  page fault, the result would be a quiescent state in the middle
  of an RCU read-side critical section.
  This misplaced quiescent state could result in line&nbsp;4 being
-@@ -2906,7 +2906,7 @@
+@@ -2906,7 +2906,7 @@ in conjunction with the
  The real-time-latency response requirements are such that the
  traditional approach of disabling preemption across RCU
  read-side critical sections is inappropriate.
@@ -165,7 +162,7 @@ Oops message to print the correct translation in use")]
  use an RCU implementation that allows RCU read-side critical
  sections to be preempted.
  This requirement made its presence known after users made it
-@@ -3064,7 +3064,7 @@
+@@ -3064,7 +3064,7 @@ includes
  <tt>rcu_barrier_bh()</tt>, and
  <tt>rcu_read_lock_bh_held()</tt>.
  However, the update-side APIs are now simple wrappers for other RCU
@@ -174,7 +171,7 @@ Oops message to print the correct translation in use")]
  otherwise.
  
  <h3><a name="Sched Flavor">Sched Flavor (Historical)</a></h3>
-@@ -3088,12 +3088,12 @@
+@@ -3088,12 +3088,12 @@ of an RCU read-side critical section can
  Therefore, <i>RCU-sched</i> was created, which follows &ldquo;classic&rdquo;
  RCU in that an RCU-sched grace period waits for for pre-existing
  interrupt and NMI handlers.
@@ -190,7 +187,7 @@ Oops message to print the correct translation in use")]
  <tt>rcu_read_lock_sched()</tt> and <tt>rcu_read_unlock_sched()</tt>
  disable and re-enable preemption, respectively.
  This means that if there was a preemption attempt during the
-@@ -3302,12 +3302,12 @@
+@@ -3302,12 +3302,12 @@ The tasks-RCU API is quite compact, cons
  <tt>call_rcu_tasks()</tt>,
  <tt>synchronize_rcu_tasks()</tt>, and
  <tt>rcu_barrier_tasks()</tt>.
@@ -207,7 +204,7 @@ Oops message to print the correct translation in use")]
  
 --- a/Documentation/RCU/checklist.txt
 +++ b/Documentation/RCU/checklist.txt
-@@ -210,8 +210,8 @@
+@@ -210,8 +210,8 @@ over a rather long period of time, but i
  	the rest of the system.
  
  7.	As of v4.20, a given kernel implements only one RCU flavor,
@@ -220,7 +217,7 @@ Oops message to print the correct translation in use")]
  	or any pair of primitives that disables and re-enables preemption,
 --- a/Documentation/RCU/rcubarrier.txt
 +++ b/Documentation/RCU/rcubarrier.txt
-@@ -6,8 +6,8 @@
+@@ -6,8 +6,8 @@ RCU (read-copy update) is a synchronizat
  of as a replacement for read-writer locking (among other things), but with
  very low-overhead readers that are immune to deadlock, priority inversion,
  and unbounded latency. RCU read-side critical sections are delimited
@@ -231,7 +228,7 @@ Oops message to print the correct translation in use")]
  
  This means that RCU writers are unaware of the presence of concurrent
  readers, so that RCU updates to shared data must be undertaken quite
-@@ -303,10 +303,10 @@
+@@ -303,10 +303,10 @@ Answer: This cannot happen. The reason i
  	to smp_call_function() and further to smp_call_function_on_cpu(),
  	causing this latter to spin until the cross-CPU invocation of
  	rcu_barrier_func() has completed. This by itself would prevent
@@ -246,7 +243,7 @@ Oops message to print the correct translation in use")]
  	to smp_call_function() and also across the local call to
 --- a/Documentation/RCU/stallwarn.txt
 +++ b/Documentation/RCU/stallwarn.txt
-@@ -20,7 +20,7 @@
+@@ -20,7 +20,7 @@ o	A CPU looping with preemption disabled
  
  o	A CPU looping with bottom halves disabled.
  
@@ -255,7 +252,7 @@ Oops message to print the correct translation in use")]
  	without invoking schedule().  If the looping in the kernel is
  	really expected and desirable behavior, you might need to add
  	some calls to cond_resched().
-@@ -39,7 +39,7 @@
+@@ -39,7 +39,7 @@ o	Anything that prevents RCU's grace-per
  	result in the "rcu_.*kthread starved for" console-log message,
  	which will include additional debugging information.
  
@@ -266,7 +263,7 @@ Oops message to print the correct translation in use")]
  	that low-priority task is not permitted to run on any other CPU,
 --- a/Documentation/RCU/whatisRCU.txt
 +++ b/Documentation/RCU/whatisRCU.txt
-@@ -648,9 +648,10 @@
+@@ -648,9 +648,10 @@ Quick Quiz #1:	Why is this argument naiv
  
  This section presents a "toy" RCU implementation that is based on
  "classic RCU".  It is also short on performance (but only for updates) and
@@ -282,7 +279,7 @@ Oops message to print the correct translation in use")]
  
 --- a/Documentation/trace/ftrace-uses.rst
 +++ b/Documentation/trace/ftrace-uses.rst
-@@ -146,7 +146,7 @@
+@@ -146,7 +146,7 @@ FTRACE_OPS_FL_RECURSION_SAFE
  	itself or any nested functions that those functions call.
  
  	If this flag is set, it is possible that the callback will also
@@ -293,7 +290,7 @@ Oops message to print the correct translation in use")]
  FTRACE_OPS_FL_IPMODIFY
 --- a/arch/arc/kernel/entry.S
 +++ b/arch/arc/kernel/entry.S
-@@ -337,11 +337,11 @@
+@@ -337,11 +337,11 @@ ENTRY(ret_from_exception)
  resume_kernel_mode:
  
  	; Disable Interrupts from this point on
@@ -321,7 +318,7 @@ Oops message to print the correct translation in use")]
  #define __complete_pending_tlbi()
 --- a/arch/arm/kernel/entry-armv.S
 +++ b/arch/arm/kernel/entry-armv.S
-@@ -211,7 +211,7 @@
+@@ -211,7 +211,7 @@ ENDPROC(__dabt_svc)
  	svc_entry
  	irq_handler
  
@@ -330,7 +327,7 @@ Oops message to print the correct translation in use")]
  	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
  	ldr	r0, [tsk, #TI_FLAGS]		@ get flags
  	teq	r8, #0				@ if preempt count != 0
-@@ -226,7 +226,7 @@
+@@ -226,7 +226,7 @@ ENDPROC(__irq_svc)
  
  	.ltorg
  
@@ -341,7 +338,7 @@ Oops message to print the correct translation in use")]
  1:	bl	preempt_schedule_irq		@ irq en/disable is done inside
 --- a/arch/arm/kernel/traps.c
 +++ b/arch/arm/kernel/traps.c
-@@ -248,6 +248,8 @@
+@@ -248,6 +248,8 @@ void show_stack(struct task_struct *tsk,
  
  #ifdef CONFIG_PREEMPT
  #define S_PREEMPT " PREEMPT"
@@ -352,7 +349,7 @@ Oops message to print the correct translation in use")]
  #endif
 --- a/arch/arm/mm/cache-v7.S
 +++ b/arch/arm/mm/cache-v7.S
-@@ -135,13 +135,13 @@
+@@ -135,13 +135,13 @@ ENTRY(v7_flush_dcache_all)
  	and	r1, r1, #7			@ mask of the bits for current cache only
  	cmp	r1, #2				@ see what cache we have at this level
  	blt	skip				@ skip if no cache, or just i-cache
@@ -370,7 +367,7 @@ Oops message to print the correct translation in use")]
  	and	r2, r1, #7			@ extract the length of the cache lines
 --- a/arch/arm/mm/cache-v7m.S
 +++ b/arch/arm/mm/cache-v7m.S
-@@ -183,13 +183,13 @@
+@@ -183,13 +183,13 @@ ENTRY(v7m_flush_dcache_all)
  	and	r1, r1, #7			@ mask of the bits for current cache only
  	cmp	r1, #2				@ see what cache we have at this level
  	blt	skip				@ skip if no cache, or just i-cache
@@ -388,7 +385,7 @@ Oops message to print the correct translation in use")]
  	and	r2, r1, #7			@ extract the length of the cache lines
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
-@@ -35,32 +35,32 @@
+@@ -35,32 +35,32 @@ config ARM64
  	select ARCH_HAS_TEARDOWN_DMA_OPS if IOMMU_SUPPORT
  	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
  	select ARCH_HAVE_NMI_SAFE_CMPXCHG
@@ -449,7 +446,7 @@ Oops message to print the correct translation in use")]
  	select ARCH_USE_QUEUED_RWLOCKS
 --- a/arch/arm64/crypto/sha256-glue.c
 +++ b/arch/arm64/crypto/sha256-glue.c
-@@ -97,7 +97,7 @@
+@@ -97,7 +97,7 @@ static int sha256_update_neon(struct sha
  		 * input when running on a preemptible kernel, but process the
  		 * data block by block instead.
  		 */
@@ -460,7 +457,7 @@ Oops message to print the correct translation in use")]
  				sctx->count % SHA256_BLOCK_SIZE;
 --- a/arch/arm64/include/asm/assembler.h
 +++ b/arch/arm64/include/asm/assembler.h
-@@ -699,8 +699,8 @@
+@@ -699,8 +699,8 @@ USER(\label, ic	ivau, \tmp2)			// invali
   * where <label> is optional, and marks the point where execution will resume
   * after a yield has been performed. If omitted, execution resumes right after
   * the endif_yield_neon invocation. Note that the entire sequence, including
@@ -471,7 +468,7 @@ Oops message to print the correct translation in use")]
   *
   * As a convenience, in the case where no patchup code is required, the above
   * sequence may be abbreviated to
-@@ -728,7 +728,7 @@
+@@ -728,7 +728,7 @@ USER(\label, ic	ivau, \tmp2)			// invali
  	.endm
  
  	.macro		if_will_cond_yield_neon
@@ -482,7 +479,7 @@ Oops message to print the correct translation in use")]
  	sub		x0, x0, #PREEMPT_DISABLE_OFFSET
 --- a/arch/arm64/include/asm/preempt.h
 +++ b/arch/arm64/include/asm/preempt.h
-@@ -79,11 +79,11 @@
+@@ -79,11 +79,11 @@ static inline bool should_resched(int pr
  	return pc == preempt_offset;
  }
  
@@ -498,7 +495,7 @@ Oops message to print the correct translation in use")]
  #endif /* __ASM_PREEMPT_H */
 --- a/arch/arm64/kernel/entry.S
 +++ b/arch/arm64/kernel/entry.S
-@@ -669,7 +669,7 @@
+@@ -669,7 +669,7 @@ ENDPROC(el1_sync)
  
  	irq_handler
  
@@ -509,7 +506,7 @@ Oops message to print the correct translation in use")]
  	/*
 --- a/arch/arm64/kernel/traps.c
 +++ b/arch/arm64/kernel/traps.c
-@@ -143,9 +143,12 @@
+@@ -143,9 +143,12 @@ void show_stack(struct task_struct *tsk,
  
  #ifdef CONFIG_PREEMPT
  #define S_PREEMPT " PREEMPT"
@@ -542,7 +539,7 @@ Oops message to print the correct translation in use")]
  	MASK_INT B2
  #endif
  
-@@ -557,7 +557,7 @@
+@@ -557,7 +557,7 @@ ENDPROC(_nmi_handler)
  	;;
  	;; Jump to schedule() then return to ret_from_isr
  	;;
@@ -551,7 +548,7 @@ Oops message to print the correct translation in use")]
  resume_kernel:
  	GET_THREAD_INFO A12
  	LDW	.D1T1	*+A12(THREAD_INFO_PREEMPT_COUNT),A1
-@@ -582,7 +582,7 @@
+@@ -582,7 +582,7 @@ ENDPROC(_nmi_handler)
  	B	.S2	preempt_schedule_irq
  #endif
  	ADDKPC	.S2	preempt_schedule,B3,4
@@ -562,7 +559,7 @@ Oops message to print the correct translation in use")]
  	DINT
 --- a/arch/csky/kernel/entry.S
 +++ b/arch/csky/kernel/entry.S
-@@ -277,7 +277,7 @@
+@@ -277,7 +277,7 @@ ENTRY(csky_irq)
  	zero_fp
  	psrset	ee
  
@@ -571,7 +568,7 @@ Oops message to print the correct translation in use")]
  	mov	r9, sp			/* Get current stack  pointer */
  	bmaski	r10, THREAD_SHIFT
  	andn	r9, r10			/* Get thread_info */
-@@ -294,7 +294,7 @@
+@@ -294,7 +294,7 @@ ENTRY(csky_irq)
  	mov	a0, sp
  	jbsr	csky_do_IRQ
  
@@ -582,7 +579,7 @@ Oops message to print the correct translation in use")]
  	cmpnei	r12, 0
 --- a/arch/h8300/kernel/entry.S
 +++ b/arch/h8300/kernel/entry.S
-@@ -284,12 +284,12 @@
+@@ -284,12 +284,12 @@ INTERRUPTS = 128
  	mov.l	er0,@(LER0:16,sp)
  	bra	resume_userspace
  
@@ -597,7 +594,7 @@ Oops message to print the correct translation in use")]
  	orc	#0xc0,ccr
  #endif
  ret_from_interrupt:
-@@ -319,7 +319,7 @@
+@@ -319,7 +319,7 @@ INTERRUPTS = 128
  restore_all:
  	RESTORE_ALL			/* Does RTE */
  
@@ -626,7 +623,7 @@ Oops message to print the correct translation in use")]
  #endif
 --- a/arch/ia64/kernel/entry.S
 +++ b/arch/ia64/kernel/entry.S
-@@ -670,12 +670,12 @@
+@@ -670,12 +670,12 @@ GLOBAL_ENTRY(ia64_leave_syscall)
  	 *
  	 * p6 controls whether current_thread_info()->flags needs to be check for
  	 * extra work.  We always check for extra work when returning to user-level.
@@ -641,7 +638,7 @@ Oops message to print the correct translation in use")]
  	RSM_PSR_I(p0, r2, r18)			// disable interrupts
  	cmp.eq pLvSys,p0=r0,r0			// pLvSys=1: leave from syscall
  (pKStk) adds r20=TI_PRE_COUNT+IA64_TASK_SIZE,r13
-@@ -685,7 +685,7 @@
+@@ -685,7 +685,7 @@ GLOBAL_ENTRY(ia64_leave_syscall)
  (pUStk)	mov r21=0			// r21 <- 0
  	;;
  	cmp.eq p6,p0=r21,r0		// p6 <- pUStk || (preempt_count == 0)
@@ -650,7 +647,7 @@ Oops message to print the correct translation in use")]
  	RSM_PSR_I(pUStk, r2, r18)
  	cmp.eq pLvSys,p0=r0,r0		// pLvSys=1: leave from syscall
  (pUStk)	cmp.eq.unc p6,p0=r0,r0		// p6 <- pUStk
-@@ -814,12 +814,12 @@
+@@ -814,12 +814,12 @@ GLOBAL_ENTRY(ia64_leave_kernel)
  	 *
  	 * p6 controls whether current_thread_info()->flags needs to be check for
  	 * extra work.  We always check for extra work when returning to user-level.
@@ -665,7 +662,7 @@ Oops message to print the correct translation in use")]
  	RSM_PSR_I(p0, r17, r31)			// disable interrupts
  	cmp.eq p0,pLvSys=r0,r0			// pLvSys=0: leave from kernel
  (pKStk)	adds r20=TI_PRE_COUNT+IA64_TASK_SIZE,r13
-@@ -1120,7 +1120,7 @@
+@@ -1120,7 +1120,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
  
  	/*
  	 * On entry:
@@ -676,7 +673,7 @@ Oops message to print the correct translation in use")]
  	 *	p6 = TRUE if work-pending-check needs to be redone
 --- a/arch/ia64/kernel/kprobes.c
 +++ b/arch/ia64/kernel/kprobes.c
-@@ -841,7 +841,7 @@
+@@ -841,7 +841,7 @@ static int __kprobes pre_kprobes_handler
  		return 1;
  	}
  
@@ -687,7 +684,7 @@ Oops message to print the correct translation in use")]
  		ia64_psr(regs)->ri = p->ainsn.slot;
 --- a/arch/m68k/coldfire/entry.S
 +++ b/arch/m68k/coldfire/entry.S
-@@ -108,7 +108,7 @@
+@@ -108,7 +108,7 @@ ENTRY(system_call)
  	btst	#5,%sp@(PT_OFF_SR)	/* check if returning to kernel */
  	jeq	Luser_return		/* if so, skip resched, signals */
  
@@ -698,7 +695,7 @@ Oops message to print the correct translation in use")]
  	movel	%d1,%a0
 --- a/arch/microblaze/kernel/entry.S
 +++ b/arch/microblaze/kernel/entry.S
-@@ -728,7 +728,7 @@
+@@ -728,7 +728,7 @@ irq_call:rtbd	r0, do_IRQ;
  	bri	6f;
  /* MS: Return to kernel state. */
  2:
@@ -747,7 +744,7 @@ Oops message to print the correct translation in use")]
  FEXPORT(ret_from_exception)
  	local_irq_disable			# preempt stop
  	b	__ret_from_irq
-@@ -53,7 +53,7 @@
+@@ -53,7 +53,7 @@ FEXPORT(__ret_from_irq)
  	bnez	t0, work_pending
  	j	restore_all
  
@@ -758,7 +755,7 @@ Oops message to print the correct translation in use")]
  	lw	t0, TI_PRE_COUNT($28)
 --- a/arch/nds32/Kconfig
 +++ b/arch/nds32/Kconfig
-@@ -61,7 +61,7 @@
+@@ -61,7 +61,7 @@ config GENERIC_HWEIGHT
  
  config GENERIC_LOCKBREAK
  	def_bool y
@@ -778,7 +775,7 @@ Oops message to print the correct translation in use")]
  	.macro	preempt_stop
  	.endm
  #else
-@@ -158,7 +158,7 @@
+@@ -158,7 +158,7 @@ ENTRY(ret_slow_syscall)
  /*
   * preemptive kernel
   */
@@ -789,7 +786,7 @@ Oops message to print the correct translation in use")]
  	lwi	$t0, [tsk+#TSK_TI_PREEMPT]
 --- a/arch/nios2/kernel/entry.S
 +++ b/arch/nios2/kernel/entry.S
-@@ -365,7 +365,7 @@
+@@ -365,7 +365,7 @@ ENTRY(ret_from_interrupt)
  	ldw	r1, PT_ESTATUS(sp)	/* check if returning to kernel */
  	TSTBNZ	r1, r1, ESTATUS_EU, Luser_return
  
@@ -800,7 +797,7 @@ Oops message to print the correct translation in use")]
  	bne	r4, r0, restore_all
 --- a/arch/parisc/Kconfig
 +++ b/arch/parisc/Kconfig
-@@ -81,7 +81,7 @@
+@@ -82,7 +82,7 @@ config STACK_GROWSUP
  config GENERIC_LOCKBREAK
  	bool
  	default y
@@ -811,7 +808,7 @@ Oops message to print the correct translation in use")]
  	bool
 --- a/arch/parisc/kernel/entry.S
 +++ b/arch/parisc/kernel/entry.S
-@@ -940,14 +940,14 @@
+@@ -940,14 +940,14 @@ ENTRY(intr_return)
  	rfi
  	nop
  
@@ -829,7 +826,7 @@ Oops message to print the correct translation in use")]
  	 * we jump back to intr_restore.
  	 */
  	LDREG	PT_IASQ0(%r16), %r20
-@@ -979,7 +979,7 @@
+@@ -979,7 +979,7 @@ ENTRY(intr_return)
  	 * and preempt_count is 0. otherwise, we continue on
  	 * our merry way back to the current running task.
  	 */
@@ -838,7 +835,7 @@ Oops message to print the correct translation in use")]
  	.import preempt_schedule_irq,code
  intr_do_preempt:
  	rsm	PSW_SM_I, %r0		/* disable interrupts */
-@@ -999,7 +999,7 @@
+@@ -999,7 +999,7 @@ ENTRY(intr_return)
  	nop
  
  	b,n	intr_restore		/* ssm PSW_SM_I done by intr_restore */
@@ -849,7 +846,7 @@ Oops message to print the correct translation in use")]
  	 * External interrupts.
 --- a/arch/powerpc/Kconfig
 +++ b/arch/powerpc/Kconfig
-@@ -106,7 +106,7 @@
+@@ -106,7 +106,7 @@ config LOCKDEP_SUPPORT
  config GENERIC_LOCKBREAK
  	bool
  	default y
@@ -860,7 +857,7 @@ Oops message to print the correct translation in use")]
  	bool
 --- a/arch/powerpc/kernel/entry_32.S
 +++ b/arch/powerpc/kernel/entry_32.S
-@@ -897,7 +897,7 @@
+@@ -897,7 +897,7 @@ user_exc_return:		/* r10 contains MSR_KE
  	bne-	0b
  1:
  
@@ -869,7 +866,7 @@ Oops message to print the correct translation in use")]
  	/* check current_thread_info->preempt_count */
  	lwz	r0,TI_PREEMPT(r2)
  	cmpwi	0,r0,0		/* if non-zero, just restore regs and return */
-@@ -921,7 +921,7 @@
+@@ -921,7 +921,7 @@ user_exc_return:		/* r10 contains MSR_KE
  	 */
  	bl	trace_hardirqs_on
  #endif
@@ -880,7 +877,7 @@ Oops message to print the correct translation in use")]
  
 --- a/arch/powerpc/kernel/entry_64.S
 +++ b/arch/powerpc/kernel/entry_64.S
-@@ -846,7 +846,7 @@
+@@ -846,7 +846,7 @@ END_FTR_SECTION_IFCLR(CPU_FTR_ARCH_207S)
  	bne-	0b
  1:
  
@@ -889,7 +886,7 @@ Oops message to print the correct translation in use")]
  	/* Check if we need to preempt */
  	andi.	r0,r4,_TIF_NEED_RESCHED
  	beq+	restore
-@@ -877,7 +877,7 @@
+@@ -877,7 +877,7 @@ END_FTR_SECTION_IFCLR(CPU_FTR_ARCH_207S)
  	li	r10,MSR_RI
  	mtmsrd	r10,1		  /* Update machine state */
  #endif /* CONFIG_PPC_BOOK3E */
@@ -900,7 +897,7 @@ Oops message to print the correct translation in use")]
  fast_exc_return_irq:
 --- a/arch/powerpc/kernel/traps.c
 +++ b/arch/powerpc/kernel/traps.c
-@@ -260,12 +260,16 @@
+@@ -260,12 +260,17 @@ static char *get_mmu_str(void)
  
  static int __die(const char *str, struct pt_regs *regs, long err)
  {
@@ -910,6 +907,7 @@ Oops message to print the correct translation in use")]
  
 +	if (IS_ENABLED(CONFIG_PREEMPTION))
 +		pr = IS_ENABLED(CONFIG_PREEMPT_RT) ? " PREEMPT_RT" : " PREEMPT";
++
  	printk("%s PAGE_SIZE=%luK%s%s%s%s%s%s %s\n",
  	       IS_ENABLED(CONFIG_CPU_LITTLE_ENDIAN) ? "LE" : "BE",
  	       PAGE_SIZE / 1024, get_mmu_str(),
@@ -929,7 +927,7 @@ Oops message to print the correct translation in use")]
  .set resume_kernel, restore_all
  #endif
  
-@@ -269,7 +269,7 @@
+@@ -269,7 +269,7 @@ ENTRY(handle_exception)
  	RESTORE_ALL
  	sret
  
@@ -940,7 +938,7 @@ Oops message to print the correct translation in use")]
  	bnez s0, restore_all
 --- a/arch/s390/Kconfig
 +++ b/arch/s390/Kconfig
-@@ -30,7 +30,7 @@
+@@ -30,7 +30,7 @@ config GENERIC_BUG_RELATIVE_POINTERS
  	def_bool y
  
  config GENERIC_LOCKBREAK
@@ -951,7 +949,7 @@ Oops message to print the correct translation in use")]
  	def_bool y if KVM
 --- a/arch/s390/include/asm/preempt.h
 +++ b/arch/s390/include/asm/preempt.h
-@@ -130,11 +130,11 @@
+@@ -130,11 +130,11 @@ static inline bool should_resched(int pr
  
  #endif /* CONFIG_HAVE_MARCH_Z196_FEATURES */
  
@@ -967,7 +965,7 @@ Oops message to print the correct translation in use")]
  #endif /* __ASM_PREEMPT_H */
 --- a/arch/s390/kernel/dumpstack.c
 +++ b/arch/s390/kernel/dumpstack.c
-@@ -194,6 +194,8 @@
+@@ -194,6 +194,8 @@ void die(struct pt_regs *regs, const cha
  	       regs->int_code >> 17, ++die_counter);
  #ifdef CONFIG_PREEMPT
  	pr_cont("PREEMPT ");
@@ -978,7 +976,7 @@ Oops message to print the correct translation in use")]
  	if (debug_pagealloc_enabled())
 --- a/arch/s390/kernel/entry.S
 +++ b/arch/s390/kernel/entry.S
-@@ -790,7 +790,7 @@
+@@ -790,7 +790,7 @@ ENTRY(io_int_handler)
  .Lio_work:
  	tm	__PT_PSW+1(%r11),0x01	# returning to user ?
  	jo	.Lio_work_user		# yes -> do resched & signal
@@ -989,7 +987,7 @@ Oops message to print the correct translation in use")]
  	jnz	.Lio_restore		# preemption is disabled
 --- a/arch/sh/Kconfig
 +++ b/arch/sh/Kconfig
-@@ -108,7 +108,7 @@
+@@ -108,7 +108,7 @@ config GENERIC_CALIBRATE_DELAY
  
  config GENERIC_LOCKBREAK
  	def_bool y
@@ -1009,7 +1007,7 @@ Oops message to print the correct translation in use")]
  #  define preempt_stop()	CLI()
  #else
  #  define preempt_stop()
-@@ -884,7 +884,7 @@
+@@ -884,7 +884,7 @@ LRESVEC_block_end:			/* Marker. Unused.
  
  	/* Check softirqs */
  
@@ -1029,7 +1027,7 @@ Oops message to print the correct translation in use")]
  #  define preempt_stop()	cli ; TRACE_IRQS_OFF
  #else
  #  define preempt_stop()
-@@ -84,7 +84,7 @@
+@@ -84,7 +84,7 @@ ENTRY(ret_from_irq)
  	get_current_thread_info r8, r0
  	bt	resume_kernel	! Yes, it's from kernel, go back soon
  
@@ -1040,7 +1038,7 @@ Oops message to print the correct translation in use")]
  ENTRY(resume_kernel)
 --- a/arch/sparc/Kconfig
 +++ b/arch/sparc/Kconfig
-@@ -277,7 +277,7 @@
+@@ -277,7 +277,7 @@ config US3_MC
  config GENERIC_LOCKBREAK
  	bool
  	default y
@@ -1051,7 +1049,7 @@ Oops message to print the correct translation in use")]
  	bool "NUMA support"
 --- a/arch/sparc/kernel/rtrap_64.S
 +++ b/arch/sparc/kernel/rtrap_64.S
-@@ -310,7 +310,7 @@
+@@ -310,7 +310,7 @@ kern_rtt:	rdpr			%canrestore, %g1
  		retry
  
  to_kernel:
@@ -1062,7 +1060,7 @@ Oops message to print the correct translation in use")]
  		 ldx			[%g6 + TI_FLAGS], %l5
 --- a/arch/xtensa/kernel/entry.S
 +++ b/arch/xtensa/kernel/entry.S
-@@ -520,7 +520,7 @@
+@@ -520,7 +520,7 @@ ENTRY(kernel_exception)
  	call4	schedule	# void schedule (void)
  	j	1b
  
@@ -1073,7 +1071,7 @@ Oops message to print the correct translation in use")]
  
 --- a/arch/xtensa/kernel/traps.c
 +++ b/arch/xtensa/kernel/traps.c
-@@ -524,12 +524,15 @@
+@@ -524,12 +524,15 @@ DEFINE_SPINLOCK(die_lock);
  void die(const char * str, struct pt_regs * regs, long err)
  {
  	static int die_counter;
@@ -1093,7 +1091,7 @@ Oops message to print the correct translation in use")]
  		show_stack(NULL, (unsigned long*)regs->areg[1]);
 --- a/drivers/gpu/drm/Kconfig
 +++ b/drivers/gpu/drm/Kconfig
-@@ -397,7 +397,7 @@
+@@ -397,7 +397,7 @@ config DRM_R128
  
  config DRM_I810
  	tristate "Intel I810"
@@ -1104,7 +1102,7 @@ Oops message to print the correct translation in use")]
  	  Choose this option if you have an Intel I810 graphics card.  If M is
 --- a/drivers/media/platform/Kconfig
 +++ b/drivers/media/platform/Kconfig
-@@ -585,7 +585,7 @@
+@@ -585,7 +585,7 @@ config VIDEO_MESON_G12A_AO_CEC
  
  config CEC_GPIO
  	tristate "Generic GPIO-based CEC driver"
@@ -1115,7 +1113,7 @@ Oops message to print the correct translation in use")]
  	select GPIOLIB
 --- a/drivers/video/backlight/Kconfig
 +++ b/drivers/video/backlight/Kconfig
-@@ -99,7 +99,7 @@
+@@ -99,7 +99,7 @@ config LCD_TOSA
  
  config LCD_HP700
  	tristate "HP Jornada 700 series LCD Driver"
@@ -1124,7 +1122,7 @@ Oops message to print the correct translation in use")]
  	default y
  	help
  	  If you have an HP Jornada 700 series handheld (710/720/728)
-@@ -228,7 +228,7 @@
+@@ -228,7 +228,7 @@ config BACKLIGHT_HP680
  
  config BACKLIGHT_HP700
  	tristate "HP Jornada 700 series Backlight Driver"
@@ -1144,7 +1142,7 @@ Oops message to print the correct translation in use")]
  
  /*
   * Some hypercalls issued by the toolstack can take many 10s of
-@@ -37,4 +37,4 @@
+@@ -37,4 +37,4 @@ asmlinkage __visible void xen_maybe_pree
  		__this_cpu_write(xen_in_preemptible_hcall, true);
  	}
  }
@@ -1152,7 +1150,7 @@ Oops message to print the correct translation in use")]
 +#endif /* CONFIG_PREEMPTION */
 --- a/fs/btrfs/volumes.h
 +++ b/fs/btrfs/volumes.h
-@@ -179,7 +179,7 @@
+@@ -179,7 +179,7 @@ btrfs_device_set_##name(struct btrfs_dev
  	write_seqcount_end(&dev->data_seqcount);			\
  	preempt_enable();						\
  }
@@ -1163,7 +1161,7 @@ Oops message to print the correct translation in use")]
  btrfs_device_get_##name(const struct btrfs_device *dev)			\
 --- a/fs/stack.c
 +++ b/fs/stack.c
-@@ -23,7 +23,7 @@
+@@ -23,7 +23,7 @@ void fsstack_copy_inode_size(struct inod
  
  	/*
  	 * But on 32-bit, we ought to make an effort to keep the two halves of
@@ -1172,7 +1170,7 @@ Oops message to print the correct translation in use")]
  	 * generic_fillattr() doesn't bother, and we won't be applying quotas
  	 * (where i_blocks does become important) at the upper level.
  	 *
-@@ -38,14 +38,14 @@
+@@ -38,14 +38,14 @@ void fsstack_copy_inode_size(struct inod
  		spin_unlock(&src->i_lock);
  
  	/*
@@ -1191,7 +1189,7 @@ Oops message to print the correct translation in use")]
  	 * There is none of this locking overhead in the 64-bit case.
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -855,7 +855,7 @@
+@@ -855,7 +855,7 @@ static inline loff_t i_size_read(const s
  		i_size = inode->i_size;
  	} while (read_seqcount_retry(&inode->i_size_seqcount, seq));
  	return i_size;
@@ -1200,7 +1198,7 @@ Oops message to print the correct translation in use")]
  	loff_t i_size;
  
  	preempt_disable();
-@@ -880,7 +880,7 @@
+@@ -880,7 +880,7 @@ static inline void i_size_write(struct i
  	inode->i_size = i_size;
  	write_seqcount_end(&inode->i_size_seqcount);
  	preempt_enable();
@@ -1211,7 +1209,7 @@ Oops message to print the correct translation in use")]
  	preempt_enable();
 --- a/include/linux/genhd.h
 +++ b/include/linux/genhd.h
-@@ -717,7 +717,7 @@
+@@ -717,7 +717,7 @@ static inline void hd_free_part(struct h
   * accessor function.
   *
   * Code written along the lines of i_size_read() and i_size_write().
@@ -1220,7 +1218,7 @@ Oops message to print the correct translation in use")]
   * on.
   */
  static inline sector_t part_nr_sects_read(struct hd_struct *part)
-@@ -730,7 +730,7 @@
+@@ -730,7 +730,7 @@ static inline sector_t part_nr_sects_rea
  		nr_sects = part->nr_sects;
  	} while (read_seqcount_retry(&part->nr_sects_seq, seq));
  	return nr_sects;
@@ -1229,7 +1227,7 @@ Oops message to print the correct translation in use")]
  	sector_t nr_sects;
  
  	preempt_disable();
-@@ -753,7 +753,7 @@
+@@ -753,7 +753,7 @@ static inline void part_nr_sects_write(s
  	write_seqcount_begin(&part->nr_sects_seq);
  	part->nr_sects = size;
  	write_seqcount_end(&part->nr_sects_seq);
@@ -1240,7 +1238,7 @@ Oops message to print the correct translation in use")]
  	preempt_enable();
 --- a/include/linux/rcupdate.h
 +++ b/include/linux/rcupdate.h
-@@ -154,7 +154,7 @@
+@@ -154,7 +154,7 @@ static inline void exit_tasks_rcu_finish
   *
   * This macro resembles cond_resched(), except that it is defined to
   * report potential quiescent states to RCU-tasks even if the cond_resched()
@@ -1249,7 +1247,7 @@ Oops message to print the correct translation in use")]
   */
  #define cond_resched_tasks_rcu_qs() \
  do { \
-@@ -580,7 +580,7 @@
+@@ -580,7 +580,7 @@ do {									      \
   *
   * You can avoid reading and understanding the next paragraph by
   * following this rule: don't put anything in an rcu_read_lock() RCU
@@ -1260,7 +1258,7 @@ Oops message to print the correct translation in use")]
   * In non-preemptible RCU implementations (TREE_RCU and TINY_RCU),
 --- a/include/xen/xen-ops.h
 +++ b/include/xen/xen-ops.h
-@@ -215,7 +215,7 @@
+@@ -215,7 +215,7 @@ bool xen_running_on_version_or_later(uns
  void xen_efi_runtime_setup(void);
  
  
@@ -1269,7 +1267,7 @@ Oops message to print the correct translation in use")]
  
  static inline void xen_preemptible_hcall_begin(void)
  {
-@@ -239,6 +239,6 @@
+@@ -239,6 +239,6 @@ static inline void xen_preemptible_hcall
  	__this_cpu_write(xen_in_preemptible_hcall, false);
  }
  
@@ -1279,7 +1277,7 @@ Oops message to print the correct translation in use")]
  #endif /* INCLUDE_XEN_OPS_H */
 --- a/kernel/Kconfig.locks
 +++ b/kernel/Kconfig.locks
-@@ -101,7 +101,7 @@
+@@ -101,7 +101,7 @@ config UNINLINE_SPIN_UNLOCK
  # unlock and unlock_irq functions are inlined when:
  #   - DEBUG_SPINLOCK=n and ARCH_INLINE_*LOCK=y
  #  or
@@ -1288,7 +1286,7 @@ Oops message to print the correct translation in use")]
  #
  # unlock_bh and unlock_irqrestore functions are inlined when:
  #   - DEBUG_SPINLOCK=n and ARCH_INLINE_*LOCK=y
-@@ -139,7 +139,7 @@
+@@ -139,7 +139,7 @@ config INLINE_SPIN_UNLOCK_BH
  
  config INLINE_SPIN_UNLOCK_IRQ
  	def_bool y
@@ -1297,7 +1295,7 @@ Oops message to print the correct translation in use")]
  
  config INLINE_SPIN_UNLOCK_IRQRESTORE
  	def_bool y
-@@ -168,7 +168,7 @@
+@@ -168,7 +168,7 @@ config INLINE_READ_LOCK_IRQSAVE
  
  config INLINE_READ_UNLOCK
  	def_bool y
@@ -1306,7 +1304,7 @@ Oops message to print the correct translation in use")]
  
  config INLINE_READ_UNLOCK_BH
  	def_bool y
-@@ -176,7 +176,7 @@
+@@ -176,7 +176,7 @@ config INLINE_READ_UNLOCK_BH
  
  config INLINE_READ_UNLOCK_IRQ
  	def_bool y
@@ -1315,7 +1313,7 @@ Oops message to print the correct translation in use")]
  
  config INLINE_READ_UNLOCK_IRQRESTORE
  	def_bool y
-@@ -205,7 +205,7 @@
+@@ -205,7 +205,7 @@ config INLINE_WRITE_LOCK_IRQSAVE
  
  config INLINE_WRITE_UNLOCK
  	def_bool y
@@ -1324,7 +1322,7 @@ Oops message to print the correct translation in use")]
  
  config INLINE_WRITE_UNLOCK_BH
  	def_bool y
-@@ -213,7 +213,7 @@
+@@ -213,7 +213,7 @@ config INLINE_WRITE_UNLOCK_BH
  
  config INLINE_WRITE_UNLOCK_IRQ
  	def_bool y
@@ -1335,7 +1333,7 @@ Oops message to print the correct translation in use")]
  	def_bool y
 --- a/kernel/rcu/Kconfig
 +++ b/kernel/rcu/Kconfig
-@@ -200,8 +200,8 @@
+@@ -200,8 +200,8 @@ config RCU_NOCB_CPU
  	  specified at boot time by the rcu_nocbs parameter.  For each
  	  such CPU, a kthread ("rcuox/N") will be created to invoke
  	  callbacks, where the "N" is the CPU being offloaded, and where
@@ -1348,7 +1346,7 @@ Oops message to print the correct translation in use")]
  	  to force the kthreads to run on whatever set of CPUs is desired.
 --- a/kernel/rcu/rcutorture.c
 +++ b/kernel/rcu/rcutorture.c
-@@ -1725,7 +1725,7 @@
+@@ -1725,7 +1725,7 @@ static void rcu_torture_fwd_cb_cr(struct
  // Give the scheduler a chance, even on nohz_full CPUs.
  static void rcu_torture_fwd_prog_cond_resched(unsigned long iter)
  {
@@ -1359,7 +1357,7 @@ Oops message to print the correct translation in use")]
  			schedule();
 --- a/kernel/rcu/srcutiny.c
 +++ b/kernel/rcu/srcutiny.c
-@@ -103,7 +103,7 @@
+@@ -103,7 +103,7 @@ EXPORT_SYMBOL_GPL(__srcu_read_unlock);
  
  /*
   * Workqueue handler to drive one grace period and invoke any callbacks
@@ -1370,7 +1368,7 @@ Oops message to print the correct translation in use")]
  void srcu_drive_gp(struct work_struct *wp)
 --- a/kernel/rcu/tree.c
 +++ b/kernel/rcu/tree.c
-@@ -2667,9 +2667,9 @@
+@@ -2667,9 +2667,9 @@ EXPORT_SYMBOL_GPL(kfree_call_rcu);
  
  /*
   * During early boot, any blocking grace-period wait automatically
@@ -1384,7 +1382,7 @@ Oops message to print the correct translation in use")]
   * either synchronize_rcu() or synchronize_rcu_expedited().  It is OK to
 --- a/kernel/rcu/tree_exp.h
 +++ b/kernel/rcu/tree_exp.h
-@@ -670,7 +670,7 @@
+@@ -670,7 +670,7 @@ static void rcu_exp_handler(void *unused
  	}
  }
  
@@ -1395,7 +1393,7 @@ Oops message to print the correct translation in use")]
  }
 --- a/kernel/rcu/tree_plugin.h
 +++ b/kernel/rcu/tree_plugin.h
-@@ -788,7 +788,7 @@
+@@ -788,7 +788,7 @@ static void __init rcu_bootup_announce(v
  }
  
  /*
@@ -1404,7 +1402,7 @@ Oops message to print the correct translation in use")]
   * how many quiescent states passed, just if there was at least one since
   * the start of the grace period, this just sets a flag.  The caller must
   * have disabled preemption.
-@@ -838,7 +838,7 @@
+@@ -838,7 +838,7 @@ void rcu_all_qs(void)
  EXPORT_SYMBOL_GPL(rcu_all_qs);
  
  /*
@@ -1415,7 +1413,7 @@ Oops message to print the correct translation in use")]
  {
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
-@@ -3660,6 +3660,8 @@
+@@ -3660,6 +3660,8 @@ print_trace_header(struct seq_file *m, s
  		   "desktop",
  #elif defined(CONFIG_PREEMPT)
  		   "preempt",
@@ -1426,7 +1424,7 @@ Oops message to print the correct translation in use")]
  #endif
 --- a/kernel/workqueue.c
 +++ b/kernel/workqueue.c
-@@ -2279,7 +2279,7 @@
+@@ -2286,7 +2286,7 @@ static void process_one_work(struct work
  	}
  
  	/*
@@ -1437,7 +1435,7 @@ Oops message to print the correct translation in use")]
  	 * indefinitely requeue itself while all other CPUs are trapped in
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -1070,7 +1070,7 @@
+@@ -1070,7 +1070,7 @@ config DEBUG_TIMEKEEPING
  
  config DEBUG_PREEMPT
  	bool "Debug preemptible kernel"
@@ -1448,7 +1446,7 @@ Oops message to print the correct translation in use")]
  	  If you say Y here then the kernel will use a debug variant of the
 --- a/mm/memory.c
 +++ b/mm/memory.c
-@@ -2134,7 +2134,7 @@
+@@ -2133,7 +2133,7 @@ static inline int pte_unmap_same(struct
  				pte_t *page_table, pte_t orig_pte)
  {
  	int same = 1;
@@ -1459,7 +1457,7 @@ Oops message to print the correct translation in use")]
  		spin_lock(ptl);
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -1963,7 +1963,7 @@
+@@ -1963,7 +1963,7 @@ static void *get_partial(struct kmem_cac
  	return get_any_partial(s, flags, c);
  }
  
@@ -1468,7 +1466,7 @@ Oops message to print the correct translation in use")]
  /*
   * Calculate the next globally unique transaction for disambiguiation
   * during cmpxchg. The transactions start with the cpu number and are then
-@@ -2008,7 +2008,7 @@
+@@ -2008,7 +2008,7 @@ static inline void note_cmpxchg_failure(
  
  	pr_info("%s %s: cmpxchg redo ", n, s->name);
  
@@ -1477,7 +1475,7 @@ Oops message to print the correct translation in use")]
  	if (tid_to_cpu(tid) != tid_to_cpu(actual_tid))
  		pr_warn("due to cpu change %d -> %d\n",
  			tid_to_cpu(tid), tid_to_cpu(actual_tid));
-@@ -2636,7 +2636,7 @@
+@@ -2636,7 +2636,7 @@ static void *__slab_alloc(struct kmem_ca
  	unsigned long flags;
  
  	local_irq_save(flags);
@@ -1486,7 +1484,7 @@ Oops message to print the correct translation in use")]
  	/*
  	 * We may have been preempted and rescheduled on a different
  	 * cpu before disabling interrupts. Need to reload cpu area
-@@ -2690,13 +2690,13 @@
+@@ -2690,13 +2690,13 @@ static __always_inline void *slab_alloc_
  	 * as we end up on the original cpu again when doing the cmpxchg.
  	 *
  	 * We should guarantee that tid and kmem_cache are retrieved on
@@ -1502,7 +1500,7 @@ Oops message to print the correct translation in use")]
  		 unlikely(tid != READ_ONCE(c->tid)));
  
  	/*
-@@ -2970,7 +2970,7 @@
+@@ -2970,7 +2970,7 @@ static __always_inline void do_slab_free
  	do {
  		tid = this_cpu_read(s->cpu_slab->tid);
  		c = raw_cpu_ptr(s->cpu_slab);
@@ -1513,7 +1511,7 @@ Oops message to print the correct translation in use")]
  	/* Same with comment on barrier() in slab_alloc_node() */
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -820,7 +820,7 @@
+@@ -820,7 +820,7 @@ EXPORT_SYMBOL(dev_get_by_napi_id);
   *
   *	The use of raw_seqcount_begin() and cond_resched() before
   *	retrying is required as we want to give the writers a chance

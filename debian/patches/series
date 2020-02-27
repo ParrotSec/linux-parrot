@@ -142,3 +142,4 @@ debian/wireless-disable-regulatory.db-direct-loading.patch
 debian/overlayfs-permit-mounts-in-userns.patch
 
 # ABI maintenance
+debian/Revert-cpupower-Revert-library-ABI-changes-from-comm.patch

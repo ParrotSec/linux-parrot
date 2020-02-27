@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 7 Oct 2019 16:20:39 +0200
 Subject: [PATCH] printk: handle iterating while buffer changing
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 The syslog and kmsg_dump readers are provided buffers to fill.
 Both try to maximize the provided buffer usage by calculating the

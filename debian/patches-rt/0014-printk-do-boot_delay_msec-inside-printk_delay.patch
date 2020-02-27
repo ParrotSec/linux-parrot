@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:52 +0100
 Subject: [PATCH 14/25] printk: do boot_delay_msec inside printk_delay
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.5-rt3.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
 
 Both functions needed to be called one after the other, so just
 integrate boot_delay_msec into printk_delay for simplification.
