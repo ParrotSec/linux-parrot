@@ -36,6 +36,12 @@ CONFIG_NEON=y
 # CONFIG_DEBUG_LL is not set
 
 ##
+## file: arch/arm/mach-aspeed/Kconfig
+##
+CONFIG_ARCH_ASPEED=y
+CONFIG_MACH_ASPEED_G6=y
+
+##
 ## file: arch/arm/mach-bcm/Kconfig
 ##
 CONFIG_ARCH_BCM=y
@@ -185,11 +191,6 @@ CONFIG_PATA_OF_PLATFORM=m
 CONFIG_ARM_CHARLCD=y
 
 ##
-## file: drivers/bluetooth/Kconfig
-##
-CONFIG_BT_WILINK=m
-
-##
 ## file: drivers/bus/Kconfig
 ##
 CONFIG_OMAP_INTERCONNECT=m
@@ -203,11 +204,18 @@ CONFIG_HW_RANDOM_OMAP=m
 CONFIG_HW_RANDOM_STM32=m
 
 ##
+## file: drivers/char/ipmi/Kconfig
+##
+CONFIG_ASPEED_KCS_IPMI_BMC=m
+CONFIG_ASPEED_BT_IPMI_BMC=m
+
+##
 ## file: drivers/clk/Kconfig
 ##
 CONFIG_COMMON_CLK_MAX77686=m
 CONFIG_COMMON_CLK_RK808=m
 CONFIG_COMMON_CLK_SI5351=m
+CONFIG_COMMON_CLK_ASPEED=y
 CONFIG_COMMON_CLK_S2MPS11=m
 CONFIG_CLK_TWL6040=m
 
@@ -249,6 +257,10 @@ CONFIG_ARM_EXYNOS_CPUIDLE=y
 CONFIG_CRYPTO_DEV_MARVELL_CESA=m
 CONFIG_CRYPTO_DEV_OMAP_SHAM=m
 CONFIG_CRYPTO_DEV_OMAP_AES=m
+
+##
+## file: drivers/crypto/allwinner/Kconfig
+##
 CONFIG_CRYPTO_DEV_SUN4I_SS=m
 
 ##
@@ -302,9 +314,22 @@ CONFIG_EXTCON_USB_GPIO=m
 CONFIG_RASPBERRYPI_FIRMWARE=y
 
 ##
+## file: drivers/fsi/Kconfig
+##
+CONFIG_FSI=m
+# CONFIG_FSI_NEW_DEV_NODE is not set
+CONFIG_FSI_MASTER_GPIO=m
+CONFIG_FSI_MASTER_HUB=m
+CONFIG_FSI_MASTER_ASPEED=m
+CONFIG_FSI_SCOM=m
+CONFIG_FSI_SBEFIFO=m
+CONFIG_FSI_OCC=m
+
+##
 ## file: drivers/gpio/Kconfig
 ##
 CONFIG_GPIOLIB=y
+CONFIG_GPIO_ASPEED=m
 CONFIG_GPIO_GENERIC_PLATFORM=m
 CONFIG_GPIO_PCA953X=m
 CONFIG_GPIO_PCF857X=m
@@ -322,6 +347,11 @@ CONFIG_DRM=m
 ## file: drivers/gpu/drm/armada/Kconfig
 ##
 CONFIG_DRM_ARMADA=m
+
+##
+## file: drivers/gpu/drm/aspeed/Kconfig
+##
+CONFIG_DRM_ASPEED_GFX=m
 
 ##
 ## file: drivers/gpu/drm/bridge/Kconfig
@@ -481,10 +511,24 @@ CONFIG_OMAP_SSI=m
 ##
 ## file: drivers/hwmon/Kconfig
 ##
+CONFIG_SENSORS_ASPEED=m
 CONFIG_SENSORS_G762=m
 CONFIG_SENSORS_GPIO_FAN=m
 CONFIG_SENSORS_LM75=m
 CONFIG_SENSORS_PWM_FAN=m
+
+##
+## file: drivers/hwmon/occ/Kconfig
+##
+CONFIG_SENSORS_OCC_P9_SBE=m
+
+##
+## file: drivers/hwmon/pmbus/Kconfig
+##
+CONFIG_PMBUS=m
+CONFIG_SENSORS_PMBUS=m
+CONFIG_SENSORS_IBM_CFFPS=m
+CONFIG_SENSORS_MAX31785=m
 
 ##
 ## file: drivers/hwspinlock/Kconfig
@@ -499,6 +543,7 @@ CONFIG_I2C_MUX=m
 ##
 ## file: drivers/i2c/busses/Kconfig
 ##
+CONFIG_I2C_ASPEED=m
 CONFIG_I2C_BCM2835=m
 CONFIG_I2C_EXYNOS5=m
 CONFIG_I2C_GPIO=y
@@ -514,6 +559,7 @@ CONFIG_I2C_SUN6I_P2WI=m
 CONFIG_I2C_TEGRA=y
 CONFIG_I2C_VERSATILE=m
 CONFIG_I2C_CROS_EC_TUNNEL=m
+CONFIG_I2C_FSI=m
 
 ##
 ## file: drivers/i2c/muxes/Kconfig
@@ -536,6 +582,7 @@ CONFIG_MMA8452=m
 ##
 ## file: drivers/iio/adc/Kconfig
 ##
+CONFIG_ASPEED_ADC=m
 CONFIG_AXP20X_ADC=m
 CONFIG_AXP288_ADC=m
 CONFIG_EXYNOS_ADC=m
@@ -638,6 +685,7 @@ CONFIG_MEDIA_CONTROLLER=y
 ##
 ## file: drivers/media/platform/Kconfig
 ##
+CONFIG_VIDEO_ASPEED=m
 CONFIG_VIDEO_OMAP3=m
 CONFIG_VIDEO_TI_VPE=m
 
@@ -728,6 +776,7 @@ CONFIG_PWRSEQ_SD8787=m
 CONFIG_MMC_ARMMMCI=m
 CONFIG_MMC_SDHCI=m
 CONFIG_MMC_SDHCI_PLTFM=m
+CONFIG_MMC_SDHCI_OF_ASPEED=m
 CONFIG_MMC_SDHCI_ESDHC_IMX=m
 CONFIG_MMC_SDHCI_DOVE=m
 CONFIG_MMC_SDHCI_TEGRA=m
@@ -769,6 +818,11 @@ CONFIG_MTD_NAND_GPMI_NAND=m
 CONFIG_MTD_NAND_MXC=m
 CONFIG_MTD_NAND_SUNXI=m
 CONFIG_MTD_NAND_STM32_FMC2=m
+
+##
+## file: drivers/mtd/spi-nor/Kconfig
+##
+CONFIG_SPI_ASPEED_SMC=m
 
 ##
 ## file: drivers/net/can/Kconfig
@@ -856,6 +910,11 @@ CONFIG_SUNDANCE=m
 # CONFIG_SUNDANCE_MMIO is not set
 
 ##
+## file: drivers/net/ethernet/faraday/Kconfig
+##
+CONFIG_FTGMAC100=m
+
+##
 ## file: drivers/net/ethernet/intel/Kconfig
 ##
 CONFIG_NET_VENDOR_INTEL=y
@@ -911,6 +970,8 @@ CONFIG_DWMAC_SUNXI=m
 CONFIG_TI_DAVINCI_EMAC=m
 CONFIG_TI_DAVINCI_MDIO=m
 CONFIG_TI_CPSW=m
+CONFIG_TI_CPSW_SWITCHDEV=m
+CONFIG_TI_CPTS=y
 
 ##
 ## file: drivers/net/fddi/Kconfig
@@ -921,6 +982,7 @@ CONFIG_SKFP=m
 ##
 ## file: drivers/net/phy/Kconfig
 ##
+CONFIG_MDIO_ASPEED=m
 CONFIG_MDIO_SUN4I=y
 
 ##
@@ -992,6 +1054,7 @@ CONFIG_PHY_SUN9I_USB=m
 ##
 ## file: drivers/phy/marvell/Kconfig
 ##
+CONFIG_PHY_MVEBU_A38X_COMPHY=m
 CONFIG_PHY_PXA_USB=m
 
 ##
@@ -1037,6 +1100,11 @@ CONFIG_PINCTRL_AXP209=m
 CONFIG_PINCTRL_MCP23S08=m
 CONFIG_PINCTRL_SINGLE=y
 CONFIG_PINCTRL_PALMAS=y
+
+##
+## file: drivers/pinctrl/aspeed/Kconfig
+##
+CONFIG_PINCTRL_ASPEED_G6=y
 
 ##
 ## file: drivers/pinctrl/vt8500/Kconfig
@@ -1178,12 +1246,20 @@ CONFIG_RTC_DRV_TEGRA=y
 CONFIG_RTC_DRV_MXC=y
 CONFIG_RTC_DRV_SNVS=y
 CONFIG_RTC_DRV_STM32=y
+CONFIG_RTC_DRV_ASPEED=m
 
 ##
 ## file: drivers/scsi/Kconfig
 ##
 CONFIG_SCSI_DMX3191D=m
 CONFIG_SCSI_AM53C974=m
+
+##
+## file: drivers/soc/aspeed/Kconfig
+##
+CONFIG_ASPEED_LPC_CTRL=m
+CONFIG_ASPEED_LPC_SNOOP=m
+CONFIG_ASPEED_P2A_CTRL=m
 
 ##
 ## file: drivers/soc/bcm/Kconfig
@@ -1294,9 +1370,10 @@ CONFIG_SERIAL_STM32_CONSOLE=y
 CONFIG_SERIAL_8250=y
 CONFIG_SERIAL_8250_CONSOLE=y
 CONFIG_SERIAL_8250_DMA=y
-CONFIG_SERIAL_8250_NR_UARTS=4
-CONFIG_SERIAL_8250_RUNTIME_UARTS=4
+CONFIG_SERIAL_8250_NR_UARTS=5
+CONFIG_SERIAL_8250_RUNTIME_UARTS=5
 # CONFIG_SERIAL_8250_EXTENDED is not set
+CONFIG_SERIAL_8250_ASPEED_VUART=m
 CONFIG_SERIAL_8250_DW=y
 # CONFIG_SERIAL_8250_EM is not set
 CONFIG_SERIAL_OF_PLATFORM=y
@@ -1341,6 +1418,11 @@ CONFIG_USB_GADGET=m
 ## file: drivers/usb/gadget/legacy/Kconfig
 ##
 CONFIG_USB_G_NOKIA=m
+
+##
+## file: drivers/usb/gadget/udc/aspeed-vhub/Kconfig
+##
+CONFIG_USB_ASPEED_VHUB=m
 
 ##
 ## file: drivers/usb/host/Kconfig
@@ -1466,11 +1548,6 @@ CONFIG_NET_DSA=m
 ## file: net/phonet/Kconfig
 ##
 CONFIG_PHONET=m
-
-##
-## file: net/switchdev/Kconfig
-##
-CONFIG_NET_SWITCHDEV=y
 
 ##
 ## file: sound/pci/hda/Kconfig

@@ -14,8 +14,5 @@ install-stem: vmlinuz
 [relations]
 headers%gcc-9: linux-compiler-gcc-9-s390
 
-[s390x_build]
-debug-info: true
-
 [s390x_description]
 hardware: IBM zSeries

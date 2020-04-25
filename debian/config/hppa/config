@@ -241,11 +241,6 @@ CONFIG_SUNDANCE=m
 CONFIG_PCMCIA_FMVJ18X=m
 
 ##
-## file: drivers/net/ethernet/hp/Kconfig
-##
-CONFIG_HP100=m
-
-##
 ## file: drivers/net/ethernet/i825xx/Kconfig
 ##
 CONFIG_LASI_82596=m
@@ -451,6 +446,11 @@ CONFIG_MEGARAID_MAILBOX=m
 ##
 CONFIG_PCMCIA_QLOGIC=m
 CONFIG_PCMCIA_SYM53C500=m
+
+##
+## file: drivers/staging/hp/Kconfig
+##
+CONFIG_HP100=m
 
 ##
 ## file: drivers/tty/Kconfig

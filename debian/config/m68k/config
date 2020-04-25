@@ -732,9 +732,16 @@ CONFIG_HZ_PERIODIC=y
 ##
 ## file: lib/Kconfig.debug
 ##
-# CONFIG_DEBUG_FS is not set
 # CONFIG_FRAME_POINTER is not set
+# CONFIG_DEBUG_FS is not set
 # CONFIG_SCHED_DEBUG is not set
+
+##
+## file: lib/fonts/Kconfig
+##
+CONFIG_FONT_6x11=y
+CONFIG_FONT_PEARL_8x8=y
+# CONFIG_FONT_TER16x32 is not set
 
 ##
 ## file: mm/Kconfig

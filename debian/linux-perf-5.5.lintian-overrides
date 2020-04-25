@@ -1,0 +1,3 @@
+# These executables are needed to handle processes running in compat mode
+linux-perf-5.5: binary-from-other-architecture usr/lib/perf_5.5-core/perf-read-vdso32
+linux-perf-5.5: binary-from-other-architecture usr/lib/perf_5.5-core/perf-read-vdsox32

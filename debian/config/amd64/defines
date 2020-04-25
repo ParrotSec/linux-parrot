@@ -5,7 +5,6 @@ featuresets:
 kernel-arch: x86
 
 [build]
-debug-info: true
 image-file: arch/x86/boot/bzImage
 signed-code: false
 vdso: true

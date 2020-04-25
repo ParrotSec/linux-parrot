@@ -16,9 +16,6 @@ CONFIG_NR_CPUS=16
 ##
 ## file: arch/mips/loongson64/Kconfig
 ##
-## choice: Machine Type
-CONFIG_LOONGSON_MACH3X=y
-## end choice
 CONFIG_RS780_HPET=y
 
 ##
@@ -35,8 +32,8 @@ CONFIG_CPU_IDLE=y
 ## file: drivers/gpu/drm/Kconfig
 ##
 CONFIG_DRM=m
-CONFIG_DRM_AMDGPU=m
 CONFIG_DRM_RADEON=m
+CONFIG_DRM_AMDGPU=m
 
 ##
 ## file: drivers/gpu/drm/ast/Kconfig

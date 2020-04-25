@@ -1,0 +1,106 @@
+From: Jeremy Linton <jeremy.linton@arm.com>
+Date: Mon, 24 Feb 2020 16:54:02 -0600
+Subject: [5/6] net: bcmgenet: Fetch MAC address from the adapter
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git/commit?id=26bd9cc64fafe3e84a601220162465ed72cdfc89
+Bug-Debian: https://bugs.debian.org/950578
+
+ARM/ACPI machines should utilize self describing hardware
+when possible. The MAC address on the BCMGENET can be
+read from the adapter if a full featured firmware has already
+programmed it. Lets try using the address already programmed,
+if it appears to be valid.
+
+It should be noted that while we move the macaddr logic below
+the clock and power logic in the driver, none of that code will
+ever be active in an ACPI environment as the device will be
+attached to the acpi power domain, and brought to full power
+with all clocks enabled immediately before the device probe
+routine is called.
+
+One side effect of the above tweak is that while its now
+possible to read the MAC address via _DSD properties, it should
+be avoided.
+
+Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ .../net/ethernet/broadcom/genet/bcmgenet.c    | 39 +++++++++++++------
+ 1 file changed, 27 insertions(+), 12 deletions(-)
+
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2779,6 +2779,21 @@ static void bcmgenet_set_hw_addr(struct
+ 	bcmgenet_umac_writel(priv, (addr[4] << 8) | addr[5], UMAC_MAC1);
+ }
+ 
++static void bcmgenet_get_hw_addr(struct bcmgenet_priv *priv,
++				 unsigned char *addr)
++{
++	u32 addr_tmp;
++
++	addr_tmp = bcmgenet_umac_readl(priv, UMAC_MAC0);
++	addr[0] = addr_tmp >> 24;
++	addr[1] = (addr_tmp >> 16) & 0xff;
++	addr[2] = (addr_tmp >>	8) & 0xff;
++	addr[3] = addr_tmp & 0xff;
++	addr_tmp = bcmgenet_umac_readl(priv, UMAC_MAC1);
++	addr[4] = (addr_tmp >> 8) & 0xff;
++	addr[5] = addr_tmp & 0xff;
++}
++
+ /* Returns a reusable dma control register value */
+ static u32 bcmgenet_dma_disable(struct bcmgenet_priv *priv)
+ {
+@@ -3477,7 +3492,6 @@ static int bcmgenet_probe(struct platfor
+ 	const struct bcmgenet_plat_data *pdata;
+ 	struct bcmgenet_priv *priv;
+ 	struct net_device *dev;
+-	const void *macaddr = NULL;
+ 	unsigned int i;
+ 	int err = -EIO;
+ 
+@@ -3508,11 +3522,6 @@ static int bcmgenet_probe(struct platfor
+ 	}
+ 	priv->wol_irq = platform_get_irq_optional(pdev, 2);
+ 
+-	if (dn)
+-		macaddr = of_get_mac_address(dn);
+-	else if (pd)
+-		macaddr = pd->mac_address;
+-
+ 	priv->base = devm_platform_ioremap_resource(pdev, 0);
+ 	if (IS_ERR(priv->base)) {
+ 		err = PTR_ERR(priv->base);
+@@ -3523,12 +3532,6 @@ static int bcmgenet_probe(struct platfor
+ 
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	dev_set_drvdata(&pdev->dev, dev);
+-	if (IS_ERR_OR_NULL(macaddr) || !is_valid_ether_addr(macaddr)) {
+-		dev_warn(&pdev->dev, "using random Ethernet MAC\n");
+-		eth_hw_addr_random(dev);
+-	} else {
+-		ether_addr_copy(dev->dev_addr, macaddr);
+-	}
+ 	dev->watchdog_timeo = 2 * HZ;
+ 	dev->ethtool_ops = &bcmgenet_ethtool_ops;
+ 	dev->netdev_ops = &bcmgenet_netdev_ops;
+@@ -3599,6 +3602,18 @@ static int bcmgenet_probe(struct platfor
+ 	if (device_get_phy_mode(&pdev->dev) == PHY_INTERFACE_MODE_INTERNAL)
+ 		bcmgenet_power_up(priv, GENET_POWER_PASSIVE);
+ 
++	if ((pd) && (!IS_ERR_OR_NULL(pd->mac_address)))
++		ether_addr_copy(dev->dev_addr, pd->mac_address);
++	else
++		if (!device_get_mac_address(&pdev->dev, dev->dev_addr, ETH_ALEN))
++			if (has_acpi_companion(&pdev->dev))
++				bcmgenet_get_hw_addr(priv, dev->dev_addr);
++
++	if (!is_valid_ether_addr(dev->dev_addr)) {
++		dev_warn(&pdev->dev, "using random Ethernet MAC\n");
++		eth_hw_addr_random(dev);
++	}
++
+ 	reset_umac(priv);
+ 
+ 	err = bcmgenet_mii_init(dev);

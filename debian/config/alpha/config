@@ -183,10 +183,6 @@ CONFIG_EISA_NAMES=y
 ##
 CONFIG_DRM=m
 CONFIG_DRM_RADEON=m
-CONFIG_DRM_TDFX=m
-CONFIG_DRM_R128=m
-CONFIG_DRM_MGA=m
-CONFIG_DRM_SIS=m
 
 ##
 ## file: drivers/gpu/drm/i2c/Kconfig
@@ -547,11 +543,6 @@ CONFIG_SUNDANCE=m
 CONFIG_PCMCIA_FMVJ18X=m
 
 ##
-## file: drivers/net/ethernet/hp/Kconfig
-##
-CONFIG_HP100=m
-
-##
 ## file: drivers/net/ethernet/intel/Kconfig
 ##
 CONFIG_E100=m
@@ -754,6 +745,11 @@ CONFIG_MEGARAID_LEGACY=m
 ##
 CONFIG_PCMCIA_QLOGIC=m
 CONFIG_PCMCIA_SYM53C500=m
+
+##
+## file: drivers/staging/hp/Kconfig
+##
+CONFIG_HP100=m
 
 ##
 ## file: drivers/staging/isdn/avm/Kconfig

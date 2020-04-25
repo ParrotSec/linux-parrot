@@ -2,6 +2,7 @@
 ## file: arch/riscv/Kconfig
 ##
 CONFIG_SMP=y
+CONFIG_SECCOMP=y
 
 ##
 ## file: arch/riscv/Kconfig.socs

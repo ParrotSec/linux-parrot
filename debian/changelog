@@ -1,3 +1,473 @@
+linux (5.5.17-1parrot1) rolling-testing; urgency=medium
+
+  * Import new Debian version.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sat, 25 Apr 2020 22:29:22 +0200
+
+linux (5.5.17-1) unstable; urgency=medium
+
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.14
+    - mmc: core: Allow host controllers to require R1B for CMD6
+    - mmc: core: Respect MMC_CAP_NEED_RSP_BUSY for erase/trim/discard
+    - mmc: core: Respect MMC_CAP_NEED_RSP_BUSY for eMMC sleep command
+    - [armhf] mmc: sdhci-omap: Fix busy detection by enabling
+      MMC_CAP_NEED_RSP_BUSY
+    - [armhf,arm64] mmc: sdhci-tegra: Fix busy detection by enabling
+      MMC_CAP_NEED_RSP_BUSY
+    - cxgb4: fix throughput drop during Tx backpressure
+    - cxgb4: fix Txq restart check during backpressure
+    - geneve: move debug check after netdev unregister
+    - hsr: fix general protection fault in hsr_addr_is_self()
+    - ipv4: fix a RCU-list lock in inet_dump_fib()
+    - macsec: restrict to ethernet devices
+    - net/bpfilter: fix dprintf usage for /dev/kmsg
+    - net: cbs: Fix software cbs to consider packet sending time
+    - [armhf,arm64] net: dsa: Fix duplicate frames flooded by learning
+    - net: ena: Add PCI shutdown handler to allow safe kexec
+    - [armhf] net: mvneta: Fix the case where the last poll did not process all
+      rx
+    - net/packet: tpacket_rcv: avoid a producer race condition
+    - net: phy: dp83867: w/a for fld detect threshold bootstrapping issue
+    - [armhf,arm64] net: phy: mdio-bcm-unimac: Fix clock handling
+    - net: qmi_wwan: add support for ASKEY WWHC050
+    - net/sched: act_ct: Fix leak of ct zone template on replace
+    - net_sched: cls_route: remove the right filter from hashtable
+    - net_sched: hold rtnl lock in tcindex_partial_destroy_work()
+    - net_sched: keep alloc_hash updated after hash allocation
+    - [armhf,arm64] net: stmmac: dwmac-rk: fix error path in rk_gmac_probe
+    - r8169: re-enable MSI on RTL8168c
+    - slcan: not call free_netdev before rtnl_unlock in slcan_open
+    - tcp: also NULL skb->dev when copy was needed
+    - tcp: ensure skb->dev is NULL before leaving TCP stack
+    - tcp: repair: fix TCP_QUEUE_SEQ implementation
+    - vxlan: check return value of gro_cells_init()
+    - [arm64] Revert "net: bcmgenet: use RGMII loopback for MAC reset"
+    - [arm64] net: bcmgenet: keep MAC in reset until PHY is up
+    - bnxt_en: Fix Priority Bytes and Packets counters in ethtool -S.
+    - bnxt_en: fix memory leaks in bnxt_dcbnl_ieee_getets()
+    - bnxt_en: Return error if bnxt_alloc_ctx_mem() fails.
+    - bnxt_en: Free context memory after disabling PCI in probe error path.
+    - bnxt_en: Reset rings if ring reservation fails during open()
+    - net: ena: fix incorrect setting of the number of msix vectors
+    - net: ena: fix request of incorrect number of IRQ vectors
+    - net: ena: avoid memory access violation by validating req_id properly
+    - net: ena: fix continuous keep-alive resets
+    - net: ip_gre: Separate ERSPAN newlink / changelink callbacks
+    - net: ip_gre: Accept IFLA_INFO_DATA-less configuration
+    - hsr: use rcu_read_lock() in hsr_get_node_{list/status}()
+    - hsr: add restart routine into hsr_get_node_list()
+    - hsr: set .netnsok flag
+    - net/mlx5: DR, Fix postsend actions write length
+    - net/mlx5e: Enhance ICOSQ WQE info fields
+    - net/mlx5e: Fix missing reset of SW metadata in Striding RQ reset
+    - net/mlx5e: Fix ICOSQ recovery flow with Striding RQ
+    - net/mlx5e: Do not recover from a non-fatal syndrome
+    - net/mlx5_core: Set IB capability mask1 to fix ib_srpt connection failure
+    - net/mlx5e: kTLS, Fix TCP seq off-by-1 issue in TX resync flow
+    - net/mlx5e: Fix endianness handling in pedit mask
+    - cgroup-v1: cgroup_pidlist_next should update position index
+    - nfs: add minor version to nfs_server_key for fscache
+    - drivers/of/of_mdio.c:fix of_mdiobus_register()
+    - cgroup1: don't call release_agent when it is ""
+    - veth: ignore peer tx_dropped when counting local rx_dropped
+    - drm/amd/display: update soc bb for nv14
+    - drm/amdgpu: correct ROM_INDEX/DATA offset for VEGA20
+    - [armhf] drm/exynos: Fix cleanup of IOMMU related objects
+    - [x86] iommu/vt-d: Silence RCU-list debugging warnings
+    - scsi: ipr: Fix softlockup when rescanning devices in petitboot
+    - mac80211: Do not send mesh HWMP PREQ if HWMP is disabled
+    - [x86] iommu/vt-d: Fix debugfs register reads
+    - [x86] iommu/vt-d: Populate debugfs if IOMMUs are detected
+    - Input: fix stale timestamp on key autorepeat events
+    - [x86] Input: synaptics - enable RMI on HP Envy 13-ad105ng
+    - Input: avoid BIT() macro usage in the serio.h UAPI header
+    - IB/rdmavt: Free kernel completion queue when done
+    - RDMA/core: Fix missing error check on dev_set_name()
+    - RDMA/odp: Fix leaking the tgid for implicit ODP
+    - gpiolib: Fix irq_disable() semantics
+    - RDMA/nl: Do not permit empty devices names during
+      RDMA_NLDEV_CMD_NEWLINK/SET
+    - RDMA/mad: Do not crash if the rdma device does not have a umad interface
+    - ceph: check POOL_FLAG_FULL/NEARFULL in addition to OSDMAP_FULL/NEARFULL
+    - ceph: fix memory leak in ceph_cleanup_snapid_map()
+    - [x86] KVM: SVM: Issue WBINVD after deactivating an SEV guest
+    - [armhf] dts: dra7: Add bus_dma_limit for L3 bus
+    - [armhf] dts: omap5: Add bus_dma_limit for L3 bus
+    - perf probe: Fix to delete multiple probe event
+    - perf probe: Do not depend on dwfl_module_addrsym()
+    - rtlwifi: rtl8188ee: Fix regression due to commit d1d1a96bdb44
+    - drm/prime: use dma length macro when mapping sg
+    - drm/amdgpu: fix scatter-gather mapping with user pages
+    - drm/radeon: fix scatter-gather mapping with user pages
+    - [armhf] soc: samsung: chipid: Fix return value on non-Exynos platforms
+    - scsi: sd: Fix optimal I/O size for devices that change reported values
+    - nl80211: fix NL80211_ATTR_CHANNEL_WIDTH attribute type
+    - mac80211: drop data frames without key on encrypted links
+    - mac80211: mark station unauthorized before key removal
+    - mm/swapfile.c: move inode_lock out of claim_swapfile
+    - drivers/base/memory.c: indicate all memory blocks as removable
+    - mm/sparse: fix kernel crash with pfn_section_valid check
+    - mm: fork: fix kernel_stack memcg stats for various stack implementations
+    - [x86] gpiolib: acpi: Correct comment for HP x2 10 honor_wakeup quirk
+    - gpiolib: acpi: Rework honor_wakeup option into an ignore_wake option
+    - [x86] gpiolib: acpi: Add quirk to ignore EC wakeups on HP x2 10 BYT +
+      AXP288 model
+    - bpf: Fix cgroup ref leak in cgroup_bpf_inherit on out-of-memory
+    - RDMA/core: Ensure security pkey modify is not lost
+    - afs: Fix handling of an abort from a service handler
+    - genirq: Fix reference leaks on irq affinity notifiers
+    - xfrm: handle NETDEV_UNREGISTER for xfrm device
+    - vti[6]: fix packet tx through bpf_redirect() in XinY cases
+    - RDMA/mlx5: Fix the number of hwcounters of a dynamic counter
+    - RDMA/mlx5: Fix access to wrong pointer while performing flush due to
+      error
+    - RDMA/mlx5: Block delay drop to unprivileged users
+    - xfrm: fix uctx len check in verify_sec_ctx_len
+    - xfrm: add the missing verify_sec_ctx_len check in xfrm_add_acquire
+    - xfrm: policy: Fix doulbe free in xfrm_policy_timer
+    - afs: Fix client call Rx-phase signal handling
+    - afs: Fix some tracing details
+    - afs: Fix unpinned address list during probing
+    - ieee80211: fix HE SPR size calculation
+    - mac80211: set IEEE80211_TX_CTRL_PORT_CTRL_PROTO for nl80211 TX
+    - netfilter: flowtable: reload ip{v6}h in nf_flow_tuple_ip{v6}
+    - netfilter: flowtable: populate addr_type mask
+    - netfilter: nft_fwd_netdev: validate family and chain type
+    - netfilter: nft_fwd_netdev: allow to redirect to ifb via ingress
+    - [i386] bpf, x32: Fix bug with JMP32 JSET BPF_X checking upper bits
+    - bpf: Initialize storage pointers to NULL to prevent freeing garbage
+      pointer
+    - bpf/btf: Fix BTF verification of enum members in struct/union
+    - bpf, sockmap: Remove bucket->lock from sock_{hash|map}_free
+    - [armhf] dts: sun8i-a83t-tbs-a711: Fix USB OTG mode detection
+    - vti6: Fix memory leak of skb if input policy check fails
+    - r8169: fix PHY driver check on platforms w/o module softdeps
+    - [x86] clocksource/drivers/hyper-v: Untangle stimers and timesync from
+      clocksources
+    - bpf: Undo incorrect __reg_bound_offset32 handling
+    - USB: serial: option: add support for ASKEY WWHC050
+    - USB: serial: option: add BroadMobi BM806U
+    - USB: serial: option: add Wistron Neweb D19Q1
+    - USB: cdc-acm: restore capability check order
+    - USB: serial: io_edgeport: fix slab-out-of-bounds read in
+      edge_interrupt_callback
+    - [armhf,arm64] usb: musb: fix crash with highmen PIO and usbmon
+    - media: flexcop-usb: fix endpoint sanity check
+    - media: usbtv: fix control-message timeouts
+    - staging: rtl8188eu: Add ASUS USB-N10 Nano B1 to device table
+    - [x86] staging: wlan-ng: fix ODEBUG bug in prism2sta_disconnect_usb
+    - [x86] staging: wlan-ng: fix use-after-free Read in hfa384x_usbin_callback
+    - [x86] ahci: Add Intel Comet Lake H RAID PCI ID
+    - libfs: fix infoleak in simple_attr_read()
+    - media: ov519: add missing endpoint sanity checks (CVE-2020-11608)
+    - media: dib0700: fix rc endpoint lookup
+    - media: stv06xx: add missing descriptor sanity checks (CVE-2020-11609)
+    - media: xirlink_cit: add missing descriptor sanity checks
+      (CVE-2020-11668)
+    - media: v4l2-core: fix a use-after-free bug of sd->devnode
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.15
+    - bpf: update jmp32 test cases to fix range bound deduction
+    - mac80211: Check port authorization in the ieee80211_tx_dequeue() case
+    - mac80211: fix authentication with iwlwifi/mvm
+    - vt: selection, introduce vc_is_sel
+    - vt: ioctl, switch VT_IS_IN_USE and VT_BUSY to inlines
+    - vt: switch vt_dont_switch to bool
+    - vt: vt_ioctl: remove unnecessary console allocation checks
+    - vt: vt_ioctl: fix VT_DISALLOCATE freeing in-use virtual console
+    - vt: vt_ioctl: fix use-after-free in vt_in_use()
+    - [x86] platform: pmc_atom: Add Lex 2I385SW to critclk_systems DMI table
+    - bpf: Explicitly memset the bpf_attr structure
+    - bpf: Explicitly memset some bpf info structures declared on the stack
+    - iwlwifi: don't send GEO_TX_POWER_LIMIT if no wgds table
+    - [x86] gpiolib: acpi: Add quirk to ignore EC wakeups on HP x2 10 CHT +
+      AXP288 model
+    - [armhf] clk: imx: Align imx sc clock msg structs to 4
+    - [armhf] clk: imx: Align imx sc clock parent msg structs to 4
+    - libceph: fix alloc_msg_with_page_vector() memory leaks
+    - perf map: Fix off by one in strncpy() size argument
+    - [armel,armhf] dts: bcm283x: Fix vc4's firmware bus DMA limitations
+    - [armel] bcm2835-rpi-zero-w: Add missing pinctrl name
+    - [armhf] dts: imx6: phycore-som: fix arm and soc minimum voltage
+    - [armhf] dts: N900: fix onenand timings
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.16
+    - ipv4: fix a RCU-list lock in fib_triestat_seq_show
+    - net, ip_tunnel: fix interface lookup with no key
+    - sctp: fix possibly using a bad saddr with a given dst
+    - sctp: fix refcount bug in sctp_wfree
+    - [arm64,riscv64] net: macb: Fix handling of fixed-link node
+    - nvme-rdma: Avoid double freeing of async event data
+    - drm/amdgpu: add fbdev suspend/resume on gpu reset
+    - [x86] drm/amd/display: Add link_rate quirk for Apple 15" MBP 2017
+    - drm/bochs: downgrade pci_request_region failure from error to warning
+    - initramfs: restore default compression behavior
+    - drm/amdgpu: fix typo for vcn1 idle check
+    - tools/power turbostat: Fix gcc build warnings
+    - tools/power turbostat: Fix missing SYS_LPI counter on some Chromebooks
+    - tools/power turbostat: Fix 32-bit capabilities warning
+    - padata: fix uninitialized return value in padata_replace()
+    - brcmfmac: abort and release host after error
+    - XArray: Fix xa_find_next for large multi-index entries
+    - misc: rtsx: set correct pcr_ops for rts522A
+    - PCI: sysfs: Revert "rescan" file renames
+    - [x86] mei: me: add cedar fork device ids
+    - nvmem: check for NULL reg_read and reg_write before dereferencing
+    - [armhf] extcon: axp288: Add wakeup support
+    - Revert "dm: always call blk_queue_split() in dm_process_bio()"
+    - [x86] ALSA: hda/ca0132 - Add Recon3Di quirk to handle integrated sound on
+      EVGA X99 Classified motherboard
+    - iwlwifi: consider HE capability when setting LDPC
+    - iwlwifi: yoyo: don't add TLV offset when reading FIFOs
+    - iwlwifi: dbg: don't abort if sending DBGC_SUSPEND_RESUME fails
+    - rxrpc: Fix sendmsg(MSG_WAITALL) handling
+    - IB/hfi1: Ensure pq is not left on waitlist
+    - sched: act: count in the size of action flags bitfield
+    - tcp: fix TFO SYNACK undo to avoid double-timestamp-undo
+    - [x86,ia64] watchdog: iTCO_wdt: Export vendorsupport
+    - [x86,ia64] watchdog: iTCO_wdt: Make ICH_RES_IO_SMI optional
+    - i2c: i801: Do not add ICH_RES_IO_SMI for the iTCO_wdt device
+    - net: genetlink: return the error code when attribute parsing fails.
+    - net: Fix Tx hash bound checking
+    - net/smc: fix cleanup for linkgroup setup failures
+    - padata: always acquire cpu_hotplug_lock before pinst->lock
+    - mm: mempolicy: require at least one nodeid for MPOL_PREFERRED
+      (CVE-2020-11565)
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.17
+    - cxgb4: fix MPS index overwrite when setting MAC address
+    - ipv6: don't auto-add link-local address to lag ports
+    - [armhf] net: dsa: bcm_sf2: Do not register slave MDIO bus with OF
+    - [armhf] net: dsa: bcm_sf2: Ensure correct sub-node is parsed
+    - net: phy: micrel: kszphy_resume(): add delay after genphy_resume() before
+      accessing PHY registers
+    - net_sched: add a temporary refcnt for struct tcindex_data
+    - net_sched: fix a missing refcnt in tcindex_init()
+    - [armhf,arm64] net: stmmac: dwmac1000: fix out-of-bounds mac address reg
+      setting
+    - slcan: Don't transmit uninitialized stack data in padding
+    - tun: Don't put_page() for all negative return values from XDP program
+    - r8169: change back SG and TSO to be disabled by default
+    - cxgb4: free MQPRIO resources in shutdown path
+    - [s390x] prevent leaking kernel address in BEAR
+    - random: always use batched entropy for get_random_u{32,64}
+    - [armhf,arm64] usb: dwc3: gadget: Wrap around when skip TRBs
+    - slub: improve bit diffusion for freelist ptr obfuscation
+    - ubi: fastmap: Free unused fastmap anchor peb during detach
+    - RDMA/ucma: Put a lock around every call to the rdma_cm layer
+    - RDMA/cma: Teach lockdep about the order of rtnl and lock
+    - RDMA/siw: Fix passive connection establishment
+    - Bluetooth: RFCOMM: fix ODEBUG bug in rfcomm_dev_ioctl
+    - RDMA/cm: Update num_paths in cma_resolve_iboe_route error flow
+    - blk-mq: Keep set->nr_hw_queues and set->map[].nr_queues in sync
+    - fbcon: fix null-ptr-deref in fbcon_switch
+    - driver core: Reevaluate dev->links.need_for_probe as suppliers are added
+    - [x86] iommu/vt-d: Allow devices with RMRRs to use identity domain
+    - ACPI: PM: Add acpi_[un]register_wakeup_handler()
+    - [x86] platform: intel_int0002_vgpio: Use acpi_register_wakeup_handler()
+    - IB/hfi1: Call kobject_put() when kobject_init_and_add() fails
+    - IB/hfi1: Fix memory leaks in sysfs registration and unregistration
+    - IB/mlx5: Replace tunnel mpls capability bits for tunnel_offloads
+    - [armhf] imx: Enable ARM_ERRATA_814220 for i.MX6UL and i.MX7D
+    - [armhf] imx: only select ARM_ERRATA_814220 for ARMv7-A
+    - ceph: remove the extra slashes in the server path
+    - ceph: canonicalize server path in place
+
+  [ Noah Meyerhans ]
+  * Fix autopkgtest failure due to pycodestyle violation
+  * [cloud] Re-enable kernel page merge functionality (Closes: #955366)
+  * [cloud] Apply a number of additional optimizations (Closes: #947759)
+    - Statically link nvme and ext4 drivers with the kernel
+    - [amd64] Re-enable SCHED_MC_PRIO
+    - Switch to LZ4 for compression
+    - Disable a number of additional drivers unlikely to be found in
+      cloud environments
+
+  [ Ben Hutchings ]
+  * drm: Disable DRM_LEGACY (DRI1)
+  * Bump ABI to 2
+  * WireGuard: Update for renaming of skb_reset_tc() to skb_reset_redirect()
+  * lib/fonts: Enable FONTS, FONT_8x8, FONT_8x16, FONT_TER16x32 for most
+    flavours (Closes: #956173)
+  * keys: Enable PERSISTENT_KEYRINGS
+  * mm: Enable DEFERRED_STRUCT_PAGE_INIT (Closes: #954025)
+  * [armel/marvell] mm: Enable COMPACTION (Closes: #949171)
+  * [x86} media/cec: Enable CEC_PLATFORM_DRIVERS; enable VIDEO_SECO_CEC as a
+    module (Closes: #951543)
+  * [x86] sound/soc/intel: Enable SND_SOC_INTEL_BYT_CHT_CX2072X_MACH as module
+    (Closes: #951482)
+
+  [ Sudip Mukherjee ]
+  * Remove libbpf. (See: #948041)
+
+  [ Jason A. Donenfeld ]
+  * Provide wireguard-modules as stop-gap for packages.
+
+  [ Christian Barcenas ]
+  * linux-cpupower: Add libcap to Build-Depends and turbostat linker flags
+
+  [ Joel Johnson ]
+  * [armhf] Build PHY_MVEBU_A38X_COMPHY module (Closes: #951409)
+
+  [ Josua Mayer ]
+  * [arm64] enable support for the Honeycomb arm64 workstation
+    (Closes: #948576)
+
+ -- Ben Hutchings <benh@debian.org>  Wed, 15 Apr 2020 03:37:48 +0100
+
+linux (5.5.13-2parrot1) rolling-testing; urgency=medium
+
+  * Import new Debian release.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@localhost.localdomain>  Sat, 04 Apr 2020 23:54:17 +0200
+
+linux (5.5.13-2) unstable; urgency=medium
+
+  * bpf: Undo incorrect __reg_bound_offset32 handling (CVE-2020-8835)
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Mon, 30 Mar 2020 23:06:57 +0200
+
+linux (5.5.13-1) unstable; urgency=medium
+
+  * New upstream release: https://kernelnewbies.org/Linux_5.5
+    (Closes: #953680)
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.1
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.2
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.3
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.4
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.5
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.6
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.7
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.8
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.9
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.10
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.11
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.12
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.5.13
+
+  [ Ben Hutchings ]
+  * aufs: Update support patchset to aufs5.x-rcN 20200120; no functional
+    change
+  * net: Enable NET_SWITCHDEV; disable on armel/marvell (Closes: #949863)
+  * [armhf] net/ethernet/ti: Enable TI_CPSW_SWITCHDEV as module; enable TI_CPTS
+  * wireless: Enable regulatory.db direct loading:
+    - Drop "wireless: Disable regulatory.db direct loading"
+    - linux-image: Add Breaks: relation with old wireless-regdb versions
+    - Regenerate my wireless-regdb certificate with expected attributes
+  * [x86] Drop "Add a SysRq option to lift kernel lockdown" (Closes: #947021)
+    - This patch allowed remotely disabling lockdown using usbip
+    - Lockdown can be disabled by running "mokutil --disable-validation",
+      rebooting, and confirming the change when prompted
+  * Set PYTHON=python3 for document build (fixes FTBFS)
+  * [x86,arm64] Move linux-headers metapackages to src:linux-signed-*.
+    This should ensure that src:linux and src:linux-signed-* transition to
+    testing together.
+  * debian/bin/gencontrol_signed.py: Generate valid versions in a linux binNMU
+  * udeb: Drop zlib-modules packages, as zlib_deflate is now always built-in
+    (fixes FTBFS on several architectures)
+  * [mips*/octeon] Fix and re-enable the Octeon Ethernet driver
+  * [mips*] Fix FTBFS:
+    - Increase RELOCATION_TABLE_SIZE to 0x160000
+    - Fix exception handler memcpy()
+  * debian/config: Delete redundant arch/flavour-specific "debug-info: true"
+  * linux-source: Suggest qtbase5-dev instead of the removed libqt4-dev
+    (Closes: #953386)
+  * Add WireGuard driver and required crypto changes from 5.6-rc7 and
+    cryptodev-2.6, thanks to Jason A. Donenfeld (Closes: #953569)
+  * drivers/net: Enable WIREGUARD as module
+  * debian/control: Use my debian.org email in Uploaders field
+  * debian/certs: Rename Romain Perier's certificate to match email address
+  * security/integrity/platform_certs: Rebase db-mok-keyring patch set for
+    5.5.9
+  * [x86] Enable X86_UMIP (previously configured as X86_INTEL_UMIP)
+  * Set ABI to 1
+  * [amd64] Enable Intel GVT-g (except cloud-amd64) (Closes: #954088):
+    - vfio: Enable VFIO_MDEV, VFIO_MDEV_DEVICE as modules
+    - i915: Enable DRM_I915_GVT; enable DRM_I915_GVT_KVMGT as module
+  * drivers/net/wireless: Enable MT76x0E as module (Closes: #953683)
+  * bcmgenet: Backport ACPI support, supporting Raspberry Pi 4
+    (Closes: #950578)
+
+  [ Aurelien Jarno ]
+  * [riscv64] Enable SECCOMP.
+
+  [ Romain Perier ]
+  * [arm64] Enable BCMGENET
+  * [arm64] Fix CONFIG_INFINIBAND_HNS_HIP06 and CONFIG_INFINIBAND_HNS_HIP08
+    from tristate to boolean
+  * debian/certs: Add my own certificate for wireless-regdb
+  * debian/patches/debian/wireless-add-debian-wireless-regdb-certificates.patch:
+    Add the hexdump of my certificate to this patch, so the kernel can
+    directly load the regulatory db and trust it if have I signed it.
+
+  [ Noah Meyerhans ]
+  * [arm64] Enable KVM_ARM_HOST and KVM_ARM_PMU
+  * [arm64] Enable CONFIG_ARM64_ERRATUM_1418040
+  * [arm64/cloud-arm64] Introduce cloud build flavour
+  * [cloud] random: Enable RANDOM_TRUST_BOOTLOADER
+
+  [ Mark Pearson ]
+  * [amd64] ASoC: Enable SND_SOC_SOF_COMETLAKE_LP_SUPPORT,
+    SND_SOC_SOF_COMETLAKE_H_SUPPORT
+
+  [ Christian Barcenas ]
+  * lockdown: honor LOCK_DOWN_IN_EFI_SECURE_BOOT=n (Closes: #945604)
+
+  [ Salvatore Bonaccorso ]
+  * libcpupower: Lower back soname version to 1 and add new
+    cpufreq_{get,put}_boost_frequencies methods
+
+  [ Joel Stanley ]
+  * [armhf] Enable ASPEED AST2600 SoC family. This includes all ASPEED symbols
+    for the AST2600 and FTGMAC100, the network device used by this SoC. The
+    SoC has 5 UARTs so CONFIG_SERIAL_8250_NR_UARTS is bumped to 5 from 4
+    in order to correctly register UART5, the boot console.
+
+  [ Petr Stastny ]
+  * [x86] i2c: Enable I2C_AMD_MP2 as module (Closes: #955004)
+
+  [ Vagrant Cascadian ]
+  * [arm64] Add patch from next-20200325 to enable device-tree for
+    Pinebook Pro.
+
+ -- Ben Hutchings <benh@debian.org>  Mon, 30 Mar 2020 03:03:47 +0100
+
+linux (5.5~rc5-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Romain Perier ]
+  * [rt] Disable until it is updated for 5.5 or later
+  * [mips*] Remove obsolete patch
+    MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
+  * Retrieve the new aufs5 patches from the upstream tree, with an update in
+    aufs5-standalone.patch (see its header).
+  * Refreshed patches:
+    - debian/dfsg/vs6624-disable.patch
+    - bugfix/all/firmware_class-log-every-success-and-failure.patch
+    - bugfix/all/
+      radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
+    - bugfix/all/disable-some-marvell-phys.patch
+    - features/all/
+      security-perf-allow-further-restriction-of-perf_event_open.patch
+    - features/x86/x86-make-x32-syscall-support-conditional.patch
+    - bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
+    - features/all/lockdown/
+      efi-add-an-efi_secure_boot-flag-to-indicate-secure-b.patch
+
+  [ Ben Hutchings ]
+  * udeb: Add f2fs-modules package
+  * linux-kbuild: Stop building pnmtologo
+  * linux-kbuild: Add new file to Makefile for kconfig
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Mon, 06 Jan 2020 04:26:45 +0000
+
+
+linux (5.4.19-parrot2) rolling-testing; urgency=medium
+
+  * Rebuild kernel package.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Mon, 02 Mar 2020 22:48:19 +0100
+
 linux (5.4.19-4parrot1) rolling-testing; urgency=medium
 
   * Import new Debian version.

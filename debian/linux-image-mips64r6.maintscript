@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-mips64r6 linux-image-5.4.0-4parrot1-mips64r6 5.2+107 linux-image-mips64r6
+dir_to_symlink /usr/share/doc/linux-image-mips64r6 linux-image-5.5.0-1parrot1-mips64r6 5.2+107 linux-image-mips64r6

@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-octeon linux-image-5.4.0-4parrot1-octeon 5.2+107 linux-image-octeon
+dir_to_symlink /usr/share/doc/linux-image-octeon linux-image-5.5.0-1parrot1-octeon 5.2+107 linux-image-octeon

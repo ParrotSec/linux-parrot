@@ -22,9 +22,11 @@ cc: linux-efi@vger.kernel.org
  4 files changed, 51 insertions(+), 19 deletions(-)
  create mode 100644 drivers/firmware/efi/secureboot.c
 
+diff --git a/arch/x86/kernel/setup.c b/arch/x86/kernel/setup.c
+index cedfe2077a69..21371b49dd32 100644
 --- a/arch/x86/kernel/setup.c
 +++ b/arch/x86/kernel/setup.c
-@@ -1179,19 +1179,7 @@ void __init setup_arch(char **cmdline_p)
+@@ -1193,19 +1193,7 @@ void __init setup_arch(char **cmdline_p)
  	/* Allocate bigger log buffer */
  	setup_log_buf(1);
  
@@ -45,9 +47,11 @@ cc: linux-efi@vger.kernel.org
  
  	reserve_initrd();
  
+diff --git a/drivers/firmware/efi/Makefile b/drivers/firmware/efi/Makefile
+index 554d795270d9..d2e17e26ac55 100644
 --- a/drivers/firmware/efi/Makefile
 +++ b/drivers/firmware/efi/Makefile
-@@ -24,6 +24,7 @@ obj-$(CONFIG_EFI_FAKE_MEMMAP)		+= fake_m
+@@ -24,6 +24,7 @@ obj-$(CONFIG_EFI_FAKE_MEMMAP)		+= fake_map.o
  obj-$(CONFIG_EFI_BOOTLOADER_CONTROL)	+= efibc.o
  obj-$(CONFIG_EFI_TEST)			+= test/
  obj-$(CONFIG_EFI_DEV_PATH_PARSER)	+= dev-path-parser.o
@@ -55,6 +59,9 @@ cc: linux-efi@vger.kernel.org
  obj-$(CONFIG_APPLE_PROPERTIES)		+= apple-properties.o
  obj-$(CONFIG_EFI_RCI2_TABLE)		+= rci2-table.o
  
+diff --git a/drivers/firmware/efi/secureboot.c b/drivers/firmware/efi/secureboot.c
+new file mode 100644
+index 000000000000..bf16cfb6a028
 --- /dev/null
 +++ b/drivers/firmware/efi/secureboot.c
 @@ -0,0 +1,39 @@
@@ -91,19 +98,21 @@ cc: linux-efi@vger.kernel.org
 +			pr_info("Secure boot enabled\n");
 +			break;
 +		default:
-+			pr_warning("Secure boot could not be determined (mode %u)\n",
-+				   mode);
++			pr_warn("Secure boot could not be determined (mode %u)\n",
++				mode);
 +			break;
 +		}
 +	}
 +}
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index 99dfea595c8c..c68e6251604b 100644
 --- a/include/linux/efi.h
 +++ b/include/linux/efi.h
-@@ -1202,6 +1202,14 @@ extern int __init efi_setup_pcdp_console
- #define EFI_DBG			8	/* Print additional debug info at runtime */
+@@ -1203,6 +1203,14 @@ extern int __init efi_setup_pcdp_console(char *);
  #define EFI_NX_PE_DATA		9	/* Can runtime data regions be mapped non-executable? */
  #define EFI_MEM_ATTR		10	/* Did firmware publish an EFI_MEMORY_ATTRIBUTES table? */
-+#define EFI_SECURE_BOOT		11	/* Are we in Secure Boot mode? */
+ #define EFI_MEM_NO_SOFT_RESERVE	11	/* Is the kernel configured to ignore soft reservations? */
++#define EFI_SECURE_BOOT		12	/* Are we in Secure Boot mode? */
 +
 +enum efi_secureboot_mode {
 +	efi_secureboot_mode_unset,
@@ -114,15 +123,15 @@ cc: linux-efi@vger.kernel.org
  
  #ifdef CONFIG_EFI
  /*
-@@ -1212,6 +1220,7 @@ static inline bool efi_enabled(int featu
- 	return test_bit(feature, &efi.flags) != 0;
+@@ -1221,6 +1229,7 @@ static inline bool __pure efi_soft_reserve_enabled(void)
+ 	return IS_ENABLED(CONFIG_EFI_SOFT_RESERVE)
+ 		&& __efi_soft_reserve_enabled();
  }
- extern void efi_reboot(enum reboot_mode reboot_mode, const char *__unused);
 +extern void __init efi_set_secure_boot(enum efi_secureboot_mode mode);
  #else
  static inline bool efi_enabled(int feature)
  {
-@@ -1225,6 +1234,7 @@ efi_capsule_pending(int *reset_type)
+@@ -1239,6 +1248,7 @@ static inline bool efi_soft_reserve_enabled(void)
  {
  	return false;
  }
@@ -130,7 +139,7 @@ cc: linux-efi@vger.kernel.org
  #endif
  
  extern int efi_status_to_err(efi_status_t status);
-@@ -1616,12 +1626,6 @@ static inline bool efi_runtime_disabled(
+@@ -1644,12 +1654,6 @@ static inline bool efi_runtime_disabled(void) { return true; }
  extern void efi_call_virt_check_flags(unsigned long flags, const char *call);
  extern unsigned long efi_call_virt_save_flags(void);
  
@@ -143,3 +152,6 @@ cc: linux-efi@vger.kernel.org
  enum efi_secureboot_mode efi_get_secureboot(efi_system_table_t *sys_table);
  
  #ifdef CONFIG_RESET_ATTACK_MITIGATION
+-- 
+2.24.0
+

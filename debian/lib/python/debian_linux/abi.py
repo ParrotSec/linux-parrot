@@ -35,10 +35,11 @@ class Symbols(dict):
 
     def read(self, file):
         for line in file:
-            version, name, namespace, module, export = line.strip().split('\t')
+            version, name, module, export, namespace = \
+                line.strip('\r\n').split('\t')
             self[name] = Symbol(name, namespace, module, version, export)
 
     def write(self, file):
         for s in sorted(self.values(), key=lambda i: i.name):
             file.write("%s\t%s\t%s\t%s\t%s\n" %
-                       (s.version, s.name, s.namespace, s.module, s.export))
+                       (s.version, s.name, s.module, s.export, s.namespace))

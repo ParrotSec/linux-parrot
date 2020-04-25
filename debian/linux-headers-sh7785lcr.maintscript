@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-sh7785lcr linux-headers-5.4.0-4parrot1-sh7785lcr 5.2+107 linux-headers-sh7785lcr
+dir_to_symlink /usr/share/doc/linux-headers-sh7785lcr linux-headers-5.5.0-1parrot1-sh7785lcr 5.2+107 linux-headers-sh7785lcr

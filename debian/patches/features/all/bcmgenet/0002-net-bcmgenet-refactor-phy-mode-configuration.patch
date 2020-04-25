@@ -1,0 +1,82 @@
+From: Jeremy Linton <jeremy.linton@arm.com>
+Date: Mon, 24 Feb 2020 16:53:59 -0600
+Subject: [2/6] net: bcmgenet: refactor phy mode configuration
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git/commit?id=480ded2652054321d048fb6a3d90af95dc449e42
+Bug-Debian: https://bugs.debian.org/950578
+
+The DT phy mode is similar to what we want for ACPI
+lets factor it out of the of path, and change the
+of_ call to device_.
+
+Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/broadcom/genet/bcmmii.c | 42 ++++++++++++--------
+ 1 file changed, 26 insertions(+), 16 deletions(-)
+
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -478,12 +478,33 @@ out:
+ 	return ret;
+ }
+ 
++static int bcmgenet_phy_interface_init(struct bcmgenet_priv *priv)
++{
++	struct device *kdev = &priv->pdev->dev;
++	int phy_mode = device_get_phy_mode(kdev);
++
++	if (phy_mode < 0) {
++		dev_err(kdev, "invalid PHY mode property\n");
++		return phy_mode;
++	}
++
++	priv->phy_interface = phy_mode;
++
++	/* We need to specifically look up whether this PHY interface is
++	 * internal or not *before* we even try to probe the PHY driver
++	 * over MDIO as we may have shut down the internal PHY for power
++	 * saving purposes.
++	 */
++	if (priv->phy_interface == PHY_INTERFACE_MODE_INTERNAL)
++		priv->internal_phy = true;
++
++	return 0;
++}
++
+ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
+ {
+ 	struct device_node *dn = priv->pdev->dev.of_node;
+-	struct device *kdev = &priv->pdev->dev;
+ 	struct phy_device *phydev;
+-	phy_interface_t phy_mode;
+ 	int ret;
+ 
+ 	/* Fetch the PHY phandle */
+@@ -501,23 +522,12 @@ static int bcmgenet_mii_of_init(struct b
+ 	}
+ 
+ 	/* Get the link mode */
+-	ret = of_get_phy_mode(dn, &phy_mode);
+-	if (ret) {
+-		dev_err(kdev, "invalid PHY mode property\n");
++	ret = bcmgenet_phy_interface_init(priv);
++	if (ret)
+ 		return ret;
+-	}
+-
+-	priv->phy_interface = phy_mode;
+-
+-	/* We need to specifically look up whether this PHY interface is internal
+-	 * or not *before* we even try to probe the PHY driver over MDIO as we
+-	 * may have shut down the internal PHY for power saving purposes.
+-	 */
+-	if (priv->phy_interface == PHY_INTERFACE_MODE_INTERNAL)
+-		priv->internal_phy = true;
+ 
+ 	/* Make sure we initialize MoCA PHYs with a link down */
+-	if (phy_mode == PHY_INTERFACE_MODE_MOCA) {
++	if (priv->phy_interface == PHY_INTERFACE_MODE_MOCA) {
+ 		phydev = of_phy_find_device(dn);
+ 		if (phydev) {
+ 			phydev->link = 0;

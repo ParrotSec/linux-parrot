@@ -1,4 +1,4 @@
-debian/gitignore.patch
+#debian/gitignore.patch # Kali: we have that in the git repo already
 
 # Disable features broken by exclusion of upstream files
 debian/dfsg/arch-powerpc-platforms-8xx-ucode-disable.patch
@@ -75,12 +75,16 @@ bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
-bugfix/ppc64el/libbpf-fix-readelf-output-parsing-on-powerpc-with-re.patch
+bugfix/mips/mips-fix-exception-handler-memcpy.patch
 
 # Arch features
-features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
+features/mips/0001-MIPS-octeon-remove-typedef-declaration-for-cvmx_wqe.patch
+features/mips/0002-MIPS-octeon-remove-typedef-declaration-for-cvmx_help.patch
+features/mips/0003-MIPS-octeon-remove-typedef-declaration-for-cvmx_pko_.patch
+features/mips/0004-Revert-staging-octeon-Mark-Ethernet-driver-as-BROKEN.patch
+features/arm64/arm64-dts-rockchip-Add-initial-support-for-Pinebook-.patch
 
 # Miscellaneous bug fixes
 bugfix/all/disable-some-marvell-phys.patch
@@ -94,7 +98,6 @@ bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
 # Lockdown missing pieces
 features/all/lockdown/efi-add-an-efi_secure_boot-flag-to-indicate-secure-b.patch
 features/all/lockdown/efi-lock-down-the-kernel-if-booted-in-secure-boot-mo.patch
-features/all/lockdown/add-a-sysrq-option-to-lift-kernel-lockdown.patch
 features/all/lockdown/enable-cold-boot-attack-mitigation.patch
 features/all/lockdown/mtd-disable-slram-and-phram-when-locked-down.patch
 features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
@@ -102,13 +105,32 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 features/all/lockdown/lockdown-refer-to-debian-wiki-until-manual-page-exists.patch
 
 # Improve integrity platform keyring for kernel modules verification
-features/all/db-mok-keyring/0006-Make-get_cert_list-not-complain-about-cert-lists-tha.patch
 features/all/db-mok-keyring/0001-MODSIGN-do-not-load-mok-when-secure-boot-disabled.patch
 features/all/db-mok-keyring/0002-MODSIGN-load-blacklist-from-MOKx.patch
 features/all/db-mok-keyring/0003-MODSIGN-checking-the-blacklisted-hash-before-loading-a-kernel-module.patch
 features/all/db-mok-keyring/0004-MODSIGN-check-the-attributes-of-db-and-mok.patch
 features/all/db-mok-keyring/modsign-make-shash-allocation-failure-fatal.patch
 features/all/db-mok-keyring/KEYS-Make-use-of-platform-keyring-for-module-signature.patch
+
+# WireGuard and related crypto backport
+features/all/wireguard/0001-crypto-poly1305-add-new-32-and-64-bit-generic-versio.patch
+features/all/wireguard/0002-crypto-x86-poly1305-import-unmodified-cryptogams-imp.patch
+features/all/wireguard/0003-crypto-x86-poly1305-wire-up-faster-implementations-f.patch
+features/all/wireguard/0004-crypto-arm-arm64-mips-poly1305-remove-redundant-non-.patch
+features/all/wireguard/0006-crypto-Kconfig-allow-tests-to-be-disabled-when-manag.patch
+features/all/wireguard/0007-crypto-x86-curve25519-support-assemblers-with-no-adx.patch
+features/all/wireguard/0008-crypto-x86-curve25519-replace-with-formally-verified.patch
+features/all/wireguard/0010-icmp-introduce-helper-for-nat-d-source-address-in-ne.patch
+features/all/wireguard/0011-net-WireGuard-secure-network-tunnel.patch
+features/all/wireguard/0012-net-fix-config_net_cls_act-n-and-config_nft_fwd_netd.patch
+
+# bcmgenet ACPI support
+features/all/bcmgenet/0001-mdio_bus-Add-generic-mdio_find_bus.patch
+features/all/bcmgenet/0002-net-bcmgenet-refactor-phy-mode-configuration.patch
+features/all/bcmgenet/0003-net-bcmgenet-enable-automatic-phy-discovery.patch
+features/all/bcmgenet/0004-net-bcmgenet-Initial-bcmgenet-ACPI-support.patch
+features/all/bcmgenet/0005-net-bcmgenet-Fetch-MAC-address-from-the-adapter.patch
+features/all/bcmgenet/0006-net-bcmgenet-reduce-severity-of-missing-clock-warnin.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
@@ -127,19 +149,10 @@ bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
 bugfix/all/libcpupower-hide-private-function.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
-bugfix/all/tools-lib-api-fs-fs.c-fix-misuse-of-strncpy.patch
-bugfix/all/usbip-fix-misuse-of-strncpy.patch
-bugfix/all/usbip-network-fix-unaligned-member-access.patch
 bugfix/all/tools-perf-pmu-events-fix-reproducibility.patch
-bugfix/all/0001-libtraceevent-Fix-header-installation.patch
-bugfix/all/0004-libtraceevent-allow-custom-libdir-path.patch
 bugfix/all/0005-libtraceevent-Add-dependency-on-libdl.patch
-
-# wireless: Disable regulatory.db direct loading (until we sort out signing)
-debian/wireless-disable-regulatory.db-direct-loading.patch
 
 # overlay: allow mounting in user namespaces
 debian/overlayfs-permit-mounts-in-userns.patch
 
 # ABI maintenance
-debian/Revert-cpupower-Revert-library-ABI-changes-from-comm.patch

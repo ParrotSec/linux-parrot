@@ -141,11 +141,6 @@ CONFIG_GPIO_CS5535=m
 CONFIG_GPIO_PCH=m
 
 ##
-## file: drivers/gpu/drm/Kconfig
-##
-CONFIG_DRM_I810=m
-
-##
 ## file: drivers/i2c/busses/Kconfig
 ##
 CONFIG_I2C_EG20T=m
@@ -403,8 +398,6 @@ CONFIG_ISDN_DRV_AVMB1_T1ISA=m
 ## file: drivers/staging/olpc_dcon/Kconfig
 ##
 CONFIG_FB_OLPC_DCON=m
-CONFIG_FB_OLPC_DCON_1=y
-CONFIG_FB_OLPC_DCON_1_5=y
 
 ##
 ## file: drivers/staging/speakup/Kconfig

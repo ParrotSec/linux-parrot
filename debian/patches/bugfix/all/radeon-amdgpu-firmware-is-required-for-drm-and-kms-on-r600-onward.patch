@@ -41,7 +41,7 @@ Index: debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
  
  #include "amdgpu.h"
  #include "amdgpu_irq.h"
-@@ -1030,6 +1032,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
+@@ -1017,6 +1019,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
  
  static struct drm_driver kms_driver;
  
@@ -70,7 +70,7 @@ Index: debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
  static int amdgpu_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -1083,6 +1107,11 @@ static int amdgpu_pci_probe(struct pci_d
+@@ -1070,6 +1094,11 @@ static int amdgpu_pci_probe(struct pci_d
  	}
  #endif
  
@@ -80,7 +80,7 @@ Index: debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 +	}
 +
  	/* Get rid of things like offb */
- 	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, 0, "amdgpudrmfb");
+ 	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, "amdgpudrmfb");
  	if (ret)
 Index: debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
 ===================================================================
@@ -135,5 +135,5 @@ Index: debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
 +	}
 +
  	/* Get rid of things like offb */
- 	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, 0, "radeondrmfb");
+ 	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, "radeondrmfb");
  	if (ret)

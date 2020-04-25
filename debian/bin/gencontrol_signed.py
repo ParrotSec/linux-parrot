@@ -203,18 +203,29 @@ class Gencontrol(Base):
             packages_meta = self.process_packages(
                 self.templates['control.image.meta'], vars)
             assert len(packages_meta) == 1
+            packages_meta += self.process_packages(
+                self.templates['control.headers.meta'], vars)
+            assert len(packages_meta) == 2
 
             # Don't pretend to support build-profiles
-            del packages_meta[0]['Build-Profiles']
+            for package in packages_meta:
+                del package['Build-Profiles']
 
             packages_own.extend(packages_meta)
-            cmds_binary_arch += ["$(MAKE) -f debian/rules.real install-meta "
-                                 "PACKAGE_NAME='%s' %s" %
-                                 (packages_meta[0]['Package'], makeflags)]
+            cmds_binary_arch += [
+                "$(MAKE) -f debian/rules.real install-meta "
+                "PACKAGE_NAME='%s' LINK_DOC_PACKAGE_NAME='%s' %s" %
+                (package['Package'], package['Depends'][0][0].name, makeflags)
+                for package in packages_meta
+            ]
 
             self.substitute_debhelper_config(
                 'image.meta', vars,
                 'linux-image%(localversion)s' % vars,
+                output_dir=self.template_debian_dir)
+            self.substitute_debhelper_config(
+                'headers.meta', vars,
+                'linux-headers%(localversion)s' % vars,
                 output_dir=self.template_debian_dir)
 
         merge_packages(packages, packages_own, arch)
@@ -235,15 +246,16 @@ class Gencontrol(Base):
         self.write_files_json()
 
     def write_changelog(self):
-        # We need to insert a new version entry.
-        # Take the distribution and urgency from the linux changelog, and
-        # the base version from the changelog template.
+        # Copy the linux changelog, but:
+        # * Change the source package name and version
+        # * Insert a line to refer to refer to the linux source version
         vars = self.vars.copy()
         vars['source'] = self.changelog[0].source
         vars['distribution'] = self.changelog[0].distribution
         vars['urgency'] = self.changelog[0].urgency
-        vars['signedsourceversion'] = (re.sub(r'-', r'+',
-                                              vars['imagebinaryversion']))
+        vars['signedsourceversion'] = \
+            re.sub(r'\+b(\d+)$', r'.b\1',
+                   re.sub(r'-', r'+', vars['imagebinaryversion']))
 
         with codecs.open(self.template_debian_dir + '/changelog', 'w',
                          'utf-8') as f:

@@ -22,6 +22,8 @@
  * Authors: AMD
  *
  */
+
+#include "dcn10/dcn10_hubp.h"
 #include "dcn21_hubp.h"
 
 #include "dm_services.h"
@@ -162,6 +164,69 @@ static void hubp21_setup(
 
 }
 
+void hubp21_set_viewport(
+	struct hubp *hubp,
+	const struct rect *viewport,
+	const struct rect *viewport_c)
+{
+	struct dcn21_hubp *hubp21 = TO_DCN21_HUBP(hubp);
+	int patched_viewport_height = 0;
+	struct dc_debug_options *debug = &hubp->ctx->dc->debug;
+
+	REG_SET_2(DCSURF_PRI_VIEWPORT_DIMENSION, 0,
+		  PRI_VIEWPORT_WIDTH, viewport->width,
+		  PRI_VIEWPORT_HEIGHT, viewport->height);
+
+	REG_SET_2(DCSURF_PRI_VIEWPORT_START, 0,
+		  PRI_VIEWPORT_X_START, viewport->x,
+		  PRI_VIEWPORT_Y_START, viewport->y);
+
+	/*for stereo*/
+	REG_SET_2(DCSURF_SEC_VIEWPORT_DIMENSION, 0,
+		  SEC_VIEWPORT_WIDTH, viewport->width,
+		  SEC_VIEWPORT_HEIGHT, viewport->height);
+
+	REG_SET_2(DCSURF_SEC_VIEWPORT_START, 0,
+		  SEC_VIEWPORT_X_START, viewport->x,
+		  SEC_VIEWPORT_Y_START, viewport->y);
+
+	/*
+	 *	Work around for underflow issue with NV12 + rIOMMU translation
+	 *	+ immediate flip. This will cause hubp underflow, but will not
+	 *	be user visible since underflow is in blank region
+	 */
+	patched_viewport_height = viewport_c->height;
+	if (viewport_c->height != 0 && debug->nv12_iflip_vm_wa) {
+		int pte_row_height = 0;
+		int pte_rows = 0;
+
+		REG_GET(DCHUBP_REQ_SIZE_CONFIG,
+			PTE_ROW_HEIGHT_LINEAR, &pte_row_height);
+
+		pte_row_height = 1 << (pte_row_height + 3);
+		pte_rows = (viewport_c->height + pte_row_height - 1) / pte_row_height;
+		patched_viewport_height = pte_rows * pte_row_height + 3;
+	}
+
+
+	/* DC supports NV12 only at the moment */
+	REG_SET_2(DCSURF_PRI_VIEWPORT_DIMENSION_C, 0,
+		  PRI_VIEWPORT_WIDTH_C, viewport_c->width,
+		  PRI_VIEWPORT_HEIGHT_C, patched_viewport_height);
+
+	REG_SET_2(DCSURF_PRI_VIEWPORT_START_C, 0,
+		  PRI_VIEWPORT_X_START_C, viewport_c->x,
+		  PRI_VIEWPORT_Y_START_C, viewport_c->y);
+
+	REG_SET_2(DCSURF_SEC_VIEWPORT_DIMENSION_C, 0,
+		  SEC_VIEWPORT_WIDTH_C, viewport_c->width,
+		  SEC_VIEWPORT_HEIGHT_C, patched_viewport_height);
+
+	REG_SET_2(DCSURF_SEC_VIEWPORT_START_C, 0,
+		  SEC_VIEWPORT_X_START_C, viewport_c->x,
+		  SEC_VIEWPORT_Y_START_C, viewport_c->y);
+}
+
 void hubp21_set_vm_system_aperture_settings(struct hubp *hubp,
 		struct vm_system_aperture_param *apt)
 {
@@ -202,14 +267,14 @@ static struct hubp_funcs dcn21_hubp_funcs = {
 	.hubp_enable_tripleBuffer = hubp2_enable_triplebuffer,
 	.hubp_is_triplebuffer_enabled = hubp2_is_triplebuffer_enabled,
 	.hubp_program_surface_flip_and_addr = hubp2_program_surface_flip_and_addr,
-	.hubp_program_surface_config = hubp2_program_surface_config,
+	.hubp_program_surface_config = hubp1_program_surface_config,
 	.hubp_is_flip_pending = hubp1_is_flip_pending,
 	.hubp_setup = hubp21_setup,
 	.hubp_setup_interdependent = hubp2_setup_interdependent,
 	.hubp_set_vm_system_aperture_settings = hubp21_set_vm_system_aperture_settings,
 	.set_blank = hubp1_set_blank,
 	.dcc_control = hubp1_dcc_control,
-	.mem_program_viewport = min_set_viewport,
+	.mem_program_viewport = hubp21_set_viewport,
 	.set_cursor_attributes	= hubp2_cursor_set_attributes,
 	.set_cursor_position	= hubp1_cursor_set_position,
 	.hubp_clk_cntl = hubp1_clk_cntl,

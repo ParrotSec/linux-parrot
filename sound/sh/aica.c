@@ -101,10 +101,10 @@ static void spu_memset(u32 toi, u32 what, int length)
 }
 
 /* spu_memload - write to SPU address space */
-static void spu_memload(u32 toi, void *from, int length)
+static void spu_memload(u32 toi, const void *from, int length)
 {
 	unsigned long flags;
-	u32 *froml = from;
+	const u32 *froml = from;
 	u32 __iomem *to = (u32 __iomem *) (SPU_MEMORY_BASE + toi);
 	int i;
 	u32 val;
@@ -443,7 +443,7 @@ static int __init snd_aicapcmchip(struct snd_card_aica
 	/* Allocate the DMA buffers */
 	snd_pcm_lib_preallocate_pages_for_all(pcm,
 					      SNDRV_DMA_TYPE_CONTINUOUS,
-					      snd_dma_continuous_data(GFP_KERNEL),
+					      NULL,
 					      AICA_BUFFER_SIZE,
 					      AICA_BUFFER_SIZE);
 	return 0;

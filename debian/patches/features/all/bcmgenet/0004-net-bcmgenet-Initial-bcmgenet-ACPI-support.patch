@@ -1,0 +1,96 @@
+From: Jeremy Linton <jeremy.linton@arm.com>
+Date: Mon, 24 Feb 2020 16:54:01 -0600
+Subject: [4/6] net: bcmgenet: Initial bcmgenet ACPI support
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git/commit?id=99c6b06a37d4cab118c45448fef9d28df62d35d8
+Bug-Debian: https://bugs.debian.org/950578
+
+The rpi4 is capable of booting in ACPI mode with the latest
+edk2-platform commits. As such it would be helpful if the genet
+platform device were usable.
+
+To achieve this we add a new MODULE_DEVICE_TABLE, and convert
+a few dt specific methods to their generic device_ calls. Until
+the next patch, ACPI based machines will fallback on random
+mac addresses.
+
+Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ .../net/ethernet/broadcom/genet/bcmgenet.c    | 21 ++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -7,6 +7,7 @@
+ 
+ #define pr_fmt(fmt)				"bcmgenet: " fmt
+ 
++#include <linux/acpi.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/sched.h>
+@@ -3476,10 +3477,9 @@ static int bcmgenet_probe(struct platfor
+ 	const struct bcmgenet_plat_data *pdata;
+ 	struct bcmgenet_priv *priv;
+ 	struct net_device *dev;
+-	const void *macaddr;
++	const void *macaddr = NULL;
+ 	unsigned int i;
+ 	int err = -EIO;
+-	const char *phy_mode_str;
+ 
+ 	/* Up to GENET_MAX_MQ_CNT + 1 TX queues and RX queues */
+ 	dev = alloc_etherdev_mqs(sizeof(*priv), GENET_MAX_MQ_CNT + 1,
+@@ -3510,7 +3510,7 @@ static int bcmgenet_probe(struct platfor
+ 
+ 	if (dn)
+ 		macaddr = of_get_mac_address(dn);
+-	else
++	else if (pd)
+ 		macaddr = pd->mac_address;
+ 
+ 	priv->base = devm_platform_ioremap_resource(pdev, 0);
+@@ -3555,8 +3555,9 @@ static int bcmgenet_probe(struct platfor
+ 
+ 	priv->dev = dev;
+ 	priv->pdev = pdev;
+-	if (of_id) {
+-		pdata = of_id->data;
++
++	pdata = device_get_match_data(&pdev->dev);
++	if (pdata) {
+ 		priv->version = pdata->version;
+ 		priv->dma_max_burst_length = pdata->dma_max_burst_length;
+ 	} else {
+@@ -3595,8 +3596,7 @@ static int bcmgenet_probe(struct platfor
+ 	/* If this is an internal GPHY, power it on now, before UniMAC is
+ 	 * brought out of reset as absolutely no UniMAC activity is allowed
+ 	 */
+-	if (dn && !of_property_read_string(dn, "phy-mode", &phy_mode_str) &&
+-	    !strcasecmp(phy_mode_str, "internal"))
++	if (device_get_phy_mode(&pdev->dev) == PHY_INTERFACE_MODE_INTERNAL)
+ 		bcmgenet_power_up(priv, GENET_POWER_PASSIVE);
+ 
+ 	reset_umac(priv);
+@@ -3768,6 +3768,12 @@ static int bcmgenet_suspend(struct devic
+ 
+ static SIMPLE_DEV_PM_OPS(bcmgenet_pm_ops, bcmgenet_suspend, bcmgenet_resume);
+ 
++static const struct acpi_device_id genet_acpi_match[] = {
++	{ "BCM6E4E", (kernel_ulong_t)&bcm2711_plat_data },
++	{ },
++};
++MODULE_DEVICE_TABLE(acpi, genet_acpi_match);
++
+ static struct platform_driver bcmgenet_driver = {
+ 	.probe	= bcmgenet_probe,
+ 	.remove	= bcmgenet_remove,
+@@ -3776,6 +3782,7 @@ static struct platform_driver bcmgenet_d
+ 		.name	= "bcmgenet",
+ 		.of_match_table = bcmgenet_match,
+ 		.pm	= &bcmgenet_pm_ops,
++		.acpi_match_table = ACPI_PTR(genet_acpi_match),
+ 	},
+ };
+ module_platform_driver(bcmgenet_driver);

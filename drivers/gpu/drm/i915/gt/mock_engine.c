@@ -23,6 +23,7 @@
  */
 
 #include "gem/i915_gem_context.h"
+#include "gt/intel_ring.h"
 
 #include "i915_drv.h"
 #include "intel_context.h"
@@ -58,9 +59,24 @@ static struct intel_ring *mock_ring(struct intel_engine_cs *engine)
 	ring->vaddr = (void *)(ring + 1);
 	atomic_set(&ring->pin_count, 1);
 
+	ring->vma = i915_vma_alloc();
+	if (!ring->vma) {
+		kfree(ring);
+		return NULL;
+	}
+	i915_active_init(&ring->vma->active, NULL, NULL);
+
 	intel_ring_update_space(ring);
 
 	return ring;
+}
+
+static void mock_ring_free(struct intel_ring *ring)
+{
+	i915_active_fini(&ring->vma->active);
+	i915_vma_free(ring->vma);
+
+	kfree(ring);
 }
 
 static struct i915_request *first_request(struct mock_engine *engine)
@@ -120,7 +136,7 @@ static void mock_context_destroy(struct kref *ref)
 	GEM_BUG_ON(intel_context_is_pinned(ce));
 
 	if (test_bit(CONTEXT_ALLOC_BIT, &ce->flags)) {
-		kfree(ce->ring);
+		mock_ring_free(ce->ring);
 		mock_timeline_unpin(ce->timeline);
 	}
 
@@ -240,6 +256,7 @@ struct intel_engine_cs *mock_engine(struct drm_i915_private *i915,
 	struct mock_engine *engine;
 
 	GEM_BUG_ON(id >= I915_NUM_ENGINES);
+	GEM_BUG_ON(!i915->gt.uncore);
 
 	engine = kzalloc(sizeof(*engine) + PAGE_SIZE, GFP_KERNEL);
 	if (!engine)
@@ -248,9 +265,11 @@ struct intel_engine_cs *mock_engine(struct drm_i915_private *i915,
 	/* minimal engine setup for requests */
 	engine->base.i915 = i915;
 	engine->base.gt = &i915->gt;
+	engine->base.uncore = i915->gt.uncore;
 	snprintf(engine->base.name, sizeof(engine->base.name), "%s", name);
 	engine->base.id = id;
 	engine->base.mask = BIT(id);
+	engine->base.legacy_idx = INVALID_ENGINE;
 	engine->base.instance = id;
 	engine->base.status_page.addr = (void *)(engine + 1);
 
@@ -264,6 +283,9 @@ struct intel_engine_cs *mock_engine(struct drm_i915_private *i915,
 	engine->base.reset.reset = mock_reset;
 	engine->base.reset.finish = mock_reset_finish;
 	engine->base.cancel_requests = mock_cancel_requests;
+
+	i915->gt.engine[id] = &engine->base;
+	i915->gt.engine_class[0][id] = &engine->base;
 
 	/* fake hw queue */
 	spin_lock_init(&engine->hw_lock);

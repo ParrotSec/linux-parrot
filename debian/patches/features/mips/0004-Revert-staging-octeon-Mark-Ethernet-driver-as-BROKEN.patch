@@ -1,0 +1,27 @@
+From: Chris Packham <chris.packham@alliedtelesis.co.nz>
+Date: Wed, 5 Feb 2020 13:11:16 +1300
+Subject: [4/4] Revert "staging/octeon: Mark Ethernet driver as BROKEN"
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging.git/commit?id=8ef0c4f06432b5b2f4e32f37b81708eae1e20c8c
+
+This reverts commit 075a1e87d1e2358d0b0301ac8f8e7f25051decf1. Now that
+the build issues have been fixed we can resume build testing.
+
+Signed-off-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+Link: https://lore.kernel.org/r/20200205001116.14096-7-chris.packham@alliedtelesis.co.nz
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/staging/octeon/Kconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/staging/octeon/Kconfig b/drivers/staging/octeon/Kconfig
+index e7f4ddcc1361..5319909eb2f6 100644
+--- a/drivers/staging/octeon/Kconfig
++++ b/drivers/staging/octeon/Kconfig
+@@ -3,7 +3,6 @@ config OCTEON_ETHERNET
+ 	tristate "Cavium Networks Octeon Ethernet support"
+ 	depends on CAVIUM_OCTEON_SOC || COMPILE_TEST
+ 	depends on NETDEVICES
+-	depends on BROKEN
+ 	select PHYLIB
+ 	select MDIO_OCTEON
+ 	help

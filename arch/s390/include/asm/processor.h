@@ -162,6 +162,7 @@ typedef struct thread_struct thread_struct;
 #define INIT_THREAD {							\
 	.ksp = sizeof(init_stack) + (unsigned long) &init_stack,	\
 	.fpu.regs = (void *) init_task.thread.fpu.fprs,			\
+	.last_break = 1,						\
 }
 
 /*
@@ -206,7 +207,7 @@ unsigned long get_wchan(struct task_struct *p);
 /* Has task runtime instrumentation enabled ? */
 #define is_ri_task(tsk) (!!(tsk)->thread.ri_cb)
 
-static inline unsigned long current_stack_pointer(void)
+static __always_inline unsigned long current_stack_pointer(void)
 {
 	unsigned long sp;
 
@@ -310,7 +311,7 @@ void enabled_wait(void);
 /*
  * Function to drop a processor into disabled wait state
  */
-static inline void __noreturn disabled_wait(void)
+static __always_inline void __noreturn disabled_wait(void)
 {
 	psw_t psw;
 

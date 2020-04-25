@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-alpha-smp linux-headers-5.4.0-4parrot1-alpha-smp 5.2+107 linux-headers-alpha-smp
+dir_to_symlink /usr/share/doc/linux-headers-alpha-smp linux-headers-5.5.0-1parrot1-alpha-smp 5.2+107 linux-headers-alpha-smp

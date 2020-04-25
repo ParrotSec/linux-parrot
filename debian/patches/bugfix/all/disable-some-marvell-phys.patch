@@ -18,7 +18,7 @@ Index: debian-kernel/drivers/net/phy/marvell.c
 ===================================================================
 --- debian-kernel.orig/drivers/net/phy/marvell.c
 +++ debian-kernel/drivers/net/phy/marvell.c
-@@ -937,6 +937,7 @@ static int m88e1118_config_init(struct p
+@@ -1057,6 +1057,7 @@ static int m88e1118_config_init(struct p
  	return genphy_soft_reset(phydev);
  }
  
@@ -26,7 +26,7 @@ Index: debian-kernel/drivers/net/phy/marvell.c
  static int m88e1149_config_init(struct phy_device *phydev)
  {
  	int err;
-@@ -962,7 +963,9 @@ static int m88e1149_config_init(struct p
+@@ -1082,7 +1083,9 @@ static int m88e1149_config_init(struct p
  
  	return genphy_soft_reset(phydev);
  }
@@ -36,7 +36,7 @@ Index: debian-kernel/drivers/net/phy/marvell.c
  static int m88e1145_config_init_rgmii(struct phy_device *phydev)
  {
  	int err;
-@@ -1037,6 +1040,7 @@ static int m88e1145_config_init(struct p
+@@ -1157,6 +1160,7 @@ static int m88e1145_config_init(struct p
  
  	return 0;
  }
@@ -44,7 +44,7 @@ Index: debian-kernel/drivers/net/phy/marvell.c
  
  static int m88e1540_get_fld(struct phy_device *phydev, u8 *msecs)
  {
-@@ -2243,6 +2247,7 @@ static struct phy_driver marvell_drivers
+@@ -2376,6 +2380,7 @@ static struct phy_driver marvell_drivers
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -52,16 +52,16 @@ Index: debian-kernel/drivers/net/phy/marvell.c
  	{
  		.phy_id = MARVELL_PHY_ID_88E1145,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2262,6 +2267,8 @@ static struct phy_driver marvell_drivers
- 		.get_strings = marvell_get_strings,
- 		.get_stats = marvell_get_stats,
+@@ -2398,6 +2403,8 @@ static struct phy_driver marvell_drivers
+ 		.set_tunable = m88e1111_set_tunable,
+ 		.link_change_notify = m88e1011_link_change_notify,
  	},
 +#endif
 +#if 0
  	{
  		.phy_id = MARVELL_PHY_ID_88E1149R,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2280,6 +2287,8 @@ static struct phy_driver marvell_drivers
+@@ -2416,6 +2423,8 @@ static struct phy_driver marvell_drivers
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -70,7 +70,7 @@ Index: debian-kernel/drivers/net/phy/marvell.c
  	{
  		.phy_id = MARVELL_PHY_ID_88E1240,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2298,6 +2307,7 @@ static struct phy_driver marvell_drivers
+@@ -2434,6 +2443,7 @@ static struct phy_driver marvell_drivers
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -78,7 +78,7 @@ Index: debian-kernel/drivers/net/phy/marvell.c
  	{
  		.phy_id = MARVELL_PHY_ID_88E1116R,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2432,9 +2442,9 @@ static struct mdio_device_id __maybe_unu
+@@ -2579,9 +2589,9 @@ static struct mdio_device_id __maybe_unu
  	{ MARVELL_PHY_ID_88E1111, MARVELL_PHY_ID_MASK },
  	{ MARVELL_PHY_ID_88E1118, MARVELL_PHY_ID_MASK },
  	{ MARVELL_PHY_ID_88E1121R, MARVELL_PHY_ID_MASK },

@@ -507,7 +507,11 @@ class Gencontrol(Base):
         if extra.get('headers_arch_depends'):
             extra['headers_arch_depends'].append('%s (= ${binary:Version})' %
                                                  packages_own[-1]['Package'])
-        if do_meta:
+
+        # The header meta-packages will be built along with the signed
+        # packages, to create a dependency relationship that ensures
+        # src:linux and src:linux-signed-* transition to testing together.
+        if do_meta and not build_signed:
             packages_own.extend(self.process_packages(
                 self.templates["control.headers.meta"], vars))
             self.substitute_debhelper_config(

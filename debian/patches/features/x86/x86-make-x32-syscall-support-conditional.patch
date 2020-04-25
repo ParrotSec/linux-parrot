@@ -19,17 +19,19 @@ Kconfig parameter to set its default value and a kernel parameter
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- Documentation/admin-guide/kernel-parameters.txt |    4 ++
- arch/x86/Kconfig                                |    8 ++++
- arch/x86/entry/common.c                         |    3 +
- arch/x86/entry/syscall_64.c                     |   46 ++++++++++++++++++++++++
- arch/x86/include/asm/elf.h                      |    4 +-
- arch/x86/include/asm/syscall.h                  |   13 ++++++
+ .../admin-guide/kernel-parameters.txt         |  4 ++
+ arch/x86/Kconfig                              |  8 ++++
+ arch/x86/entry/common.c                       |  3 +-
+ arch/x86/entry/syscall_64.c                   | 46 +++++++++++++++++++
+ arch/x86/include/asm/elf.h                    |  4 +-
+ arch/x86/include/asm/syscall.h                | 13 ++++++
  6 files changed, 76 insertions(+), 2 deletions(-)
 
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
+index ade4e6ec23e0..566631580a15 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4711,6 +4711,10 @@
+@@ -4733,6 +4733,10 @@
  
  	switches=	[HW,M68k]
  
@@ -40,9 +42,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	sysfs.deprecated=0|1 [KNL]
  			Enable/disable old style sysfs layout for old udev
  			on older distributions. When this option is enabled
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 5e8949953660..9049f22e0fe9 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -2946,6 +2946,14 @@ config COMPAT_32
+@@ -2935,6 +2935,14 @@ config COMPAT_32
  	select HAVE_UID16
  	select OLD_SIGSUSPEND3
  
@@ -57,9 +61,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  config COMPAT
  	def_bool y
  	depends on IA32_EMULATION || X86_X32
+diff --git a/arch/x86/entry/common.c b/arch/x86/entry/common.c
+index 9747876980b5..99d198306659 100644
 --- a/arch/x86/entry/common.c
 +++ b/arch/x86/entry/common.c
-@@ -289,7 +289,8 @@ __visible void do_syscall_64(unsigned lo
+@@ -293,7 +293,8 @@ __visible void do_syscall_64(unsigned long nr, struct pt_regs *regs)
  		nr = array_index_nospec(nr, NR_syscalls);
  		regs->ax = sys_call_table[nr](regs);
  #ifdef CONFIG_X86_X32_ABI
@@ -69,6 +75,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  			  (nr & ~__X32_SYSCALL_BIT) < X32_NR_syscalls)) {
  		nr = array_index_nospec(nr & ~__X32_SYSCALL_BIT,
  					X32_NR_syscalls);
+diff --git a/arch/x86/entry/syscall_64.c b/arch/x86/entry/syscall_64.c
+index adf619a856e8..cf450e0a9d5a 100644
 --- a/arch/x86/entry/syscall_64.c
 +++ b/arch/x86/entry/syscall_64.c
 @@ -4,6 +4,9 @@
@@ -81,7 +89,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #include <linux/syscalls.h>
  #include <asm/asm-offsets.h>
  #include <asm/syscall.h>
-@@ -53,4 +56,47 @@ asmlinkage const sys_call_ptr_t x32_sys_
+@@ -53,4 +56,47 @@ asmlinkage const sys_call_ptr_t x32_sys_call_table[__NR_syscall_x32_max+1] = {
  #undef __SYSCALL_64
  #undef __SYSCALL_X32
  
@@ -129,6 +137,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +arch_param_cb(x32, &x32_param_ops, NULL, 0444);
 +
  #endif
+diff --git a/arch/x86/include/asm/elf.h b/arch/x86/include/asm/elf.h
+index 69c0f892e310..4cfc1795e2c4 100644
 --- a/arch/x86/include/asm/elf.h
 +++ b/arch/x86/include/asm/elf.h
 @@ -11,6 +11,7 @@
@@ -149,6 +159,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  #if __USER32_DS != __USER_DS
  # error "The following code assumes __USER32_DS == __USER_DS"
+diff --git a/arch/x86/include/asm/syscall.h b/arch/x86/include/asm/syscall.h
+index 8db3fdb6102e..704f7fc1dd08 100644
 --- a/arch/x86/include/asm/syscall.h
 +++ b/arch/x86/include/asm/syscall.h
 @@ -13,6 +13,7 @@
@@ -159,7 +171,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #include <asm/asm-offsets.h>	/* For NR_syscalls */
  #include <asm/thread_info.h>	/* for TS_COMPAT */
  #include <asm/unistd.h>
-@@ -40,6 +41,18 @@ extern const sys_call_ptr_t ia32_sys_cal
+@@ -40,6 +41,18 @@ extern const sys_call_ptr_t ia32_sys_call_table[];
  extern const sys_call_ptr_t x32_sys_call_table[];
  #endif
  
@@ -178,3 +190,6 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  /*
   * Only the low 32 bits of orig_ax are meaningful, so we return int.
   * This importantly ignores the high bits on 64-bit, so comparisons
+-- 
+2.24.0
+

@@ -1,0 +1,2 @@
+linux-image-cloud-arm64-dbg: wrong-section-according-to-package-name linux-image-cloud-arm64-dbg => debug
+linux-image-cloud-arm64-dbg: debug-package-should-be-priority-extra linux-image-cloud-arm64-dbg

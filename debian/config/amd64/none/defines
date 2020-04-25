@@ -2,3 +2,8 @@
 flavours:
  amd64
  cloud-amd64
+
+[cloud-amd64_image]
+configs:
+ config.cloud
+ amd64/config.cloud-amd64

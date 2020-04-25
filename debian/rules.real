@@ -68,7 +68,6 @@ build-arch-arch: \
 	$(call if_package, usbip,                        build-usbip) \
 	$(call if_package, linux-cpupower,               build-cpupower) \
 	$(call if_package, liblockdep-dev,               build-liblockdep) \
-	$(call if_package, libbpf-dev,                   build-libbpf) \
 	$(call if_package, hyperv-daemons,               build-hyperv-daemons) \
 	$(call if_package, libtraceevent-dev,            build-libtraceevent)
 binary-arch-arch: \
@@ -83,7 +82,6 @@ binary-arch-arch: \
 	$(call if_package, usbip,                        install-usbip) \
 	$(call if_package, linux-cpupower,               install-cpupower) \
 	$(call if_package, liblockdep-dev,               install-liblockdep) \
-	$(call if_package, libbpf-dev,                   install-libbpf) \
 	$(call if_package, hyperv-daemons,               install-hyperv-daemons) \
 	$(call if_package, libtraceevent-dev,            install-libtraceevent)
 
@@ -228,8 +226,8 @@ ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	mkdir -p '$(BUILD_DIR)'
 	rm -rf '$(DIR)'
 	$(call copy_source,$(DIR))
-	+$(MAKE_CLEAN) -C '$(DIR)' xmldocs
-	+$(MAKE_CLEAN) -C '$(DIR)' htmldocs
+	+$(MAKE_CLEAN) -C '$(DIR)' PYTHON=python3 xmldocs
+	+$(MAKE_CLEAN) -C '$(DIR)' PYTHON=python3 htmldocs
 endif
 	@$(stamp)
 
@@ -798,35 +796,6 @@ endif
 	dh_strip
 	dh_compress
 	dh_fixperms
-	dh_installdeb
-	dh_shlibdeps
-	dh_gencontrol
-	dh_md5sums
-	dh_builddeb
-
-build-libbpf: $(STAMPS_DIR)/build-tools-headers
-	$(call make-tools,tools/lib/bpf)
-
-install-libbpf: DH_OPTIONS = $(addprefix -p,$(filter libbpf%,$(packages_enabled)))
-install-libbpf: SHLIB_PACKAGE = $(filter-out libbpf-dev,$(filter libbpf%,$(packages_enabled)))
-install-libbpf: DIR = $(CURDIR)/debian/libbpf-tmp
-install-libbpf: build-libbpf
-	dh_testdir
-	dh_testroot
-	dh_prep
-	$(call make-tools,tools/lib/bpf) install DESTDIR=$(DIR)
-	env -u DH_OPTIONS dh_install -p$(SHLIB_PACKAGE) --sourcedir=$(DIR) \
-		'usr/lib/*/libbpf.so.*'
-	dh_install --sourcedir=$(DIR)
-	dh_installchangelogs
-ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
-	dh_installdocs
-endif
-	dh_strip
-	dh_compress
-	dh_fixperms
-	env -u DH_OPTIONS dh_makeshlibs -p$(SHLIB_PACKAGE) \
-		$(SHLIB_PACKAGE)
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol

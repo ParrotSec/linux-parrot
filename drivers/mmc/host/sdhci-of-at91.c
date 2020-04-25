@@ -27,6 +27,9 @@
 #define SDMMC_CACR	0x230
 #define		SDMMC_CACR_CAPWREN	BIT(0)
 #define		SDMMC_CACR_KEY		(0x46 << 8)
+#define SDMMC_CALCR	0x240
+#define		SDMMC_CALCR_EN		BIT(0)
+#define		SDMMC_CALCR_ALWYSON	BIT(4)
 
 #define SDHCI_AT91_PRESET_COMMON_CONF	0x400 /* drv type B, programmable clock mode */
 
@@ -35,6 +38,7 @@ struct sdhci_at91_priv {
 	struct clk *gck;
 	struct clk *mainck;
 	bool restore_needed;
+	bool cal_always_on;
 };
 
 static void sdhci_at91_set_force_card_detect(struct sdhci_host *host)
@@ -116,10 +120,18 @@ static void sdhci_at91_set_uhs_signaling(struct sdhci_host *host,
 
 static void sdhci_at91_reset(struct sdhci_host *host, u8 mask)
 {
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_at91_priv *priv = sdhci_pltfm_priv(pltfm_host);
+
 	sdhci_reset(host, mask);
 
-	if (host->mmc->caps & MMC_CAP_NONREMOVABLE)
+	if ((host->mmc->caps & MMC_CAP_NONREMOVABLE)
+	    || mmc_gpio_get_cd(host->mmc) >= 0)
 		sdhci_at91_set_force_card_detect(host);
+
+	if (priv->cal_always_on && (mask & SDHCI_RESET_ALL))
+		sdhci_writel(host, SDMMC_CALCR_ALWYSON | SDMMC_CALCR_EN,
+			     SDMMC_CALCR);
 }
 
 static const struct sdhci_ops sdhci_at91_sama5d2_ops = {
@@ -348,6 +360,14 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 
 	priv->restore_needed = false;
 
+	/*
+	 * if SDCAL pin is wrongly connected, we must enable
+	 * the analog calibration cell permanently.
+	 */
+	priv->cal_always_on =
+		device_property_read_bool(&pdev->dev,
+					  "microchip,sdcal-inverted");
+
 	ret = mmc_of_parse(host->mmc);
 	if (ret)
 		goto clocks_disable_unprepare;
@@ -397,8 +417,11 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 	 * detection procedure using the SDMCC_CD signal is bypassed.
 	 * This bit is reset when a software reset for all command is performed
 	 * so we need to implement our own reset function to set back this bit.
+	 *
+	 * WA: SAMA5D2 doesn't drive CMD if using CD GPIO line.
 	 */
-	if (host->mmc->caps & MMC_CAP_NONREMOVABLE)
+	if ((host->mmc->caps & MMC_CAP_NONREMOVABLE)
+	    || mmc_gpio_get_cd(host->mmc) >= 0)
 		sdhci_at91_set_force_card_detect(host);
 
 	pm_runtime_put_autosuspend(&pdev->dev);

@@ -202,7 +202,6 @@ static int vcn_v1_0_hw_init(void *handle)
 
 	for (i = 0; i < adev->vcn.num_enc_rings; ++i) {
 		ring = &adev->vcn.inst->ring_enc[i];
-		ring->sched.ready = true;
 		r = amdgpu_ring_test_helper(ring);
 		if (r)
 			goto done;
@@ -1375,7 +1374,7 @@ static int vcn_v1_0_set_clockgating_state(void *handle,
 
 	if (enable) {
 		/* wait for STATUS to clear */
-		if (vcn_v1_0_is_idle(handle))
+		if (!vcn_v1_0_is_idle(handle))
 			return -EBUSY;
 		vcn_v1_0_enable_clock_gating(adev);
 	} else {

@@ -1,5 +1,5 @@
 [abi]
-abiname: 4parrot1
+abiname: 1parrot1
 ignore-changes:
  __cpuhp_*
  bpf_analyzer
@@ -142,7 +142,7 @@ debug-info: true
 signed-code: false
 
 [featureset-rt_base]
-enabled: true
+enabled: false
 
 [description]
 part-long-up: This kernel is not suitable for SMP (multi-processor,
@@ -150,6 +150,7 @@ part-long-up: This kernel is not suitable for SMP (multi-processor,
 
 [image]
 initramfs-generators: initramfs-tools initramfs-fallback
+breaks: wireless-regdb (<< 2019.06.03-1~)
 recommends: apparmor
 
 [relations]

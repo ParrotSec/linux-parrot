@@ -50,12 +50,14 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  /*
   * Decide what to do when UEFI secure boot mode is enabled.
-@@ -28,6 +29,8 @@ void __init efi_set_secure_boot(enum efi
+@@ -28,6 +29,10 @@ void __init efi_set_secure_boot(enum efi
  			break;
  		case efi_secureboot_mode_enabled:
  			set_bit(EFI_SECURE_BOOT, &efi.flags);
++#ifdef CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT
 +			lock_kernel_down("EFI Secure Boot",
 +					 LOCKDOWN_CONFIDENTIALITY_MAX);
++#endif
  			pr_info("Secure boot enabled\n");
  			break;
  		default:
