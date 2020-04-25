@@ -360,7 +360,7 @@ static size_t atmel_sha_append_sg(struct atmel_sha_reqctx *ctx)
 static void atmel_sha_fill_padding(struct atmel_sha_reqctx *ctx, int length)
 {
 	unsigned int index, padlen;
-	u64 bits[2];
+	__be64 bits[2];
 	u64 size[2];
 
 	size[0] = ctx->digcnt[0];
@@ -1918,12 +1918,7 @@ static int atmel_sha_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 {
 	struct atmel_sha_hmac_ctx *hmac = crypto_ahash_ctx(tfm);
 
-	if (atmel_sha_hmac_key_set(&hmac->hkey, key, keylen)) {
-		crypto_ahash_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
-		return -EINVAL;
-	}
-
-	return 0;
+	return atmel_sha_hmac_key_set(&hmac->hkey, key, keylen);
 }
 
 static int atmel_sha_hmac_init(struct ahash_request *req)

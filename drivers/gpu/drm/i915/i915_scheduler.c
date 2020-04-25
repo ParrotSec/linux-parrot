@@ -211,10 +211,7 @@ static void kick_submission(struct intel_engine_cs *engine,
 
 	/*
 	 * If we are already the currently executing context, don't
-	 * bother evaluating if we should preempt ourselves, or if
-	 * we expect nothing to change as a result of running the
-	 * tasklet, i.e. we have not change the priority queue
-	 * sufficiently to oust the running context.
+	 * bother evaluating if we should preempt ourselves.
 	 */
 	if (inflight->hw_context == rq->hw_context)
 		goto unlock;
@@ -418,8 +415,6 @@ bool __i915_sched_node_add_dependency(struct i915_sched_node *node,
 
 	if (!node_signaled(signal)) {
 		INIT_LIST_HEAD(&dep->dfs_link);
-		list_add(&dep->wait_link, &signal->waiters_list);
-		list_add(&dep->signal_link, &node->signalers_list);
 		dep->signaler = signal;
 		dep->waiter = node;
 		dep->flags = flags;
@@ -428,6 +423,10 @@ bool __i915_sched_node_add_dependency(struct i915_sched_node *node,
 		if (signal->flags & I915_SCHED_HAS_SEMAPHORE_CHAIN &&
 		    !node_started(signal))
 			node->flags |= I915_SCHED_HAS_SEMAPHORE_CHAIN;
+
+		/* All set, now publish. Beware the lockless walkers. */
+		list_add(&dep->signal_link, &node->signalers_list);
+		list_add_rcu(&dep->wait_link, &signal->waiters_list);
 
 		/*
 		 * As we do not allow WAIT to preempt inflight requests,
@@ -477,7 +476,6 @@ void i915_sched_node_fini(struct i915_sched_node *node)
 	 * so we may be called out-of-order.
 	 */
 	list_for_each_entry_safe(dep, tmp, &node->signalers_list, signal_link) {
-		GEM_BUG_ON(!node_signaled(dep->signaler));
 		GEM_BUG_ON(!list_empty(&dep->dfs_link));
 
 		list_del(&dep->wait_link);

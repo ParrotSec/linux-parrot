@@ -473,6 +473,11 @@ void __init acpi_nvs_nosave_s3(void);
 void __init acpi_sleep_no_blacklist(void);
 #endif /* CONFIG_PM_SLEEP */
 
+int acpi_register_wakeup_handler(
+	int wake_irq, bool (*wakeup)(void *context), void *context);
+void acpi_unregister_wakeup_handler(
+	bool (*wakeup)(void *context), void *context);
+
 struct acpi_osc_context {
 	char *uuid_str;			/* UUID string */
 	int rev;
@@ -674,6 +679,14 @@ static inline bool acpi_dev_found(const char *hid)
 }
 
 static inline bool acpi_dev_present(const char *hid, const char *uid, s64 hrv)
+{
+	return false;
+}
+
+struct acpi_device;
+
+static inline bool
+acpi_dev_hid_uid_match(struct acpi_device *adev, const char *hid2, const char *uid2)
 {
 	return false;
 }

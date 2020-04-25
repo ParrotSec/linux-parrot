@@ -115,9 +115,9 @@ struct afs_call {
 	struct afs_vnode	*lvnode;	/* vnode being locked */
 	void			*request;	/* request data (first part) */
 	struct address_space	*mapping;	/* Pages being written from */
-	struct iov_iter		iter;		/* Buffer iterator */
-	struct iov_iter		*_iter;		/* Iterator currently in use */
-	union {	/* Convenience for ->iter */
+	struct iov_iter		def_iter;	/* Default buffer/data iterator */
+	struct iov_iter		*iter;		/* Iterator currently in use */
+	union {	/* Convenience for ->def_iter */
 		struct kvec	kvec[1];
 		struct bio_vec	bvec[1];
 	};
@@ -154,7 +154,7 @@ struct afs_call {
 	};
 	unsigned char		unmarshall;	/* unmarshalling phase */
 	unsigned char		addr_ix;	/* Address in ->alist */
-	bool			incoming;	/* T if incoming call */
+	bool			drop_ref;	/* T if need to drop ref for incoming call */
 	bool			send_pages;	/* T if data from mapping should be sent */
 	bool			need_attention;	/* T if RxRPC poked us */
 	bool			async;		/* T if asynchronous */
@@ -934,6 +934,12 @@ extern int afs_fetch_data(struct afs_vnode *, struct key *, struct afs_read *);
 extern int afs_page_filler(void *, struct page *);
 extern void afs_put_read(struct afs_read *);
 
+static inline struct afs_read *afs_get_read(struct afs_read *req)
+{
+	refcount_inc(&req->usage);
+	return req;
+}
+
 /*
  * flock.c
  */
@@ -1136,7 +1142,7 @@ static inline void afs_extract_begin(struct afs_call *call, void *buf, size_t si
 {
 	call->kvec[0].iov_base = buf;
 	call->kvec[0].iov_len = size;
-	iov_iter_kvec(&call->iter, READ, call->kvec, 1, size);
+	iov_iter_kvec(&call->def_iter, READ, call->kvec, 1, size);
 }
 
 static inline void afs_extract_to_tmp(struct afs_call *call)
@@ -1151,7 +1157,7 @@ static inline void afs_extract_to_tmp64(struct afs_call *call)
 
 static inline void afs_extract_discard(struct afs_call *call, size_t size)
 {
-	iov_iter_discard(&call->iter, READ, size);
+	iov_iter_discard(&call->def_iter, READ, size);
 }
 
 static inline void afs_extract_to_buf(struct afs_call *call, size_t size)
@@ -1203,8 +1209,16 @@ static inline void afs_set_call_complete(struct afs_call *call,
 		ok = true;
 	}
 	spin_unlock_bh(&call->state_lock);
-	if (ok)
+	if (ok) {
 		trace_afs_call_done(call);
+
+		/* Asynchronous calls have two refs to release - one from the alloc and
+		 * one queued with the work item - and we can't just deallocate the
+		 * call because the work item may be queued again.
+		 */
+		if (call->drop_ref)
+			afs_put_call(call);
+	}
 }
 
 /*

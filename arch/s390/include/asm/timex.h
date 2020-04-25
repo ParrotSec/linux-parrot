@@ -155,7 +155,7 @@ static inline void get_tod_clock_ext(char *clk)
 
 static inline unsigned long long get_tod_clock(void)
 {
-	unsigned char clk[STORE_CLOCK_EXT_SIZE];
+	char clk[STORE_CLOCK_EXT_SIZE];
 
 	get_tod_clock_ext(clk);
 	return *((unsigned long long *)&clk[1]);
@@ -180,7 +180,6 @@ static inline cycles_t get_cycles(void)
 
 int get_phys_clock(unsigned long *clock);
 void init_cpu_timer(void);
-unsigned long long monotonic_clock(void);
 
 extern unsigned char tod_clock_base[16] __aligned(8);
 

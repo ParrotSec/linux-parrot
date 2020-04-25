@@ -212,6 +212,8 @@ static int pcpu_alloc_lowcore(struct pcpu *pcpu, int cpu)
 	lc->spinlock_lockval = arch_spin_lockval(cpu);
 	lc->spinlock_index = 0;
 	lc->br_r1_trampoline = 0x07f1;	/* br %r1 */
+	lc->return_lpswe = gen_lpswe(__LC_RETURN_PSW);
+	lc->return_mcck_lpswe = gen_lpswe(__LC_RETURN_MCCK_PSW);
 	if (nmi_alloc_per_cpu(lc))
 		goto out_async;
 	if (vdso_alloc_per_cpu(lc))
@@ -413,14 +415,11 @@ EXPORT_SYMBOL(arch_vcpu_is_preempted);
 
 void smp_yield_cpu(int cpu)
 {
-	if (MACHINE_HAS_DIAG9C) {
-		diag_stat_inc_norecursion(DIAG_STAT_X09C);
-		asm volatile("diag %0,0,0x9c"
-			     : : "d" (pcpu_devices[cpu].address));
-	} else if (MACHINE_HAS_DIAG44 && !smp_cpu_mtid) {
-		diag_stat_inc_norecursion(DIAG_STAT_X044);
-		asm volatile("diag 0,0,0x44");
-	}
+	if (!MACHINE_HAS_DIAG9C)
+		return;
+	diag_stat_inc_norecursion(DIAG_STAT_X09C);
+	asm volatile("diag %0,0,0x9c"
+		     : : "d" (pcpu_devices[cpu].address));
 }
 
 /*
@@ -876,7 +875,7 @@ static void __no_sanitize_address smp_start_secondary(void *cpuvoid)
 	S390_lowcore.restart_source = -1UL;
 	__ctl_load(S390_lowcore.cregs_save_area, 0, 15);
 	__load_psw_mask(PSW_KERNEL_BITS | PSW_MASK_DAT);
-	CALL_ON_STACK(smp_init_secondary, S390_lowcore.kernel_stack, 0);
+	CALL_ON_STACK_NORETURN(smp_init_secondary, S390_lowcore.kernel_stack);
 }
 
 /* Upping and downing of CPUs */

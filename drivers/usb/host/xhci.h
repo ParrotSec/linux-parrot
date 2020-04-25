@@ -1702,12 +1702,20 @@ struct xhci_bus_state {
  * Intel Lynx Point LP xHCI host.
  */
 #define	XHCI_MAX_REXIT_TIMEOUT_MS	20
+struct xhci_port_cap {
+	u32			*psi;	/* array of protocol speed ID entries */
+	u8			psi_count;
+	u8			psi_uid_count;
+	u8			maj_rev;
+	u8			min_rev;
+};
 
 struct xhci_port {
 	__le32 __iomem		*addr;
 	int			hw_portnum;
 	int			hcd_portnum;
 	struct xhci_hub		*rhub;
+	struct xhci_port_cap	*port_cap;
 };
 
 struct xhci_hub {
@@ -1719,9 +1727,6 @@ struct xhci_hub {
 	/* supported prococol extended capabiliy values */
 	u8			maj_rev;
 	u8			min_rev;
-	u32			*psi;	/* array of protocol speed ID entries */
-	u8			psi_count;
-	u8			psi_uid_count;
 };
 
 /* There is one xhci_hcd structure per controller */
@@ -1880,6 +1885,9 @@ struct xhci_hcd {
 	/* cached usb2 extened protocol capabilites */
 	u32                     *ext_caps;
 	unsigned int            num_ext_caps;
+	/* cached extended protocol port capabilities */
+	struct xhci_port_cap	*port_caps;
+	unsigned int		num_port_caps;
 	/* Compliance Mode Recovery Data */
 	struct timer_list	comp_mode_recovery_timer;
 	u32			port_status_u0;
@@ -2577,6 +2585,35 @@ static inline const char *xhci_decode_portsc(u32 portsc)
 		ret += sprintf(str + ret, "WDE ");
 	if (portsc & PORT_WKOC_E)
 		ret += sprintf(str + ret, "WOE ");
+
+	return str;
+}
+
+static inline const char *xhci_decode_doorbell(u32 slot, u32 doorbell)
+{
+	static char str[256];
+	u8 ep;
+	u16 stream;
+	int ret;
+
+	ep = (doorbell & 0xff);
+	stream = doorbell >> 16;
+
+	if (slot == 0) {
+		sprintf(str, "Command Ring %d", doorbell);
+		return str;
+	}
+	ret = sprintf(str, "Slot %d ", slot);
+	if (ep > 0 && ep < 32)
+		ret = sprintf(str + ret, "ep%d%s",
+			      ep / 2,
+			      ep % 2 ? "in" : "out");
+	else if (ep == 0 || ep < 248)
+		ret = sprintf(str + ret, "Reserved %d", ep);
+	else
+		ret = sprintf(str + ret, "Vendor Defined %d", ep);
+	if (stream)
+		ret = sprintf(str + ret, " Stream %d", stream);
 
 	return str;
 }

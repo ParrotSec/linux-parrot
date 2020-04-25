@@ -234,6 +234,10 @@ static void update_v_total_for_static_ramp(
 			current_duration_in_us) * (stream->timing.pix_clk_100hz / 10)),
 				stream->timing.h_total), 1000);
 
+	/* v_total cannot be less than nominal */
+	if (v_total < stream->timing.v_total)
+		v_total = stream->timing.v_total;
+
 	in_out_vrr->adjust.v_total_min = v_total;
 	in_out_vrr->adjust.v_total_max = v_total;
 }
@@ -803,6 +807,7 @@ void mod_freesync_build_vrr_params(struct mod_freesync *mod_freesync,
 			2 * in_out_vrr->min_refresh_in_uhz)
 		in_out_vrr->btr.btr_enabled = false;
 
+	in_out_vrr->fixed.fixed_active = false;
 	in_out_vrr->btr.btr_active = false;
 	in_out_vrr->btr.inserted_duration_in_us = 0;
 	in_out_vrr->btr.frames_to_insert = 0;
@@ -822,6 +827,7 @@ void mod_freesync_build_vrr_params(struct mod_freesync *mod_freesync,
 		in_out_vrr->adjust.v_total_max = stream->timing.v_total;
 	} else if (in_out_vrr->state == VRR_STATE_ACTIVE_VARIABLE &&
 			refresh_range >= MIN_REFRESH_RANGE_IN_US) {
+
 		in_out_vrr->adjust.v_total_min =
 			calc_v_total_from_refresh(stream,
 				in_out_vrr->max_refresh_in_uhz);
@@ -979,12 +985,8 @@ void mod_freesync_get_settings(struct mod_freesync *mod_freesync,
 		unsigned int *inserted_frames,
 		unsigned int *inserted_duration_in_us)
 {
-	struct core_freesync *core_freesync = NULL;
-
 	if (mod_freesync == NULL)
 		return;
-
-	core_freesync = MOD_FREESYNC_TO_CORE(mod_freesync);
 
 	if (vrr->supported) {
 		*v_total_min = vrr->adjust.v_total_min;

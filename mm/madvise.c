@@ -335,11 +335,13 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 		}
 
 		page = pmd_page(orig_pmd);
+
+		/* Do not interfere with other mappings of this page */
+		if (page_mapcount(page) != 1)
+			goto huge_unlock;
+
 		if (next - addr != HPAGE_PMD_SIZE) {
 			int err;
-
-			if (page_mapcount(page) != 1)
-				goto huge_unlock;
 
 			get_page(page);
 			spin_unlock(ptl);
@@ -425,6 +427,10 @@ regular_page:
 			addr -= PAGE_SIZE;
 			continue;
 		}
+
+		/* Do not interfere with other mappings of this page */
+		if (page_mapcount(page) != 1)
+			continue;
 
 		VM_BUG_ON_PAGE(PageTransCompound(page), page);
 
@@ -864,13 +870,13 @@ static int madvise_inject_error(int behavior,
 {
 	struct page *page;
 	struct zone *zone;
-	unsigned int order;
+	unsigned long size;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
 
-	for (; start < end; start += PAGE_SIZE << order) {
+	for (; start < end; start += size) {
 		unsigned long pfn;
 		int ret;
 
@@ -882,9 +888,9 @@ static int madvise_inject_error(int behavior,
 		/*
 		 * When soft offlining hugepages, after migrating the page
 		 * we dissolve it, therefore in the second loop "page" will
-		 * no longer be a compound page, and order will be 0.
+		 * no longer be a compound page.
 		 */
-		order = compound_order(compound_head(page));
+		size = page_size(compound_head(page));
 
 		if (PageHWPoison(page)) {
 			put_page(page);
@@ -895,7 +901,7 @@ static int madvise_inject_error(int behavior,
 			pr_info("Soft offlining pfn %#lx at process virtual address %#lx\n",
 					pfn, start);
 
-			ret = soft_offline_page(page, MF_COUNT_INCREASED);
+			ret = soft_offline_page(pfn, MF_COUNT_INCREASED);
 			if (ret)
 				return ret;
 			continue;
@@ -1059,9 +1065,9 @@ SYSCALL_DEFINE3(madvise, unsigned long, start, size_t, len_in, int, behavior)
 	if (!madvise_behavior_valid(behavior))
 		return error;
 
-	if (start & ~PAGE_MASK)
+	if (!PAGE_ALIGNED(start))
 		return error;
-	len = (len_in + ~PAGE_MASK) & PAGE_MASK;
+	len = PAGE_ALIGN(len_in);
 
 	/* Check to see whether len was rounded up from small -ve to zero */
 	if (len_in && !len)

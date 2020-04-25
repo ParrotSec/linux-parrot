@@ -63,6 +63,7 @@
 #include "en/xsk/rx.h"
 #include "en/xsk/tx.h"
 #include "en/hv_vhca_stats.h"
+#include "lib/mlx5.h"
 
 
 bool mlx5e_check_fragmented_striding_rq_cap(struct mlx5_core_dev *mdev)
@@ -408,12 +409,9 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
 		rq->stats = &c->priv->channel_stats[c->ix].rq;
 	INIT_WORK(&rq->recover_work, mlx5e_rq_err_cqe_work);
 
-	rq->xdp_prog = params->xdp_prog ? bpf_prog_inc(params->xdp_prog) : NULL;
-	if (IS_ERR(rq->xdp_prog)) {
-		err = PTR_ERR(rq->xdp_prog);
-		rq->xdp_prog = NULL;
-		goto err_rq_wq_destroy;
-	}
+	if (params->xdp_prog)
+		bpf_prog_inc(params->xdp_prog);
+	rq->xdp_prog = params->xdp_prog;
 
 	rq_xdp_ix = rq->ix;
 	if (xsk)
@@ -723,6 +721,9 @@ int mlx5e_modify_rq_state(struct mlx5e_rq *rq, int curr_state, int next_state)
 	if (!in)
 		return -ENOMEM;
 
+	if (curr_state == MLX5_RQC_STATE_RST && next_state == MLX5_RQC_STATE_RDY)
+		mlx5e_rqwq_reset(rq);
+
 	rqc = MLX5_ADDR_OF(modify_rq_in, in, ctx);
 
 	MLX5_SET(modify_rq_in, in, rq_state, curr_state);
@@ -821,6 +822,29 @@ int mlx5e_wait_for_min_rx_wqes(struct mlx5e_rq *rq, int wait_time)
 	return -ETIMEDOUT;
 }
 
+void mlx5e_free_rx_in_progress_descs(struct mlx5e_rq *rq)
+{
+	struct mlx5_wq_ll *wq;
+	u16 head;
+	int i;
+
+	if (rq->wq_type != MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ)
+		return;
+
+	wq = &rq->mpwqe.wq;
+	head = wq->head;
+
+	/* Outstanding UMR WQEs (in progress) start at wq->head */
+	for (i = 0; i < rq->mpwqe.umr_in_progress; i++) {
+		rq->dealloc_wqe(rq, head);
+		head = mlx5_wq_ll_get_wqe_next_ix(wq, head);
+	}
+
+	rq->mpwqe.actual_wq_head = wq->head;
+	rq->mpwqe.umr_in_progress = 0;
+	rq->mpwqe.umr_completed = 0;
+}
+
 void mlx5e_free_rx_descs(struct mlx5e_rq *rq)
 {
 	__be16 wqe_ix_be;
@@ -828,14 +852,8 @@ void mlx5e_free_rx_descs(struct mlx5e_rq *rq)
 
 	if (rq->wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ) {
 		struct mlx5_wq_ll *wq = &rq->mpwqe.wq;
-		u16 head = wq->head;
-		int i;
 
-		/* Outstanding UMR WQEs (in progress) start at wq->head */
-		for (i = 0; i < rq->mpwqe.umr_in_progress; i++) {
-			rq->dealloc_wqe(rq, head);
-			head = mlx5_wq_ll_get_wqe_next_ix(wq, head);
-		}
+		mlx5e_free_rx_in_progress_descs(rq);
 
 		while (!mlx5_wq_ll_is_empty(wq)) {
 			struct mlx5e_rx_wqe_ll *wqe;
@@ -4386,16 +4404,11 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
 	/* no need for full reset when exchanging programs */
 	reset = (!priv->channels.params.xdp_prog || !prog);
 
-	if (was_opened && !reset) {
+	if (was_opened && !reset)
 		/* num_channels is invariant here, so we can take the
 		 * batched reference right upfront.
 		 */
-		prog = bpf_prog_add(prog, priv->channels.num);
-		if (IS_ERR(prog)) {
-			err = PTR_ERR(prog);
-			goto unlock;
-		}
-	}
+		bpf_prog_add(prog, priv->channels.num);
 
 	if (was_opened && reset) {
 		struct mlx5e_channels new_channels = {};
@@ -5406,6 +5419,7 @@ static void *mlx5e_add(struct mlx5_core_dev *mdev)
 		return NULL;
 	}
 
+	dev_net_set(netdev, mlx5_core_net(mdev));
 	priv = netdev_priv(netdev);
 
 	err = mlx5e_attach(mdev, priv);

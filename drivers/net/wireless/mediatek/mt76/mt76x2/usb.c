@@ -25,6 +25,8 @@ static int mt76x2u_probe(struct usb_interface *intf,
 			 const struct usb_device_id *id)
 {
 	static const struct mt76_driver_ops drv_ops = {
+		.drv_flags = MT_DRV_SW_RX_AIRTIME,
+		.survey_flags = SURVEY_INFO_TIME_TX,
 		.update_survey = mt76x02_update_channel,
 		.tx_prepare_skb = mt76x02u_tx_prepare_skb,
 		.tx_complete_skb = mt76x02u_tx_complete_skb,
@@ -71,6 +73,7 @@ static int mt76x2u_probe(struct usb_interface *intf,
 
 err:
 	ieee80211_free_hw(mt76_hw(dev));
+	mt76u_deinit(&dev->mt76);
 	usb_set_intfdata(intf, NULL);
 	usb_put_dev(udev);
 
@@ -86,6 +89,7 @@ static void mt76x2u_disconnect(struct usb_interface *intf)
 	set_bit(MT76_REMOVED, &dev->mt76.state);
 	ieee80211_unregister_hw(hw);
 	mt76x2u_cleanup(dev);
+	mt76u_deinit(&dev->mt76);
 
 	ieee80211_free_hw(hw);
 	usb_set_intfdata(intf, NULL);

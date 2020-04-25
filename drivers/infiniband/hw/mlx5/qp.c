@@ -749,7 +749,7 @@ static int mlx5_ib_umem_get(struct mlx5_ib_dev *dev, struct ib_udata *udata,
 {
 	int err;
 
-	*umem = ib_umem_get(udata, addr, size, 0, 0);
+	*umem = ib_umem_get(udata, addr, size, 0);
 	if (IS_ERR(*umem)) {
 		mlx5_ib_dbg(dev, "umem_get failed\n");
 		return PTR_ERR(*umem);
@@ -806,7 +806,7 @@ static int create_user_rq(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 	if (!ucmd->buf_addr)
 		return -EINVAL;
 
-	rwq->umem = ib_umem_get(udata, ucmd->buf_addr, rwq->buf_size, 0, 0);
+	rwq->umem = ib_umem_get(udata, ucmd->buf_addr, rwq->buf_size, 0);
 	if (IS_ERR(rwq->umem)) {
 		mlx5_ib_dbg(dev, "umem_get failed\n");
 		err = PTR_ERR(rwq->umem);
@@ -1041,11 +1041,14 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
 					IB_QP_CREATE_BLOCK_MULTICAST_LOOPBACK |
 					IB_QP_CREATE_IPOIB_UD_LSO |
 					IB_QP_CREATE_NETIF_QP |
-					mlx5_ib_create_qp_sqpn_qp1()))
+					MLX5_IB_QP_CREATE_SQPN_QP1 |
+					MLX5_IB_QP_CREATE_WC_TEST))
 		return -EINVAL;
 
 	if (init_attr->qp_type == MLX5_IB_QPT_REG_UMR)
 		qp->bf.bfreg = &dev->fp_bfreg;
+	else if (init_attr->create_flags & MLX5_IB_QP_CREATE_WC_TEST)
+		qp->bf.bfreg = &dev->wc_bfreg;
 	else
 		qp->bf.bfreg = &dev->bfreg;
 
@@ -1104,7 +1107,7 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
 	MLX5_SET(qpc, qpc, fre, 1);
 	MLX5_SET(qpc, qpc, rlky, 1);
 
-	if (init_attr->create_flags & mlx5_ib_create_qp_sqpn_qp1()) {
+	if (init_attr->create_flags & MLX5_IB_QP_CREATE_SQPN_QP1) {
 		MLX5_SET(qpc, qpc, deth_sqpn, 1);
 		qp->flags |= MLX5_IB_QP_SQPN_QP1;
 	}
@@ -2140,7 +2143,7 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 				return -EINVAL;
 			}
 			if (init_attr->create_flags &
-			    mlx5_ib_create_qp_sqpn_qp1()) {
+			    MLX5_IB_QP_CREATE_SQPN_QP1) {
 				mlx5_ib_dbg(dev, "user-space is not allowed to create UD QPs spoofing as QP1\n");
 				return -EINVAL;
 			}
@@ -3391,9 +3394,6 @@ static int __mlx5_ib_qp_set_counter(struct ib_qp *qp,
 	struct mlx5_ib_qp_base *base;
 	u32 set_id;
 
-	if (!MLX5_CAP_GEN(dev->mdev, rts2rts_qp_counters_set_id))
-		return 0;
-
 	if (counter)
 		set_id = counter->id;
 	else
@@ -3728,6 +3728,7 @@ static int __mlx5_ib_modify_qp(struct ib_qp *ibqp,
 		qp->sq.cur_post = 0;
 		if (qp->sq.wqe_cnt)
 			qp->sq.cur_edge = get_sq_edge(&qp->sq, 0);
+		qp->sq.last_poll = 0;
 		qp->db.db[MLX5_RCV_DBR] = 0;
 		qp->db.db[MLX5_SND_DBR] = 0;
 	}
@@ -5330,7 +5331,6 @@ out:
 		 * we hit doorbell */
 		wmb();
 
-		/* currently we support only regular doorbells */
 		mlx5_write64((__be32 *)ctrl, bf->bfreg->map + bf->offset);
 		/* Make sure doorbells don't leak out of SQ spinlock
 		 * and reach the HCA out of order.
@@ -5825,7 +5825,7 @@ int mlx5_ib_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
 	if (qp->flags & MLX5_IB_QP_MANAGED_RECV)
 		qp_init_attr->create_flags |= IB_QP_CREATE_MANAGED_RECV;
 	if (qp->flags & MLX5_IB_QP_SQPN_QP1)
-		qp_init_attr->create_flags |= mlx5_ib_create_qp_sqpn_qp1();
+		qp_init_attr->create_flags |= MLX5_IB_QP_CREATE_SQPN_QP1;
 
 	qp_init_attr->sq_sig_type = qp->sq_signal_bits & MLX5_WQE_CTRL_CQ_UPDATE ?
 		IB_SIGNAL_ALL_WR : IB_SIGNAL_REQ_WR;
@@ -5957,12 +5957,21 @@ static int  create_rq(struct mlx5_ib_rwq *rwq, struct ib_pd *pd,
 	}
 	MLX5_SET(wq, wq, log_wq_stride, rwq->log_rq_stride);
 	if (rwq->create_flags & MLX5_IB_WQ_FLAGS_STRIDING_RQ) {
+		/*
+		 * In Firmware number of strides in each WQE is:
+		 *   "512 * 2^single_wqe_log_num_of_strides"
+		 * Values 3 to 8 are accepted as 10 to 15, 9 to 18 are
+		 * accepted as 0 to 9
+		 */
+		static const u8 fw_map[] = { 10, 11, 12, 13, 14, 15, 0, 1,
+					     2,  3,  4,  5,  6,  7,  8, 9 };
 		MLX5_SET(wq, wq, two_byte_shift_en, rwq->two_byte_shift_en);
 		MLX5_SET(wq, wq, log_wqe_stride_size,
 			 rwq->single_stride_log_num_of_bytes -
 			 MLX5_MIN_SINGLE_STRIDE_LOG_NUM_BYTES);
-		MLX5_SET(wq, wq, log_wqe_num_of_strides, rwq->log_num_strides -
-			 MLX5_MIN_SINGLE_WQE_LOG_NUM_STRIDES);
+		MLX5_SET(wq, wq, log_wqe_num_of_strides,
+			 fw_map[rwq->log_num_strides -
+				MLX5_EXT_MIN_SINGLE_WQE_LOG_NUM_STRIDES]);
 	}
 	MLX5_SET(wq, wq, log_wq_sz, rwq->log_rq_size);
 	MLX5_SET(wq, wq, pd, to_mpd(pd)->pdn);
@@ -6037,6 +6046,19 @@ static int set_user_rq_size(struct mlx5_ib_dev *dev,
 	return 0;
 }
 
+static bool log_of_strides_valid(struct mlx5_ib_dev *dev, u32 log_num_strides)
+{
+	if ((log_num_strides > MLX5_MAX_SINGLE_WQE_LOG_NUM_STRIDES) ||
+	    (log_num_strides < MLX5_EXT_MIN_SINGLE_WQE_LOG_NUM_STRIDES))
+		return false;
+
+	if (!MLX5_CAP_GEN(dev->mdev, ext_stride_num_range) &&
+	    (log_num_strides < MLX5_MIN_SINGLE_WQE_LOG_NUM_STRIDES))
+		return false;
+
+	return true;
+}
+
 static int prepare_user_rq(struct ib_pd *pd,
 			   struct ib_wq_init_attr *init_attr,
 			   struct ib_udata *udata,
@@ -6084,14 +6106,16 @@ static int prepare_user_rq(struct ib_pd *pd,
 				    MLX5_MAX_SINGLE_STRIDE_LOG_NUM_BYTES);
 			return -EINVAL;
 		}
-		if ((ucmd.single_wqe_log_num_of_strides >
-		    MLX5_MAX_SINGLE_WQE_LOG_NUM_STRIDES) ||
-		     (ucmd.single_wqe_log_num_of_strides <
-			MLX5_MIN_SINGLE_WQE_LOG_NUM_STRIDES)) {
-			mlx5_ib_dbg(dev, "Invalid log num strides (%u. Range is %u - %u)\n",
-				    ucmd.single_wqe_log_num_of_strides,
-				    MLX5_MIN_SINGLE_WQE_LOG_NUM_STRIDES,
-				    MLX5_MAX_SINGLE_WQE_LOG_NUM_STRIDES);
+		if (!log_of_strides_valid(dev,
+					  ucmd.single_wqe_log_num_of_strides)) {
+			mlx5_ib_dbg(
+				dev,
+				"Invalid log num strides (%u. Range is %u - %u)\n",
+				ucmd.single_wqe_log_num_of_strides,
+				MLX5_CAP_GEN(dev->mdev, ext_stride_num_range) ?
+					MLX5_EXT_MIN_SINGLE_WQE_LOG_NUM_STRIDES :
+					MLX5_MIN_SINGLE_WQE_LOG_NUM_STRIDES,
+				MLX5_MAX_SINGLE_WQE_LOG_NUM_STRIDES);
 			return -EINVAL;
 		}
 		rwq->single_stride_log_num_of_bytes =
@@ -6133,6 +6157,10 @@ struct ib_wq *mlx5_ib_create_wq(struct ib_pd *pd,
 	min_resp_len = offsetof(typeof(resp), reserved) + sizeof(resp.reserved);
 	if (udata->outlen && udata->outlen < min_resp_len)
 		return ERR_PTR(-EINVAL);
+
+	if (!capable(CAP_SYS_RAWIO) &&
+	    init_attr->create_flags & IB_WQ_FLAGS_DELAY_DROP)
+		return ERR_PTR(-EPERM);
 
 	dev = to_mdev(pd->device);
 	switch (init_attr->wq_type) {
@@ -6503,12 +6531,18 @@ void mlx5_ib_drain_rq(struct ib_qp *qp)
  */
 int mlx5_ib_qp_set_counter(struct ib_qp *qp, struct rdma_counter *counter)
 {
+	struct mlx5_ib_dev *dev = to_mdev(qp->device);
 	struct mlx5_ib_qp *mqp = to_mqp(qp);
 	int err = 0;
 
 	mutex_lock(&mqp->mutex);
 	if (mqp->state == IB_QPS_RESET) {
 		qp->counter = counter;
+		goto out;
+	}
+
+	if (!MLX5_CAP_GEN(dev->mdev, rts2rts_qp_counters_set_id)) {
+		err = -EOPNOTSUPP;
 		goto out;
 	}
 

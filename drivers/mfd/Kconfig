@@ -758,6 +758,7 @@ config MFD_MAX77650
 	depends on OF || COMPILE_TEST
 	select MFD_CORE
 	select REGMAP_I2C
+	select REGMAP_IRQ
 	help
 	  Say Y here to add support for Maxim Semiconductor MAX77650 and
 	  MAX77651 Power Management ICs. This is the core multifunction
@@ -1209,13 +1210,6 @@ config AB8500_DEBUG
 	help
 	  Select this option if you want debug information using the debug
 	  filesystem, debugfs.
-
-config AB8500_GPADC
-	bool "ST-Ericsson AB8500 GPADC driver"
-	depends on AB8500_CORE && REGULATOR_AB8500
-	default y
-	help
-	  AB8500 GPADC driver used to convert Acc and battery/ac/usb voltage
 
 config MFD_DB8500_PRCMU
 	bool "ST-Ericsson DB8500 Power Reset Control Management Unit"
