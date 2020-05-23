@@ -44,6 +44,9 @@ enum {
 	MV_PCS_PAIRSWAP_AB	= 0x0002,
 	MV_PCS_PAIRSWAP_NONE	= 0x0003,
 
+	/* Temperature read register (88E2110 only) */
+	MV_PCS_TEMP		= 0x8042,
+
 	/* These registers appear at 0x800X and 0xa00X - the 0xa00X control
 	 * registers appear to set themselves to the 0x800X when AN is
 	 * restarted, but status registers appear readable from either.
@@ -54,6 +57,7 @@ enum {
 	/* Vendor2 MMD registers */
 	MV_V2_PORT_CTRL		= 0xf001,
 	MV_V2_PORT_CTRL_PWRDOWN = 0x0800,
+	/* Temperature control/read registers (88X3310 only) */
 	MV_V2_TEMP_CTRL		= 0xf08a,
 	MV_V2_TEMP_CTRL_MASK	= 0xc000,
 	MV_V2_TEMP_CTRL_SAMPLE	= 0x0000,
@@ -79,6 +83,24 @@ static umode_t mv3310_hwmon_is_visible(const void *data,
 	return 0;
 }
 
+static int mv3310_hwmon_read_temp_reg(struct phy_device *phydev)
+{
+	return phy_read_mmd(phydev, MDIO_MMD_VEND2, MV_V2_TEMP);
+}
+
+static int mv2110_hwmon_read_temp_reg(struct phy_device *phydev)
+{
+	return phy_read_mmd(phydev, MDIO_MMD_PCS, MV_PCS_TEMP);
+}
+
+static int mv10g_hwmon_read_temp_reg(struct phy_device *phydev)
+{
+	if (phydev->drv->phy_id == MARVELL_PHY_ID_88X3310)
+		return mv3310_hwmon_read_temp_reg(phydev);
+	else /* MARVELL_PHY_ID_88E2110 */
+		return mv2110_hwmon_read_temp_reg(phydev);
+}
+
 static int mv3310_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 			     u32 attr, int channel, long *value)
 {
@@ -91,7 +113,7 @@ static int mv3310_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 	}
 
 	if (type == hwmon_temp && attr == hwmon_temp_input) {
-		temp = phy_read_mmd(phydev, MDIO_MMD_VEND2, MV_V2_TEMP);
+		temp = mv10g_hwmon_read_temp_reg(phydev);
 		if (temp < 0)
 			return temp;
 
@@ -143,6 +165,9 @@ static int mv3310_hwmon_config(struct phy_device *phydev, bool enable)
 {
 	u16 val;
 	int ret;
+
+	if (phydev->drv->phy_id != MARVELL_PHY_ID_88X3310)
+		return 0;
 
 	ret = phy_write_mmd(phydev, MDIO_MMD_VEND2, MV_V2_TEMP,
 			    MV_V2_TEMP_UNKNOWN);
@@ -214,9 +239,9 @@ static int mv3310_sfp_insert(void *upstream, const struct sfp_eeprom_id *id)
 	phy_interface_t iface;
 
 	sfp_parse_support(phydev->sfp_bus, id, support);
-	iface = sfp_select_interface(phydev->sfp_bus, id, support);
+	iface = sfp_select_interface(phydev->sfp_bus, support);
 
-	if (iface != PHY_INTERFACE_MODE_10GKR) {
+	if (iface != PHY_INTERFACE_MODE_10GBASER) {
 		dev_err(&phydev->mdio.dev, "incompatible SFP module inserted\n");
 		return -EINVAL;
 	}
@@ -304,7 +329,7 @@ static int mv3310_config_init(struct phy_device *phydev)
 	    phydev->interface != PHY_INTERFACE_MODE_2500BASEX &&
 	    phydev->interface != PHY_INTERFACE_MODE_XAUI &&
 	    phydev->interface != PHY_INTERFACE_MODE_RXAUI &&
-	    phydev->interface != PHY_INTERFACE_MODE_10GKR)
+	    phydev->interface != PHY_INTERFACE_MODE_10GBASER)
 		return -ENODEV;
 
 	return 0;
@@ -386,16 +411,17 @@ static void mv3310_update_interface(struct phy_device *phydev)
 {
 	if ((phydev->interface == PHY_INTERFACE_MODE_SGMII ||
 	     phydev->interface == PHY_INTERFACE_MODE_2500BASEX ||
-	     phydev->interface == PHY_INTERFACE_MODE_10GKR) && phydev->link) {
+	     phydev->interface == PHY_INTERFACE_MODE_10GBASER) &&
+	    phydev->link) {
 		/* The PHY automatically switches its serdes interface (and
-		 * active PHYXS instance) between Cisco SGMII, 10GBase-KR and
+		 * active PHYXS instance) between Cisco SGMII, 10GBase-R and
 		 * 2500BaseX modes according to the speed.  Florian suggests
 		 * setting phydev->interface to communicate this to the MAC.
 		 * Only do this if we are already in one of the above modes.
 		 */
 		switch (phydev->speed) {
 		case SPEED_10000:
-			phydev->interface = PHY_INTERFACE_MODE_10GKR;
+			phydev->interface = PHY_INTERFACE_MODE_10GBASER;
 			break;
 		case SPEED_2500:
 			phydev->interface = PHY_INTERFACE_MODE_2500BASEX;

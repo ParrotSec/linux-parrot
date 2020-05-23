@@ -47,8 +47,6 @@ struct dyn_arch_ftrace {
 	/* No extra data needed for x86 */
 };
 
-int ftrace_int3_handler(struct pt_regs *regs);
-
 #define FTRACE_GRAPH_TRAMP_ADDR FTRACE_GRAPH_ADDR
 
 #endif /*  CONFIG_DYNAMIC_FTRACE */
@@ -57,6 +55,12 @@ int ftrace_int3_handler(struct pt_regs *regs);
 
 
 #ifndef __ASSEMBLY__
+
+#if defined(CONFIG_FUNCTION_TRACER) && defined(CONFIG_DYNAMIC_FTRACE)
+extern void set_ftrace_ops_ro(void);
+#else
+static inline void set_ftrace_ops_ro(void) { }
+#endif
 
 #define ARCH_HAS_SYSCALL_MATCH_SYM_NAME
 static inline bool arch_syscall_match_sym_name(const char *sym, const char *name)

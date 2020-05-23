@@ -7,6 +7,7 @@
 #include <linux/fs.h>
 #include <linux/file.h>
 #include <linux/falloc.h>
+#include <linux/mount.h>
 #include <linux/nfs_fs.h>
 #include "delegation.h"
 #include "internal.h"
@@ -250,6 +251,9 @@ static loff_t nfs42_remap_file_range(struct file *src_file, loff_t src_off,
 
 	if (remap_flags & ~REMAP_FILE_ADVISORY)
 		return -EINVAL;
+
+	if (IS_SWAPFILE(dst_inode) || IS_SWAPFILE(src_inode))
+		return -ETXTBSY;
 
 	/* check alignment w.r.t. clone_blksize */
 	ret = -EINVAL;

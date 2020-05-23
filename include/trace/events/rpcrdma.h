@@ -721,19 +721,18 @@ TRACE_EVENT(xprtrdma_prepsend_failed,
 
 TRACE_EVENT(xprtrdma_post_send,
 	TP_PROTO(
-		const struct rpcrdma_req *req,
-		int status
+		const struct rpcrdma_req *req
 	),
 
-	TP_ARGS(req, status),
+	TP_ARGS(req),
 
 	TP_STRUCT__entry(
 		__field(const void *, req)
+		__field(const void *, sc)
 		__field(unsigned int, task_id)
 		__field(unsigned int, client_id)
 		__field(int, num_sge)
 		__field(int, signaled)
-		__field(int, status)
 	),
 
 	TP_fast_assign(
@@ -743,17 +742,16 @@ TRACE_EVENT(xprtrdma_post_send,
 		__entry->client_id = rqst->rq_task->tk_client ?
 				     rqst->rq_task->tk_client->cl_clid : -1;
 		__entry->req = req;
+		__entry->sc = req->rl_sendctx;
 		__entry->num_sge = req->rl_wr.num_sge;
 		__entry->signaled = req->rl_wr.send_flags & IB_SEND_SIGNALED;
-		__entry->status = status;
 	),
 
-	TP_printk("task:%u@%u req=%p (%d SGE%s) %sstatus=%d",
+	TP_printk("task:%u@%u req=%p sc=%p (%d SGE%s) %s",
 		__entry->task_id, __entry->client_id,
-		__entry->req, __entry->num_sge,
+		__entry->req, __entry->sc, __entry->num_sge,
 		(__entry->num_sge == 1 ? "" : "s"),
-		(__entry->signaled ? "signaled " : ""),
-		__entry->status
+		(__entry->signaled ? "signaled" : "")
 	)
 );
 
@@ -849,6 +847,7 @@ TRACE_EVENT(xprtrdma_wc_send,
 
 	TP_STRUCT__entry(
 		__field(const void *, req)
+		__field(const void *, sc)
 		__field(unsigned int, unmap_count)
 		__field(unsigned int, status)
 		__field(unsigned int, vendor_err)
@@ -856,13 +855,14 @@ TRACE_EVENT(xprtrdma_wc_send,
 
 	TP_fast_assign(
 		__entry->req = sc->sc_req;
+		__entry->sc = sc;
 		__entry->unmap_count = sc->sc_unmap_count;
 		__entry->status = wc->status;
 		__entry->vendor_err = __entry->status ? wc->vendor_err : 0;
 	),
 
-	TP_printk("req=%p, unmapped %u pages: %s (%u/0x%x)",
-		__entry->req, __entry->unmap_count,
+	TP_printk("req=%p sc=%p unmapped=%u: %s (%u/0x%x)",
+		__entry->req, __entry->sc, __entry->unmap_count,
 		rdma_show_wc_status(__entry->status),
 		__entry->status, __entry->vendor_err
 	)
@@ -1695,17 +1695,15 @@ DECLARE_EVENT_CLASS(svcrdma_sendcomp_event,
 
 TRACE_EVENT(svcrdma_post_send,
 	TP_PROTO(
-		const struct ib_send_wr *wr,
-		int status
+		const struct ib_send_wr *wr
 	),
 
-	TP_ARGS(wr, status),
+	TP_ARGS(wr),
 
 	TP_STRUCT__entry(
 		__field(const void *, cqe)
 		__field(unsigned int, num_sge)
 		__field(u32, inv_rkey)
-		__field(int, status)
 	),
 
 	TP_fast_assign(
@@ -1713,12 +1711,11 @@ TRACE_EVENT(svcrdma_post_send,
 		__entry->num_sge = wr->num_sge;
 		__entry->inv_rkey = (wr->opcode == IB_WR_SEND_WITH_INV) ?
 					wr->ex.invalidate_rkey : 0;
-		__entry->status = status;
 	),
 
-	TP_printk("cqe=%p num_sge=%u inv_rkey=0x%08x status=%d",
+	TP_printk("cqe=%p num_sge=%u inv_rkey=0x%08x",
 		__entry->cqe, __entry->num_sge,
-		__entry->inv_rkey, __entry->status
+		__entry->inv_rkey
 	)
 );
 
@@ -1783,26 +1780,23 @@ TRACE_EVENT(svcrdma_wc_receive,
 TRACE_EVENT(svcrdma_post_rw,
 	TP_PROTO(
 		const void *cqe,
-		int sqecount,
-		int status
+		int sqecount
 	),
 
-	TP_ARGS(cqe, sqecount, status),
+	TP_ARGS(cqe, sqecount),
 
 	TP_STRUCT__entry(
 		__field(const void *, cqe)
 		__field(int, sqecount)
-		__field(int, status)
 	),
 
 	TP_fast_assign(
 		__entry->cqe = cqe;
 		__entry->sqecount = sqecount;
-		__entry->status = status;
 	),
 
-	TP_printk("cqe=%p sqecount=%d status=%d",
-		__entry->cqe, __entry->sqecount, __entry->status
+	TP_printk("cqe=%p sqecount=%d",
+		__entry->cqe, __entry->sqecount
 	)
 );
 
@@ -1897,6 +1891,34 @@ DECLARE_EVENT_CLASS(svcrdma_sendqueue_event,
 
 DEFINE_SQ_EVENT(full);
 DEFINE_SQ_EVENT(retry);
+
+TRACE_EVENT(svcrdma_sq_post_err,
+	TP_PROTO(
+		const struct svcxprt_rdma *rdma,
+		int status
+	),
+
+	TP_ARGS(rdma, status),
+
+	TP_STRUCT__entry(
+		__field(int, avail)
+		__field(int, depth)
+		__field(int, status)
+		__string(addr, rdma->sc_xprt.xpt_remotebuf)
+	),
+
+	TP_fast_assign(
+		__entry->avail = atomic_read(&rdma->sc_sq_avail);
+		__entry->depth = rdma->sc_sq_depth;
+		__entry->status = status;
+		__assign_str(addr, rdma->sc_xprt.xpt_remotebuf);
+	),
+
+	TP_printk("addr=%s sc_sq_avail=%d/%d status=%d",
+		__get_str(addr), __entry->avail, __entry->depth,
+		__entry->status
+	)
+);
 
 #endif /* _TRACE_RPCRDMA_H */
 
