@@ -587,7 +587,7 @@ struct ib_device *_ib_alloc_device(size_t size)
 	rdma_init_coredev(&device->coredev, device, &init_net);
 
 	INIT_LIST_HEAD(&device->event_handler_list);
-	spin_lock_init(&device->event_handler_lock);
+	spin_lock_init(&device->qp_open_list_lock);
 	init_rwsem(&device->event_handler_rwsem);
 	mutex_init(&device->unregistration_lock);
 	/*
@@ -1979,7 +1979,6 @@ static int iw_query_port(struct ib_device *device,
 {
 	struct in_device *inetdev;
 	struct net_device *netdev;
-	int err;
 
 	memset(port_attr, 0, sizeof(*port_attr));
 
@@ -2010,11 +2009,7 @@ static int iw_query_port(struct ib_device *device,
 	}
 
 	dev_put(netdev);
-	err = device->ops.query_port(device, port_num, port_attr);
-	if (err)
-		return err;
-
-	return 0;
+	return device->ops.query_port(device, port_num, port_attr);
 }
 
 static int __ib_query_port(struct ib_device *device,

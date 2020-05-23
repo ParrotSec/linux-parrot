@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-marvell linux-image-5.5.0-1parrot1-marvell 5.2+107 linux-image-marvell
+dir_to_symlink /usr/share/doc/linux-image-marvell linux-image-5.6.0-2parrot1-marvell 5.2+107 linux-image-marvell

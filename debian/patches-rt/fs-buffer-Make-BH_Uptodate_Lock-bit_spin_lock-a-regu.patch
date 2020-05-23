@@ -2,7 +2,7 @@ From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 15 Nov 2019 18:54:20 +0100
 Subject: [PATCH] fs/buffer: Make BH_Uptodate_Lock bit_spin_lock a regular
  spinlock_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Bit spinlocks are problematic if PREEMPT_RT is enabled, because they
 disable preemption, which is undesired for latency reasons and breaks when
@@ -46,7 +46,7 @@ after
 
 --- a/fs/buffer.c
 +++ b/fs/buffer.c
-@@ -275,8 +275,7 @@ static void end_buffer_async_read(struct
+@@ -274,8 +274,7 @@ static void end_buffer_async_read(struct
  	 * decide that the page is now completely done.
  	 */
  	first = page_buffers(page);
@@ -56,7 +56,7 @@ after
  	clear_buffer_async_read(bh);
  	unlock_buffer(bh);
  	tmp = bh;
-@@ -289,8 +288,7 @@ static void end_buffer_async_read(struct
+@@ -288,8 +287,7 @@ static void end_buffer_async_read(struct
  		}
  		tmp = tmp->b_this_page;
  	} while (tmp != bh);
@@ -66,7 +66,7 @@ after
  
  	/*
  	 * If none of the buffers had errors and they are all
-@@ -302,8 +300,7 @@ static void end_buffer_async_read(struct
+@@ -301,8 +299,7 @@ static void end_buffer_async_read(struct
  	return;
  
  still_busy:
@@ -76,7 +76,7 @@ after
  	return;
  }
  
-@@ -331,8 +328,7 @@ void end_buffer_async_write(struct buffe
+@@ -371,8 +368,7 @@ void end_buffer_async_write(struct buffe
  	}
  
  	first = page_buffers(page);
@@ -86,7 +86,7 @@ after
  
  	clear_buffer_async_write(bh);
  	unlock_buffer(bh);
-@@ -344,14 +340,12 @@ void end_buffer_async_write(struct buffe
+@@ -384,14 +380,12 @@ void end_buffer_async_write(struct buffe
  		}
  		tmp = tmp->b_this_page;
  	}
@@ -103,7 +103,7 @@ after
  	return;
  }
  EXPORT_SYMBOL(end_buffer_async_write);
-@@ -3345,6 +3339,7 @@ struct buffer_head *alloc_buffer_head(gf
+@@ -3396,6 +3390,7 @@ struct buffer_head *alloc_buffer_head(gf
  	struct buffer_head *ret = kmem_cache_zalloc(bh_cachep, gfp_flags);
  	if (ret) {
  		INIT_LIST_HEAD(&ret->b_assoc_buffers);
@@ -113,7 +113,7 @@ after
  		recalc_bh_state();
 --- a/fs/ext4/page-io.c
 +++ b/fs/ext4/page-io.c
-@@ -87,11 +87,10 @@ static void ext4_finish_bio(struct bio *
+@@ -125,11 +125,10 @@ static void ext4_finish_bio(struct bio *
  		}
  		bh = head = page_buffers(page);
  		/*
@@ -127,7 +127,7 @@ after
  		do {
  			if (bh_offset(bh) < bio_start ||
  			    bh_offset(bh) + bh->b_size > bio_end) {
-@@ -103,8 +102,7 @@ static void ext4_finish_bio(struct bio *
+@@ -141,8 +140,7 @@ static void ext4_finish_bio(struct bio *
  			if (bio->bi_status)
  				buffer_io_error(bh);
  		} while ((bh = bh->b_this_page) != head);

@@ -21,8 +21,6 @@ need them.
  drivers/staging/android/ashmem.c | 3 +++
  6 files changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/android/Kconfig b/drivers/android/Kconfig
-index 6fdf2abe4598..329ec9941fbf 100644
 --- a/drivers/android/Kconfig
 +++ b/drivers/android/Kconfig
 @@ -9,7 +9,7 @@ config ANDROID
@@ -34,8 +32,6 @@ index 6fdf2abe4598..329ec9941fbf 100644
  	depends on MMU
  	default n
  	---help---
-diff --git a/drivers/android/Makefile b/drivers/android/Makefile
-index c9d3d0c99c25..55411d9a9c2a 100644
 --- a/drivers/android/Makefile
 +++ b/drivers/android/Makefile
 @@ -1,6 +1,7 @@
@@ -49,11 +45,9 @@ index c9d3d0c99c25..55411d9a9c2a 100644
 +binder_linux-y := binder.o binder_alloc.o
 +binder_linux-$(CONFIG_ANDROID_BINDERFS)	+= binderfs.o
 +binder_linux-$(CONFIG_ANDROID_BINDER_IPC_SELFTEST) += binder_alloc_selftest.o
-diff --git a/drivers/android/binder_alloc.c b/drivers/android/binder_alloc.c
-index ce5603c2291c..099fef731148 100644
 --- a/drivers/android/binder_alloc.c
 +++ b/drivers/android/binder_alloc.c
-@@ -37,7 +37,7 @@ enum {
+@@ -38,7 +38,7 @@ enum {
  };
  static uint32_t binder_alloc_debug_mask = BINDER_DEBUG_USER_ERROR;
  
@@ -62,8 +56,6 @@ index ce5603c2291c..099fef731148 100644
  		   uint, 0644);
  
  #define binder_alloc_debug(mask, x...) \
-diff --git a/drivers/staging/android/Kconfig b/drivers/staging/android/Kconfig
-index d6d605d5cbde..afe9085369a3 100644
 --- a/drivers/staging/android/Kconfig
 +++ b/drivers/staging/android/Kconfig
 @@ -4,7 +4,7 @@ menu "Android"
@@ -75,20 +67,15 @@ index d6d605d5cbde..afe9085369a3 100644
  	depends on SHMEM
  	help
  	  The ashmem subsystem is a new shared memory allocator, similar to
-diff --git a/drivers/staging/android/Makefile b/drivers/staging/android/Makefile
-index 14bd9c6ce10d..c202aa4f8323 100644
 --- a/drivers/staging/android/Makefile
 +++ b/drivers/staging/android/Makefile
-@@ -3,5 +3,6 @@ ccflags-y += -I$(src)			# needed for trace events
+@@ -3,4 +3,5 @@ ccflags-y += -I$(src)			# needed for tra
  
  obj-y					+= ion/
  
 -obj-$(CONFIG_ASHMEM)			+= ashmem.o
 +obj-$(CONFIG_ASHMEM)			+= ashmem_linux.o
 +ashmem_linux-y				+= ashmem.o
- obj-$(CONFIG_ANDROID_VSOC)		+= vsoc.o
-diff --git a/drivers/staging/android/ashmem.c b/drivers/staging/android/ashmem.c
-index 74d497d39c5a..fbbe467b0ba8 100644
 --- a/drivers/staging/android/ashmem.c
 +++ b/drivers/staging/android/ashmem.c
 @@ -24,6 +24,7 @@
@@ -99,12 +86,9 @@ index 74d497d39c5a..fbbe467b0ba8 100644
  #include "ashmem.h"
  
  #define ASHMEM_NAME_PREFIX "dev/ashmem/"
-@@ -925,3 +926,5 @@ static int __init ashmem_init(void)
+@@ -953,3 +954,5 @@ out:
  	return ret;
  }
  device_initcall(ashmem_init);
 +
 +MODULE_LICENSE("GPL v2");
--- 
-2.20.1
-

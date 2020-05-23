@@ -1,4 +1,9 @@
 ##
+## file: net/netlabel/Kconfig
+##
+# CONFIG_NETLABEL is not set
+
+##
 ## file: security/selinux/Kconfig
 ##
 # CONFIG_SECURITY_SELINUX is not set

@@ -1,10 +1,10 @@
 Section: kernel
 Priority: optional
-Maintainer: Parrot Dev Team <team@parrotsec.org>
+Maintainer: Parrot Kernel Team <team@parrotsec.org>
 Uploaders: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>
 Standards-Version: 4.2.0
 Build-Depends:
- debhelper (>= 10.1~), dh-exec,
+ debhelper-compat (= 12), dh-exec,
 # used to run debian/bin/*.py
  python3:any,
 # used by debian/rules.real to prepare the source
@@ -36,6 +36,6 @@ Build-Depends-Arch:
  rsync,
  lz4 [amd64 arm64] <!stage1 !pkg.linux.nokernel>
 Rules-Requires-Root: no
-Vcs-Git: https://nest.parrotsec.org/packages/kernel/linux.git
-Vcs-Browser: https://nest.parrotsec.org/packages/kernel/linux
+Vcs-Git: https://salsa.debian.org/kernel-team/linux.git
+Vcs-Browser: https://salsa.debian.org/kernel-team/linux
 Homepage: https://www.kernel.org/

@@ -2,7 +2,7 @@ From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 16:36:39 +0200
 Subject: rtmutex: export lockdep-less version of rt_mutex's lock,
  trylock and unlock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Required for lock implementation ontop of rtmutex.
 
@@ -41,7 +41,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	rt_mutex_fastlock(lock, TASK_UNINTERRUPTIBLE, rt_mutex_slowlock);
 +	ret = __rt_mutex_lock_state(lock, state);
 +	if (ret)
-+		mutex_release(&lock->dep_map, 1, _RET_IP_);
++		mutex_release(&lock->dep_map, _RET_IP_);
 +	return ret;
 +}
 +
@@ -62,7 +62,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	mutex_acquire(&lock->dep_map, 0, 0, _RET_IP_);
 -	ret = rt_mutex_fastlock(lock, TASK_INTERRUPTIBLE, rt_mutex_slowlock);
 -	if (ret)
--		mutex_release(&lock->dep_map, 1, _RET_IP_);
+-		mutex_release(&lock->dep_map, _RET_IP_);
 -
 -	return ret;
 +	return rt_mutex_lock_state(lock, 0, TASK_INTERRUPTIBLE);

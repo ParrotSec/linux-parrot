@@ -1362,7 +1362,7 @@ lpfc_hb_timeout_handler(struct lpfc_hba *phba)
 	if (vports != NULL)
 		for (i = 0; i <= phba->max_vports && vports[i] != NULL; i++) {
 			lpfc_rcv_seq_check_edtov(vports[i]);
-			lpfc_fdmi_num_disc_check(vports[i]);
+			lpfc_fdmi_change_check(vports[i]);
 		}
 	lpfc_destroy_vport_work_array(phba, vports);
 
@@ -6935,6 +6935,17 @@ lpfc_sli4_driver_resource_setup(struct lpfc_hba *phba)
 		rc = -ENOMEM;
 		goto out_free_hba_cpu_map;
 	}
+
+#ifdef CONFIG_SCSI_LPFC_DEBUG_FS
+	phba->sli4_hba.c_stat = alloc_percpu(struct lpfc_hdwq_stat);
+	if (!phba->sli4_hba.c_stat) {
+		lpfc_printf_log(phba, KERN_ERR, LOG_INIT,
+				"3332 Failed allocating per cpu hdwq stats\n");
+		rc = -ENOMEM;
+		goto out_free_hba_eq_info;
+	}
+#endif
+
 	/*
 	 * Enable sr-iov virtual functions if supported and configured
 	 * through the module parameter.
@@ -6954,6 +6965,10 @@ lpfc_sli4_driver_resource_setup(struct lpfc_hba *phba)
 
 	return 0;
 
+#ifdef CONFIG_SCSI_LPFC_DEBUG_FS
+out_free_hba_eq_info:
+	free_percpu(phba->sli4_hba.eq_info);
+#endif
 out_free_hba_cpu_map:
 	kfree(phba->sli4_hba.cpu_map);
 out_free_hba_eq_hdl:
@@ -6992,6 +7007,9 @@ lpfc_sli4_driver_resource_unset(struct lpfc_hba *phba)
 	struct lpfc_fcf_conn_entry *conn_entry, *next_conn_entry;
 
 	free_percpu(phba->sli4_hba.eq_info);
+#ifdef CONFIG_SCSI_LPFC_DEBUG_FS
+	free_percpu(phba->sli4_hba.c_stat);
+#endif
 
 	/* Free memory allocated for msi-x interrupt vector to CPU mapping */
 	kfree(phba->sli4_hba.cpu_map);
@@ -8320,14 +8338,6 @@ lpfc_map_topology(struct lpfc_hba *phba, struct lpfc_mbx_read_config *rd_config)
 	phba->hba_flag |= HBA_PERSISTENT_TOPO;
 	switch (phba->pcidev->device) {
 	case PCI_DEVICE_ID_LANCER_G7_FC:
-		if (tf || (pt == LINK_FLAGS_LOOP)) {
-			/* Invalid values from FW - use driver params */
-			phba->hba_flag &= ~HBA_PERSISTENT_TOPO;
-		} else {
-			/* Prism only supports PT2PT topology */
-			phba->cfg_topology = FLAGS_TOPOLOGY_MODE_PT_PT;
-		}
-		break;
 	case PCI_DEVICE_ID_LANCER_G6_FC:
 		if (!tf) {
 			phba->cfg_topology = ((pt == LINK_FLAGS_LOOP)
@@ -10449,6 +10459,8 @@ lpfc_sli4_pci_mem_unset(struct lpfc_hba *phba)
 	case LPFC_SLI_INTF_IF_TYPE_6:
 		iounmap(phba->sli4_hba.drbl_regs_memmap_p);
 		iounmap(phba->sli4_hba.conf_regs_memmap_p);
+		if (phba->sli4_hba.dpp_regs_memmap_p)
+			iounmap(phba->sli4_hba.dpp_regs_memmap_p);
 		break;
 	case LPFC_SLI_INTF_IF_TYPE_1:
 	default:
@@ -10837,6 +10849,9 @@ lpfc_cpu_affinity_check(struct lpfc_hba *phba, int vectors)
 #ifdef CONFIG_X86
 	struct cpuinfo_x86 *cpuinfo;
 #endif
+#ifdef CONFIG_SCSI_LPFC_DEBUG_FS
+	struct lpfc_hdwq_stat *c_stat;
+#endif
 
 	max_phys_id = 0;
 	min_phys_id = LPFC_VECTOR_MAP_EMPTY;
@@ -11088,10 +11103,17 @@ found_any:
 	idx = 0;
 	for_each_possible_cpu(cpu) {
 		cpup = &phba->sli4_hba.cpu_map[cpu];
+#ifdef CONFIG_SCSI_LPFC_DEBUG_FS
+		c_stat = per_cpu_ptr(phba->sli4_hba.c_stat, cpu);
+		c_stat->hdwq_no = cpup->hdwq;
+#endif
 		if (cpup->hdwq != LPFC_VECTOR_MAP_EMPTY)
 			continue;
 
 		cpup->hdwq = idx++ % phba->cfg_hdw_queue;
+#ifdef CONFIG_SCSI_LPFC_DEBUG_FS
+		c_stat->hdwq_no = cpup->hdwq;
+#endif
 		lpfc_printf_log(phba, KERN_INFO, LOG_INIT,
 				"3340 Set Affinity: not present "
 				"CPU %d hdwq %d\n",
@@ -11181,11 +11203,9 @@ static void lpfc_cpuhp_add(struct lpfc_hba *phba)
 
 	rcu_read_lock();
 
-	if (!list_empty(&phba->poll_list)) {
-		timer_setup(&phba->cpuhp_poll_timer, lpfc_sli4_poll_hbtimer, 0);
+	if (!list_empty(&phba->poll_list))
 		mod_timer(&phba->cpuhp_poll_timer,
 			  jiffies + msecs_to_jiffies(LPFC_POLL_HB));
-	}
 
 	rcu_read_unlock();
 
@@ -13151,6 +13171,7 @@ lpfc_pci_probe_one_s4(struct pci_dev *pdev, const struct pci_device_id *pid)
 	lpfc_sli4_ras_setup(phba);
 
 	INIT_LIST_HEAD(&phba->poll_list);
+	timer_setup(&phba->cpuhp_poll_timer, lpfc_sli4_poll_hbtimer, 0);
 	cpuhp_state_add_instance_nocalls(lpfc_cpuhp_state, &phba->cpuhp);
 
 	return 0;

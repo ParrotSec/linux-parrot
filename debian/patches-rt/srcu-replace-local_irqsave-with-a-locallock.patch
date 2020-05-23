@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 12 Oct 2017 18:37:12 +0200
 Subject: [PATCH] srcu: replace local_irqsave() with a locallock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 There are two instances which disable interrupts in order to become a
 stable this_cpu_ptr() pointer. The restore part is coupled with
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #include "rcu.h"
  #include "rcu_segcblist.h"
-@@ -735,6 +736,7 @@
+@@ -735,6 +736,7 @@ static void srcu_flip(struct srcu_struct
  	smp_mb(); /* D */  /* Pairs with C. */
  }
  
@@ -32,7 +32,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * If SRCU is likely idle, return true, otherwise return false.
   *
-@@ -765,13 +767,13 @@
+@@ -765,13 +767,13 @@ static bool srcu_might_be_idle(struct sr
  	unsigned long tlast;
  
  	/* If the local srcu_data structure has callbacks, not idle.  */
@@ -49,7 +49,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * No local callbacks, so probabalistically probe global state.
-@@ -851,7 +853,7 @@
+@@ -851,7 +853,7 @@ static void __call_srcu(struct srcu_stru
  	}
  	rhp->func = func;
  	idx = srcu_read_lock(ssp);
@@ -57,8 +57,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	local_lock_irqsave(sp_llock, flags);
  	sdp = this_cpu_ptr(ssp->sda);
  	spin_lock_rcu_node(sdp);
- 	rcu_segcblist_enqueue(&sdp->srcu_cblist, rhp, false);
-@@ -867,7 +869,8 @@
+ 	rcu_segcblist_enqueue(&sdp->srcu_cblist, rhp);
+@@ -867,7 +869,8 @@ static void __call_srcu(struct srcu_stru
  		sdp->srcu_gp_seq_needed_exp = s;
  		needexp = true;
  	}

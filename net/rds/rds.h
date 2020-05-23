@@ -40,7 +40,6 @@
 #ifdef ATOMIC64_INIT
 #define KERNEL_HAS_ATOMIC64
 #endif
-
 #ifdef RDS_DEBUG
 #define rdsdebug(fmt, args...) pr_debug("%s(): " fmt, __func__ , ##args)
 #else
@@ -478,6 +477,9 @@ struct rds_message {
 			struct rds_notifier	*op_notifier;
 
 			struct rds_mr		*op_rdma_mr;
+
+			u64			op_odp_addr;
+			struct rds_mr		*op_odp_mr;
 		} rdma;
 		struct rm_data_op {
 			unsigned int		op_active:1;
@@ -573,7 +575,8 @@ struct rds_transport {
 	void (*exit)(void);
 	void *(*get_mr)(struct scatterlist *sg, unsigned long nr_sg,
 			struct rds_sock *rs, u32 *key_ret,
-			struct rds_connection *conn);
+			struct rds_connection *conn,
+			u64 start, u64 length, int need_odp);
 	void (*sync_mr)(void *trans_private, int direction);
 	void (*free_mr)(void *trans_private, int invalidate);
 	void (*flush_mrs)(void);
@@ -849,8 +852,7 @@ rds_conn_connecting(struct rds_connection *conn)
 
 /* message.c */
 struct rds_message *rds_message_alloc(unsigned int nents, gfp_t gfp);
-struct scatterlist *rds_message_alloc_sgs(struct rds_message *rm, int nents,
-					  int *ret);
+struct scatterlist *rds_message_alloc_sgs(struct rds_message *rm, int nents);
 int rds_message_copy_from_user(struct rds_message *rm, struct iov_iter *from,
 			       bool zcopy);
 struct rds_message *rds_message_map_pages(unsigned long *page_addrs, unsigned int total_len);
@@ -955,6 +957,12 @@ static inline bool rds_destroy_pending(struct rds_connection *conn)
 	return !check_net(rds_conn_net(conn)) ||
 	       (conn->c_trans->t_unloading && conn->c_trans->t_unloading(conn));
 }
+
+enum {
+	ODP_NOT_NEEDED,
+	ODP_ZEROBASED,
+	ODP_VIRTUAL
+};
 
 /* stats.c */
 DECLARE_PER_CPU_SHARED_ALIGNED(struct rds_statistics, rds_stats);

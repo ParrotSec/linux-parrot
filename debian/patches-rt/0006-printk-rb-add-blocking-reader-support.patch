@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:44 +0100
 Subject: [PATCH 06/25] printk-rb: add blocking reader support
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Add a blocking read function for readers. An irq_work function is
 used to signal the wait queue so that write notification can
@@ -49,7 +49,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +}									\
 +static struct irq_work _##name##_wake_work = {				\
 +	.func = _##name##_wake_work_func,				\
-+	.flags = IRQ_WORK_LAZY,						\
++	.flags = ATOMIC_INIT(IRQ_WORK_LAZY),				\
 +};									\
  static struct printk_ringbuffer name = {				\
  	.buffer = &_##name##_buffer[0],					\

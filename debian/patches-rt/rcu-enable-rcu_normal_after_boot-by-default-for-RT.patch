@@ -1,7 +1,7 @@
 From: Julia Cartwright <julia@ni.com>
 Date: Wed, 12 Oct 2016 11:21:14 -0500
 Subject: [PATCH] rcu: enable rcu_normal_after_boot by default for RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 The forcing of an expedited grace period is an expensive and very
 RT-application unfriendly operation, as it forcibly preempts all running
@@ -20,9 +20,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/rcu/update.c
 +++ b/kernel/rcu/update.c
-@@ -55,8 +55,10 @@ extern int rcu_expedited; /* from sysctl
+@@ -54,8 +54,10 @@
+ #ifndef CONFIG_TINY_RCU
  module_param(rcu_expedited, int, 0);
- extern int rcu_normal; /* from sysctl */
  module_param(rcu_normal, int, 0);
 -static int rcu_normal_after_boot;
 +static int rcu_normal_after_boot = IS_ENABLED(CONFIG_PREEMPT_RT);

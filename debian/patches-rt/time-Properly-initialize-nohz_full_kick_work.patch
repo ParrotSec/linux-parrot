@@ -1,0 +1,25 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 16 Apr 2020 11:37:51 +0200
+Subject: [PATCH] time: Properly initialize nohz_full_kick_work
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+
+The ->flags member is of atomic_t type, use the proper initialisation
+method.
+
+Reported-by: kbuild test robot <lkp@intel.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/time/tick-sched.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/kernel/time/tick-sched.c
++++ b/kernel/time/tick-sched.c
+@@ -245,7 +245,7 @@ static void nohz_full_kick_func(struct i
+ 
+ static DEFINE_PER_CPU(struct irq_work, nohz_full_kick_work) = {
+ 	.func = nohz_full_kick_func,
+-	.flags = IRQ_WORK_HARD_IRQ,
++	.flags = ATOMIC_INIT(IRQ_WORK_HARD_IRQ),
+ };
+ 
+ /*

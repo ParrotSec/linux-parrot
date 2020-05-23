@@ -1,4 +1,4 @@
-#debian/gitignore.patch # Kali: we have that in the git repo already
+debian/gitignore.patch
 
 # Disable features broken by exclusion of upstream files
 debian/dfsg/arch-powerpc-platforms-8xx-ucode-disable.patch
@@ -22,10 +22,6 @@ debian/wireless-add-debian-wireless-regdb-certificates.patch
 debian/export-symbols-needed-by-android-drivers.patch
 debian/android-enable-building-ashmem-and-binder-as-modules.patch
 
-# Parrot patches
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
-
 # Fixes/improvements to firmware loading
 features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
 debian/iwlwifi-do-not-request-unreleased-firmware.patch
@@ -33,6 +29,10 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
+
+# Parrot patches
+features/all/wifi-injection.patch
+features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Patches from aufs5 repository, imported with debian/bin/genpatch-aufs.
 # These are only the changes needed to allow aufs to be built out-of-tree.
@@ -83,6 +83,8 @@ features/x86/x86-make-x32-syscall-support-conditional.patch
 features/mips/0001-MIPS-octeon-remove-typedef-declaration-for-cvmx_wqe.patch
 features/mips/0002-MIPS-octeon-remove-typedef-declaration-for-cvmx_help.patch
 features/mips/0003-MIPS-octeon-remove-typedef-declaration-for-cvmx_pko_.patch
+features/mips/revert-staging-octeon-usb-delete-the-octeon-usb-host.patch
+features/mips/revert-staging-octeon-delete-driver.patch
 features/mips/0004-Revert-staging-octeon-Mark-Ethernet-driver-as-BROKEN.patch
 features/arm64/arm64-dts-rockchip-Add-initial-support-for-Pinebook-.patch
 
@@ -98,7 +100,6 @@ bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
 # Lockdown missing pieces
 features/all/lockdown/efi-add-an-efi_secure_boot-flag-to-indicate-secure-b.patch
 features/all/lockdown/efi-lock-down-the-kernel-if-booted-in-secure-boot-mo.patch
-features/all/lockdown/enable-cold-boot-attack-mitigation.patch
 features/all/lockdown/mtd-disable-slram-and-phram-when-locked-down.patch
 features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 # until the "kernel_lockdown.7" manual page exists
@@ -112,17 +113,8 @@ features/all/db-mok-keyring/0004-MODSIGN-check-the-attributes-of-db-and-mok.patc
 features/all/db-mok-keyring/modsign-make-shash-allocation-failure-fatal.patch
 features/all/db-mok-keyring/KEYS-Make-use-of-platform-keyring-for-module-signature.patch
 
-# WireGuard and related crypto backport
-features/all/wireguard/0001-crypto-poly1305-add-new-32-and-64-bit-generic-versio.patch
-features/all/wireguard/0002-crypto-x86-poly1305-import-unmodified-cryptogams-imp.patch
-features/all/wireguard/0003-crypto-x86-poly1305-wire-up-faster-implementations-f.patch
-features/all/wireguard/0004-crypto-arm-arm64-mips-poly1305-remove-redundant-non-.patch
-features/all/wireguard/0006-crypto-Kconfig-allow-tests-to-be-disabled-when-manag.patch
-features/all/wireguard/0007-crypto-x86-curve25519-support-assemblers-with-no-adx.patch
+# WireGuard crypto backport
 features/all/wireguard/0008-crypto-x86-curve25519-replace-with-formally-verified.patch
-features/all/wireguard/0010-icmp-introduce-helper-for-nat-d-source-address-in-ne.patch
-features/all/wireguard/0011-net-WireGuard-secure-network-tunnel.patch
-features/all/wireguard/0012-net-fix-config_net_cls_act-n-and-config_nft_fwd_netd.patch
 
 # bcmgenet ACPI support
 features/all/bcmgenet/0001-mdio_bus-Add-generic-mdio_find_bus.patch
@@ -135,6 +127,7 @@ features/all/bcmgenet/0006-net-bcmgenet-reduce-severity-of-missing-clock-warnin.
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 debian/ntfs-mark-it-as-broken.patch
+bugfix/all/xfs-add-agf-freeblocks-verify-in-xfs_agf_verify.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch

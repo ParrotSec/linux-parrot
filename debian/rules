@@ -7,8 +7,6 @@ VERSION_UPSTREAM := $(shell echo "$(VERSION)" | sed -e 's,-[^-]*$$,,')
 VERSION_BINNMU := $(shell echo "$(VERSION)" | sed -rne 's,.*\+b([0-9]+)$$,\1,p')
 VERSION_SOURCE := $(patsubst %+b$(VERSION_BINNMU),%,$(VERSION))
 
-include /usr/share/dpkg/architecture.mk
-
 include debian/rules.defs
 
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))

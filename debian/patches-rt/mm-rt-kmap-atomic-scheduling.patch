@@ -1,7 +1,7 @@
 Subject: mm, rt: kmap_atomic scheduling
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Thu, 28 Jul 2011 10:43:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 In fact, with migrate_disable() existing one could play games with
 kmap_atomic. You could save/restore the kmap_atomic slots on context
@@ -26,8 +26,8 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  include/linux/highmem.h      |   31 +++++++++++++++++++++++++------
  include/linux/sched.h        |    7 +++++++
  include/linux/uaccess.h      |    2 ++
- mm/highmem.c                 |    6 +++---
- 7 files changed, 87 insertions(+), 13 deletions(-)
+ mm/highmem.c                 |    5 +++--
+ 7 files changed, 87 insertions(+), 12 deletions(-)
 
 --- a/arch/x86/kernel/process_32.c
 +++ b/arch/x86/kernel/process_32.c
@@ -39,7 +39,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  #include <asm/pgtable.h>
  #include <asm/ldt.h>
-@@ -196,6 +197,35 @@ start_thread(struct pt_regs *regs, unsig
+@@ -127,6 +128,35 @@ start_thread(struct pt_regs *regs, unsig
  }
  EXPORT_SYMBOL_GPL(start_thread);
  
@@ -75,7 +75,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  /*
   *	switch_to(x,y) should switch tasks from x to y.
-@@ -266,6 +296,8 @@ EXPORT_SYMBOL_GPL(start_thread);
+@@ -188,6 +218,8 @@ EXPORT_SYMBOL_GPL(start_thread);
  
  	switch_to_extra(prev_p, next_p);
  
@@ -248,7 +248,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
-@@ -1270,6 +1271,12 @@ struct task_struct {
+@@ -1283,6 +1284,12 @@ struct task_struct {
  	unsigned int			sequential_io;
  	unsigned int			sequential_io_avg;
  #endif
@@ -281,11 +281,10 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  /*
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
-@@ -30,9 +30,11 @@
- #include <linux/kgdb.h>
+@@ -31,8 +31,11 @@
  #include <asm/tlbflush.h>
+ #include <linux/vmalloc.h>
  
--
 +#ifndef CONFIG_PREEMPT_RT
  #if defined(CONFIG_HIGHMEM) || defined(CONFIG_X86_32)
  DEFINE_PER_CPU(int, __kmap_atomic_idx);
@@ -294,7 +293,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  #endif
  
  /*
-@@ -108,8 +110,6 @@ static inline wait_queue_head_t *get_pkm
+@@ -108,8 +111,6 @@ static inline wait_queue_head_t *get_pkm
  atomic_long_t _totalhigh_pages __read_mostly;
  EXPORT_SYMBOL(_totalhigh_pages);
  

@@ -4,7 +4,7 @@ Subject: [PATCH] x86: Disable HAVE_ARCH_JUMP_LABEL
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 __text_poke() does:
 |        local_irq_save(flags);
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -132,8 +132,8 @@ config X86
+@@ -134,8 +134,8 @@ config X86
  	select HAVE_ALIGNED_STRUCT_PAGE		if SLUB
  	select HAVE_ARCH_AUDITSYSCALL
  	select HAVE_ARCH_HUGE_VMAP		if X86_64 || X86_PAE
@@ -29,5 +29,5 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	select HAVE_ARCH_JUMP_LABEL		if !PREEMPT_RT
 +	select HAVE_ARCH_JUMP_LABEL_RELATIVE	if !PREEMPT_RT
  	select HAVE_ARCH_KASAN			if X86_64
+ 	select HAVE_ARCH_KASAN_VMALLOC		if X86_64
  	select HAVE_ARCH_KGDB
- 	select HAVE_ARCH_MMAP_RND_BITS		if MMU

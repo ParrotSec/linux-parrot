@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:30:02 +0100
 Subject: [PATCH 24/25] printk: implement kmsg_dump
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Since printk messages are now logged to a new ring buffer, update
 the kmsg_dump functions to pull the messages from there.
@@ -95,7 +95,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static char *log_text(const struct printk_log *msg) { return NULL; }
  static char *log_dict(const struct printk_log *msg) { return NULL; }
  static struct printk_log *log_from_idx(u32 idx) { return NULL; }
-@@ -3032,7 +2998,6 @@ module_param_named(always_kmsg_dump, alw
+@@ -3033,7 +2999,6 @@ module_param_named(always_kmsg_dump, alw
  void kmsg_dump(enum kmsg_dump_reason reason)
  {
  	struct kmsg_dumper *dumper;
@@ -103,7 +103,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if ((reason > KMSG_DUMP_OOPS) && !always_kmsg_dump)
  		return;
-@@ -3045,12 +3010,7 @@ void kmsg_dump(enum kmsg_dump_reason rea
+@@ -3046,12 +3011,7 @@ void kmsg_dump(enum kmsg_dump_reason rea
  		/* initialize iterator with data about the stored records */
  		dumper->active = true;
  
@@ -117,7 +117,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/* invoke dumper which will iterate over records */
  		dumper->dump(dumper, reason);
-@@ -3083,33 +3043,67 @@ void kmsg_dump(enum kmsg_dump_reason rea
+@@ -3084,33 +3044,67 @@ void kmsg_dump(enum kmsg_dump_reason rea
  bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
  			       char *line, size_t size, size_t *len)
  {
@@ -200,7 +200,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -3132,12 +3126,11 @@ bool kmsg_dump_get_line_nolock(struct km
+@@ -3133,12 +3127,11 @@ bool kmsg_dump_get_line_nolock(struct km
  bool kmsg_dump_get_line(struct kmsg_dumper *dumper, bool syslog,
  			char *line, size_t size, size_t *len)
  {
@@ -215,7 +215,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return ret;
  }
-@@ -3165,74 +3158,101 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
+@@ -3166,74 +3159,101 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
  bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  			  char *buf, size_t size, size_t *len)
  {
@@ -369,7 +369,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
  
-@@ -3248,10 +3268,8 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
+@@ -3249,10 +3269,8 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
   */
  void kmsg_dump_rewind_nolock(struct kmsg_dumper *dumper)
  {
@@ -382,7 +382,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -3264,11 +3282,9 @@ void kmsg_dump_rewind_nolock(struct kmsg
+@@ -3265,11 +3283,9 @@ void kmsg_dump_rewind_nolock(struct kmsg
   */
  void kmsg_dump_rewind(struct kmsg_dumper *dumper)
  {

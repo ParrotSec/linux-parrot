@@ -145,7 +145,9 @@ CONFIG_USB_GADGET=y
 ##
 ## file: drivers/usb/gadget/legacy/Kconfig
 ##
+## choice: USB Gadget precomposed configurations
 CONFIG_USB_ETH_EEM=y
+## end choice
 
 ##
 ## file: drivers/usb/phy/Kconfig

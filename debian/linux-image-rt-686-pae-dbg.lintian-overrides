@@ -1,0 +1,2 @@
+linux-image-rt-686-pae-dbg: wrong-section-according-to-package-name linux-image-rt-686-pae-dbg => debug
+linux-image-rt-686-pae-dbg: debug-package-should-be-priority-extra linux-image-rt-686-pae-dbg

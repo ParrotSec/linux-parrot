@@ -1,7 +1,7 @@
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Mon, 30 Sep 2019 18:15:44 +0200
 Subject: [PATCH] locking/rtmutex: Clean ->pi_blocked_on in the error case
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 The function rt_mutex_wait_proxy_lock() cleans ->pi_blocked_on in case
 of failure (timeout, signal). The same cleanup is required in
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
-@@ -2137,6 +2137,26 @@ void rt_mutex_proxy_unlock(struct rt_mut
+@@ -2145,6 +2145,26 @@ void rt_mutex_proxy_unlock(struct rt_mut
  	rt_mutex_set_owner(lock, NULL);
  }
  
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /**
   * __rt_mutex_start_proxy_lock() - Start lock acquisition for another task
   * @lock:		the rt_mutex to take
-@@ -2209,6 +2229,9 @@ int __rt_mutex_start_proxy_lock(struct r
+@@ -2217,6 +2237,9 @@ int __rt_mutex_start_proxy_lock(struct r
  		ret = 0;
  	}
  
@@ -56,7 +56,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	debug_rt_mutex_print_deadlock(waiter);
  
  	return ret;
-@@ -2289,7 +2312,6 @@ int rt_mutex_wait_proxy_lock(struct rt_m
+@@ -2297,7 +2320,6 @@ int rt_mutex_wait_proxy_lock(struct rt_m
  			       struct hrtimer_sleeper *to,
  			       struct rt_mutex_waiter *waiter)
  {
@@ -64,7 +64,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	int ret;
  
  	raw_spin_lock_irq(&lock->wait_lock);
-@@ -2301,23 +2323,8 @@ int rt_mutex_wait_proxy_lock(struct rt_m
+@@ -2309,23 +2331,8 @@ int rt_mutex_wait_proxy_lock(struct rt_m
  	 * have to fix that up.
  	 */
  	fixup_rt_mutex_waiters(lock);

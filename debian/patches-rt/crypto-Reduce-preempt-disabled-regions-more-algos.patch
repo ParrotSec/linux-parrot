@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 21 Feb 2014 17:24:04 +0100
 Subject: crypto: Reduce preempt disabled regions, more algos
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Don Estabrook reported
 | kernel: WARNING: CPU: 2 PID: 858 at kernel/sched/core.c:2428 migrate_disable+0xed/0x100()
@@ -173,7 +173,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/* Start of the last block. */
  		src += nbytes / bsize - 1;
  		dst += nbytes / bsize - 1;
-@@ -147,10 +146,10 @@ int glue_cbc_decrypt_req_128bit(const st
+@@ -148,10 +147,10 @@ int glue_cbc_decrypt_req_128bit(const st
  done:
  		u128_xor(dst, dst, (u128 *)walk.iv);
  		*(u128 *)walk.iv = last_iv;
@@ -185,7 +185,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return err;
  }
  EXPORT_SYMBOL_GPL(glue_cbc_decrypt_req_128bit);
-@@ -161,7 +160,7 @@ int glue_ctr_req_128bit(const struct com
+@@ -162,7 +161,7 @@ int glue_ctr_req_128bit(const struct com
  	void *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
  	const unsigned int bsize = 128 / 8;
  	struct skcipher_walk walk;
@@ -194,7 +194,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	unsigned int nbytes;
  	int err;
  
-@@ -175,7 +174,7 @@ int glue_ctr_req_128bit(const struct com
+@@ -176,7 +175,7 @@ int glue_ctr_req_128bit(const struct com
  		le128 ctrblk;
  
  		fpu_enabled = glue_fpu_begin(bsize, gctx->fpu_blocks_limit,
@@ -203,7 +203,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		be128_to_le128(&ctrblk, (be128 *)walk.iv);
  
-@@ -199,11 +198,10 @@ int glue_ctr_req_128bit(const struct com
+@@ -202,11 +201,10 @@ int glue_ctr_req_128bit(const struct com
  		}
  
  		le128_to_be128((be128 *)walk.iv, &ctrblk);
@@ -216,7 +216,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (nbytes) {
  		le128 ctrblk;
  		u128 tmp;
-@@ -301,8 +299,14 @@ int glue_xts_req_128bit(const struct com
+@@ -306,8 +304,14 @@ int glue_xts_req_128bit(const struct com
  	tweak_fn(tweak_ctx, walk.iv, walk.iv);
  
  	while (nbytes) {

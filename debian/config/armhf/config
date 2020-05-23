@@ -1417,7 +1417,9 @@ CONFIG_USB_GADGET=m
 ##
 ## file: drivers/usb/gadget/legacy/Kconfig
 ##
+## choice: USB Gadget precomposed configurations
 CONFIG_USB_G_NOKIA=m
+## end choice
 
 ##
 ## file: drivers/usb/gadget/udc/aspeed-vhub/Kconfig

@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:30:13 -0500
 Subject: mm/vmstat: Protect per cpu variables with preempt disable on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Disable preemption on -RT for the vmstat code. On vanila the code runs in
 IRQ-off regions while on -RT it is not. "preempt_disable" ensures that the
@@ -17,7 +17,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/vmstat.h
 +++ b/include/linux/vmstat.h
-@@ -54,7 +54,9 @@ DECLARE_PER_CPU(struct vm_event_state, v
+@@ -60,7 +60,9 @@ DECLARE_PER_CPU(struct vm_event_state, v
   */
  static inline void __count_vm_event(enum vm_event_item item)
  {
@@ -27,7 +27,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  static inline void count_vm_event(enum vm_event_item item)
-@@ -64,7 +66,9 @@ static inline void count_vm_event(enum v
+@@ -70,7 +72,9 @@ static inline void count_vm_event(enum v
  
  static inline void __count_vm_events(enum vm_event_item item, long delta)
  {

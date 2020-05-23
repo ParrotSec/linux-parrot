@@ -28,11 +28,10 @@ https://lists.ubuntu.com/archives/kernel-team/2014-February/038091.html
 https://lwn.net/Articles/671641/
 
 Signed-off-by: Nicolas Schier <nicolas@fjasle.eu>
-
-Index: debian-kernel/fs/overlayfs/super.c
-===================================================================
---- debian-kernel.orig/fs/overlayfs/super.c
-+++ debian-kernel/fs/overlayfs/super.c
+[bwh: Forward-ported to 5.6: adjust context]
+---
+--- a/fs/overlayfs/super.c
++++ b/fs/overlayfs/super.c
 @@ -53,6 +53,11 @@ module_param_named(xino_auto, ovl_xino_a
  MODULE_PARM_DESC(xino_auto,
  		 "Auto enable xino feature");
@@ -45,7 +44,7 @@ Index: debian-kernel/fs/overlayfs/super.c
  static void ovl_entry_stack_free(struct ovl_entry *oe)
  {
  	unsigned int i;
-@@ -1718,6 +1723,11 @@ static int __init ovl_init(void)
+@@ -1777,6 +1782,11 @@ static int __init ovl_init(void)
  	if (ovl_inode_cachep == NULL)
  		return -ENOMEM;
  
@@ -54,6 +53,6 @@ Index: debian-kernel/fs/overlayfs/super.c
 +		ovl_fs_type.fs_flags |= FS_USERNS_MOUNT;
 +	}
 +
- 	err = register_filesystem(&ovl_fs_type);
- 	if (err)
- 		kmem_cache_destroy(ovl_inode_cachep);
+ 	err = ovl_aio_request_cache_init();
+ 	if (!err) {
+ 		err = register_filesystem(&ovl_fs_type);

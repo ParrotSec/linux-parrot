@@ -389,12 +389,6 @@ CONFIG_COMEDI_PCMUIO=m
 CONFIG_COMEDI_MULTIQ3=m
 
 ##
-## file: drivers/staging/isdn/avm/Kconfig
-##
-CONFIG_ISDN_DRV_AVMB1_B1ISA=m
-CONFIG_ISDN_DRV_AVMB1_T1ISA=m
-
-##
 ## file: drivers/staging/olpc_dcon/Kconfig
 ##
 CONFIG_FB_OLPC_DCON=m

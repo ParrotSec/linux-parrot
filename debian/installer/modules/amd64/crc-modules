@@ -1,1 +1,2 @@
 #include <crc-modules>
+crc32_pclmul

@@ -1,7 +1,7 @@
 Subject: timekeeping: Split jiffies seqlock
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 14 Feb 2013 22:36:59 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Replace jiffies_lock seqlock with a simple seqcounter and a rawlock so
 it can be taken in atomic context on RT.
@@ -41,7 +41,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  EXPORT_SYMBOL(get_jiffies_64);
 --- a/kernel/time/tick-common.c
 +++ b/kernel/time/tick-common.c
-@@ -83,13 +83,15 @@ int tick_is_oneshot_available(void)
+@@ -84,13 +84,15 @@ int tick_is_oneshot_available(void)
  static void tick_periodic(int cpu)
  {
  	if (tick_do_timer_cpu == cpu) {
@@ -59,7 +59,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		update_wall_time();
  	}
  
-@@ -161,9 +163,9 @@ void tick_setup_periodic(struct clock_ev
+@@ -162,9 +164,9 @@ void tick_setup_periodic(struct clock_ev
  		ktime_t next;
  
  		do {
@@ -115,7 +115,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	return period;
  }
  
-@@ -665,10 +670,10 @@ static ktime_t tick_nohz_next_event(stru
+@@ -676,10 +681,10 @@ static ktime_t tick_nohz_next_event(stru
  
  	/* Read jiffies and the time when jiffies were updated last */
  	do {

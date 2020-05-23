@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:30:03 +0100
 Subject: [PATCH 25/25] printk: remove unused code
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Code relating to the safe context and anything dealing with the
 previous log buffer implementation is no longer in use. Remove it.
@@ -293,7 +293,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -
 -static DEFINE_PER_CPU(struct irq_work, wake_up_klogd_work) = {
 -	.func = wake_up_klogd_work_func,
--	.flags = IRQ_WORK_LAZY,
+-	.flags = ATOMIC_INIT(IRQ_WORK_LAZY),
 -};
 -
 -void wake_up_klogd(void)
@@ -309,7 +309,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static int printk_kthread_func(void *data)
  {
  	struct prb_iterator iter;
-@@ -2860,22 +2742,9 @@ static int __init init_printk_kthread(vo
+@@ -2861,22 +2743,9 @@ static int __init init_printk_kthread(vo
  }
  late_initcall(init_printk_kthread);
  

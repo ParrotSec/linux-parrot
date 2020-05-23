@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Sun, 17 Feb 2019 03:11:20 +0100
 Subject: [PATCH] printk: only allow kernel to emergency message
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Emergency messages exist as a mechanism for the kernel to
 communicate critical information to users. It is not meant for
@@ -55,10 +55,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if ((lflags & LOG_CONT) || !(lflags & LOG_NEWLINE)) {
  		 cont_add(ctx, cpu, caller_id, facility, level, lflags, text, text_len);
-@@ -2715,8 +2720,8 @@ static int printk_kthread_func(void *dat
- 			    &len, printk_time);
+@@ -2716,8 +2721,8 @@ static int printk_kthread_func(void *dat
  
  		console_lock();
+ 		console_may_schedule = 0;
 -		call_console_drivers(master_seq, ext_text,
 -				     ext_len, text, len, msg->level);
 +		call_console_drivers(master_seq, ext_text, ext_len, text, len,

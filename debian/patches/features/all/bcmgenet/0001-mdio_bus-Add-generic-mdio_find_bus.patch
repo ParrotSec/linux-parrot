@@ -32,8 +32,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 --- a/drivers/net/phy/mdio_bus.c
 +++ b/drivers/net/phy/mdio_bus.c
-@@ -260,6 +260,23 @@ static struct class mdio_bus_class = {
- 	.dev_release	= mdiobus_release,
+@@ -462,6 +462,23 @@ static struct class mdio_bus_class = {
+ 	.dev_groups	= mdio_bus_groups,
  };
  
 +/**
@@ -58,7 +58,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
   * of_mdio_find_bus - Given an mii_bus node, find the mii_bus.
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
-@@ -273,6 +273,7 @@ static inline struct mii_bus *devm_mdiob
+@@ -289,6 +289,7 @@ static inline struct mii_bus *devm_mdiob
  	return devm_mdiobus_alloc_size(dev, 0);
  }
  

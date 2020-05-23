@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 3 Dec 2019 09:14:57 +0100
 Subject: [PATCH] printk: hack out emergency loglevel usage
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Instead of using an emergency loglevel to determine if atomic
 messages should be printed, use oops_in_progress. This conforms
@@ -33,7 +33,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			if (con->printk_seq < seq)
  				con->printk_seq = seq;
  			continue;
-@@ -3171,7 +3164,7 @@ static bool console_can_emergency(int le
+@@ -3172,7 +3165,7 @@ static bool console_can_emergency(int le
  	for_each_console(con) {
  		if (!(con->flags & CON_ENABLED))
  			continue;
@@ -42,7 +42,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			return true;
  		if (con->write && (con->flags & CON_BOOT))
  			return true;
-@@ -3187,7 +3180,7 @@ static void call_emergency_console_drive
+@@ -3188,7 +3181,7 @@ static void call_emergency_console_drive
  	for_each_console(con) {
  		if (!(con->flags & CON_ENABLED))
  			continue;

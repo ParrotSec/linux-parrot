@@ -1,7 +1,7 @@
 Subject: rt: Add local irq locks
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 20 Jun 2011 09:03:47 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Introduce locallock. For !RT this maps to preempt_disable()/
 local_irq_disable() so there is not much that changes. For RT this will
@@ -13,18 +13,19 @@ is held and the owner is preempted.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- include/linux/locallock.h |  281 ++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/percpu.h    |   29 ++++
- 2 files changed, 310 insertions(+)
+ include/linux/locallock.h |  257 ++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/percpu.h    |   29 +++++
+ 2 files changed, 286 insertions(+)
 
 --- /dev/null
 +++ b/include/linux/locallock.h
-@@ -0,0 +1,281 @@
+@@ -0,0 +1,257 @@
 +#ifndef _LINUX_LOCALLOCK_H
 +#define _LINUX_LOCALLOCK_H
 +
 +#include <linux/percpu.h>
 +#include <linux/spinlock.h>
++#include <asm/current.h>
 +
 +#ifdef CONFIG_PREEMPT_RT
 +
@@ -72,9 +73,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +#define local_lock(lvar)					\
 +	do { __local_lock(&get_local_var(lvar)); } while (0)
 +
-+#define local_lock_on(lvar, cpu)				\
-+	do { __local_lock(&per_cpu(lvar, cpu)); } while (0)
-+
 +static inline int __local_trylock(struct local_irq_lock *lv)
 +{
 +	if (lv->owner != current && spin_trylock(&lv->lock)) {
@@ -116,9 +114,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +		put_local_var(lvar);				\
 +	} while (0)
 +
-+#define local_unlock_on(lvar, cpu)                       \
-+	do { __local_unlock(&per_cpu(lvar, cpu)); } while (0)
-+
 +static inline void __local_lock_irq(struct local_irq_lock *lv)
 +{
 +	spin_lock_irqsave(&lv->lock, lv->flags);
@@ -130,9 +125,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +
 +#define local_lock_irq(lvar)						\
 +	do { __local_lock_irq(&get_local_var(lvar)); } while (0)
-+
-+#define local_lock_irq_on(lvar, cpu)					\
-+	do { __local_lock_irq(&per_cpu(lvar, cpu)); } while (0)
 +
 +static inline void __local_unlock_irq(struct local_irq_lock *lv)
 +{
@@ -147,11 +139,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +	do {								\
 +		__local_unlock_irq(this_cpu_ptr(&lvar));		\
 +		put_local_var(lvar);					\
-+	} while (0)
-+
-+#define local_unlock_irq_on(lvar, cpu)					\
-+	do {								\
-+		__local_unlock_irq(&per_cpu(lvar, cpu));		\
 +	} while (0)
 +
 +static inline int __local_lock_irqsave(struct local_irq_lock *lv)
@@ -172,12 +159,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +		_flags = __this_cpu_read(lvar.flags);			\
 +	} while (0)
 +
-+#define local_lock_irqsave_on(lvar, _flags, cpu)			\
-+	do {								\
-+		__local_lock_irqsave(&per_cpu(lvar, cpu));		\
-+		_flags = per_cpu(lvar, cpu).flags;			\
-+	} while (0)
-+
 +static inline int __local_unlock_irqrestore(struct local_irq_lock *lv,
 +					    unsigned long flags)
 +{
@@ -195,11 +176,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +	do {								\
 +		if (__local_unlock_irqrestore(this_cpu_ptr(&lvar), flags)) \
 +			put_local_var(lvar);				\
-+	} while (0)
-+
-+#define local_unlock_irqrestore_on(lvar, flags, cpu)			\
-+	do {								\
-+		__local_unlock_irqrestore(&per_cpu(lvar, cpu), flags);	\
 +	} while (0)
 +
 +#define local_spin_trylock_irq(lvar, lock)				\

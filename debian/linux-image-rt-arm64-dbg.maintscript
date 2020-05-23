@@ -1,0 +1,1 @@
+dir_to_symlink /usr/share/doc/linux-image-rt-arm64-dbg linux-image-5.6.0-2parrot1-rt-arm64-dbg 5.2+107 linux-image-rt-arm64-dbg

@@ -223,7 +223,6 @@ CONFIG_I2C_SIS96X=m
 CONFIG_I2C_VIA=m
 CONFIG_I2C_VIAPRO=m
 CONFIG_I2C_PARPORT=m
-CONFIG_I2C_PARPORT_LIGHT=m
 CONFIG_I2C_PCA_ISA=m
 CONFIG_SCx200_ACB=m
 
@@ -315,13 +314,6 @@ CONFIG_SERIO_RAW=m
 ## file: drivers/isdn/Kconfig
 ##
 CONFIG_ISDN=y
-
-##
-## file: drivers/isdn/capi/Kconfig
-##
-CONFIG_ISDN_CAPI=m
-CONFIG_ISDN_CAPI_CAPI20=m
-# CONFIG_ISDN_CAPI_MIDDLEWARE is not set
 
 ##
 ## file: drivers/media/radio/Kconfig
@@ -604,17 +596,6 @@ CONFIG_PCMCIA_SYM53C500=m
 ## file: drivers/staging/hp/Kconfig
 ##
 # CONFIG_HP100 is not set
-
-##
-## file: drivers/staging/isdn/avm/Kconfig
-##
-CONFIG_CAPI_AVM=y
-CONFIG_ISDN_DRV_AVMB1_B1PCI=m
-CONFIG_ISDN_DRV_AVMB1_B1PCIV4=y
-CONFIG_ISDN_DRV_AVMB1_B1PCMCIA=m
-CONFIG_ISDN_DRV_AVMB1_AVM_CS=m
-CONFIG_ISDN_DRV_AVMB1_T1PCI=m
-CONFIG_ISDN_DRV_AVMB1_C4=m
 
 ##
 ## file: drivers/staging/wlan-ng/Kconfig

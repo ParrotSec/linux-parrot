@@ -352,7 +352,6 @@ CONFIG_ATA_OVER_ETH=m
 CONFIG_XEN_BLKDEV_FRONTEND=m
 CONFIG_XEN_BLKDEV_BACKEND=m
 CONFIG_VIRTIO_BLK=m
-# CONFIG_VIRTIO_BLK_SCSI is not set
 CONFIG_BLK_DEV_RBD=m
 # CONFIG_BLK_DEV_RSXX is not set
 
@@ -589,8 +588,7 @@ CONFIG_EFI_VARS_PSTORE=m
 CONFIG_EFI_BOOTLOADER_CONTROL=m
 CONFIG_EFI_CAPSULE_LOADER=m
 # CONFIG_EFI_TEST is not set
-#. Until userland clears the flag on clean shutdown
-# CONFIG_RESET_ATTACK_MITIGATION is not set
+CONFIG_RESET_ATTACK_MITIGATION=y
 
 ##
 ## file: drivers/firmware/google/Kconfig
@@ -703,7 +701,6 @@ CONFIG_DRM_BOCHS=m
 ##
 ## file: drivers/gpu/drm/bridge/Kconfig
 ##
-# CONFIG_DRM_ANALOGIX_ANX78XX is not set
 # CONFIG_DRM_NXP_PTN3460 is not set
 # CONFIG_DRM_PARADE_PS8622 is not set
 
@@ -711,6 +708,11 @@ CONFIG_DRM_BOCHS=m
 ## file: drivers/gpu/drm/bridge/adv7511/Kconfig
 ##
 # CONFIG_DRM_I2C_ADV7511 is not set
+
+##
+## file: drivers/gpu/drm/bridge/analogix/Kconfig
+##
+# CONFIG_DRM_ANALOGIX_ANX78XX is not set
 
 ##
 ## file: drivers/gpu/drm/cirrus/Kconfig
@@ -960,6 +962,7 @@ CONFIG_SENSORS_ASC7621=m
 CONFIG_SENSORS_APPLESMC=m
 CONFIG_SENSORS_ASPEED=m
 CONFIG_SENSORS_ATXP1=m
+CONFIG_SENSORS_DRIVETEMP=m
 CONFIG_SENSORS_DS620=m
 CONFIG_SENSORS_I5K_AMB=m
 CONFIG_SENSORS_F71882FG=m
@@ -1774,11 +1777,6 @@ CONFIG_IOMMU_SUPPORT=y
 ## file: drivers/isdn/Kconfig
 ##
 # CONFIG_ISDN is not set
-
-##
-## file: drivers/isdn/capi/Kconfig
-##
-CONFIG_CAPI_TRACE=y
 
 ##
 ## file: drivers/isdn/hardware/mISDN/Kconfig
@@ -3588,6 +3586,11 @@ CONFIG_NET_VENDOR_WIZNET=y
 # CONFIG_WIZNET_W5300 is not set
 
 ##
+## file: drivers/net/ethernet/xscale/Kconfig
+##
+CONFIG_PTP_1588_CLOCK_IXP46X=m
+
+##
 ## file: drivers/net/fddi/Kconfig
 ##
 CONFIG_DEFXX=m
@@ -4417,7 +4420,6 @@ CONFIG_PPS_CLIENT_PARPORT=m
 ##
 CONFIG_PTP_1588_CLOCK=m
 CONFIG_PTP_1588_CLOCK_QORIQ=m
-CONFIG_PTP_1588_CLOCK_IXP46X=m
 
 ##
 ## file: drivers/pwm/Kconfig
@@ -4885,22 +4887,6 @@ CONFIG_ASHMEM=m
 # CONFIG_AD2S1210 is not set
 
 ##
-## file: drivers/staging/isdn/gigaset/Kconfig
-##
-CONFIG_ISDN_DRV_GIGASET=m
-CONFIG_GIGASET_CAPI=y
-CONFIG_GIGASET_BASE=m
-CONFIG_GIGASET_M105=m
-CONFIG_GIGASET_M101=m
-# CONFIG_GIGASET_DEBUG is not set
-
-##
-## file: drivers/staging/isdn/hysdn/Kconfig
-##
-CONFIG_HYSDN=m
-CONFIG_HYSDN_CAPI=y
-
-##
 ## file: drivers/staging/media/Kconfig
 ##
 # CONFIG_STAGING_MEDIA is not set
@@ -5234,6 +5220,7 @@ CONFIG_USB_CONFIGFS_F_PRINTER=y
 ##
 ## file: drivers/usb/gadget/legacy/Kconfig
 ##
+## choice: USB Gadget precomposed configurations
 CONFIG_USB_ETH=m
 CONFIG_USB_ETH_RNDIS=y
 CONFIG_USB_GADGETFS=m
@@ -5242,6 +5229,7 @@ CONFIG_USB_FUNCTIONFS_ETH=y
 CONFIG_USB_FUNCTIONFS_RNDIS=y
 CONFIG_USB_FUNCTIONFS_GENERIC=y
 CONFIG_USB_G_SERIAL=m
+## end choice
 
 ##
 ## file: drivers/usb/gadget/udc/Kconfig
@@ -6188,6 +6176,12 @@ CONFIG_UFS_FS=m
 # CONFIG_UFS_DEBUG is not set
 
 ##
+## file: fs/verity/Kconfig
+##
+CONFIG_FS_VERITY=y
+CONFIG_FS_VERITY_BUILTIN_SIGNATURES=y
+
+##
 ## file: fs/xfs/Kconfig
 ##
 CONFIG_XFS_FS=m
@@ -6428,6 +6422,9 @@ CONFIG_HIGH_RES_TIMERS=y
 CONFIG_FTRACE=y
 CONFIG_FUNCTION_TRACER=y
 CONFIG_FUNCTION_GRAPH_TRACER=y
+CONFIG_DYNAMIC_FTRACE=y
+# CONFIG_FUNCTION_PROFILER is not set
+CONFIG_STACK_TRACER=y
 # CONFIG_IRQSOFF_TRACER is not set
 # CONFIG_PREEMPT_TRACER is not set
 # CONFIG_SCHED_TRACER is not set
@@ -6439,18 +6436,15 @@ CONFIG_BRANCH_PROFILE_NONE=y
 # CONFIG_PROFILE_ANNOTATED_BRANCHES is not set
 # CONFIG_PROFILE_ALL_BRANCHES is not set
 ## end choice
-CONFIG_STACK_TRACER=y
 CONFIG_BLK_DEV_IO_TRACE=y
 CONFIG_KPROBE_EVENTS=y
 CONFIG_UPROBE_EVENTS=y
-CONFIG_DYNAMIC_FTRACE=y
-# CONFIG_FUNCTION_PROFILER is not set
-# CONFIG_FTRACE_STARTUP_TEST is not set
-# CONFIG_MMIOTRACE_TEST is not set
 # CONFIG_TRACEPOINT_BENCHMARK is not set
 # CONFIG_RING_BUFFER_BENCHMARK is not set
-# CONFIG_RING_BUFFER_STARTUP_TEST is not set
 # CONFIG_TRACE_EVAL_MAP_FILE is not set
+# CONFIG_FTRACE_STARTUP_TEST is not set
+# CONFIG_RING_BUFFER_STARTUP_TEST is not set
+# CONFIG_MMIOTRACE_TEST is not set
 
 ##
 ## file: lib/Kconfig
@@ -6655,11 +6649,14 @@ CONFIG_DEFERRED_STRUCT_PAGE_INIT=y
 ## file: mm/Kconfig.debug
 ##
 CONFIG_PAGE_EXTENSION=y
+# CONFIG_DEBUG_PAGEALLOC is not set
 # CONFIG_PAGE_OWNER is not set
 CONFIG_PAGE_POISONING=y
 CONFIG_PAGE_POISONING_NO_SANITY=y
 # CONFIG_PAGE_POISONING_ZERO is not set
 # CONFIG_DEBUG_PAGE_REF is not set
+# CONFIG_DEBUG_RODATA_TEST is not set
+# CONFIG_PTDUMP_DEBUGFS is not set
 
 ##
 ## file: net/Kconfig
@@ -7306,7 +7303,7 @@ CONFIG_IP_VS_PE_SIP=m
 ##
 ## file: net/netlabel/Kconfig
 ##
-# CONFIG_NETLABEL is not set
+CONFIG_NETLABEL=y
 
 ##
 ## file: net/netlink/Kconfig
