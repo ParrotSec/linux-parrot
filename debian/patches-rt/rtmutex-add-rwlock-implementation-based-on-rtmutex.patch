@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:18:06 +0200
 Subject: rtmutex: add rwlock implementation based on rtmutex
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 The implementation is bias-based, similar to the rwsem implementation.
 
@@ -548,7 +548,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +
 +void __lockfunc rt_read_unlock(rwlock_t *rwlock)
 +{
-+	rwlock_release(&rwlock->dep_map, 1, _RET_IP_);
++	rwlock_release(&rwlock->dep_map, _RET_IP_);
 +	do_read_rt_unlock(rwlock);
 +	migrate_enable();
 +}
@@ -556,7 +556,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +
 +void __lockfunc rt_write_unlock(rwlock_t *rwlock)
 +{
-+	rwlock_release(&rwlock->dep_map, 1, _RET_IP_);
++	rwlock_release(&rwlock->dep_map, _RET_IP_);
 +	do_write_rt_unlock(rwlock);
 +	migrate_enable();
 +}

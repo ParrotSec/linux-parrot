@@ -45,11 +45,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #define SIOCSPGRP	_IOW('s', 8, pid_t)
  #define SIOCGPGRP	_IOR('s', 9, pid_t)
  
--#define SIOCGSTAMP_OLD	_IOR('s', 100, struct timeval) /* Get stamp (timeval) */
--#define SIOCGSTAMPNS_OLD _IOR('s', 101, struct timespec) /* Get stamp (timespec) */
+-#define SIOCGSTAMP_OLD	_IOR('s', 100, struct __kernel_old_timeval) /* Get stamp (timeval) */
+-#define SIOCGSTAMPNS_OLD _IOR('s', 101, struct __kernel_old_timespec) /* Get stamp (timespec) */
 -
-+#define SIOCGSTAMP	_IOR('s', 100, struct timeval) /* Get stamp (timeval) */
-+#define SIOCGSTAMPNS	_IOR('s', 101, struct timespec) /* Get stamp (timespec) */
++#define SIOCGSTAMP	_IOR('s', 100, struct __kernel_old_timeval) /* Get stamp (timeval) */
++#define SIOCGSTAMPNS	_IOR('s', 101, struct __kernel_old_timespec) /* Get stamp (timespec) */
  #endif /* __ASM_SH_SOCKIOS_H */
 --- a/arch/xtensa/include/uapi/asm/sockios.h
 +++ b/arch/xtensa/include/uapi/asm/sockios.h
@@ -105,7 +105,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #define SIOCDELRT	0x890C		/* delete routing table entry	*/
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -1170,14 +1170,14 @@ static long sock_ioctl(struct file *file
+@@ -1180,14 +1180,14 @@ static long sock_ioctl(struct file *file
  
  			err = open_related_ns(&net->ns, get_net_ns);
  			break;
@@ -123,7 +123,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  						   !IS_ENABLED(CONFIG_64BIT));
  			break;
  		case SIOCGSTAMP_NEW:
-@@ -3341,11 +3341,11 @@ static int compat_sock_ioctl_trans(struc
+@@ -3488,11 +3488,11 @@ static int compat_sock_ioctl_trans(struc
  	case SIOCADDRT:
  	case SIOCDELRT:
  		return routing_ioctl(net, sock, cmd, argp);

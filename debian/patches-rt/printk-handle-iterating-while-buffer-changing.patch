@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 7 Oct 2019 16:20:39 +0200
 Subject: [PATCH] printk: handle iterating while buffer changing
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 The syslog and kmsg_dump readers are provided buffers to fill.
 Both try to maximize the provided buffer usage by calculating the
@@ -33,7 +33,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (copy_to_user(buf + len, text, textlen))
  			len = -EFAULT;
  		else
-@@ -3085,7 +3088,7 @@ bool kmsg_dump_get_buffer(struct kmsg_du
+@@ -3086,7 +3089,7 @@ bool kmsg_dump_get_buffer(struct kmsg_du
  		ret = prb_iter_next(&iter, msgbuf, PRINTK_RECORD_MAX, &seq);
  		if (ret == 0) {
  			break;

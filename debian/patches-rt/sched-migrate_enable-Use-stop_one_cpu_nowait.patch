@@ -1,7 +1,7 @@
 From: Scott Wood <swood@redhat.com>
 Date: Sat, 12 Oct 2019 01:52:14 -0500
 Subject: [PATCH] sched: migrate_enable: Use stop_one_cpu_nowait()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 migrate_enable() can be called with current->state != TASK_RUNNING.
 Avoid clobbering the existing state by using stop_one_cpu_nowait().
@@ -31,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  int stop_one_cpu(unsigned int cpu, cpu_stop_fn_t fn, void *arg);
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1536,6 +1536,7 @@ static struct rq *move_queued_task(struc
+@@ -1527,6 +1527,7 @@ static struct rq *move_queued_task(struc
  struct migration_arg {
  	struct task_struct *task;
  	int dest_cpu;
@@ -39,7 +39,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  };
  
  /*
-@@ -1571,6 +1572,11 @@ static int migration_cpu_stop(void *data
+@@ -1562,6 +1563,11 @@ static int migration_cpu_stop(void *data
  	struct task_struct *p = arg->task;
  	struct rq *rq = this_rq();
  	struct rq_flags rf;
@@ -51,7 +51,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * The original target CPU might have gone down and we might
-@@ -1593,9 +1599,9 @@ static int migration_cpu_stop(void *data
+@@ -1584,9 +1590,9 @@ static int migration_cpu_stop(void *data
  	 */
  	if (task_rq(p) == rq) {
  		if (task_on_rq_queued(p))
@@ -63,7 +63,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  	rq_unlock(rq, &rf);
  	raw_spin_unlock(&p->pi_lock);
-@@ -8144,7 +8150,8 @@ void migrate_enable(void)
+@@ -8159,7 +8165,8 @@ void migrate_enable(void)
  
  	WARN_ON(smp_processor_id() != cpu);
  	if (!is_cpu_allowed(p, cpu)) {
@@ -73,7 +73,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		struct rq_flags rf;
  
  		rq = task_rq_lock(p, &rf);
-@@ -8152,13 +8159,13 @@ void migrate_enable(void)
+@@ -8167,13 +8174,13 @@ void migrate_enable(void)
  		arg.dest_cpu = select_fallback_rq(cpu, p);
  		task_rq_unlock(rq, p, &rf);
  

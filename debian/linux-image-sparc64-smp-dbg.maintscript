@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-sparc64-smp-dbg linux-image-5.5.0-1parrot1-sparc64-smp-dbg 5.2+107 linux-image-sparc64-smp-dbg
+dir_to_symlink /usr/share/doc/linux-image-sparc64-smp-dbg linux-image-5.6.0-2parrot1-sparc64-smp-dbg 5.2+107 linux-image-sparc64-smp-dbg

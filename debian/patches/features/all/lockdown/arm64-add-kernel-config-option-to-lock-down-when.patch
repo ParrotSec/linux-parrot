@@ -21,6 +21,8 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
 [bwh: Forward-ported to 4.19.3: adjust context in update_fdt()]
 [dannf: Moved init_lockdown() call after uefi_init(), fixing SB detection]
 [bwh: Drop call to init_lockdown(), as efi_set_secure_boot() now calls this]
+[bwh: Forward-ported to 5.6: efi_get_secureboot() no longer takes a
+ sys_table parameter]
 ---
  drivers/firmware/efi/arm-init.c    | 4 ++++
  drivers/firmware/efi/efi.c         | 3 ++-
@@ -30,7 +32,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
 
 --- a/drivers/firmware/efi/arm-init.c
 +++ b/drivers/firmware/efi/arm-init.c
-@@ -17,6 +17,7 @@
+@@ -19,6 +19,7 @@
  #include <linux/of_fdt.h>
  #include <linux/platform_device.h>
  #include <linux/screen_info.h>
@@ -38,7 +40,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  
  #include <asm/efi.h>
  
-@@ -253,6 +254,8 @@ void __init efi_init(void)
+@@ -264,6 +265,8 @@ void __init efi_init(void)
  		return;
  	}
  
@@ -49,7 +51,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  
 --- a/drivers/firmware/efi/efi.c
 +++ b/drivers/firmware/efi/efi.c
-@@ -688,7 +688,8 @@ static __initdata struct params fdt_para
+@@ -696,7 +696,8 @@ static __initdata struct params fdt_para
  	UEFI_PARAM("MemMap Address", "linux,uefi-mmap-start", mmap),
  	UEFI_PARAM("MemMap Size", "linux,uefi-mmap-size", mmap_size),
  	UEFI_PARAM("MemMap Desc. Size", "linux,uefi-mmap-desc-size", desc_size),
@@ -61,11 +63,11 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  static __initdata struct params xen_fdt_params[] = {
 --- a/drivers/firmware/efi/libstub/fdt.c
 +++ b/drivers/firmware/efi/libstub/fdt.c
-@@ -151,6 +151,12 @@ static efi_status_t update_fdt(efi_syste
+@@ -150,6 +150,12 @@ static efi_status_t update_fdt(void *ori
  		}
  	}
  
-+	fdt_val32 = cpu_to_fdt32(efi_get_secureboot(sys_table));
++	fdt_val32 = cpu_to_fdt32(efi_get_secureboot());
 +	status = fdt_setprop(fdt, node, "linux,uefi-secure-boot",
 +			     &fdt_val32, sizeof(fdt_val32));
 +	if (status)
@@ -76,7 +78,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  
 --- a/include/linux/efi.h
 +++ b/include/linux/efi.h
-@@ -808,6 +808,7 @@ struct efi_fdt_params {
+@@ -794,6 +794,7 @@ struct efi_fdt_params {
  	u32 mmap_size;
  	u32 desc_size;
  	u32 desc_ver;

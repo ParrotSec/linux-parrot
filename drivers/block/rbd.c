@@ -848,7 +848,7 @@ enum {
 	Opt_notrim,
 };
 
-static const struct fs_parameter_spec rbd_param_specs[] = {
+static const struct fs_parameter_spec rbd_parameters[] = {
 	fsparam_u32	("alloc_size",			Opt_alloc_size),
 	fsparam_flag	("exclusive",			Opt_exclusive),
 	fsparam_flag	("lock_on_read",		Opt_lock_on_read),
@@ -861,11 +861,6 @@ static const struct fs_parameter_spec rbd_param_specs[] = {
 	fsparam_flag	("ro",				Opt_read_only),
 	fsparam_flag	("rw",				Opt_read_write),
 	{}
-};
-
-static const struct fs_parameter_description rbd_parameters = {
-	.name		= "rbd",
-	.specs		= rbd_param_specs,
 };
 
 struct rbd_options {
@@ -4559,6 +4554,10 @@ static void cancel_tasks_sync(struct rbd_device *rbd_dev)
 	cancel_work_sync(&rbd_dev->unlock_work);
 }
 
+/*
+ * header_rwsem must not be held to avoid a deadlock with
+ * rbd_dev_refresh() when flushing notifies.
+ */
 static void rbd_unregister_watch(struct rbd_device *rbd_dev)
 {
 	cancel_tasks_sync(rbd_dev);
@@ -6353,19 +6352,19 @@ static int rbd_parse_param(struct fs_parameter *param,
 {
 	struct rbd_options *opt = pctx->opts;
 	struct fs_parse_result result;
+	struct p_log log = {.prefix = "rbd"};
 	int token, ret;
 
 	ret = ceph_parse_param(param, pctx->copts, NULL);
 	if (ret != -ENOPARAM)
 		return ret;
 
-	token = fs_parse(NULL, &rbd_parameters, param, &result);
+	token = __fs_parse(&log, rbd_parameters, param, &result);
 	dout("%s fs_parse '%s' token %d\n", __func__, param->key, token);
 	if (token < 0) {
-		if (token == -ENOPARAM) {
-			return invalf(NULL, "rbd: Unknown parameter '%s'",
-				      param->key);
-		}
+		if (token == -ENOPARAM)
+			return inval_plog(&log, "Unknown parameter '%s'",
+					  param->key);
 		return token;
 	}
 
@@ -6378,9 +6377,8 @@ static int rbd_parse_param(struct fs_parameter *param,
 	case Opt_alloc_size:
 		if (result.uint_32 < SECTOR_SIZE)
 			goto out_of_range;
-		if (!is_power_of_2(result.uint_32)) {
-			return invalf(NULL, "rbd: alloc_size must be a power of 2");
-		}
+		if (!is_power_of_2(result.uint_32))
+			return inval_plog(&log, "alloc_size must be a power of 2");
 		opt->alloc_size = result.uint_32;
 		break;
 	case Opt_lock_timeout:
@@ -6416,7 +6414,7 @@ static int rbd_parse_param(struct fs_parameter *param,
 	return 0;
 
 out_of_range:
-	return invalf(NULL, "rbd: %s out of range", param->key);
+	return inval_plog(&log, "%s out of range", param->key);
 }
 
 /*
@@ -6433,7 +6431,7 @@ static int rbd_parse_options(char *options, struct rbd_parse_opts_ctx *pctx)
 		if (*key) {
 			struct fs_parameter param = {
 				.key	= key,
-				.type	= fs_value_is_string,
+				.type	= fs_value_is_flag,
 			};
 			char *value = strchr(key, '=');
 			size_t v_len = 0;
@@ -6443,14 +6441,11 @@ static int rbd_parse_options(char *options, struct rbd_parse_opts_ctx *pctx)
 					continue;
 				*value++ = 0;
 				v_len = strlen(value);
-			}
-
-
-			if (v_len > 0) {
 				param.string = kmemdup_nul(value, v_len,
 							   GFP_KERNEL);
 				if (!param.string)
 					return -ENOMEM;
+				param.type = fs_value_is_string;
 			}
 			param.size = v_len;
 
@@ -6960,9 +6955,10 @@ static void rbd_print_dne(struct rbd_device *rbd_dev, bool is_snap)
 
 static void rbd_dev_image_release(struct rbd_device *rbd_dev)
 {
-	rbd_dev_unprobe(rbd_dev);
-	if (rbd_dev->opts)
+	if (!rbd_is_ro(rbd_dev))
 		rbd_unregister_watch(rbd_dev);
+
+	rbd_dev_unprobe(rbd_dev);
 	rbd_dev->image_format = 0;
 	kfree(rbd_dev->spec->image_id);
 	rbd_dev->spec->image_id = NULL;
@@ -6973,6 +6969,9 @@ static void rbd_dev_image_release(struct rbd_device *rbd_dev)
  * device.  If this image is the one being mapped (i.e., not a
  * parent), initiate a watch on its header object before using that
  * object to get detailed information about the rbd image.
+ *
+ * On success, returns with header_rwsem held for write if called
+ * with @depth == 0.
  */
 static int rbd_dev_image_probe(struct rbd_device *rbd_dev, int depth)
 {
@@ -7002,11 +7001,14 @@ static int rbd_dev_image_probe(struct rbd_device *rbd_dev, int depth)
 		}
 	}
 
+	if (!depth)
+		down_write(&rbd_dev->header_rwsem);
+
 	ret = rbd_dev_header_info(rbd_dev);
 	if (ret) {
 		if (ret == -ENOENT && !need_watch)
 			rbd_print_dne(rbd_dev, false);
-		goto err_out_watch;
+		goto err_out_probe;
 	}
 
 	/*
@@ -7051,10 +7053,11 @@ static int rbd_dev_image_probe(struct rbd_device *rbd_dev, int depth)
 	return 0;
 
 err_out_probe:
-	rbd_dev_unprobe(rbd_dev);
-err_out_watch:
+	if (!depth)
+		up_write(&rbd_dev->header_rwsem);
 	if (need_watch)
 		rbd_unregister_watch(rbd_dev);
+	rbd_dev_unprobe(rbd_dev);
 err_out_format:
 	rbd_dev->image_format = 0;
 	kfree(rbd_dev->spec->image_id);
@@ -7116,12 +7119,9 @@ static ssize_t do_rbd_add(struct bus_type *bus,
 		goto err_out_rbd_dev;
 	}
 
-	down_write(&rbd_dev->header_rwsem);
 	rc = rbd_dev_image_probe(rbd_dev, 0);
-	if (rc < 0) {
-		up_write(&rbd_dev->header_rwsem);
+	if (rc < 0)
 		goto err_out_rbd_dev;
-	}
 
 	if (rbd_dev->opts->alloc_size > rbd_dev->layout.object_size) {
 		rbd_warn(rbd_dev, "alloc_size adjusted to %u",
@@ -7143,7 +7143,7 @@ static ssize_t do_rbd_add(struct bus_type *bus,
 	if (rc)
 		goto err_out_image_lock;
 
-	add_disk(rbd_dev->disk);
+	device_add_disk(&rbd_dev->dev, rbd_dev->disk, NULL);
 	/* see rbd_init_disk() */
 	blk_put_queue(rbd_dev->disk->queue);
 

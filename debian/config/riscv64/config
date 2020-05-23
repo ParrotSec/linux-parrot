@@ -8,11 +8,18 @@ CONFIG_SECCOMP=y
 ## file: arch/riscv/Kconfig.socs
 ##
 CONFIG_SOC_SIFIVE=y
+CONFIG_SOC_VIRT=y
 
 ##
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_SATA_AHCI_PLATFORM=m
+
+##
+## file: drivers/gpio/Kconfig
+##
+CONFIG_GPIOLIB=y
+CONFIG_GPIO_SIFIVE=y
 
 ##
 ## file: drivers/gpu/drm/Kconfig
@@ -44,6 +51,25 @@ CONFIG_PCI=y
 ## file: drivers/pci/controller/Kconfig
 ##
 CONFIG_PCIE_XILINX=y
+
+##
+## file: drivers/power/reset/Kconfig
+##
+CONFIG_POWER_RESET=y
+CONFIG_POWER_RESET_GPIO=y
+CONFIG_POWER_RESET_GPIO_RESTART=y
+CONFIG_POWER_RESET_RESTART=y
+
+##
+## file: drivers/pwm/Kconfig
+##
+CONFIG_PWM=y
+CONFIG_PWM_SIFIVE=m
+
+##
+## file: drivers/soc/sifive/Kconfig
+##
+CONFIG_SIFIVE_L2=y
 
 ##
 ## file: drivers/spi/Kconfig

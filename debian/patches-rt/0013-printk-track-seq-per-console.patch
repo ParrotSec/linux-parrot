@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:51 +0100
 Subject: [PATCH 13/25] printk: track seq per console
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Allow each console to track which seq record was last printed. This
 simplifies identifying dropped records.
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/console.h
 +++ b/include/linux/console.h
-@@ -153,6 +153,7 @@ struct console {
+@@ -152,6 +152,7 @@ struct console {
  	short	flags;
  	short	index;
  	int	cflag;
@@ -80,10 +80,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				 const char *text, size_t len) {}
  static size_t msg_print_text(const struct printk_log *msg, bool syslog,
  			     bool time, char *buf, size_t size) { return 0; }
-@@ -2550,8 +2573,9 @@ static int printk_kthread_func(void *dat
- 			    &len, printk_time);
+@@ -2551,8 +2574,9 @@ static int printk_kthread_func(void *dat
  
  		console_lock();
+ 		console_may_schedule = 0;
 +		call_console_drivers(master_seq, ext_text,
 +				     ext_len, text, len);
  		if (len > 0 || ext_len > 0) {

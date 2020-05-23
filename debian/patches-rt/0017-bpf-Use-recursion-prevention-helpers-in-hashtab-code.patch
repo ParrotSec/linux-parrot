@@ -1,0 +1,65 @@
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Mon, 24 Feb 2020 15:01:48 +0100
+Subject: [PATCH 17/22] bpf: Use recursion prevention helpers in hashtab code
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+
+The required protection is that the caller cannot be migrated to a
+different CPU as these places take either a hash bucket lock or might
+trigger a kprobe inside the memory allocator. Both scenarios can lead to
+deadlocks. The deadlock prevention is per CPU by incrementing a per CPU
+variable which temporarily blocks the invocation of BPF programs from perf
+and kprobes.
+
+Replace the open coded preempt_disable/enable() and this_cpu_inc/dec()
+pairs with the new recursion prevention helpers to prepare BPF to work on
+PREEMPT_RT enabled kernels. On a non-RT kernel the migrate disable/enable
+in the helpers map to preempt_disable/enable(), i.e. no functional change.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/bpf/hashtab.c |   12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -1333,8 +1333,7 @@ static int
+ 	}
+ 
+ again:
+-	preempt_disable();
+-	this_cpu_inc(bpf_prog_active);
++	bpf_disable_instrumentation();
+ 	rcu_read_lock();
+ again_nocopy:
+ 	dst_key = keys;
+@@ -1362,8 +1361,7 @@ static int
+ 		 */
+ 		raw_spin_unlock_irqrestore(&b->lock, flags);
+ 		rcu_read_unlock();
+-		this_cpu_dec(bpf_prog_active);
+-		preempt_enable();
++		bpf_enable_instrumentation();
+ 		goto after_loop;
+ 	}
+ 
+@@ -1374,8 +1372,7 @@ static int
+ 		 */
+ 		raw_spin_unlock_irqrestore(&b->lock, flags);
+ 		rcu_read_unlock();
+-		this_cpu_dec(bpf_prog_active);
+-		preempt_enable();
++		bpf_enable_instrumentation();
+ 		kvfree(keys);
+ 		kvfree(values);
+ 		goto alloc;
+@@ -1445,8 +1442,7 @@ static int
+ 	}
+ 
+ 	rcu_read_unlock();
+-	this_cpu_dec(bpf_prog_active);
+-	preempt_enable();
++	bpf_enable_instrumentation();
+ 	if (bucket_cnt && (copy_to_user(ukeys + total * key_size, keys,
+ 	    key_size * bucket_cnt) ||
+ 	    copy_to_user(uvalues + total * value_size, values,

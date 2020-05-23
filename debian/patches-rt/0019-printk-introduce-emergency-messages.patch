@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:57 +0100
 Subject: [PATCH 19/25] printk: introduce emergency messages
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Console messages are generally either critical or non-critical.
 Critical messages are messages such as crashes or sysrq output.
@@ -159,16 +159,16 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static size_t msg_print_text(const struct printk_log *msg, bool syslog,
  			     bool time, char *buf, size_t size) { return 0; }
  static bool suppress_message_printing(int level) { return false; }
-@@ -2639,7 +2668,7 @@ static int printk_kthread_func(void *dat
- 
+@@ -2640,7 +2669,7 @@ static int printk_kthread_func(void *dat
  		console_lock();
+ 		console_may_schedule = 0;
  		call_console_drivers(master_seq, ext_text,
 -				     ext_len, text, len);
 +				     ext_len, text, len, msg->level);
  		if (len > 0 || ext_len > 0)
  			printk_delay(msg->level);
  		console_unlock();
-@@ -3043,6 +3072,76 @@ void kmsg_dump_rewind(struct kmsg_dumper
+@@ -3044,6 +3073,76 @@ void kmsg_dump_rewind(struct kmsg_dumper
  	logbuf_unlock_irqrestore(flags);
  }
  EXPORT_SYMBOL_GPL(kmsg_dump_rewind);

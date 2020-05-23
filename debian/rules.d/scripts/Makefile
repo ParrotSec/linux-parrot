@@ -1,6 +1,5 @@
 PROGS = \
 	bin2c \
-	conmakehash \
 	extract-cert \
 	kallsyms \
 	recordmcount \

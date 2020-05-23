@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 20 May 2019 13:09:08 +0200
 Subject: [PATCH] softirq: Add preemptible softirq
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Add preemptible softirq for RT's needs. By removing the softirq count
 from the preempt counter, the softirq becomes preemptible. A per-CPU
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
-@@ -561,6 +561,7 @@ extern void __raise_softirq_irqoff(unsig
+@@ -573,6 +573,7 @@ extern void __raise_softirq_irqoff(unsig
  
  extern void raise_softirq_irqoff(unsigned int nr);
  extern void raise_softirq(unsigned int nr);
@@ -107,7 +107,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				 "Illegal context switch in RCU-sched read-side critical section"); \
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -978,6 +978,9 @@ struct task_struct {
+@@ -983,6 +983,9 @@ struct task_struct {
  	int				softirqs_enabled;
  	int				softirq_context;
  #endif
@@ -466,7 +466,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   *   GCC does not inline them incorrectly. ]
 --- a/kernel/time/tick-sched.c
 +++ b/kernel/time/tick-sched.c
-@@ -903,14 +903,7 @@ static bool can_stop_idle_tick(int cpu,
+@@ -914,14 +914,7 @@ static bool can_stop_idle_tick(int cpu,
  		return false;
  
  	if (unlikely(local_softirq_pending())) {

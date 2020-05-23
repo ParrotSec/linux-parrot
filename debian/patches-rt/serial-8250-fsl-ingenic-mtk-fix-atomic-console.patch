@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 10 Jan 2020 16:45:32 +0106
 Subject: [PATCH] serial: 8250: fsl/ingenic/mtk: fix atomic console
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 A few 8250 implementations have their own IER access. If the port
 is a console, wrap the accesses with console_atomic_lock.
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/tty/serial/8250/8250_fsl.c
 +++ b/drivers/tty/serial/8250/8250_fsl.c
-@@ -57,9 +57,18 @@ int fsl8250_handle_irq(struct uart_port
+@@ -53,9 +53,18 @@ int fsl8250_handle_irq(struct uart_port
  
  	/* Stop processing interrupts on input overrun */
  	if ((orig_lsr & UART_LSR_OE) && (up->overrun_backoff_time_ms > 0)) {

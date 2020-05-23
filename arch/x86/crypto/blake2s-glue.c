@@ -32,16 +32,16 @@ void blake2s_compress_arch(struct blake2s_state *state,
 			   const u32 inc)
 {
 	/* SIMD disables preemption, so relax after processing each page. */
-	BUILD_BUG_ON(PAGE_SIZE / BLAKE2S_BLOCK_SIZE < 8);
+	BUILD_BUG_ON(SZ_4K / BLAKE2S_BLOCK_SIZE < 8);
 
 	if (!static_branch_likely(&blake2s_use_ssse3) || !crypto_simd_usable()) {
 		blake2s_compress_generic(state, block, nblocks, inc);
 		return;
 	}
 
-	for (;;) {
+	do {
 		const size_t blocks = min_t(size_t, nblocks,
-					    PAGE_SIZE / BLAKE2S_BLOCK_SIZE);
+					    SZ_4K / BLAKE2S_BLOCK_SIZE);
 
 		kernel_fpu_begin();
 		if (IS_ENABLED(CONFIG_AS_AVX512) &&
@@ -52,10 +52,8 @@ void blake2s_compress_arch(struct blake2s_state *state,
 		kernel_fpu_end();
 
 		nblocks -= blocks;
-		if (!nblocks)
-			break;
 		block += blocks * BLAKE2S_BLOCK_SIZE;
-	}
+	} while (nblocks);
 }
 EXPORT_SYMBOL(blake2s_compress_arch);
 
@@ -64,10 +62,8 @@ static int crypto_blake2s_setkey(struct crypto_shash *tfm, const u8 *key,
 {
 	struct blake2s_tfm_ctx *tctx = crypto_shash_ctx(tfm);
 
-	if (keylen == 0 || keylen > BLAKE2S_KEY_SIZE) {
-		crypto_shash_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
+	if (keylen == 0 || keylen > BLAKE2S_KEY_SIZE)
 		return -EINVAL;
-	}
 
 	memcpy(tctx->key, key, keylen);
 	tctx->keylen = keylen;

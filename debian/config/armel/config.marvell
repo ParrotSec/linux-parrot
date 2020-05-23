@@ -303,13 +303,6 @@ CONFIG_INPUT_TOUCHSCREEN=y
 CONFIG_ISDN=y
 
 ##
-## file: drivers/isdn/capi/Kconfig
-##
-CONFIG_ISDN_CAPI=m
-CONFIG_ISDN_CAPI_CAPI20=m
-CONFIG_ISDN_CAPI_MIDDLEWARE=y
-
-##
 ## file: drivers/leds/Kconfig
 ##
 CONFIG_LEDS_NS2=m
@@ -622,17 +615,6 @@ CONFIG_SPI_ORION=m
 # CONFIG_SSB is not set
 
 ##
-## file: drivers/staging/isdn/avm/Kconfig
-##
-CONFIG_CAPI_AVM=y
-CONFIG_ISDN_DRV_AVMB1_B1PCI=m
-CONFIG_ISDN_DRV_AVMB1_B1PCIV4=y
-CONFIG_ISDN_DRV_AVMB1_B1PCMCIA=m
-CONFIG_ISDN_DRV_AVMB1_AVM_CS=m
-CONFIG_ISDN_DRV_AVMB1_T1PCI=m
-CONFIG_ISDN_DRV_AVMB1_C4=m
-
-##
 ## file: drivers/thermal/Kconfig
 ##
 CONFIG_THERMAL=y
@@ -761,8 +743,8 @@ CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 ## file: kernel/trace/Kconfig
 ##
 # CONFIG_FUNCTION_GRAPH_TRACER is not set
-# CONFIG_FTRACE_SYSCALLS is not set
 # CONFIG_STACK_TRACER is not set
+# CONFIG_FTRACE_SYSCALLS is not set
 # CONFIG_UPROBE_EVENTS is not set
 
 ##

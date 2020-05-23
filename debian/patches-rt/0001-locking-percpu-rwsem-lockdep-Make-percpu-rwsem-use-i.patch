@@ -2,7 +2,7 @@ From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 31 Jan 2020 16:07:04 +0100
 Subject: [PATCH 1/7] locking/percpu-rwsem, lockdep: Make percpu-rwsem use its
  own lockdep_map
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 As preparation for replacing the embedded rwsem, give percpu-rwsem its
 own lockdep_map.
@@ -69,7 +69,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static inline void percpu_up_read(struct percpu_rw_semaphore *sem)
  {
-+	rwsem_release(&sem->dep_map, 1, _RET_IP_);
++	rwsem_release(&sem->dep_map, _RET_IP_);
 +
  	preempt_disable();
  	/*
@@ -79,7 +79,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		__percpu_up_read(sem); /* Unconditional memory barrier */
  	preempt_enable();
 -
--	rwsem_release(&sem->rw_sem.dep_map, 1, _RET_IP_);
+-	rwsem_release(&sem->rw_sem.dep_map, _RET_IP_);
  }
  
  extern void percpu_down_write(struct percpu_rw_semaphore *);
@@ -91,14 +91,14 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -
 -#define percpu_rwsem_assert_held(sem)				\
 -	lockdep_assert_held(&(sem)->rw_sem)
-+#define percpu_rwsem_is_held(sem) lockdep_is_held(sem)
-+#define percpu_rwsem_assert_held(sem)  lockdep_assert_held(sem)
++#define percpu_rwsem_is_held(sem)	lockdep_is_held(sem)
++#define percpu_rwsem_assert_held(sem)	lockdep_assert_held(sem)
  
  static inline void percpu_rwsem_release(struct percpu_rw_semaphore *sem,
  					bool read, unsigned long ip)
  {
--	lock_release(&sem->rw_sem.dep_map, 1, ip);
-+	lock_release(&sem->dep_map, 1, ip);
+-	lock_release(&sem->rw_sem.dep_map, ip);
++	lock_release(&sem->dep_map, ip);
  #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
  	if (!read)
  		atomic_long_set(&sem->rw_sem.owner, RWSEM_OWNER_UNKNOWN);
@@ -123,8 +123,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static void lockdep_release_cpus_lock(void)
  {
--	rwsem_release(&cpu_hotplug_lock.rw_sem.dep_map, 1, _THIS_IP_);
-+	rwsem_release(&cpu_hotplug_lock.dep_map, 1, _THIS_IP_);
+-	rwsem_release(&cpu_hotplug_lock.rw_sem.dep_map, _THIS_IP_);
++	rwsem_release(&cpu_hotplug_lock.dep_map, _THIS_IP_);
  }
  
  /*
@@ -172,7 +172,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  void percpu_up_write(struct percpu_rw_semaphore *sem)
  {
-+	rwsem_release(&sem->dep_map, 1, _RET_IP_);
++	rwsem_release(&sem->dep_map, _RET_IP_);
 +
  	/*
  	 * Signal the writer is done, no fast path yet.

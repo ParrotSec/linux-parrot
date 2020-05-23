@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:53 +0100
 Subject: [PATCH 15/25] printk: print history for new consoles
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 When new consoles register, they currently print how many messages
 they have missed. However, many (or all) of those messages may still
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/console.h
 +++ b/include/linux/console.h
-@@ -154,6 +154,7 @@ struct console {
+@@ -153,6 +153,7 @@ struct console {
  	short	index;
  	int	cflag;
  	unsigned long printk_seq;

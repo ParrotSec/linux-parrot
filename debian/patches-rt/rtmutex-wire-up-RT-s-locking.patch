@@ -1,12 +1,11 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:31:14 +0200
 Subject: rtmutex: wire up RT's locking
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/Kbuild                   |    7 +++++++
  include/linux/mutex.h            |   20 +++++++++++++-------
  include/linux/rwsem.h            |   12 ++++++++++++
  include/linux/spinlock.h         |   12 +++++++++++-
@@ -16,26 +15,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  kernel/locking/rwsem.c           |    7 +++++++
  kernel/locking/spinlock.c        |    7 +++++++
  kernel/locking/spinlock_debug.c  |    5 +++++
- 10 files changed, 80 insertions(+), 15 deletions(-)
+ 9 files changed, 73 insertions(+), 15 deletions(-)
 
---- a/include/Kbuild
-+++ b/include/Kbuild
-@@ -1158,8 +1158,15 @@ header-test-			+= xen/xenbus.h
- # Do not include directly
- header-test- += linux/compiler-clang.h
- header-test- += linux/compiler-gcc.h
-+header-test- += linux/mutex_rt.h
- header-test- += linux/patchkey.h
- header-test- += linux/rwlock_api_smp.h
-+header-test- += linux/rwlock_rt.h
-+header-test- += linux/rwlock_types_rt.h
-+header-test- += linux/rwsem-rt.h
-+header-test- += linux/spinlock_rt.h
-+header-test- += linux/spinlock_types_nort.h
-+header-test- += linux/spinlock_types_rt.h
- header-test- += linux/spinlock_types_up.h
- header-test- += linux/spinlock_up.h
- header-test- += linux/wimax/debug.h
 --- a/include/linux/mutex.h
 +++ b/include/linux/mutex.h
 @@ -22,6 +22,17 @@

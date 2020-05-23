@@ -468,16 +468,14 @@ char *acpi_db_get_next_token(char *string,
 		return (NULL);
 	}
 
-	/* Remove any spaces at the beginning */
+	/* Remove any spaces at the beginning, ignore blank lines */
 
-	if (*string == ' ') {
-		while (*string && (*string == ' ')) {
-			string++;
-		}
+	while (*string && isspace(*string)) {
+		string++;
+	}
 
-		if (!(*string)) {
-			return (NULL);
-		}
+	if (!(*string)) {
+		return (NULL);
 	}
 
 	switch (*string) {
@@ -570,7 +568,7 @@ char *acpi_db_get_next_token(char *string,
 
 		/* Find end of token */
 
-		while (*string && (*string != ' ')) {
+		while (*string && !isspace(*string)) {
 			string++;
 		}
 		break;
@@ -816,7 +814,7 @@ acpi_db_command_dispatch(char *input_buffer,
 		if (ACPI_FAILURE(status)
 		    || temp64 >= ACPI_NUM_PREDEFINED_REGIONS) {
 			acpi_os_printf
-			    ("Invalid adress space ID: must be between 0 and %u inclusive\n",
+			    ("Invalid address space ID: must be between 0 and %u inclusive\n",
 			     ACPI_NUM_PREDEFINED_REGIONS - 1);
 			return (AE_OK);
 		}

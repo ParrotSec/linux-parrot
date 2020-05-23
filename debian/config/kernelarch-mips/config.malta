@@ -90,7 +90,6 @@ CONFIG_I2C=m
 ##
 CONFIG_I2C_PIIX4=m
 CONFIG_I2C_PARPORT=m
-CONFIG_I2C_PARPORT_LIGHT=m
 
 ##
 ## file: drivers/input/gameport/Kconfig

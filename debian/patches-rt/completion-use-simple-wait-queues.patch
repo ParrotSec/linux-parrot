@@ -1,7 +1,7 @@
 Subject: completion: Use simple wait queues
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 11 Jan 2013 11:23:51 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Completions have no long lasting callbacks and therefor do not need
 the complex waitqueue variant. Use simple waitqueues which reduces the
@@ -18,13 +18,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  drivers/usb/gadget/function/f_fs.c                  |    2 -
  drivers/usb/gadget/legacy/inode.c                   |    4 +-
  include/linux/completion.h                          |    8 ++--
- include/linux/suspend.h                             |    6 +++
  include/linux/swait.h                               |    2 +
- kernel/power/hibernate.c                            |    7 ++++
- kernel/power/suspend.c                              |    4 ++
  kernel/sched/completion.c                           |   34 ++++++++++----------
- kernel/sched/swait.c                                |   21 +++++++++++-
- 11 files changed, 67 insertions(+), 29 deletions(-)
+ kernel/sched/swait.c                                |   16 ++++++++-
+ 8 files changed, 45 insertions(+), 29 deletions(-)
 
 --- a/arch/powerpc/platforms/ps3/device-init.c
 +++ b/arch/powerpc/platforms/ps3/device-init.c
@@ -54,7 +51,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	default:
 --- a/drivers/usb/gadget/function/f_fs.c
 +++ b/drivers/usb/gadget/function/f_fs.c
-@@ -1715,7 +1715,7 @@ static void ffs_data_put(struct ffs_data
+@@ -1704,7 +1704,7 @@ static void ffs_data_put(struct ffs_data
  		pr_info("%s(): freeing\n", __func__);
  		ffs_data_clear(ffs);
  		BUG_ON(waitqueue_active(&ffs->ev.waitq) ||
@@ -121,21 +118,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
---- a/include/linux/suspend.h
-+++ b/include/linux/suspend.h
-@@ -197,6 +197,12 @@ struct platform_s2idle_ops {
- 	void (*end)(void);
- };
- 
-+#if defined(CONFIG_SUSPEND) || defined(CONFIG_HIBERNATION)
-+extern bool pm_in_action;
-+#else
-+# define pm_in_action false
-+#endif
-+
- #ifdef CONFIG_SUSPEND
- extern suspend_state_t mem_sleep_current;
- extern suspend_state_t mem_sleep_default;
 --- a/include/linux/swait.h
 +++ b/include/linux/swait.h
 @@ -160,7 +160,9 @@ static inline bool swq_has_sleeper(struc
@@ -148,63 +130,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  extern void prepare_to_swait_exclusive(struct swait_queue_head *q, struct swait_queue *wait, int state);
  extern long prepare_to_swait_event(struct swait_queue_head *q, struct swait_queue *wait, int state);
  
---- a/kernel/power/hibernate.c
-+++ b/kernel/power/hibernate.c
-@@ -689,6 +689,10 @@ static int load_image_and_restore(void)
- 	return error;
- }
- 
-+#ifndef CONFIG_SUSPEND
-+bool pm_in_action;
-+#endif
-+
- /**
-  * hibernate - Carry out system hibernation, including saving the image.
-  */
-@@ -702,6 +706,8 @@ int hibernate(void)
- 		return -EPERM;
- 	}
- 
-+	pm_in_action = true;
-+
- 	lock_system_sleep();
- 	/* The snapshot device should not be opened while we're running */
- 	if (!atomic_add_unless(&snapshot_device_available, -1, 0)) {
-@@ -778,6 +784,7 @@ int hibernate(void)
- 	atomic_inc(&snapshot_device_available);
-  Unlock:
- 	unlock_system_sleep();
-+	pm_in_action = false;
- 	pr_info("hibernation exit\n");
- 
- 	return error;
---- a/kernel/power/suspend.c
-+++ b/kernel/power/suspend.c
-@@ -594,6 +594,8 @@ static int enter_state(suspend_state_t s
- 	return error;
- }
- 
-+bool pm_in_action;
-+
- /**
-  * pm_suspend - Externally visible function for suspending the system.
-  * @state: System sleep state to enter.
-@@ -608,6 +610,7 @@ int pm_suspend(suspend_state_t state)
- 	if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX)
- 		return -EINVAL;
- 
-+	pm_in_action = true;
- 	pr_info("suspend entry (%s)\n", mem_sleep_labels[state]);
- 	error = enter_state(state);
- 	if (error) {
-@@ -617,6 +620,7 @@ int pm_suspend(suspend_state_t state)
- 		suspend_stats.success++;
- 	}
- 	pr_info("suspend exit\n");
-+	pm_in_action = false;
- 	return error;
- }
- EXPORT_SYMBOL(pm_suspend);
 --- a/kernel/sched/completion.c
 +++ b/kernel/sched/completion.c
 @@ -29,12 +29,12 @@ void complete(struct completion *x)
@@ -303,14 +228,13 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  EXPORT_SYMBOL(completion_done);
 --- a/kernel/sched/swait.c
 +++ b/kernel/sched/swait.c
-@@ -32,6 +32,25 @@ void swake_up_locked(struct swait_queue_
+@@ -32,6 +32,20 @@ void swake_up_locked(struct swait_queue_
  }
  EXPORT_SYMBOL(swake_up_locked);
  
 +void swake_up_all_locked(struct swait_queue_head *q)
 +{
 +	struct swait_queue *curr;
-+	int wakes = 0;
 +
 +	while (!list_empty(&q->task_list)) {
 +
@@ -318,18 +242,14 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +					task_list);
 +		wake_up_process(curr->task);
 +		list_del_init(&curr->task_list);
-+		wakes++;
 +	}
-+	if (pm_in_action)
-+		return;
-+	WARN(wakes > 2, "complete_all() with %d waiters\n", wakes);
 +}
 +EXPORT_SYMBOL(swake_up_all_locked);
 +
  void swake_up_one(struct swait_queue_head *q)
  {
  	unsigned long flags;
-@@ -70,7 +89,7 @@ void swake_up_all(struct swait_queue_hea
+@@ -70,7 +84,7 @@ void swake_up_all(struct swait_queue_hea
  }
  EXPORT_SYMBOL(swake_up_all);
  

@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 12 Feb 2019 15:29:52 +0100
 Subject: [PATCH 14/25] printk: do boot_delay_msec inside printk_delay
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 Both functions needed to be called one after the other, so just
 integrate boot_delay_msec into printk_delay for simplification.
@@ -57,8 +57,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static inline u32 printk_caller_id(void)
  {
  	return in_task() ? task_pid_nr(current) :
-@@ -2575,10 +2576,8 @@ static int printk_kthread_func(void *dat
- 		console_lock();
+@@ -2576,10 +2577,8 @@ static int printk_kthread_func(void *dat
+ 		console_may_schedule = 0;
  		call_console_drivers(master_seq, ext_text,
  				     ext_len, text, len);
 -		if (len > 0 || ext_len > 0) {

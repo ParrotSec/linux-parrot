@@ -49,7 +49,6 @@ class Gencontrol(Base):
         },
         'packages': {
             'docs': config.SchemaItemBoolean(),
-            'headers-all': config.SchemaItemBoolean(),
             'installer': config.SchemaItemBoolean(),
             'libc-dev': config.SchemaItemBoolean(),
             'meta': config.SchemaItemBoolean(),
@@ -268,25 +267,9 @@ class Gencontrol(Base):
         build_signed = self.config.merge('build', arch) \
                                   .get('signed-code', False)
 
-        # Some userland architectures require kernels from another
-        # (Debian) architecture, e.g. x32/amd64.
-        # And some derivatives don't need the headers-all packages
-        # for other reasons.
-        if self.config['base', arch].get('featuresets') and \
-           self.config.merge('packages').get('headers-all', True):
-            headers_arch = self.templates["control.headers.arch"]
-            packages_headers_arch = self.process_packages(headers_arch, vars)
-            packages_headers_arch[-1]['Depends'].extend(PackageRelation())
-            extra['headers_arch_depends'] = (
-                packages_headers_arch[-1]['Depends'])
-        else:
-            packages_headers_arch = []
-
         if self.config.merge('packages').get('libc-dev', True):
             libc_dev = self.templates["control.libc-dev"]
-            packages_headers_arch[0:0] = self.process_packages(libc_dev, {})
-
-        merge_packages(packages, packages_headers_arch, arch)
+            merge_packages(packages, self.process_packages(libc_dev, {}), arch)
 
         if self.config['base', arch].get('featuresets') and \
            self.config.merge('packages').get('source', True):

@@ -15,6 +15,9 @@ drivers/soc/**
 # Watchdog needed for reboot
 sunxi_wdt ?
 
+# For Turris MOX (u-boot enables the watchdog)
+armada_37xx_wdt ?
+
 # SPI devices
 drivers/spi/**
 

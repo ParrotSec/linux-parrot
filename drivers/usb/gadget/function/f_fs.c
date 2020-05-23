@@ -1120,6 +1120,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 
 		ret = usb_ep_queue(ep->ep, req, GFP_ATOMIC);
 		if (unlikely(ret)) {
+			io_data->req = NULL;
 			usb_ep_free_request(ep->ep, req);
 			goto error_lock;
 		}
@@ -1489,7 +1490,7 @@ enum {
 	Opt_gid,
 };
 
-static const struct fs_parameter_spec ffs_fs_param_specs[] = {
+static const struct fs_parameter_spec ffs_fs_fs_parameters[] = {
 	fsparam_bool	("no_disconnect",	Opt_no_disconnect),
 	fsparam_u32	("rmode",		Opt_rmode),
 	fsparam_u32	("fmode",		Opt_fmode),
@@ -1497,11 +1498,6 @@ static const struct fs_parameter_spec ffs_fs_param_specs[] = {
 	fsparam_u32	("uid",			Opt_uid),
 	fsparam_u32	("gid",			Opt_gid),
 	{}
-};
-
-static const struct fs_parameter_description ffs_fs_fs_parameters = {
-	.name		= "kAFS",
-	.specs		= ffs_fs_param_specs,
 };
 
 static int ffs_fs_parse_param(struct fs_context *fc, struct fs_parameter *param)
@@ -1512,7 +1508,7 @@ static int ffs_fs_parse_param(struct fs_context *fc, struct fs_parameter *param)
 
 	ENTER();
 
-	opt = fs_parse(fc, &ffs_fs_fs_parameters, param, &result);
+	opt = fs_parse(fc, ffs_fs_fs_parameters, param, &result);
 	if (opt < 0)
 		return opt;
 
@@ -1644,7 +1640,7 @@ static struct file_system_type ffs_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "functionfs",
 	.init_fs_context = ffs_fs_init_fs_context,
-	.parameters	= &ffs_fs_fs_parameters,
+	.parameters	= ffs_fs_fs_parameters,
 	.kill_sb	= ffs_fs_kill_sb,
 };
 MODULE_ALIAS_FS("functionfs");
@@ -1817,6 +1813,10 @@ static void ffs_data_reset(struct ffs_data *ffs)
 	ffs->state = FFS_READ_DESCRIPTORS;
 	ffs->setup_state = FFS_NO_SETUP;
 	ffs->flags = 0;
+
+	ffs->ms_os_descs_ext_prop_count = 0;
+	ffs->ms_os_descs_ext_prop_name_len = 0;
+	ffs->ms_os_descs_ext_prop_data_len = 0;
 }
 
 

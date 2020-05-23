@@ -212,6 +212,7 @@ static void sched_send_work(struct timer_list *t)
 static void trace_drop_common(struct sk_buff *skb, void *location)
 {
 	struct net_dm_alert_msg *msg;
+	struct net_dm_drop_point *point;
 	struct nlmsghdr *nlh;
 	struct nlattr *nla;
 	int i;
@@ -230,11 +231,13 @@ static void trace_drop_common(struct sk_buff *skb, void *location)
 	nlh = (struct nlmsghdr *)dskb->data;
 	nla = genlmsg_data(nlmsg_data(nlh));
 	msg = nla_data(nla);
+	point = msg->points;
 	for (i = 0; i < msg->entries; i++) {
-		if (!memcmp(&location, msg->points[i].pc, sizeof(void *))) {
-			msg->points[i].count++;
+		if (!memcmp(&location, &point->pc, sizeof(void *))) {
+			point->count++;
 			goto out;
 		}
+		point++;
 	}
 	if (msg->entries == dm_hit_limit)
 		goto out;
@@ -243,8 +246,8 @@ static void trace_drop_common(struct sk_buff *skb, void *location)
 	 */
 	__nla_reserve_nohdr(dskb, sizeof(struct net_dm_drop_point));
 	nla->nla_len += NLA_ALIGN(sizeof(struct net_dm_drop_point));
-	memcpy(msg->points[msg->entries].pc, &location, sizeof(void *));
-	msg->points[msg->entries].count = 1;
+	memcpy(point->pc, &location, sizeof(void *));
+	point->count = 1;
 	msg->entries++;
 
 	if (!timer_pending(&data->send_timer)) {
@@ -802,16 +805,12 @@ net_dm_hw_metadata_clone(const struct net_dm_hw_metadata *hw_metadata)
 	if (!n_hw_metadata)
 		return NULL;
 
-	trap_group_name = kmemdup(hw_metadata->trap_group_name,
-				  strlen(hw_metadata->trap_group_name) + 1,
-				  GFP_ATOMIC | __GFP_ZERO);
+	trap_group_name = kstrdup(hw_metadata->trap_group_name, GFP_ATOMIC);
 	if (!trap_group_name)
 		goto free_hw_metadata;
 	n_hw_metadata->trap_group_name = trap_group_name;
 
-	trap_name = kmemdup(hw_metadata->trap_name,
-			    strlen(hw_metadata->trap_name) + 1,
-			    GFP_ATOMIC | __GFP_ZERO);
+	trap_name = kstrdup(hw_metadata->trap_name, GFP_ATOMIC);
 	if (!trap_name)
 		goto free_trap_group;
 	n_hw_metadata->trap_name = trap_name;

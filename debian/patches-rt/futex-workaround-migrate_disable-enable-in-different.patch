@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 8 Mar 2017 14:23:35 +0100
 Subject: [PATCH] futex: workaround migrate_disable/enable in different context
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 migrate_enable() invokes __schedule() and it expects a preempt count of one.
 Holding a raw_spinlock_t with disabled interrupts should not allow scheduling.
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -2980,6 +2980,14 @@ static int futex_lock_pi(u32 __user *uad
+@@ -2998,6 +2998,14 @@ static int futex_lock_pi(u32 __user *uad
  	 * before __rt_mutex_start_proxy_lock() is done.
  	 */
  	raw_spin_lock_irq(&q.pi_state->pi_mutex.wait_lock);
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	spin_unlock(q.lock_ptr);
  	/*
  	 * __rt_mutex_start_proxy_lock() unconditionally enqueues the @rt_waiter
-@@ -2988,6 +2996,7 @@ static int futex_lock_pi(u32 __user *uad
+@@ -3006,6 +3014,7 @@ static int futex_lock_pi(u32 __user *uad
  	 */
  	ret = __rt_mutex_start_proxy_lock(&q.pi_state->pi_mutex, &rt_waiter, current);
  	raw_spin_unlock_irq(&q.pi_state->pi_mutex.wait_lock);
@@ -45,7 +45,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (ret) {
  		if (ret == 1)
-@@ -3136,10 +3145,19 @@ static int futex_unlock_pi(u32 __user *u
+@@ -3154,10 +3163,19 @@ static int futex_unlock_pi(u32 __user *u
  		 * rt_waiter. Also see the WARN in wake_futex_pi().
  		 */
  		raw_spin_lock_irq(&pi_state->pi_mutex.wait_lock);

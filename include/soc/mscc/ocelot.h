@@ -411,6 +411,8 @@ struct ocelot_port {
 
 	void __iomem			*regs;
 
+	bool				vlan_aware;
+
 	/* Ingress default VLAN (pvid) */
 	u16				pvid;
 
@@ -420,6 +422,8 @@ struct ocelot_port {
 	u8				ptp_cmd;
 	struct sk_buff_head		tx_skbs;
 	u8				ts_id;
+
+	phy_interface_t			phy_mode;
 };
 
 struct ocelot {
@@ -433,6 +437,7 @@ struct ocelot {
 	unsigned int			num_stats;
 
 	int				shared_queue_sz;
+	int				num_mact_rows;
 
 	struct net_device		*hw_bridge_dev;
 	u16				bridge_mask;
@@ -527,7 +532,7 @@ int ocelot_port_bridge_leave(struct ocelot *ocelot, int port,
 int ocelot_fdb_dump(struct ocelot *ocelot, int port,
 		    dsa_fdb_dump_cb_t *cb, void *data);
 int ocelot_fdb_add(struct ocelot *ocelot, int port,
-		   const unsigned char *addr, u16 vid, bool vlan_aware);
+		   const unsigned char *addr, u16 vid);
 int ocelot_fdb_del(struct ocelot *ocelot, int port,
 		   const unsigned char *addr, u16 vid);
 int ocelot_vlan_add(struct ocelot *ocelot, int port, u16 vid, bool pvid,

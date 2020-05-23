@@ -16,8 +16,6 @@ ifeq ($(DISTRIBUTOR),)
 DISTRIBUTOR := Debian
 endif
 
-include /usr/share/dpkg/architecture.mk
-
 include debian/rules.defs
 
 ifdef ARCH
@@ -72,7 +70,6 @@ build-arch-arch: \
 	$(call if_package, libtraceevent-dev,            build-libtraceevent)
 binary-arch-arch: \
 	$(call if_package, $(SOURCE_BASENAME)-config-$(VERSION), install-config_$(ARCH)) \
-	$(call if_package, linux-headers-$(ABINAME)-all, install-headers_$(ARCH)) \
 	$(call if_package, linux-libc-dev,               install-libc-dev_$(ARCH)) \
 	$(call if_package, linux-kbuild-$(VERSION),      install-kbuild) \
 	$(call if_package, linux-perf-$(VERSION),        install-perf) \
@@ -292,13 +289,6 @@ install-doc-meta:
 	dh_testdir
 	dh_prep
 	+$(MAKE_SELF) install-base
-
-install-headers_$(ARCH): PACKAGE_NAMES = linux-headers-$(ABINAME)-all linux-headers-$(ABINAME)-all-$(ARCH)
-install-headers_$(ARCH): DH_OPTIONS = $(foreach p, $(PACKAGE_NAMES), -p$(p))
-install-headers_$(ARCH):
-	dh_testdir
-	dh_testroot
-	+$(MAKE_SELF) install-base GENCONTROL_ARGS='-Vkernel:Arch=$(ARCH)'
 
 install-common-headers_$(FEATURESET): PACKAGE_NAME = linux-headers-$(ABINAME)-common$(LOCALVERSION)
 install-common-headers_$(FEATURESET): PACKAGE_NAME_KBUILD = linux-kbuild-$(VERSION)
@@ -555,8 +545,7 @@ ifneq (,$(filter linux-image-$(ARCH)-signed-template,$(packages_enabled)))
 	rm -rf $(CODE_SIGNING_DIR)
 	mkdir -p $(CODE_SIGNING_DIR)
 	PYTHONHASHSEED=0 debian/bin/gencontrol_signed.py $(ARCH)
-	cp -R	debian/compat \
-		debian/copyright \
+	cp -R	debian/copyright \
 		debian/linux-image.NEWS \
 		debian/signing_templates/README.source \
 		debian/signing_templates/rules \
@@ -785,13 +774,12 @@ install-hyperv-daemons: build-hyperv-daemons
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
 endif
-	dh_systemd_enable
+	dh_installsystemd
 	for service in fcopy kvp vss; do \
 		dh_installinit --name hyperv-daemons.hv-$$service-daemon \
 			--onlyscripts \
 			|| break; \
 	done
-	dh_systemd_start
 	dh_lintian
 	dh_strip
 	dh_compress

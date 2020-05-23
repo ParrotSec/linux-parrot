@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 17:36:35 +0200
 Subject: [PATCH] net/Qdisc: use a seqlock instead seqcount
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patches-5.4.17-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
 
 The seqcount disables preemption on -RT while it is held which can't
 remove. Also we don't want the reader to spin for ages if the writer is
@@ -47,9 +47,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #include <linux/pkt_sched.h>
 +#include <net/net_seq_lock.h>
  
- struct gnet_stats_basic_cpu {
- 	struct gnet_stats_basic_packed bstats;
-@@ -36,15 +37,15 @@ int gnet_stats_start_copy_compat(struct
+ /* Note: this used to be in include/uapi/linux/gen_stats.h */
+ struct gnet_stats_basic_packed {
+@@ -42,15 +43,15 @@ int gnet_stats_start_copy_compat(struct
  				 spinlock_t *lock, struct gnet_dump *d,
  				 int padattr);
  
@@ -68,7 +68,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			     struct gnet_dump *d,
  			     struct gnet_stats_basic_cpu __percpu *cpu,
  			     struct gnet_stats_basic_packed *b);
-@@ -64,13 +65,13 @@ int gen_new_estimator(struct gnet_stats_
+@@ -70,13 +71,13 @@ int gen_new_estimator(struct gnet_stats_
  		      struct gnet_stats_basic_cpu __percpu *cpu_bstats,
  		      struct net_rate_estimator __rcu **rate_est,
  		      spinlock_t *lock,
@@ -201,7 +201,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				 lock, running, opt);
 --- a/net/core/gen_stats.c
 +++ b/net/core/gen_stats.c
-@@ -138,7 +138,7 @@ static void
+@@ -137,7 +137,7 @@ static void
  }
  
  void
@@ -210,7 +210,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			struct gnet_stats_basic_packed *bstats,
  			struct gnet_stats_basic_cpu __percpu *cpu,
  			struct gnet_stats_basic_packed *b)
-@@ -151,15 +151,15 @@ void
+@@ -150,15 +150,15 @@ void
  	}
  	do {
  		if (running)
@@ -229,7 +229,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			 struct gnet_dump *d,
  			 struct gnet_stats_basic_cpu __percpu *cpu,
  			 struct gnet_stats_basic_packed *b,
-@@ -200,7 +200,7 @@ static int
+@@ -204,7 +204,7 @@ static int
   * if the room in the socket buffer was not sufficient.
   */
  int
@@ -238,7 +238,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		      struct gnet_dump *d,
  		      struct gnet_stats_basic_cpu __percpu *cpu,
  		      struct gnet_stats_basic_packed *b)
-@@ -224,7 +224,7 @@ EXPORT_SYMBOL(gnet_stats_copy_basic);
+@@ -228,7 +228,7 @@ EXPORT_SYMBOL(gnet_stats_copy_basic);
   * if the room in the socket buffer was not sufficient.
   */
  int
@@ -260,7 +260,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (sch->flags & TCQ_F_MQROOT) {
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -557,7 +557,11 @@ struct Qdisc noop_qdisc = {
+@@ -552,7 +552,11 @@ struct Qdisc noop_qdisc = {
  	.ops		=	&noop_qdisc_ops,
  	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
  	.dev_queue	=	&noop_netdev_queue,
@@ -272,7 +272,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	.busylock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.busylock),
  	.gso_skb = {
  		.next = (struct sk_buff *)&noop_qdisc.gso_skb,
-@@ -853,7 +857,11 @@ struct Qdisc *qdisc_alloc(struct netdev_
+@@ -848,7 +852,11 @@ struct Qdisc *qdisc_alloc(struct netdev_
  	spin_lock_init(&sch->busylock);
  	/* seqlock has the same scope of busylock, for NOLOCK qdisc */
  	spin_lock_init(&sch->seqlock);
@@ -284,7 +284,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	sch->ops = ops;
  	sch->flags = ops->static_flags;
-@@ -867,7 +875,12 @@ struct Qdisc *qdisc_alloc(struct netdev_
+@@ -862,7 +870,12 @@ struct Qdisc *qdisc_alloc(struct netdev_
  	if (sch != &noop_qdisc) {
  		lockdep_set_class(&sch->busylock, &dev->qdisc_tx_busylock_key);
  		lockdep_set_class(&sch->seqlock, &dev->qdisc_tx_busylock_key);
