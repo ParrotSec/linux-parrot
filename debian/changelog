@@ -1,3 +1,9 @@
+linux (5.7.6-1parrot2) rolling; urgency=medium
+
+  * Rebuild kernel package.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sun, 19 Jul 2020 00:08:59 +0200
+
 linux (5.7.6-1parrot1) rolling-testing; urgency=medium
 
   * Import new Debian version.
