@@ -15,8 +15,6 @@
  *	and ima_file_check.
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include <linux/module.h>
 #include <linux/file.h>
 #include <linux/binfmts.h>
@@ -757,6 +755,9 @@ void process_buffer_measurement(const void *buf, int size,
 		ima_free_template_entry(entry);
 
 out:
+	if (ret < 0)
+		pr_devel("%s: failed, result: %d\n", __func__, ret);
+
 	return;
 }
 
@@ -790,6 +791,9 @@ static int __init init_ima(void)
 		hash_setup(CONFIG_IMA_DEFAULT_HASH);
 		error = ima_init();
 	}
+
+	if (error)
+		return error;
 
 	error = register_blocking_lsm_notifier(&ima_lsm_policy_notifier);
 	if (error)

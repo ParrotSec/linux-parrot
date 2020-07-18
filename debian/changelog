@@ -1,3 +1,79 @@
+linux (5.7.6-1parrot1) rolling-testing; urgency=medium
+
+  * Import new Debian version.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sat, 18 Jul 2020 02:23:40 +0200
+
+linux (5.7.6-1) unstable; urgency=medium
+
+  * New upstream release: https://kernelnewbies.org/Linux_5.7
+    - [x86] syscalls: Revert "x86/syscalls: Make __X32_SYSCALL_BIT be unsigned
+      long" (Closes: #954294)
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.7.1
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.7.2
+    - vt: keyboard: avoid signed integer overflow in k_ascii (CVE-2020-13974)
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.7.3
+    - [x86] speculation: Prevent rogue cross-process SSBD shutdown
+      (CVE-2020-10766)
+    - [x86] speculation: Avoid force-disabling IBPB based on STIBP and
+      enhanced IBRS. (CVE-2020-10767)
+    - [x86] speculation: PR_SPEC_FORCE_DISABLE enforcement for indirect
+      branches. (CVE-2020-10768)
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.7.4
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.7.5
+    https://www.kernel.org/pub/linux/kernel/v5.x/ChangeLog-5.7.6
+
+  [ Ben Hutchings ]
+  * fs: Enable EXFAT_FS as module (Closes: #959781)
+  * Fix conversion of meta-package doc directories to symlinks
+    (Closes: #942861)
+
+  [ Vagrant Cascadian ]
+  * [arm64] Enable DRM_ANALOGIX_ANX6345 as a module.
+  * [arm64] Add analogix-anx6345, pwm-sun4i, sun4i-drm and sun8i-mixer to
+    fb-modules udeb.
+
+  [ Helge Deller ]
+  * [hppa] Don't run dh_strip on vmlinuz (Closes: #961299)
+
+  [ YunQiang Su ]
+  * [mips/loongson-3] Enable SERIAL_OF_PLATFORM and OF (Closes: 961328)
+
+  [ Aurelien Jarno ]
+  * Enable CONFIG_NVME_HWMON (Closes: #961823)
+
+  [ Romain Perier ]
+  * [arm64] Enable PCIE_BRCMSTB
+  * [arm64] Enable BCM2711_THERMAL
+
+  [ Salvatore Bonaccorso ]
+  * nfsd: apply umask on fs without ACL support (Closes: #962254)
+  * [rt] Add new signing key for Tom Zanussi
+  * Set ABI to 1
+  * [arm64] Remove explicit setting of CONFIG_HNS
+  * debian/config: Clean up with the help of kconfigeditor2
+
+  [ Gianfranco Costamagna ]
+  * [x86] Enable VBOXSF_FS as a module (Closes: #961516)
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Wed, 24 Jun 2020 20:56:57 +0200
+
+linux (5.7~rc5-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Romain Perier ]
+  * Enable support for fsverity
+
+  [ Ben Hutchings ]
+  * [rt] Disable until it is updated for 5.5 or later
+  * lockdown: Update Secure Boot support patches for 5.7
+  * [amd64] Update "x86: Make x32 syscall support conditional ..." for 5.7
+  * Update "tools/perf: pmu-events: Fix reproducibility" for 5.7
+
+ -- Ben Hutchings <benh@debian.org>  Sun, 10 May 2020 23:42:53 +0100
+
 linux (5.6.14-2parrot1) rolling; urgency=medium
 
   * Import new Debian release.

@@ -211,7 +211,6 @@ CONFIG_ARM_CPUIDLE=y
 ##
 ## file: drivers/crypto/Kconfig
 ##
-CONFIG_CRYPTO_DEV_MARVELL_CESA=m
 CONFIG_CRYPTO_DEV_QCE=m
 CONFIG_CRYPTO_DEV_QCOM_RNG=m
 CONFIG_CRYPTO_DEV_SAFEXCEL=m
@@ -235,6 +234,11 @@ CONFIG_CAVIUM_CPT=m
 ## file: drivers/crypto/cavium/nitrox/Kconfig
 ##
 CONFIG_CRYPTO_DEV_NITROX_CNN55XX=m
+
+##
+## file: drivers/crypto/marvell/Kconfig
+##
+CONFIG_CRYPTO_DEV_MARVELL_CESA=m
 
 ##
 ## file: drivers/devfreq/Kconfig
@@ -327,6 +331,11 @@ CONFIG_DRM_AST=m
 ##
 CONFIG_DRM_I2C_ADV7511=m
 CONFIG_DRM_I2C_ADV7511_AUDIO=y
+
+##
+## file: drivers/gpu/drm/bridge/analogix/Kconfig
+##
+CONFIG_DRM_ANALOGIX_ANX6345=m
 
 ##
 ## file: drivers/gpu/drm/hisilicon/hibmc/Kconfig
@@ -610,7 +619,7 @@ CONFIG_MMC_BCM2835=m
 CONFIG_MMC_SDHCI_XENON=m
 
 ##
-## file: drivers/mtd/spi-nor/Kconfig
+## file: drivers/mtd/spi-nor/controllers/Kconfig
 ##
 CONFIG_SPI_HISI_SFC=m
 
@@ -720,7 +729,6 @@ CONFIG_NET_VENDOR_HISILICON=y
 CONFIG_HIX5HD2_GMAC=m
 CONFIG_HISI_FEMAC=m
 CONFIG_HIP04_ETH=m
-CONFIG_HNS=m
 CONFIG_HNS_DSAF=m
 CONFIG_HNS_ENET=m
 CONFIG_HNS3=m
@@ -871,6 +879,7 @@ CONFIG_PCI_XGENE=y
 CONFIG_PCI_HOST_THUNDER_PEM=y
 CONFIG_PCI_HOST_THUNDER_ECAM=y
 CONFIG_PCIE_ROCKCHIP_HOST=y
+CONFIG_PCIE_BRCMSTB=y
 
 ##
 ## file: drivers/pci/controller/dwc/Kconfig
@@ -1187,6 +1196,7 @@ CONFIG_ARMADA_THERMAL=m
 ##
 ## file: drivers/thermal/broadcom/Kconfig
 ##
+CONFIG_BCM2711_THERMAL=m
 CONFIG_BCM2835_THERMAL=m
 
 ##

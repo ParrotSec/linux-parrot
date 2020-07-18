@@ -293,7 +293,6 @@ int wfx_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct wfx_dev *wdev = hw->priv;
 	struct wfx_vif *wvif = (struct wfx_vif *) vif->drv_priv;
 	int old_uapsd = wvif->uapsd_mask;
-	int ret = 0;
 
 	WARN_ON(queue >= hw->queues);
 
@@ -307,7 +306,7 @@ int wfx_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		wfx_update_pm(wvif);
 	}
 	mutex_unlock(&wdev->conf_mutex);
-	return ret;
+	return 0;
 }
 
 int wfx_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
@@ -521,7 +520,9 @@ static void wfx_do_join(struct wfx_vif *wvif)
 		ssidie = ieee80211_bss_get_ie(bss, WLAN_EID_SSID);
 	if (ssidie) {
 		ssidlen = ssidie[1];
-		memcpy(ssid, &ssidie[2], ssidie[1]);
+		if (ssidlen > IEEE80211_MAX_SSID_LEN)
+			ssidlen = IEEE80211_MAX_SSID_LEN;
+		memcpy(ssid, &ssidie[2], ssidlen);
 	}
 	rcu_read_unlock();
 
@@ -909,7 +910,7 @@ static void wfx_update_tim_work(struct work_struct *work)
 int wfx_set_tim(struct ieee80211_hw *hw, struct ieee80211_sta *sta, bool set)
 {
 	struct wfx_dev *wdev = hw->priv;
-	struct wfx_sta_priv *sta_dev = (struct wfx_sta_priv *) &sta->drv_priv;
+	struct wfx_sta_priv *sta_dev = (struct wfx_sta_priv *)&sta->drv_priv;
 	struct wfx_vif *wvif = wdev_to_wvif(wdev, sta_dev->vif_id);
 
 	schedule_work(&wvif->update_tim_work);
@@ -1048,7 +1049,6 @@ int wfx_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	init_completion(&wvif->scan_complete);
 	INIT_WORK(&wvif->scan_work, wfx_hw_scan_work);
 
-	INIT_WORK(&wvif->tx_policy_upload_work, wfx_tx_policy_upload_work);
 	mutex_unlock(&wdev->conf_mutex);
 
 	hif_set_macaddr(wvif, vif->addr);

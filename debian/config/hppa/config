@@ -448,11 +448,6 @@ CONFIG_PCMCIA_QLOGIC=m
 CONFIG_PCMCIA_SYM53C500=m
 
 ##
-## file: drivers/staging/hp/Kconfig
-##
-CONFIG_HP100=m
-
-##
 ## file: drivers/tty/Kconfig
 ##
 CONFIG_VT=y

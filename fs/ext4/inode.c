@@ -269,10 +269,9 @@ void ext4_evict_inode(struct inode *inode)
 	if (inode->i_blocks) {
 		err = ext4_truncate(inode);
 		if (err) {
-			ext4_set_errno(inode->i_sb, -err);
-			ext4_error(inode->i_sb,
-				   "couldn't truncate inode %lu (err %d)",
-				   inode->i_ino, err);
+			ext4_error_err(inode->i_sb, -err,
+				       "couldn't truncate inode %lu (err %d)",
+				       inode->i_ino, err);
 			goto stop_handle;
 		}
 	}
@@ -1297,7 +1296,7 @@ static int ext4_write_end(struct file *file,
 	 * filesystems.
 	 */
 	if (i_size_changed || inline_data)
-		ext4_mark_inode_dirty(handle, inode);
+		ret = ext4_mark_inode_dirty(handle, inode);
 
 	if (pos + len > inode->i_size && !verity && ext4_can_truncate(inode))
 		/* if we have allocated more blocks and copied
@@ -2478,10 +2477,9 @@ update_disksize:
 		up_write(&EXT4_I(inode)->i_data_sem);
 		err2 = ext4_mark_inode_dirty(handle, inode);
 		if (err2) {
-			ext4_set_errno(inode->i_sb, -err2);
-			ext4_error(inode->i_sb,
-				   "Failed to mark inode %lu dirty",
-				   inode->i_ino);
+			ext4_error_err(inode->i_sb, -err2,
+				       "Failed to mark inode %lu dirty",
+				       inode->i_ino);
 		}
 		if (!err)
 			err = err2;
@@ -3079,7 +3077,7 @@ static int ext4_da_write_end(struct file *file,
 			 * new_i_size is less that inode->i_size
 			 * bu greater than i_disksize.(hint delalloc)
 			 */
-			ext4_mark_inode_dirty(handle, inode);
+			ret = ext4_mark_inode_dirty(handle, inode);
 		}
 	}
 
@@ -3096,7 +3094,7 @@ static int ext4_da_write_end(struct file *file,
 	if (ret2 < 0)
 		ret = ret2;
 	ret2 = ext4_journal_stop(handle);
-	if (!ret)
+	if (unlikely(ret2 && !ret))
 		ret = ret2;
 
 	return ret ? ret : copied;
@@ -3212,7 +3210,7 @@ static sector_t ext4_bmap(struct address_space *mapping, sector_t block)
 			return 0;
 	}
 
-	return generic_block_bmap(mapping, block, ext4_get_block);
+	return iomap_bmap(mapping, block, &ext4_iomap_ops);
 }
 
 static int ext4_readpage(struct file *file, struct page *page)
@@ -3332,6 +3330,10 @@ static void ext4_set_iomap(struct inode *inode, struct iomap *iomap,
 	iomap->dax_dev = EXT4_SB(inode->i_sb)->s_daxdev;
 	iomap->offset = (u64) map->m_lblk << blkbits;
 	iomap->length = (u64) map->m_len << blkbits;
+
+	if ((map->m_flags & EXT4_MAP_MAPPED) &&
+	    !ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS))
+		iomap->flags |= IOMAP_F_MERGED;
 
 	/*
 	 * Flags passed to ext4_map_blocks() for direct I/O writes can result
@@ -3542,12 +3544,28 @@ static int ext4_iomap_begin_report(struct inode *inode, loff_t offset,
 	map.m_len = min_t(loff_t, (offset + length - 1) >> blkbits,
 			  EXT4_MAX_LOGICAL_BLOCK) - map.m_lblk + 1;
 
+	/*
+	 * Fiemap callers may call for offset beyond s_bitmap_maxbytes.
+	 * So handle it here itself instead of querying ext4_map_blocks().
+	 * Since ext4_map_blocks() will warn about it and will return
+	 * -EIO error.
+	 */
+	if (!(ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS))) {
+		struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
+
+		if (offset >= sbi->s_bitmap_maxbytes) {
+			map.m_flags = 0;
+			goto set_iomap;
+		}
+	}
+
 	ret = ext4_map_blocks(NULL, inode, &map, 0);
 	if (ret < 0)
 		return ret;
 	if (ret == 0)
 		delalloc = ext4_iomap_is_delalloc(inode, &map);
 
+set_iomap:
 	ext4_set_iomap(inode, iomap, &map, offset, length);
 	if (delalloc && iomap->type == IOMAP_HOLE)
 		iomap->type = IOMAP_DELALLOC;
@@ -3868,6 +3886,8 @@ int ext4_update_disksize_before_punch(struct inode *inode, loff_t offset,
 				      loff_t len)
 {
 	handle_t *handle;
+	int ret;
+
 	loff_t size = i_size_read(inode);
 
 	WARN_ON(!inode_is_locked(inode));
@@ -3881,10 +3901,10 @@ int ext4_update_disksize_before_punch(struct inode *inode, loff_t offset,
 	if (IS_ERR(handle))
 		return PTR_ERR(handle);
 	ext4_update_i_disksize(inode, size);
-	ext4_mark_inode_dirty(handle, inode);
+	ret = ext4_mark_inode_dirty(handle, inode);
 	ext4_journal_stop(handle);
 
-	return 0;
+	return ret;
 }
 
 static void ext4_wait_dax_page(struct ext4_inode_info *ei)
@@ -3936,7 +3956,7 @@ int ext4_punch_hole(struct inode *inode, loff_t offset, loff_t length)
 	loff_t first_block_offset, last_block_offset;
 	handle_t *handle;
 	unsigned int credits;
-	int ret = 0;
+	int ret = 0, ret2 = 0;
 
 	trace_ext4_punch_hole(inode, offset, length, 0);
 
@@ -4059,7 +4079,9 @@ int ext4_punch_hole(struct inode *inode, loff_t offset, loff_t length)
 		ext4_handle_sync(handle);
 
 	inode->i_mtime = inode->i_ctime = current_time(inode);
-	ext4_mark_inode_dirty(handle, inode);
+	ret2 = ext4_mark_inode_dirty(handle, inode);
+	if (unlikely(ret2))
+		ret = ret2;
 	if (ret >= 0)
 		ext4_update_inode_fsync_trans(handle, inode, 1);
 out_stop:
@@ -4128,7 +4150,7 @@ int ext4_truncate(struct inode *inode)
 {
 	struct ext4_inode_info *ei = EXT4_I(inode);
 	unsigned int credits;
-	int err = 0;
+	int err = 0, err2;
 	handle_t *handle;
 	struct address_space *mapping = inode->i_mapping;
 
@@ -4143,8 +4165,6 @@ int ext4_truncate(struct inode *inode)
 
 	if (!ext4_can_truncate(inode))
 		return 0;
-
-	ext4_clear_inode_flag(inode, EXT4_INODE_EOFBLOCKS);
 
 	if (inode->i_size == 0 && !test_opt(inode->i_sb, NO_AUTO_DA_ALLOC))
 		ext4_set_inode_state(inode, EXT4_STATE_DA_ALLOC_CLOSE);
@@ -4218,7 +4238,9 @@ out_stop:
 		ext4_orphan_del(handle, inode);
 
 	inode->i_mtime = inode->i_ctime = current_time(inode);
-	ext4_mark_inode_dirty(handle, inode);
+	err2 = ext4_mark_inode_dirty(handle, inode);
+	if (unlikely(err2 && !err))
+		err = err2;
 	ext4_journal_stop(handle);
 
 	trace_ext4_truncate_exit(inode);
@@ -4364,8 +4386,7 @@ make_io:
 		wait_on_buffer(bh);
 		if (!buffer_uptodate(bh)) {
 		simulate_eio:
-			ext4_set_errno(inode->i_sb, EIO);
-			EXT4_ERROR_INODE_BLOCK(inode, block,
+			ext4_error_inode_block(inode, block, EIO,
 					       "unable to read itable block");
 			brelse(bh);
 			return -EIO;
@@ -4517,7 +4538,7 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
 	    (ino > le32_to_cpu(EXT4_SB(sb)->s_es->s_inodes_count))) {
 		if (flags & EXT4_IGET_HANDLE)
 			return ERR_PTR(-ESTALE);
-		__ext4_error(sb, function, line,
+		__ext4_error(sb, function, line, EFSCORRUPTED, 0,
 			     "inode #%lu: comm %s: iget: illegal inode #",
 			     ino, current->comm);
 		return ERR_PTR(-EFSCORRUPTED);
@@ -4580,9 +4601,8 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
 
 	if (!ext4_inode_csum_verify(inode, raw_inode, ei) ||
 	    ext4_simulate_fail(sb, EXT4_SIM_INODE_CRC)) {
-		ext4_set_errno(inode->i_sb, EFSBADCRC);
-		ext4_error_inode(inode, function, line, 0,
-				 "iget: checksum invalid");
+		ext4_error_inode_err(inode, function, line, 0, EFSBADCRC,
+				     "iget: checksum invalid");
 		ret = -EFSBADCRC;
 		goto bad_inode;
 	}
@@ -4982,7 +5002,7 @@ static int ext4_do_update_inode(handle_t *handle,
 		raw_inode->i_file_acl_high =
 			cpu_to_le16(ei->i_file_acl >> 32);
 	raw_inode->i_file_acl_lo = cpu_to_le32(ei->i_file_acl);
-	if (ei->i_disksize != ext4_isize(inode->i_sb, raw_inode)) {
+	if (READ_ONCE(ei->i_disksize) != ext4_isize(inode->i_sb, raw_inode)) {
 		ext4_isize_set(raw_inode, ei->i_disksize);
 		need_datasync = 1;
 	}
@@ -5131,9 +5151,8 @@ int ext4_write_inode(struct inode *inode, struct writeback_control *wbc)
 		if (wbc->sync_mode == WB_SYNC_ALL && !wbc->for_sync)
 			sync_dirty_buffer(iloc.bh);
 		if (buffer_req(iloc.bh) && !buffer_uptodate(iloc.bh)) {
-			ext4_set_errno(inode->i_sb, EIO);
-			EXT4_ERROR_INODE_BLOCK(inode, iloc.bh->b_blocknr,
-					 "IO error syncing inode");
+			ext4_error_inode_block(inode, iloc.bh->b_blocknr, EIO,
+					       "IO error syncing inode");
 			err = -EIO;
 		}
 		brelse(iloc.bh);
@@ -5279,6 +5298,8 @@ int ext4_setattr(struct dentry *dentry, struct iattr *attr)
 			inode->i_gid = attr->ia_gid;
 		error = ext4_mark_inode_dirty(handle, inode);
 		ext4_journal_stop(handle);
+		if (unlikely(error))
+			return error;
 	}
 
 	if (attr->ia_valid & ATTR_SIZE) {
@@ -5764,7 +5785,8 @@ out_unlock:
  * Whenever the user wants stuff synced (sys_sync, sys_msync, sys_fsync)
  * we start and wait on commits.
  */
-int ext4_mark_inode_dirty(handle_t *handle, struct inode *inode)
+int __ext4_mark_inode_dirty(handle_t *handle, struct inode *inode,
+				const char *func, unsigned int line)
 {
 	struct ext4_iloc iloc;
 	struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
@@ -5774,13 +5796,18 @@ int ext4_mark_inode_dirty(handle_t *handle, struct inode *inode)
 	trace_ext4_mark_inode_dirty(inode, _RET_IP_);
 	err = ext4_reserve_inode_write(handle, inode, &iloc);
 	if (err)
-		return err;
+		goto out;
 
 	if (EXT4_I(inode)->i_extra_isize < sbi->s_want_extra_isize)
 		ext4_try_to_expand_extra_isize(inode, sbi->s_want_extra_isize,
 					       iloc, handle);
 
-	return ext4_mark_iloc_dirty(handle, inode, &iloc);
+	err = ext4_mark_iloc_dirty(handle, inode, &iloc);
+out:
+	if (unlikely(err))
+		ext4_error_inode_err(inode, func, line, 0, err,
+					"mark_inode_dirty error");
+	return err;
 }
 
 /*

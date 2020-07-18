@@ -45,6 +45,7 @@
 #include <nvif/cl5070.h>
 #include <nvif/cl507d.h>
 #include <nvif/event.h>
+#include <nvif/timer.h>
 
 #include "nouveau_drv.h"
 #include "nouveau_dma.h"
@@ -481,15 +482,16 @@ nv50_dac_create(struct drm_connector *connector, struct dcb_output *dcbe)
  * audio component binding for ELD notification
  */
 static void
-nv50_audio_component_eld_notify(struct drm_audio_component *acomp, int port)
+nv50_audio_component_eld_notify(struct drm_audio_component *acomp, int port,
+				int dev_id)
 {
 	if (acomp && acomp->audio_ops && acomp->audio_ops->pin_eld_notify)
 		acomp->audio_ops->pin_eld_notify(acomp->audio_ops->audio_ptr,
-						 port, -1);
+						 port, dev_id);
 }
 
 static int
-nv50_audio_component_get_eld(struct device *kdev, int port, int pipe,
+nv50_audio_component_get_eld(struct device *kdev, int port, int dev_id,
 			     bool *enabled, unsigned char *buf, int max_bytes)
 {
 	struct drm_device *drm_dev = dev_get_drvdata(kdev);
@@ -505,7 +507,8 @@ nv50_audio_component_get_eld(struct device *kdev, int port, int pipe,
 		nv_encoder = nouveau_encoder(encoder);
 		nv_connector = nouveau_encoder_connector_get(nv_encoder);
 		nv_crtc = nouveau_crtc(encoder->crtc);
-		if (!nv_connector || !nv_crtc || nv_crtc->index != port)
+		if (!nv_connector || !nv_crtc || nv_encoder->or != port ||
+		    nv_crtc->index != dev_id)
 			continue;
 		*enabled = drm_detect_monitor_audio(nv_connector->edid);
 		if (*enabled) {
@@ -599,7 +602,8 @@ nv50_audio_disable(struct drm_encoder *encoder, struct nouveau_crtc *nv_crtc)
 
 	nvif_mthd(&disp->disp->object, 0, &args, sizeof(args));
 
-	nv50_audio_component_eld_notify(drm->audio.component, nv_crtc->index);
+	nv50_audio_component_eld_notify(drm->audio.component, nv_encoder->or,
+					nv_crtc->index);
 }
 
 static void
@@ -633,7 +637,8 @@ nv50_audio_enable(struct drm_encoder *encoder, struct drm_display_mode *mode)
 	nvif_mthd(&disp->disp->object, 0, &args,
 		  sizeof(args.base) + drm_eld_size(args.data));
 
-	nv50_audio_component_eld_notify(drm->audio.component, nv_crtc->index);
+	nv50_audio_component_eld_notify(drm->audio.component, nv_encoder->or,
+					nv_crtc->index);
 }
 
 /******************************************************************************
@@ -1256,30 +1261,6 @@ nv50_mstm_prepare(struct nv50_mstm *mstm)
 	}
 }
 
-static void
-nv50_mstm_destroy_connector(struct drm_dp_mst_topology_mgr *mgr,
-			    struct drm_connector *connector)
-{
-	struct nouveau_drm *drm = nouveau_drm(connector->dev);
-	struct nv50_mstc *mstc = nv50_mstc(connector);
-
-	drm_connector_unregister(&mstc->connector);
-
-	drm_fb_helper_remove_one_connector(&drm->fbcon->helper, &mstc->connector);
-
-	drm_connector_put(&mstc->connector);
-}
-
-static void
-nv50_mstm_register_connector(struct drm_connector *connector)
-{
-	struct nouveau_drm *drm = nouveau_drm(connector->dev);
-
-	drm_fb_helper_add_one_connector(&drm->fbcon->helper, connector);
-
-	drm_connector_register(connector);
-}
-
 static struct drm_connector *
 nv50_mstm_add_connector(struct drm_dp_mst_topology_mgr *mgr,
 			struct drm_dp_mst_port *port, const char *path)
@@ -1298,8 +1279,6 @@ nv50_mstm_add_connector(struct drm_dp_mst_topology_mgr *mgr,
 static const struct drm_dp_mst_topology_cbs
 nv50_mstm = {
 	.add_connector = nv50_mstm_add_connector,
-	.register_connector = nv50_mstm_register_connector,
-	.destroy_connector = nv50_mstm_destroy_connector,
 };
 
 void

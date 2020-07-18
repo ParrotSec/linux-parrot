@@ -23,44 +23,105 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
 [bwh: Drop call to init_lockdown(), as efi_set_secure_boot() now calls this]
 [bwh: Forward-ported to 5.6: efi_get_secureboot() no longer takes a
  sys_table parameter]
+[bwh: Forward-ported to 5.7: EFI initialisation from FDT was rewritten, so:
+ - Add Secure Boot mode to the parameter enumeration in fdtparams.c
+ - Add a parameter to efi_get_fdt_params() to return the Secure Boot mode
+ - Since Xen does not have a property name defined for Secure Boot mode,
+   change efi_get_fdt_prop() to handle a missing property name by clearing
+   the output variable]
 ---
- drivers/firmware/efi/arm-init.c    | 4 ++++
- drivers/firmware/efi/efi.c         | 3 ++-
- drivers/firmware/efi/libstub/fdt.c | 6 ++++++
- include/linux/efi.h                | 1 +
- 4 files changed, 13 insertions(+), 1 deletion(-)
+ drivers/firmware/efi/arm-init.c    |    5 ++++-
+ drivers/firmware/efi/fdtparams.c   |   12 +++++++++++-
+ drivers/firmware/efi/libstub/fdt.c |    6 ++++++
+ include/linux/efi.h                |    3 ++-
+ 4 files changed, 23 insertions(+), 3 deletions(-)
 
 --- a/drivers/firmware/efi/arm-init.c
 +++ b/drivers/firmware/efi/arm-init.c
-@@ -19,6 +19,7 @@
- #include <linux/of_fdt.h>
- #include <linux/platform_device.h>
- #include <linux/screen_info.h>
-+#include <linux/security.h>
+@@ -206,9 +206,10 @@ void __init efi_init(void)
+ {
+ 	struct efi_memory_map_data data;
+ 	u64 efi_system_table;
++	u32 secure_boot;
  
- #include <asm/efi.h>
+ 	/* Grab UEFI information placed in FDT by stub */
+-	efi_system_table = efi_get_fdt_params(&data);
++	efi_system_table = efi_get_fdt_params(&data, &secure_boot);
+ 	if (!efi_system_table)
+ 		return;
  
-@@ -264,6 +265,8 @@ void __init efi_init(void)
+@@ -230,6 +231,8 @@ void __init efi_init(void)
  		return;
  	}
  
-+	efi_set_secure_boot(params.secure_boot);
++	efi_set_secure_boot(secure_boot);
 +
  	reserve_regions();
  	efi_esrt_init();
  
---- a/drivers/firmware/efi/efi.c
-+++ b/drivers/firmware/efi/efi.c
-@@ -696,7 +696,8 @@ static __initdata struct params fdt_para
- 	UEFI_PARAM("MemMap Address", "linux,uefi-mmap-start", mmap),
- 	UEFI_PARAM("MemMap Size", "linux,uefi-mmap-size", mmap_size),
- 	UEFI_PARAM("MemMap Desc. Size", "linux,uefi-mmap-desc-size", desc_size),
--	UEFI_PARAM("MemMap Desc. Version", "linux,uefi-mmap-desc-ver", desc_ver)
-+	UEFI_PARAM("MemMap Desc. Version", "linux,uefi-mmap-desc-ver", desc_ver),
-+	UEFI_PARAM("Secure Boot Enabled", "linux,uefi-secure-boot", secure_boot)
+--- a/drivers/firmware/efi/fdtparams.c
++++ b/drivers/firmware/efi/fdtparams.c
+@@ -16,6 +16,7 @@ enum {
+ 	MMSIZE,
+ 	DCSIZE,
+ 	DCVERS,
++	SBMODE,
+ 
+ 	PARAMCOUNT
+ };
+@@ -26,6 +27,7 @@ static __initconst const char name[][22]
+ 	[MMSIZE] = "MemMap Size          ",
+ 	[DCSIZE] = "MemMap Desc. Size    ",
+ 	[DCVERS] = "MemMap Desc. Version ",
++	[SBMODE] = "Secure Boot Enabled  ",
  };
  
- static __initdata struct params xen_fdt_params[] = {
+ static __initconst const struct {
+@@ -41,6 +43,7 @@ static __initconst const struct {
+ 			[MMSIZE] = "xen,uefi-mmap-size",
+ 			[DCSIZE] = "xen,uefi-mmap-desc-size",
+ 			[DCVERS] = "xen,uefi-mmap-desc-ver",
++			[SBMODE] = "",
+ 		}
+ 	}, {
+ #endif
+@@ -51,6 +54,7 @@ static __initconst const struct {
+ 			[MMSIZE] = "linux,uefi-mmap-size",
+ 			[DCSIZE] = "linux,uefi-mmap-desc-size",
+ 			[DCVERS] = "linux,uefi-mmap-desc-ver",
++			[SBMODE] = "linux,uefi-secure-boot",
+ 		}
+ 	}
+ };
+@@ -62,6 +66,11 @@ static int __init efi_get_fdt_prop(const
+ 	int len;
+ 	u64 val;
+ 
++	if (!pname[0]) {
++		memset(var, 0, size);
++		return 0;
++	}
++
+ 	prop = fdt_getprop(fdt, node, pname, &len);
+ 	if (!prop)
+ 		return 1;
+@@ -79,7 +88,7 @@ static int __init efi_get_fdt_prop(const
+ 	return 0;
+ }
+ 
+-u64 __init efi_get_fdt_params(struct efi_memory_map_data *mm)
++u64 __init efi_get_fdt_params(struct efi_memory_map_data *mm, u32 *secure_boot)
+ {
+ 	const void *fdt = initial_boot_params;
+ 	unsigned long systab;
+@@ -93,6 +102,7 @@ u64 __init efi_get_fdt_params(struct efi
+ 		[MMSIZE] = { &mm->size,		sizeof(mm->size) },
+ 		[DCSIZE] = { &mm->desc_size,	sizeof(mm->desc_size) },
+ 		[DCVERS] = { &mm->desc_version,	sizeof(mm->desc_version) },
++		[SBMODE] = { secure_boot,       sizeof(*secure_boot) },
+ 	};
+ 
+ 	BUILD_BUG_ON(ARRAY_SIZE(target) != ARRAY_SIZE(name));
 --- a/drivers/firmware/efi/libstub/fdt.c
 +++ b/drivers/firmware/efi/libstub/fdt.c
 @@ -150,6 +150,12 @@ static efi_status_t update_fdt(void *ori
@@ -78,11 +139,13 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  
 --- a/include/linux/efi.h
 +++ b/include/linux/efi.h
-@@ -794,6 +794,7 @@ struct efi_fdt_params {
- 	u32 mmap_size;
- 	u32 desc_size;
- 	u32 desc_ver;
-+	u32 secure_boot;
- };
+@@ -655,7 +655,8 @@ extern void efi_mem_reserve(phys_addr_t
+ extern int efi_mem_reserve_persistent(phys_addr_t addr, u64 size);
+ extern void efi_initialize_iomem_resources(struct resource *code_resource,
+ 		struct resource *data_resource, struct resource *bss_resource);
+-extern u64 efi_get_fdt_params(struct efi_memory_map_data *data);
++extern u64 efi_get_fdt_params(struct efi_memory_map_data *data,
++			      u32 *secure_boot);
+ extern struct kobject *efi_kobj;
  
- typedef struct {
+ extern int efi_reboot_quirk_mode;

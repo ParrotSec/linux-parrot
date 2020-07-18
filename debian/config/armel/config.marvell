@@ -222,7 +222,7 @@ CONFIG_CPU_IDLE=y
 CONFIG_ARM_KIRKWOOD_CPUIDLE=y
 
 ##
-## file: drivers/crypto/Kconfig
+## file: drivers/crypto/marvell/Kconfig
 ##
 CONFIG_CRYPTO_DEV_MARVELL_CESA=m
 

@@ -1,4 +1,4 @@
-Package: linux-image-@arch@-signed-template
+Package: linux-image@source_suffix@-@arch@-signed-template
 Build-Profiles: <!stage1 !pkg.linux.nokernel>
 Depends: dpkg-dev, ${misc:Depends}
 Description: Template for signed linux-image packages for @arch@

@@ -404,17 +404,17 @@ CONFIG_BT_MTKUART=m
 ##
 ## file: drivers/char/Kconfig
 ##
-CONFIG_DEVMEM=y
-# CONFIG_DEVKMEM is not set
 CONFIG_TTY_PRINTK=m
 CONFIG_VIRTIO_CONSOLE=m
 # CONFIG_R3964 is not set
 CONFIG_PC8736x_GPIO=m
 CONFIG_NSC_GPIO=m
+CONFIG_DEVMEM=y
+# CONFIG_DEVKMEM is not set
 # CONFIG_RAW_DRIVER is not set
+CONFIG_DEVPORT=y
 CONFIG_HANGCHECK_TIMER=m
 CONFIG_TELCLOCK=m
-CONFIG_DEVPORT=y
 CONFIG_RANDOM_TRUST_CPU=y
 # CONFIG_RANDOM_TRUST_BOOTLOADER is not set
 
@@ -1150,6 +1150,7 @@ CONFIG_HID_SENSOR_ACCEL_3D=m
 ##
 ## file: drivers/iio/adc/Kconfig
 ##
+# CONFIG_AD7192 is not set
 # CONFIG_AD7266 is not set
 # CONFIG_AD7291 is not set
 # CONFIG_AD7298 is not set
@@ -2579,11 +2580,6 @@ CONFIG_DVB_TTUSB_DEC=m
 CONFIG_VIDEO_USBTV=m
 
 ##
-## file: drivers/media/usb/usbvision/Kconfig
-##
-CONFIG_VIDEO_USBVISION=m
-
-##
 ## file: drivers/media/usb/uvc/Kconfig
 ##
 CONFIG_USB_VIDEO_CLASS=m
@@ -2856,6 +2852,11 @@ CONFIG_MMC_TOSHIBA_PCI=m
 # CONFIG_MMC_MTK is not set
 
 ##
+## file: drivers/most/Kconfig
+##
+# CONFIG_MOST is not set
+
+##
 ## file: drivers/mtd/Kconfig
 ##
 CONFIG_MTD=m
@@ -2937,7 +2938,6 @@ CONFIG_MTD_OF_PARTS=m
 ##
 CONFIG_MTD_SPI_NOR=m
 CONFIG_MTD_SPI_NOR_USE_4K_SECTORS=y
-# CONFIG_SPI_MTK_QUADSPI is not set
 
 ##
 ## file: drivers/mtd/ubi/Kconfig
@@ -4193,6 +4193,7 @@ CONFIG_NVDIMM_DAX=y
 ##
 CONFIG_BLK_DEV_NVME=m
 CONFIG_NVME_MULTIPATH=y
+CONFIG_NVME_HWMON=y
 CONFIG_NVME_RDMA=m
 CONFIG_NVME_FC=m
 
@@ -4564,7 +4565,6 @@ CONFIG_SCSI=m
 CONFIG_BLK_DEV_SD=m
 CONFIG_CHR_DEV_ST=m
 CONFIG_BLK_DEV_SR=m
-CONFIG_BLK_DEV_SR_VENDOR=y
 CONFIG_CHR_DEV_SG=m
 CONFIG_CHR_DEV_SCH=m
 CONFIG_SCSI_ENCLOSURE=m
@@ -4770,6 +4770,7 @@ CONFIG_SPI_BUTTERFLY=m
 CONFIG_SPI_LM70_LLP=m
 # CONFIG_SPI_FSL_SPI is not set
 # CONFIG_SPI_FSL_DSPI is not set
+# CONFIG_SPI_MTK_NOR is not set
 # CONFIG_SPI_OC_TINY is not set
 # CONFIG_SPI_PXA2XX is not set
 # CONFIG_SPI_ROCKCHIP is not set
@@ -4851,7 +4852,6 @@ CONFIG_ASHMEM=m
 ## file: drivers/staging/iio/adc/Kconfig
 ##
 # CONFIG_AD7816 is not set
-# CONFIG_AD7192 is not set
 # CONFIG_AD7280 is not set
 
 ##
@@ -4902,9 +4902,9 @@ CONFIG_ASHMEM=m
 # CONFIG_SOC_CAMERA_MT9T031 is not set
 
 ##
-## file: drivers/staging/most/Kconfig
+## file: drivers/staging/media/usbvision/Kconfig
 ##
-# CONFIG_MOST is not set
+CONFIG_VIDEO_USBVISION=m
 
 ##
 ## file: drivers/staging/qlge/Kconfig
@@ -4967,12 +4967,6 @@ CONFIG_SPEAKUP_SYNTH_TXPRT=m
 CONFIG_SPEAKUP_SYNTH_DUMMY=m
 
 ##
-## file: drivers/staging/uwb/Kconfig
-##
-CONFIG_UWB=m
-CONFIG_UWB_I1480U=m
-
-##
 ## file: drivers/staging/vt6655/Kconfig
 ##
 # CONFIG_VT6655 is not set
@@ -4986,19 +4980,6 @@ CONFIG_UWB_I1480U=m
 ## file: drivers/staging/wlan-ng/Kconfig
 ##
 # CONFIG_PRISM2_USB is not set
-
-##
-## file: drivers/staging/wusbcore/Kconfig
-##
-CONFIG_USB_WUSB=m
-CONFIG_USB_WUSB_CBAF=m
-# CONFIG_USB_WUSB_CBAF_DEBUG is not set
-
-##
-## file: drivers/staging/wusbcore/host/Kconfig
-##
-CONFIG_USB_WHCI_HCD=m
-CONFIG_USB_HWA_HCD=m
 
 ##
 ## file: drivers/target/Kconfig
@@ -5068,8 +5049,8 @@ CONFIG_UNIX98_PTYS=y
 # CONFIG_LEGACY_PTYS is not set
 CONFIG_MOXA_SMARTIO=m
 CONFIG_SYNCLINK_GT=m
-CONFIG_NOZOMI=m
 CONFIG_N_GSM=m
+CONFIG_NOZOMI=m
 # CONFIG_TRACE_SINK is not set
 
 ##
@@ -5220,7 +5201,6 @@ CONFIG_USB_CONFIGFS_F_PRINTER=y
 ##
 ## file: drivers/usb/gadget/legacy/Kconfig
 ##
-## choice: USB Gadget precomposed configurations
 CONFIG_USB_ETH=m
 CONFIG_USB_ETH_RNDIS=y
 CONFIG_USB_GADGETFS=m
@@ -5229,7 +5209,6 @@ CONFIG_USB_FUNCTIONFS_ETH=y
 CONFIG_USB_FUNCTIONFS_RNDIS=y
 CONFIG_USB_FUNCTIONFS_GENERIC=y
 CONFIG_USB_G_SERIAL=m
-## end choice
 
 ##
 ## file: drivers/usb/gadget/udc/Kconfig
@@ -5812,6 +5791,12 @@ CONFIG_EROFS_FS_POSIX_ACL=y
 CONFIG_EROFS_FS_SECURITY=y
 CONFIG_EROFS_FS_ZIP=y
 CONFIG_EROFS_FS_CLUSTER_PAGE_LIMIT=1
+
+##
+## file: fs/exfat/Kconfig
+##
+CONFIG_EXFAT_FS=m
+CONFIG_EXFAT_DEFAULT_IOCHARSET="utf8"
 
 ##
 ## file: fs/ext2/Kconfig
@@ -7143,7 +7128,6 @@ CONFIG_NF_CT_NETLINK_HELPER=m
 CONFIG_NETFILTER_NETLINK_GLUE_CT=y
 CONFIG_NF_NAT=m
 CONFIG_NF_TABLES=m
-CONFIG_NF_TABLES_SET=m
 CONFIG_NF_TABLES_INET=y
 CONFIG_NF_TABLES_NETDEV=y
 CONFIG_NFT_NUMGEN=m

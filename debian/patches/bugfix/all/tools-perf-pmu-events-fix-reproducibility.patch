@@ -19,65 +19,105 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
 --- a/tools/perf/pmu-events/jevents.c
 +++ b/tools/perf/pmu-events/jevents.c
-@@ -50,6 +50,12 @@
+@@ -50,6 +50,18 @@
  #include "json.h"
  #include "jevents.h"
  
-+struct found_file {
++struct ordered_ftw_entry {
 +	const char	*fpath;
 +	int		typeflag;
 +	struct FTW	ftwbuf;
 +};
 +
++struct ordered_ftw_state {
++	struct ordered_ftw_entry *entries;
++	size_t		n;
++	size_t		max;
++};
++
  int verbose;
  char *prog;
  
-@@ -865,6 +871,44 @@ static int get_maxfds(void)
-  * nftw() doesn't let us pass an argument to the processing function,
-  * so use a global variables.
+@@ -908,6 +920,78 @@ static int get_maxfds(void)
   */
-+static struct found_file *found_files;
-+static size_t n_found_files;
-+static size_t max_found_files;
+ static FILE *eventsfp;
+ static char *mapfile;
++static struct ordered_ftw_state *ordered_ftw_state;
 +
-+static int add_one_file(const char *fpath, const struct stat *sb,
-+			int typeflag, struct FTW *ftwbuf)
++static int ordered_ftw_add(const char *fpath, const struct stat *sb,
++			   int typeflag, struct FTW *ftwbuf)
 +{
-+	struct found_file *file;
++	struct ordered_ftw_state *state = ordered_ftw_state;
++	struct ordered_ftw_entry *entry;
 +
 +	if (ftwbuf->level == 0 || ftwbuf->level > 3)
 +		return 0;
 +
 +	/* Grow array if necessary */
-+	if (n_found_files >= max_found_files) {
-+		if (max_found_files == 0)
-+			max_found_files = 16;
++	if (state->n >= state->max) {
++		if (state->max == 0)
++			state->max = 16;
 +		else
-+			max_found_files *= 2;
-+		found_files = realloc(found_files,
-+				      max_found_files * sizeof(*found_files));
++			state->max *= 2;
++		state->entries = realloc(state->entries,
++					 state->max * sizeof(*state->entries));
 +	}
 +
-+	file = &found_files[n_found_files++];
-+	file->fpath = strdup(fpath);
-+	file->typeflag = typeflag;
-+	file->ftwbuf = *ftwbuf;
++	entry = &state->entries[state->n++];
++	entry->fpath = strdup(fpath);
++	entry->typeflag = typeflag;
++	entry->ftwbuf = *ftwbuf;
 +
 +	return 0;
 +}
 +
-+static int compare_files(const void *left, const void *right)
++static int ordered_ftw_compare(const void *left, const void *right)
 +{
-+	const struct found_file *left_file = left;
-+	const struct found_file *right_file = right;
++	const struct ordered_ftw_entry *left_entry = left;
++	const struct ordered_ftw_entry *right_entry = right;
 +
-+	return strcmp(left_file->fpath, right_file->fpath);
++	return strcmp(left_entry->fpath, right_entry->fpath);
 +}
 +
- static FILE *eventsfp;
- static char *mapfile;
++/*
++ * Wrapper for nftw() that iterates files in ASCII-order to ensure
++ * reproducible output
++ */
++static int ordered_ftw(const char *dirpath,
++		       int (*fn)(const char *, int, struct FTW *),
++		       int nopenfd)
++{
++	struct ordered_ftw_state state = { NULL, 0, 0 };
++	size_t i;
++	int rc;
++
++	ordered_ftw_state = &state;
++	rc = nftw(dirpath, ordered_ftw_add, nopenfd, 0);
++	if (rc)
++		goto out;
++
++	qsort(state.entries, state.n, sizeof(*state.entries),
++	      ordered_ftw_compare);
++
++	for (i = 0; i < state.n; i++) {
++		rc = fn(state.entries[i].fpath,
++			state.entries[i].typeflag,
++			&state.entries[i].ftwbuf);
++		if (rc)
++			goto out;
++	}
++
++out:
++	for (i = 0; i < state.n; i++)
++		free(state.entries[i].fpath);
++	free(state.entries);;
++
++	return rc;
++}
  
-@@ -919,19 +963,19 @@ static int is_json_file(const char *name
+ static int is_leaf_dir(const char *fpath)
+ {
+@@ -960,19 +1044,19 @@ static int is_json_file(const char *name
  	return 0;
  }
  
@@ -100,7 +140,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  			    int typeflag, struct FTW *ftwbuf)
  {
  	char *tblname, *bname;
-@@ -956,9 +1000,9 @@ static int process_one_file(const char *
+@@ -997,9 +1081,9 @@ static int process_one_file(const char *
  	} else
  		bname = (char *) fpath + ftwbuf->base;
  
@@ -112,54 +152,30 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  	/* base dir or too deep */
  	if (level == 0 || level > 3)
-@@ -1070,6 +1114,7 @@ int main(int argc, char *argv[])
- 	const char *output_file;
- 	const char *start_dirname;
- 	struct stat stbuf;
-+	size_t i;
- 
- 	prog = basename(argv[0]);
- 	if (argc < 4) {
-@@ -1113,8 +1158,26 @@ int main(int argc, char *argv[])
- 	 */
+@@ -1154,7 +1238,7 @@ int main(int argc, char *argv[])
  
  	maxfds = get_maxfds();
-+	rc = nftw(ldirname, add_one_file, maxfds, 0);
-+	if (rc < 0) {
-+		/* Make build fail */
-+		free_arch_std_events();
-+		return 1;
-+	} else if (rc) {
-+		goto empty_map;
-+	}
-+
-+	/* Sort file names to ensure reproduciblity */
-+	qsort(found_files, n_found_files, sizeof(*found_files), compare_files);
-+
  	mapfile = NULL;
 -	rc = nftw(ldirname, preprocess_arch_std_files, maxfds, 0);
-+	for (i = 0; i < n_found_files; i++) {
-+		rc = preprocess_arch_std_files(found_files[i].fpath,
-+					       found_files[i].typeflag,
-+					       &found_files[i].ftwbuf);
-+		if (rc)
-+			break;
-+	}
++	rc = ordered_ftw(ldirname, preprocess_arch_std_files, maxfds);
  	if (rc && verbose) {
  		pr_info("%s: Error preprocessing arch standard files %s\n",
  			prog, ldirname);
-@@ -1127,7 +1190,13 @@ int main(int argc, char *argv[])
+@@ -1168,7 +1252,7 @@ int main(int argc, char *argv[])
  		goto empty_map;
  	}
  
 -	rc = nftw(ldirname, process_one_file, maxfds, 0);
-+	for (i = 0; i < n_found_files; i++) {
-+		rc = process_one_file(found_files[i].fpath,
-+				      found_files[i].typeflag,
-+				      &found_files[i].ftwbuf);
-+		if (rc)
-+			break;
-+	}
++	rc = ordered_ftw(ldirname, process_one_file, maxfds);
  	if (rc && verbose) {
  		pr_info("%s: Error walking file tree %s\n", prog, ldirname);
  		goto empty_map;
+@@ -1184,7 +1268,7 @@ int main(int argc, char *argv[])
+ 
+ 	sprintf(ldirname, "%s/test", start_dirname);
+ 
+-	rc = nftw(ldirname, process_one_file, maxfds, 0);
++	rc = ordered_ftw(ldirname, process_one_file, maxfds);
+ 	if (rc && verbose) {
+ 		pr_info("%s: Error walking file tree %s rc=%d for test\n",
+ 			prog, ldirname, rc);

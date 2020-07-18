@@ -55,8 +55,8 @@ CONFIG_MOUSE_PS2_OLPC=y
 ##
 ## file: drivers/platform/x86/Kconfig
 ##
-CONFIG_XO1_RFKILL=m
 CONFIG_XO15_EBOOK=m
+CONFIG_XO1_RFKILL=m
 
 ##
 ## file: drivers/power/supply/Kconfig

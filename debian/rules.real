@@ -447,7 +447,7 @@ endif
 	+$(MAKE_SELF) \
 	  install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_bug \
 	  PACKAGE_DIR='$(PACKAGE_DIR)' PACKAGE_NAME='$(PACKAGE_NAME)' REAL_VERSION='$(REAL_VERSION)'
-	dh_strip --no-automatic-dbgsym -Xvmlinux
+	dh_strip --no-automatic-dbgsym -Xvmlinux -Xvmlinuz
 	ln -sf linux-image.NEWS debian/$(PACKAGE_NAME).NEWS
 	+$(MAKE_SELF) install-base
 

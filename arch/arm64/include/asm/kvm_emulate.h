@@ -89,7 +89,8 @@ static inline unsigned long *vcpu_hcr(struct kvm_vcpu *vcpu)
 static inline void vcpu_clear_wfx_traps(struct kvm_vcpu *vcpu)
 {
 	vcpu->arch.hcr_el2 &= ~HCR_TWE;
-	if (atomic_read(&vcpu->arch.vgic_cpu.vgic_v3.its_vpe.vlpi_count))
+	if (atomic_read(&vcpu->arch.vgic_cpu.vgic_v3.its_vpe.vlpi_count) ||
+	    vcpu->kvm->arch.vgic.nassgireq)
 		vcpu->arch.hcr_el2 &= ~HCR_TWI;
 	else
 		vcpu->arch.hcr_el2 |= HCR_TWI;
@@ -109,12 +110,6 @@ static inline void vcpu_ptrauth_enable(struct kvm_vcpu *vcpu)
 static inline void vcpu_ptrauth_disable(struct kvm_vcpu *vcpu)
 {
 	vcpu->arch.hcr_el2 &= ~(HCR_API | HCR_APK);
-}
-
-static inline void vcpu_ptrauth_setup_lazy(struct kvm_vcpu *vcpu)
-{
-	if (vcpu_has_ptrauth(vcpu))
-		vcpu_ptrauth_disable(vcpu);
 }
 
 static inline unsigned long vcpu_get_vsesr(struct kvm_vcpu *vcpu)

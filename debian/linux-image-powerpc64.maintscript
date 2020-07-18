@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-powerpc64 linux-image-5.6.0-2parrot1-powerpc64 5.2+107 linux-image-powerpc64
+dir_to_symlink /usr/share/doc/linux-image-powerpc64 linux-image-5.7.0-1parrot1-powerpc64 5.7~rc5-1~exp1 linux-image-powerpc64

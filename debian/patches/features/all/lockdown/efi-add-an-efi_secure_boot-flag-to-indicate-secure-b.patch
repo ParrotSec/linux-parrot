@@ -18,6 +18,9 @@ cc: linux-efi@vger.kernel.org
  - Use pr_warn()
  - Adjust context]
 [bwh: Forward-ported to 5.6: adjust context]
+[bwh: Forward-ported to 5.7:
+ - Use the next available bit in efi.flags
+ - Adjust context]
 ---
  arch/x86/kernel/setup.c           | 14 +----------
  drivers/firmware/efi/Makefile     |  1 +
@@ -51,14 +54,14 @@ cc: linux-efi@vger.kernel.org
  
 --- a/drivers/firmware/efi/Makefile
 +++ b/drivers/firmware/efi/Makefile
-@@ -24,6 +24,7 @@ obj-$(CONFIG_EFI_FAKE_MEMMAP)		+= fake_m
+@@ -25,6 +25,7 @@ obj-$(CONFIG_EFI_FAKE_MEMMAP)		+= fake_m
  obj-$(CONFIG_EFI_BOOTLOADER_CONTROL)	+= efibc.o
  obj-$(CONFIG_EFI_TEST)			+= test/
  obj-$(CONFIG_EFI_DEV_PATH_PARSER)	+= dev-path-parser.o
 +obj-$(CONFIG_EFI)			+= secureboot.o
  obj-$(CONFIG_APPLE_PROPERTIES)		+= apple-properties.o
  obj-$(CONFIG_EFI_RCI2_TABLE)		+= rci2-table.o
- 
+ obj-$(CONFIG_EFI_EMBEDDED_FIRMWARE)	+= embedded-firmware.o
 --- /dev/null
 +++ b/drivers/firmware/efi/secureboot.c
 @@ -0,0 +1,39 @@
@@ -103,11 +106,11 @@ cc: linux-efi@vger.kernel.org
 +}
 --- a/include/linux/efi.h
 +++ b/include/linux/efi.h
-@@ -1124,6 +1124,14 @@ extern int __init efi_setup_pcdp_console
- #define EFI_NX_PE_DATA		9	/* Can runtime data regions be mapped non-executable? */
+@@ -776,6 +776,14 @@ extern int __init efi_setup_pcdp_console
  #define EFI_MEM_ATTR		10	/* Did firmware publish an EFI_MEMORY_ATTRIBUTES table? */
  #define EFI_MEM_NO_SOFT_RESERVE	11	/* Is the kernel configured to ignore soft reservations? */
-+#define EFI_SECURE_BOOT		12	/* Are we in Secure Boot mode? */
+ #define EFI_PRESERVE_BS_REGIONS	12	/* Are EFI boot-services memory segments available? */
++#define EFI_SECURE_BOOT		13	/* Are we in Secure Boot mode? */
 +
 +enum efi_secureboot_mode {
 +	efi_secureboot_mode_unset,
@@ -118,15 +121,15 @@ cc: linux-efi@vger.kernel.org
  
  #ifdef CONFIG_EFI
  /*
-@@ -1142,6 +1150,7 @@ static inline bool __pure efi_soft_reser
- 	return IS_ENABLED(CONFIG_EFI_SOFT_RESERVE)
- 		&& __efi_soft_reserve_enabled();
+@@ -799,6 +807,7 @@ static inline bool efi_rt_services_suppo
+ {
+ 	return (efi.runtime_supported_mask & mask) == mask;
  }
 +extern void __init efi_set_secure_boot(enum efi_secureboot_mode mode);
  #else
  static inline bool efi_enabled(int feature)
  {
-@@ -1160,6 +1169,7 @@ static inline bool efi_soft_reserve_enab
+@@ -822,6 +831,7 @@ static inline bool efi_rt_services_suppo
  {
  	return false;
  }
@@ -134,7 +137,7 @@ cc: linux-efi@vger.kernel.org
  #endif
  
  extern int efi_status_to_err(efi_status_t status);
-@@ -1538,12 +1548,6 @@ static inline bool efi_runtime_disabled(
+@@ -1083,12 +1093,6 @@ static inline bool efi_runtime_disabled(
  extern void efi_call_virt_check_flags(unsigned long flags, const char *call);
  extern unsigned long efi_call_virt_save_flags(void);
  

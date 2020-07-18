@@ -75,18 +75,10 @@ bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
-bugfix/mips/mips-fix-exception-handler-memcpy.patch
 
 # Arch features
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
-features/mips/0001-MIPS-octeon-remove-typedef-declaration-for-cvmx_wqe.patch
-features/mips/0002-MIPS-octeon-remove-typedef-declaration-for-cvmx_help.patch
-features/mips/0003-MIPS-octeon-remove-typedef-declaration-for-cvmx_pko_.patch
-features/mips/revert-staging-octeon-usb-delete-the-octeon-usb-host.patch
-features/mips/revert-staging-octeon-delete-driver.patch
-features/mips/0004-Revert-staging-octeon-Mark-Ethernet-driver-as-BROKEN.patch
-features/arm64/arm64-dts-rockchip-Add-initial-support-for-Pinebook-.patch
 
 # Miscellaneous bug fixes
 bugfix/all/disable-some-marvell-phys.patch
@@ -94,6 +86,7 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
+bugfix/all/nfsd-apply-umask-on-fs-without-ACL-support.patch
 
 # Miscellaneous features
 
@@ -113,21 +106,9 @@ features/all/db-mok-keyring/0004-MODSIGN-check-the-attributes-of-db-and-mok.patc
 features/all/db-mok-keyring/modsign-make-shash-allocation-failure-fatal.patch
 features/all/db-mok-keyring/KEYS-Make-use-of-platform-keyring-for-module-signature.patch
 
-# WireGuard crypto backport
-features/all/wireguard/0008-crypto-x86-curve25519-replace-with-formally-verified.patch
-
-# bcmgenet ACPI support
-features/all/bcmgenet/0001-mdio_bus-Add-generic-mdio_find_bus.patch
-features/all/bcmgenet/0002-net-bcmgenet-refactor-phy-mode-configuration.patch
-features/all/bcmgenet/0003-net-bcmgenet-enable-automatic-phy-discovery.patch
-features/all/bcmgenet/0004-net-bcmgenet-Initial-bcmgenet-ACPI-support.patch
-features/all/bcmgenet/0005-net-bcmgenet-Fetch-MAC-address-from-the-adapter.patch
-features/all/bcmgenet/0006-net-bcmgenet-reduce-severity-of-missing-clock-warnin.patch
-
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 debian/ntfs-mark-it-as-broken.patch
-bugfix/all/xfs-add-agf-freeblocks-verify-in-xfs_agf_verify.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
