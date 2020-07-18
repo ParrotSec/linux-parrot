@@ -48,7 +48,6 @@
 # This code schedules 2 blocks at a time, with 4 lanes per block
 ########################################################################
 
-#ifdef CONFIG_AS_AVX2
 #include <linux/linkage.h>
 
 ## assume buffers not aligned
@@ -520,8 +519,8 @@ STACK_SIZE	= _RSP      + _RSP_SIZE
 .endm
 
 ########################################################################
-## void sha256_transform_rorx(void *input_data, UINT32 digest[8], UINT64 num_blks)
-## arg 1 : pointer to digest
+## void sha256_transform_rorx(struct sha256_state *state, const u8 *data, int blocks)
+## arg 1 : pointer to state
 ## arg 2 : pointer to input data
 ## arg 3 : Num blocks
 ########################################################################
@@ -767,5 +766,3 @@ _SHUF_00BA:
 .align 32
 _SHUF_DC00:
 	.octa 0x0b0a090803020100FFFFFFFFFFFFFFFF,0x0b0a090803020100FFFFFFFFFFFFFFFF
-
-#endif

@@ -16,6 +16,8 @@
 #include <linux/module.h>
 #include <linux/cdev.h>
 
+#define GPIOCHIP_NAME	"gpiochip"
+
 /**
  * struct gpio_device - internal state container for GPIO devices
  * @id: numerical ID number for the GPIO chip
@@ -54,6 +56,7 @@ struct gpio_device {
 	const char		*label;
 	void			*data;
 	struct list_head        list;
+	struct atomic_notifier_head notifier;
 
 #ifdef CONFIG_PINCTRL
 	/*
@@ -78,7 +81,8 @@ struct gpio_array {
 	unsigned long		invert_mask[];
 };
 
-struct gpio_desc *gpiochip_get_desc(struct gpio_chip *chip, u16 hwnum);
+struct gpio_desc *gpiochip_get_desc(struct gpio_chip *chip,
+				    unsigned int hwnum);
 int gpiod_get_array_value_complex(bool raw, bool can_sleep,
 				  unsigned int array_size,
 				  struct gpio_desc **desc_array,
@@ -116,6 +120,9 @@ struct gpio_desc {
 	const char		*label;
 	/* Name of the GPIO */
 	const char		*name;
+#ifdef CONFIG_OF_DYNAMIC
+	struct device_node	*hog;
+#endif
 };
 
 int gpiod_request(struct gpio_desc *desc, const char *label);

@@ -943,7 +943,7 @@ acpi_video_init_brightness(struct acpi_video_device *device)
 	int i, max_level = 0;
 	unsigned long long level, level_old;
 	struct acpi_video_device_brightness *br = NULL;
-	int result = -EINVAL;
+	int result;
 
 	result = acpi_video_get_levels(device->dev, &br, &max_level);
 	if (result)
@@ -2187,7 +2187,7 @@ int acpi_video_register(void)
 	if (register_count) {
 		/*
 		 * if the function of acpi_video_register is already called,
-		 * don't register the acpi_vide_bus again and return no error.
+		 * don't register the acpi_video_bus again and return no error.
 		 */
 		goto leave;
 	}

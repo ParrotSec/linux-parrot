@@ -28,7 +28,7 @@ config SND_SOC_SOF_ACPI
 	select IOSF_MBI if X86 && PCI
 	help
 	  This adds support for ACPI enumeration. This option is required
-	  to enable Intel Haswell/Broadwell/Baytrail/Cherrytrail devices
+	  to enable Intel Broadwell/Baytrail/Cherrytrail devices
 	  Say Y if you need this option
 	  If unsure select "N".
 
@@ -40,6 +40,15 @@ config SND_SOC_SOF_OF
 	  This adds support for Device Tree enumeration. This option is
 	  required to enable i.MX8 devices.
 	  Say Y if you need this option. If unsure select "N".
+
+config SND_SOC_SOF_DEBUG_PROBES
+	bool "SOF enable data probing"
+	select SND_SOC_COMPRESS
+	help
+	  This option enables the data probing feature that can be used to
+	  gather data directly from specific points of the audio pipeline.
+	  Say Y if you want to enable probes.
+	  If unsure, select "N".
 
 config SND_SOC_SOF_DEVELOPER_SUPPORT
 	bool "SOF developer options support"

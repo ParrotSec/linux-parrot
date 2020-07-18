@@ -68,7 +68,7 @@ struct sdhci_cdns_priv {
 	void __iomem *hrs_addr;
 	bool enhanced_strobe;
 	unsigned int nr_phy_params;
-	struct sdhci_cdns_phy_param phy_params[0];
+	struct sdhci_cdns_phy_param phy_params[];
 };
 
 struct sdhci_cdns_phy_cfg {
@@ -159,7 +159,7 @@ static int sdhci_cdns_phy_init(struct sdhci_cdns_priv *priv)
 	return 0;
 }
 
-static inline void *sdhci_cdns_priv(struct sdhci_host *host)
+static void *sdhci_cdns_priv(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 

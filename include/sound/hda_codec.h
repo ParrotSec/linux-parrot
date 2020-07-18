@@ -51,7 +51,6 @@ struct hda_bus {
 	DECLARE_BITMAP(pcm_dev_bits, SNDRV_PCM_DEVICES);
 
 	/* misc op flags */
-	unsigned int needs_damn_long_delay :1;
 	unsigned int allow_bus_reset:1;	/* allow bus reset at fatal error */
 	/* status for codec/controller */
 	unsigned int shutdown :1;	/* being unloaded */
@@ -494,6 +493,11 @@ void snd_hda_update_power_acct(struct hda_codec *codec);
 #else
 static inline void snd_hda_set_power_save(struct hda_bus *bus, int delay) {}
 #endif
+
+static inline bool hda_codec_need_resume(struct hda_codec *codec)
+{
+	return !codec->relaxed_resume && codec->jacktbl.used;
+}
 
 #ifdef CONFIG_SND_HDA_PATCH_LOADER
 /*

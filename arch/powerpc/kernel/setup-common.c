@@ -787,8 +787,7 @@ EXPORT_SYMBOL(powerpc_debugfs_root);
 static int powerpc_debugfs_init(void)
 {
 	powerpc_debugfs_root = debugfs_create_dir("powerpc", NULL);
-
-	return powerpc_debugfs_root == NULL;
+	return 0;
 }
 arch_initcall(powerpc_debugfs_init);
 #endif
@@ -948,9 +947,6 @@ void __init setup_arch(char **cmdline_p)
 	initmem_init();
 
 	early_memtest(min_low_pfn << PAGE_SHIFT, max_low_pfn << PAGE_SHIFT);
-
-	if (IS_ENABLED(CONFIG_DUMMY_CONSOLE))
-		conswitchp = &dummy_con;
 
 	if (ppc_md.setup_arch)
 		ppc_md.setup_arch();

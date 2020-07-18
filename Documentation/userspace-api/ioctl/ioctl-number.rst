@@ -132,7 +132,6 @@ Code  Seq#    Include File                                           Comments
 'F'   80-8F  linux/arcfb.h                                           conflict!
 'F'   DD     video/sstfb.h                                           conflict!
 'G'   00-3F  drivers/misc/sgi-gru/grulib.h                           conflict!
-'G'   00-0F  linux/gigaset_dev.h                                     conflict!
 'H'   00-7F  linux/hiddev.h                                          conflict!
 'H'   00-0F  linux/hidraw.h                                          conflict!
 'H'   01     linux/mei.h                                             conflict!
@@ -267,7 +266,6 @@ Code  Seq#    Include File                                           Comments
 'o'   01-A1  `linux/dvb/*.h`                                         DVB
 'p'   00-0F  linux/phantom.h                                         conflict! (OpenHaptics needs this)
 'p'   00-1F  linux/rtc.h                                             conflict!
-'p'   00-3F  linux/mc146818rtc.h                                     conflict!
 'p'   40-7F  linux/nvram.h
 'p'   80-9F  linux/ppdev.h                                           user-space parport
                                                                      <mailto:tim@cyberelk.net>

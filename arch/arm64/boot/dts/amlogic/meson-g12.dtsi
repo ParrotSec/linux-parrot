@@ -56,6 +56,7 @@
 			 <&clkc_audio AUD_CLKID_PDM_DCLK>,
 			 <&clkc_audio AUD_CLKID_PDM_SYSCLK>;
 		clock-names = "pclk", "dclk", "sysclk";
+		resets = <&clkc_audio AUD_RESET_PDM>;
 		status = "disabled";
 	};
 
@@ -106,6 +107,7 @@
 			resets = <&arb AXG_ARB_TODDR_A>,
 				 <&clkc_audio AUD_RESET_TODDR_A>;
 			reset-names = "arb", "rst";
+			amlogic,fifo-depth = <512>;
 			status = "disabled";
 		};
 
@@ -120,6 +122,7 @@
 			resets = <&arb AXG_ARB_TODDR_B>,
 				 <&clkc_audio AUD_RESET_TODDR_B>;
 			reset-names = "arb", "rst";
+			amlogic,fifo-depth = <256>;
 			status = "disabled";
 		};
 
@@ -134,6 +137,7 @@
 			resets = <&arb AXG_ARB_TODDR_C>,
 				 <&clkc_audio AUD_RESET_TODDR_C>;
 			reset-names = "arb", "rst";
+			amlogic,fifo-depth = <256>;
 			status = "disabled";
 		};
 
@@ -148,6 +152,7 @@
 			resets = <&arb AXG_ARB_FRDDR_A>,
 				 <&clkc_audio AUD_RESET_FRDDR_A>;
 			reset-names = "arb", "rst";
+			amlogic,fifo-depth = <512>;
 			status = "disabled";
 		};
 
@@ -162,6 +167,7 @@
 			resets = <&arb AXG_ARB_FRDDR_B>,
 				 <&clkc_audio AUD_RESET_FRDDR_B>;
 			reset-names = "arb", "rst";
+			amlogic,fifo-depth = <256>;
 			status = "disabled";
 		};
 
@@ -176,6 +182,7 @@
 			resets = <&arb AXG_ARB_FRDDR_C>,
 				 <&clkc_audio AUD_RESET_FRDDR_C>;
 			reset-names = "arb", "rst";
+			amlogic,fifo-depth = <256>;
 			status = "disabled";
 		};
 

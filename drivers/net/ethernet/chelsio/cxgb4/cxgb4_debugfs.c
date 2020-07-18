@@ -984,7 +984,7 @@ static const char * const devlog_facility_strings[] = {
 struct devlog_info {
 	unsigned int nentries;		/* number of entries in log[] */
 	unsigned int first;		/* first [temporal] entry in log[] */
-	struct fw_devlog_e log[0];	/* Firmware Device Log */
+	struct fw_devlog_e log[];	/* Firmware Device Log */
 };
 
 /* Dump a Firmaware Device Log entry.
@@ -3174,14 +3174,12 @@ static const struct file_operations mem_debugfs_fops = {
 
 static int tid_info_show(struct seq_file *seq, void *v)
 {
-	unsigned int tid_start = 0;
 	struct adapter *adap = seq->private;
-	const struct tid_info *t = &adap->tids;
-	enum chip_type chip = CHELSIO_CHIP_VERSION(adap->params.chip);
+	const struct tid_info *t;
+	enum chip_type chip;
 
-	if (chip > CHELSIO_T5)
-		tid_start = t4_read_reg(adap, LE_DB_ACTIVE_TABLE_START_INDEX_A);
-
+	t = &adap->tids;
+	chip = CHELSIO_CHIP_VERSION(adap->params.chip);
 	if (t4_read_reg(adap, LE_DB_CONFIG_A) & HASHEN_F) {
 		unsigned int sb;
 		seq_printf(seq, "Connections in use: %u\n",
@@ -3193,9 +3191,9 @@ static int tid_info_show(struct seq_file *seq, void *v)
 			sb = t4_read_reg(adap, LE_DB_SRVR_START_INDEX_A);
 
 		if (sb) {
-			seq_printf(seq, "TID range: %u..%u/%u..%u", tid_start,
+			seq_printf(seq, "TID range: %u..%u/%u..%u", t->tid_base,
 				   sb - 1, adap->tids.hash_base,
-				   t->ntids - 1);
+				   t->tid_base + t->ntids - 1);
 			seq_printf(seq, ", in use: %u/%u\n",
 				   atomic_read(&t->tids_in_use),
 				   atomic_read(&t->hash_tids_in_use));
@@ -3204,14 +3202,14 @@ static int tid_info_show(struct seq_file *seq, void *v)
 				   t->aftid_base,
 				   t->aftid_end,
 				   adap->tids.hash_base,
-				   t->ntids - 1);
+				   t->tid_base + t->ntids - 1);
 			seq_printf(seq, ", in use: %u/%u\n",
 				   atomic_read(&t->tids_in_use),
 				   atomic_read(&t->hash_tids_in_use));
 		} else {
 			seq_printf(seq, "TID range: %u..%u",
 				   adap->tids.hash_base,
-				   t->ntids - 1);
+				   t->tid_base + t->ntids - 1);
 			seq_printf(seq, ", in use: %u\n",
 				   atomic_read(&t->hash_tids_in_use));
 		}
@@ -3219,8 +3217,8 @@ static int tid_info_show(struct seq_file *seq, void *v)
 		seq_printf(seq, "Connections in use: %u\n",
 			   atomic_read(&t->conns_in_use));
 
-		seq_printf(seq, "TID range: %u..%u", tid_start,
-			   tid_start + t->ntids - 1);
+		seq_printf(seq, "TID range: %u..%u", t->tid_base,
+			   t->tid_base + t->ntids - 1);
 		seq_printf(seq, ", in use: %u\n",
 			   atomic_read(&t->tids_in_use));
 	}
@@ -3243,6 +3241,9 @@ static int tid_info_show(struct seq_file *seq, void *v)
 		seq_printf(seq, "SFTID range: %u..%u in use: %u\n",
 			   t->sftid_base, t->sftid_base + t->nsftids - 2,
 			   t->sftids_in_use);
+	if (t->nhpftids)
+		seq_printf(seq, "HPFTID range: %u..%u\n", t->hpftid_base,
+			   t->hpftid_base + t->nhpftids - 1);
 	if (t->ntids)
 		seq_printf(seq, "HW TID usage: %u IP users, %u IPv6 users\n",
 			   t4_read_reg(adap, LE_DB_ACT_CNT_IPV4_A),
@@ -3402,6 +3403,48 @@ static int chcr_stats_show(struct seq_file *seq, void *v)
 		   atomic_read(&adap->chcr_stats.fallback));
 	seq_printf(seq, "IPSec PDU: %10u\n",
 		   atomic_read(&adap->chcr_stats.ipsec_cnt));
+	seq_printf(seq, "TLS PDU Tx: %10u\n",
+		   atomic_read(&adap->chcr_stats.tls_pdu_tx));
+	seq_printf(seq, "TLS PDU Rx: %10u\n",
+		   atomic_read(&adap->chcr_stats.tls_pdu_rx));
+	seq_printf(seq, "TLS Keys (DDR) Count: %10u\n",
+		   atomic_read(&adap->chcr_stats.tls_key));
+#ifdef CONFIG_CHELSIO_TLS_DEVICE
+	seq_puts(seq, "\nChelsio KTLS Crypto Accelerator Stats\n");
+	seq_printf(seq, "Tx HW offload contexts added:     %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_ctx));
+	seq_printf(seq, "Tx connection created:            %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_connection_open));
+	seq_printf(seq, "Tx connection failed:             %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_connection_fail));
+	seq_printf(seq, "Tx connection closed:             %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_connection_close));
+	seq_printf(seq, "Packets passed for encryption :   %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_encrypted_packets));
+	seq_printf(seq, "Bytes passed for encryption :     %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_encrypted_bytes));
+	seq_printf(seq, "Tx records send:                  %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_send_records));
+	seq_printf(seq, "Tx partial start of records:      %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_start_pkts));
+	seq_printf(seq, "Tx partial middle of records:     %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_middle_pkts));
+	seq_printf(seq, "Tx partial end of record:         %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_end_pkts));
+	seq_printf(seq, "Tx complete records:              %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_complete_pkts));
+	seq_printf(seq, "TX trim pkts :                    %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_trimmed_pkts));
+	seq_printf(seq, "Tx out of order packets:          %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_ooo));
+	seq_printf(seq, "Tx drop pkts before HW offload:   %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_skip_no_sync_data));
+	seq_printf(seq, "Tx drop not synced packets:       %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_drop_no_sync_data));
+	seq_printf(seq, "Tx drop bypass req:               %20llu\n",
+		   atomic64_read(&adap->chcr_stats.ktls_tx_drop_bypass_req));
+#endif
+
 	return 0;
 }
 DEFINE_SHOW_ATTRIBUTE(chcr_stats);

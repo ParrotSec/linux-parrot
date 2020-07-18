@@ -61,9 +61,9 @@ struct flow_offload *flow_offload_alloc(struct nf_conn *ct)
 	flow_offload_fill_dir(flow, FLOW_OFFLOAD_DIR_REPLY);
 
 	if (ct->status & IPS_SRC_NAT)
-		flow->flags |= FLOW_OFFLOAD_SNAT;
+		__set_bit(NF_FLOW_SNAT, &flow->flags);
 	if (ct->status & IPS_DST_NAT)
-		flow->flags |= FLOW_OFFLOAD_DNAT;
+		__set_bit(NF_FLOW_DNAT, &flow->flags);
 
 	return flow;
 
@@ -182,8 +182,6 @@ void flow_offload_free(struct flow_offload *flow)
 	default:
 		break;
 	}
-	if (flow->flags & FLOW_OFFLOAD_DYING)
-		nf_ct_delete(flow->ct, 0, 0);
 	nf_ct_put(flow->ct);
 	kfree_rcu(flow, rcu_head);
 }
@@ -245,12 +243,27 @@ int flow_offload_add(struct nf_flowtable *flow_table, struct flow_offload *flow)
 		return err;
 	}
 
-	if (flow_table->flags & NF_FLOWTABLE_HW_OFFLOAD)
+	if (nf_flowtable_hw_offload(flow_table)) {
+		__set_bit(NF_FLOW_HW, &flow->flags);
 		nf_flow_offload_add(flow_table, flow);
+	}
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(flow_offload_add);
+
+void flow_offload_refresh(struct nf_flowtable *flow_table,
+			  struct flow_offload *flow)
+{
+	flow->timeout = nf_flowtable_time_stamp + NF_FLOW_TIMEOUT;
+
+	if (likely(!nf_flowtable_hw_offload(flow_table) ||
+		   !test_and_clear_bit(NF_FLOW_HW_REFRESH, &flow->flags)))
+		return;
+
+	nf_flow_offload_add(flow_table, flow);
+}
+EXPORT_SYMBOL_GPL(flow_offload_refresh);
 
 static inline bool nf_flow_has_expired(const struct flow_offload *flow)
 {
@@ -271,7 +284,7 @@ static void flow_offload_del(struct nf_flowtable *flow_table,
 
 	if (nf_flow_has_expired(flow))
 		flow_offload_fixup_ct(flow->ct);
-	else if (flow->flags & FLOW_OFFLOAD_TEARDOWN)
+	else
 		flow_offload_fixup_ct_timeout(flow->ct);
 
 	flow_offload_free(flow);
@@ -279,7 +292,7 @@ static void flow_offload_del(struct nf_flowtable *flow_table,
 
 void flow_offload_teardown(struct flow_offload *flow)
 {
-	flow->flags |= FLOW_OFFLOAD_TEARDOWN;
+	set_bit(NF_FLOW_TEARDOWN, &flow->flags);
 
 	flow_offload_fixup_ct_state(flow->ct);
 }
@@ -300,7 +313,7 @@ flow_offload_lookup(struct nf_flowtable *flow_table,
 
 	dir = tuplehash->tuple.dir;
 	flow = container_of(tuplehash, struct flow_offload, tuplehash[dir]);
-	if (flow->flags & (FLOW_OFFLOAD_DYING | FLOW_OFFLOAD_TEARDOWN))
+	if (test_bit(NF_FLOW_TEARDOWN, &flow->flags))
 		return NULL;
 
 	if (unlikely(nf_ct_is_dying(flow->ct)))
@@ -348,17 +361,19 @@ static void nf_flow_offload_gc_step(struct flow_offload *flow, void *data)
 {
 	struct nf_flowtable *flow_table = data;
 
-	if (nf_flow_has_expired(flow) || nf_ct_is_dying(flow->ct) ||
-	    (flow->flags & (FLOW_OFFLOAD_DYING | FLOW_OFFLOAD_TEARDOWN))) {
-		if (flow->flags & FLOW_OFFLOAD_HW) {
-			if (!(flow->flags & FLOW_OFFLOAD_HW_DYING))
+	if (nf_flow_has_expired(flow) || nf_ct_is_dying(flow->ct))
+		set_bit(NF_FLOW_TEARDOWN, &flow->flags);
+
+	if (test_bit(NF_FLOW_TEARDOWN, &flow->flags)) {
+		if (test_bit(NF_FLOW_HW, &flow->flags)) {
+			if (!test_bit(NF_FLOW_HW_DYING, &flow->flags))
 				nf_flow_offload_del(flow_table, flow);
-			else if (flow->flags & FLOW_OFFLOAD_HW_DEAD)
+			else if (test_bit(NF_FLOW_HW_DEAD, &flow->flags))
 				flow_offload_del(flow_table, flow);
 		} else {
 			flow_offload_del(flow_table, flow);
 		}
-	} else if (flow->flags & FLOW_OFFLOAD_HW) {
+	} else if (test_bit(NF_FLOW_HW, &flow->flags)) {
 		nf_flow_offload_stats(flow_table, flow);
 	}
 }
@@ -371,6 +386,52 @@ static void nf_flow_offload_work_gc(struct work_struct *work)
 	nf_flow_table_iterate(flow_table, nf_flow_offload_gc_step, flow_table);
 	queue_delayed_work(system_power_efficient_wq, &flow_table->gc_work, HZ);
 }
+
+int nf_flow_table_offload_add_cb(struct nf_flowtable *flow_table,
+				 flow_setup_cb_t *cb, void *cb_priv)
+{
+	struct flow_block *block = &flow_table->flow_block;
+	struct flow_block_cb *block_cb;
+	int err = 0;
+
+	down_write(&flow_table->flow_block_lock);
+	block_cb = flow_block_cb_lookup(block, cb, cb_priv);
+	if (block_cb) {
+		err = -EEXIST;
+		goto unlock;
+	}
+
+	block_cb = flow_block_cb_alloc(cb, cb_priv, cb_priv, NULL);
+	if (IS_ERR(block_cb)) {
+		err = PTR_ERR(block_cb);
+		goto unlock;
+	}
+
+	list_add_tail(&block_cb->list, &block->cb_list);
+
+unlock:
+	up_write(&flow_table->flow_block_lock);
+	return err;
+}
+EXPORT_SYMBOL_GPL(nf_flow_table_offload_add_cb);
+
+void nf_flow_table_offload_del_cb(struct nf_flowtable *flow_table,
+				  flow_setup_cb_t *cb, void *cb_priv)
+{
+	struct flow_block *block = &flow_table->flow_block;
+	struct flow_block_cb *block_cb;
+
+	down_write(&flow_table->flow_block_lock);
+	block_cb = flow_block_cb_lookup(block, cb, cb_priv);
+	if (block_cb) {
+		list_del(&block_cb->list);
+		flow_block_cb_free(block_cb);
+	} else {
+		WARN_ON(true);
+	}
+	up_write(&flow_table->flow_block_lock);
+}
+EXPORT_SYMBOL_GPL(nf_flow_table_offload_del_cb);
 
 static int nf_flow_nat_port_tcp(struct sk_buff *skb, unsigned int thoff,
 				__be16 port, __be16 new_port)
@@ -494,6 +555,7 @@ int nf_flow_table_init(struct nf_flowtable *flowtable)
 
 	INIT_DEFERRABLE_WORK(&flowtable->gc_work, nf_flow_offload_work_gc);
 	flow_block_init(&flowtable->flow_block);
+	init_rwsem(&flowtable->flow_block_lock);
 
 	err = rhashtable_init(&flowtable->rhashtable,
 			      &nf_flow_offload_rhash_params);
@@ -523,7 +585,7 @@ static void nf_flow_table_do_cleanup(struct flow_offload *flow, void *data)
 	if (net_eq(nf_ct_net(flow->ct), dev_net(dev)) &&
 	    (flow->tuplehash[0].tuple.iifidx == dev->ifindex ||
 	     flow->tuplehash[1].tuple.iifidx == dev->ifindex))
-		flow_offload_dead(flow);
+		flow_offload_teardown(flow);
 }
 
 static void nf_flow_table_iterate_cleanup(struct nf_flowtable *flowtable,
@@ -550,10 +612,14 @@ void nf_flow_table_free(struct nf_flowtable *flow_table)
 	mutex_lock(&flowtable_lock);
 	list_del(&flow_table->list);
 	mutex_unlock(&flowtable_lock);
+
 	cancel_delayed_work_sync(&flow_table->gc_work);
 	nf_flow_table_iterate(flow_table, nf_flow_table_do_cleanup, NULL);
 	nf_flow_table_iterate(flow_table, nf_flow_offload_gc_step, flow_table);
 	nf_flow_table_offload_flush(flow_table);
+	if (nf_flowtable_hw_offload(flow_table))
+		nf_flow_table_iterate(flow_table, nf_flow_offload_gc_step,
+				      flow_table);
 	rhashtable_destroy(&flow_table->rhashtable);
 }
 EXPORT_SYMBOL_GPL(nf_flow_table_free);

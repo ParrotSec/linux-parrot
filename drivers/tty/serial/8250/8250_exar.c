@@ -135,7 +135,7 @@ struct exar8250 {
 	unsigned int		nr;
 	struct exar8250_board	*board;
 	void __iomem		*virt;
-	int			line[0];
+	int			line[];
 };
 
 static void exar_pm(struct uart_port *port, unsigned int state, unsigned int old)
@@ -194,7 +194,7 @@ static int xr17v35x_startup(struct uart_port *port)
 static void exar_shutdown(struct uart_port *port)
 {
 	unsigned char lsr;
-	bool tx_complete = 0;
+	bool tx_complete = false;
 	struct uart_8250_port *up = up_to_u8250p(port);
 	struct circ_buf *xmit = &port->state->xmit;
 	int i = 0;
@@ -202,9 +202,9 @@ static void exar_shutdown(struct uart_port *port)
 	do {
 		lsr = serial_in(up, UART_LSR);
 		if (lsr & (UART_LSR_TEMT | UART_LSR_THRE))
-			tx_complete = 1;
+			tx_complete = true;
 		else
-			tx_complete = 0;
+			tx_complete = false;
 		usleep_range(1000, 1100);
 	} while (!uart_circ_empty(xmit) && !tx_complete && i++ < 1000);
 

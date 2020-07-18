@@ -62,6 +62,21 @@
 	.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
 },
 {
+	"jset32: ignores upper bits",
+	.insns = {
+	BPF_MOV64_IMM(BPF_REG_0, 0),
+	BPF_LD_IMM64(BPF_REG_7, 0x8000000000000000),
+	BPF_LD_IMM64(BPF_REG_8, 0x8000000000000000),
+	BPF_JMP_REG(BPF_JSET, BPF_REG_7, BPF_REG_8, 1),
+	BPF_EXIT_INSN(),
+	BPF_JMP32_REG(BPF_JSET, BPF_REG_7, BPF_REG_8, 1),
+	BPF_MOV64_IMM(BPF_REG_0, 2),
+	BPF_EXIT_INSN(),
+	},
+	.result = ACCEPT,
+	.retval = 2,
+},
+{
 	"jset32: min/max deduction",
 	.insns = {
 	BPF_RAND_UEXT_R7,
@@ -768,8 +783,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
 	.fixup_map_hash_48b = { 4 },
-	.result = REJECT,
-	.errstr = "R8 unbounded memory access",
+	.result = ACCEPT,
 	.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
 },
 {
@@ -797,8 +811,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
 	.fixup_map_hash_48b = { 4 },
-	.result = REJECT,
-	.errstr = "R8 unbounded memory access",
+	.result = ACCEPT,
 	.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
 },
 {
@@ -826,7 +839,6 @@
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
 	.fixup_map_hash_48b = { 4 },
-	.result = REJECT,
-	.errstr = "R8 unbounded memory access",
+	.result = ACCEPT,
 	.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
 },

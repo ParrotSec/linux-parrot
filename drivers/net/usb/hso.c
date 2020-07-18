@@ -820,7 +820,7 @@ static const struct ethtool_ops ops = {
 };
 
 /* called when a packet did not ack after watchdogtimeout */
-static void hso_net_tx_timeout(struct net_device *net)
+static void hso_net_tx_timeout(struct net_device *net, unsigned int txqueue)
 {
 	struct hso_net *odev = netdev_priv(net);
 
@@ -2659,7 +2659,7 @@ static struct hso_device *hso_create_bulk_serial_device(
 	if (!
 	    (serial->out_endp =
 	     hso_get_ep(interface, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT))) {
-		dev_err(&interface->dev, "Failed to find BULK IN ep\n");
+		dev_err(&interface->dev, "Failed to find BULK OUT ep\n");
 		goto exit2;
 	}
 

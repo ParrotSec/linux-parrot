@@ -129,7 +129,9 @@ static void blake2b_compress(struct blake2b_state *S,
 	ROUND(9);
 	ROUND(10);
 	ROUND(11);
-
+#ifdef CONFIG_CC_IS_CLANG
+#pragma nounroll /* https://bugs.llvm.org/show_bug.cgi?id=45803 */
+#endif
 	for (i = 0; i < 8; ++i)
 		S->h[i] = S->h[i] ^ v[i] ^ v[i + 8];
 }
@@ -147,10 +149,8 @@ static int blake2b_setkey(struct crypto_shash *tfm, const u8 *key,
 {
 	struct blake2b_tfm_ctx *tctx = crypto_shash_ctx(tfm);
 
-	if (keylen == 0 || keylen > BLAKE2B_KEYBYTES) {
-		crypto_shash_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
+	if (keylen == 0 || keylen > BLAKE2B_KEYBYTES)
 		return -EINVAL;
-	}
 
 	memcpy(tctx->key, key, keylen);
 	tctx->keylen = keylen;

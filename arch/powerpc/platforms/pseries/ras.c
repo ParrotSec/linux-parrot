@@ -395,10 +395,11 @@ static irqreturn_t ras_error_interrupt(int irq, void *dev_id)
 /*
  * Some versions of FWNMI place the buffer inside the 4kB page starting at
  * 0x7000. Other versions place it inside the rtas buffer. We check both.
+ * Minimum size of the buffer is 16 bytes.
  */
 #define VALID_FWNMI_BUFFER(A) \
-	((((A) >= 0x7000) && ((A) < 0x7ff0)) || \
-	(((A) >= rtas.base) && ((A) < (rtas.base + rtas.size - 16))))
+	((((A) >= 0x7000) && ((A) <= 0x8000 - 16)) || \
+	(((A) >= rtas.base) && ((A) <= (rtas.base + rtas.size - 16))))
 
 static inline struct rtas_error_log *fwnmi_get_errlog(void)
 {
@@ -558,6 +559,9 @@ static int mce_handle_error(struct pt_regs *regs, struct rtas_error_log *errp)
 	switch (mce_log->error_type) {
 	case MC_ERROR_TYPE_UE:
 		mce_err.error_type = MCE_ERROR_TYPE_UE;
+		mce_common_process_ue(regs, &mce_err);
+		if (mce_err.ignore_event)
+			disposition = RTAS_DISP_FULLY_RECOVERED;
 		switch (err_sub_type) {
 		case MC_ERROR_UE_IFETCH:
 			mce_err.u.ue_error_type = MCE_UE_ERROR_IFETCH;
@@ -683,6 +687,17 @@ static int mce_handle_error(struct pt_regs *regs, struct rtas_error_log *errp)
 #endif
 
 out:
+	/*
+	 * Enable translation as we will be accessing per-cpu variables
+	 * in save_mce_event() which may fall outside RMO region, also
+	 * leave it enabled because subsequently we will be queuing work
+	 * to workqueues where again per-cpu variables accessed, besides
+	 * fwnmi_release_errinfo() crashes when called in realmode on
+	 * pseries.
+	 * Note: All the realmode handling like flushing SLB entries for
+	 *       SLB multihit is done by now.
+	 */
+	mtmsr(mfmsr() | MSR_IR | MSR_DR);
 	save_mce_event(regs, disposition == RTAS_DISP_FULLY_RECOVERED,
 			&mce_err, regs->nip, eaddr, paddr);
 

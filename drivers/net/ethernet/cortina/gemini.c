@@ -44,7 +44,6 @@
 #include "gemini.h"
 
 #define DRV_NAME		"gmac-gemini"
-#define DRV_VERSION		"1.0"
 
 #define DEFAULT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK)
 static int debug = -1;
@@ -1298,7 +1297,7 @@ out_drop:
 	return NETDEV_TX_OK;
 }
 
-static void gmac_tx_timeout(struct net_device *netdev)
+static void gmac_tx_timeout(struct net_device *netdev, unsigned int txqueue)
 {
 	netdev_err(netdev, "Tx timeout\n");
 	gmac_dump_dma_state(netdev);
@@ -2204,7 +2203,6 @@ static void gmac_get_drvinfo(struct net_device *netdev,
 			     struct ethtool_drvinfo *info)
 {
 	strcpy(info->driver,  DRV_NAME);
-	strcpy(info->version, DRV_VERSION);
 	strcpy(info->bus_info, netdev->dev_id ? "1" : "0");
 }
 
@@ -2224,6 +2222,8 @@ static const struct net_device_ops gmac_351x_ops = {
 };
 
 static const struct ethtool_ops gmac_351x_ethtool_ops = {
+	.supported_coalesce_params = ETHTOOL_COALESCE_RX_USECS |
+				     ETHTOOL_COALESCE_MAX_FRAMES,
 	.get_sset_count	= gmac_get_sset_count,
 	.get_strings	= gmac_get_strings,
 	.get_ethtool_stats = gmac_get_ethtool_stats,

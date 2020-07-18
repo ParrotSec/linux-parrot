@@ -2533,8 +2533,6 @@ static int gbe_del_vid(void *intf_priv, int vid)
 }
 
 #if IS_ENABLED(CONFIG_TI_CPTS)
-#define HAS_PHY_TXTSTAMP(p) ((p)->drv && (p)->drv->txtstamp)
-#define HAS_PHY_RXTSTAMP(p) ((p)->drv && (p)->drv->rxtstamp)
 
 static void gbe_txtstamp(void *context, struct sk_buff *skb)
 {
@@ -2566,7 +2564,7 @@ static int gbe_txtstamp_mark_pkt(struct gbe_intf *gbe_intf,
 	 * We mark it here because skb_tx_timestamp() is called
 	 * after all the txhooks are called.
 	 */
-	if (phydev && HAS_PHY_TXTSTAMP(phydev)) {
+	if (phy_has_txtstamp(phydev)) {
 		skb_shinfo(p_info->skb)->tx_flags |= SKBTX_IN_PROGRESS;
 		return 0;
 	}
@@ -2588,7 +2586,7 @@ static int gbe_rxtstamp(struct gbe_intf *gbe_intf, struct netcp_packet *p_info)
 	if (p_info->rxtstamp_complete)
 		return 0;
 
-	if (phydev && HAS_PHY_RXTSTAMP(phydev)) {
+	if (phy_has_rxtstamp(phydev)) {
 		p_info->rxtstamp_complete = true;
 		return 0;
 	}
@@ -2830,7 +2828,7 @@ static int gbe_ioctl(void *intf_priv, struct ifreq *req, int cmd)
 	struct gbe_intf *gbe_intf = intf_priv;
 	struct phy_device *phy = gbe_intf->slave->phy;
 
-	if (!phy || !phy->drv->hwtstamp) {
+	if (!phy_has_hwtstamp(phy)) {
 		switch (cmd) {
 		case SIOCGHWTSTAMP:
 			return gbe_hwtstamp_get(gbe_intf, req);
@@ -3706,9 +3704,9 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 		ale_params.nu_switch_ale = true;
 	}
 	gbe_dev->ale = cpsw_ale_create(&ale_params);
-	if (!gbe_dev->ale) {
+	if (IS_ERR(gbe_dev->ale)) {
 		dev_err(gbe_dev->dev, "error initializing ale engine\n");
-		ret = -ENODEV;
+		ret = PTR_ERR(gbe_dev->ale);
 		goto free_sec_ports;
 	} else {
 		dev_dbg(gbe_dev->dev, "Created a gbe ale engine\n");

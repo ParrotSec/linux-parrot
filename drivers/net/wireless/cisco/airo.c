@@ -1925,6 +1925,10 @@ static netdev_tx_t mpi_start_xmit(struct sk_buff *skb,
 		airo_print_err(dev->name, "%s: skb == NULL!",__func__);
 		return NETDEV_TX_OK;
 	}
+	if (skb_padto(skb, ETH_ZLEN)) {
+		dev->stats.tx_dropped++;
+		return NETDEV_TX_OK;
+	}
 	npacks = skb_queue_len (&ai->txq);
 
 	if (npacks >= MAXTXQ - 1) {
@@ -2127,6 +2131,10 @@ static netdev_tx_t airo_start_xmit(struct sk_buff *skb,
 		airo_print_err(dev->name, "%s: skb == NULL!", __func__);
 		return NETDEV_TX_OK;
 	}
+	if (skb_padto(skb, ETH_ZLEN)) {
+		dev->stats.tx_dropped++;
+		return NETDEV_TX_OK;
+	}
 
 	/* Find a vacant FID */
 	for( i = 0; i < MAX_FIDS / 2 && (fids[i] & 0xffff0000); i++ );
@@ -2199,6 +2207,10 @@ static netdev_tx_t airo_start_xmit11(struct sk_buff *skb,
 
 	if ( skb == NULL ) {
 		airo_print_err(dev->name, "%s: skb == NULL!", __func__);
+		return NETDEV_TX_OK;
+	}
+	if (skb_padto(skb, ETH_ZLEN)) {
+		dev->stats.tx_dropped++;
 		return NETDEV_TX_OK;
 	}
 
@@ -4420,73 +4432,65 @@ static int proc_BSSList_open( struct inode *inode, struct file *file );
 static int proc_config_open( struct inode *inode, struct file *file );
 static int proc_wepkey_open( struct inode *inode, struct file *file );
 
-static const struct file_operations proc_statsdelta_ops = {
-	.owner		= THIS_MODULE,
-	.read		= proc_read,
-	.open		= proc_statsdelta_open,
-	.release	= proc_close,
-	.llseek		= default_llseek,
+static const struct proc_ops proc_statsdelta_ops = {
+	.proc_read	= proc_read,
+	.proc_open	= proc_statsdelta_open,
+	.proc_release	= proc_close,
+	.proc_lseek	= default_llseek,
 };
 
-static const struct file_operations proc_stats_ops = {
-	.owner		= THIS_MODULE,
-	.read		= proc_read,
-	.open		= proc_stats_open,
-	.release	= proc_close,
-	.llseek		= default_llseek,
+static const struct proc_ops proc_stats_ops = {
+	.proc_read	= proc_read,
+	.proc_open	= proc_stats_open,
+	.proc_release	= proc_close,
+	.proc_lseek	= default_llseek,
 };
 
-static const struct file_operations proc_status_ops = {
-	.owner		= THIS_MODULE,
-	.read		= proc_read,
-	.open		= proc_status_open,
-	.release	= proc_close,
-	.llseek		= default_llseek,
+static const struct proc_ops proc_status_ops = {
+	.proc_read	= proc_read,
+	.proc_open	= proc_status_open,
+	.proc_release	= proc_close,
+	.proc_lseek	= default_llseek,
 };
 
-static const struct file_operations proc_SSID_ops = {
-	.owner		= THIS_MODULE,
-	.read		= proc_read,
-	.write		= proc_write,
-	.open		= proc_SSID_open,
-	.release	= proc_close,
-	.llseek		= default_llseek,
+static const struct proc_ops proc_SSID_ops = {
+	.proc_read	= proc_read,
+	.proc_write	= proc_write,
+	.proc_open	= proc_SSID_open,
+	.proc_release	= proc_close,
+	.proc_lseek	= default_llseek,
 };
 
-static const struct file_operations proc_BSSList_ops = {
-	.owner		= THIS_MODULE,
-	.read		= proc_read,
-	.write		= proc_write,
-	.open		= proc_BSSList_open,
-	.release	= proc_close,
-	.llseek		= default_llseek,
+static const struct proc_ops proc_BSSList_ops = {
+	.proc_read	= proc_read,
+	.proc_write	= proc_write,
+	.proc_open	= proc_BSSList_open,
+	.proc_release	= proc_close,
+	.proc_lseek	= default_llseek,
 };
 
-static const struct file_operations proc_APList_ops = {
-	.owner		= THIS_MODULE,
-	.read		= proc_read,
-	.write		= proc_write,
-	.open		= proc_APList_open,
-	.release	= proc_close,
-	.llseek		= default_llseek,
+static const struct proc_ops proc_APList_ops = {
+	.proc_read	= proc_read,
+	.proc_write	= proc_write,
+	.proc_open	= proc_APList_open,
+	.proc_release	= proc_close,
+	.proc_lseek	= default_llseek,
 };
 
-static const struct file_operations proc_config_ops = {
-	.owner		= THIS_MODULE,
-	.read		= proc_read,
-	.write		= proc_write,
-	.open		= proc_config_open,
-	.release	= proc_close,
-	.llseek		= default_llseek,
+static const struct proc_ops proc_config_ops = {
+	.proc_read	= proc_read,
+	.proc_write	= proc_write,
+	.proc_open	= proc_config_open,
+	.proc_release	= proc_close,
+	.proc_lseek	= default_llseek,
 };
 
-static const struct file_operations proc_wepkey_ops = {
-	.owner		= THIS_MODULE,
-	.read		= proc_read,
-	.write		= proc_write,
-	.open		= proc_wepkey_open,
-	.release	= proc_close,
-	.llseek		= default_llseek,
+static const struct proc_ops proc_wepkey_ops = {
+	.proc_read	= proc_read,
+	.proc_write	= proc_write,
+	.proc_open	= proc_wepkey_open,
+	.proc_release	= proc_close,
+	.proc_lseek	= default_llseek,
 };
 
 static struct proc_dir_entry *airo_entry;

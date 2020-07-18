@@ -1041,6 +1041,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
 	       + nla_total_size(4)  /* IFLA_MIN_MTU */
 	       + nla_total_size(4)  /* IFLA_MAX_MTU */
 	       + rtnl_prop_list_size(dev)
+	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_PERM_ADDRESS */
 	       + 0;
 }
 
@@ -1757,6 +1758,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb,
 	    nla_put_s32(skb, IFLA_NEW_IFINDEX, new_ifindex) < 0)
 		goto nla_put_failure;
 
+	if (memchr_inv(dev->perm_addr, '\0', dev->addr_len) &&
+	    nla_put(skb, IFLA_PERM_ADDRESS, dev->addr_len, dev->perm_addr))
+		goto nla_put_failure;
 
 	rcu_read_lock();
 	if (rtnl_fill_link_af(skb, dev, ext_filter_mask))
@@ -1822,6 +1826,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
 	[IFLA_PROP_LIST]	= { .type = NLA_NESTED },
 	[IFLA_ALT_IFNAME]	= { .type = NLA_STRING,
 				    .len = ALTIFNAMSIZ - 1 },
+	[IFLA_PERM_ADDRESS]	= { .type = NLA_REJECT },
 };
 
 static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
@@ -1867,7 +1872,9 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
 };
 
 static const struct nla_policy ifla_xdp_policy[IFLA_XDP_MAX + 1] = {
+	[IFLA_XDP_UNSPEC]	= { .strict_start_type = IFLA_XDP_EXPECTED_FD },
 	[IFLA_XDP_FD]		= { .type = NLA_S32 },
+	[IFLA_XDP_EXPECTED_FD]	= { .type = NLA_S32 },
 	[IFLA_XDP_ATTACHED]	= { .type = NLA_U8 },
 	[IFLA_XDP_FLAGS]	= { .type = NLA_U32 },
 	[IFLA_XDP_PROG_ID]	= { .type = NLA_U32 },
@@ -2794,8 +2801,20 @@ static int do_setlink(const struct sk_buff *skb,
 		}
 
 		if (xdp[IFLA_XDP_FD]) {
+			int expected_fd = -1;
+
+			if (xdp_flags & XDP_FLAGS_REPLACE) {
+				if (!xdp[IFLA_XDP_EXPECTED_FD]) {
+					err = -EINVAL;
+					goto errout;
+				}
+				expected_fd =
+					nla_get_s32(xdp[IFLA_XDP_EXPECTED_FD]);
+			}
+
 			err = dev_change_xdp_fd(dev, extack,
 						nla_get_s32(xdp[IFLA_XDP_FD]),
+						expected_fd,
 						xdp_flags);
 			if (err)
 				goto errout;
@@ -3904,7 +3923,7 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
 
 	/* Support fdb on master device the net/bridge default case */
 	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
-	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+	    netif_is_bridge_port(dev)) {
 		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
 		const struct net_device_ops *ops = br_dev->netdev_ops;
 
@@ -4015,7 +4034,7 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
 
 	/* Support fdb on master device the net/bridge default case */
 	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
-	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+	    netif_is_bridge_port(dev)) {
 		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
 		const struct net_device_ops *ops = br_dev->netdev_ops;
 
@@ -4241,13 +4260,13 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
 				continue;
 
 			if (!br_idx) { /* user did not specify a specific bridge */
-				if (dev->priv_flags & IFF_BRIDGE_PORT) {
+				if (netif_is_bridge_port(dev)) {
 					br_dev = netdev_master_upper_dev_get(dev);
 					cops = br_dev->netdev_ops;
 				}
 			} else {
 				if (dev != br_dev &&
-				    !(dev->priv_flags & IFF_BRIDGE_PORT))
+				    !netif_is_bridge_port(dev))
 					continue;
 
 				if (br_dev != netdev_master_upper_dev_get(dev) &&
@@ -4259,7 +4278,7 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
 			if (idx < s_idx)
 				goto cont;
 
-			if (dev->priv_flags & IFF_BRIDGE_PORT) {
+			if (netif_is_bridge_port(dev)) {
 				if (cops && cops->ndo_fdb_dump) {
 					err = cops->ndo_fdb_dump(skb, cb,
 								br_dev, dev,
@@ -4409,7 +4428,7 @@ static int rtnl_fdb_get(struct sk_buff *in_skb, struct nlmsghdr *nlh,
 
 	if (dev) {
 		if (!ndm_flags || (ndm_flags & NTF_MASTER)) {
-			if (!(dev->priv_flags & IFF_BRIDGE_PORT)) {
+			if (!netif_is_bridge_port(dev)) {
 				NL_SET_ERR_MSG(extack, "Device is not a bridge port");
 				return -EINVAL;
 			}
@@ -4548,7 +4567,11 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
 	    brport_nla_put_flag(skb, flags, mask,
 				IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD) ||
 	    brport_nla_put_flag(skb, flags, mask,
-				IFLA_BRPORT_PROXYARP, BR_PROXYARP)) {
+				IFLA_BRPORT_PROXYARP, BR_PROXYARP) ||
+	    brport_nla_put_flag(skb, flags, mask,
+				IFLA_BRPORT_MCAST_FLOOD, BR_MCAST_FLOOD) ||
+	    brport_nla_put_flag(skb, flags, mask,
+				IFLA_BRPORT_BCAST_FLOOD, BR_BCAST_FLOOD)) {
 		nla_nest_cancel(skb, protinfo);
 		goto nla_put_failure;
 	}

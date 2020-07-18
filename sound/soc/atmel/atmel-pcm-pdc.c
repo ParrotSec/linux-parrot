@@ -213,7 +213,7 @@ static int atmel_pcm_hw_params(struct snd_soc_component *component,
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	runtime->dma_bytes = params_buffer_bytes(params);
 
-	prtd->params = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	prtd->params = snd_soc_dai_get_dma_data(asoc_rtd_to_cpu(rtd, 0), substream);
 	prtd->params->dma_intr_handler = atmel_pcm_dma_irq;
 
 	prtd->dma_buffer = runtime->dma_addr;
@@ -379,7 +379,6 @@ static int atmel_pcm_close(struct snd_soc_component *component,
 static const struct snd_soc_component_driver atmel_soc_platform = {
 	.open		= atmel_pcm_open,
 	.close		= atmel_pcm_close,
-	.ioctl		= snd_soc_pcm_lib_ioctl,
 	.hw_params	= atmel_pcm_hw_params,
 	.hw_free	= atmel_pcm_hw_free,
 	.prepare	= atmel_pcm_prepare,

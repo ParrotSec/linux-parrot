@@ -846,6 +846,7 @@ void intel_gtt_insert_page(dma_addr_t addr,
 			   unsigned int flags)
 {
 	intel_private.driver->write_entry(addr, pg, flags);
+	readl(intel_private.gtt + pg);
 	if (intel_private.driver->chipset_flush)
 		intel_private.driver->chipset_flush();
 }
@@ -871,7 +872,7 @@ void intel_gtt_insert_sg_entries(struct sg_table *st,
 			j++;
 		}
 	}
-	wmb();
+	readl(intel_private.gtt + j - 1);
 	if (intel_private.driver->chipset_flush)
 		intel_private.driver->chipset_flush();
 }
@@ -1087,7 +1088,7 @@ static void intel_i9xx_setup_flush(void)
 	}
 
 	if (intel_private.ifp_resource.start)
-		intel_private.i9xx_flush_page = ioremap_nocache(intel_private.ifp_resource.start, PAGE_SIZE);
+		intel_private.i9xx_flush_page = ioremap(intel_private.ifp_resource.start, PAGE_SIZE);
 	if (!intel_private.i9xx_flush_page)
 		dev_err(&intel_private.pcidev->dev,
 			"can't ioremap flush page - no chipset flushing\n");
@@ -1105,6 +1106,7 @@ static void i9xx_cleanup(void)
 
 static void i9xx_chipset_flush(void)
 {
+	wmb();
 	if (intel_private.i9xx_flush_page)
 		writel(1, intel_private.i9xx_flush_page);
 }

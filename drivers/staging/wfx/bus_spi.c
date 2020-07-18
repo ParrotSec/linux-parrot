@@ -109,6 +109,8 @@ static int wfx_spi_copy_to_io(void *priv, unsigned int addr,
 
 	cpu_to_le16s(&regaddr);
 
+	// Register address and CONFIG content always use 16bit big endian
+	// ("BADC" order)
 	if (bus->need_swab)
 		swab16s(&regaddr);
 	if (bus->need_swab && addr == WFX_REG_CONFIG)
@@ -190,7 +192,7 @@ static int wfx_spi_probe(struct spi_device *func)
 	if (func->bits_per_word != 16 && func->bits_per_word != 8)
 		dev_warn(&func->dev, "unusual bits/word value: %d\n",
 			 func->bits_per_word);
-	if (func->max_speed_hz > 49000000)
+	if (func->max_speed_hz > 50000000)
 		dev_warn(&func->dev, "%dHz is a very high speed\n",
 			 func->max_speed_hz);
 
@@ -208,10 +210,10 @@ static int wfx_spi_probe(struct spi_device *func)
 	} else {
 		if (spi_get_device_id(func)->driver_data & WFX_RESET_INVERTED)
 			gpiod_toggle_active_low(bus->gpio_reset);
-		gpiod_set_value(bus->gpio_reset, 1);
-		udelay(100);
-		gpiod_set_value(bus->gpio_reset, 0);
-		udelay(2000);
+		gpiod_set_value_cansleep(bus->gpio_reset, 1);
+		usleep_range(100, 150);
+		gpiod_set_value_cansleep(bus->gpio_reset, 0);
+		usleep_range(2000, 2500);
 	}
 
 	INIT_WORK(&bus->request_rx, wfx_spi_request_rx);
@@ -233,8 +235,7 @@ static int wfx_spi_probe(struct spi_device *func)
 	return wfx_probe(bus->core);
 }
 
-/* Disconnect Function to be called by SPI stack when device is disconnected */
-static int wfx_spi_disconnect(struct spi_device *func)
+static int wfx_spi_remove(struct spi_device *func)
 {
 	struct wfx_spi_priv *bus = spi_get_drvdata(func);
 
@@ -270,5 +271,5 @@ struct spi_driver wfx_spi_driver = {
 	},
 	.id_table = wfx_spi_id,
 	.probe = wfx_spi_probe,
-	.remove = wfx_spi_disconnect,
+	.remove = wfx_spi_remove,
 };

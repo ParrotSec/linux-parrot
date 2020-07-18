@@ -278,7 +278,7 @@ struct tipc_crypto *tipc_node_crypto_rx_by_list(struct list_head *pos)
 }
 #endif
 
-void tipc_node_free(struct rcu_head *rp)
+static void tipc_node_free(struct rcu_head *rp)
 {
 	struct tipc_node *n = container_of(rp, struct tipc_node, rcu);
 
@@ -1139,7 +1139,8 @@ void tipc_node_check_dest(struct net *net, u32 addr,
 		snd_l = tipc_bc_sndlink(net);
 		if (!tipc_link_bc_create(net, tipc_own_addr(net),
 					 addr, U16_MAX,
-					 tipc_link_window(snd_l),
+					 tipc_link_min_win(snd_l),
+					 tipc_link_max_win(snd_l),
 					 n->capabilities,
 					 &n->bc_entry.inputq1,
 					 &n->bc_entry.namedq, snd_l,
@@ -1233,7 +1234,7 @@ void tipc_node_check_dest(struct net *net, u32 addr,
 		get_random_bytes(&session, sizeof(u16));
 		if (!tipc_link_create(net, if_name, b->identity, b->tolerance,
 				      b->net_plane, b->mtu, b->priority,
-				      b->window, session,
+				      b->min_win, b->max_win, session,
 				      tipc_own_addr(net), addr, peer_id,
 				      n->capabilities,
 				      tipc_bc_sndlink(n->net), n->bc_entry.link,
@@ -1585,7 +1586,8 @@ static void tipc_lxc_xmit(struct net *peer_net, struct sk_buff_head *list)
 	case TIPC_MEDIUM_IMPORTANCE:
 	case TIPC_HIGH_IMPORTANCE:
 	case TIPC_CRITICAL_IMPORTANCE:
-		if (msg_connected(hdr) || msg_named(hdr)) {
+		if (msg_connected(hdr) || msg_named(hdr) ||
+		    msg_direct(hdr)) {
 			tipc_loopback_trace(peer_net, list);
 			spin_lock_init(&list->lock);
 			tipc_sk_rcv(peer_net, list);
@@ -2036,6 +2038,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
 		n = tipc_node_find_by_id(net, ehdr->id);
 	}
 	tipc_crypto_rcv(net, (n) ? n->crypto_rx : NULL, &skb, b);
+	tipc_node_put(n);
 	if (!skb)
 		return;
 
@@ -2088,7 +2091,7 @@ rcv:
 	/* Check/update node state before receiving */
 	if (unlikely(skb)) {
 		if (unlikely(skb_linearize(skb)))
-			goto discard;
+			goto out_node_put;
 		tipc_node_write_lock(n);
 		if (tipc_node_check_state(n, skb, bearer_id, &xmitq)) {
 			if (le->link) {
@@ -2117,6 +2120,7 @@ rcv:
 	if (!skb_queue_empty(&xmitq))
 		tipc_bearer_xmit(net, bearer_id, &xmitq, &le->maddr, n);
 
+out_node_put:
 	tipc_node_put(n);
 discard:
 	kfree_skb(skb);
@@ -2360,8 +2364,7 @@ int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info)
 	if (attrs[TIPC_NLA_LINK_PROP]) {
 		struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
 
-		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_LINK_PROP],
-					      props);
+		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_LINK_PROP], props);
 		if (err) {
 			res = err;
 			goto out;
@@ -2380,10 +2383,12 @@ int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info)
 			tipc_link_set_prio(link, prio, &xmitq);
 		}
 		if (props[TIPC_NLA_PROP_WIN]) {
-			u32 win;
+			u32 max_win;
 
-			win = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
-			tipc_link_set_queue_limits(link, win);
+			max_win = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
+			tipc_link_set_queue_limits(link,
+						   tipc_link_min_win(link),
+						   max_win);
 		}
 	}
 
@@ -2796,7 +2801,7 @@ static int tipc_nl_retrieve_nodeid(struct nlattr **attrs, u8 **node_id)
 	return 0;
 }
 
-int __tipc_nl_node_set_key(struct sk_buff *skb, struct genl_info *info)
+static int __tipc_nl_node_set_key(struct sk_buff *skb, struct genl_info *info)
 {
 	struct nlattr *attrs[TIPC_NLA_NODE_MAX + 1];
 	struct net *net = sock_net(skb->sk);
@@ -2873,7 +2878,8 @@ int tipc_nl_node_set_key(struct sk_buff *skb, struct genl_info *info)
 	return err;
 }
 
-int __tipc_nl_node_flush_key(struct sk_buff *skb, struct genl_info *info)
+static int __tipc_nl_node_flush_key(struct sk_buff *skb,
+				    struct genl_info *info)
 {
 	struct net *net = sock_net(skb->sk);
 	struct tipc_net *tn = tipc_net(net);

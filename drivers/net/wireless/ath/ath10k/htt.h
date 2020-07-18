@@ -1869,6 +1869,8 @@ struct ath10k_htt {
 	struct ath10k *ar;
 	enum ath10k_htc_ep_id eid;
 
+	struct sk_buff_head rx_indication_head;
+
 	u8 target_version_major;
 	u8 target_version_minor;
 	struct completion target_version_received;
@@ -2033,6 +2035,7 @@ struct ath10k_htt_tx_ops {
 	int (*htt_h2t_aggr_cfg_msg)(struct ath10k_htt *htt,
 				    u8 max_subfrms_ampdu,
 				    u8 max_subfrms_amsdu);
+	void (*htt_flush_tx)(struct ath10k_htt *htt);
 };
 
 static inline int ath10k_htt_send_rx_ring_cfg(struct ath10k_htt *htt)
@@ -2070,6 +2073,12 @@ static inline int ath10k_htt_tx(struct ath10k_htt *htt,
 				struct sk_buff *msdu)
 {
 	return htt->tx_ops->htt_tx(htt, txmode, msdu);
+}
+
+static inline void ath10k_htt_flush_tx(struct ath10k_htt *htt)
+{
+	if (htt->tx_ops->htt_flush_tx)
+		htt->tx_ops->htt_flush_tx(htt);
 }
 
 static inline int ath10k_htt_alloc_txbuff(struct ath10k_htt *htt)
@@ -2283,6 +2292,7 @@ int ath10k_htt_mgmt_tx(struct ath10k_htt *htt, struct sk_buff *msdu);
 void ath10k_htt_rx_pktlog_completion_handler(struct ath10k *ar,
 					     struct sk_buff *skb);
 int ath10k_htt_txrx_compl_task(struct ath10k *ar, int budget);
+int ath10k_htt_rx_hl_indication(struct ath10k *ar, int budget);
 void ath10k_htt_set_tx_ops(struct ath10k_htt *htt);
 void ath10k_htt_set_rx_ops(struct ath10k_htt *htt);
 #endif

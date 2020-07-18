@@ -258,6 +258,11 @@ static int crtc_crc_release(struct inode *inode, struct file *filep)
 	struct drm_crtc *crtc = filep->f_inode->i_private;
 	struct drm_crtc_crc *crc = &crtc->crc;
 
+	/* terminate the infinite while loop if 'drm_dp_aux_crc_work' running */
+	spin_lock_irq(&crc->lock);
+	crc->opened = false;
+	spin_unlock_irq(&crc->lock);
+
 	crtc->funcs->set_crc_source(crtc, NULL);
 
 	spin_lock_irq(&crc->lock);
@@ -367,7 +372,7 @@ void drm_debugfs_crtc_crc_add(struct drm_crtc *crtc)
 
 	crc_ent = debugfs_create_dir("crc", crtc->debugfs_entry);
 
-	debugfs_create_file("control", S_IRUGO, crc_ent, crtc,
+	debugfs_create_file("control", S_IRUGO | S_IWUSR, crc_ent, crtc,
 			    &drm_crtc_crc_control_fops);
 	debugfs_create_file("data", S_IRUGO, crc_ent, crtc,
 			    &drm_crtc_crc_data_fops);

@@ -386,8 +386,8 @@ kp_spi_transfer_one_message(struct spi_master *master, struct spi_message *m)
 			}
 		}
 
-		if (transfer->delay_usecs)
-			udelay(transfer->delay_usecs);
+		if (transfer->delay.value)
+			ndelay(spi_delay_to_ns(&transfer->delay, transfer));
 	}
 
 	/* de-assert chip select to end the sequence */
@@ -464,7 +464,7 @@ kp_spi_probe(struct platform_device *pldev)
 		goto free_master;
 	}
 
-	kpspi->base = devm_ioremap_nocache(&pldev->dev, r->start,
+	kpspi->base = devm_ioremap(&pldev->dev, r->start,
 					   resource_size(r));
 
 	status = spi_register_master(master);

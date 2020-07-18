@@ -38,6 +38,7 @@
 
 #include "edma-pcm.h"
 #include "sdma-pcm.h"
+#include "udma-pcm.h"
 #include "davinci-mcasp.h"
 
 #define MCASP_MAX_AFIFO_DEPTH	64
@@ -664,18 +665,39 @@ static int davinci_mcasp_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
 
 	pm_runtime_get_sync(mcasp->dev);
-	if (dir == SND_SOC_CLOCK_OUT) {
+
+	if (dir == SND_SOC_CLOCK_IN) {
+		switch (clk_id) {
+		case MCASP_CLK_HCLK_AHCLK:
+			mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG,
+				       AHCLKXE);
+			mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG,
+				       AHCLKRE);
+			clear_bit(PIN_BIT_AHCLKX, &mcasp->pdir);
+			break;
+		case MCASP_CLK_HCLK_AUXCLK:
+			mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG,
+				       AHCLKXE);
+			mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG,
+				       AHCLKRE);
+			set_bit(PIN_BIT_AHCLKX, &mcasp->pdir);
+			break;
+		default:
+			dev_err(mcasp->dev, "Invalid clk id: %d\n", clk_id);
+			goto out;
+		}
+	} else {
+		/* Select AUXCLK as HCLK */
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG, AHCLKXE);
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG, AHCLKRE);
 		set_bit(PIN_BIT_AHCLKX, &mcasp->pdir);
-	} else {
-		mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG, AHCLKXE);
-		mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG, AHCLKRE);
-		clear_bit(PIN_BIT_AHCLKX, &mcasp->pdir);
 	}
-
+	/*
+	 * When AHCLK X/R is selected to be output it means that the HCLK is
+	 * the same clock - coming via AUXCLK.
+	 */
 	mcasp->sysclk_freq = freq;
-
+out:
 	pm_runtime_put(mcasp->dev);
 	return 0;
 }
@@ -1743,10 +1765,8 @@ static struct davinci_mcasp_pdata *davinci_mcasp_set_pdata_from_of(
 	} else if (match) {
 		pdata = devm_kmemdup(&pdev->dev, match->data, sizeof(*pdata),
 				     GFP_KERNEL);
-		if (!pdata) {
-			ret = -ENOMEM;
-			return pdata;
-		}
+		if (!pdata)
+			return NULL;
 	} else {
 		/* control shouldn't reach here. something is wrong */
 		ret = -EINVAL;
@@ -1854,6 +1874,7 @@ nodata:
 enum {
 	PCM_EDMA,
 	PCM_SDMA,
+	PCM_UDMA,
 };
 static const char *sdma_prefix = "ti,omap";
 
@@ -1875,8 +1896,10 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 				PTR_ERR(chan));
 		return PTR_ERR(chan);
 	}
-	if (WARN_ON(!chan->device || !chan->device->dev))
+	if (WARN_ON(!chan->device || !chan->device->dev)) {
+		dma_release_channel(chan);
 		return -EINVAL;
+	}
 
 	if (chan->device->dev->of_node)
 		ret = of_property_read_string(chan->device->dev->of_node,
@@ -1891,6 +1914,8 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 	dev_dbg(mcasp->dev, "DMA controller compatible = \"%s\"\n", tmp);
 	if (!strncmp(tmp, sdma_prefix, strlen(sdma_prefix)))
 		return PCM_SDMA;
+	else if (strstr(tmp, "udmap"))
+		return PCM_UDMA;
 
 	return PCM_EDMA;
 }
@@ -2349,6 +2374,9 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		break;
 	case PCM_SDMA:
 		ret = sdma_pcm_platform_register(&pdev->dev, "tx", "rx");
+		break;
+	case PCM_UDMA:
+		ret = udma_pcm_platform_register(&pdev->dev);
 		break;
 	default:
 		dev_err(&pdev->dev, "No DMA controller found (%d)\n", ret);

@@ -93,7 +93,8 @@ static int ice_pf_rxq_wait(struct ice_pf *pf, int pf_q, bool ena)
  * @vsi: the VSI being configured
  * @v_idx: index of the vector in the VSI struct
  *
- * We allocate one q_vector. If allocation fails we return -ENOMEM.
+ * We allocate one q_vector and set default value for ITR setting associated
+ * with this q_vector. If allocation fails we return -ENOMEM.
  */
 static int ice_vsi_alloc_q_vector(struct ice_vsi *vsi, int v_idx)
 {
@@ -108,6 +109,8 @@ static int ice_vsi_alloc_q_vector(struct ice_vsi *vsi, int v_idx)
 
 	q_vector->vsi = vsi;
 	q_vector->v_idx = v_idx;
+	q_vector->tx.itr_setting = ICE_DFLT_TX_ITR;
+	q_vector->rx.itr_setting = ICE_DFLT_RX_ITR;
 	if (vsi->type == ICE_VSI_VF)
 		goto out;
 	/* only set affinity_mask if the CPU is online */
@@ -200,8 +203,7 @@ static void ice_cfg_itr_gran(struct ice_hw *hw)
  */
 static u16 ice_calc_q_handle(struct ice_vsi *vsi, struct ice_ring *ring, u8 tc)
 {
-	WARN_ONCE(ice_ring_is_xdp(ring) && tc,
-		  "XDP ring can't belong to TC other than 0");
+	WARN_ONCE(ice_ring_is_xdp(ring) && tc, "XDP ring can't belong to TC other than 0\n");
 
 	/* Idea here for calculation is that we subtract the number of queue
 	 * count from TC that ring belongs to from it's absolute queue index
@@ -244,7 +246,6 @@ ice_setup_tx_ctx(struct ice_ring *ring, struct ice_tlan_ctx *tlan_ctx, u16 pf_q)
 	 */
 	switch (vsi->type) {
 	case ICE_VSI_LB:
-		/* fall through */
 	case ICE_VSI_PF:
 		tlan_ctx->vmvf_type = ICE_TLAN_CTX_VMVF_TYPE_PF;
 		break;
@@ -299,6 +300,7 @@ int ice_setup_rx_ctx(struct ice_ring *ring)
 
 	if (ring->vsi->type == ICE_VSI_PF) {
 		if (!xdp_rxq_info_is_reg(&ring->xdp_rxq))
+			/* coverity[check_return] */
 			xdp_rxq_info_reg(&ring->xdp_rxq, ring->netdev,
 					 ring->q_index);
 
@@ -323,7 +325,9 @@ int ice_setup_rx_ctx(struct ice_ring *ring)
 			dev_info(ice_pf_to_dev(vsi->back), "Registered XDP mem model MEM_TYPE_ZERO_COPY on Rx ring %d\n",
 				 ring->q_index);
 		} else {
+			ring->zca.free = NULL;
 			if (!xdp_rxq_info_is_reg(&ring->xdp_rxq))
+				/* coverity[check_return] */
 				xdp_rxq_info_reg(&ring->xdp_rxq,
 						 ring->netdev,
 						 ring->q_index);
@@ -381,8 +385,8 @@ int ice_setup_rx_ctx(struct ice_ring *ring)
 	 /* Enable Flexible Descriptors in the queue context which
 	  * allows this driver to select a specific receive descriptor format
 	  */
+	regval = rd32(hw, QRXFLXP_CNTXT(pf_q));
 	if (vsi->type != ICE_VSI_VF) {
-		regval = rd32(hw, QRXFLXP_CNTXT(pf_q));
 		regval |= (rxdid << QRXFLXP_CNTXT_RXDID_IDX_S) &
 			QRXFLXP_CNTXT_RXDID_IDX_M;
 
@@ -393,14 +397,17 @@ int ice_setup_rx_ctx(struct ice_ring *ring)
 		regval |= (0x03 << QRXFLXP_CNTXT_RXDID_PRIO_S) &
 			QRXFLXP_CNTXT_RXDID_PRIO_M;
 
-		wr32(hw, QRXFLXP_CNTXT(pf_q), regval);
+	} else {
+		regval &= ~(QRXFLXP_CNTXT_RXDID_IDX_M |
+			    QRXFLXP_CNTXT_RXDID_PRIO_M |
+			    QRXFLXP_CNTXT_TS_M);
 	}
+	wr32(hw, QRXFLXP_CNTXT(pf_q), regval);
 
 	/* Absolute queue number out of 2K needs to be passed */
 	err = ice_write_rxq_ctx(hw, &rlan_ctx, pf_q);
 	if (err) {
-		dev_err(ice_pf_to_dev(vsi->back),
-			"Failed to set LAN Rx queue context for absolute Rx queue %d error: %d\n",
+		dev_err(ice_pf_to_dev(vsi->back), "Failed to set LAN Rx queue context for absolute Rx queue %d error: %d\n",
 			pf_q, err);
 		return -EIO;
 	}
@@ -422,8 +429,7 @@ int ice_setup_rx_ctx(struct ice_ring *ring)
 	      ice_alloc_rx_bufs_slow_zc(ring, ICE_DESC_UNUSED(ring)) :
 	      ice_alloc_rx_bufs(ring, ICE_DESC_UNUSED(ring));
 	if (err)
-		dev_info(ice_pf_to_dev(vsi->back),
-			 "Failed allocate some buffers on %sRx ring %d (pf_q %d)\n",
+		dev_info(ice_pf_to_dev(vsi->back), "Failed allocate some buffers on %sRx ring %d (pf_q %d)\n",
 			 ring->xsk_umem ? "UMEM enabled " : "",
 			 ring->q_index, pf_q);
 
@@ -455,17 +461,20 @@ int __ice_vsi_get_qs(struct ice_qs_cfg *qs_cfg)
 }
 
 /**
- * ice_vsi_ctrl_rx_ring - Start or stop a VSI's Rx ring
+ * ice_vsi_ctrl_one_rx_ring - start/stop VSI's Rx ring with no busy wait
  * @vsi: the VSI being configured
- * @ena: start or stop the Rx rings
- * @rxq_idx: Rx queue index
+ * @ena: start or stop the Rx ring
+ * @rxq_idx: 0-based Rx queue index for the VSI passed in
+ * @wait: wait or don't wait for configuration to finish in hardware
+ *
+ * Return 0 on success and negative on error.
  */
-int ice_vsi_ctrl_rx_ring(struct ice_vsi *vsi, bool ena, u16 rxq_idx)
+int
+ice_vsi_ctrl_one_rx_ring(struct ice_vsi *vsi, bool ena, u16 rxq_idx, bool wait)
 {
 	int pf_q = vsi->rxq_map[rxq_idx];
 	struct ice_pf *pf = vsi->back;
 	struct ice_hw *hw = &pf->hw;
-	int ret = 0;
 	u32 rx_reg;
 
 	rx_reg = rd32(hw, QRX_CTRL(pf_q));
@@ -481,14 +490,30 @@ int ice_vsi_ctrl_rx_ring(struct ice_vsi *vsi, bool ena, u16 rxq_idx)
 		rx_reg &= ~QRX_CTRL_QENA_REQ_M;
 	wr32(hw, QRX_CTRL(pf_q), rx_reg);
 
-	/* wait for the change to finish */
-	ret = ice_pf_rxq_wait(pf, pf_q, ena);
-	if (ret)
-		dev_err(ice_pf_to_dev(pf),
-			"VSI idx %d Rx ring %d %sable timeout\n",
-			vsi->idx, pf_q, (ena ? "en" : "dis"));
+	if (!wait)
+		return 0;
 
-	return ret;
+	ice_flush(hw);
+	return ice_pf_rxq_wait(pf, pf_q, ena);
+}
+
+/**
+ * ice_vsi_wait_one_rx_ring - wait for a VSI's Rx ring to be stopped/started
+ * @vsi: the VSI being configured
+ * @ena: true/false to verify Rx ring has been enabled/disabled respectively
+ * @rxq_idx: 0-based Rx queue index for the VSI passed in
+ *
+ * This routine will wait for the given Rx queue of the VSI to reach the
+ * enabled or disabled state. Returns -ETIMEDOUT in case of failing to reach
+ * the requested state after multiple retries; else will return 0 in case of
+ * success.
+ */
+int ice_vsi_wait_one_rx_ring(struct ice_vsi *vsi, bool ena, u16 rxq_idx)
+{
+	int pf_q = vsi->rxq_map[rxq_idx];
+	struct ice_pf *pf = vsi->back;
+
+	return ice_pf_rxq_wait(pf, pf_q, ena);
 }
 
 /**
@@ -500,20 +525,15 @@ int ice_vsi_ctrl_rx_ring(struct ice_vsi *vsi, bool ena, u16 rxq_idx)
  */
 int ice_vsi_alloc_q_vectors(struct ice_vsi *vsi)
 {
-	struct ice_pf *pf = vsi->back;
-	int v_idx = 0, num_q_vectors;
-	struct device *dev;
-	int err;
+	struct device *dev = ice_pf_to_dev(vsi->back);
+	int v_idx, err;
 
-	dev = ice_pf_to_dev(pf);
 	if (vsi->q_vectors[0]) {
 		dev_dbg(dev, "VSI %d has existing q_vectors\n", vsi->vsi_num);
 		return -EEXIST;
 	}
 
-	num_q_vectors = vsi->num_q_vectors;
-
-	for (v_idx = 0; v_idx < num_q_vectors; v_idx++) {
+	for (v_idx = 0; v_idx < vsi->num_q_vectors; v_idx++) {
 		err = ice_vsi_alloc_q_vector(vsi, v_idx);
 		if (err)
 			goto err_out;
@@ -642,8 +662,7 @@ ice_vsi_cfg_txq(struct ice_vsi *vsi, struct ice_ring *ring,
 	status = ice_ena_vsi_txq(vsi->port_info, vsi->idx, tc, ring->q_handle,
 				 1, qg_buf, buf_len, NULL);
 	if (status) {
-		dev_err(ice_pf_to_dev(pf),
-			"Failed to set LAN Tx queue context, error: %d\n",
+		dev_err(ice_pf_to_dev(pf), "Failed to set LAN Tx queue context, error: %d\n",
 			status);
 		return -ENODEV;
 	}
@@ -674,10 +693,6 @@ void ice_cfg_itr(struct ice_hw *hw, struct ice_q_vector *q_vector)
 	if (q_vector->num_ring_rx) {
 		struct ice_ring_container *rc = &q_vector->rx;
 
-		/* if this value is set then don't overwrite with default */
-		if (!rc->itr_setting)
-			rc->itr_setting = ICE_DFLT_RX_ITR;
-
 		rc->target_itr = ITR_TO_REG(rc->itr_setting);
 		rc->next_update = jiffies + 1;
 		rc->current_itr = rc->target_itr;
@@ -687,10 +702,6 @@ void ice_cfg_itr(struct ice_hw *hw, struct ice_q_vector *q_vector)
 
 	if (q_vector->num_ring_tx) {
 		struct ice_ring_container *rc = &q_vector->tx;
-
-		/* if this value is set then don't overwrite with default */
-		if (!rc->itr_setting)
-			rc->itr_setting = ICE_DFLT_TX_ITR;
 
 		rc->target_itr = ITR_TO_REG(rc->itr_setting);
 		rc->next_update = jiffies + 1;
@@ -817,14 +828,12 @@ ice_vsi_stop_tx_ring(struct ice_vsi *vsi, enum ice_disq_rst_src rst_src,
 	 * queues at the hardware level anyway.
 	 */
 	if (status == ICE_ERR_RESET_ONGOING) {
-		dev_dbg(ice_pf_to_dev(vsi->back),
-			"Reset in progress. LAN Tx queues already disabled\n");
+		dev_dbg(ice_pf_to_dev(vsi->back), "Reset in progress. LAN Tx queues already disabled\n");
 	} else if (status == ICE_ERR_DOES_NOT_EXIST) {
-		dev_dbg(ice_pf_to_dev(vsi->back),
-			"LAN Tx queues do not exist, nothing to disable\n");
+		dev_dbg(ice_pf_to_dev(vsi->back), "LAN Tx queues do not exist, nothing to disable\n");
 	} else if (status) {
-		dev_err(ice_pf_to_dev(vsi->back),
-			"Failed to disable LAN Tx queues, error: %d\n", status);
+		dev_err(ice_pf_to_dev(vsi->back), "Failed to disable LAN Tx queues, error: %d\n",
+			status);
 		return -ENODEV;
 	}
 

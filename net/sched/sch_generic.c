@@ -441,7 +441,7 @@ static void dev_watchdog(struct timer_list *t)
 				trace_net_dev_xmit_timeout(dev, i);
 				WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
 				       dev->name, netdev_drivername(dev), i);
-				dev->netdev_ops->ndo_tx_timeout(dev);
+				dev->netdev_ops->ndo_tx_timeout(dev, i);
 			}
 			if (!mod_timer(&dev->watchdog_timer,
 				       round_jiffies(jiffies +
@@ -464,6 +464,7 @@ void __netdev_watchdog_up(struct net_device *dev)
 			dev_hold(dev);
 	}
 }
+EXPORT_SYMBOL_GPL(__netdev_watchdog_up);
 
 static void dev_watchdog_up(struct net_device *dev)
 {
@@ -1390,6 +1391,14 @@ void mini_qdisc_pair_swap(struct mini_Qdisc_pair *miniqp,
 		call_rcu(&miniq_old->rcu, mini_qdisc_rcu_func);
 }
 EXPORT_SYMBOL(mini_qdisc_pair_swap);
+
+void mini_qdisc_pair_block_init(struct mini_Qdisc_pair *miniqp,
+				struct tcf_block *block)
+{
+	miniqp->miniq1.block = block;
+	miniqp->miniq2.block = block;
+}
+EXPORT_SYMBOL(mini_qdisc_pair_block_init);
 
 void mini_qdisc_pair_init(struct mini_Qdisc_pair *miniqp, struct Qdisc *qdisc,
 			  struct mini_Qdisc __rcu **p_miniq)

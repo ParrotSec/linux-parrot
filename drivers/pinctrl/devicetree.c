@@ -51,7 +51,7 @@ void pinctrl_dt_free_maps(struct pinctrl *p)
 	struct pinctrl_dt_map *dt_map, *n1;
 
 	list_for_each_entry_safe(dt_map, n1, &p->dt_maps, node) {
-		pinctrl_unregister_map(dt_map->map);
+		pinctrl_unregister_mappings(dt_map->map);
 		list_del(&dt_map->node);
 		dt_free_map(dt_map->pctldev, dt_map->map,
 			    dt_map->num_maps);
@@ -92,7 +92,7 @@ static int dt_remember_or_free_map(struct pinctrl *p, const char *statename,
 	dt_map->num_maps = num_maps;
 	list_add_tail(&dt_map->node, &p->dt_maps);
 
-	return pinctrl_register_map(map, num_maps, false);
+	return pinctrl_register_mappings(map, num_maps);
 
 err_free_map:
 	dt_free_map(pctldev, map, num_maps);
@@ -103,6 +103,7 @@ struct pinctrl_dev *of_pinctrl_get(struct device_node *np)
 {
 	return get_pinctrl_dev_from_of_node(np);
 }
+EXPORT_SYMBOL_GPL(of_pinctrl_get);
 
 static int dt_to_map_one_config(struct pinctrl *p,
 				struct pinctrl_dev *hog_pctldev,
@@ -127,11 +128,12 @@ static int dt_to_map_one_config(struct pinctrl *p,
 		np_pctldev = of_get_next_parent(np_pctldev);
 		if (!np_pctldev || of_node_is_root(np_pctldev)) {
 			of_node_put(np_pctldev);
+			ret = driver_deferred_probe_check_state(p->dev);
 			/* keep deferring if modules are enabled unless we've timed out */
-			if (IS_ENABLED(CONFIG_MODULES) && !allow_default)
-				return driver_deferred_probe_check_state_continue(p->dev);
-
-			return driver_deferred_probe_check_state(p->dev);
+			if (IS_ENABLED(CONFIG_MODULES) && !allow_default &&
+			    (ret == -ENODEV))
+				ret = -EPROBE_DEFER;
+			return ret;
 		}
 		/* If we're creating a hog we can use the passed pctldev */
 		if (hog_pctldev && (np_pctldev == p->dev->of_node)) {

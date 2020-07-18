@@ -157,11 +157,11 @@ static int exports_proc_open(struct inode *inode, struct file *file)
 	return exports_net_open(current->nsproxy->net_ns, file);
 }
 
-static const struct file_operations exports_proc_operations = {
-	.open		= exports_proc_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
+static const struct proc_ops exports_proc_ops = {
+	.proc_open	= exports_proc_open,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= seq_release,
 };
 
 static int exports_nfsd_open(struct inode *inode, struct file *file)
@@ -956,7 +956,7 @@ static ssize_t write_maxconn(struct file *file, char *buf, size_t size)
 
 #ifdef CONFIG_NFSD_V4
 static ssize_t __nfsd4_write_time(struct file *file, char *buf, size_t size,
-				  time_t *time, struct nfsd_net *nn)
+				  time64_t *time, struct nfsd_net *nn)
 {
 	char *mesg = buf;
 	int rv, i;
@@ -984,11 +984,11 @@ static ssize_t __nfsd4_write_time(struct file *file, char *buf, size_t size,
 		*time = i;
 	}
 
-	return scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%ld\n", *time);
+	return scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%lld\n", *time);
 }
 
 static ssize_t nfsd4_write_time(struct file *file, char *buf, size_t size,
-				time_t *time, struct nfsd_net *nn)
+				time64_t *time, struct nfsd_net *nn)
 {
 	ssize_t rv;
 
@@ -1333,6 +1333,7 @@ void nfsd_client_rmdir(struct dentry *dentry)
 	dget(dentry);
 	ret = simple_rmdir(dir, dentry);
 	WARN_ON_ONCE(ret);
+	fsnotify_rmdir(dir, dentry);
 	d_delete(dentry);
 	inode_unlock(dir);
 }
@@ -1431,8 +1432,7 @@ static int create_proc_exports_entry(void)
 	entry = proc_mkdir("fs/nfs", NULL);
 	if (!entry)
 		return -ENOMEM;
-	entry = proc_create("exports", 0, entry,
-				 &exports_proc_operations);
+	entry = proc_create("exports", 0, entry, &exports_proc_ops);
 	if (!entry) {
 		remove_proc_entry("fs/nfs", NULL);
 		return -ENOMEM;
@@ -1533,6 +1533,9 @@ static int __init init_nfsd(void)
 		goto out_free_slabs;
 	nfsd_fault_inject_init(); /* nfsd fault injection controls */
 	nfsd_stat_init();	/* Statistics */
+	retval = nfsd_drc_slab_create();
+	if (retval)
+		goto out_free_stat;
 	nfsd_lockd_init();	/* lockd->nfsd callbacks */
 	retval = create_proc_exports_entry();
 	if (retval)
@@ -1546,6 +1549,8 @@ out_free_all:
 	remove_proc_entry("fs/nfs", NULL);
 out_free_lockd:
 	nfsd_lockd_shutdown();
+	nfsd_drc_slab_free();
+out_free_stat:
 	nfsd_stat_shutdown();
 	nfsd_fault_inject_cleanup();
 	nfsd4_exit_pnfs();
@@ -1560,6 +1565,7 @@ out_unregister_pernet:
 
 static void __exit exit_nfsd(void)
 {
+	nfsd_drc_slab_free();
 	remove_proc_entry("fs/nfs/exports", NULL);
 	remove_proc_entry("fs/nfs", NULL);
 	nfsd_stat_shutdown();

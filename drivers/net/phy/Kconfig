@@ -38,6 +38,7 @@ config MDIO_BCM_IPROC
 	tristate "Broadcom iProc MDIO bus controller"
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
 	depends on HAS_IOMEM && OF_MDIO
+	default ARCH_BCM_IPROC
 	help
 	  This module provides a driver for the MDIO busses found in the
 	  Broadcom iProc SoC's.
@@ -156,6 +157,14 @@ config MDIO_I2C
 
 	  This is library mode.
 
+config MDIO_IPQ8064
+	tristate "Qualcomm IPQ8064 MDIO interface support"
+	depends on HAS_IOMEM && OF_MDIO
+	depends on MFD_SYSCON
+	help
+	  This driver supports the MDIO interface found in the network
+	  interface units of the IPQ8064 SoC
+
 config MDIO_MOXART
 	tristate "MOXA ART MDIO interface support"
 	depends on ARCH_MOXART || COMPILE_TEST
@@ -169,6 +178,13 @@ config MDIO_MSCC_MIIM
 	help
 	  This driver supports the MIIM (MDIO) interface found in the network
 	  switches of the Microsemi SoCs
+
+config MDIO_MVUSB
+	tristate "Marvell USB to MDIO Adapter"
+	depends on USB
+	help
+	  A USB to MDIO converter present on development boards for
+	  Marvell's Link Street family of Ethernet switches.
 
 config MDIO_OCTEON
 	tristate "Octeon and some ThunderX SOCs MDIO buses"
@@ -204,6 +220,12 @@ config MDIO_XGENE
 	help
 	  This module provides a driver for the MDIO busses found in the
 	  APM X-Gene SoC's.
+
+config MDIO_XPCS
+	tristate "Synopsys DesignWare XPCS controller"
+	help
+	  This module provides helper functions for Synopsys DesignWare XPCS
+	  controllers.
 
 endif
 endif
@@ -324,6 +346,12 @@ config BROADCOM_PHY
 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S, BCM5464,
 	  BCM5481, BCM54810 and BCM5482 PHYs.
 
+config BCM84881_PHY
+	tristate "Broadcom BCM84881 PHY"
+	depends on PHYLIB
+	---help---
+	  Support the Broadcom BCM84881 PHY.
+
 config CICADA_PHY
 	tristate "Cicada PHYs"
 	---help---
@@ -340,9 +368,10 @@ config DAVICOM_PHY
 	  Currently supports dm9161e and dm9131
 
 config DP83822_PHY
-	tristate "Texas Instruments DP83822/825 PHYs"
+	tristate "Texas Instruments DP83822/825/826 PHYs"
 	---help---
-	  Supports the DP83822 and DP83825I PHYs.
+	  Supports the DP83822, DP83825I, DP83825CM, DP83825CS, DP83825S,
+	  DP83826C and DP83826NC PHYs.
 
 config DP83TC811_PHY
 	tristate "Texas Instruments DP83TC811 PHY"
@@ -431,6 +460,9 @@ config MICROCHIP_T1_PHY
 
 config MICROSEMI_PHY
 	tristate "Microsemi PHYs"
+	depends on MACSEC || MACSEC=n
+	select CRYPTO_AES
+	select CRYPTO_ECB
 	---help---
 	  Currently supports VSC8514, VSC8530, VSC8531, VSC8540 and VSC8541 PHYs
 

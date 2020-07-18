@@ -635,8 +635,10 @@ static int ax25_setsockopt(struct socket *sock, int level, int optname,
 		break;
 
 	case SO_BINDTODEVICE:
-		if (optlen > IFNAMSIZ)
-			optlen = IFNAMSIZ;
+		if (optlen > IFNAMSIZ - 1)
+			optlen = IFNAMSIZ - 1;
+
+		memset(devname, 0, sizeof(devname));
 
 		if (copy_from_user(devname, optval, optlen)) {
 			res = -EFAULT;
@@ -808,7 +810,7 @@ static int ax25_create(struct net *net, struct socket *sock, int protocol,
 	struct sock *sk;
 	ax25_cb *ax25;
 
-	if (protocol < 0 || protocol > SK_PROTOCOL_MAX)
+	if (protocol < 0 || protocol > U8_MAX)
 		return -EINVAL;
 
 	if (!net_eq(net, &init_net))

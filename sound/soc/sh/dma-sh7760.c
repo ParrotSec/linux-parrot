@@ -119,7 +119,7 @@ static int camelot_pcm_open(struct snd_soc_component *component,
 			    struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct camelot_pcm *cam = &cam_pcm_data[rtd->cpu_dai->id];
+	struct camelot_pcm *cam = &cam_pcm_data[asoc_rtd_to_cpu(rtd, 0)->id];
 	int recv = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ? 0:1;
 	int ret, dmairq;
 
@@ -132,7 +132,7 @@ static int camelot_pcm_open(struct snd_soc_component *component,
 		ret = dmabrg_request_irq(dmairq, camelot_rxdma, cam);
 		if (unlikely(ret)) {
 			pr_debug("audio unit %d irqs already taken!\n",
-			     rtd->cpu_dai->id);
+			     asoc_rtd_to_cpu(rtd, 0)->id);
 			return -EBUSY;
 		}
 		(void)dmabrg_request_irq(dmairq + 1,camelot_rxdma, cam);
@@ -141,7 +141,7 @@ static int camelot_pcm_open(struct snd_soc_component *component,
 		ret = dmabrg_request_irq(dmairq, camelot_txdma, cam);
 		if (unlikely(ret)) {
 			pr_debug("audio unit %d irqs already taken!\n",
-			     rtd->cpu_dai->id);
+			     asoc_rtd_to_cpu(rtd, 0)->id);
 			return -EBUSY;
 		}
 		(void)dmabrg_request_irq(dmairq + 1, camelot_txdma, cam);
@@ -153,7 +153,7 @@ static int camelot_pcm_close(struct snd_soc_component *component,
 			     struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct camelot_pcm *cam = &cam_pcm_data[rtd->cpu_dai->id];
+	struct camelot_pcm *cam = &cam_pcm_data[asoc_rtd_to_cpu(rtd, 0)->id];
 	int recv = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ? 0:1;
 	int dmairq;
 
@@ -175,14 +175,9 @@ static int camelot_hw_params(struct snd_soc_component *component,
 			     struct snd_pcm_hw_params *hw_params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct camelot_pcm *cam = &cam_pcm_data[rtd->cpu_dai->id];
+	struct camelot_pcm *cam = &cam_pcm_data[asoc_rtd_to_cpu(rtd, 0)->id];
 	int recv = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ? 0:1;
 	int ret;
-
-	ret = snd_pcm_lib_malloc_pages(substream,
-				       params_buffer_bytes(hw_params));
-	if (ret < 0)
-		return ret;
 
 	if (recv) {
 		cam->rx_period_size = params_period_bytes(hw_params);
@@ -194,18 +189,12 @@ static int camelot_hw_params(struct snd_soc_component *component,
 	return 0;
 }
 
-static int camelot_hw_free(struct snd_soc_component *component,
-			   struct snd_pcm_substream *substream)
-{
-	return snd_pcm_lib_free_pages(substream);
-}
-
 static int camelot_prepare(struct snd_soc_component *component,
 			   struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct camelot_pcm *cam = &cam_pcm_data[rtd->cpu_dai->id];
+	struct camelot_pcm *cam = &cam_pcm_data[asoc_rtd_to_cpu(rtd, 0)->id];
 
 	pr_debug("PCM data: addr 0x%08lx len %d\n",
 		 (u32)runtime->dma_addr, runtime->dma_bytes);
@@ -253,7 +242,7 @@ static int camelot_trigger(struct snd_soc_component *component,
 			   struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct camelot_pcm *cam = &cam_pcm_data[rtd->cpu_dai->id];
+	struct camelot_pcm *cam = &cam_pcm_data[asoc_rtd_to_cpu(rtd, 0)->id];
 	int recv = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ? 0:1;
 
 	switch (cmd) {
@@ -281,7 +270,7 @@ static snd_pcm_uframes_t camelot_pos(struct snd_soc_component *component,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct camelot_pcm *cam = &cam_pcm_data[rtd->cpu_dai->id];
+	struct camelot_pcm *cam = &cam_pcm_data[asoc_rtd_to_cpu(rtd, 0)->id];
 	int recv = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ? 0:1;
 	unsigned long pos;
 
@@ -307,7 +296,7 @@ static int camelot_pcm_new(struct snd_soc_component *component,
 	/* dont use SNDRV_DMA_TYPE_DEV, since it will oops the SH kernel
 	 * in MMAP mode (i.e. aplay -M)
 	 */
-	snd_pcm_lib_preallocate_pages_for_all(pcm,
+	snd_pcm_set_managed_buffer_all(pcm,
 		SNDRV_DMA_TYPE_CONTINUOUS,
 		NULL,
 		DMABRG_PREALLOC_BUFFER,	DMABRG_PREALLOC_BUFFER_MAX);
@@ -318,9 +307,7 @@ static int camelot_pcm_new(struct snd_soc_component *component,
 static const struct snd_soc_component_driver sh7760_soc_component = {
 	.open		= camelot_pcm_open,
 	.close		= camelot_pcm_close,
-	.ioctl		= snd_soc_pcm_lib_ioctl,
 	.hw_params	= camelot_hw_params,
-	.hw_free	= camelot_hw_free,
 	.prepare	= camelot_prepare,
 	.trigger	= camelot_trigger,
 	.pointer	= camelot_pos,

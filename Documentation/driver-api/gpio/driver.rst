@@ -416,7 +416,7 @@ The preferred way to set up the helpers is to fill in the
 struct gpio_irq_chip inside struct gpio_chip before adding the gpio_chip.
 If you do this, the additional irq_chip will be set up by gpiolib at the
 same time as setting up the rest of the GPIO functionality. The following
-is a typical example of a cascaded interrupt handler using gpio_irq_chip::
+is a typical example of a cascaded interrupt handler using gpio_irq_chip:
 
 .. code-block:: c
 
@@ -453,7 +453,7 @@ is a typical example of a cascaded interrupt handler using gpio_irq_chip::
   return devm_gpiochip_add_data(dev, &g->gc, g);
 
 The helper support using hierarchical interrupt controllers as well.
-In this case the typical set-up will look like this::
+In this case the typical set-up will look like this:
 
 .. code-block:: c
 
@@ -506,11 +506,6 @@ available but we try to move away from this:
   as discussed above regarding different types of cascaded irqchips. The
   cascaded irq has to be handled by a threaded interrupt handler.
   Apart from that it works exactly like the chained irqchip.
-
-- DEPRECATED: gpiochip_set_chained_irqchip(): sets up a chained cascaded irq
-  handler for a gpio_chip from a parent IRQ and passes the struct gpio_chip*
-  as handler data. Notice that we pass is as the handler data, since the
-  irqchip data is likely used by the parent irqchip.
 
 - gpiochip_set_nested_irqchip(): sets up a nested cascaded irq handler for a
   gpio_chip from a parent IRQ. As the parent IRQ has usually been

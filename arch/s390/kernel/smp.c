@@ -403,7 +403,7 @@ int smp_find_processor_id(u16 address)
 	return -1;
 }
 
-bool arch_vcpu_is_preempted(int cpu)
+bool notrace arch_vcpu_is_preempted(int cpu)
 {
 	if (test_cpu_flag_of(CIF_ENABLED_WAIT, cpu))
 		return false;
@@ -413,7 +413,7 @@ bool arch_vcpu_is_preempted(int cpu)
 }
 EXPORT_SYMBOL(arch_vcpu_is_preempted);
 
-void smp_yield_cpu(int cpu)
+void notrace smp_yield_cpu(int cpu)
 {
 	if (!MACHINE_HAS_DIAG9C)
 		return;
@@ -703,6 +703,11 @@ int smp_cpu_get_polarization(int cpu)
 	return pcpu_devices[cpu].polarization;
 }
 
+int smp_cpu_get_cpu_address(int cpu)
+{
+	return pcpu_devices[cpu].address;
+}
+
 static void __ref smp_get_core_info(struct sclp_core_info *info, int early)
 {
 	static int use_sigp_detection;
@@ -853,12 +858,13 @@ static void smp_init_secondary(void)
 	init_cpu_timer();
 	vtime_init();
 	pfault_init();
-	notify_cpu_starting(smp_processor_id());
+	notify_cpu_starting(cpu);
 	if (topology_cpu_dedicated(cpu))
 		set_cpu_flag(CIF_DEDICATED_CPU);
 	else
 		clear_cpu_flag(CIF_DEDICATED_CPU);
-	set_cpu_online(smp_processor_id(), true);
+	set_cpu_online(cpu, true);
+	update_cpu_masks();
 	inc_irq_stat(CPU_RST);
 	local_irq_enable();
 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
@@ -930,6 +936,7 @@ int __cpu_disable(void)
 	/* Handle possible pending IPIs */
 	smp_handle_ext_call();
 	set_cpu_online(smp_processor_id(), false);
+	update_cpu_masks();
 	/* Disable pseudo page faults on this cpu. */
 	pfault_fini();
 	/* Disable interrupt sources via control register. */

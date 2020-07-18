@@ -61,8 +61,11 @@ static struct notifier_block tts_notifier = {
 static int acpi_sleep_prepare(u32 acpi_state)
 {
 #ifdef CONFIG_ACPI_SLEEP
+	unsigned long acpi_wakeup_address;
+
 	/* do we have a wakeup address for S2 and S3? */
 	if (acpi_state == ACPI_STATE_S3) {
+		acpi_wakeup_address = acpi_get_wakeup_address();
 		if (!acpi_wakeup_address)
 			return -EFAULT;
 		acpi_set_waking_vector(acpi_wakeup_address);
@@ -977,16 +980,6 @@ static int acpi_s2idle_prepare_late(void)
 	return 0;
 }
 
-static void acpi_s2idle_sync(void)
-{
-	/*
-	 * The EC driver uses the system workqueue and an additional special
-	 * one, so those need to be flushed too.
-	 */
-	acpi_ec_flush_work();
-	acpi_os_wait_events_complete(); /* synchronize Notify handling */
-}
-
 static bool acpi_s2idle_wake(void)
 {
 	if (!acpi_sci_irq_valid())
@@ -1013,21 +1006,12 @@ static bool acpi_s2idle_wake(void)
 		if (acpi_check_wakeup_handlers())
 			return true;
 
-		/*
-		 * If there are no EC events to process and at least one of the
-		 * other enabled GPEs is active, the wakeup is regarded as a
-		 * genuine one.
-		 *
-		 * Note that the checks below must be carried out in this order
-		 * to avoid returning prematurely due to a change of the EC GPE
-		 * status bit from unset to set between the checks with the
-		 * status bits of all the other GPEs unset.
-		 */
-		if (acpi_any_gpe_status_set() && !acpi_ec_dispatch_gpe())
+		/* Check non-EC GPE wakeups and dispatch the EC GPE. */
+		if (acpi_ec_dispatch_gpe())
 			return true;
 
 		/*
-		 * Cancel the wakeup and process all pending events in case
+		 * Cancel the SCI wakeup and process all pending events in case
 		 * there are any wakeup ones in there.
 		 *
 		 * Note that if any non-EC GPEs are active at this point, the
@@ -1035,8 +1019,7 @@ static bool acpi_s2idle_wake(void)
 		 * should be missed by canceling the wakeup here.
 		 */
 		pm_system_cancel_wakeup();
-
-		acpi_s2idle_sync();
+		acpi_os_wait_events_complete();
 
 		/*
 		 * The SCI is in the "suspended" state now and it cannot produce
@@ -1069,7 +1052,8 @@ static void acpi_s2idle_restore(void)
 	 * of GPEs.
 	 */
 	acpi_os_wait_events_complete(); /* synchronize GPE processing */
-	acpi_s2idle_sync();
+	acpi_ec_flush_work(); /* flush the EC driver's workqueues */
+	acpi_os_wait_events_complete(); /* synchronize Notify handling */
 
 	s2idle_wakeup = false;
 

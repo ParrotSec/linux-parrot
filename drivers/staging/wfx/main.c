@@ -131,10 +131,11 @@ static const struct ieee80211_ops wfx_ops = {
 	.stop			= wfx_stop,
 	.add_interface		= wfx_add_interface,
 	.remove_interface	= wfx_remove_interface,
-	.config			= wfx_config,
+	.config                 = wfx_config,
 	.tx			= wfx_tx,
 	.conf_tx		= wfx_conf_tx,
 	.hw_scan		= wfx_hw_scan,
+	.cancel_hw_scan		= wfx_cancel_hw_scan,
 	.sta_add		= wfx_sta_add,
 	.sta_remove		= wfx_sta_remove,
 	.sta_notify		= wfx_sta_notify,
@@ -182,7 +183,7 @@ struct gpio_desc *wfx_get_gpio(struct device *dev, int override,
 	} else {
 		ret = devm_gpiod_get(dev, label, GPIOD_OUT_LOW);
 	}
-	if (IS_ERR(ret) || !ret) {
+	if (IS_ERR_OR_NULL(ret)) {
 		if (!ret || PTR_ERR(ret) == -ENOENT)
 			dev_warn(dev, "gpio %s is not defined\n", label);
 		else
@@ -307,6 +308,11 @@ struct wfx_dev *wfx_init_common(struct device *dev,
 	hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
 				     BIT(NL80211_IFTYPE_ADHOC) |
 				     BIT(NL80211_IFTYPE_AP);
+	hw->wiphy->probe_resp_offload = NL80211_PROBE_RESP_OFFLOAD_SUPPORT_WPS |
+					NL80211_PROBE_RESP_OFFLOAD_SUPPORT_WPS2 |
+					NL80211_PROBE_RESP_OFFLOAD_SUPPORT_P2P |
+					NL80211_PROBE_RESP_OFFLOAD_SUPPORT_80211U;
+	hw->wiphy->flags |= WIPHY_FLAG_AP_PROBE_RESP_OFFLOAD;
 	hw->wiphy->flags |= WIPHY_FLAG_AP_UAPSD;
 	hw->wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;
 	hw->wiphy->max_ap_assoc_sta = WFX_MAX_STA_IN_AP_MODE;
@@ -419,7 +425,7 @@ int wfx_probe(struct wfx_dev *wdev)
 			"enable 'quiescent' power mode with gpio %d and PDS file %s\n",
 			desc_to_gpio(wdev->pdata.gpio_wakeup),
 			wdev->pdata.file_pds);
-		gpiod_set_value(wdev->pdata.gpio_wakeup, 1);
+		gpiod_set_value_cansleep(wdev->pdata.gpio_wakeup, 1);
 		control_reg_write(wdev, 0);
 		hif_set_operational_mode(wdev, HIF_OP_POWER_MODE_QUIESCENT);
 	} else {
@@ -460,7 +466,6 @@ int wfx_probe(struct wfx_dev *wdev)
 
 err2:
 	ieee80211_unregister_hw(wdev->hw);
-	ieee80211_free_hw(wdev->hw);
 err1:
 	wfx_bh_unregister(wdev);
 	return err;

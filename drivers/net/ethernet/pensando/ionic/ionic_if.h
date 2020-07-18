@@ -1,10 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB OR BSD-2-Clause */
+/* SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB) OR BSD-2-Clause */
 /* Copyright (c) 2017-2019 Pensando Systems, Inc.  All rights reserved. */
 
 #ifndef _IONIC_IF_H_
 #define _IONIC_IF_H_
-
-#pragma pack(push, 1)
 
 #define IONIC_DEV_INFO_SIGNATURE		0x44455649      /* 'DEVI' */
 #define IONIC_DEV_INFO_VERSION			1
@@ -50,6 +48,10 @@ enum ionic_cmd_opcode {
 	IONIC_CMD_RDMA_CREATE_EQ		= 51,
 	IONIC_CMD_RDMA_CREATE_CQ		= 52,
 	IONIC_CMD_RDMA_CREATE_ADMINQ		= 53,
+
+	/* SR/IOV commands */
+	IONIC_CMD_VF_GETATTR			= 60,
+	IONIC_CMD_VF_SETATTR			= 61,
 
 	/* QoS commands */
 	IONIC_CMD_QOS_CLASS_IDENTIFY		= 240,
@@ -362,7 +364,7 @@ union ionic_lif_config {
 		u8     rsvd2[2];
 		__le64 features;
 		__le32 queue_count[IONIC_QTYPE_MAX];
-	};
+	} __packed;
 	__le32 words[64];
 };
 
@@ -413,7 +415,7 @@ union ionic_lif_identity {
 			__le32 max_frame_size;
 			u8 rsvd2[106];
 			union ionic_lif_config config;
-		} eth;
+		} __packed eth;
 
 		struct {
 			u8 version;
@@ -435,8 +437,8 @@ union ionic_lif_identity {
 			struct ionic_lif_logical_qtype rq_qtype;
 			struct ionic_lif_logical_qtype cq_qtype;
 			struct ionic_lif_logical_qtype eq_qtype;
-		} rdma;
-	};
+		} __packed rdma;
+	} __packed;
 	__le32 words[512];
 };
 
@@ -522,7 +524,7 @@ struct ionic_q_init_cmd {
 	__le64 sg_ring_base;
 	__le32 eq_index;
 	u8     rsvd2[16];
-};
+} __packed;
 
 /**
  * struct ionic_q_init_comp - Queue init command completion
@@ -1091,7 +1093,7 @@ struct ionic_port_status {
 	u8     status;
 	u8     rsvd[51];
 	struct ionic_xcvr_status  xcvr;
-};
+} __packed;
 
 /**
  * struct ionic_port_identify_cmd - Port identify command
@@ -1247,7 +1249,7 @@ struct ionic_port_getattr_comp {
 		u8      pause_type;
 		u8      loopback_mode;
 		u8      rsvd2[11];
-	};
+	} __packed;
 	u8     color;
 };
 
@@ -1315,7 +1317,7 @@ struct ionic_dev_setattr_cmd {
 		char    name[IONIC_IFNAMSIZ];
 		__le64  features;
 		u8      rsvd2[60];
-	};
+	} __packed;
 };
 
 /**
@@ -1330,7 +1332,7 @@ struct ionic_dev_setattr_comp {
 	union {
 		__le64  features;
 		u8      rsvd2[11];
-	};
+	} __packed;
 	u8     color;
 };
 
@@ -1357,7 +1359,7 @@ struct ionic_dev_getattr_comp {
 	union {
 		__le64  features;
 		u8      rsvd2[11];
-	};
+	} __packed;
 	u8     color;
 };
 
@@ -1422,7 +1424,7 @@ struct ionic_lif_setattr_cmd {
 		} rss;
 		u8	stats_ctl;
 		u8      rsvd[60];
-	};
+	} __packed;
 };
 
 /**
@@ -1440,7 +1442,7 @@ struct ionic_lif_setattr_comp {
 	union {
 		__le64  features;
 		u8      rsvd2[11];
-	};
+	} __packed;
 	u8     color;
 };
 
@@ -1479,7 +1481,7 @@ struct ionic_lif_getattr_comp {
 		u8      mac[6];
 		__le64  features;
 		u8      rsvd2[11];
-	};
+	} __packed;
 	u8     color;
 };
 
@@ -1637,6 +1639,93 @@ enum ionic_qos_class_type {
 enum ionic_qos_sched_type {
 	IONIC_QOS_SCHED_TYPE_STRICT	= 0,	/* Strict priority */
 	IONIC_QOS_SCHED_TYPE_DWRR	= 1,	/* Deficit weighted round-robin */
+};
+
+enum ionic_vf_attr {
+	IONIC_VF_ATTR_SPOOFCHK	= 1,
+	IONIC_VF_ATTR_TRUST	= 2,
+	IONIC_VF_ATTR_MAC	= 3,
+	IONIC_VF_ATTR_LINKSTATE	= 4,
+	IONIC_VF_ATTR_VLAN	= 5,
+	IONIC_VF_ATTR_RATE	= 6,
+	IONIC_VF_ATTR_STATSADDR	= 7,
+};
+
+/**
+ * VF link status
+ */
+enum ionic_vf_link_status {
+	IONIC_VF_LINK_STATUS_AUTO = 0,	/* link state of the uplink */
+	IONIC_VF_LINK_STATUS_UP   = 1,	/* link is always up */
+	IONIC_VF_LINK_STATUS_DOWN = 2,	/* link is always down */
+};
+
+/**
+ * struct ionic_vf_setattr_cmd - Set VF attributes on the NIC
+ * @opcode:     Opcode
+ * @index:      VF index
+ * @attr:       Attribute type (enum ionic_vf_attr)
+ *	macaddr		mac address
+ *	vlanid		vlan ID
+ *	maxrate		max Tx rate in Mbps
+ *	spoofchk	enable address spoof checking
+ *	trust		enable VF trust
+ *	linkstate	set link up or down
+ *	stats_pa	set DMA address for VF stats
+ */
+struct ionic_vf_setattr_cmd {
+	u8     opcode;
+	u8     attr;
+	__le16 vf_index;
+	union {
+		u8     macaddr[6];
+		__le16 vlanid;
+		__le32 maxrate;
+		u8     spoofchk;
+		u8     trust;
+		u8     linkstate;
+		__le64 stats_pa;
+		u8     pad[60];
+	} __packed;
+};
+
+struct ionic_vf_setattr_comp {
+	u8     status;
+	u8     attr;
+	__le16 vf_index;
+	__le16 comp_index;
+	u8     rsvd[9];
+	u8     color;
+};
+
+/**
+ * struct ionic_vf_getattr_cmd - Get VF attributes from the NIC
+ * @opcode:     Opcode
+ * @index:      VF index
+ * @attr:       Attribute type (enum ionic_vf_attr)
+ */
+struct ionic_vf_getattr_cmd {
+	u8     opcode;
+	u8     attr;
+	__le16 vf_index;
+	u8     rsvd[60];
+};
+
+struct ionic_vf_getattr_comp {
+	u8     status;
+	u8     attr;
+	__le16 vf_index;
+	union {
+		u8     macaddr[6];
+		__le16 vlanid;
+		__le32 maxrate;
+		u8     spoofchk;
+		u8     trust;
+		u8     linkstate;
+		__le64 stats_pa;
+		u8     pad[11];
+	} __packed;
+	u8     color;
 };
 
 /**
@@ -2289,6 +2378,9 @@ union ionic_dev_cmd {
 	struct ionic_port_getattr_cmd port_getattr;
 	struct ionic_port_setattr_cmd port_setattr;
 
+	struct ionic_vf_setattr_cmd vf_setattr;
+	struct ionic_vf_getattr_cmd vf_getattr;
+
 	struct ionic_lif_identify_cmd lif_identify;
 	struct ionic_lif_init_cmd lif_init;
 	struct ionic_lif_reset_cmd lif_reset;
@@ -2317,6 +2409,9 @@ union ionic_dev_cmd_comp {
 	struct ionic_port_reset_comp port_reset;
 	struct ionic_port_getattr_comp port_getattr;
 	struct ionic_port_setattr_comp port_setattr;
+
+	struct ionic_vf_setattr_comp vf_setattr;
+	struct ionic_vf_getattr_comp vf_getattr;
 
 	struct ionic_lif_identify_comp lif_identify;
 	struct ionic_lif_init_comp lif_init;
@@ -2375,7 +2470,7 @@ union ionic_dev_cmd_regs {
 		union ionic_dev_cmd_comp    comp;
 		u8                    rsvd[48];
 		u32                   data[478];
-	};
+	} __packed;
 	u32 words[512];
 };
 
@@ -2388,7 +2483,7 @@ union ionic_dev_regs {
 	struct {
 		union ionic_dev_info_regs info;
 		union ionic_dev_cmd_regs  devcmd;
-	};
+	} __packed;
 	__le32 words[1024];
 };
 
@@ -2477,7 +2572,5 @@ struct ionic_identity {
 	union ionic_port_identity port;
 	union ionic_qos_identity qos;
 };
-
-#pragma pack(pop)
 
 #endif /* _IONIC_IF_H_ */

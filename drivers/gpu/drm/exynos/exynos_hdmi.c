@@ -946,8 +946,10 @@ static int hdmi_create_connector(struct drm_encoder *encoder)
 	connector->interlace_allowed = true;
 	connector->polled = DRM_CONNECTOR_POLL_HPD;
 
-	ret = drm_connector_init(hdata->drm_dev, connector,
-			&hdmi_connector_funcs, DRM_MODE_CONNECTOR_HDMIA);
+	ret = drm_connector_init_with_ddc(hdata->drm_dev, connector,
+					  &hdmi_connector_funcs,
+					  DRM_MODE_CONNECTOR_HDMIA,
+					  hdata->ddc_adpt);
 	if (ret) {
 		DRM_DEV_ERROR(hdata->dev,
 			      "Failed to initialize connector with drm\n");
@@ -958,7 +960,7 @@ static int hdmi_create_connector(struct drm_encoder *encoder)
 	drm_connector_attach_encoder(connector, encoder);
 
 	if (hdata->bridge) {
-		ret = drm_bridge_attach(encoder, hdata->bridge, NULL);
+		ret = drm_bridge_attach(encoder, hdata->bridge, NULL, 0);
 		if (ret)
 			DRM_DEV_ERROR(hdata->dev, "Failed to attach bridge\n");
 	}

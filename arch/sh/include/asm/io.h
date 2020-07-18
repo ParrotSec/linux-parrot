@@ -328,7 +328,7 @@ __ioremap_mode(phys_addr_t offset, unsigned long size, pgprot_t prot)
 #else
 #define __ioremap(offset, size, prot)		((void __iomem *)(offset))
 #define __ioremap_mode(offset, size, prot)	((void __iomem *)(offset))
-#define iounmap(addr)				do { } while (0)
+static inline void iounmap(void __iomem *addr) {}
 #endif /* CONFIG_MMU */
 
 static inline void __iomem *ioremap(phys_addr_t offset, unsigned long size)
@@ -367,7 +367,6 @@ static inline void ioremap_fixed_init(void) { }
 static inline int iounmap_fixed(void __iomem *addr) { return -EINVAL; }
 #endif
 
-#define ioremap_nocache	ioremap
 #define ioremap_uc	ioremap
 
 /*

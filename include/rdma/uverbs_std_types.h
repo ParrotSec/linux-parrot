@@ -88,7 +88,7 @@ struct ib_uobject *__uobj_get_destroy(const struct uverbs_api_object *obj,
 
 static inline void uobj_put_destroy(struct ib_uobject *uobj)
 {
-	rdma_lookup_put_uobject(uobj, UVERBS_LOOKUP_WRITE);
+	rdma_lookup_put_uobject(uobj, UVERBS_LOOKUP_DESTROY);
 }
 
 static inline void uobj_put_read(struct ib_uobject *uobj)
@@ -104,16 +104,6 @@ static inline void uobj_put_write(struct ib_uobject *uobj)
 	rdma_lookup_put_uobject(uobj, UVERBS_LOOKUP_WRITE);
 }
 
-static inline int __must_check
-uobj_alloc_commit(struct ib_uobject *uobj, struct uverbs_attr_bundle *attrs)
-{
-	int ret = rdma_alloc_commit_uobject(uobj, attrs);
-
-	if (ret)
-		return ret;
-	return 0;
-}
-
 static inline void uobj_alloc_abort(struct ib_uobject *uobj,
 				    struct uverbs_attr_bundle *attrs)
 {
@@ -124,8 +114,7 @@ static inline struct ib_uobject *
 __uobj_alloc(const struct uverbs_api_object *obj,
 	     struct uverbs_attr_bundle *attrs, struct ib_device **ib_dev)
 {
-	struct ib_uobject *uobj =
-		rdma_alloc_begin_uobject(obj, attrs->ufile, attrs);
+	struct ib_uobject *uobj = rdma_alloc_begin_uobject(obj, attrs);
 
 	if (!IS_ERR(uobj))
 		*ib_dev = attrs->context->device;

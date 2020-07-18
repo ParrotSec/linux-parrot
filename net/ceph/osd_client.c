@@ -402,7 +402,7 @@ static void osd_req_op_data_release(struct ceph_osd_request *osd_req,
 	case CEPH_OSD_OP_LIST_WATCHERS:
 		ceph_osd_data_release(&op->list_watchers.response_data);
 		break;
-	case CEPH_OSD_OP_COPY_FROM:
+	case CEPH_OSD_OP_COPY_FROM2:
 		ceph_osd_data_release(&op->copy_from.osd_data);
 		break;
 	default:
@@ -697,7 +697,7 @@ static void get_num_data_items(struct ceph_osd_request *req,
 		case CEPH_OSD_OP_SETXATTR:
 		case CEPH_OSD_OP_CMPXATTR:
 		case CEPH_OSD_OP_NOTIFY_ACK:
-		case CEPH_OSD_OP_COPY_FROM:
+		case CEPH_OSD_OP_COPY_FROM2:
 			*num_request_data_items += 1;
 			break;
 
@@ -1029,7 +1029,7 @@ static u32 osd_req_encode_op(struct ceph_osd_op *dst,
 	case CEPH_OSD_OP_CREATE:
 	case CEPH_OSD_OP_DELETE:
 		break;
-	case CEPH_OSD_OP_COPY_FROM:
+	case CEPH_OSD_OP_COPY_FROM2:
 		dst->copy_from.snapid = cpu_to_le64(src->copy_from.snapid);
 		dst->copy_from.src_version =
 			cpu_to_le64(src->copy_from.src_version);
@@ -1966,7 +1966,7 @@ static void setup_request_data(struct ceph_osd_request *req)
 			ceph_osdc_msg_data_add(request_msg,
 					       &op->notify_ack.request_data);
 			break;
-		case CEPH_OSD_OP_COPY_FROM:
+		case CEPH_OSD_OP_COPY_FROM2:
 			ceph_osdc_msg_data_add(request_msg,
 					       &op->copy_from.osd_data);
 			break;
@@ -3483,9 +3483,6 @@ static int ceph_redirect_decode(void **p, void *end,
 		goto e_inval;
 	}
 
-	len = ceph_decode_32(p);
-	*p += len; /* skip osd_instructions */
-
 	/* skip the rest */
 	*p = struct_end;
 out:
@@ -3652,7 +3649,9 @@ static void handle_reply(struct ceph_osd *osd, struct ceph_msg *msg)
 		 * supported.
 		 */
 		req->r_t.target_oloc.pool = m.redirect.oloc.pool;
-		req->r_flags |= CEPH_OSD_FLAG_REDIRECTED;
+		req->r_flags |= CEPH_OSD_FLAG_REDIRECTED |
+				CEPH_OSD_FLAG_IGNORE_OVERLAY |
+				CEPH_OSD_FLAG_IGNORE_CACHE;
 		req->r_tid = 0;
 		__submit_request(req, false);
 		goto out_unlock_osdc;
@@ -5228,91 +5227,13 @@ void ceph_osdc_stop(struct ceph_osd_client *osdc)
 	ceph_msgpool_destroy(&osdc->msgpool_op_reply);
 }
 
-/*
- * Read some contiguous pages.  If we cross a stripe boundary, shorten
- * *plen.  Return number of bytes read, or error.
- */
-int ceph_osdc_readpages(struct ceph_osd_client *osdc,
-			struct ceph_vino vino, struct ceph_file_layout *layout,
-			u64 off, u64 *plen,
-			u32 truncate_seq, u64 truncate_size,
-			struct page **pages, int num_pages, int page_align)
-{
-	struct ceph_osd_request *req;
-	int rc = 0;
-
-	dout("readpages on ino %llx.%llx on %llu~%llu\n", vino.ino,
-	     vino.snap, off, *plen);
-	req = ceph_osdc_new_request(osdc, layout, vino, off, plen, 0, 1,
-				    CEPH_OSD_OP_READ, CEPH_OSD_FLAG_READ,
-				    NULL, truncate_seq, truncate_size,
-				    false);
-	if (IS_ERR(req))
-		return PTR_ERR(req);
-
-	/* it may be a short read due to an object boundary */
-	osd_req_op_extent_osd_data_pages(req, 0,
-				pages, *plen, page_align, false, false);
-
-	dout("readpages  final extent is %llu~%llu (%llu bytes align %d)\n",
-	     off, *plen, *plen, page_align);
-
-	rc = ceph_osdc_start_request(osdc, req, false);
-	if (!rc)
-		rc = ceph_osdc_wait_request(osdc, req);
-
-	ceph_osdc_put_request(req);
-	dout("readpages result %d\n", rc);
-	return rc;
-}
-EXPORT_SYMBOL(ceph_osdc_readpages);
-
-/*
- * do a synchronous write on N pages
- */
-int ceph_osdc_writepages(struct ceph_osd_client *osdc, struct ceph_vino vino,
-			 struct ceph_file_layout *layout,
-			 struct ceph_snap_context *snapc,
-			 u64 off, u64 len,
-			 u32 truncate_seq, u64 truncate_size,
-			 struct timespec64 *mtime,
-			 struct page **pages, int num_pages)
-{
-	struct ceph_osd_request *req;
-	int rc = 0;
-	int page_align = off & ~PAGE_MASK;
-
-	req = ceph_osdc_new_request(osdc, layout, vino, off, &len, 0, 1,
-				    CEPH_OSD_OP_WRITE, CEPH_OSD_FLAG_WRITE,
-				    snapc, truncate_seq, truncate_size,
-				    true);
-	if (IS_ERR(req))
-		return PTR_ERR(req);
-
-	/* it may be a short write due to an object boundary */
-	osd_req_op_extent_osd_data_pages(req, 0, pages, len, page_align,
-				false, false);
-	dout("writepages %llu~%llu (%llu bytes)\n", off, len, len);
-
-	req->r_mtime = *mtime;
-	rc = ceph_osdc_start_request(osdc, req, true);
-	if (!rc)
-		rc = ceph_osdc_wait_request(osdc, req);
-
-	ceph_osdc_put_request(req);
-	if (rc == 0)
-		rc = len;
-	dout("writepages result %d\n", rc);
-	return rc;
-}
-EXPORT_SYMBOL(ceph_osdc_writepages);
-
 static int osd_req_op_copy_from_init(struct ceph_osd_request *req,
 				     u64 src_snapid, u64 src_version,
 				     struct ceph_object_id *src_oid,
 				     struct ceph_object_locator *src_oloc,
 				     u32 src_fadvise_flags,
 				     u32 dst_fadvise_flags,
+				     u32 truncate_seq, u64 truncate_size,
 				     u8 copy_from_flags)
 {
 	struct ceph_osd_req_op *op;
@@ -5323,7 +5244,8 @@ static int osd_req_op_copy_from_init(struct ceph_osd_request *req,
 	if (IS_ERR(pages))
 		return PTR_ERR(pages);
 
-	op = _osd_req_op_init(req, 0, CEPH_OSD_OP_COPY_FROM, dst_fadvise_flags);
+	op = _osd_req_op_init(req, 0, CEPH_OSD_OP_COPY_FROM2,
+			      dst_fadvise_flags);
 	op->copy_from.snapid = src_snapid;
 	op->copy_from.src_version = src_version;
 	op->copy_from.flags = copy_from_flags;
@@ -5333,6 +5255,8 @@ static int osd_req_op_copy_from_init(struct ceph_osd_request *req,
 	end = p + PAGE_SIZE;
 	ceph_encode_string(&p, end, src_oid->name, src_oid->name_len);
 	encode_oloc(&p, end, src_oloc);
+	ceph_encode_32(&p, truncate_seq);
+	ceph_encode_64(&p, truncate_size);
 	op->indata_len = PAGE_SIZE - (end - p);
 
 	ceph_osd_data_pages_init(&op->copy_from.osd_data, pages,
@@ -5348,6 +5272,7 @@ int ceph_osdc_copy_from(struct ceph_osd_client *osdc,
 			struct ceph_object_id *dst_oid,
 			struct ceph_object_locator *dst_oloc,
 			u32 dst_fadvise_flags,
+			u32 truncate_seq, u64 truncate_size,
 			u8 copy_from_flags)
 {
 	struct ceph_osd_request *req;
@@ -5364,7 +5289,8 @@ int ceph_osdc_copy_from(struct ceph_osd_client *osdc,
 
 	ret = osd_req_op_copy_from_init(req, src_snapid, src_version, src_oid,
 					src_oloc, src_fadvise_flags,
-					dst_fadvise_flags, copy_from_flags);
+					dst_fadvise_flags, truncate_seq,
+					truncate_size, copy_from_flags);
 	if (ret)
 		goto out;
 

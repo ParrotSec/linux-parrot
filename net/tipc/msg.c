@@ -221,7 +221,7 @@ int tipc_msg_append(struct tipc_msg *_hdr, struct msghdr *m, int dlen,
 	accounted = skb ? msg_blocks(buf_msg(skb)) : 0;
 	total = accounted;
 
-	while (rem) {
+	do {
 		if (!skb || skb->len >= mss) {
 			prev = skb;
 			skb = tipc_buf_acquire(mss, GFP_KERNEL);
@@ -249,7 +249,7 @@ int tipc_msg_append(struct tipc_msg *_hdr, struct msghdr *m, int dlen,
 		skb_put(skb, cpy);
 		rem -= cpy;
 		total += msg_blocks(hdr) - curr;
-	}
+	} while (rem);
 	return total - accounted;
 }
 
@@ -735,9 +735,6 @@ bool tipc_msg_lookup_dest(struct net *net, struct sk_buff *skb, int *err)
 	msg_set_destnode(msg, dnode);
 	msg_set_destport(msg, dport);
 	*err = TIPC_OK;
-
-	if (!skb_cloned(skb))
-		return true;
 
 	return true;
 }

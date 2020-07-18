@@ -138,6 +138,7 @@ struct adis16480_chip_info {
 	unsigned int max_dec_rate;
 	const unsigned int *filter_freqs;
 	bool has_pps_clk_mode;
+	const struct adis_data adis_data;
 };
 
 enum adis16480_int_pin {
@@ -555,6 +556,7 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, unsigned int freq)
 {
 	struct adis16480 *st = iio_priv(indio_dev);
+	struct mutex *slock = &st->adis.state_lock;
 	unsigned int enable_mask, offset, reg;
 	unsigned int diff, best_diff;
 	unsigned int i, best_freq;
@@ -565,9 +567,11 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 	offset = ad16480_filter_data[chan->scan_index][1];
 	enable_mask = BIT(offset + 2);
 
-	ret = adis_read_reg_16(&st->adis, reg, &val);
+	mutex_lock(slock);
+
+	ret = __adis_read_reg_16(&st->adis, reg, &val);
 	if (ret)
-		return ret;
+		goto out_unlock;
 
 	if (freq == 0) {
 		val &= ~enable_mask;
@@ -589,7 +593,11 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 		val |= enable_mask;
 	}
 
-	return adis_write_reg_16(&st->adis, reg, val);
+	ret = __adis_write_reg_16(&st->adis, reg, val);
+out_unlock:
+	mutex_unlock(slock);
+
+	return ret;
 }
 
 static int adis16480_read_raw(struct iio_dev *indio_dev,
@@ -779,12 +787,89 @@ enum adis16480_variant {
 	ADIS16480,
 	ADIS16485,
 	ADIS16488,
+	ADIS16490,
 	ADIS16495_1,
 	ADIS16495_2,
 	ADIS16495_3,
 	ADIS16497_1,
 	ADIS16497_2,
 	ADIS16497_3,
+};
+
+#define ADIS16480_DIAG_STAT_XGYRO_FAIL 0
+#define ADIS16480_DIAG_STAT_YGYRO_FAIL 1
+#define ADIS16480_DIAG_STAT_ZGYRO_FAIL 2
+#define ADIS16480_DIAG_STAT_XACCL_FAIL 3
+#define ADIS16480_DIAG_STAT_YACCL_FAIL 4
+#define ADIS16480_DIAG_STAT_ZACCL_FAIL 5
+#define ADIS16480_DIAG_STAT_XMAGN_FAIL 8
+#define ADIS16480_DIAG_STAT_YMAGN_FAIL 9
+#define ADIS16480_DIAG_STAT_ZMAGN_FAIL 10
+#define ADIS16480_DIAG_STAT_BARO_FAIL 11
+
+static const char * const adis16480_status_error_msgs[] = {
+	[ADIS16480_DIAG_STAT_XGYRO_FAIL] = "X-axis gyroscope self-test failure",
+	[ADIS16480_DIAG_STAT_YGYRO_FAIL] = "Y-axis gyroscope self-test failure",
+	[ADIS16480_DIAG_STAT_ZGYRO_FAIL] = "Z-axis gyroscope self-test failure",
+	[ADIS16480_DIAG_STAT_XACCL_FAIL] = "X-axis accelerometer self-test failure",
+	[ADIS16480_DIAG_STAT_YACCL_FAIL] = "Y-axis accelerometer self-test failure",
+	[ADIS16480_DIAG_STAT_ZACCL_FAIL] = "Z-axis accelerometer self-test failure",
+	[ADIS16480_DIAG_STAT_XMAGN_FAIL] = "X-axis magnetometer self-test failure",
+	[ADIS16480_DIAG_STAT_YMAGN_FAIL] = "Y-axis magnetometer self-test failure",
+	[ADIS16480_DIAG_STAT_ZMAGN_FAIL] = "Z-axis magnetometer self-test failure",
+	[ADIS16480_DIAG_STAT_BARO_FAIL] = "Barometer self-test failure",
+};
+
+static int adis16480_enable_irq(struct adis *adis, bool enable);
+
+#define ADIS16480_DATA(_prod_id, _timeouts)				\
+{									\
+	.diag_stat_reg = ADIS16480_REG_DIAG_STS,			\
+	.glob_cmd_reg = ADIS16480_REG_GLOB_CMD,				\
+	.prod_id_reg = ADIS16480_REG_PROD_ID,				\
+	.prod_id = (_prod_id),						\
+	.has_paging = true,						\
+	.read_delay = 5,						\
+	.write_delay = 5,						\
+	.self_test_mask = BIT(1),					\
+	.self_test_reg = ADIS16480_REG_GLOB_CMD,			\
+	.status_error_msgs = adis16480_status_error_msgs,		\
+	.status_error_mask = BIT(ADIS16480_DIAG_STAT_XGYRO_FAIL) |	\
+		BIT(ADIS16480_DIAG_STAT_YGYRO_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_ZGYRO_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_XACCL_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_YACCL_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_ZACCL_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_XMAGN_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_YMAGN_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_ZMAGN_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_BARO_FAIL),			\
+	.enable_irq = adis16480_enable_irq,				\
+	.timeouts = (_timeouts),					\
+}
+
+static const struct adis_timeout adis16485_timeouts = {
+	.reset_ms = 560,
+	.sw_reset_ms = 120,
+	.self_test_ms = 12,
+};
+
+static const struct adis_timeout adis16480_timeouts = {
+	.reset_ms = 560,
+	.sw_reset_ms = 560,
+	.self_test_ms = 12,
+};
+
+static const struct adis_timeout adis16495_timeouts = {
+	.reset_ms = 170,
+	.sw_reset_ms = 130,
+	.self_test_ms = 40,
+};
+
+static const struct adis_timeout adis16495_1_timeouts = {
+	.reset_ms = 250,
+	.sw_reset_ms = 210,
+	.self_test_ms = 20,
 };
 
 static const struct adis16480_chip_info adis16480_chip_info[] = {
@@ -805,6 +890,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
+		.adis_data = ADIS16480_DATA(16375, &adis16485_timeouts),
 	},
 	[ADIS16480] = {
 		.channels = adis16480_channels,
@@ -817,6 +903,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
+		.adis_data = ADIS16480_DATA(16480, &adis16480_timeouts),
 	},
 	[ADIS16485] = {
 		.channels = adis16485_channels,
@@ -829,6 +916,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
+		.adis_data = ADIS16480_DATA(16485, &adis16485_timeouts),
 	},
 	[ADIS16488] = {
 		.channels = adis16480_channels,
@@ -841,6 +929,21 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
+		.adis_data = ADIS16480_DATA(16488, &adis16485_timeouts),
+	},
+	[ADIS16490] = {
+		.channels = adis16485_channels,
+		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.gyro_max_val = 20000 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(100),
+		.accel_max_val = IIO_M_S_2_TO_G(16000 << 16),
+		.accel_max_scale = 8,
+		.temp_scale = 14285, /* 14.285 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
+		.has_pps_clk_mode = true,
+		.adis_data = ADIS16480_DATA(16490, &adis16495_timeouts),
 	},
 	[ADIS16495_1] = {
 		.channels = adis16485_channels,
@@ -854,6 +957,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.adis_data = ADIS16480_DATA(16495, &adis16495_1_timeouts),
 	},
 	[ADIS16495_2] = {
 		.channels = adis16485_channels,
@@ -867,6 +971,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.adis_data = ADIS16480_DATA(16495, &adis16495_1_timeouts),
 	},
 	[ADIS16495_3] = {
 		.channels = adis16485_channels,
@@ -880,6 +985,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.adis_data = ADIS16480_DATA(16495, &adis16495_1_timeouts),
 	},
 	[ADIS16497_1] = {
 		.channels = adis16485_channels,
@@ -893,6 +999,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.adis_data = ADIS16480_DATA(16497, &adis16495_1_timeouts),
 	},
 	[ADIS16497_2] = {
 		.channels = adis16485_channels,
@@ -906,6 +1013,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.adis_data = ADIS16480_DATA(16497, &adis16495_1_timeouts),
 	},
 	[ADIS16497_3] = {
 		.channels = adis16485_channels,
@@ -919,6 +1027,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.adis_data = ADIS16480_DATA(16497, &adis16495_1_timeouts),
 	},
 };
 
@@ -947,96 +1056,15 @@ static int adis16480_enable_irq(struct adis *adis, bool enable)
 	uint16_t val;
 	int ret;
 
-	ret = adis_read_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, &val);
+	ret = __adis_read_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, &val);
 	if (ret)
 		return ret;
 
 	val &= ~ADIS16480_DRDY_EN_MSK;
 	val |= ADIS16480_DRDY_EN(enable);
 
-	return adis_write_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, val);
+	return __adis_write_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, val);
 }
-
-static int adis16480_initial_setup(struct iio_dev *indio_dev)
-{
-	struct adis16480 *st = iio_priv(indio_dev);
-	uint16_t prod_id;
-	unsigned int device_id;
-	int ret;
-
-	adis_reset(&st->adis);
-	msleep(70);
-
-	ret = adis_write_reg_16(&st->adis, ADIS16480_REG_GLOB_CMD, BIT(1));
-	if (ret)
-		return ret;
-	msleep(30);
-
-	ret = adis_check_status(&st->adis);
-	if (ret)
-		return ret;
-
-	ret = adis_read_reg_16(&st->adis, ADIS16480_REG_PROD_ID, &prod_id);
-	if (ret)
-		return ret;
-
-	ret = sscanf(indio_dev->name, "adis%u\n", &device_id);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (prod_id != device_id)
-		dev_warn(&indio_dev->dev, "Device ID(%u) and product ID(%u) do not match.",
-				device_id, prod_id);
-
-	return 0;
-}
-
-#define ADIS16480_DIAG_STAT_XGYRO_FAIL 0
-#define ADIS16480_DIAG_STAT_YGYRO_FAIL 1
-#define ADIS16480_DIAG_STAT_ZGYRO_FAIL 2
-#define ADIS16480_DIAG_STAT_XACCL_FAIL 3
-#define ADIS16480_DIAG_STAT_YACCL_FAIL 4
-#define ADIS16480_DIAG_STAT_ZACCL_FAIL 5
-#define ADIS16480_DIAG_STAT_XMAGN_FAIL 8
-#define ADIS16480_DIAG_STAT_YMAGN_FAIL 9
-#define ADIS16480_DIAG_STAT_ZMAGN_FAIL 10
-#define ADIS16480_DIAG_STAT_BARO_FAIL 11
-
-static const char * const adis16480_status_error_msgs[] = {
-	[ADIS16480_DIAG_STAT_XGYRO_FAIL] = "X-axis gyroscope self-test failure",
-	[ADIS16480_DIAG_STAT_YGYRO_FAIL] = "Y-axis gyroscope self-test failure",
-	[ADIS16480_DIAG_STAT_ZGYRO_FAIL] = "Z-axis gyroscope self-test failure",
-	[ADIS16480_DIAG_STAT_XACCL_FAIL] = "X-axis accelerometer self-test failure",
-	[ADIS16480_DIAG_STAT_YACCL_FAIL] = "Y-axis accelerometer self-test failure",
-	[ADIS16480_DIAG_STAT_ZACCL_FAIL] = "Z-axis accelerometer self-test failure",
-	[ADIS16480_DIAG_STAT_XMAGN_FAIL] = "X-axis magnetometer self-test failure",
-	[ADIS16480_DIAG_STAT_YMAGN_FAIL] = "Y-axis magnetometer self-test failure",
-	[ADIS16480_DIAG_STAT_ZMAGN_FAIL] = "Z-axis magnetometer self-test failure",
-	[ADIS16480_DIAG_STAT_BARO_FAIL] = "Barometer self-test failure",
-};
-
-static const struct adis_data adis16480_data = {
-	.diag_stat_reg = ADIS16480_REG_DIAG_STS,
-	.glob_cmd_reg = ADIS16480_REG_GLOB_CMD,
-	.has_paging = true,
-
-	.read_delay = 5,
-	.write_delay = 5,
-
-	.status_error_msgs = adis16480_status_error_msgs,
-	.status_error_mask = BIT(ADIS16480_DIAG_STAT_XGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_XACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_XMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_BARO_FAIL),
-
-	.enable_irq = adis16480_enable_irq,
-};
 
 static int adis16480_config_irq_pin(struct device_node *of_node,
 				    struct adis16480 *st)
@@ -1191,6 +1219,7 @@ static int adis16480_get_ext_clocks(struct adis16480 *st)
 static int adis16480_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	const struct adis_data *adis16480_data;
 	struct iio_dev *indio_dev;
 	struct adis16480 *st;
 	int ret;
@@ -1211,22 +1240,28 @@ static int adis16480_probe(struct spi_device *spi)
 	indio_dev->info = &adis16480_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = adis_init(&st->adis, indio_dev, spi, &adis16480_data);
+	adis16480_data = &st->chip_info->adis_data;
+
+	ret = adis_init(&st->adis, indio_dev, spi, adis16480_data);
+	if (ret)
+		return ret;
+
+	ret = __adis_initial_startup(&st->adis);
 	if (ret)
 		return ret;
 
 	ret = adis16480_config_irq_pin(spi->dev.of_node, st);
 	if (ret)
-		return ret;
+		goto error_stop_device;
 
 	ret = adis16480_get_ext_clocks(st);
 	if (ret)
-		return ret;
+		goto error_stop_device;
 
 	if (!IS_ERR_OR_NULL(st->ext_clk)) {
 		ret = adis16480_ext_clk_config(st, spi->dev.of_node, true);
 		if (ret)
-			return ret;
+			goto error_stop_device;
 
 		st->clk_freq = clk_get_rate(st->ext_clk);
 		st->clk_freq *= 1000; /* micro */
@@ -1238,24 +1273,20 @@ static int adis16480_probe(struct spi_device *spi)
 	if (ret)
 		goto error_clk_disable_unprepare;
 
-	ret = adis16480_initial_setup(indio_dev);
-	if (ret)
-		goto error_cleanup_buffer;
-
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto error_stop_device;
+		goto error_cleanup_buffer;
 
 	adis16480_debugfs_init(indio_dev);
 
 	return 0;
 
-error_stop_device:
-	adis16480_stop_device(indio_dev);
 error_cleanup_buffer:
 	adis_cleanup_buffer_and_trigger(&st->adis, indio_dev);
 error_clk_disable_unprepare:
 	clk_disable_unprepare(st->ext_clk);
+error_stop_device:
+	adis16480_stop_device(indio_dev);
 	return ret;
 }
 
@@ -1278,6 +1309,7 @@ static const struct spi_device_id adis16480_ids[] = {
 	{ "adis16480", ADIS16480 },
 	{ "adis16485", ADIS16485 },
 	{ "adis16488", ADIS16488 },
+	{ "adis16490", ADIS16490 },
 	{ "adis16495-1", ADIS16495_1 },
 	{ "adis16495-2", ADIS16495_2 },
 	{ "adis16495-3", ADIS16495_3 },
@@ -1293,6 +1325,7 @@ static const struct of_device_id adis16480_of_match[] = {
 	{ .compatible = "adi,adis16480" },
 	{ .compatible = "adi,adis16485" },
 	{ .compatible = "adi,adis16488" },
+	{ .compatible = "adi,adis16490" },
 	{ .compatible = "adi,adis16495-1" },
 	{ .compatible = "adi,adis16495-2" },
 	{ .compatible = "adi,adis16495-3" },

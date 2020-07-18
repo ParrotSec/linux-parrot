@@ -313,6 +313,7 @@ _ENTRY(saved_ksp_limit)
 	START_EXCEPTION(0x0400, InstructionAccess)
 	EXCEPTION_PROLOG
 	mr	r4,r12			/* Pass SRR0 as arg2 */
+	stw	r4, _DEAR(r11)
 	li	r5,0			/* Pass zero as arg3 */
 	EXC_XFER_LITE(0x400, handle_page_fault)
 
@@ -343,8 +344,9 @@ _ENTRY(saved_ksp_limit)
 /* 0x0C00 - System Call Exception */
 	START_EXCEPTION(0x0C00,	SystemCall)
 	SYSCALL_ENTRY	0xc00
+/*	Trap_0D is commented out to get more space for system call exception */
 
-	EXCEPTION(0x0D00, Trap_0D, unknown_exception, EXC_XFER_STD)
+/*	EXCEPTION(0x0D00, Trap_0D, unknown_exception, EXC_XFER_STD) */
 	EXCEPTION(0x0E00, Trap_0E, unknown_exception, EXC_XFER_STD)
 	EXCEPTION(0x0F00, Trap_0F, unknown_exception, EXC_XFER_STD)
 
@@ -676,6 +678,7 @@ DataAccess:
 	mfspr	r5,SPRN_ESR		/* Grab the ESR, save it, pass arg3 */
 	stw	r5,_ESR(r11)
 	mfspr	r4,SPRN_DEAR		/* Grab the DEAR, save it, pass arg2 */
+	stw	r4, _DEAR(r11)
 	EXC_XFER_LITE(0x300, handle_page_fault)
 
 /* Other PowerPC processors, namely those derived from the 6xx-series

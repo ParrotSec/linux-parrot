@@ -75,7 +75,7 @@ struct sdhci_acpi_host {
 	bool				use_runtime_pm;
 	bool				is_intel;
 	bool				reset_signal_volt_on_suspend;
-	unsigned long			private[0] ____cacheline_aligned;
+	unsigned long			private[] ____cacheline_aligned;
 };
 
 enum {
@@ -242,7 +242,7 @@ static const struct sdhci_acpi_chip sdhci_acpi_chip_int = {
 static bool sdhci_acpi_byt(void)
 {
 	static const struct x86_cpu_id byt[] = {
-		{ X86_VENDOR_INTEL, 6, INTEL_FAM6_ATOM_SILVERMONT },
+		X86_MATCH_INTEL_FAM6_MODEL(ATOM_SILVERMONT, NULL),
 		{}
 	};
 
@@ -252,7 +252,7 @@ static bool sdhci_acpi_byt(void)
 static bool sdhci_acpi_cht(void)
 {
 	static const struct x86_cpu_id cht[] = {
-		{ X86_VENDOR_INTEL, 6, INTEL_FAM6_ATOM_AIRMONT },
+		X86_MATCH_INTEL_FAM6_MODEL(ATOM_AIRMONT, NULL),
 		{}
 	};
 
@@ -605,10 +605,12 @@ static int sdhci_acpi_emmc_amd_probe_slot(struct platform_device *pdev,
 }
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_amd_emmc = {
-	.chip   = &sdhci_acpi_chip_amd,
-	.caps   = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE,
-	.quirks = SDHCI_QUIRK_32BIT_DMA_ADDR | SDHCI_QUIRK_32BIT_DMA_SIZE |
-			SDHCI_QUIRK_32BIT_ADMA_SIZE,
+	.chip		= &sdhci_acpi_chip_amd,
+	.caps		= MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE,
+	.quirks		= SDHCI_QUIRK_32BIT_DMA_ADDR |
+			  SDHCI_QUIRK_32BIT_DMA_SIZE |
+			  SDHCI_QUIRK_32BIT_ADMA_SIZE,
+	.quirks2	= SDHCI_QUIRK2_BROKEN_64_BIT_DMA,
 	.probe_slot     = sdhci_acpi_emmc_amd_probe_slot,
 };
 
@@ -765,7 +767,7 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 		goto err_free;
 	}
 
-	host->ioaddr = devm_ioremap_nocache(dev, iomem->start,
+	host->ioaddr = devm_ioremap(dev, iomem->start,
 					    resource_size(iomem));
 	if (host->ioaddr == NULL) {
 		err = -ENOMEM;
@@ -798,7 +800,7 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	if (sdhci_acpi_flag(c, SDHCI_ACPI_SD_CD)) {
 		bool v = sdhci_acpi_flag(c, SDHCI_ACPI_SD_CD_OVERRIDE_LEVEL);
 
-		err = mmc_gpiod_request_cd(host->mmc, NULL, 0, v, 0, NULL);
+		err = mmc_gpiod_request_cd(host->mmc, NULL, 0, v, 0);
 		if (err) {
 			if (err == -EPROBE_DEFER)
 				goto err_free;

@@ -66,7 +66,8 @@ struct hisi_acc_sgl_pool *hisi_acc_create_sgl_pool(struct device *dev,
 
 	sgl_size = sizeof(struct acc_hw_sge) * sge_nr +
 		   sizeof(struct hisi_acc_hw_sgl);
-	block_size = PAGE_SIZE * (1 << (MAX_ORDER - 1));
+	block_size = 1 << (PAGE_SHIFT + MAX_ORDER <= 32 ?
+			   PAGE_SHIFT + MAX_ORDER - 1 : 31);
 	sgl_num_per_block = block_size / sgl_size;
 	block_num = count / sgl_num_per_block;
 	remain_sgl = count % sgl_num_per_block;
@@ -263,7 +264,3 @@ void hisi_acc_sg_buf_unmap(struct device *dev, struct scatterlist *sgl,
 	hw_sgl->entry_length_in_sgl = 0;
 }
 EXPORT_SYMBOL_GPL(hisi_acc_sg_buf_unmap);
-
-MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Zhou Wang <wangzhou1@hisilicon.com>");
-MODULE_DESCRIPTION("HiSilicon Accelerator SGL support");

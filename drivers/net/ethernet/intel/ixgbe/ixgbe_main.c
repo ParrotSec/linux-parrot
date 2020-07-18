@@ -2254,7 +2254,8 @@ static void ixgbe_rx_buffer_flip(struct ixgbe_ring *rx_ring,
 	rx_buffer->page_offset ^= truesize;
 #else
 	unsigned int truesize = ring_uses_build_skb(rx_ring) ?
-				SKB_DATA_ALIGN(IXGBE_SKB_PAD + size) :
+				SKB_DATA_ALIGN(IXGBE_SKB_PAD + size) +
+				SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) :
 				SKB_DATA_ALIGN(size);
 
 	rx_buffer->page_offset += truesize;
@@ -6175,7 +6176,7 @@ static void ixgbe_set_eee_capable(struct ixgbe_adapter *adapter)
  * ixgbe_tx_timeout - Respond to a Tx Hang
  * @netdev: network interface device structure
  **/
-static void ixgbe_tx_timeout(struct net_device *netdev)
+static void ixgbe_tx_timeout(struct net_device *netdev, unsigned int txqueue)
 {
 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 

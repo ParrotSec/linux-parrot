@@ -61,7 +61,7 @@ static void cifs_set_ops(struct inode *inode)
 		}
 
 		/* check if server can support readpages */
-		if (cifs_sb_master_tcon(cifs_sb)->ses->server->maxBuf <
+		if (cifs_sb_master_tcon(cifs_sb)->ses->server->max_read <
 				PAGE_SIZE + MAX_CIFS_HDR_SIZE)
 			inode->i_data.a_ops = &cifs_addr_ops_smallbuf;
 		else
@@ -113,6 +113,7 @@ cifs_revalidate_cache(struct inode *inode, struct cifs_fattr *fattr)
 	}
 
 	 /* revalidate if mtime or size have changed */
+	fattr->cf_mtime = timestamp_truncate(fattr->cf_mtime, inode);
 	if (timespec64_equal(&inode->i_mtime, &fattr->cf_mtime) &&
 	    cifs_i->server_eof == fattr->cf_eof) {
 		cifs_dbg(FYI, "%s: inode %llu is unchanged\n",
@@ -162,6 +163,9 @@ cifs_fattr_to_inode(struct inode *inode, struct cifs_fattr *fattr)
 	cifs_revalidate_cache(inode, fattr);
 
 	spin_lock(&inode->i_lock);
+	fattr->cf_mtime = timestamp_truncate(fattr->cf_mtime, inode);
+	fattr->cf_atime = timestamp_truncate(fattr->cf_atime, inode);
+	fattr->cf_ctime = timestamp_truncate(fattr->cf_ctime, inode);
 	/* we do not want atime to be less than mtime, it broke some apps */
 	if (timespec64_compare(&fattr->cf_atime, &fattr->cf_mtime) < 0)
 		inode->i_atime = fattr->cf_mtime;
@@ -329,8 +333,7 @@ cifs_create_dfs_fattr(struct cifs_fattr *fattr, struct super_block *sb)
 	fattr->cf_mode = S_IFDIR | S_IXUGO | S_IRWXU;
 	fattr->cf_uid = cifs_sb->mnt_uid;
 	fattr->cf_gid = cifs_sb->mnt_gid;
-	ktime_get_real_ts64(&fattr->cf_mtime);
-	fattr->cf_mtime = timespec64_trunc(fattr->cf_mtime, sb->s_time_gran);
+	ktime_get_coarse_real_ts64(&fattr->cf_mtime);
 	fattr->cf_atime = fattr->cf_ctime = fattr->cf_mtime;
 	fattr->cf_nlink = 2;
 	fattr->cf_flags = CIFS_FATTR_DFS_REFERRAL;
@@ -472,9 +475,7 @@ cifs_sfu_type(struct cifs_fattr *fattr, const char *path,
 	oparms.tcon = tcon;
 	oparms.cifs_sb = cifs_sb;
 	oparms.desired_access = GENERIC_READ;
-	oparms.create_options = CREATE_NOT_DIR;
-	if (backup_cred(cifs_sb))
-		oparms.create_options |= CREATE_OPEN_BACKUP_INTENT;
+	oparms.create_options = cifs_create_options(cifs_sb, CREATE_NOT_DIR);
 	oparms.disposition = FILE_OPEN;
 	oparms.path = path;
 	oparms.fid = &fid;
@@ -609,10 +610,8 @@ cifs_all_info_to_fattr(struct cifs_fattr *fattr, FILE_ALL_INFO *info,
 
 	if (info->LastAccessTime)
 		fattr->cf_atime = cifs_NTtimeToUnix(info->LastAccessTime);
-	else {
-		ktime_get_real_ts64(&fattr->cf_atime);
-		fattr->cf_atime = timespec64_trunc(fattr->cf_atime, sb->s_time_gran);
-	}
+	else
+		ktime_get_coarse_real_ts64(&fattr->cf_atime);
 
 	fattr->cf_ctime = cifs_NTtimeToUnix(info->ChangeTime);
 	fattr->cf_mtime = cifs_NTtimeToUnix(info->LastWriteTime);
@@ -654,8 +653,8 @@ cifs_all_info_to_fattr(struct cifs_fattr *fattr, FILE_ALL_INFO *info,
 		 */
 		if ((fattr->cf_nlink < 1) && !tcon->unix_ext &&
 		    !info->DeletePending) {
-			cifs_dbg(1, "bogus file nlink value %u\n",
-				fattr->cf_nlink);
+			cifs_dbg(VFS, "bogus file nlink value %u\n",
+				 fattr->cf_nlink);
 			fattr->cf_flags |= CIFS_FATTR_UNKNOWN_NLINK;
 		}
 	}
@@ -731,7 +730,7 @@ static __u64 simple_hashstr(const char *str)
  * cifs_backup_query_path_info - SMB1 fallback code to get ino
  *
  * Fallback code to get file metadata when we don't have access to
- * @full_path (EACCESS) and have backup creds.
+ * @full_path (EACCES) and have backup creds.
  *
  * @data will be set to search info result buffer
  * @resp_buf will be set to cifs resp buf and needs to be freed with
@@ -1284,7 +1283,7 @@ cifs_rename_pending_delete(const char *full_path, struct dentry *dentry,
 	oparms.tcon = tcon;
 	oparms.cifs_sb = cifs_sb;
 	oparms.desired_access = DELETE | FILE_WRITE_ATTRIBUTES;
-	oparms.create_options = CREATE_NOT_DIR;
+	oparms.create_options = cifs_create_options(cifs_sb, CREATE_NOT_DIR);
 	oparms.disposition = FILE_OPEN;
 	oparms.path = full_path;
 	oparms.fid = &fid;
@@ -1822,7 +1821,7 @@ cifs_do_rename(const unsigned int xid, struct dentry *from_dentry,
 	oparms.cifs_sb = cifs_sb;
 	/* open the file to be renamed -- we need DELETE perms */
 	oparms.desired_access = DELETE;
-	oparms.create_options = CREATE_NOT_DIR;
+	oparms.create_options = cifs_create_options(cifs_sb, CREATE_NOT_DIR);
 	oparms.disposition = FILE_OPEN;
 	oparms.path = from_path;
 	oparms.fid = &fid;
@@ -1836,6 +1835,8 @@ cifs_do_rename(const unsigned int xid, struct dentry *from_dentry,
 		CIFSSMBClose(xid, tcon, fid.netfid);
 	}
 do_rename_exit:
+	if (rc == 0)
+		d_move(from_dentry, to_dentry);
 	cifs_put_tlink(tlink);
 	return rc;
 }
@@ -2025,6 +2026,10 @@ cifs_revalidate_mapping(struct inode *inode)
 	int rc;
 	unsigned long *flags = &CIFS_I(inode)->flags;
 
+	/* swapfiles are not supposed to be shared */
+	if (IS_SWAPFILE(inode))
+		return 0;
+
 	rc = wait_on_bit_lock_action(flags, CIFS_INO_LOCK, cifs_wait_bit_killable,
 				     TASK_KILLABLE);
 	if (rc)
@@ -2149,8 +2154,9 @@ int cifs_getattr(const struct path *path, struct kstat *stat,
 	 * We need to be sure that all dirty pages are written and the server
 	 * has actual ctime, mtime and file length.
 	 */
-	if (!CIFS_CACHE_READ(CIFS_I(inode)) && inode->i_mapping &&
-	    inode->i_mapping->nrpages != 0) {
+	if ((request_mask & (STATX_CTIME | STATX_MTIME | STATX_SIZE)) &&
+	    !CIFS_CACHE_READ(CIFS_I(inode)) &&
+	    inode->i_mapping && inode->i_mapping->nrpages != 0) {
 		rc = filemap_fdatawait(inode->i_mapping);
 		if (rc) {
 			mapping_set_error(inode->i_mapping, rc);
@@ -2158,9 +2164,20 @@ int cifs_getattr(const struct path *path, struct kstat *stat,
 		}
 	}
 
-	rc = cifs_revalidate_dentry_attr(dentry);
-	if (rc)
-		return rc;
+	if ((flags & AT_STATX_SYNC_TYPE) == AT_STATX_FORCE_SYNC)
+		CIFS_I(inode)->time = 0; /* force revalidate */
+
+	/*
+	 * If the caller doesn't require syncing, only sync if
+	 * necessary (e.g. due to earlier truncate or setattr
+	 * invalidating the cached metadata)
+	 */
+	if (((flags & AT_STATX_SYNC_TYPE) != AT_STATX_DONT_SYNC) ||
+	    (CIFS_I(inode)->time == 0)) {
+		rc = cifs_revalidate_dentry_attr(dentry);
+		if (rc)
+			return rc;
+	}
 
 	generic_fillattr(inode, stat);
 	stat->blksize = cifs_sb->bsize;
@@ -2192,7 +2209,7 @@ int cifs_getattr(const struct path *path, struct kstat *stat,
 		if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_OVERR_GID))
 			stat->gid = current_fsgid();
 	}
-	return rc;
+	return 0;
 }
 
 int cifs_fiemap(struct inode *inode, struct fiemap_extent_info *fei, u64 start,
@@ -2232,7 +2249,7 @@ int cifs_fiemap(struct inode *inode, struct fiemap_extent_info *fei, u64 start,
 	return -ENOTSUPP;
 }
 
-static int cifs_truncate_page(struct address_space *mapping, loff_t from)
+int cifs_truncate_page(struct address_space *mapping, loff_t from)
 {
 	pgoff_t index = from >> PAGE_SHIFT;
 	unsigned offset = from & (PAGE_SIZE - 1);
@@ -2249,7 +2266,7 @@ static int cifs_truncate_page(struct address_space *mapping, loff_t from)
 	return rc;
 }
 
-static void cifs_setsize(struct inode *inode, loff_t offset)
+void cifs_setsize(struct inode *inode, loff_t offset)
 {
 	struct cifsInodeInfo *cifs_i = CIFS_I(inode);
 
@@ -2517,25 +2534,26 @@ cifs_setattr_nounix(struct dentry *direntry, struct iattr *attrs)
 
 	/*
 	 * Attempt to flush data before changing attributes. We need to do
-	 * this for ATTR_SIZE and ATTR_MTIME for sure, and if we change the
-	 * ownership or mode then we may also need to do this. Here, we take
-	 * the safe way out and just do the flush on all setattr requests. If
-	 * the flush returns error, store it to report later and continue.
+	 * this for ATTR_SIZE and ATTR_MTIME.  If the flush of the data
+	 * returns error, store it to report later and continue.
 	 *
 	 * BB: This should be smarter. Why bother flushing pages that
 	 * will be truncated anyway? Also, should we error out here if
-	 * the flush returns error?
+	 * the flush returns error? Do we need to check for ATTR_MTIME_SET flag?
 	 */
-	rc = filemap_write_and_wait(inode->i_mapping);
-	if (is_interrupt_error(rc)) {
-		rc = -ERESTARTSYS;
-		goto cifs_setattr_exit;
+	if (attrs->ia_valid & (ATTR_MTIME | ATTR_SIZE | ATTR_CTIME)) {
+		rc = filemap_write_and_wait(inode->i_mapping);
+		if (is_interrupt_error(rc)) {
+			rc = -ERESTARTSYS;
+			goto cifs_setattr_exit;
+		}
+		mapping_set_error(inode->i_mapping, rc);
 	}
 
-	mapping_set_error(inode->i_mapping, rc);
 	rc = 0;
 
-	if (attrs->ia_valid & ATTR_MTIME) {
+	if ((attrs->ia_valid & ATTR_MTIME) &&
+	    !(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_NOSSYNC)) {
 		rc = cifs_get_writable_file(cifsInode, FIND_WR_ANY, &wfile);
 		if (!rc) {
 			tcon = tlink_tcon(wfile->tlink);

@@ -103,8 +103,6 @@
 
 #define TX_TIMEOUT      (5*HZ)
 
-const char gfar_driver_version[] = "2.0";
-
 MODULE_AUTHOR("Freescale Semiconductor, Inc");
 MODULE_DESCRIPTION("Gianfar Ethernet Driver");
 MODULE_LICENSE("GPL");
@@ -2093,7 +2091,7 @@ static void gfar_reset_task(struct work_struct *work)
 	reset_gfar(priv->ndev);
 }
 
-static void gfar_timeout(struct net_device *dev)
+static void gfar_timeout(struct net_device *dev, unsigned int txqueue)
 {
 	struct gfar_private *priv = netdev_priv(dev);
 

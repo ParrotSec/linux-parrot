@@ -581,13 +581,6 @@ static void fastrpc_dma_buf_detatch(struct dma_buf *dmabuf,
 	kfree(a);
 }
 
-static void *fastrpc_kmap(struct dma_buf *dmabuf, unsigned long pgnum)
-{
-	struct fastrpc_buf *buf = dmabuf->priv;
-
-	return buf->virt ? buf->virt + pgnum * PAGE_SIZE : NULL;
-}
-
 static void *fastrpc_vmap(struct dma_buf *dmabuf)
 {
 	struct fastrpc_buf *buf = dmabuf->priv;
@@ -611,7 +604,6 @@ static const struct dma_buf_ops fastrpc_dma_buf_ops = {
 	.map_dma_buf = fastrpc_map_dma_buf,
 	.unmap_dma_buf = fastrpc_unmap_dma_buf,
 	.mmap = fastrpc_mmap,
-	.map = fastrpc_kmap,
 	.vmap = fastrpc_vmap,
 	.release = fastrpc_release,
 };
@@ -912,6 +904,7 @@ static int fastrpc_invoke_send(struct fastrpc_session_ctx *sctx,
 	struct fastrpc_channel_ctx *cctx;
 	struct fastrpc_user *fl = ctx->fl;
 	struct fastrpc_msg *msg = &ctx->msg;
+	int ret;
 
 	cctx = fl->cctx;
 	msg->pid = fl->tgid;
@@ -927,7 +920,13 @@ static int fastrpc_invoke_send(struct fastrpc_session_ctx *sctx,
 	msg->size = roundup(ctx->msg_sz, PAGE_SIZE);
 	fastrpc_context_get(ctx);
 
-	return rpmsg_send(cctx->rpdev->ept, (void *)msg, sizeof(*msg));
+	ret = rpmsg_send(cctx->rpdev->ept, (void *)msg, sizeof(*msg));
+
+	if (ret)
+		fastrpc_context_put(ctx);
+
+	return ret;
+
 }
 
 static int fastrpc_internal_invoke(struct fastrpc_user *fl,  u32 kernel,
@@ -1621,8 +1620,10 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 					    domains[domain_id]);
 	data->miscdev.fops = &fastrpc_fops;
 	err = misc_register(&data->miscdev);
-	if (err)
+	if (err) {
+		kfree(data);
 		return err;
+	}
 
 	kref_init(&data->refcount);
 

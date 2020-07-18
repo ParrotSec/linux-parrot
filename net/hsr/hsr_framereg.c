@@ -35,7 +35,6 @@ static bool seq_nr_after(u16 a, u16 b)
 }
 
 #define seq_nr_before(a, b)		seq_nr_after((b), (a))
-#define seq_nr_after_or_eq(a, b)	(!seq_nr_before((a), (b)))
 #define seq_nr_before_or_eq(a, b)	(!seq_nr_after((a), (b)))
 
 bool hsr_addr_is_self(struct hsr_priv *hsr, unsigned char *addr)
@@ -156,7 +155,8 @@ static struct hsr_node *hsr_add_node(struct hsr_priv *hsr,
 		new_node->seq_out[i] = seq_out;
 
 	spin_lock_bh(&hsr->list_lock);
-	list_for_each_entry_rcu(node, node_db, mac_list) {
+	list_for_each_entry_rcu(node, node_db, mac_list,
+				lockdep_is_held(&hsr->list_lock)) {
 		if (ether_addr_equal(node->macaddress_A, addr))
 			goto out;
 		if (ether_addr_equal(node->macaddress_B, addr))
@@ -318,7 +318,8 @@ void hsr_addr_subst_dest(struct hsr_node *node_src, struct sk_buff *skb,
 	node_dst = find_node_by_addr_A(&port->hsr->node_db,
 				       eth_hdr(skb)->h_dest);
 	if (!node_dst) {
-		WARN_ONCE(1, "%s: Unknown node\n", __func__);
+		if (net_ratelimit())
+			netdev_err(skb->dev, "%s: Unknown node\n", __func__);
 		return;
 	}
 	if (port->type != node_dst->addr_B_port)

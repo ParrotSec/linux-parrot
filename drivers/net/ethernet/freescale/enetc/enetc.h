@@ -72,6 +72,8 @@ struct enetc_bdr {
 	struct enetc_ring_stats stats;
 
 	dma_addr_t bd_dma_base;
+	u8 tsd_enable; /* Time specific departure */
+	bool ext_en; /* enable h/w descriptor extensions */
 } ____cacheline_aligned_in_smp;
 
 static inline void enetc_bdr_idx_inc(struct enetc_bdr *bdr, int *i)
@@ -103,7 +105,37 @@ struct enetc_cbdr {
 };
 
 #define ENETC_TXBD(BDR, i) (&(((union enetc_tx_bd *)((BDR).bd_base))[i]))
-#define ENETC_RXBD(BDR, i) (&(((union enetc_rx_bd *)((BDR).bd_base))[i]))
+
+static inline union enetc_rx_bd *enetc_rxbd(struct enetc_bdr *rx_ring, int i)
+{
+	int hw_idx = i;
+
+#ifdef CONFIG_FSL_ENETC_PTP_CLOCK
+	if (rx_ring->ext_en)
+		hw_idx = 2 * i;
+#endif
+	return &(((union enetc_rx_bd *)rx_ring->bd_base)[hw_idx]);
+}
+
+static inline union enetc_rx_bd *enetc_rxbd_next(struct enetc_bdr *rx_ring,
+						 union enetc_rx_bd *rxbd,
+						 int i)
+{
+	rxbd++;
+#ifdef CONFIG_FSL_ENETC_PTP_CLOCK
+	if (rx_ring->ext_en)
+		rxbd++;
+#endif
+	if (unlikely(++i == rx_ring->bd_count))
+		rxbd = rx_ring->bd_base;
+
+	return rxbd;
+}
+
+static inline union enetc_rx_bd *enetc_rxbd_ext(union enetc_rx_bd *rxbd)
+{
+	return ++rxbd;
+}
 
 struct enetc_msg_swbd {
 	void *vaddr;
@@ -162,7 +194,7 @@ struct enetc_int_vector {
 	char name[ENETC_INT_NAME_MAX];
 
 	struct enetc_bdr rx_ring ____cacheline_aligned_in_smp;
-	struct enetc_bdr tx_ring[0];
+	struct enetc_bdr tx_ring[];
 };
 
 struct enetc_cls_rule {
@@ -256,8 +288,10 @@ int enetc_send_cmd(struct enetc_si *si, struct enetc_cbd *cbd);
 int enetc_setup_tc_taprio(struct net_device *ndev, void *type_data);
 void enetc_sched_speed_set(struct net_device *ndev);
 int enetc_setup_tc_cbs(struct net_device *ndev, void *type_data);
+int enetc_setup_tc_txtime(struct net_device *ndev, void *type_data);
 #else
 #define enetc_setup_tc_taprio(ndev, type_data) -EOPNOTSUPP
 #define enetc_sched_speed_set(ndev) (void)0
 #define enetc_setup_tc_cbs(ndev, type_data) -EOPNOTSUPP
+#define enetc_setup_tc_txtime(ndev, type_data) -EOPNOTSUPP
 #endif

@@ -73,8 +73,6 @@ static struct hclge_dbg_reg_type_info hclge_dbg_reg_info[] = {
 
 static int hclge_dbg_get_dfx_bd_num(struct hclge_dev *hdev, int offset)
 {
-#define HCLGE_GET_DFX_REG_TYPE_CNT	4
-
 	struct hclge_desc desc[HCLGE_GET_DFX_REG_TYPE_CNT];
 	int entries_per_desc;
 	int index;
@@ -89,7 +87,7 @@ static int hclge_dbg_get_dfx_bd_num(struct hclge_dev *hdev, int offset)
 
 	entries_per_desc = ARRAY_SIZE(desc[0].data);
 	index = offset % entries_per_desc;
-	return (int)desc[offset / entries_per_desc].data[index];
+	return le32_to_cpu(desc[offset / entries_per_desc].data[index]);
 }
 
 static int hclge_dbg_cmd_send(struct hclge_dev *hdev,
@@ -147,10 +145,8 @@ static void hclge_dbg_dump_reg_common(struct hclge_dev *hdev,
 
 	buf_len	= sizeof(struct hclge_desc) * bd_num;
 	desc_src = kzalloc(buf_len, GFP_KERNEL);
-	if (!desc_src) {
-		dev_err(&hdev->pdev->dev, "call kzalloc failed\n");
+	if (!desc_src)
 		return;
-	}
 
 	desc = desc_src;
 	ret = hclge_dbg_cmd_send(hdev, desc, index, bd_num, reg_msg->cmd);
@@ -181,6 +177,7 @@ static void hclge_dbg_dump_dcb(struct hclge_dev *hdev, const char *cmd_buf)
 {
 	struct device *dev = &hdev->pdev->dev;
 	struct hclge_dbg_bitmap_cmd *bitmap;
+	enum hclge_opcode_type cmd;
 	int rq_id, pri_id, qset_id;
 	int port_id, nq_id, pg_id;
 	struct hclge_desc desc[2];
@@ -195,10 +192,10 @@ static void hclge_dbg_dump_dcb(struct hclge_dev *hdev, const char *cmd_buf)
 		return;
 	}
 
-	ret = hclge_dbg_cmd_send(hdev, desc, qset_id, 1,
-				 HCLGE_OPC_QSET_DFX_STS);
+	cmd = HCLGE_OPC_QSET_DFX_STS;
+	ret = hclge_dbg_cmd_send(hdev, desc, qset_id, 1, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	bitmap = (struct hclge_dbg_bitmap_cmd *)&desc[0].data[1];
 	dev_info(dev, "roce_qset_mask: 0x%x\n", bitmap->bit0);
@@ -206,48 +203,53 @@ static void hclge_dbg_dump_dcb(struct hclge_dev *hdev, const char *cmd_buf)
 	dev_info(dev, "qs_shaping_pass: 0x%x\n", bitmap->bit2);
 	dev_info(dev, "qs_bp_sts: 0x%x\n", bitmap->bit3);
 
-	ret = hclge_dbg_cmd_send(hdev, desc, pri_id, 1, HCLGE_OPC_PRI_DFX_STS);
+	cmd = HCLGE_OPC_PRI_DFX_STS;
+	ret = hclge_dbg_cmd_send(hdev, desc, pri_id, 1, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	bitmap = (struct hclge_dbg_bitmap_cmd *)&desc[0].data[1];
 	dev_info(dev, "pri_mask: 0x%x\n", bitmap->bit0);
 	dev_info(dev, "pri_cshaping_pass: 0x%x\n", bitmap->bit1);
 	dev_info(dev, "pri_pshaping_pass: 0x%x\n", bitmap->bit2);
 
-	ret = hclge_dbg_cmd_send(hdev, desc, pg_id, 1, HCLGE_OPC_PG_DFX_STS);
+	cmd = HCLGE_OPC_PG_DFX_STS;
+	ret = hclge_dbg_cmd_send(hdev, desc, pg_id, 1, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	bitmap = (struct hclge_dbg_bitmap_cmd *)&desc[0].data[1];
 	dev_info(dev, "pg_mask: 0x%x\n", bitmap->bit0);
 	dev_info(dev, "pg_cshaping_pass: 0x%x\n", bitmap->bit1);
 	dev_info(dev, "pg_pshaping_pass: 0x%x\n", bitmap->bit2);
 
-	ret = hclge_dbg_cmd_send(hdev, desc, port_id, 1,
-				 HCLGE_OPC_PORT_DFX_STS);
+	cmd = HCLGE_OPC_PORT_DFX_STS;
+	ret = hclge_dbg_cmd_send(hdev, desc, port_id, 1, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	bitmap = (struct hclge_dbg_bitmap_cmd *)&desc[0].data[1];
 	dev_info(dev, "port_mask: 0x%x\n", bitmap->bit0);
 	dev_info(dev, "port_shaping_pass: 0x%x\n", bitmap->bit1);
 
-	ret = hclge_dbg_cmd_send(hdev, desc, nq_id, 1, HCLGE_OPC_SCH_NQ_CNT);
+	cmd = HCLGE_OPC_SCH_NQ_CNT;
+	ret = hclge_dbg_cmd_send(hdev, desc, nq_id, 1, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	dev_info(dev, "sch_nq_cnt: 0x%x\n", le32_to_cpu(desc[0].data[1]));
 
-	ret = hclge_dbg_cmd_send(hdev, desc, nq_id, 1, HCLGE_OPC_SCH_RQ_CNT);
+	cmd = HCLGE_OPC_SCH_RQ_CNT;
+	ret = hclge_dbg_cmd_send(hdev, desc, nq_id, 1, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	dev_info(dev, "sch_rq_cnt: 0x%x\n", le32_to_cpu(desc[0].data[1]));
 
-	ret = hclge_dbg_cmd_send(hdev, desc, 0, 2, HCLGE_OPC_TM_INTERNAL_STS);
+	cmd = HCLGE_OPC_TM_INTERNAL_STS;
+	ret = hclge_dbg_cmd_send(hdev, desc, 0, 2, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	dev_info(dev, "pri_bp: 0x%x\n", le32_to_cpu(desc[0].data[1]));
 	dev_info(dev, "fifo_dfx_info: 0x%x\n", le32_to_cpu(desc[0].data[2]));
@@ -259,18 +261,18 @@ static void hclge_dbg_dump_dcb(struct hclge_dev *hdev, const char *cmd_buf)
 	dev_info(dev, "SSU_TM_BYPASS_EN: 0x%x\n", le32_to_cpu(desc[1].data[0]));
 	dev_info(dev, "SSU_RESERVE_CFG: 0x%x\n", le32_to_cpu(desc[1].data[1]));
 
-	ret = hclge_dbg_cmd_send(hdev, desc, port_id, 1,
-				 HCLGE_OPC_TM_INTERNAL_CNT);
+	cmd = HCLGE_OPC_TM_INTERNAL_CNT;
+	ret = hclge_dbg_cmd_send(hdev, desc, port_id, 1, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	dev_info(dev, "SCH_NIC_NUM: 0x%x\n", le32_to_cpu(desc[0].data[1]));
 	dev_info(dev, "SCH_ROCE_NUM: 0x%x\n", le32_to_cpu(desc[0].data[2]));
 
-	ret = hclge_dbg_cmd_send(hdev, desc, port_id, 1,
-				 HCLGE_OPC_TM_INTERNAL_STS_1);
+	cmd = HCLGE_OPC_TM_INTERNAL_STS_1;
+	ret = hclge_dbg_cmd_send(hdev, desc, port_id, 1, cmd);
 	if (ret)
-		return;
+		goto err_dcb_cmd_send;
 
 	dev_info(dev, "TC_MAP_SEL: 0x%x\n", le32_to_cpu(desc[0].data[1]));
 	dev_info(dev, "IGU_PFC_PRI_EN: 0x%x\n", le32_to_cpu(desc[0].data[2]));
@@ -279,6 +281,12 @@ static void hclge_dbg_dump_dcb(struct hclge_dev *hdev, const char *cmd_buf)
 		 le32_to_cpu(desc[0].data[4]));
 	dev_info(dev, "IGU_TX_PRI_MAP_TC_CFG: 0x%x\n",
 		 le32_to_cpu(desc[0].data[5]));
+	return;
+
+err_dcb_cmd_send:
+	dev_err(&hdev->pdev->dev,
+		"failed to dump dcb dfx, cmd = %#x, ret = %d\n",
+		cmd, ret);
 }
 
 static void hclge_dbg_dump_reg_cmd(struct hclge_dev *hdev, const char *cmd_buf)
@@ -312,8 +320,9 @@ static void hclge_title_idx_print(struct hclge_dev *hdev, bool flag, int index,
 				  char *false_buf)
 {
 	if (flag)
-		dev_info(&hdev->pdev->dev, "%s(%d): %s\n", title_buf, index,
-			 true_buf);
+		dev_info(&hdev->pdev->dev, "%s(%d): %s weight: %u\n",
+			 title_buf, index, true_buf,
+			 hdev->tm_info.pg_info[0].tc_dwrr[index]);
 	else
 		dev_info(&hdev->pdev->dev, "%s(%d): %s\n", title_buf, index,
 			 false_buf);
@@ -341,7 +350,8 @@ static void hclge_dbg_dump_tc(struct hclge_dev *hdev)
 
 	ets_weight = (struct hclge_ets_tc_weight_cmd *)desc.data;
 
-	dev_info(&hdev->pdev->dev, "dump tc\n");
+	dev_info(&hdev->pdev->dev, "dump tc: %u tc enabled\n",
+		 hdev->tm_info.num_tc);
 	dev_info(&hdev->pdev->dev, "weight_offset: %u\n",
 		 ets_weight->weight_offset);
 
@@ -583,7 +593,7 @@ static void hclge_dbg_dump_tm_map(struct hclge_dev *hdev,
 	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
 	if (ret)
 		goto err_tm_map_cmd_send;
-	qset_id = nq_to_qs_map->qset_id & 0x3FF;
+	qset_id = le16_to_cpu(nq_to_qs_map->qset_id) & 0x3FF;
 
 	cmd = HCLGE_OPC_TM_QS_TO_PRI_LINK;
 	map = (struct hclge_qs_to_pri_link_cmd *)desc.data;
@@ -623,7 +633,8 @@ static void hclge_dbg_dump_tm_map(struct hclge_dev *hdev,
 		if (ret)
 			goto err_tm_map_cmd_send;
 
-		qset_maping[group_id] = bp_to_qs_map_cmd->qs_bit_map;
+		qset_maping[group_id] =
+			le32_to_cpu(bp_to_qs_map_cmd->qs_bit_map);
 	}
 
 	dev_info(&hdev->pdev->dev, "index | tm bp qset maping:\n");
@@ -826,6 +837,7 @@ static void hclge_dbg_dump_mng_table(struct hclge_dev *hdev)
 	struct hclge_mac_ethertype_idx_rd_cmd *req0;
 	char printf_buf[HCLGE_DBG_BUF_LEN];
 	struct hclge_desc desc;
+	u32 msg_egress_port;
 	int ret, i;
 
 	dev_info(&hdev->pdev->dev, "mng tab:\n");
@@ -867,27 +879,28 @@ static void hclge_dbg_dump_mng_table(struct hclge_dev *hdev)
 			 HCLGE_DBG_BUF_LEN - strlen(printf_buf),
 			 "%x   |%04x |%x   |%04x|%x   |%02x   |%02x   |",
 			 !!(req0->flags & HCLGE_DBG_MNG_MAC_MASK_B),
-			 req0->ethter_type,
+			 le16_to_cpu(req0->ethter_type),
 			 !!(req0->flags & HCLGE_DBG_MNG_ETHER_MASK_B),
-			 req0->vlan_tag & HCLGE_DBG_MNG_VLAN_TAG,
+			 le16_to_cpu(req0->vlan_tag) & HCLGE_DBG_MNG_VLAN_TAG,
 			 !!(req0->flags & HCLGE_DBG_MNG_VLAN_MASK_B),
 			 req0->i_port_bitmap, req0->i_port_direction);
 
+		msg_egress_port = le16_to_cpu(req0->egress_port);
 		snprintf(printf_buf + strlen(printf_buf),
 			 HCLGE_DBG_BUF_LEN - strlen(printf_buf),
-			 "%d     |%d    |%02d   |%04d|%x\n",
-			 !!(req0->egress_port & HCLGE_DBG_MNG_E_TYPE_B),
-			 req0->egress_port & HCLGE_DBG_MNG_PF_ID,
-			 (req0->egress_port >> 3) & HCLGE_DBG_MNG_VF_ID,
-			 req0->egress_queue,
-			 !!(req0->egress_port & HCLGE_DBG_MNG_DROP_B));
+			 "%x     |%x    |%02x   |%04x|%x\n",
+			 !!(msg_egress_port & HCLGE_DBG_MNG_E_TYPE_B),
+			 msg_egress_port & HCLGE_DBG_MNG_PF_ID,
+			 (msg_egress_port >> 3) & HCLGE_DBG_MNG_VF_ID,
+			 le16_to_cpu(req0->egress_queue),
+			 !!(msg_egress_port & HCLGE_DBG_MNG_DROP_B));
 
 		dev_info(&hdev->pdev->dev, "%s", printf_buf);
 	}
 }
 
-static void hclge_dbg_fd_tcam_read(struct hclge_dev *hdev, u8 stage,
-				   bool sel_x, u32 loc)
+static int hclge_dbg_fd_tcam_read(struct hclge_dev *hdev, u8 stage,
+				  bool sel_x, u32 loc)
 {
 	struct hclge_fd_tcam_config_1_cmd *req1;
 	struct hclge_fd_tcam_config_2_cmd *req2;
@@ -912,7 +925,7 @@ static void hclge_dbg_fd_tcam_read(struct hclge_dev *hdev, u8 stage,
 
 	ret = hclge_cmd_send(&hdev->hw, desc, 3);
 	if (ret)
-		return;
+		return ret;
 
 	dev_info(&hdev->pdev->dev, " read result tcam key %s(%u):\n",
 		 sel_x ? "x" : "y", loc);
@@ -931,16 +944,76 @@ static void hclge_dbg_fd_tcam_read(struct hclge_dev *hdev, u8 stage,
 	req = (u32 *)req3->tcam_data;
 	for (i = 0; i < 5; i++)
 		dev_info(&hdev->pdev->dev, "%08x\n", *req++);
+
+	return ret;
+}
+
+static int hclge_dbg_get_rules_location(struct hclge_dev *hdev, u16 *rule_locs)
+{
+	struct hclge_fd_rule *rule;
+	struct hlist_node *node;
+	int cnt = 0;
+
+	spin_lock_bh(&hdev->fd_rule_lock);
+	hlist_for_each_entry_safe(rule, node, &hdev->fd_rule_list, rule_node) {
+		rule_locs[cnt] = rule->location;
+		cnt++;
+	}
+	spin_unlock_bh(&hdev->fd_rule_lock);
+
+	if (cnt != hdev->hclge_fd_rule_num)
+		return -EINVAL;
+
+	return cnt;
 }
 
 static void hclge_dbg_fd_tcam(struct hclge_dev *hdev)
 {
-	u32 i;
+	int i, ret, rule_cnt;
+	u16 *rule_locs;
 
-	for (i = 0; i < hdev->fd_cfg.rule_num[0]; i++) {
-		hclge_dbg_fd_tcam_read(hdev, 0, true, i);
-		hclge_dbg_fd_tcam_read(hdev, 0, false, i);
+	if (!hnae3_dev_fd_supported(hdev)) {
+		dev_err(&hdev->pdev->dev,
+			"Only FD-supported dev supports dump fd tcam\n");
+		return;
 	}
+
+	if (!hdev->hclge_fd_rule_num ||
+	    !hdev->fd_cfg.rule_num[HCLGE_FD_STAGE_1])
+		return;
+
+	rule_locs = kcalloc(hdev->fd_cfg.rule_num[HCLGE_FD_STAGE_1],
+			    sizeof(u16), GFP_KERNEL);
+	if (!rule_locs)
+		return;
+
+	rule_cnt = hclge_dbg_get_rules_location(hdev, rule_locs);
+	if (rule_cnt <= 0) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get rule number, ret = %d\n", rule_cnt);
+		kfree(rule_locs);
+		return;
+	}
+
+	for (i = 0; i < rule_cnt; i++) {
+		ret = hclge_dbg_fd_tcam_read(hdev, 0, true, rule_locs[i]);
+		if (ret) {
+			dev_err(&hdev->pdev->dev,
+				"failed to get fd tcam key x, ret = %d\n", ret);
+			kfree(rule_locs);
+			return;
+		}
+
+		ret = hclge_dbg_fd_tcam_read(hdev, 0, false, rule_locs[i]);
+		if (ret) {
+			dev_err(&hdev->pdev->dev,
+				"failed to get fd tcam key y, ret = %d\n", ret);
+			kfree(rule_locs);
+			return;
+		}
+	}
+
+	kfree(rule_locs);
 }
 
 void hclge_dbg_dump_rst_info(struct hclge_dev *hdev)
@@ -976,6 +1049,14 @@ void hclge_dbg_dump_rst_info(struct hclge_dev *hdev)
 	dev_info(&hdev->pdev->dev, "hdev state: 0x%lx\n", hdev->state);
 }
 
+static void hclge_dbg_dump_serv_info(struct hclge_dev *hdev)
+{
+	dev_info(&hdev->pdev->dev, "last_serv_processed: %lu\n",
+		 hdev->last_serv_processed);
+	dev_info(&hdev->pdev->dev, "last_serv_cnt: %lu\n",
+		 hdev->serv_processed_cnt);
+}
+
 static void hclge_dbg_get_m7_stats_info(struct hclge_dev *hdev)
 {
 	struct hclge_desc *desc_src, *desc_tmp;
@@ -999,11 +1080,8 @@ static void hclge_dbg_get_m7_stats_info(struct hclge_dev *hdev)
 
 	buf_len	 = sizeof(struct hclge_desc) * bd_num;
 	desc_src = kzalloc(buf_len, GFP_KERNEL);
-	if (!desc_src) {
-		dev_err(&hdev->pdev->dev,
-			"allocate desc for get_m7_stats failed\n");
+	if (!desc_src)
 		return;
-	}
 
 	desc_tmp = desc_src;
 	ret  = hclge_dbg_cmd_send(hdev, desc_tmp, 0, bd_num,
@@ -1066,7 +1144,7 @@ static void hclge_dbg_dump_ncl_config(struct hclge_dev *hdev,
 				      const char *cmd_buf)
 {
 #define HCLGE_MAX_NCL_CONFIG_OFFSET	4096
-#define HCLGE_MAX_NCL_CONFIG_LENGTH	(20 + 24 * 4)
+#define HCLGE_NCL_CONFIG_LENGTH_IN_EACH_CMD	(20 + 24 * 4)
 
 	struct hclge_desc desc[HCLGE_CMD_NCL_CONFIG_BD_NUM];
 	int bd_num = HCLGE_CMD_NCL_CONFIG_BD_NUM;
@@ -1090,8 +1168,8 @@ static void hclge_dbg_dump_ncl_config(struct hclge_dev *hdev,
 
 	while (length > 0) {
 		data0 = offset;
-		if (length >= HCLGE_MAX_NCL_CONFIG_LENGTH)
-			data0 |= HCLGE_MAX_NCL_CONFIG_LENGTH << 16;
+		if (length >= HCLGE_NCL_CONFIG_LENGTH_IN_EACH_CMD)
+			data0 |= HCLGE_NCL_CONFIG_LENGTH_IN_EACH_CMD << 16;
 		else
 			data0 |= length << 16;
 		ret = hclge_dbg_cmd_send(hdev, desc, data0, bd_num,
@@ -1101,6 +1179,57 @@ static void hclge_dbg_dump_ncl_config(struct hclge_dev *hdev,
 
 		hclge_ncl_config_data_print(hdev, desc, &offset, &length);
 	}
+}
+
+static void hclge_dbg_dump_loopback(struct hclge_dev *hdev,
+				    const char *cmd_buf)
+{
+	struct phy_device *phydev = hdev->hw.mac.phydev;
+	struct hclge_config_mac_mode_cmd *req_app;
+	struct hclge_serdes_lb_cmd *req_serdes;
+	struct hclge_desc desc;
+	u8 loopback_en;
+	int ret;
+
+	req_app = (struct hclge_config_mac_mode_cmd *)desc.data;
+	req_serdes = (struct hclge_serdes_lb_cmd *)desc.data;
+
+	dev_info(&hdev->pdev->dev, "mac id: %u\n", hdev->hw.mac.mac_id);
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CONFIG_MAC_MODE, true);
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to dump app loopback status, ret = %d\n", ret);
+		return;
+	}
+
+	loopback_en = hnae3_get_bit(le32_to_cpu(req_app->txrx_pad_fcs_loop_en),
+				    HCLGE_MAC_APP_LP_B);
+	dev_info(&hdev->pdev->dev, "app loopback: %s\n",
+		 loopback_en ? "on" : "off");
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_SERDES_LOOPBACK, true);
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to dump serdes loopback status, ret = %d\n",
+			ret);
+		return;
+	}
+
+	loopback_en = req_serdes->enable & HCLGE_CMD_SERDES_SERIAL_INNER_LOOP_B;
+	dev_info(&hdev->pdev->dev, "serdes serial loopback: %s\n",
+		 loopback_en ? "on" : "off");
+
+	loopback_en = req_serdes->enable &
+			HCLGE_CMD_SERDES_PARALLEL_INNER_LOOP_B;
+	dev_info(&hdev->pdev->dev, "serdes parallel loopback: %s\n",
+		 loopback_en ? "on" : "off");
+
+	if (phydev)
+		dev_info(&hdev->pdev->dev, "phy loopback: %s\n",
+			 phydev->loopback_enabled ? "on" : "off");
 }
 
 /* hclge_dbg_dump_mac_tnl_status: print message about mac tnl interrupt
@@ -1203,6 +1332,7 @@ int hclge_dbg_run_cmd(struct hnae3_handle *handle, const char *cmd_buf)
 {
 #define DUMP_REG	"dump reg"
 #define DUMP_TM_MAP	"dump tm map"
+#define DUMP_LOOPBACK	"dump loopback"
 
 	struct hclge_vport *vport = hclge_get_vport(handle);
 	struct hclge_dev *hdev = vport->back;
@@ -1227,6 +1357,8 @@ int hclge_dbg_run_cmd(struct hnae3_handle *handle, const char *cmd_buf)
 		hclge_dbg_dump_reg_cmd(hdev, &cmd_buf[sizeof(DUMP_REG)]);
 	} else if (strncmp(cmd_buf, "dump reset info", 15) == 0) {
 		hclge_dbg_dump_rst_info(hdev);
+	} else if (strncmp(cmd_buf, "dump serv info", 14) == 0) {
+		hclge_dbg_dump_serv_info(hdev);
 	} else if (strncmp(cmd_buf, "dump m7 info", 12) == 0) {
 		hclge_dbg_get_m7_stats_info(hdev);
 	} else if (strncmp(cmd_buf, "dump ncl_config", 15) == 0) {
@@ -1234,6 +1366,9 @@ int hclge_dbg_run_cmd(struct hnae3_handle *handle, const char *cmd_buf)
 					  &cmd_buf[sizeof("dump ncl_config")]);
 	} else if (strncmp(cmd_buf, "dump mac tnl status", 19) == 0) {
 		hclge_dbg_dump_mac_tnl_status(hdev);
+	} else if (strncmp(cmd_buf, DUMP_LOOPBACK,
+		   strlen(DUMP_LOOPBACK)) == 0) {
+		hclge_dbg_dump_loopback(hdev, &cmd_buf[sizeof(DUMP_LOOPBACK)]);
 	} else if (strncmp(cmd_buf, "dump qs shaper", 14) == 0) {
 		hclge_dbg_dump_qs_shaper(hdev,
 					 &cmd_buf[sizeof("dump qs shaper")]);

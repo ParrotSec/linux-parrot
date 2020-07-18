@@ -112,7 +112,7 @@ static int mmp_pcm_open(struct snd_soc_component *component,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct platform_device *pdev = to_platform_device(component->dev);
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	struct mmp_dma_data dma_data;
 	struct resource *r;
 
@@ -225,7 +225,6 @@ static const struct snd_soc_component_driver mmp_soc_component = {
 	.name		= DRV_NAME,
 	.open		= mmp_pcm_open,
 	.close		= mmp_pcm_close,
-	.ioctl		= snd_soc_pcm_lib_ioctl,
 	.hw_params	= mmp_pcm_hw_params,
 	.trigger	= mmp_pcm_trigger,
 	.pointer	= mmp_pcm_pointer,

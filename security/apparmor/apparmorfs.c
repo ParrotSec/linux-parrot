@@ -454,7 +454,7 @@ static ssize_t policy_update(u32 mask, const char __user *buf, size_t size,
 	 */
 	error = aa_may_manage_policy(label, ns, mask);
 	if (error)
-		return error;
+		goto end_section;
 
 	data = aa_simple_write_to_buffer(buf, size, size, pos);
 	error = PTR_ERR(data);
@@ -462,6 +462,7 @@ static ssize_t policy_update(u32 mask, const char __user *buf, size_t size,
 		error = aa_replace_profiles(ns, label, mask, data);
 		aa_put_loaddata(data);
 	}
+end_section:
 	end_current_label_crit_section(label);
 
 	return error;
@@ -2573,16 +2574,18 @@ static const char *policy_get_link(struct dentry *dentry,
 {
 	struct aa_ns *ns;
 	struct path path;
+	int error;
 
 	if (!dentry)
 		return ERR_PTR(-ECHILD);
+
 	ns = aa_get_current_ns();
 	path.mnt = mntget(aafs_mnt);
 	path.dentry = dget(ns_dir(ns));
-	nd_jump_link(&path);
+	error = nd_jump_link(&path);
 	aa_put_ns(ns);
 
-	return NULL;
+	return ERR_PTR(error);
 }
 
 static int policy_readlink(struct dentry *dentry, char __user *buffer,

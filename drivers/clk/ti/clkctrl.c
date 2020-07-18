@@ -255,24 +255,53 @@ static struct clk_hw *_ti_omap4_clkctrl_xlate(struct of_phandle_args *clkspec,
 	return entry->clk;
 }
 
+/* Get clkctrl clock base name based on clkctrl_name or dts node */
+static const char * __init clkctrl_get_clock_name(struct device_node *np,
+						  const char *clkctrl_name,
+						  int offset, int index,
+						  bool legacy_naming)
+{
+	char *clock_name;
+
+	/* l4per-clkctrl:1234:0 style naming based on clkctrl_name */
+	if (clkctrl_name && !legacy_naming) {
+		clock_name = kasprintf(GFP_KERNEL, "%s-clkctrl:%04x:%d",
+				       clkctrl_name, offset, index);
+		strreplace(clock_name, '_', '-');
+
+		return clock_name;
+	}
+
+	/* l4per:1234:0 old style naming based on clkctrl_name */
+	if (clkctrl_name)
+		return kasprintf(GFP_KERNEL, "%s_cm:clk:%04x:%d",
+				 clkctrl_name, offset, index);
+
+	/* l4per_cm:1234:0 old style naming based on parent node name */
+	if (legacy_naming)
+		return kasprintf(GFP_KERNEL, "%pOFn:clk:%04x:%d",
+				 np->parent, offset, index);
+
+	/* l4per-clkctrl:1234:0 style naming based on node name */
+	return kasprintf(GFP_KERNEL, "%pOFn:%04x:%d", np, offset, index);
+}
+
 static int __init
 _ti_clkctrl_clk_register(struct omap_clkctrl_provider *provider,
 			 struct device_node *node, struct clk_hw *clk_hw,
 			 u16 offset, u8 bit, const char * const *parents,
-			 int num_parents, const struct clk_ops *ops)
+			 int num_parents, const struct clk_ops *ops,
+			 const char *clkctrl_name)
 {
 	struct clk_init_data init = { NULL };
 	struct clk *clk;
 	struct omap_clkctrl_clk *clkctrl_clk;
 	int ret = 0;
 
-	if (ti_clk_get_features()->flags & TI_CLK_CLKCTRL_COMPAT)
-		init.name = kasprintf(GFP_KERNEL, "%pOFn:%pOFn:%04x:%d",
-				      node->parent, node, offset,
-				      bit);
-	else
-		init.name = kasprintf(GFP_KERNEL, "%pOFn:%04x:%d", node,
-				      offset, bit);
+	init.name = clkctrl_get_clock_name(node, clkctrl_name, offset, bit,
+					   ti_clk_get_features()->flags &
+					   TI_CLK_CLKCTRL_COMPAT);
+
 	clkctrl_clk = kzalloc(sizeof(*clkctrl_clk), GFP_KERNEL);
 	if (!init.name || !clkctrl_clk) {
 		ret = -ENOMEM;
@@ -309,7 +338,7 @@ static void __init
 _ti_clkctrl_setup_gate(struct omap_clkctrl_provider *provider,
 		       struct device_node *node, u16 offset,
 		       const struct omap_clkctrl_bit_data *data,
-		       void __iomem *reg)
+		       void __iomem *reg, const char *clkctrl_name)
 {
 	struct clk_hw_omap *clk_hw;
 
@@ -322,7 +351,7 @@ _ti_clkctrl_setup_gate(struct omap_clkctrl_provider *provider,
 
 	if (_ti_clkctrl_clk_register(provider, node, &clk_hw->hw, offset,
 				     data->bit, data->parents, 1,
-				     &omap_gate_clk_ops))
+				     &omap_gate_clk_ops, clkctrl_name))
 		kfree(clk_hw);
 }
 
@@ -330,7 +359,7 @@ static void __init
 _ti_clkctrl_setup_mux(struct omap_clkctrl_provider *provider,
 		      struct device_node *node, u16 offset,
 		      const struct omap_clkctrl_bit_data *data,
-		      void __iomem *reg)
+		      void __iomem *reg, const char *clkctrl_name)
 {
 	struct clk_omap_mux *mux;
 	int num_parents = 0;
@@ -357,7 +386,7 @@ _ti_clkctrl_setup_mux(struct omap_clkctrl_provider *provider,
 
 	if (_ti_clkctrl_clk_register(provider, node, &mux->hw, offset,
 				     data->bit, data->parents, num_parents,
-				     &ti_clk_mux_ops))
+				     &ti_clk_mux_ops, clkctrl_name))
 		kfree(mux);
 }
 
@@ -365,7 +394,7 @@ static void __init
 _ti_clkctrl_setup_div(struct omap_clkctrl_provider *provider,
 		      struct device_node *node, u16 offset,
 		      const struct omap_clkctrl_bit_data *data,
-		      void __iomem *reg)
+		      void __iomem *reg, const char *clkctrl_name)
 {
 	struct clk_omap_divider *div;
 	const struct omap_clkctrl_div_data *div_data = data->data;
@@ -393,7 +422,7 @@ _ti_clkctrl_setup_div(struct omap_clkctrl_provider *provider,
 
 	if (_ti_clkctrl_clk_register(provider, node, &div->hw, offset,
 				     data->bit, data->parents, 1,
-				     &ti_clk_divider_ops))
+				     &ti_clk_divider_ops, clkctrl_name))
 		kfree(div);
 }
 
@@ -401,7 +430,7 @@ static void __init
 _ti_clkctrl_setup_subclks(struct omap_clkctrl_provider *provider,
 			  struct device_node *node,
 			  const struct omap_clkctrl_reg_data *data,
-			  void __iomem *reg)
+			  void __iomem *reg, const char *clkctrl_name)
 {
 	const struct omap_clkctrl_bit_data *bits = data->bit_data;
 
@@ -412,17 +441,17 @@ _ti_clkctrl_setup_subclks(struct omap_clkctrl_provider *provider,
 		switch (bits->type) {
 		case TI_CLK_GATE:
 			_ti_clkctrl_setup_gate(provider, node, data->offset,
-					       bits, reg);
+					       bits, reg, clkctrl_name);
 			break;
 
 		case TI_CLK_DIVIDER:
 			_ti_clkctrl_setup_div(provider, node, data->offset,
-					      bits, reg);
+					      bits, reg, clkctrl_name);
 			break;
 
 		case TI_CLK_MUX:
 			_ti_clkctrl_setup_mux(provider, node, data->offset,
-					      bits, reg);
+					      bits, reg, clkctrl_name);
 			break;
 
 		default:
@@ -440,6 +469,31 @@ static void __init _clkctrl_add_provider(void *data,
 	of_clk_add_hw_provider(np, _ti_omap4_clkctrl_xlate, data);
 }
 
+/* Get clock name based on compatible string for clkctrl */
+static char * __init clkctrl_get_name(struct device_node *np)
+{
+	struct property *prop;
+	const int prefix_len = 11;
+	const char *compat;
+	char *name;
+
+	of_property_for_each_string(np, "compatible", prop, compat) {
+		if (!strncmp("ti,clkctrl-", compat, prefix_len)) {
+			/* Two letter minimum name length for l3, l4 etc */
+			if (strnlen(compat + prefix_len, 16) < 2)
+				continue;
+			name = kasprintf(GFP_KERNEL, "%s", compat + prefix_len);
+			if (!name)
+				continue;
+			strreplace(name, '-', '_');
+
+			return name;
+		}
+	}
+
+	return NULL;
+}
+
 static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 {
 	struct omap_clkctrl_provider *provider;
@@ -448,8 +502,10 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 	struct clk_init_data init = { NULL };
 	struct clk_hw_omap *hw;
 	struct clk *clk;
-	struct omap_clkctrl_clk *clkctrl_clk;
+	struct omap_clkctrl_clk *clkctrl_clk = NULL;
 	const __be32 *addrp;
+	bool legacy_naming;
+	char *clkctrl_name;
 	u32 addr;
 	int ret;
 	char *c;
@@ -537,7 +593,19 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 
 	provider->base = of_iomap(node, 0);
 
-	if (ti_clk_get_features()->flags & TI_CLK_CLKCTRL_COMPAT) {
+	legacy_naming = ti_clk_get_features()->flags & TI_CLK_CLKCTRL_COMPAT;
+	clkctrl_name = clkctrl_get_name(node);
+	if (clkctrl_name) {
+		provider->clkdm_name = kasprintf(GFP_KERNEL,
+						 "%s_clkdm", clkctrl_name);
+		goto clkdm_found;
+	}
+
+	/*
+	 * The code below can be removed when all clkctrl nodes use domain
+	 * specific compatible proprerty and standard clock node naming
+	 */
+	if (legacy_naming) {
 		provider->clkdm_name = kasprintf(GFP_KERNEL, "%pOFnxxx", node->parent);
 		if (!provider->clkdm_name) {
 			kfree(provider);
@@ -573,7 +641,7 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 			*c = '_';
 		c++;
 	}
-
+clkdm_found:
 	INIT_LIST_HEAD(&provider->clocks);
 
 	/* Generate clocks */
@@ -593,7 +661,7 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 		hw->enable_reg.ptr = provider->base + reg_data->offset;
 
 		_ti_clkctrl_setup_subclks(provider, node, reg_data,
-					  hw->enable_reg.ptr);
+					  hw->enable_reg.ptr, clkctrl_name);
 
 		if (reg_data->flags & CLKF_SW_SUP)
 			hw->enable_bit = MODULEMODE_SWCTRL;
@@ -612,15 +680,15 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 		init.flags = 0;
 		if (reg_data->flags & CLKF_SET_RATE_PARENT)
 			init.flags |= CLK_SET_RATE_PARENT;
-		if (ti_clk_get_features()->flags & TI_CLK_CLKCTRL_COMPAT)
-			init.name = kasprintf(GFP_KERNEL, "%pOFn:%pOFn:%04x:%d",
-					      node->parent, node,
-					      reg_data->offset, 0);
-		else
-			init.name = kasprintf(GFP_KERNEL, "%pOFn:%04x:%d",
-					      node, reg_data->offset, 0);
+
+		init.name = clkctrl_get_clock_name(node, clkctrl_name,
+						   reg_data->offset, 0,
+						   legacy_naming);
+		if (!init.name)
+			goto cleanup;
+
 		clkctrl_clk = kzalloc(sizeof(*clkctrl_clk), GFP_KERNEL);
-		if (!init.name || !clkctrl_clk)
+		if (!clkctrl_clk)
 			goto cleanup;
 
 		init.ops = &omap4_clkctrl_clk_ops;
@@ -642,11 +710,14 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 	if (ret == -EPROBE_DEFER)
 		ti_clk_retry_init(node, provider, _clkctrl_add_provider);
 
+	kfree(clkctrl_name);
+
 	return;
 
 cleanup:
 	kfree(hw);
 	kfree(init.name);
+	kfree(clkctrl_name);
 	kfree(clkctrl_clk);
 }
 CLK_OF_DECLARE(ti_omap4_clkctrl_clock, "ti,clkctrl",

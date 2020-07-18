@@ -239,6 +239,15 @@ config FSL_RAID
 	  the capability to offload memcpy, xor and pq computation
 	  for raid5/6.
 
+config HISI_DMA
+	tristate "HiSilicon DMA Engine support"
+	depends on ARM64 || COMPILE_TEST
+	depends on PCI_MSI
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Support HiSilicon Kunpeng DMA engine.
+
 config IMG_MDC_DMA
 	tristate "IMG MDC support"
 	depends on MIPS || COMPILE_TEST
@@ -272,6 +281,19 @@ config INTEL_IDMA64
 	help
 	  Enable DMA support for Intel Low Power Subsystem such as found on
 	  Intel Skylake PCH.
+
+config INTEL_IDXD
+	tristate "Intel Data Accelerators support"
+	depends on PCI && X86_64
+	select DMA_ENGINE
+	select SBITMAP
+	help
+	  Enable support for the Intel(R) data accelerators present
+	  in Intel Xeon CPU.
+
+	  Say Y if you have such a platform.
+
+	  If unsure, say N.
 
 config INTEL_IOATDMA
 	tristate "Intel I/OAT DMA support"
@@ -497,6 +519,15 @@ config PXA_DMA
 	  16 to 32 channels for peripheral to memory or memory to memory
 	  transfers.
 
+config PLX_DMA
+	tristate "PLX ExpressLane PEX Switch DMA Engine Support"
+	depends on PCI
+	select DMA_ENGINE
+	help
+	  Some PLX ExpressLane PCI Switches support additional DMA engines.
+	  These are exposed via extra functions on the switch's
+	  upstream port. Each function exposes one DMA channel.
+
 config SIRF_DMA
 	tristate "CSR SiRFprimaII/SiRFmarco DMA support"
 	depends on ARCH_SIRF
@@ -586,8 +617,8 @@ config TXX9_DMAC
 	  integrated in chips such as the Toshiba TX4927/38/39.
 
 config TEGRA20_APB_DMA
-	bool "NVIDIA Tegra20 APB DMA support"
-	depends on ARCH_TEGRA
+	tristate "NVIDIA Tegra20 APB DMA support"
+	depends on ARCH_TEGRA || COMPILE_TEST
 	select DMA_ENGINE
 	help
 	  Support for the NVIDIA Tegra20 APB DMA controller driver. The
@@ -627,6 +658,17 @@ config UNIPHIER_MDMAC
 	  Enable support for the MIO DMAC (Media I/O DMA controller) on the
 	  UniPhier platform.  This DMA controller is used as the external
 	  DMA engine of the SD/eMMC controllers of the LD4, Pro4, sLD8 SoCs.
+
+config UNIPHIER_XDMAC
+	tristate "UniPhier XDMAC support"
+	depends on ARCH_UNIPHIER || COMPILE_TEST
+	depends on OF
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Enable support for the XDMAC (external DMA controller) on the
+	  UniPhier platform. This DMA controller can transfer data from
+	  memory to memory, memory to peripheral and peripheral to memory.
 
 config XGENE_DMA
 	tristate "APM X-Gene DMA support"

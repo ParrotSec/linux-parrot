@@ -1737,6 +1737,7 @@ static int mv643xx_eth_get_sset_count(struct net_device *dev, int sset)
 }
 
 static const struct ethtool_ops mv643xx_eth_ethtool_ops = {
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS,
 	.get_drvinfo		= mv643xx_eth_get_drvinfo,
 	.nway_reset		= phy_ethtool_nway_reset,
 	.get_link		= ethtool_op_get_link,
@@ -2590,7 +2591,7 @@ static void tx_timeout_task(struct work_struct *ugly)
 	}
 }
 
-static void mv643xx_eth_tx_timeout(struct net_device *dev)
+static void mv643xx_eth_tx_timeout(struct net_device *dev, unsigned int txqueue)
 {
 	struct mv643xx_eth_private *mp = netdev_priv(dev);
 

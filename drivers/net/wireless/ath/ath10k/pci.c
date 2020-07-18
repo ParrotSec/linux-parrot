@@ -1578,7 +1578,7 @@ static int ath10k_pci_set_ram_config(struct ath10k *ar, u32 config)
 	return 0;
 }
 
-/* if an error happened returns < 0, otherwise the length */
+/* Always returns the length */
 static int ath10k_pci_dump_memory_sram(struct ath10k *ar,
 				       const struct ath10k_mem_region *region,
 				       u8 *buf)
@@ -2074,6 +2074,7 @@ static void ath10k_pci_hif_stop(struct ath10k *ar)
 	ath10k_pci_irq_sync(ar);
 	napi_synchronize(&ar->napi);
 	napi_disable(&ar->napi);
+	cancel_work_sync(&ar_pci->dump_work);
 
 	/* Most likely the device has HTT Rx ring configured. The only way to
 	 * prevent the device from accessing (and possible corrupting) host

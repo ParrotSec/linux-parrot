@@ -48,7 +48,6 @@
 #include <asm/desc.h>
 #include <asm/proto.h>
 #include <asm/ia32.h>
-#include <asm/syscalls.h>
 #include <asm/debugreg.h>
 #include <asm/switch_to.h>
 #include <asm/xen/hypervisor.h>
@@ -394,7 +393,6 @@ start_thread_common(struct pt_regs *regs, unsigned long new_ip,
 	regs->cs		= _cs;
 	regs->ss		= _ss;
 	regs->flags		= X86_EFLAGS_IF;
-	force_iret();
 }
 
 void

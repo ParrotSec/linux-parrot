@@ -122,8 +122,6 @@ static inline struct l2tp_tunnel *l2tp_tunnel(struct sock *sk)
 
 static inline struct l2tp_net *l2tp_pernet(const struct net *net)
 {
-	BUG_ON(!net);
-
 	return net_generic(net, l2tp_net_id);
 }
 
@@ -1458,6 +1456,9 @@ static int l2tp_validate_socket(const struct sock *sk, const struct net *net,
 		return -EINVAL;
 
 	if (sk->sk_type != SOCK_DGRAM)
+		return -EPROTONOSUPPORT;
+
+	if (sk->sk_family != PF_INET && sk->sk_family != PF_INET6)
 		return -EPROTONOSUPPORT;
 
 	if ((encap == L2TP_ENCAPTYPE_UDP && sk->sk_protocol != IPPROTO_UDP) ||

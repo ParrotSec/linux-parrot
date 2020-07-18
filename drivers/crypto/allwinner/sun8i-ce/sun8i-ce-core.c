@@ -555,7 +555,7 @@ static int sun8i_ce_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	ce->base = devm_platform_ioremap_resource(pdev, 0);;
+	ce->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(ce->base))
 		return PTR_ERR(ce->base);
 
@@ -565,10 +565,8 @@ static int sun8i_ce_probe(struct platform_device *pdev)
 
 	/* Get Non Secure IRQ */
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(ce->dev, "Cannot get CryptoEngine Non-secure IRQ\n");
+	if (irq < 0)
 		return irq;
-	}
 
 	ce->reset = devm_reset_control_get(&pdev->dev, NULL);
 	if (IS_ERR(ce->reset)) {

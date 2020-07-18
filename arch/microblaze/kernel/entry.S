@@ -728,7 +728,7 @@ no_intr_resched:
 	bri	6f;
 /* MS: Return to kernel state. */
 2:
-#ifdef CONFIG_PREEMPT
+#ifdef CONFIG_PREEMPTION
 	lwi	r11, CURRENT_TASK, TS_THREAD_INFO;
 	/* MS: get preempt_count from thread info */
 	lwi	r5, r11, TI_PREEMPT_COUNT;
@@ -958,6 +958,7 @@ ENTRY(_switch_to)
 	nop
 
 ENTRY(_reset)
+	VM_OFF
 	brai	0; /* Jump to reset vector */
 
 	/* These are compiled and loaded into high memory, then

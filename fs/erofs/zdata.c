@@ -67,16 +67,6 @@ static void z_erofs_pcluster_init_once(void *ptr)
 		pcl->compressed_pages[i] = NULL;
 }
 
-static void z_erofs_pcluster_init_always(struct z_erofs_pcluster *pcl)
-{
-	struct z_erofs_collection *cl = z_erofs_primarycollection(pcl);
-
-	atomic_set(&pcl->obj.refcount, 1);
-
-	DBG_BUGON(cl->nr_pages);
-	DBG_BUGON(cl->vcnt);
-}
-
 int __init z_erofs_init_zip_subsystem(void)
 {
 	pcluster_cachep = kmem_cache_create("erofs_compress",
@@ -341,27 +331,19 @@ static int z_erofs_lookup_collection(struct z_erofs_collector *clt,
 				     struct inode *inode,
 				     struct erofs_map_blocks *map)
 {
-	struct erofs_workgroup *grp;
-	struct z_erofs_pcluster *pcl;
+	struct z_erofs_pcluster *pcl = clt->pcl;
 	struct z_erofs_collection *cl;
 	unsigned int length;
-	bool tag;
 
-	grp = erofs_find_workgroup(inode->i_sb, map->m_pa >> PAGE_SHIFT, &tag);
-	if (!grp)
-		return -ENOENT;
-
-	pcl = container_of(grp, struct z_erofs_pcluster, obj);
+	/* to avoid unexpected loop formed by corrupted images */
 	if (clt->owned_head == &pcl->next || pcl == clt->tailpcl) {
 		DBG_BUGON(1);
-		erofs_workgroup_put(grp);
 		return -EFSCORRUPTED;
 	}
 
 	cl = z_erofs_primarycollection(pcl);
 	if (cl->pageofs != (map->m_la & ~PAGE_MASK)) {
 		DBG_BUGON(1);
-		erofs_workgroup_put(grp);
 		return -EFSCORRUPTED;
 	}
 
@@ -369,7 +351,6 @@ static int z_erofs_lookup_collection(struct z_erofs_collector *clt,
 	if (length & Z_EROFS_PCLUSTER_FULL_LENGTH) {
 		if ((map->m_llen << Z_EROFS_PCLUSTER_LENGTH_BIT) > length) {
 			DBG_BUGON(1);
-			erofs_workgroup_put(grp);
 			return -EFSCORRUPTED;
 		}
 	} else {
@@ -392,7 +373,6 @@ static int z_erofs_lookup_collection(struct z_erofs_collector *clt,
 	/* clean tailpcl if the current owned_head is Z_EROFS_PCLUSTER_TAIL */
 	if (clt->owned_head == Z_EROFS_PCLUSTER_TAIL)
 		clt->tailpcl = NULL;
-	clt->pcl = pcl;
 	clt->cl = cl;
 	return 0;
 }
@@ -403,6 +383,7 @@ static int z_erofs_register_collection(struct z_erofs_collector *clt,
 {
 	struct z_erofs_pcluster *pcl;
 	struct z_erofs_collection *cl;
+	struct erofs_workgroup *grp;
 	int err;
 
 	/* no available workgroup, let's allocate one */
@@ -410,7 +391,7 @@ static int z_erofs_register_collection(struct z_erofs_collector *clt,
 	if (!pcl)
 		return -ENOMEM;
 
-	z_erofs_pcluster_init_always(pcl);
+	atomic_set(&pcl->obj.refcount, 1);
 	pcl->obj.index = map->m_pa >> PAGE_SHIFT;
 
 	pcl->length = (map->m_llen << Z_EROFS_PCLUSTER_LENGTH_BIT) |
@@ -430,19 +411,29 @@ static int z_erofs_register_collection(struct z_erofs_collector *clt,
 	clt->mode = COLLECT_PRIMARY_FOLLOWED;
 
 	cl = z_erofs_primarycollection(pcl);
+
+	/* must be cleaned before freeing to slab */
+	DBG_BUGON(cl->nr_pages);
+	DBG_BUGON(cl->vcnt);
+
 	cl->pageofs = map->m_la & ~PAGE_MASK;
 
 	/*
 	 * lock all primary followed works before visible to others
 	 * and mutex_trylock *never* fails for a new pcluster.
 	 */
-	mutex_trylock(&cl->lock);
+	DBG_BUGON(!mutex_trylock(&cl->lock));
 
-	err = erofs_register_workgroup(inode->i_sb, &pcl->obj, 0);
-	if (err) {
-		mutex_unlock(&cl->lock);
-		kmem_cache_free(pcluster_cachep, pcl);
-		return -EAGAIN;
+	grp = erofs_insert_workgroup(inode->i_sb, &pcl->obj);
+	if (IS_ERR(grp)) {
+		err = PTR_ERR(grp);
+		goto err_out;
+	}
+
+	if (grp != &pcl->obj) {
+		clt->pcl = container_of(grp, struct z_erofs_pcluster, obj);
+		err = -EEXIST;
+		goto err_out;
 	}
 	/* used to check tail merging loop due to corrupted images */
 	if (clt->owned_head == Z_EROFS_PCLUSTER_TAIL)
@@ -451,12 +442,18 @@ static int z_erofs_register_collection(struct z_erofs_collector *clt,
 	clt->pcl = pcl;
 	clt->cl = cl;
 	return 0;
+
+err_out:
+	mutex_unlock(&cl->lock);
+	kmem_cache_free(pcluster_cachep, pcl);
+	return err;
 }
 
 static int z_erofs_collector_begin(struct z_erofs_collector *clt,
 				   struct inode *inode,
 				   struct erofs_map_blocks *map)
 {
+	struct erofs_workgroup *grp;
 	int ret;
 
 	DBG_BUGON(clt->cl);
@@ -470,21 +467,25 @@ static int z_erofs_collector_begin(struct z_erofs_collector *clt,
 		return -EINVAL;
 	}
 
-repeat:
-	ret = z_erofs_lookup_collection(clt, inode, map);
-	if (ret == -ENOENT) {
+	grp = erofs_find_workgroup(inode->i_sb, map->m_pa >> PAGE_SHIFT);
+	if (grp) {
+		clt->pcl = container_of(grp, struct z_erofs_pcluster, obj);
+	} else {
 		ret = z_erofs_register_collection(clt, inode, map);
 
-		/* someone registered at the same time, give another try */
-		if (ret == -EAGAIN) {
-			cond_resched();
-			goto repeat;
-		}
+		if (!ret)
+			goto out;
+		if (ret != -EEXIST)
+			return ret;
 	}
 
-	if (ret)
+	ret = z_erofs_lookup_collection(clt, inode, map);
+	if (ret) {
+		erofs_workgroup_put(&clt->pcl->obj);
 		return ret;
+	}
 
+out:
 	z_erofs_pagevec_ctor_init(&clt->vector, Z_EROFS_NR_INLINE_PAGEVECS,
 				  clt->cl->pagevec, clt->cl->vcnt);
 
@@ -1149,21 +1150,7 @@ static void move_to_bypass_jobqueue(struct z_erofs_pcluster *pcl,
 	qtail[JQ_BYPASS] = &pcl->next;
 }
 
-static bool postsubmit_is_all_bypassed(struct z_erofs_decompressqueue *q[],
-				       unsigned int nr_bios, bool force_fg)
-{
-	/*
-	 * although background is preferred, no one is pending for submission.
-	 * don't issue workqueue for decompression but drop it directly instead.
-	 */
-	if (force_fg || nr_bios)
-		return false;
-
-	kvfree(q[JQ_SUBMIT]);
-	return true;
-}
-
-static bool z_erofs_submit_queue(struct super_block *sb,
+static void z_erofs_submit_queue(struct super_block *sb,
 				 z_erofs_next_pcluster_t owned_head,
 				 struct list_head *pagepool,
 				 struct z_erofs_decompressqueue *fgq,
@@ -1172,19 +1159,12 @@ static bool z_erofs_submit_queue(struct super_block *sb,
 	struct erofs_sb_info *const sbi = EROFS_SB(sb);
 	z_erofs_next_pcluster_t qtail[NR_JOBQUEUES];
 	struct z_erofs_decompressqueue *q[NR_JOBQUEUES];
-	struct bio *bio;
 	void *bi_private;
 	/* since bio will be NULL, no need to initialize last_index */
 	pgoff_t uninitialized_var(last_index);
-	bool force_submit = false;
-	unsigned int nr_bios;
+	unsigned int nr_bios = 0;
+	struct bio *bio = NULL;
 
-	if (owned_head == Z_EROFS_PCLUSTER_TAIL)
-		return false;
-
-	force_submit = false;
-	bio = NULL;
-	nr_bios = 0;
 	bi_private = jobqueueset_init(sb, q, fgq, force_fg);
 	qtail[JQ_BYPASS] = &q[JQ_BYPASS]->head;
 	qtail[JQ_SUBMIT] = &q[JQ_SUBMIT]->head;
@@ -1194,11 +1174,9 @@ static bool z_erofs_submit_queue(struct super_block *sb,
 
 	do {
 		struct z_erofs_pcluster *pcl;
-		unsigned int clusterpages;
-		pgoff_t first_index;
-		struct page *page;
-		unsigned int i = 0, bypass = 0;
-		int err;
+		pgoff_t cur, end;
+		unsigned int i = 0;
+		bool bypass = true;
 
 		/* no possible 'owned_head' equals the following */
 		DBG_BUGON(owned_head == Z_EROFS_PCLUSTER_TAIL_CLOSED);
@@ -1206,55 +1184,50 @@ static bool z_erofs_submit_queue(struct super_block *sb,
 
 		pcl = container_of(owned_head, struct z_erofs_pcluster, next);
 
-		clusterpages = BIT(pcl->clusterbits);
+		cur = pcl->obj.index;
+		end = cur + BIT(pcl->clusterbits);
 
 		/* close the main owned chain at first */
 		owned_head = cmpxchg(&pcl->next, Z_EROFS_PCLUSTER_TAIL,
 				     Z_EROFS_PCLUSTER_TAIL_CLOSED);
 
-		first_index = pcl->obj.index;
-		force_submit |= (first_index != last_index + 1);
+		do {
+			struct page *page;
+			int err;
 
-repeat:
-		page = pickup_page_for_submission(pcl, i, pagepool,
-						  MNGD_MAPPING(sbi),
-						  GFP_NOFS);
-		if (!page) {
-			force_submit = true;
-			++bypass;
-			goto skippage;
-		}
+			page = pickup_page_for_submission(pcl, i++, pagepool,
+							  MNGD_MAPPING(sbi),
+							  GFP_NOFS);
+			if (!page)
+				continue;
 
-		if (bio && force_submit) {
+			if (bio && cur != last_index + 1) {
 submit_bio_retry:
-			submit_bio(bio);
-			bio = NULL;
-		}
+				submit_bio(bio);
+				bio = NULL;
+			}
 
-		if (!bio) {
-			bio = bio_alloc(GFP_NOIO, BIO_MAX_PAGES);
+			if (!bio) {
+				bio = bio_alloc(GFP_NOIO, BIO_MAX_PAGES);
 
-			bio->bi_end_io = z_erofs_decompressqueue_endio;
-			bio_set_dev(bio, sb->s_bdev);
-			bio->bi_iter.bi_sector = (sector_t)(first_index + i) <<
-				LOG_SECTORS_PER_BLOCK;
-			bio->bi_private = bi_private;
-			bio->bi_opf = REQ_OP_READ;
+				bio->bi_end_io = z_erofs_decompressqueue_endio;
+				bio_set_dev(bio, sb->s_bdev);
+				bio->bi_iter.bi_sector = (sector_t)cur <<
+					LOG_SECTORS_PER_BLOCK;
+				bio->bi_private = bi_private;
+				bio->bi_opf = REQ_OP_READ;
+				++nr_bios;
+			}
 
-			++nr_bios;
-		}
+			err = bio_add_page(bio, page, PAGE_SIZE, 0);
+			if (err < PAGE_SIZE)
+				goto submit_bio_retry;
 
-		err = bio_add_page(bio, page, PAGE_SIZE, 0);
-		if (err < PAGE_SIZE)
-			goto submit_bio_retry;
+			last_index = cur;
+			bypass = false;
+		} while (++cur < end);
 
-		force_submit = false;
-		last_index = first_index + i;
-skippage:
-		if (++i < clusterpages)
-			goto repeat;
-
-		if (bypass < clusterpages)
+		if (!bypass)
 			qtail[JQ_SUBMIT] = &pcl->next;
 		else
 			move_to_bypass_jobqueue(pcl, qtail, owned_head);
@@ -1263,11 +1236,15 @@ skippage:
 	if (bio)
 		submit_bio(bio);
 
-	if (postsubmit_is_all_bypassed(q, nr_bios, *force_fg))
-		return true;
-
+	/*
+	 * although background is preferred, no one is pending for submission.
+	 * don't issue workqueue for decompression but drop it directly instead.
+	 */
+	if (!*force_fg && !nr_bios) {
+		kvfree(q[JQ_SUBMIT]);
+		return;
+	}
 	z_erofs_decompress_kickoff(q[JQ_SUBMIT], *force_fg, nr_bios);
-	return true;
 }
 
 static void z_erofs_runqueue(struct super_block *sb,
@@ -1276,9 +1253,9 @@ static void z_erofs_runqueue(struct super_block *sb,
 {
 	struct z_erofs_decompressqueue io[NR_JOBQUEUES];
 
-	if (!z_erofs_submit_queue(sb, clt->owned_head,
-				  pagepool, io, &force_fg))
+	if (clt->owned_head == Z_EROFS_PCLUSTER_TAIL)
 		return;
+	z_erofs_submit_queue(sb, clt->owned_head, pagepool, io, &force_fg);
 
 	/* handle bypass queue (no i/o pclusters) immediately */
 	z_erofs_decompress_queue(&io[JQ_BYPASS], pagepool);

@@ -776,7 +776,7 @@ static void emac_reset_work(struct work_struct *work)
 	mutex_unlock(&dev->link_lock);
 }
 
-static void emac_tx_timeout(struct net_device *ndev)
+static void emac_tx_timeout(struct net_device *ndev, unsigned int txqueue)
 {
 	struct emac_instance *dev = netdev_priv(ndev);
 
@@ -872,7 +872,7 @@ static void __emac_mdio_write(struct emac_instance *dev, u8 id, u8 reg,
 {
 	struct emac_regs __iomem *p = dev->emacp;
 	u32 r = 0;
-	int n, err = -ETIMEDOUT;
+	int n;
 
 	mutex_lock(&dev->mdio_lock);
 
@@ -919,7 +919,6 @@ static void __emac_mdio_write(struct emac_instance *dev, u8 id, u8 reg,
 			goto bail;
 		}
 	}
-	err = 0;
  bail:
 	if (emac_has_feature(dev, EMAC_FTR_HAS_RGMII))
 		rgmii_put_mdio(dev->rgmii_dev, dev->rgmii_port);

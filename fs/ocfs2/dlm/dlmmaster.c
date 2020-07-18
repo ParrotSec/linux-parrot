@@ -2554,8 +2554,6 @@ static int dlm_migrate_lockres(struct dlm_ctxt *dlm,
 	if (!dlm_grab(dlm))
 		return -EINVAL;
 
-	BUG_ON(target == O2NM_MAX_NODES);
-
 	name = res->lockname.name;
 	namelen = res->lockname.len;
 
@@ -2750,8 +2748,6 @@ leave:
 	     name, target, ret);
 	return ret;
 }
-
-#define DLM_MIGRATION_RETRY_MS  100
 
 /*
  * Should be called only after beginning the domain leave process.

@@ -11,6 +11,7 @@
 /* -------------------------------------------------------------------------- */
 
 struct ucsi;
+struct ucsi_altmode;
 
 /* UCSI offsets (Bytes) */
 #define UCSI_VERSION			0
@@ -35,6 +36,7 @@ struct ucsi;
  * @read: Read operation
  * @sync_write: Blocking write operation
  * @async_write: Non-blocking write operation
+ * @update_altmodes: Squashes duplicate DP altmodes
  *
  * Read and write routines for UCSI interface. @sync_write must wait for the
  * Command Completion Event from the PPM before returning, and @async_write must
@@ -47,6 +49,8 @@ struct ucsi_operations {
 			  const void *val, size_t val_len);
 	int (*async_write)(struct ucsi *ucsi, unsigned int offset,
 			   const void *val, size_t val_len);
+	bool (*update_altmodes)(struct ucsi *ucsi, struct ucsi_altmode *orig,
+				struct ucsi_altmode *updated);
 };
 
 struct ucsi *ucsi_create(struct device *dev, const struct ucsi_operations *ops);
@@ -82,6 +86,7 @@ void ucsi_connector_change(struct ucsi *ucsi, u8 num);
 #define UCSI_GET_ERROR_STATUS		0x13
 
 #define UCSI_CONNECTOR_NUMBER(_num_)		((u64)(_num_) << 16)
+#define UCSI_COMMAND(_cmd_)			((_cmd_) & 0xff)
 
 /* CONNECTOR_RESET command bits */
 #define UCSI_CONNECTOR_RESET_HARD		BIT(23) /* Deprecated in v1.1 */
@@ -114,12 +119,14 @@ void ucsi_connector_change(struct ucsi *ucsi, u8 num);
 #define UCSI_SET_PDR_ACCEPT_ROLE_SWAPS		BIT(25)
 
 /* GET_ALTERNATE_MODES command bits */
+#define UCSI_ALTMODE_RECIPIENT(_r_)		(((_r_) >> 16) & 0x7)
 #define UCSI_GET_ALTMODE_RECIPIENT(_r_)		((u64)(_r_) << 16)
 #define   UCSI_RECIPIENT_CON			0
 #define   UCSI_RECIPIENT_SOP			1
 #define   UCSI_RECIPIENT_SOP_P			2
 #define   UCSI_RECIPIENT_SOP_PP			3
 #define UCSI_GET_ALTMODE_CONNECTOR_NUMBER(_r_)	((u64)(_r_) << 24)
+#define UCSI_ALTMODE_OFFSET(_r_)		(((_r_) >> 32) & 0xff)
 #define UCSI_GET_ALTMODE_OFFSET(_r_)		((u64)(_r_) << 32)
 #define UCSI_GET_ALTMODE_NUM_ALTMODES(_r_)	((u64)(_r_) << 40)
 
@@ -139,6 +146,12 @@ void ucsi_connector_change(struct ucsi *ucsi, u8 num);
 #define UCSI_ERROR_HARD_RESET			BIT(10)
 #define UCSI_ERROR_PPM_POLICY_CONFLICT		BIT(11)
 #define UCSI_ERROR_SWAP_REJECTED		BIT(12)
+
+#define UCSI_SET_NEW_CAM_ENTER(x)		(((x) >> 23) & 0x1)
+#define UCSI_SET_NEW_CAM_GET_AM(x)		(((x) >> 24) & 0xff)
+#define UCSI_SET_NEW_CAM_AM_MASK		(0xff << 24)
+#define UCSI_SET_NEW_CAM_SET_AM(x)		(((x) & 0xff) << 24)
+#define UCSI_CMD_CONNECTOR_MASK			(0x7)
 
 /* Data structure filled by PPM in response to GET_CAPABILITY command. */
 struct ucsi_capability {
@@ -269,6 +282,9 @@ struct ucsi {
 	/* PPM Communication lock */
 	struct mutex ppm_lock;
 
+	/* The latest "Notification Enable" bits (SET_NOTIFICATION_ENABLE) */
+	u64 ntfy;
+
 	/* PPM communication flags */
 	unsigned long flags;
 #define EVENT_PENDING	0
@@ -325,5 +341,12 @@ ucsi_register_displayport(struct ucsi_connector *con,
 static inline void
 ucsi_displayport_remove_partner(struct typec_altmode *adev) { }
 #endif /* CONFIG_TYPEC_DP_ALTMODE */
+
+/*
+ * NVIDIA VirtualLink (svid 0x955) has two altmode. VirtualLink
+ * DP mode with vdo=0x1 and NVIDIA test mode with vdo=0x3
+ */
+#define USB_TYPEC_NVIDIA_VLINK_DP_VDO	0x1
+#define USB_TYPEC_NVIDIA_VLINK_DBG_VDO	0x3
 
 #endif /* __DRIVER_USB_TYPEC_UCSI_H */

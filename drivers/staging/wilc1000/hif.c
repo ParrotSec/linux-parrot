@@ -10,7 +10,8 @@
 #define WILC_HIF_CONNECT_TIMEOUT_MS             9500
 
 #define WILC_FALSE_FRMWR_CHANNEL		100
-#define WILC_MAX_RATES_SUPPORTED		12
+
+#define WILC_SCAN_WID_LIST_SIZE		6
 
 struct wilc_rcvd_mac_info {
 	u8 status;
@@ -26,48 +27,6 @@ struct wilc_del_all_sta {
 	u8 assoc_sta;
 	u8 mac[WILC_MAX_NUM_STA][ETH_ALEN];
 };
-
-struct wilc_op_mode {
-	__le32 mode;
-};
-
-struct wilc_reg_frame {
-	u8 reg;
-	u8 reg_id;
-	__le16 frame_type;
-} __packed;
-
-struct wilc_drv_handler {
-	__le32 handler;
-	u8 mode;
-} __packed;
-
-struct wilc_wep_key {
-	u8 index;
-	u8 key_len;
-	u8 key[0];
-} __packed;
-
-struct wilc_sta_wpa_ptk {
-	u8 mac_addr[ETH_ALEN];
-	u8 key_len;
-	u8 key[0];
-} __packed;
-
-struct wilc_ap_wpa_ptk {
-	u8 mac_addr[ETH_ALEN];
-	u8 index;
-	u8 key_len;
-	u8 key[0];
-} __packed;
-
-struct wilc_gtk_key {
-	u8 mac_addr[ETH_ALEN];
-	u8 rsc[8];
-	u8 index;
-	u8 key_len;
-	u8 key[0];
-} __packed;
 
 union wilc_message_body {
 	struct wilc_rcvd_net_info net_info;
@@ -85,51 +44,6 @@ struct host_if_msg {
 	struct completion work_comp;
 	bool is_sync;
 };
-
-struct wilc_noa_opp_enable {
-	u8 ct_window;
-	u8 cnt;
-	__le32 duration;
-	__le32 interval;
-	__le32 start_time;
-} __packed;
-
-struct wilc_noa_opp_disable {
-	u8 cnt;
-	__le32 duration;
-	__le32 interval;
-	__le32 start_time;
-} __packed;
-
-struct wilc_join_bss_param {
-	char ssid[IEEE80211_MAX_SSID_LEN];
-	u8 ssid_terminator;
-	u8 bss_type;
-	u8 ch;
-	__le16 cap_info;
-	u8 sa[ETH_ALEN];
-	u8 bssid[ETH_ALEN];
-	__le16 beacon_period;
-	u8 dtim_period;
-	u8 supp_rates[WILC_MAX_RATES_SUPPORTED + 1];
-	u8 wmm_cap;
-	u8 uapsd_cap;
-	u8 ht_capable;
-	u8 rsn_found;
-	u8 rsn_grp_policy;
-	u8 mode_802_11i;
-	u8 p_suites[3];
-	u8 akm_suites[3];
-	u8 rsn_cap[2];
-	u8 noa_enabled;
-	__le32 tsf_lo;
-	u8 idx;
-	u8 opp_enabled;
-	union {
-		struct wilc_noa_opp_disable opp_dis;
-		struct wilc_noa_opp_enable opp_en;
-	};
-} __packed;
 
 /* 'msg' should be free by the caller for syc */
 static struct host_if_msg*
@@ -239,7 +153,7 @@ int wilc_scan(struct wilc_vif *vif, u8 scan_source, u8 scan_type,
 	      void *user_arg, struct cfg80211_scan_request *request)
 {
 	int result = 0;
-	struct wid wid_list[5];
+	struct wid wid_list[WILC_SCAN_WID_LIST_SIZE];
 	u32 index = 0;
 	u32 i, scan_timeout;
 	u8 *buffer;
@@ -640,7 +554,7 @@ static s32 wilc_parse_assoc_resp_info(u8 *buffer, u32 buffer_len,
 {
 	u8 *ies;
 	u16 ies_len;
-	struct assoc_resp *res = (struct assoc_resp *)buffer;
+	struct wilc_assoc_resp *res = (struct wilc_assoc_resp *)buffer;
 
 	ret_conn_info->status = le16_to_cpu(res->status_code);
 	if (ret_conn_info->status == WLAN_STATUS_SUCCESS) {
@@ -889,7 +803,7 @@ static void wilc_hif_pack_sta_param(u8 *cur_byte, const u8 *mac,
 
 	if (params->ht_capa) {
 		*cur_byte++ = true;
-		memcpy(cur_byte, &params->ht_capa,
+		memcpy(cur_byte, params->ht_capa,
 		       sizeof(struct ieee80211_ht_cap));
 	} else {
 		*cur_byte++ = false;
@@ -949,9 +863,8 @@ static int wilc_handle_roc_expired(struct wilc_vif *vif, u64 cookie)
 	struct wid wid;
 	int result;
 	struct host_if_drv *hif_drv = vif->hif_drv;
-	struct wilc_priv *priv = wdev_priv(vif->ndev->ieee80211_ptr);
 
-	if (priv->p2p_listen_state) {
+	if (vif->priv.p2p_listen_state) {
 		remain_on_chan_flag = false;
 		wid.id = WID_REMAIN_ON_CHAN;
 		wid.type = WID_STR;

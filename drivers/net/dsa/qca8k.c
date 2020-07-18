@@ -1017,7 +1017,8 @@ qca8k_port_fdb_dump(struct dsa_switch *ds, int port,
 }
 
 static enum dsa_tag_protocol
-qca8k_get_tag_protocol(struct dsa_switch *ds, int port)
+qca8k_get_tag_protocol(struct dsa_switch *ds, int port,
+		       enum dsa_tag_protocol mp)
 {
 	return DSA_TAG_PROTO_QCA;
 }
@@ -1078,8 +1079,7 @@ qca8k_sw_probe(struct mdio_device *mdiodev)
 	if (id != QCA8K_ID_QCA8337)
 		return -ENODEV;
 
-	priv->ds = devm_kzalloc(&mdiodev->dev, sizeof(*priv->ds),
-				QCA8K_NUM_PORTS);
+	priv->ds = devm_kzalloc(&mdiodev->dev, sizeof(*priv->ds), GFP_KERNEL);
 	if (!priv->ds)
 		return -ENOMEM;
 

@@ -49,6 +49,28 @@
 	status = "okay";
 };
 
+&hsic0 {
+	status = "okay";
+
+	usb1@1 {
+		compatible = "usb424,2640";
+		reg = <0x01>;
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+
+		mass-storage@1 {
+			compatible = "usb424,4040";
+			reg = <0x01>;
+			status = "disabled";
+		};
+	};
+};
+
+&hsic_phy0 {
+	status = "okay";
+	reset-gpios = <&gpio 63 GPIO_ACTIVE_HIGH>;
+};
+
 &mmc3 {
 	status = "okay";
 	max-frequency = <50000000>;
@@ -76,19 +98,19 @@
 	status = "okay";
 };
 
-&ssp3 {
+&ssp1 {
 	status = "okay";
-	cs-gpios = <&gpio 46 GPIO_ACTIVE_HIGH>;
+	cs-gpios = <&gpio 46 GPIO_ACTIVE_LOW>;
 
 	firmware-flash@0 {
-		compatible = "st,m25p80", "jedec,spi-nor";
+		compatible = "winbond,w25q32", "jedec,spi-nor";
 		reg = <0>;
-		spi-max-frequency = <40000000>;
+		spi-max-frequency = <104000000>;
 		m25p,fast-read;
 	};
 };
 
-&ssp4 {
-	cs-gpios = <&gpio 56 GPIO_ACTIVE_HIGH>;
+&ssp2 {
+	cs-gpios = <&gpio 56 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };

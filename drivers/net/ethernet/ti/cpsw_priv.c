@@ -272,7 +272,7 @@ void soft_reset(const char *module, void __iomem *reg)
 	WARN(readl_relaxed(reg) & 1, "failed to soft-reset %s\n", module);
 }
 
-void cpsw_ndo_tx_timeout(struct net_device *ndev)
+void cpsw_ndo_tx_timeout(struct net_device *ndev, unsigned int txqueue)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	struct cpsw_common *cpsw = priv->cpsw;
@@ -490,9 +490,9 @@ int cpsw_init_common(struct cpsw_common *cpsw, void __iomem *ss_regs,
 	ale_params.ale_ports		= CPSW_ALE_PORTS_NUM;
 
 	cpsw->ale = cpsw_ale_create(&ale_params);
-	if (!cpsw->ale) {
+	if (IS_ERR(cpsw->ale)) {
 		dev_err(dev, "error initializing ale engine\n");
-		return -ENODEV;
+		return PTR_ERR(cpsw->ale);
 	}
 
 	dma_params.dev		= dev;

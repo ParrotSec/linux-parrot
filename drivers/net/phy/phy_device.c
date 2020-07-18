@@ -886,6 +886,9 @@ EXPORT_SYMBOL(phy_device_register);
  */
 void phy_device_remove(struct phy_device *phydev)
 {
+	if (phydev->mii_ts)
+		unregister_mii_timestamper(phydev->mii_ts);
+
 	device_del(&phydev->mdio.dev);
 
 	/* Assert the reset signal */
@@ -924,6 +927,8 @@ static void phy_link_change(struct phy_device *phydev, bool up, bool do_carrier)
 			netif_carrier_off(netdev);
 	}
 	phydev->adjust_link(netdev);
+	if (phydev->mii_ts && phydev->mii_ts->link_state)
+		phydev->mii_ts->link_state(phydev->mii_ts, phydev);
 }
 
 /**
@@ -1054,18 +1059,12 @@ EXPORT_SYMBOL(phy_disconnect);
 static int phy_poll_reset(struct phy_device *phydev)
 {
 	/* Poll until the reset bit clears (50ms per retry == 0.6 sec) */
-	unsigned int retries = 12;
-	int ret;
+	int ret, val;
 
-	do {
-		msleep(50);
-		ret = phy_read(phydev, MII_BMCR);
-		if (ret < 0)
-			return ret;
-	} while (ret & BMCR_RESET && --retries);
-	if (ret & BMCR_RESET)
-		return -ETIMEDOUT;
-
+	ret = phy_read_poll_timeout(phydev, MII_BMCR, val, !(val & BMCR_RESET),
+				    50000, 600000, true);
+	if (ret)
+		return ret;
 	/* Some chips (smsc911x) may still need up to another 1ms after the
 	 * BMCR_RESET bit is cleared before they are usable.
 	 */
@@ -1107,9 +1106,8 @@ void phy_attached_info(struct phy_device *phydev)
 EXPORT_SYMBOL(phy_attached_info);
 
 #define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%s)"
-void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+char *phy_attached_info_irq(struct phy_device *phydev)
 {
-	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
 	char *irq_str;
 	char irq_num[8];
 
@@ -1126,6 +1124,14 @@ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
 		break;
 	}
 
+	return kasprintf(GFP_KERNEL, "%s", irq_str);
+}
+EXPORT_SYMBOL(phy_attached_info_irq);
+
+void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+{
+	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
+	char *irq_str = phy_attached_info_irq(phydev);
 
 	if (!fmt) {
 		phydev_info(phydev, ATTACHED_FMT "\n",
@@ -1142,6 +1148,7 @@ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
 		vprintk(fmt, ap);
 		va_end(ap);
 	}
+	kfree(irq_str);
 }
 EXPORT_SYMBOL(phy_attached_print);
 
@@ -1226,7 +1233,7 @@ int phy_sfp_probe(struct phy_device *phydev,
 		  const struct sfp_upstream_ops *ops)
 {
 	struct sfp_bus *bus;
-	int ret;
+	int ret = 0;
 
 	if (phydev->mdio.dev.fwnode) {
 		bus = sfp_bus_find_fwnode(phydev->mdio.dev.fwnode);
@@ -1238,7 +1245,7 @@ int phy_sfp_probe(struct phy_device *phydev,
 		ret = sfp_bus_add_upstream(bus, phydev, ops);
 		sfp_bus_put(bus);
 	}
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(phy_sfp_probe);
 
@@ -1512,23 +1519,22 @@ EXPORT_SYMBOL(phy_detach);
 
 int phy_suspend(struct phy_device *phydev)
 {
-	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
-	struct net_device *netdev = phydev->attached_dev;
 	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
-	int ret = 0;
+	struct net_device *netdev = phydev->attached_dev;
+	struct phy_driver *phydrv = phydev->drv;
+	int ret;
 
 	/* If the device has WOL enabled, we cannot suspend the PHY */
 	phy_ethtool_get_wol(phydev, &wol);
 	if (wol.wolopts || (netdev && netdev->wol_enabled))
 		return -EBUSY;
 
-	if (phydev->drv && phydrv->suspend)
-		ret = phydrv->suspend(phydev);
+	if (!phydrv || !phydrv->suspend)
+		return 0;
 
-	if (ret)
-		return ret;
-
-	phydev->suspended = true;
+	ret = phydrv->suspend(phydev);
+	if (!ret)
+		phydev->suspended = true;
 
 	return ret;
 }
@@ -1536,18 +1542,17 @@ EXPORT_SYMBOL(phy_suspend);
 
 int __phy_resume(struct phy_device *phydev)
 {
-	struct phy_driver *phydrv = to_phy_driver(phydev->mdio.dev.driver);
-	int ret = 0;
+	struct phy_driver *phydrv = phydev->drv;
+	int ret;
 
 	WARN_ON(!mutex_is_locked(&phydev->lock));
 
-	if (phydev->drv && phydrv->resume)
-		ret = phydrv->resume(phydev);
+	if (!phydrv || !phydrv->resume)
+		return 0;
 
-	if (ret)
-		return ret;
-
-	phydev->suspended = false;
+	ret = phydrv->resume(phydev);
+	if (!ret)
+		phydev->suspended = false;
 
 	return ret;
 }
@@ -1776,6 +1781,36 @@ int genphy_restart_aneg(struct phy_device *phydev)
 EXPORT_SYMBOL(genphy_restart_aneg);
 
 /**
+ * genphy_check_and_restart_aneg - Enable and restart auto-negotiation
+ * @phydev: target phy_device struct
+ * @restart: whether aneg restart is requested
+ *
+ * Check, and restart auto-negotiation if needed.
+ */
+int genphy_check_and_restart_aneg(struct phy_device *phydev, bool restart)
+{
+	int ret;
+
+	if (!restart) {
+		/* Advertisement hasn't changed, but maybe aneg was never on to
+		 * begin with?  Or maybe phy was isolated?
+		 */
+		ret = phy_read(phydev, MII_BMCR);
+		if (ret < 0)
+			return ret;
+
+		if (!(ret & BMCR_ANENABLE) || (ret & BMCR_ISOLATE))
+			restart = true;
+	}
+
+	if (restart)
+		return genphy_restart_aneg(phydev);
+
+	return 0;
+}
+EXPORT_SYMBOL(genphy_check_and_restart_aneg);
+
+/**
  * __genphy_config_aneg - restart auto-negotiation or write BMCR
  * @phydev: target phy_device struct
  * @changed: whether autoneg is requested
@@ -1800,23 +1835,7 @@ int __genphy_config_aneg(struct phy_device *phydev, bool changed)
 	else if (err)
 		changed = true;
 
-	if (!changed) {
-		/* Advertisement hasn't changed, but maybe aneg was never on to
-		 * begin with?  Or maybe phy was isolated?
-		 */
-		int ctl = phy_read(phydev, MII_BMCR);
-
-		if (ctl < 0)
-			return ctl;
-
-		if (!(ctl & BMCR_ANENABLE) || (ctl & BMCR_ISOLATE))
-			changed = true; /* do restart aneg */
-	}
-
-	/* Only restart aneg if we are advertising something different
-	 * than we were before.
-	 */
-	return changed ? genphy_restart_aneg(phydev) : 0;
+	return genphy_check_and_restart_aneg(phydev, changed);
 }
 EXPORT_SYMBOL(__genphy_config_aneg);
 
@@ -1908,9 +1927,10 @@ int genphy_update_link(struct phy_device *phydev)
 
 	/* The link state is latched low so that momentary link
 	 * drops can be detected. Do not double-read the status
-	 * in polling mode to detect such short link drops.
+	 * in polling mode to detect such short link drops except
+	 * the link was already down.
 	 */
-	if (!phy_polling_mode(phydev)) {
+	if (!phy_polling_mode(phydev) || !phydev->link) {
 		status = phy_read(phydev, MII_BMSR);
 		if (status < 0)
 			return status;
@@ -1984,6 +2004,36 @@ int genphy_read_lpa(struct phy_device *phydev)
 EXPORT_SYMBOL(genphy_read_lpa);
 
 /**
+ * genphy_read_status_fixed - read the link parameters for !aneg mode
+ * @phydev: target phy_device struct
+ *
+ * Read the current duplex and speed state for a PHY operating with
+ * autonegotiation disabled.
+ */
+int genphy_read_status_fixed(struct phy_device *phydev)
+{
+	int bmcr = phy_read(phydev, MII_BMCR);
+
+	if (bmcr < 0)
+		return bmcr;
+
+	if (bmcr & BMCR_FULLDPLX)
+		phydev->duplex = DUPLEX_FULL;
+	else
+		phydev->duplex = DUPLEX_HALF;
+
+	if (bmcr & BMCR_SPEED1000)
+		phydev->speed = SPEED_1000;
+	else if (bmcr & BMCR_SPEED100)
+		phydev->speed = SPEED_100;
+	else
+		phydev->speed = SPEED_10;
+
+	return 0;
+}
+EXPORT_SYMBOL(genphy_read_status_fixed);
+
+/**
  * genphy_read_status - check the link status and update current link state
  * @phydev: target phy_device struct
  *
@@ -2017,22 +2067,9 @@ int genphy_read_status(struct phy_device *phydev)
 	if (phydev->autoneg == AUTONEG_ENABLE && phydev->autoneg_complete) {
 		phy_resolve_aneg_linkmode(phydev);
 	} else if (phydev->autoneg == AUTONEG_DISABLE) {
-		int bmcr = phy_read(phydev, MII_BMCR);
-
-		if (bmcr < 0)
-			return bmcr;
-
-		if (bmcr & BMCR_FULLDPLX)
-			phydev->duplex = DUPLEX_FULL;
-		else
-			phydev->duplex = DUPLEX_HALF;
-
-		if (bmcr & BMCR_SPEED1000)
-			phydev->speed = SPEED_1000;
-		else if (bmcr & BMCR_SPEED100)
-			phydev->speed = SPEED_100;
-		else
-			phydev->speed = SPEED_10;
+		err = genphy_read_status_fixed(phydev);
+		if (err < 0)
+			return err;
 	}
 
 	return 0;
@@ -2322,22 +2359,7 @@ void phy_set_asym_pause(struct phy_device *phydev, bool rx, bool tx)
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(oldadv);
 
 	linkmode_copy(oldadv, phydev->advertising);
-
-	linkmode_clear_bit(ETHTOOL_LINK_MODE_Pause_BIT,
-			   phydev->advertising);
-	linkmode_clear_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
-			   phydev->advertising);
-
-	if (rx) {
-		linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
-				 phydev->advertising);
-		linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
-				 phydev->advertising);
-	}
-
-	if (tx)
-		linkmode_change_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
-				    phydev->advertising);
+	linkmode_set_pause(phydev->advertising, tx, rx);
 
 	if (!linkmode_equal(oldadv, phydev->advertising) &&
 	    phydev->autoneg)
@@ -2369,6 +2391,32 @@ bool phy_validate_pause(struct phy_device *phydev,
 	return true;
 }
 EXPORT_SYMBOL(phy_validate_pause);
+
+/**
+ * phy_get_pause - resolve negotiated pause modes
+ * @phydev: phy_device struct
+ * @tx_pause: pointer to bool to indicate whether transmit pause should be
+ * enabled.
+ * @rx_pause: pointer to bool to indicate whether receive pause should be
+ * enabled.
+ *
+ * Resolve and return the flow control modes according to the negotiation
+ * result. This includes checking that we are operating in full duplex mode.
+ * See linkmode_resolve_pause() for further details.
+ */
+void phy_get_pause(struct phy_device *phydev, bool *tx_pause, bool *rx_pause)
+{
+	if (phydev->duplex != DUPLEX_FULL) {
+		*tx_pause = false;
+		*rx_pause = false;
+		return;
+	}
+
+	return linkmode_resolve_pause(phydev->advertising,
+				      phydev->lp_advertising,
+				      tx_pause, rx_pause);
+}
+EXPORT_SYMBOL(phy_get_pause);
 
 static bool phy_drv_supports_irq(struct phy_driver *phydrv)
 {
@@ -2527,6 +2575,7 @@ int phy_driver_register(struct phy_driver *new_driver, struct module *owner)
 	new_driver->mdiodrv.driver.probe = phy_probe;
 	new_driver->mdiodrv.driver.remove = phy_remove;
 	new_driver->mdiodrv.driver.owner = owner;
+	new_driver->mdiodrv.driver.probe_type = PROBE_FORCE_SYNCHRONOUS;
 
 	retval = driver_register(&new_driver->mdiodrv.driver);
 	if (retval) {
@@ -2580,7 +2629,6 @@ static struct phy_driver genphy_driver = {
 	.name		= "Generic PHY",
 	.soft_reset	= genphy_no_soft_reset,
 	.get_features	= genphy_read_abilities,
-	.aneg_done	= genphy_aneg_done,
 	.suspend	= genphy_suspend,
 	.resume		= genphy_resume,
 	.set_loopback   = genphy_loopback,

@@ -30,7 +30,6 @@
 #include "ftgmac100.h"
 
 #define DRV_NAME	"ftgmac100"
-#define DRV_VERSION	"0.7"
 
 /* Arbitrary values, I am not sure the HW has limits */
 #define MAX_RX_QUEUE_ENTRIES	1024
@@ -1150,7 +1149,6 @@ static void ftgmac100_get_drvinfo(struct net_device *netdev,
 				  struct ethtool_drvinfo *info)
 {
 	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
-	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
 	strlcpy(info->bus_info, dev_name(&netdev->dev), sizeof(info->bus_info));
 }
 
@@ -1536,16 +1534,7 @@ static int ftgmac100_stop(struct net_device *netdev)
 	return 0;
 }
 
-/* optional */
-static int ftgmac100_do_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-{
-	if (!netdev->phydev)
-		return -ENXIO;
-
-	return phy_mii_ioctl(netdev->phydev, ifr, cmd);
-}
-
-static void ftgmac100_tx_timeout(struct net_device *netdev)
+static void ftgmac100_tx_timeout(struct net_device *netdev, unsigned int txqueue)
 {
 	struct ftgmac100 *priv = netdev_priv(netdev);
 
@@ -1597,7 +1586,7 @@ static const struct net_device_ops ftgmac100_netdev_ops = {
 	.ndo_start_xmit		= ftgmac100_hard_start_xmit,
 	.ndo_set_mac_address	= ftgmac100_set_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
-	.ndo_do_ioctl		= ftgmac100_do_ioctl,
+	.ndo_do_ioctl		= phy_do_ioctl,
 	.ndo_tx_timeout		= ftgmac100_tx_timeout,
 	.ndo_set_rx_mode	= ftgmac100_set_rx_mode,
 	.ndo_set_features	= ftgmac100_set_features,
@@ -1742,7 +1731,7 @@ static int ftgmac100_setup_clk(struct ftgmac100 *priv)
 	if (rc)
 		goto cleanup_clk;
 
-	/* RCLK is for RMII, typically used for NCSI. Optional because its not
+	/* RCLK is for RMII, typically used for NCSI. Optional because it's not
 	 * necessary if it's the AST2400 MAC, or the MAC is configured for
 	 * RGMII, or the controller is not an ASPEED-based controller.
 	 */
@@ -1765,9 +1754,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
 	struct ftgmac100 *priv;
 	struct device_node *np;
 	int err = 0;
-
-	if (!pdev)
-		return -ENODEV;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)

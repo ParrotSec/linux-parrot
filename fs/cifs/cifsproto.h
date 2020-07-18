@@ -598,6 +598,14 @@ bool is_ses_using_iface(struct cifs_ses *ses, struct cifs_server_iface *iface);
 
 void extract_unc_hostname(const char *unc, const char **h, size_t *len);
 int copy_path_name(char *dst, const char *src);
+int smb2_parse_query_directory(struct cifs_tcon *tcon, struct kvec *rsp_iov,
+			       int resp_buftype,
+			       struct cifs_search_info *srch_inf);
+
+struct super_block *cifs_get_tcp_super(struct TCP_Server_Info *server);
+void cifs_put_tcp_super(struct super_block *sb);
+int update_super_prepath(struct cifs_tcon *tcon, const char *prefix,
+			 size_t prefix_len);
 
 #ifdef CONFIG_CIFS_DFS_UPCALL
 static inline int get_dfs_path(const unsigned int xid, struct cifs_ses *ses,
@@ -609,5 +617,13 @@ static inline int get_dfs_path(const unsigned int xid, struct cifs_ses *ses,
 			      referral, NULL);
 }
 #endif
+
+static inline int cifs_create_options(struct cifs_sb_info *cifs_sb, int options)
+{
+	if (cifs_sb && (backup_cred(cifs_sb)))
+		return options | CREATE_OPEN_BACKUP_INTENT;
+	else
+		return options;
+}
 
 #endif			/* _CIFSPROTO_H */

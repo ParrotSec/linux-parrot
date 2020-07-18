@@ -18,25 +18,15 @@
 #include <linux/ptp_clock_kernel.h>
 #include <linux/regmap.h>
 
+#include <soc/mscc/ocelot_qsys.h>
 #include <soc/mscc/ocelot_sys.h>
+#include <soc/mscc/ocelot_dev.h>
+#include <soc/mscc/ocelot_ana.h>
 #include <soc/mscc/ocelot.h>
-#include "ocelot_ana.h"
-#include "ocelot_dev.h"
-#include "ocelot_qsys.h"
 #include "ocelot_rew.h"
 #include "ocelot_qs.h"
 #include "ocelot_tc.h"
 #include "ocelot_ptp.h"
-
-#define PGID_AGGR    64
-#define PGID_SRC     80
-
-/* Reserved PGIDs */
-#define PGID_CPU     (PGID_AGGR - 5)
-#define PGID_UC      (PGID_AGGR - 4)
-#define PGID_MC      (PGID_AGGR - 3)
-#define PGID_MCIPV4  (PGID_AGGR - 2)
-#define PGID_MCIPV6  (PGID_AGGR - 1)
 
 #define OCELOT_BUFFER_CELL_SZ 60
 
@@ -66,9 +56,6 @@ struct ocelot_port_private {
 	struct phy_device *phy;
 	u8 chip_port;
 
-	u8 vlan_aware;
-
-	phy_interface_t phy_mode;
 	struct phy *serdes;
 
 	struct ocelot_port_tc tc;

@@ -135,6 +135,8 @@ struct tls_sw_context_tx {
 	struct tls_rec *open_rec;
 	struct list_head tx_list;
 	atomic_t encrypt_pending;
+	/* protect crypto_wait with encrypt_pending */
+	spinlock_t encrypt_compl_lock;
 	int async_notify;
 	u8 async_capable:1;
 
@@ -155,6 +157,8 @@ struct tls_sw_context_rx {
 	u8 async_capable:1;
 	u8 decrypted:1;
 	atomic_t decrypt_pending;
+	/* protect crypto_wait with decrypt_pending*/
+	spinlock_t decrypt_compl_lock;
 	bool async_notify;
 };
 
@@ -567,6 +571,15 @@ static inline bool tls_sw_has_ctx_tx(const struct sock *sk)
 	return !!tls_sw_ctx_tx(ctx);
 }
 
+static inline bool tls_sw_has_ctx_rx(const struct sock *sk)
+{
+	struct tls_context *ctx = tls_get_ctx(sk);
+
+	if (!ctx)
+		return false;
+	return !!tls_sw_ctx_rx(ctx);
+}
+
 void tls_sw_write_space(struct sock *sk, struct tls_context *ctx);
 void tls_device_write_space(struct sock *sk, struct tls_context *ctx);
 
@@ -641,6 +654,7 @@ int tls_sw_fallback_init(struct sock *sk,
 #ifdef CONFIG_TLS_DEVICE
 void tls_device_init(void);
 void tls_device_cleanup(void);
+void tls_device_sk_destruct(struct sock *sk);
 int tls_set_device_offload(struct sock *sk, struct tls_context *ctx);
 void tls_device_free_resources_tx(struct sock *sk);
 int tls_set_device_offload_rx(struct sock *sk, struct tls_context *ctx);
@@ -649,6 +663,14 @@ void tls_device_rx_resync_new_rec(struct sock *sk, u32 rcd_len, u32 seq);
 void tls_offload_tx_resync_request(struct sock *sk, u32 got_seq, u32 exp_seq);
 int tls_device_decrypted(struct sock *sk, struct tls_context *tls_ctx,
 			 struct sk_buff *skb, struct strp_msg *rxm);
+
+static inline bool tls_is_sk_rx_device_offloaded(struct sock *sk)
+{
+	if (!sk_fullsock(sk) ||
+	    smp_load_acquire(&sk->sk_destruct) != tls_device_sk_destruct)
+		return false;
+	return tls_get_ctx(sk)->rx_conf == TLS_HW;
+}
 #else
 static inline void tls_device_init(void) {}
 static inline void tls_device_cleanup(void) {}

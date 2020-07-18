@@ -115,7 +115,7 @@ static int psc_dma_trigger(struct snd_soc_component *component,
 			   struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct psc_dma *psc_dma = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct psc_dma *psc_dma = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct psc_dma_stream *s = to_psc_dma_stream(substream, psc_dma);
 	struct mpc52xx_psc __iomem *regs = psc_dma->psc_regs;
@@ -217,7 +217,7 @@ static int psc_dma_open(struct snd_soc_component *component,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct psc_dma *psc_dma = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct psc_dma *psc_dma = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct psc_dma_stream *s;
 	int rc;
 
@@ -245,7 +245,7 @@ static int psc_dma_close(struct snd_soc_component *component,
 			 struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct psc_dma *psc_dma = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct psc_dma *psc_dma = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct psc_dma_stream *s;
 
 	dev_dbg(psc_dma->dev, "psc_dma_close(substream=%p)\n", substream);
@@ -271,7 +271,7 @@ psc_dma_pointer(struct snd_soc_component *component,
 		struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct psc_dma *psc_dma = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct psc_dma *psc_dma = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct psc_dma_stream *s;
 	dma_addr_t count;
 
@@ -298,7 +298,7 @@ static int psc_dma_new(struct snd_soc_component *component,
 		       struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_card *card = rtd->card->snd_card;
-	struct snd_soc_dai *dai = rtd->cpu_dai;
+	struct snd_soc_dai *dai = asoc_rtd_to_cpu(rtd, 0);
 	struct snd_pcm *pcm = rtd->pcm;
 	size_t size = psc_dma_hardware.buffer_bytes_max;
 	int rc;
@@ -360,7 +360,6 @@ static const struct snd_soc_component_driver mpc5200_audio_dma_component = {
 	.open		= psc_dma_open,
 	.close		= psc_dma_close,
 	.hw_free	= psc_dma_hw_free,
-	.ioctl		= snd_soc_pcm_lib_ioctl,
 	.pointer	= psc_dma_pointer,
 	.trigger	= psc_dma_trigger,
 	.hw_params	= psc_dma_hw_params,

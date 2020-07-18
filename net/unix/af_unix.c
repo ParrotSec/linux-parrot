@@ -189,9 +189,15 @@ static inline int unix_may_send(struct sock *sk, struct sock *osk)
 	return unix_peer(osk) == NULL || unix_our_peer(sk, osk);
 }
 
-static inline int unix_recvq_full(struct sock const *sk)
+static inline int unix_recvq_full(const struct sock *sk)
 {
 	return skb_queue_len(&sk->sk_receive_queue) > sk->sk_max_ack_backlog;
+}
+
+static inline int unix_recvq_full_lockless(const struct sock *sk)
+{
+	return skb_queue_len_lockless(&sk->sk_receive_queue) >
+		READ_ONCE(sk->sk_max_ack_backlog);
 }
 
 struct sock *unix_peer_get(struct sock *s)
@@ -676,6 +682,21 @@ static int unix_set_peek_off(struct sock *sk, int val)
 	return 0;
 }
 
+#ifdef CONFIG_PROC_FS
+static void unix_show_fdinfo(struct seq_file *m, struct socket *sock)
+{
+	struct sock *sk = sock->sk;
+	struct unix_sock *u;
+
+	if (sk) {
+		u = unix_sk(sock->sk);
+		seq_printf(m, "scm_fds: %u\n",
+			   atomic_read(&u->scm_stat.nr_fds));
+	}
+}
+#else
+#define unix_show_fdinfo NULL
+#endif
 
 static const struct proto_ops unix_stream_ops = {
 	.family =	PF_UNIX,
@@ -701,6 +722,7 @@ static const struct proto_ops unix_stream_ops = {
 	.sendpage =	unix_stream_sendpage,
 	.splice_read =	unix_stream_splice_read,
 	.set_peek_off =	unix_set_peek_off,
+	.show_fdinfo =	unix_show_fdinfo,
 };
 
 static const struct proto_ops unix_dgram_ops = {
@@ -726,6 +748,7 @@ static const struct proto_ops unix_dgram_ops = {
 	.mmap =		sock_no_mmap,
 	.sendpage =	sock_no_sendpage,
 	.set_peek_off =	unix_set_peek_off,
+	.show_fdinfo =	unix_show_fdinfo,
 };
 
 static const struct proto_ops unix_seqpacket_ops = {
@@ -751,6 +774,7 @@ static const struct proto_ops unix_seqpacket_ops = {
 	.mmap =		sock_no_mmap,
 	.sendpage =	sock_no_sendpage,
 	.set_peek_off =	unix_set_peek_off,
+	.show_fdinfo =	unix_show_fdinfo,
 };
 
 static struct proto unix_proto = {
@@ -788,6 +812,7 @@ static struct sock *unix_create1(struct net *net, struct socket *sock, int kern)
 	mutex_init(&u->bindlock); /* single task binding lock */
 	init_waitqueue_head(&u->peer_wait);
 	init_waitqueue_func_entry(&u->peer_wake, unix_dgram_peer_wake_relay);
+	memset(&u->scm_stat, 0, sizeof(struct scm_stat));
 	unix_insert_socket(unix_sockets_unbound(sk), sk);
 out:
 	if (sk == NULL)
@@ -1187,6 +1212,7 @@ out:
 }
 
 static long unix_wait_for_peer(struct sock *other, long timeo)
+	__releases(&unix_sk(other)->lock)
 {
 	struct unix_sock *u = unix_sk(other);
 	int sched;
@@ -1572,6 +1598,24 @@ static bool unix_skb_scm_eq(struct sk_buff *skb,
 	       unix_secdata_eq(scm, skb);
 }
 
+static void scm_stat_add(struct sock *sk, struct sk_buff *skb)
+{
+	struct scm_fp_list *fp = UNIXCB(skb).fp;
+	struct unix_sock *u = unix_sk(sk);
+
+	if (unlikely(fp && fp->count))
+		atomic_add(fp->count, &u->scm_stat.nr_fds);
+}
+
+static void scm_stat_del(struct sock *sk, struct sk_buff *skb)
+{
+	struct scm_fp_list *fp = UNIXCB(skb).fp;
+	struct unix_sock *u = unix_sk(sk);
+
+	if (unlikely(fp && fp->count))
+		atomic_sub(fp->count, &u->scm_stat.nr_fds);
+}
+
 /*
  *	Send AF_UNIX data.
  */
@@ -1722,7 +1766,8 @@ restart_locked:
 	 * - unix_peer(sk) == sk by time of get but disconnected before lock
 	 */
 	if (other != sk &&
-	    unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
+	    unlikely(unix_peer(other) != sk &&
+	    unix_recvq_full_lockless(other))) {
 		if (timeo) {
 			timeo = unix_wait_for_peer(other, timeo);
 
@@ -1757,6 +1802,7 @@ restart_locked:
 	if (sock_flag(other, SOCK_RCVTSTAMP))
 		__net_timestamp(skb);
 	maybe_add_creds(skb, sock, other);
+	scm_stat_add(other, skb);
 	skb_queue_tail(&other->sk_receive_queue, skb);
 	unix_state_unlock(other);
 	other->sk_data_ready(other);
@@ -1859,6 +1905,7 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
 			goto pipe_err_free;
 
 		maybe_add_creds(skb, sock, other);
+		scm_stat_add(other, skb);
 		skb_queue_tail(&other->sk_receive_queue, skb);
 		unix_state_unlock(other);
 		other->sk_data_ready(other);
@@ -2058,17 +2105,21 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg,
 		mutex_lock(&u->iolock);
 
 		skip = sk_peek_offset(sk, flags);
-		skb = __skb_try_recv_datagram(sk, flags, NULL, &skip, &err,
-					      &last);
-		if (skb)
+		skb = __skb_try_recv_datagram(sk, &sk->sk_receive_queue, flags,
+					      &skip, &err, &last);
+		if (skb) {
+			if (!(flags & MSG_PEEK))
+				scm_stat_del(sk, skb);
 			break;
+		}
 
 		mutex_unlock(&u->iolock);
 
 		if (err != -EAGAIN)
 			break;
 	} while (timeo &&
-		 !__skb_wait_for_more_packets(sk, &err, &timeo, last));
+		 !__skb_wait_for_more_packets(sk, &sk->sk_receive_queue,
+					      &err, &timeo, last));
 
 	if (!skb) { /* implies iolock unlocked */
 		unix_state_lock(sk);
@@ -2353,8 +2404,10 @@ unlock:
 
 			sk_peek_offset_bwd(sk, chunk);
 
-			if (UNIXCB(skb).fp)
+			if (UNIXCB(skb).fp) {
+				scm_stat_del(sk, skb);
 				unix_detach_fds(&scm, skb);
+			}
 
 			if (unix_skb_len(skb))
 				break;

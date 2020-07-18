@@ -13,7 +13,6 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/notifier.h>
 #include <linux/kobject.h>
 #include <linux/cpu.h>
 #include <crypto/pcrypt.h>
@@ -233,16 +232,11 @@ static int pcrypt_create_aead(struct crypto_template *tmpl, struct rtattr **tb,
 	struct crypto_attr_type *algt;
 	struct aead_instance *inst;
 	struct aead_alg *alg;
-	const char *name;
 	int err;
 
 	algt = crypto_get_attr_type(tb);
 	if (IS_ERR(algt))
 		return PTR_ERR(algt);
-
-	name = crypto_attr_alg_name(tb[1]);
-	if (IS_ERR(name))
-		return PTR_ERR(name);
 
 	inst = kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
 	if (!inst)
@@ -253,22 +247,21 @@ static int pcrypt_create_aead(struct crypto_template *tmpl, struct rtattr **tb,
 	ctx = aead_instance_ctx(inst);
 	ctx->psenc = padata_alloc_shell(pencrypt);
 	if (!ctx->psenc)
-		goto out_free_inst;
+		goto err_free_inst;
 
 	ctx->psdec = padata_alloc_shell(pdecrypt);
 	if (!ctx->psdec)
-		goto out_free_psenc;
+		goto err_free_inst;
 
-	crypto_set_aead_spawn(&ctx->spawn, aead_crypto_instance(inst));
-
-	err = crypto_grab_aead(&ctx->spawn, name, 0, 0);
+	err = crypto_grab_aead(&ctx->spawn, aead_crypto_instance(inst),
+			       crypto_attr_alg_name(tb[1]), 0, 0);
 	if (err)
-		goto out_free_psdec;
+		goto err_free_inst;
 
 	alg = crypto_spawn_aead_alg(&ctx->spawn);
 	err = pcrypt_init_instance(aead_crypto_instance(inst), &alg->base);
 	if (err)
-		goto out_drop_aead;
+		goto err_free_inst;
 
 	inst->alg.base.cra_flags = CRYPTO_ALG_ASYNC;
 
@@ -288,21 +281,11 @@ static int pcrypt_create_aead(struct crypto_template *tmpl, struct rtattr **tb,
 	inst->free = pcrypt_free;
 
 	err = aead_register_instance(tmpl, inst);
-	if (err)
-		goto out_drop_aead;
-
-out:
+	if (err) {
+err_free_inst:
+		pcrypt_free(inst);
+	}
 	return err;
-
-out_drop_aead:
-	crypto_drop_aead(&ctx->spawn);
-out_free_psdec:
-	padata_free_shell(ctx->psdec);
-out_free_psenc:
-	padata_free_shell(ctx->psenc);
-out_free_inst:
-	kfree(inst);
-	goto out;
 }
 
 static int pcrypt_create(struct crypto_template *tmpl, struct rtattr **tb)

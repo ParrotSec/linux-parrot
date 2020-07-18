@@ -197,10 +197,6 @@ static int au1xpsc_pcm_hw_params(struct snd_soc_component *component,
 	struct au1xpsc_audio_dmadata *pcd;
 	int stype, ret;
 
-	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
-	if (ret < 0)
-		goto out;
-
 	stype = substream->stream;
 	pcd = to_dmadata(substream, component);
 
@@ -230,13 +226,6 @@ static int au1xpsc_pcm_hw_params(struct snd_soc_component *component,
 	ret = 0;
 out:
 	return ret;
-}
-
-static int au1xpsc_pcm_hw_free(struct snd_soc_component *component,
-			       struct snd_pcm_substream *substream)
-{
-	snd_pcm_lib_free_pages(substream);
-	return 0;
 }
 
 static int au1xpsc_pcm_prepare(struct snd_soc_component *component,
@@ -292,7 +281,7 @@ static int au1xpsc_pcm_open(struct snd_soc_component *component,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int stype = substream->stream, *dmaids;
 
-	dmaids = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	dmaids = snd_soc_dai_get_dma_data(asoc_rtd_to_cpu(rtd, 0), substream);
 	if (!dmaids)
 		return -ENODEV;	/* whoa, has ordering changed? */
 
@@ -315,7 +304,7 @@ static int au1xpsc_pcm_new(struct snd_soc_component *component,
 	struct snd_card *card = rtd->card->snd_card;
 	struct snd_pcm *pcm = rtd->pcm;
 
-	snd_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_DEV,
+	snd_pcm_set_managed_buffer_all(pcm, SNDRV_DMA_TYPE_DEV,
 		card->dev, AU1XPSC_BUFFER_MIN_BYTES, (4096 * 1024) - 1);
 
 	return 0;
@@ -326,9 +315,7 @@ static struct snd_soc_component_driver au1xpsc_soc_component = {
 	.name		= DRV_NAME,
 	.open		= au1xpsc_pcm_open,
 	.close		= au1xpsc_pcm_close,
-	.ioctl		= snd_soc_pcm_lib_ioctl,
 	.hw_params	= au1xpsc_pcm_hw_params,
-	.hw_free	= au1xpsc_pcm_hw_free,
 	.prepare	= au1xpsc_pcm_prepare,
 	.trigger	= au1xpsc_pcm_trigger,
 	.pointer	= au1xpsc_pcm_pointer,

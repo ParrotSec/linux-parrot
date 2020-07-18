@@ -414,7 +414,8 @@ void afs_make_call(struct afs_addr_cursor *ac, struct afs_call *call, gfp_t gfp)
 					  afs_wake_up_async_call :
 					  afs_wake_up_call_waiter),
 					 call->upgrade,
-					 call->intr,
+					 (call->intr ? RXRPC_PREINTERRUPTIBLE :
+					  RXRPC_UNINTERRUPTIBLE),
 					 call->debug_id);
 	if (IS_ERR(rxcall)) {
 		ret = PTR_ERR(rxcall);
@@ -539,6 +540,8 @@ static void afs_deliver_to_call(struct afs_call *call)
 
 		ret = call->type->deliver(call);
 		state = READ_ONCE(call->state);
+		if (ret == 0 && call->unmarshalling_error)
+			ret = -EBADMSG;
 		switch (ret) {
 		case 0:
 			afs_queue_call_work(call);
@@ -958,9 +961,11 @@ int afs_extract_data(struct afs_call *call, bool want_more)
 /*
  * Log protocol error production.
  */
-noinline int afs_protocol_error(struct afs_call *call, int error,
+noinline int afs_protocol_error(struct afs_call *call,
 				enum afs_eproto_cause cause)
 {
-	trace_afs_protocol_error(call, error, cause);
-	return error;
+	trace_afs_protocol_error(call, cause);
+	if (call)
+		call->unmarshalling_error = true;
+	return -EBADMSG;
 }

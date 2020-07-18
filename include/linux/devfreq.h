@@ -108,6 +108,20 @@ struct devfreq_dev_profile {
 };
 
 /**
+ * struct devfreq_stats - Statistics of devfreq device behavior
+ * @total_trans:	Number of devfreq transitions.
+ * @trans_table:	Statistics of devfreq transitions.
+ * @time_in_state:	Statistics of devfreq states.
+ * @last_update:	The last time stats were updated.
+ */
+struct devfreq_stats {
+	unsigned int total_trans;
+	unsigned int *trans_table;
+	u64 *time_in_state;
+	u64 last_update;
+};
+
+/**
  * struct devfreq - Device devfreq structure
  * @node:	list node - contains the devices with devfreq that have been
  *		registered.
@@ -122,6 +136,7 @@ struct devfreq_dev_profile {
  *		devfreq.nb to the corresponding register notifier call chain.
  * @work:	delayed work for load monitoring.
  * @previous_freq:	previously configured frequency value.
+ * @last_status:	devfreq user device info, performance statistics
  * @data:	Private data of the governor. The devfreq framework does not
  *		touch this.
  * @user_min_freq_req:	PM QoS minimum frequency request from user (via sysfs)
@@ -132,21 +147,18 @@ struct devfreq_dev_profile {
  * @suspend_freq:	 frequency of a device set during suspend phase.
  * @resume_freq:	 frequency of a device set in resume phase.
  * @suspend_count:	 suspend requests counter for a device.
- * @total_trans:	Number of devfreq transitions
- * @trans_table:	Statistics of devfreq transitions
- * @time_in_state:	Statistics of devfreq states
- * @last_stat_updated:	The last time stat updated
+ * @stats:	Statistics of devfreq device behavior
  * @transition_notifier_list: list head of DEVFREQ_TRANSITION_NOTIFIER notifier
  * @nb_min:		Notifier block for DEV_PM_QOS_MIN_FREQUENCY
  * @nb_max:		Notifier block for DEV_PM_QOS_MAX_FREQUENCY
  *
- * This structure stores the devfreq information for a give device.
+ * This structure stores the devfreq information for a given device.
  *
  * Note that when a governor accesses entries in struct devfreq in its
  * functions except for the context of callbacks defined in struct
  * devfreq_governor, the governor should protect its access with the
  * struct mutex lock in struct devfreq. A governor may use this mutex
- * to protect its own private data in void *data as well.
+ * to protect its own private data in ``void *data`` as well.
  */
 struct devfreq {
 	struct list_head node;
@@ -174,11 +186,8 @@ struct devfreq {
 	unsigned long resume_freq;
 	atomic_t suspend_count;
 
-	/* information for device frequency transition */
-	unsigned int total_trans;
-	unsigned int *trans_table;
-	u64 *time_in_state;
-	u64 last_stat_updated;
+	/* information for device frequency transitions */
+	struct devfreq_stats stats;
 
 	struct srcu_notifier_head transition_notifier_list;
 
@@ -192,24 +201,23 @@ struct devfreq_freqs {
 };
 
 #if defined(CONFIG_PM_DEVFREQ)
-extern struct devfreq *devfreq_add_device(struct device *dev,
-				  struct devfreq_dev_profile *profile,
-				  const char *governor_name,
-				  void *data);
-extern int devfreq_remove_device(struct devfreq *devfreq);
-extern struct devfreq *devm_devfreq_add_device(struct device *dev,
-				  struct devfreq_dev_profile *profile,
-				  const char *governor_name,
-				  void *data);
-extern void devm_devfreq_remove_device(struct device *dev,
-				  struct devfreq *devfreq);
+struct devfreq *devfreq_add_device(struct device *dev,
+				struct devfreq_dev_profile *profile,
+				const char *governor_name,
+				void *data);
+int devfreq_remove_device(struct devfreq *devfreq);
+struct devfreq *devm_devfreq_add_device(struct device *dev,
+				struct devfreq_dev_profile *profile,
+				const char *governor_name,
+				void *data);
+void devm_devfreq_remove_device(struct device *dev, struct devfreq *devfreq);
 
 /* Supposed to be called by PM callbacks */
-extern int devfreq_suspend_device(struct devfreq *devfreq);
-extern int devfreq_resume_device(struct devfreq *devfreq);
+int devfreq_suspend_device(struct devfreq *devfreq);
+int devfreq_resume_device(struct devfreq *devfreq);
 
-extern void devfreq_suspend(void);
-extern void devfreq_resume(void);
+void devfreq_suspend(void);
+void devfreq_resume(void);
 
 /**
  * update_devfreq() - Reevaluate the device and configure frequency
@@ -217,39 +225,38 @@ extern void devfreq_resume(void);
  *
  * Note: devfreq->lock must be held
  */
-extern int update_devfreq(struct devfreq *devfreq);
+int update_devfreq(struct devfreq *devfreq);
 
 /* Helper functions for devfreq user device driver with OPP. */
-extern struct dev_pm_opp *devfreq_recommended_opp(struct device *dev,
-					   unsigned long *freq, u32 flags);
-extern int devfreq_register_opp_notifier(struct device *dev,
-					 struct devfreq *devfreq);
-extern int devfreq_unregister_opp_notifier(struct device *dev,
-					   struct devfreq *devfreq);
-extern int devm_devfreq_register_opp_notifier(struct device *dev,
-					      struct devfreq *devfreq);
-extern void devm_devfreq_unregister_opp_notifier(struct device *dev,
-						struct devfreq *devfreq);
-extern int devfreq_register_notifier(struct devfreq *devfreq,
-					struct notifier_block *nb,
-					unsigned int list);
-extern int devfreq_unregister_notifier(struct devfreq *devfreq,
-					struct notifier_block *nb,
-					unsigned int list);
-extern int devm_devfreq_register_notifier(struct device *dev,
+struct dev_pm_opp *devfreq_recommended_opp(struct device *dev,
+				unsigned long *freq, u32 flags);
+int devfreq_register_opp_notifier(struct device *dev,
+				struct devfreq *devfreq);
+int devfreq_unregister_opp_notifier(struct device *dev,
+				struct devfreq *devfreq);
+int devm_devfreq_register_opp_notifier(struct device *dev,
+				struct devfreq *devfreq);
+void devm_devfreq_unregister_opp_notifier(struct device *dev,
+				struct devfreq *devfreq);
+int devfreq_register_notifier(struct devfreq *devfreq,
+				struct notifier_block *nb,
+				unsigned int list);
+int devfreq_unregister_notifier(struct devfreq *devfreq,
+				struct notifier_block *nb,
+				unsigned int list);
+int devm_devfreq_register_notifier(struct device *dev,
 				struct devfreq *devfreq,
 				struct notifier_block *nb,
 				unsigned int list);
-extern void devm_devfreq_unregister_notifier(struct device *dev,
+void devm_devfreq_unregister_notifier(struct device *dev,
 				struct devfreq *devfreq,
 				struct notifier_block *nb,
 				unsigned int list);
-extern struct devfreq *devfreq_get_devfreq_by_phandle(struct device *dev,
-						int index);
+struct devfreq *devfreq_get_devfreq_by_phandle(struct device *dev, int index);
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 /**
- * struct devfreq_simple_ondemand_data - void *data fed to struct devfreq
+ * struct devfreq_simple_ondemand_data - ``void *data`` fed to struct devfreq
  *	and devfreq_add_device
  * @upthreshold:	If the load is over this value, the frequency jumps.
  *			Specify 0 to use the default. Valid value = 0 to 100.
@@ -269,7 +276,7 @@ struct devfreq_simple_ondemand_data {
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_PASSIVE)
 /**
- * struct devfreq_passive_data - void *data fed to struct devfreq
+ * struct devfreq_passive_data - ``void *data`` fed to struct devfreq
  *	and devfreq_add_device
  * @parent:	the devfreq instance of parent device.
  * @get_target_freq:	Optional callback, Returns desired operating frequency
@@ -302,9 +309,9 @@ struct devfreq_passive_data {
 
 #else /* !CONFIG_PM_DEVFREQ */
 static inline struct devfreq *devfreq_add_device(struct device *dev,
-					  struct devfreq_dev_profile *profile,
-					  const char *governor_name,
-					  void *data)
+					struct devfreq_dev_profile *profile,
+					const char *governor_name,
+					void *data)
 {
 	return ERR_PTR(-ENOSYS);
 }
@@ -341,31 +348,31 @@ static inline void devfreq_suspend(void) {}
 static inline void devfreq_resume(void) {}
 
 static inline struct dev_pm_opp *devfreq_recommended_opp(struct device *dev,
-					   unsigned long *freq, u32 flags)
+					unsigned long *freq, u32 flags)
 {
 	return ERR_PTR(-EINVAL);
 }
 
 static inline int devfreq_register_opp_notifier(struct device *dev,
-					 struct devfreq *devfreq)
+					struct devfreq *devfreq)
 {
 	return -EINVAL;
 }
 
 static inline int devfreq_unregister_opp_notifier(struct device *dev,
-					   struct devfreq *devfreq)
+					struct devfreq *devfreq)
 {
 	return -EINVAL;
 }
 
 static inline int devm_devfreq_register_opp_notifier(struct device *dev,
-						     struct devfreq *devfreq)
+					struct devfreq *devfreq)
 {
 	return -EINVAL;
 }
 
 static inline void devm_devfreq_unregister_opp_notifier(struct device *dev,
-							struct devfreq *devfreq)
+					struct devfreq *devfreq)
 {
 }
 
@@ -384,22 +391,22 @@ static inline int devfreq_unregister_notifier(struct devfreq *devfreq,
 }
 
 static inline int devm_devfreq_register_notifier(struct device *dev,
-				struct devfreq *devfreq,
-				struct notifier_block *nb,
-				unsigned int list)
+					struct devfreq *devfreq,
+					struct notifier_block *nb,
+					unsigned int list)
 {
 	return 0;
 }
 
 static inline void devm_devfreq_unregister_notifier(struct device *dev,
-				struct devfreq *devfreq,
-				struct notifier_block *nb,
-				unsigned int list)
+					struct devfreq *devfreq,
+					struct notifier_block *nb,
+					unsigned int list)
 {
 }
 
 static inline struct devfreq *devfreq_get_devfreq_by_phandle(struct device *dev,
-							int index)
+					int index)
 {
 	return ERR_PTR(-ENODEV);
 }

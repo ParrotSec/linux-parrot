@@ -611,7 +611,7 @@ int imx1_pinctrl_core_probe(struct platform_device *pdev,
 	if (!res)
 		return -ENOENT;
 
-	ipctl->base = devm_ioremap_nocache(&pdev->dev, res->start,
+	ipctl->base = devm_ioremap(&pdev->dev, res->start,
 			resource_size(res));
 	if (!ipctl->base)
 		return -ENOMEM;
@@ -638,7 +638,6 @@ int imx1_pinctrl_core_probe(struct platform_device *pdev,
 
 	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (ret) {
-		pinctrl_unregister(ipctl->pctl);
 		dev_err(&pdev->dev, "Failed to populate subdevices\n");
 		return ret;
 	}

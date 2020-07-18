@@ -34,6 +34,7 @@
 #include <linux/ctype.h>
 #include <linux/bpf.h>
 #include <linux/avf/virtchnl.h>
+#include <net/devlink.h>
 #include <net/ipv6.h>
 #include <net/xdp_sock.h>
 #include "ice_devids.h"
@@ -60,7 +61,6 @@ extern const char ice_drv_ver[];
 #define ICE_INT_NAME_STR_LEN	(IFNAMSIZ + 16)
 #define ICE_AQ_LEN		64
 #define ICE_MBXSQ_LEN		64
-#define ICE_MBXRQ_LEN		512
 #define ICE_MIN_MSIX		2
 #define ICE_NO_VSI		0xffff
 #define ICE_VSI_MAP_CONTIG	0
@@ -70,7 +70,6 @@ extern const char ice_drv_ver[];
 #define ICE_Q_WAIT_RETRY_LIMIT	10
 #define ICE_Q_WAIT_MAX_RETRY	(5 * ICE_Q_WAIT_RETRY_LIMIT)
 #define ICE_MAX_LG_RSS_QS	256
-#define ICE_MAX_SMALL_RSS_QS	8
 #define ICE_RES_VALID_BIT	0x8000
 #define ICE_RES_MISC_VEC_ID	(ICE_RES_VALID_BIT - 1)
 #define ICE_INVAL_Q_INDEX	0xffff
@@ -174,6 +173,8 @@ struct ice_sw {
 	struct ice_pf *pf;
 	u16 sw_id;		/* switch ID for this switch */
 	u16 bridge_mode;	/* VEB/VEPA/Port Virtualizer */
+	struct ice_vsi *dflt_vsi;	/* default VSI for this switch */
+	u8 dflt_vsi_ena:1;	/* true if above dflt_vsi is enabled */
 };
 
 enum ice_state {
@@ -210,6 +211,8 @@ enum ice_state {
 	__ICE_SERVICE_SCHED,
 	__ICE_SERVICE_DIS,
 	__ICE_OICR_INTR_DIS,		/* Global OICR interrupt disabled */
+	__ICE_MDD_VF_PRINT_PENDING,	/* set when MDD event handle */
+	__ICE_VF_RESETS_DISABLED,	/* disable resets during ice_remove */
 	__ICE_STATE_NBITS		/* must be last */
 };
 
@@ -275,6 +278,7 @@ struct ice_vsi {
 	u8 current_isup:1;		 /* Sync 'link up' logging */
 	u8 stat_offsets_loaded:1;
 	u8 vlan_ena:1;
+	u16 num_vlan;
 
 	/* queue information */
 	u8 tx_mapping_mode;		 /* ICE_MAP_MODE_[CONTIG|SCATTER] */
@@ -337,11 +341,17 @@ enum ice_pf_flags {
 	ICE_FLAG_FW_LLDP_AGENT,
 	ICE_FLAG_ETHTOOL_CTXT,		/* set when ethtool holds RTNL lock */
 	ICE_FLAG_LEGACY_RX,
+	ICE_FLAG_MDD_AUTO_RESET_VF,
 	ICE_PF_FLAGS_NBITS		/* must be last */
 };
 
 struct ice_pf {
 	struct pci_dev *pdev;
+
+	/* devlink port data */
+	struct devlink_port devlink_port;
+
+	struct devlink_region *nvm_region;
 
 	/* OS reserved IRQ details */
 	struct msix_entry *msix_entries;
@@ -356,10 +366,12 @@ struct ice_pf {
 	struct ice_sw *first_sw;	/* first switch created by firmware */
 	/* Virtchnl/SR-IOV config info */
 	struct ice_vf *vf;
-	int num_alloc_vfs;		/* actual number of VFs allocated */
+	u16 num_alloc_vfs;		/* actual number of VFs allocated */
 	u16 num_vfs_supported;		/* num VFs supported for this PF */
-	u16 num_vf_qps;			/* num queue pairs per VF */
-	u16 num_vf_msix;		/* num vectors per VF */
+	u16 num_qps_per_vf;
+	u16 num_msix_per_vf;
+	/* used to ratelimit the MDD event logging */
+	unsigned long last_printed_mdd_jiffies;
 	DECLARE_BITMAP(state, __ICE_STATE_NBITS);
 	DECLARE_BITMAP(flags, ICE_PF_FLAGS_NBITS);
 	unsigned long *avail_txqs;	/* bitmap to track PF Tx queue usage */
@@ -462,12 +474,13 @@ static inline void ice_set_ring_xdp(struct ice_ring *ring)
 static inline struct xdp_umem *ice_xsk_umem(struct ice_ring *ring)
 {
 	struct xdp_umem **umems = ring->vsi->xsk_umems;
-	int qid = ring->q_index;
+	u16 qid = ring->q_index;
 
 	if (ice_ring_is_xdp(ring))
 		qid -= ring->vsi->num_xdp_txq;
 
-	if (!umems || !umems[qid] || !ice_is_xdp_ena_vsi(ring->vsi))
+	if (qid >= ring->vsi->num_xsk_umems || !umems || !umems[qid] ||
+	    !ice_is_xdp_ena_vsi(ring->vsi))
 		return NULL;
 
 	return umems[qid];

@@ -1236,7 +1236,6 @@ static void bnxt_get_drvinfo(struct net_device *dev,
 	struct bnxt *bp = netdev_priv(dev);
 
 	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
-	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
 	strlcpy(info->fw_version, bp->fw_ver_str, sizeof(info->fw_version));
 	strlcpy(info->bus_info, pci_name(bp->pdev), sizeof(info->bus_info));
 	info->n_stats = bnxt_get_num_stats(bp);
@@ -1462,15 +1461,15 @@ static int bnxt_get_link_ksettings(struct net_device *dev,
 		ethtool_link_ksettings_add_link_mode(lk_ksettings,
 						     advertising, Autoneg);
 		base->autoneg = AUTONEG_ENABLE;
-		if (link_info->phy_link_status == BNXT_LINK_LINK)
+		base->duplex = DUPLEX_UNKNOWN;
+		if (link_info->phy_link_status == BNXT_LINK_LINK) {
 			bnxt_fw_to_ethtool_lp_adv(link_info, lk_ksettings);
+			if (link_info->duplex & BNXT_LINK_DUPLEX_FULL)
+				base->duplex = DUPLEX_FULL;
+			else
+				base->duplex = DUPLEX_HALF;
+		}
 		ethtool_speed = bnxt_fw_to_ethtool_speed(link_info->link_speed);
-		if (!netif_carrier_ok(dev))
-			base->duplex = DUPLEX_UNKNOWN;
-		else if (link_info->duplex & BNXT_LINK_DUPLEX_FULL)
-			base->duplex = DUPLEX_FULL;
-		else
-			base->duplex = DUPLEX_HALF;
 	} else {
 		base->autoneg = AUTONEG_DISABLE;
 		ethtool_speed =
@@ -2013,11 +2012,12 @@ int bnxt_flash_package_from_file(struct net_device *dev, const char *filename,
 
 	bnxt_hwrm_fw_set_time(bp);
 
-	if (bnxt_find_nvram_item(dev, BNX_DIR_TYPE_UPDATE,
-				 BNX_DIR_ORDINAL_FIRST, BNX_DIR_EXT_NONE,
-				 &index, &item_len, NULL) != 0) {
+	rc = bnxt_find_nvram_item(dev, BNX_DIR_TYPE_UPDATE,
+				  BNX_DIR_ORDINAL_FIRST, BNX_DIR_EXT_NONE,
+				  &index, &item_len, NULL);
+	if (rc) {
 		netdev_err(dev, "PKG update area not created in nvram\n");
-		return -ENOBUFS;
+		return rc;
 	}
 
 	rc = request_firmware(&fw, filename, &dev->dev);
@@ -2028,7 +2028,7 @@ int bnxt_flash_package_from_file(struct net_device *dev, const char *filename,
 	}
 
 	if (fw->size > item_len) {
-		netdev_err(dev, "PKG insufficient update area in nvram: %lu",
+		netdev_err(dev, "PKG insufficient update area in nvram: %lu\n",
 			   (unsigned long)fw->size);
 		rc = -EFBIG;
 	} else {
@@ -2605,7 +2605,7 @@ static int bnxt_set_phys_id(struct net_device *dev,
 	struct bnxt_led_cfg *led_cfg;
 	u8 led_state;
 	__le16 duration;
-	int i, rc;
+	int i;
 
 	if (!bp->num_leds || BNXT_VF(bp))
 		return -EOPNOTSUPP;
@@ -2631,8 +2631,7 @@ static int bnxt_set_phys_id(struct net_device *dev,
 		led_cfg->led_blink_off = duration;
 		led_cfg->led_group_id = bp->leds[i].led_group_id;
 	}
-	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-	return rc;
+	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
 }
 
 static int bnxt_hwrm_selftest_irq(struct bnxt *bp, u16 cmpl_ring)
@@ -2705,7 +2704,7 @@ static int bnxt_disable_an_for_lpbk(struct bnxt *bp,
 		return rc;
 
 	fw_speed = PORT_PHY_CFG_REQ_FORCE_LINK_SPEED_1GB;
-	if (netif_carrier_ok(bp->dev))
+	if (bp->link_info.link_up)
 		fw_speed = bp->link_info.link_speed;
 	else if (fw_advertising & BNXT_LINK_SPEED_MSK_10GB)
 		fw_speed = PORT_PHY_CFG_REQ_FORCE_LINK_SPEED_10GB;
@@ -3336,7 +3335,7 @@ err:
 	kfree(coredump.data);
 	*dump_len += sizeof(struct bnxt_coredump_record);
 	if (rc == -ENOBUFS)
-		netdev_err(bp->dev, "Firmware returned large coredump buffer");
+		netdev_err(bp->dev, "Firmware returned large coredump buffer\n");
 	return rc;
 }
 
@@ -3471,6 +3470,12 @@ void bnxt_ethtool_free(struct bnxt *bp)
 }
 
 const struct ethtool_ops bnxt_ethtool_ops = {
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
+				     ETHTOOL_COALESCE_MAX_FRAMES |
+				     ETHTOOL_COALESCE_USECS_IRQ |
+				     ETHTOOL_COALESCE_MAX_FRAMES_IRQ |
+				     ETHTOOL_COALESCE_STATS_BLOCK_USECS |
+				     ETHTOOL_COALESCE_USE_ADAPTIVE_RX,
 	.get_link_ksettings	= bnxt_get_link_ksettings,
 	.set_link_ksettings	= bnxt_set_link_ksettings,
 	.get_pauseparam		= bnxt_get_pauseparam,

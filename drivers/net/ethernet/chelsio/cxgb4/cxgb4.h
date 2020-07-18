@@ -56,6 +56,7 @@
 #include <asm/io.h>
 #include "t4_chip_type.h"
 #include "cxgb4_uld.h"
+#include "t4fw_api.h"
 
 #define CH_WARN(adap, fmt, ...) dev_warn(adap->pdev_dev, fmt, ## __VA_ARGS__)
 extern struct list_head adapter_list;
@@ -67,6 +68,16 @@ extern struct mutex uld_mutex;
  */
 #define ETHTXQ_STOP_THRES \
 	(1 + DIV_ROUND_UP((3 * MAX_SKB_FRAGS) / 2 + (MAX_SKB_FRAGS & 1), 8))
+
+#define FW_PARAM_DEV(param) \
+	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) | \
+	 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_##param))
+
+#define FW_PARAM_PFVF(param) \
+	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) | \
+	 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_##param) |  \
+	 FW_PARAMS_PARAM_Y_V(0) | \
+	 FW_PARAMS_PARAM_Z_V(0))
 
 enum {
 	MAX_NPORTS	= 4,     /* max # of ports */
@@ -629,6 +640,7 @@ enum {                                 /* adapter flags */
 enum {
 	ULP_CRYPTO_LOOKASIDE = 1 << 0,
 	ULP_CRYPTO_IPSEC_INLINE = 1 << 1,
+	ULP_CRYPTO_KTLS_INLINE  = 1 << 3,
 };
 
 struct rx_sw_desc;
@@ -1474,9 +1486,8 @@ static inline unsigned int qtimer_val(const struct adapter *adap,
 	return idx < SGE_NTIMERS ? adap->sge.timer_val[idx] : 0;
 }
 
-/* driver version & name used for ethtool_drvinfo */
+/* driver name used for ethtool_drvinfo */
 extern char cxgb4_driver_name[];
-extern const char cxgb4_driver_version[];
 
 void t4_os_portmod_changed(struct adapter *adap, int port_id);
 void t4_os_link_changed(struct adapter *adap, int port_id, int link_stat);

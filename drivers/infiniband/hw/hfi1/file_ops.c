@@ -209,7 +209,6 @@ static int hfi1_file_open(struct inode *inode, struct file *fp)
 	fd->mm = current->mm;
 	mmgrab(fd->mm);
 	fd->dd = dd;
-	kobject_get(&fd->dd->kobj);
 	fp->private_data = fd;
 	return 0;
 nomem:
@@ -516,12 +515,12 @@ static int hfi1_file_mmap(struct file *fp, struct vm_area_struct *vma)
 			ret = -EINVAL;
 			goto done;
 		}
-		if ((flags & VM_WRITE) || !uctxt->rcvhdrtail_kvaddr) {
+		if ((flags & VM_WRITE) || !hfi1_rcvhdrtail_kvaddr(uctxt)) {
 			ret = -EPERM;
 			goto done;
 		}
 		memlen = PAGE_SIZE;
-		memvirt = (void *)uctxt->rcvhdrtail_kvaddr;
+		memvirt = (void *)hfi1_rcvhdrtail_kvaddr(uctxt);
 		flags &= ~VM_MAYWRITE;
 		break;
 	case SUBCTXT_UREGS:
@@ -713,7 +712,6 @@ static int hfi1_file_close(struct inode *inode, struct file *fp)
 	deallocate_ctxt(uctxt);
 done:
 	mmdrop(fdata->mm);
-	kobject_put(&dd->kobj);
 
 	if (atomic_dec_and_test(&dd->user_refcount))
 		complete(&dd->user_comp);
@@ -1102,7 +1100,7 @@ static void user_init(struct hfi1_ctxtdata *uctxt)
 	 * don't have to wait to be sure the DMA update has happened
 	 * (chip resets head/tail to 0 on transition to enable).
 	 */
-	if (uctxt->rcvhdrtail_kvaddr)
+	if (hfi1_rcvhdrtail_kvaddr(uctxt))
 		clear_rcvhdrtail(uctxt);
 
 	/* Setup J_KEY before enabling the context */
@@ -1166,8 +1164,8 @@ static int get_ctxt_info(struct hfi1_filedata *fd, unsigned long arg, u32 len)
 	cinfo.send_ctxt = uctxt->sc->hw_context;
 
 	cinfo.egrtids = uctxt->egrbufs.alloced;
-	cinfo.rcvhdrq_cnt = uctxt->rcvhdrq_cnt;
-	cinfo.rcvhdrq_entsize = uctxt->rcvhdrqentsize << 2;
+	cinfo.rcvhdrq_cnt = get_hdrq_cnt(uctxt);
+	cinfo.rcvhdrq_entsize = get_hdrqentsize(uctxt) << 2;
 	cinfo.sdma_ring_size = fd->cq->nentries;
 	cinfo.rcvegr_size = uctxt->egrbufs.rcvtid_size;
 
@@ -1555,7 +1553,7 @@ static int manage_rcvq(struct hfi1_ctxtdata *uctxt, u16 subctxt,
 		 * always resets it's tail register back to 0 on a
 		 * transition from disabled to enabled.
 		 */
-		if (uctxt->rcvhdrtail_kvaddr)
+		if (hfi1_rcvhdrtail_kvaddr(uctxt))
 			clear_rcvhdrtail(uctxt);
 		rcvctrl_op = HFI1_RCVCTRL_CTXT_ENB;
 	} else {
@@ -1696,7 +1694,7 @@ static int user_add(struct hfi1_devdata *dd)
 	snprintf(name, sizeof(name), "%s_%d", class_name(), dd->unit);
 	ret = hfi1_cdev_init(dd->unit, name, &hfi1_file_ops,
 			     &dd->user_cdev, &dd->user_device,
-			     true, &dd->kobj);
+			     true, &dd->verbs_dev.rdi.ibdev.dev.kobj);
 	if (ret)
 		user_remove(dd);
 

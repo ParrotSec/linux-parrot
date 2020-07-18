@@ -638,9 +638,15 @@ void irq_init_desc(unsigned int irq)
 int generic_handle_irq(unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
+	struct irq_data *data;
 
 	if (!desc)
 		return -EINVAL;
+
+	data = irq_desc_get_irq_data(desc);
+	if (WARN_ON_ONCE(!in_irq() && handle_enforce_irqctx(data)))
+		return -EPERM;
+
 	generic_handle_irq_desc(desc);
 	return 0;
 }
@@ -891,6 +897,7 @@ __irq_get_desc_lock(unsigned int irq, unsigned long *flags, bool bus,
 }
 
 void __irq_put_desc_unlock(struct irq_desc *desc, unsigned long flags, bool bus)
+	__releases(&desc->lock)
 {
 	raw_spin_unlock_irqrestore(&desc->lock, flags);
 	if (bus)

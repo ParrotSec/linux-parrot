@@ -7,7 +7,7 @@
  *   Mux support by Rodolfo Giometti <giometti@enneenne.com> and
  *   Michael Lawnick <michael.lawnick.ext@nsn.com>
  *
- * Copyright (C) 2013-2017 Wolfram Sang <wsa@the-dreams.de>
+ * Copyright (C) 2013-2017 Wolfram Sang <wsa@kernel.org>
  */
 
 #define pr_fmt(fmt) "i2c-core: " fmt
@@ -338,8 +338,10 @@ static int i2c_device_probe(struct device *dev)
 		} else if (ACPI_COMPANION(dev)) {
 			irq = i2c_acpi_get_irq(client);
 		}
-		if (irq == -EPROBE_DEFER)
-			return irq;
+		if (irq == -EPROBE_DEFER) {
+			status = irq;
+			goto put_sync_adapter;
+		}
 
 		if (irq < 0)
 			irq = 0;
@@ -353,15 +355,19 @@ static int i2c_device_probe(struct device *dev)
 	 */
 	if (!driver->id_table &&
 	    !i2c_acpi_match_device(dev->driver->acpi_match_table, client) &&
-	    !i2c_of_match_device(dev->driver->of_match_table, client))
-		return -ENODEV;
+	    !i2c_of_match_device(dev->driver->of_match_table, client)) {
+		status = -ENODEV;
+		goto put_sync_adapter;
+	}
 
 	if (client->flags & I2C_CLIENT_WAKE) {
 		int wakeirq;
 
 		wakeirq = of_irq_get_byname(dev->of_node, "wakeup");
-		if (wakeirq == -EPROBE_DEFER)
-			return wakeirq;
+		if (wakeirq == -EPROBE_DEFER) {
+			status = wakeirq;
+			goto put_sync_adapter;
+		}
 
 		device_init_wakeup(&client->dev, true);
 
@@ -408,6 +414,10 @@ err_detach_pm_domain:
 err_clear_wakeup_irq:
 	dev_pm_clear_wake_irq(&client->dev);
 	device_init_wakeup(&client->dev, false);
+put_sync_adapter:
+	if (client->flags & I2C_CLIENT_HOST_NOTIFY)
+		pm_runtime_put_sync(&client->adapter->dev);
+
 	return status;
 }
 
@@ -456,15 +466,15 @@ static void i2c_client_dev_release(struct device *dev)
 }
 
 static ssize_t
-show_name(struct device *dev, struct device_attribute *attr, char *buf)
+name_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%s\n", dev->type == &i2c_client_type ?
 		       to_i2c_client(dev)->name : to_i2c_adapter(dev)->name);
 }
-static DEVICE_ATTR(name, S_IRUGO, show_name, NULL);
+static DEVICE_ATTR_RO(name);
 
 static ssize_t
-show_modalias(struct device *dev, struct device_attribute *attr, char *buf)
+modalias_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	int len;
@@ -479,7 +489,7 @@ show_modalias(struct device *dev, struct device_attribute *attr, char *buf)
 
 	return sprintf(buf, "%s%s\n", I2C_MODULE_PREFIX, client->name);
 }
-static DEVICE_ATTR(modalias, S_IRUGO, show_modalias, NULL);
+static DEVICE_ATTR_RO(modalias);
 
 static struct attribute *i2c_dev_attrs[] = {
 	&dev_attr_name.attr,
@@ -831,8 +841,8 @@ EXPORT_SYMBOL_GPL(i2c_new_device);
 
 
 /**
- * i2c_unregister_device - reverse effect of i2c_new_device()
- * @client: value returned from i2c_new_device()
+ * i2c_unregister_device - reverse effect of i2c_new_*_device()
+ * @client: value returned from i2c_new_*_device()
  * Context: can sleep
  */
 void i2c_unregister_device(struct i2c_client *client)
@@ -1023,8 +1033,8 @@ EXPORT_SYMBOL_GPL(i2c_adapter_depth);
  * the user to provide incorrect parameters.
  */
 static ssize_t
-i2c_sysfs_new_device(struct device *dev, struct device_attribute *attr,
-		     const char *buf, size_t count)
+new_device_store(struct device *dev, struct device_attribute *attr,
+		 const char *buf, size_t count)
 {
 	struct i2c_adapter *adap = to_i2c_adapter(dev);
 	struct i2c_board_info info;
@@ -1079,7 +1089,7 @@ i2c_sysfs_new_device(struct device *dev, struct device_attribute *attr,
 
 	return count;
 }
-static DEVICE_ATTR(new_device, S_IWUSR, NULL, i2c_sysfs_new_device);
+static DEVICE_ATTR_WO(new_device);
 
 /*
  * And of course let the users delete the devices they instantiated, if
@@ -1091,8 +1101,8 @@ static DEVICE_ATTR(new_device, S_IWUSR, NULL, i2c_sysfs_new_device);
  * the user to delete the wrong device.
  */
 static ssize_t
-i2c_sysfs_delete_device(struct device *dev, struct device_attribute *attr,
-			const char *buf, size_t count)
+delete_device_store(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
 {
 	struct i2c_adapter *adap = to_i2c_adapter(dev);
 	struct i2c_client *client, *next;
@@ -1135,7 +1145,7 @@ i2c_sysfs_delete_device(struct device *dev, struct device_attribute *attr,
 	return res;
 }
 static DEVICE_ATTR_IGNORE_LOCKDEP(delete_device, S_IWUSR, NULL,
-				   i2c_sysfs_delete_device);
+				  delete_device_store);
 
 static struct attribute *i2c_adapter_attrs[] = {
 	&dev_attr_name.attr,
@@ -1178,9 +1188,8 @@ static void i2c_scan_static_board_info(struct i2c_adapter *adapter)
 
 	down_read(&__i2c_board_lock);
 	list_for_each_entry(devinfo, &__i2c_board_list, list) {
-		if (devinfo->busnum == adapter->nr
-				&& !i2c_new_device(adapter,
-						&devinfo->board_info))
+		if (devinfo->busnum == adapter->nr &&
+		    IS_ERR(i2c_new_client_device(adapter, &devinfo->board_info)))
 			dev_err(&adapter->dev,
 				"Can't create device at 0x%02x\n",
 				devinfo->board_info.addr);
@@ -1594,32 +1603,30 @@ EXPORT_SYMBOL(i2c_del_adapter);
  * @dev: The device to scan for I2C timing properties
  * @t: the i2c_timings struct to be filled with values
  * @use_defaults: bool to use sane defaults derived from the I2C specification
- *		  when properties are not found, otherwise use 0
+ *		  when properties are not found, otherwise don't update
  *
  * Scan the device for the generic I2C properties describing timing parameters
  * for the signal and fill the given struct with the results. If a property was
  * not found and use_defaults was true, then maximum timings are assumed which
  * are derived from the I2C specification. If use_defaults is not used, the
- * results will be 0, so drivers can apply their own defaults later. The latter
- * is mainly intended for avoiding regressions of existing drivers which want
- * to switch to this function. New drivers almost always should use the defaults.
+ * results will be as before, so drivers can apply their own defaults before
+ * calling this helper. The latter is mainly intended for avoiding regressions
+ * of existing drivers which want to switch to this function. New drivers
+ * almost always should use the defaults.
  */
-
 void i2c_parse_fw_timings(struct device *dev, struct i2c_timings *t, bool use_defaults)
 {
 	int ret;
 
-	memset(t, 0, sizeof(*t));
-
 	ret = device_property_read_u32(dev, "clock-frequency", &t->bus_freq_hz);
 	if (ret && use_defaults)
-		t->bus_freq_hz = 100000;
+		t->bus_freq_hz = I2C_MAX_STANDARD_MODE_FREQ;
 
 	ret = device_property_read_u32(dev, "i2c-scl-rising-time-ns", &t->scl_rise_ns);
 	if (ret && use_defaults) {
-		if (t->bus_freq_hz <= 100000)
+		if (t->bus_freq_hz <= I2C_MAX_STANDARD_MODE_FREQ)
 			t->scl_rise_ns = 1000;
-		else if (t->bus_freq_hz <= 400000)
+		else if (t->bus_freq_hz <= I2C_MAX_FAST_MODE_FREQ)
 			t->scl_rise_ns = 300;
 		else
 			t->scl_rise_ns = 120;
@@ -1627,25 +1634,31 @@ void i2c_parse_fw_timings(struct device *dev, struct i2c_timings *t, bool use_de
 
 	ret = device_property_read_u32(dev, "i2c-scl-falling-time-ns", &t->scl_fall_ns);
 	if (ret && use_defaults) {
-		if (t->bus_freq_hz <= 400000)
+		if (t->bus_freq_hz <= I2C_MAX_FAST_MODE_FREQ)
 			t->scl_fall_ns = 300;
 		else
 			t->scl_fall_ns = 120;
 	}
 
-	device_property_read_u32(dev, "i2c-scl-internal-delay-ns", &t->scl_int_delay_ns);
+	ret = device_property_read_u32(dev, "i2c-scl-internal-delay-ns", &t->scl_int_delay_ns);
+	if (ret && use_defaults)
+		t->scl_int_delay_ns = 0;
 
 	ret = device_property_read_u32(dev, "i2c-sda-falling-time-ns", &t->sda_fall_ns);
 	if (ret && use_defaults)
 		t->sda_fall_ns = t->scl_fall_ns;
 
-	device_property_read_u32(dev, "i2c-sda-hold-time-ns", &t->sda_hold_ns);
+	ret = device_property_read_u32(dev, "i2c-sda-hold-time-ns", &t->sda_hold_ns);
+	if (ret && use_defaults)
+		t->sda_hold_ns = 0;
 
-	device_property_read_u32(dev, "i2c-digital-filter-width-ns",
-				 &t->digital_filter_width_ns);
+	ret = device_property_read_u32(dev, "i2c-digital-filter-width-ns", &t->digital_filter_width_ns);
+	if (ret && use_defaults)
+		t->digital_filter_width_ns = 0;
 
-	device_property_read_u32(dev, "i2c-analog-filter-cutoff-frequency",
-				 &t->analog_filter_cutoff_freq_hz);
+	ret = device_property_read_u32(dev, "i2c-analog-filter-cutoff-frequency", &t->analog_filter_cutoff_freq_hz);
+	if (ret && use_defaults)
+		t->analog_filter_cutoff_freq_hz = 0;
 }
 EXPORT_SYMBOL_GPL(i2c_parse_fw_timings);
 
@@ -2167,8 +2180,8 @@ static int i2c_detect_address(struct i2c_client *temp_client,
 
 		dev_dbg(&adapter->dev, "Creating %s at 0x%02x\n",
 			info.type, info.addr);
-		client = i2c_new_device(adapter, &info);
-		if (client)
+		client = i2c_new_client_device(adapter, &info);
+		if (!IS_ERR(client))
 			list_add_tail(&client->detected, &driver->clients);
 		else
 			dev_err(&adapter->dev, "Failed creating %s at 0x%02x\n",
@@ -2269,19 +2282,6 @@ i2c_new_scanned_device(struct i2c_adapter *adap,
 	return i2c_new_client_device(adap, info);
 }
 EXPORT_SYMBOL_GPL(i2c_new_scanned_device);
-
-struct i2c_client *
-i2c_new_probed_device(struct i2c_adapter *adap,
-		      struct i2c_board_info *info,
-		      unsigned short const *addr_list,
-		      int (*probe)(struct i2c_adapter *adap, unsigned short addr))
-{
-	struct i2c_client *client;
-
-	client = i2c_new_scanned_device(adap, info, addr_list, probe);
-	return IS_ERR(client) ? NULL : client;
-}
-EXPORT_SYMBOL_GPL(i2c_new_probed_device);
 
 struct i2c_adapter *i2c_get_adapter(int nr)
 {

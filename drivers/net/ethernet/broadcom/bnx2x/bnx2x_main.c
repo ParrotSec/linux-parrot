@@ -81,17 +81,12 @@
 /* Time in jiffies before concluding the transmitter is hung */
 #define TX_TIMEOUT		(5*HZ)
 
-static char version[] =
-	"QLogic 5771x/578xx 10/20-Gigabit Ethernet Driver "
-	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
-
 MODULE_AUTHOR("Eliezer Tamir");
 MODULE_DESCRIPTION("QLogic "
 		   "BCM57710/57711/57711E/"
 		   "57712/57712_MF/57800/57800_MF/57810/57810_MF/"
 		   "57840/57840_MF Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION(DRV_MODULE_VERSION);
 MODULE_FIRMWARE(FW_FILE_NAME_E1);
 MODULE_FIRMWARE(FW_FILE_NAME_E1H);
 MODULE_FIRMWARE(FW_FILE_NAME_E2);
@@ -14053,7 +14048,7 @@ static int bnx2x_init_one(struct pci_dev *pdev,
 			rc = -ENOMEM;
 			goto init_one_freemem;
 		}
-		bp->doorbells = ioremap_nocache(pci_resource_start(pdev, 2),
+		bp->doorbells = ioremap(pci_resource_start(pdev, 2),
 						doorbell_size);
 	}
 	if (!bp->doorbells) {
@@ -14479,8 +14474,6 @@ static struct pci_driver bnx2x_pci_driver = {
 static int __init bnx2x_init(void)
 {
 	int ret;
-
-	pr_info("%s", version);
 
 	bnx2x_wq = create_singlethread_workqueue("bnx2x");
 	if (bnx2x_wq == NULL) {
@@ -15410,6 +15403,7 @@ int bnx2x_configure_ptp_filters(struct bnx2x *bp)
 		REG_WR(bp, rule, BNX2X_PTP_TX_ON_RULE_MASK);
 		break;
 	case HWTSTAMP_TX_ONESTEP_SYNC:
+	case HWTSTAMP_TX_ONESTEP_P2P:
 		BNX2X_ERR("One-step timestamping is not supported\n");
 		return -ERANGE;
 	}

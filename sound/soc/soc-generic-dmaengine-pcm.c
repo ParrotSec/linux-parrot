@@ -62,6 +62,12 @@ int snd_dmaengine_pcm_prepare_slave_config(struct snd_pcm_substream *substream,
 	struct snd_dmaengine_dai_dma_data *dma_data;
 	int ret;
 
+	if (rtd->num_cpus > 1) {
+		dev_err(rtd->dev,
+			"%s doesn't support Multi CPU yet\n", __func__);
+		return -EINVAL;
+	}
+
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 
 	ret = snd_hwparams_to_dma_slave_config(substream, params, slave_config);
@@ -104,7 +110,7 @@ static int dmaengine_pcm_hw_params(struct snd_soc_component *component,
 			return ret;
 	}
 
-	return snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+	return 0;
 }
 
 static int
@@ -117,6 +123,12 @@ dmaengine_pcm_set_runtime_hwparams(struct snd_soc_component *component,
 	struct dma_chan *chan = pcm->chan[substream->stream];
 	struct snd_dmaengine_dai_dma_data *dma_data;
 	struct snd_pcm_hardware hw;
+
+	if (rtd->num_cpus > 1) {
+		dev_err(rtd->dev,
+			"%s doesn't support Multi CPU yet\n", __func__);
+		return -EINVAL;
+	}
 
 	if (pcm->config && pcm->config->pcm_hardware)
 		return snd_soc_set_runtime_hwparams(substream,
@@ -170,12 +182,6 @@ static int dmaengine_pcm_close(struct snd_soc_component *component,
 	return snd_dmaengine_pcm_close(substream);
 }
 
-static int dmaengine_pcm_hw_free(struct snd_soc_component *component,
-				 struct snd_pcm_substream *substream)
-{
-	return snd_pcm_lib_free_pages(substream);
-}
-
 static int dmaengine_pcm_trigger(struct snd_soc_component *component,
 				 struct snd_pcm_substream *substream, int cmd)
 {
@@ -190,6 +196,12 @@ static struct dma_chan *dmaengine_pcm_compat_request_channel(
 	struct dmaengine_pcm *pcm = soc_component_to_pcm(component);
 	struct snd_dmaengine_dai_dma_data *dma_data;
 	dma_filter_fn fn = NULL;
+
+	if (rtd->num_cpus > 1) {
+		dev_err(rtd->dev,
+			"%s doesn't support Multi CPU yet\n", __func__);
+		return NULL;
+	}
 
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 
@@ -243,7 +255,7 @@ static int dmaengine_pcm_new(struct snd_soc_component *component,
 		max_buffer_size = SIZE_MAX;
 	}
 
-	for (i = SNDRV_PCM_STREAM_PLAYBACK; i <= SNDRV_PCM_STREAM_CAPTURE; i++) {
+	for_each_pcm_streams(i) {
 		substream = rtd->pcm->streams[i].substream;
 		if (!substream)
 			continue;
@@ -263,7 +275,7 @@ static int dmaengine_pcm_new(struct snd_soc_component *component,
 			return -EINVAL;
 		}
 
-		snd_pcm_lib_preallocate_pages(substream,
+		snd_pcm_set_managed_buffer(substream,
 				SNDRV_DMA_TYPE_DEV_IRAM,
 				dmaengine_dma_dev(pcm, substream),
 				prealloc_buffer_size,
@@ -331,9 +343,7 @@ static const struct snd_soc_component_driver dmaengine_pcm_component = {
 	.probe_order	= SND_SOC_COMP_ORDER_LATE,
 	.open		= dmaengine_pcm_open,
 	.close		= dmaengine_pcm_close,
-	.ioctl		= snd_soc_pcm_lib_ioctl,
 	.hw_params	= dmaengine_pcm_hw_params,
-	.hw_free	= dmaengine_pcm_hw_free,
 	.trigger	= dmaengine_pcm_trigger,
 	.pointer	= dmaengine_pcm_pointer,
 	.pcm_construct	= dmaengine_pcm_new,
@@ -344,9 +354,7 @@ static const struct snd_soc_component_driver dmaengine_pcm_component_process = {
 	.probe_order	= SND_SOC_COMP_ORDER_LATE,
 	.open		= dmaengine_pcm_open,
 	.close		= dmaengine_pcm_close,
-	.ioctl		= snd_soc_pcm_lib_ioctl,
 	.hw_params	= dmaengine_pcm_hw_params,
-	.hw_free	= dmaengine_pcm_hw_free,
 	.trigger	= dmaengine_pcm_trigger,
 	.pointer	= dmaengine_pcm_pointer,
 	.copy_user	= dmaengine_copy_user,
@@ -381,8 +389,7 @@ static int dmaengine_pcm_request_chan_of(struct dmaengine_pcm *pcm,
 		dev = config->dma_dev;
 	}
 
-	for (i = SNDRV_PCM_STREAM_PLAYBACK; i <= SNDRV_PCM_STREAM_CAPTURE;
-	     i++) {
+	for_each_pcm_streams(i) {
 		if (pcm->flags & SND_DMAENGINE_PCM_FLAG_HALF_DUPLEX)
 			name = "rx-tx";
 		else
@@ -411,8 +418,7 @@ static void dmaengine_pcm_release_chan(struct dmaengine_pcm *pcm)
 {
 	unsigned int i;
 
-	for (i = SNDRV_PCM_STREAM_PLAYBACK; i <= SNDRV_PCM_STREAM_CAPTURE;
-	     i++) {
+	for_each_pcm_streams(i) {
 		if (!pcm->chan[i])
 			continue;
 		dma_release_channel(pcm->chan[i]);

@@ -749,19 +749,9 @@ bool rtw_phy_write_rf_reg(struct rtw_dev *rtwdev, enum rtw_rf_path rf_path,
 	direct_addr = base_addr[rf_path] + (addr << 2);
 	mask &= RFREG_MASK;
 
-	if (addr == RF_CFGCH) {
-		rtw_write32_mask(rtwdev, REG_RSV_CTRL, BITS_RFC_DIRECT, DISABLE_PI);
-		rtw_write32_mask(rtwdev, REG_WLRF1, BITS_RFC_DIRECT, DISABLE_PI);
-	}
-
 	rtw_write32_mask(rtwdev, direct_addr, mask, data);
 
 	udelay(1);
-
-	if (addr == RF_CFGCH) {
-		rtw_write32_mask(rtwdev, REG_RSV_CTRL, BITS_RFC_DIRECT, ENABLE_PI);
-		rtw_write32_mask(rtwdev, REG_WLRF1, BITS_RFC_DIRECT, ENABLE_PI);
-	}
 
 	return true;
 }
@@ -1434,7 +1424,7 @@ static void rtw_load_rfk_table(struct rtw_dev *rtwdev)
 
 	rtw_load_table(rtwdev, chip->rfk_init_tbl);
 
-	dpk_info->is_dpk_pwr_on = 1;
+	dpk_info->is_dpk_pwr_on = true;
 }
 
 void rtw_phy_load_tables(struct rtw_dev *rtwdev)

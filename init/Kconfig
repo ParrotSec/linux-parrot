@@ -6,8 +6,7 @@ config DEFCONFIG_LIST
 	default "/lib/modules/$(shell,uname -r)/.config"
 	default "/etc/kernel-config"
 	default "/boot/config-$(shell,uname -r)"
-	default ARCH_DEFCONFIG
-	default "arch/$(ARCH)/defconfig"
+	default "arch/$(SRCARCH)/configs/$(KBUILD_DEFCONFIG)"
 
 config CC_IS_GCC
 	def_bool $(success,$(CC) --version | head -n 1 | grep -q gcc)
@@ -16,6 +15,10 @@ config GCC_VERSION
 	int
 	default $(shell,$(srctree)/scripts/gcc-version.sh $(CC)) if CC_IS_GCC
 	default 0
+
+config LD_VERSION
+	int
+	default $(shell,$(LD) --version | $(srctree)/scripts/ld-version.sh)
 
 config CC_IS_CLANG
 	def_bool $(success,$(CC) --version | head -n 1 | grep -q clang)
@@ -36,22 +39,6 @@ config TOOLS_SUPPORT_RELR
 config CC_HAS_ASM_INLINE
 	def_bool $(success,echo 'void foo(void) { asm inline (""); }' | $(CC) -x c - -c -o /dev/null)
 
-config CC_HAS_WARN_MAYBE_UNINITIALIZED
-	def_bool $(cc-option,-Wmaybe-uninitialized)
-	help
-	  GCC >= 4.7 supports this option.
-
-config CC_DISABLE_WARN_MAYBE_UNINITIALIZED
-	bool
-	depends on CC_HAS_WARN_MAYBE_UNINITIALIZED
-	default CC_IS_GCC && GCC_VERSION < 40900  # unreliable for GCC < 4.9
-	help
-	  GCC's -Wmaybe-uninitialized is not reliable by definition.
-	  Lots of false positive warnings are produced in some cases.
-
-	  If this option is enabled, -Wno-maybe-uninitialzed is passed
-	  to the compiler to suppress maybe-uninitialized warnings.
-
 config CONSTRUCTORS
 	bool
 	depends on !UML
@@ -59,7 +46,7 @@ config CONSTRUCTORS
 config IRQ_WORK
 	bool
 
-config BUILDTIME_EXTABLE_SORT
+config BUILDTIME_TABLE_SORT
 	bool
 
 config THREAD_INFO_IN_TASK
@@ -449,6 +436,10 @@ config IRQ_TIME_ACCOUNTING
 config HAVE_SCHED_AVG_IRQ
 	def_bool y
 	depends on IRQ_TIME_ACCOUNTING || PARAVIRT_TIME_ACCOUNTING
+	depends on SMP
+
+config SCHED_THERMAL_PRESSURE
+	bool "Enable periodic averaging of thermal pressure"
 	depends on SMP
 
 config BSD_PROCESS_ACCT
@@ -869,7 +860,7 @@ config BLK_CGROUP
 	This option only enables generic Block IO controller infrastructure.
 	One needs to also enable actual IO controlling logic/policy. For
 	enabling proportional weight division of disk bandwidth in CFQ, set
-	CONFIG_CFQ_GROUP_IOSCHED=y; for enabling throttling policy, set
+	CONFIG_BFQ_GROUP_IOSCHED=y; for enabling throttling policy, set
 	CONFIG_BLK_DEV_THROTTLING=y.
 
 	See Documentation/admin-guide/cgroup-v1/blkio-controller.rst for more information.
@@ -1026,7 +1017,8 @@ config CGROUP_PERF
 	help
 	  This option extends the perf per-cpu mode to restrict monitoring
 	  to threads which belong to the cgroup specified and run on the
-	  designated cpu.
+	  designated cpu.  Or this can be used to have cgroup ID in samples
+	  so that it can monitor performance events among cgroups.
 
 	  Say N if unsure.
 
@@ -1079,6 +1071,14 @@ config UTS_NS
 	help
 	  In this namespace tasks see different info provided with the
 	  uname() system call
+
+config TIME_NS
+	bool "TIME namespace"
+	depends on GENERIC_VDSO_TIME_NS
+	default y
+	help
+	  In this namespace boottime and monotonic clocks can be set.
+	  The time will keep going with the same pace.
 
 config IPC_NS
 	bool "IPC namespace"
@@ -1215,6 +1215,18 @@ source "usr/Kconfig"
 
 endif
 
+config BOOT_CONFIG
+	bool "Boot config support"
+	select BLK_DEV_INITRD
+	help
+	  Extra boot config allows system admin to pass a config file as
+	  complemental extension of kernel cmdline when booting.
+	  The boot config file must be attached at the end of initramfs
+	  with checksum, size and magic word.
+	  See <file:Documentation/admin-guide/bootconfig.rst> for details.
+
+	  If unsure, say Y.
+
 choice
 	prompt "Compiler optimization level"
 	default CC_OPTIMIZE_FOR_PERFORMANCE
@@ -1229,14 +1241,12 @@ config CC_OPTIMIZE_FOR_PERFORMANCE
 config CC_OPTIMIZE_FOR_PERFORMANCE_O3
 	bool "Optimize more for performance (-O3)"
 	depends on ARC
-	imply CC_DISABLE_WARN_MAYBE_UNINITIALIZED  # avoid false positives
 	help
 	  Choosing this option will pass "-O3" to your compiler to optimize
 	  the kernel yet more for performance.
 
 config CC_OPTIMIZE_FOR_SIZE
 	bool "Optimize for size (-Os)"
-	imply CC_DISABLE_WARN_MAYBE_UNINITIALIZED  # avoid false positives
 	help
 	  Choosing this option will pass "-Os" to your compiler resulting
 	  in a smaller kernel.
@@ -1514,7 +1524,6 @@ config AIO
 
 config IO_URING
 	bool "Enable IO uring support" if EXPERT
-	select ANON_INODES
 	select IO_WQ
 	default y
 	help
@@ -1531,6 +1540,11 @@ config ADVISE_SYSCALLS
 	  usage, improving performance. If building an embedded system where no
 	  applications use these syscalls, you can disable this option to save
 	  space.
+
+config HAVE_ARCH_USERFAULTFD_WP
+	bool
+	help
+	  Arch has userfaultfd write protection support
 
 config MEMBARRIER
 	bool "Enable membarrier() system call" if EXPERT
@@ -1595,6 +1609,19 @@ config KALLSYMS_BASE_RELATIVE
 # end of the "standard kernel features (expert users)" menu
 
 # syscall, maps, verifier
+
+config BPF_LSM
+	bool "LSM Instrumentation with BPF"
+	depends on BPF_EVENTS
+	depends on BPF_SYSCALL
+	depends on SECURITY
+	depends on BPF_JIT
+	help
+	  Enables instrumentation of the security hooks with eBPF programs for
+	  implementing dynamic MAC and Audit Policies.
+
+	  If you are unsure how to answer this question, answer N.
+
 config BPF_SYSCALL
 	bool "Enable bpf() system call"
 	select BPF
@@ -1604,12 +1631,19 @@ config BPF_SYSCALL
 	  Enable the bpf() system call that allows to manipulate eBPF
 	  programs and maps via file descriptors.
 
+config ARCH_WANT_DEFAULT_BPF_JIT
+	bool
+
 config BPF_JIT_ALWAYS_ON
 	bool "Permanently enable BPF JIT and remove BPF interpreter"
 	depends on BPF_SYSCALL && HAVE_EBPF_JIT && BPF_JIT
 	help
 	  Enables BPF JIT and removes BPF interpreter to avoid
 	  speculative execution of BPF instructions by the interpreter
+
+config BPF_JIT_DEFAULT_ON
+	def_bool ARCH_WANT_DEFAULT_BPF_JIT || BPF_JIT_ALWAYS_ON
+	depends on HAVE_EBPF_JIT && BPF_JIT
 
 config USERFAULTFD
 	bool "Enable userfaultfd() system call"
@@ -2180,6 +2214,19 @@ config TRIM_UNUSED_KSYMS
 
 	  If unsure, or if you need to build out-of-tree modules, say N.
 
+config UNUSED_KSYMS_WHITELIST
+	string "Whitelist of symbols to keep in ksymtab"
+	depends on TRIM_UNUSED_KSYMS
+	help
+	  By default, all unused exported symbols will be un-exported from the
+	  build when TRIM_UNUSED_KSYMS is selected.
+
+	  UNUSED_KSYMS_WHITELIST allows to whitelist symbols that must be kept
+	  exported at all times, even in absence of in-tree users. The value to
+	  set here is the path to a text file containing the list of symbols,
+	  one per line. The path can be absolute, or relative to the kernel
+	  source tree.
+
 endif # MODULES
 
 config MODULES_TREE_LOOKUP
@@ -2213,6 +2260,9 @@ config ASN1
 	  functions to call on what tags.
 
 source "kernel/Kconfig.locks"
+
+config ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
+	bool
 
 config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
 	bool

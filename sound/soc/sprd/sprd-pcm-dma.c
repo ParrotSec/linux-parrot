@@ -200,7 +200,7 @@ static int sprd_pcm_hw_params(struct snd_soc_component *component,
 	unsigned long flags;
 	int ret, i, j, sg_num;
 
-	dma_params = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	dma_params = snd_soc_dai_get_dma_data(asoc_rtd_to_cpu(rtd, 0), substream);
 	if (!dma_params) {
 		dev_warn(component->dev, "no dma parameters setting\n");
 		dma_private->params = NULL;
@@ -508,7 +508,6 @@ static const struct snd_soc_component_driver sprd_soc_component = {
 	.name		= DRV_NAME,
 	.open		= sprd_pcm_open,
 	.close		= sprd_pcm_close,
-	.ioctl		= snd_soc_pcm_lib_ioctl,
 	.hw_params	= sprd_pcm_hw_params,
 	.hw_free	= sprd_pcm_hw_free,
 	.trigger	= sprd_pcm_trigger,

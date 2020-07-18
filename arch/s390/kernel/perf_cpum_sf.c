@@ -372,28 +372,33 @@ static void deallocate_buffers(struct cpu_hw_sf *cpuhw)
 
 static int allocate_buffers(struct cpu_hw_sf *cpuhw, struct hw_perf_event *hwc)
 {
-	unsigned long n_sdb, freq, factor;
+	unsigned long n_sdb, freq;
 	size_t sample_size;
 
 	/* Calculate sampling buffers using 4K pages
 	 *
-	 *    1. Determine the sample data size which depends on the used
-	 *	 sampling functions, for example, basic-sampling or
-	 *	 basic-sampling with diagnostic-sampling.
+	 *    1. The sampling size is 32 bytes for basic sampling. This size
+	 *	 is the same for all machine types. Diagnostic
+	 *	 sampling uses auxlilary data buffer setup which provides the
+	 *	 memory for SDBs using linux common code auxiliary trace
+	 *	 setup.
 	 *
-	 *    2. Use the sampling frequency as input.  The sampling buffer is
-	 *	 designed for almost one second.  This can be adjusted through
-	 *	 the "factor" variable.
-	 *	 In any case, alloc_sampling_buffer() sets the Alert Request
+	 *    2. Function alloc_sampling_buffer() sets the Alert Request
 	 *	 Control indicator to trigger a measurement-alert to harvest
-	 *	 sample-data-blocks (sdb).
+	 *	 sample-data-blocks (SDB). This is done per SDB. This
+	 *	 measurement alert interrupt fires quick enough to handle
+	 *	 one SDB, on very high frequency and work loads there might
+	 *	 be 2 to 3 SBDs available for sample processing.
+	 *	 Currently there is no need for setup alert request on every
+	 *	 n-th page. This is counterproductive as one IRQ triggers
+	 *	 a very high number of samples to be processed at one IRQ.
 	 *
-	 *    3. Compute the number of sample-data-blocks and ensure a minimum
-	 *	 of CPUM_SF_MIN_SDB.  Also ensure the upper limit does not
-	 *	 exceed a "calculated" maximum.  The symbolic maximum is
-	 *	 designed for basic-sampling only and needs to be increased if
-	 *	 diagnostic-sampling is active.
-	 *	 See also the remarks for these symbolic constants.
+	 *    3. Use the sampling frequency as input.
+	 *	 Compute the number of SDBs and ensure a minimum
+	 *	 of CPUM_SF_MIN_SDB.  Depending on frequency add some more
+	 *	 SDBs to handle a higher sampling rate.
+	 *	 Use a minimum of CPUM_SF_MIN_SDB and allow for 100 samples
+	 *	 (one SDB) for every 10000 HZ frequency increment.
 	 *
 	 *    4. Compute the number of sample-data-block-tables (SDBT) and
 	 *	 ensure a minimum of CPUM_SF_MIN_SDBT (one table can manage up
@@ -401,10 +406,7 @@ static int allocate_buffers(struct cpu_hw_sf *cpuhw, struct hw_perf_event *hwc)
 	 */
 	sample_size = sizeof(struct hws_basic_entry);
 	freq = sample_rate_to_freq(&cpuhw->qsi, SAMPL_RATE(hwc));
-	factor = 1;
-	n_sdb = DIV_ROUND_UP(freq, factor * ((PAGE_SIZE-64) / sample_size));
-	if (n_sdb < CPUM_SF_MIN_SDB)
-		n_sdb = CPUM_SF_MIN_SDB;
+	n_sdb = CPUM_SF_MIN_SDB + DIV_ROUND_UP(freq, 10000);
 
 	/* If there is already a sampling buffer allocated, it is very likely
 	 * that the sampling facility is enabled too.  If the event to be
@@ -1383,7 +1385,8 @@ static void aux_output_end(struct perf_output_handle *handle)
 	te = aux_sdb_trailer(aux, aux->alert_mark);
 	te->flags &= ~SDB_TE_ALERT_REQ_MASK;
 
-	debug_sprintf_event(sfdbg, 6, "%s: collect %#lx SDBs\n", __func__, i);
+	debug_sprintf_event(sfdbg, 6, "%s: SDBs %ld range %ld head %ld\n",
+			    __func__, i, range_scan, aux->head);
 }
 
 /*
@@ -1416,13 +1419,17 @@ static int aux_output_begin(struct perf_output_handle *handle,
 	 * SDBs between aux->head and aux->empty_mark are already ready
 	 * for new data. range_scan is num of SDBs not within them.
 	 */
+	debug_sprintf_event(sfdbg, 6,
+			    "%s: range %ld head %ld alert %ld empty %ld\n",
+			    __func__, range, aux->head, aux->alert_mark,
+			    aux->empty_mark);
 	if (range > AUX_SDB_NUM_EMPTY(aux)) {
 		range_scan = range - AUX_SDB_NUM_EMPTY(aux);
 		idx = aux->empty_mark + 1;
 		for (i = 0; i < range_scan; i++, idx++) {
 			te = aux_sdb_trailer(aux, idx);
-			te->flags = te->flags & ~SDB_TE_BUFFER_FULL_MASK;
-			te->flags = te->flags & ~SDB_TE_ALERT_REQ_MASK;
+			te->flags &= ~(SDB_TE_BUFFER_FULL_MASK |
+				       SDB_TE_ALERT_REQ_MASK);
 			te->overflow = 0;
 		}
 		/* Save the position of empty SDBs */
@@ -1441,15 +1448,11 @@ static int aux_output_begin(struct perf_output_handle *handle,
 	cpuhw->lsctl.tear = base + offset * sizeof(unsigned long);
 	cpuhw->lsctl.dear = aux->sdb_index[head];
 
-	debug_sprintf_event(sfdbg, 6, "%s: "
-			    "head->alert_mark->empty_mark (num_alert, range)"
-			    "[%#lx -> %#lx -> %#lx] (%#lx, %#lx) "
-			    "tear index %#lx, tear %#lx dear %#lx\n", __func__,
+	debug_sprintf_event(sfdbg, 6, "%s: head %ld alert %ld empty %ld "
+			    "index %ld tear %#lx dear %#lx\n", __func__,
 			    aux->head, aux->alert_mark, aux->empty_mark,
-			    AUX_SDB_NUM_ALERT(aux), range,
 			    head / CPUM_SF_SDB_PER_TABLE,
-			    cpuhw->lsctl.tear,
-			    cpuhw->lsctl.dear);
+			    cpuhw->lsctl.tear, cpuhw->lsctl.dear);
 
 	return 0;
 }
@@ -1469,8 +1472,7 @@ static bool aux_set_alert(struct aux_buffer *aux, unsigned long alert_index,
 	te = aux_sdb_trailer(aux, alert_index);
 	do {
 		orig_flags = te->flags;
-		orig_overflow = te->overflow;
-		*overflow = orig_overflow;
+		*overflow = orig_overflow = te->overflow;
 		if (orig_flags & SDB_TE_BUFFER_FULL_MASK) {
 			/*
 			 * SDB is already set by hardware.
@@ -1512,9 +1514,12 @@ static bool aux_reset_buffer(struct aux_buffer *aux, unsigned long range,
 			     unsigned long long *overflow)
 {
 	unsigned long long orig_overflow, orig_flags, new_flags;
-	unsigned long i, range_scan, idx;
+	unsigned long i, range_scan, idx, idx_old;
 	struct hws_trailer_entry *te;
 
+	debug_sprintf_event(sfdbg, 6, "%s: range %ld head %ld alert %ld "
+			    "empty %ld\n", __func__, range, aux->head,
+			    aux->alert_mark, aux->empty_mark);
 	if (range <= AUX_SDB_NUM_EMPTY(aux))
 		/*
 		 * No need to scan. All SDBs in range are marked as empty.
@@ -1537,7 +1542,7 @@ static bool aux_reset_buffer(struct aux_buffer *aux, unsigned long range,
 	 * indicator fall into this range, set it.
 	 */
 	range_scan = range - AUX_SDB_NUM_EMPTY(aux);
-	idx = aux->empty_mark + 1;
+	idx_old = idx = aux->empty_mark + 1;
 	for (i = 0; i < range_scan; i++, idx++) {
 		te = aux_sdb_trailer(aux, idx);
 		do {
@@ -1557,6 +1562,9 @@ static bool aux_reset_buffer(struct aux_buffer *aux, unsigned long range,
 	/* Update empty_mark to new position */
 	aux->empty_mark = aux->head + range - 1;
 
+	debug_sprintf_event(sfdbg, 6, "%s: range_scan %ld idx %ld..%ld "
+			    "empty %ld\n", __func__, range_scan, idx_old,
+			    idx - 1, aux->empty_mark);
 	return true;
 }
 
@@ -1578,9 +1586,11 @@ static void hw_collect_aux(struct cpu_hw_sf *cpuhw)
 
 	/* Inform user space new data arrived */
 	size = AUX_SDB_NUM_ALERT(aux) << PAGE_SHIFT;
+	debug_sprintf_event(sfdbg, 6, "%s: #alert %ld\n", __func__,
+			    size >> PAGE_SHIFT);
 	perf_aux_output_end(handle, size);
-	num_sdb = aux->sfb.num_sdb;
 
+	num_sdb = aux->sfb.num_sdb;
 	while (!done) {
 		/* Get an output handle */
 		aux = perf_aux_output_begin(handle, cpuhw->event);
@@ -1612,14 +1622,14 @@ static void hw_collect_aux(struct cpu_hw_sf *cpuhw)
 			size = range << PAGE_SHIFT;
 			perf_aux_output_end(&cpuhw->handle, size);
 			pr_err("Sample data caused the AUX buffer with %lu "
-			       "pages to overflow\n", num_sdb);
-			debug_sprintf_event(sfdbg, 1, "%s: head %#lx range %#lx "
-					    "overflow %#llx\n", __func__,
+			       "pages to overflow\n", aux->sfb.num_sdb);
+			debug_sprintf_event(sfdbg, 1, "%s: head %ld range %ld "
+					    "overflow %lld\n", __func__,
 					    aux->head, range, overflow);
 		} else {
 			size = AUX_SDB_NUM_ALERT(aux) << PAGE_SHIFT;
 			perf_aux_output_end(&cpuhw->handle, size);
-			debug_sprintf_event(sfdbg, 6, "%s: head %#lx alert %#lx "
+			debug_sprintf_event(sfdbg, 6, "%s: head %ld alert %ld "
 					    "already full, try another\n",
 					    __func__,
 					    aux->head, aux->alert_mark);
@@ -1627,11 +1637,9 @@ static void hw_collect_aux(struct cpu_hw_sf *cpuhw)
 	}
 
 	if (done)
-		debug_sprintf_event(sfdbg, 6, "%s: aux_reset_buffer "
-				    "[%#lx -> %#lx -> %#lx] (%#lx, %#lx)\n",
-				    __func__, aux->head, aux->alert_mark,
-				    aux->empty_mark, AUX_SDB_NUM_ALERT(aux),
-				    range);
+		debug_sprintf_event(sfdbg, 6, "%s: head %ld alert %ld "
+				    "empty %ld\n", __func__, aux->head,
+				    aux->alert_mark, aux->empty_mark);
 }
 
 /*
@@ -1654,8 +1662,7 @@ static void aux_buffer_free(void *data)
 	kfree(aux->sdb_index);
 	kfree(aux);
 
-	debug_sprintf_event(sfdbg, 4, "%s: free "
-			    "%lu SDBTs\n", __func__, num_sdbt);
+	debug_sprintf_event(sfdbg, 4, "%s: SDBTs %lu\n", __func__, num_sdbt);
 }
 
 static void aux_sdb_init(unsigned long sdb)
@@ -1707,13 +1714,13 @@ static void *aux_buffer_setup(struct perf_event *event, void **pages,
 	}
 
 	/* Allocate aux_buffer struct for the event */
-	aux = kmalloc(sizeof(struct aux_buffer), GFP_KERNEL);
+	aux = kzalloc(sizeof(struct aux_buffer), GFP_KERNEL);
 	if (!aux)
 		goto no_aux;
 	sfb = &aux->sfb;
 
 	/* Allocate sdbt_index for fast reference */
-	n_sdbt = (nr_pages + CPUM_SF_SDB_PER_TABLE - 1) / CPUM_SF_SDB_PER_TABLE;
+	n_sdbt = DIV_ROUND_UP(nr_pages, CPUM_SF_SDB_PER_TABLE);
 	aux->sdbt_index = kmalloc_array(n_sdbt, sizeof(void *), GFP_KERNEL);
 	if (!aux->sdbt_index)
 		goto no_sdbt_index;
@@ -1763,8 +1770,8 @@ static void *aux_buffer_setup(struct perf_event *event, void **pages,
 	 */
 	aux->empty_mark = sfb->num_sdb - 1;
 
-	debug_sprintf_event(sfdbg, 4, "%s: setup %lu SDBTs and %lu SDBs\n",
-			    __func__, sfb->num_sdbt, sfb->num_sdb);
+	debug_sprintf_event(sfdbg, 4, "%s: SDBTs %lu SDBs %lu\n", __func__,
+			    sfb->num_sdbt, sfb->num_sdb);
 
 	return aux;
 

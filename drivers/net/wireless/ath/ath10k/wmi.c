@@ -1926,6 +1926,7 @@ ath10k_wmi_op_gen_mgmt_tx(struct ath10k *ar, struct sk_buff *msdu)
 	u32 vdev_id;
 	u32 buf_len = msdu->len;
 	u16 fc;
+	const u8 *peer_addr;
 
 	hdr = (struct ieee80211_hdr *)msdu->data;
 	fc = le16_to_cpu(hdr->frame_control);
@@ -1946,8 +1947,20 @@ ath10k_wmi_op_gen_mgmt_tx(struct ath10k *ar, struct sk_buff *msdu)
 	     ieee80211_is_deauth(hdr->frame_control) ||
 	     ieee80211_is_disassoc(hdr->frame_control)) &&
 	     ieee80211_has_protected(hdr->frame_control)) {
-		len += IEEE80211_CCMP_MIC_LEN;
-		buf_len += IEEE80211_CCMP_MIC_LEN;
+		peer_addr = hdr->addr1;
+		if (is_multicast_ether_addr(peer_addr)) {
+			len += sizeof(struct ieee80211_mmie_16);
+			buf_len += sizeof(struct ieee80211_mmie_16);
+		} else {
+			if (cb->ucast_cipher == WLAN_CIPHER_SUITE_GCMP ||
+			    cb->ucast_cipher == WLAN_CIPHER_SUITE_GCMP_256) {
+				len += IEEE80211_GCMP_MIC_LEN;
+				buf_len += IEEE80211_GCMP_MIC_LEN;
+			} else {
+				len += IEEE80211_CCMP_MIC_LEN;
+				buf_len += IEEE80211_CCMP_MIC_LEN;
+			}
+		}
 	}
 
 	len = round_up(len, 4);
@@ -2463,10 +2476,10 @@ int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb)
 	u32 rx_status;
 	u32 channel;
 	u32 phy_mode;
-	u32 snr;
+	u32 snr, rssi;
 	u32 rate;
 	u16 fc;
-	int ret;
+	int ret, i;
 
 	ret = ath10k_wmi_pull_mgmt_rx(ar, skb, &arg);
 	if (ret) {
@@ -2525,6 +2538,20 @@ int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb)
 
 	status->freq = ieee80211_channel_to_frequency(channel, status->band);
 	status->signal = snr + ATH10K_DEFAULT_NOISE_FLOOR;
+
+	BUILD_BUG_ON(ARRAY_SIZE(status->chain_signal) != ARRAY_SIZE(arg.rssi));
+
+	for (i = 0; i < ARRAY_SIZE(status->chain_signal); i++) {
+		status->chains &= ~BIT(i);
+		rssi = __le32_to_cpu(arg.rssi[i]);
+		ath10k_dbg(ar, ATH10K_DBG_MGMT, "mgmt rssi[%d]:%d\n", i, arg.rssi[i]);
+
+		if (rssi != ATH10K_INVALID_RSSI && rssi != 0) {
+			status->chain_signal[i] = ATH10K_DEFAULT_NOISE_FLOOR + rssi;
+			status->chains |= BIT(i);
+		}
+	}
+
 	status->rate_idx = ath10k_mac_bitrate_to_idx(sband, rate / 100);
 
 	hdr = (struct ieee80211_hdr *)skb->data;
@@ -8773,7 +8800,7 @@ ath10k_wmi_10_4_ext_resource_config(struct ath10k *ar,
 	cmd = (struct wmi_ext_resource_config_10_4_cmd *)skb->data;
 	cmd->host_platform_config = __cpu_to_le32(type);
 	cmd->fw_feature_bitmap = __cpu_to_le32(fw_feature_bitmap);
-	cmd->wlan_gpio_priority = __cpu_to_le32(-1);
+	cmd->wlan_gpio_priority = __cpu_to_le32(ar->coex_gpio_pin);
 	cmd->coex_version = __cpu_to_le32(WMI_NO_COEX_VERSION_SUPPORT);
 	cmd->coex_gpio_pin1 = __cpu_to_le32(-1);
 	cmd->coex_gpio_pin2 = __cpu_to_le32(-1);

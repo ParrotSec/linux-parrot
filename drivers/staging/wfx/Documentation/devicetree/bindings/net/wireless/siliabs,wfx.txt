@@ -45,7 +45,7 @@ case. Thus declaring WFxxx chip in device tree is strongly recommended (and may
 become mandatory in the future).
 
 Required properties:
- - compatible: Should be "silabs,wfx-sdio"
+ - compatible: Should be "silabs,wf200"
  - reg: Should be 1
 
 In addition, it is recommended to declare a mmc-pwrseq on SDIO host above WFx.
@@ -71,7 +71,7 @@ Example:
 	#size = <0>;
 
 	mmc@1 {
-		compatible = "silabs,wfx-sdio";
+		compatible = "silabs,wf200";
 		reg = <1>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&wfx_wakeup>;
@@ -94,5 +94,5 @@ Some properties are recognized either by SPI and SDIO versions:
    Must contains 64 hexadecimal digits. Not supported in current version.
 
 WFx driver also supports `mac-address` and `local-mac-address` as described in
-Documentation/devicetree/binding/net/ethernet.txt
+Documentation/devicetree/bindings/net/ethernet.txt
 

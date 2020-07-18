@@ -53,6 +53,16 @@ static inline bool qeth_ipa_caps_enabled(struct qeth_ipa_caps *caps, u32 mask)
 	return (caps->enabled & mask) == mask;
 }
 
+#define qeth_adp_supported(c, f) \
+	qeth_ipa_caps_supported(&c->options.adp, f)
+#define qeth_is_supported(c, f) \
+	qeth_ipa_caps_supported(&c->options.ipa4, f)
+#define qeth_is_supported6(c, f) \
+	qeth_ipa_caps_supported(&c->options.ipa6, f)
+#define qeth_is_ipafunc_supported(c, prot, f) \
+	 ((prot == QETH_PROT_IPV6) ? qeth_is_supported6(c, f) : \
+				     qeth_is_supported(c, f))
+
 enum qeth_card_types {
 	QETH_CARD_TYPE_OSD     = 1,
 	QETH_CARD_TYPE_IQD     = 5,
@@ -64,8 +74,19 @@ enum qeth_card_types {
 #define IS_IQD(card)	((card)->info.type == QETH_CARD_TYPE_IQD)
 #define IS_OSD(card)	((card)->info.type == QETH_CARD_TYPE_OSD)
 #define IS_OSM(card)	((card)->info.type == QETH_CARD_TYPE_OSM)
+
+#ifdef CONFIG_QETH_OSN
 #define IS_OSN(card)	((card)->info.type == QETH_CARD_TYPE_OSN)
+#else
+#define IS_OSN(card)	false
+#endif
+
+#ifdef CONFIG_QETH_OSX
 #define IS_OSX(card)	((card)->info.type == QETH_CARD_TYPE_OSX)
+#else
+#define IS_OSX(card)	false
+#endif
+
 #define IS_VM_NIC(card)	((card)->info.is_vm_nic)
 
 #define QETH_MPC_DIFINFO_LEN_INDICATES_LINK_TYPE 0x18
@@ -83,10 +104,6 @@ enum qeth_link_types {
 	QETH_LINK_TYPE_LANE         = 0x88,
 };
 
-/*
- * Routing stuff
- */
-#define RESET_ROUTING_FLAG 0x10 /* indicate that routing type shall be set */
 enum qeth_routing_types {
 	/* TODO: set to bit flag used in IPA Command */
 	NO_ROUTER		= 0,
@@ -338,14 +355,14 @@ enum qeth_card_info_port_speed {
 
 /* (SET)DELIP(M) IPA stuff ***************************************************/
 struct qeth_ipacmd_setdelip4 {
-	__u8   ip_addr[4];
-	__u8   mask[4];
+	__be32 addr;
+	__be32 mask;
 	__u32  flags;
 } __attribute__ ((packed));
 
 struct qeth_ipacmd_setdelip6 {
-	__u8   ip_addr[16];
-	__u8   mask[16];
+	struct in6_addr addr;
+	struct in6_addr prefix;
 	__u32  flags;
 } __attribute__ ((packed));
 
@@ -417,7 +434,6 @@ struct qeth_ipacmd_setassparms {
 		struct qeth_arp_cache_entry arp_entry;
 		struct qeth_arp_query_data query_arp;
 		struct qeth_tso_start_data tso;
-		__u8 ip[16];
 	} data;
 } __attribute__ ((packed));
 
@@ -540,8 +556,9 @@ struct qeth_ipacmd_setadpparms {
 
 /* CREATE_ADDR IPA Command:    ***********************************************/
 struct qeth_create_destroy_address {
-	__u8 unique_id[8];
-} __attribute__ ((packed));
+	u8 mac_addr[ETH_ALEN];
+	u16 uid;
+};
 
 /* SET DIAGNOSTIC ASSIST IPA Command:	 *************************************/
 
@@ -766,8 +783,7 @@ struct qeth_ipacmd_hdr {
 	__u8   prim_version_no;
 	__u8   param_count;
 	__u16  prot_version;
-	__u32  ipa_supported;
-	__u32  ipa_enabled;
+	struct qeth_ipa_caps assists;
 } __attribute__ ((packed));
 
 /* The IPA command itself */

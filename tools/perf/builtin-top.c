@@ -143,7 +143,7 @@ static int perf_top__parse_source(struct perf_top *top, struct hist_entry *he)
 		return err;
 	}
 
-	err = symbol__annotate(&he->ms, evsel, 0, &top->annotation_opts, NULL);
+	err = symbol__annotate(&he->ms, evsel, &top->annotation_opts, NULL);
 	if (err == 0) {
 		top->sym_filter_entry = he;
 	} else {
@@ -616,6 +616,7 @@ static void *display_thread_tui(void *arg)
 		.arg		= top,
 		.refresh	= top->delay_secs,
 	};
+	int ret;
 
 	/* In order to read symbols from other namespaces perf to  needs to call
 	 * setns(2).  This isn't permitted if the struct_fs has multiple users.
@@ -626,6 +627,7 @@ static void *display_thread_tui(void *arg)
 
 	prctl(PR_SET_NAME, "perf-top-UI", 0, 0, 0);
 
+repeat:
 	perf_top__sort_new_samples(top);
 
 	/*
@@ -638,13 +640,18 @@ static void *display_thread_tui(void *arg)
 		hists->uid_filter_str = top->record_opts.target.uid_str;
 	}
 
-	perf_evlist__tui_browse_hists(top->evlist, help, &hbt,
+	ret = perf_evlist__tui_browse_hists(top->evlist, help, &hbt,
 				      top->min_percent,
 				      &top->session->header.env,
 				      !top->record_opts.overwrite,
 				      &top->annotation_opts);
 
-	stop_top();
+	if (ret == K_RELOAD) {
+		top->zero = true;
+		goto repeat;
+	} else
+		stop_top();
+
 	return NULL;
 }
 
@@ -684,7 +691,9 @@ repeat:
 	delay_msecs = top->delay_secs * MSEC_PER_SEC;
 	set_term_quiet_input(&save);
 	/* trash return*/
-	getc(stdin);
+	clearerr(stdin);
+	if (poll(&stdin_poll, 1, 0) > 0)
+		getc(stdin);
 
 	while (!done) {
 		perf_top__print_sym_table(top);
@@ -1244,12 +1253,25 @@ static int __cmd_top(struct perf_top *top)
 
 	if (opts->record_namespaces)
 		top->tool.namespace_events = true;
+	if (opts->record_cgroup) {
+#ifdef HAVE_FILE_HANDLE
+		top->tool.cgroup_events = true;
+#else
+		pr_err("cgroup tracking is not supported.\n");
+		return -1;
+#endif
+	}
 
 	ret = perf_event__synthesize_bpf_events(top->session, perf_event__process,
 						&top->session->machines.host,
 						&top->record_opts);
 	if (ret < 0)
 		pr_debug("Couldn't synthesize BPF events: Pre-existing BPF programs won't have symbols resolved.\n");
+
+	ret = perf_event__synthesize_cgroups(&top->tool, perf_event__process,
+					     &top->session->machines.host);
+	if (ret < 0)
+		pr_debug("Couldn't synthesize cgroup events.\n");
 
 	machine__synthesize_threads(&top->session->machines.host, &opts->target,
 				    top->evlist->core.threads, false,
@@ -1512,6 +1534,10 @@ int cmd_top(int argc, const char **argv)
 		    "objdump binary to use for disassembly and annotations"),
 	OPT_STRING('M', "disassembler-style", &top.annotation_opts.disassembler_style, "disassembler style",
 		   "Specify disassembler style (e.g. -M intel for intel syntax)"),
+	OPT_STRING(0, "prefix", &top.annotation_opts.prefix, "prefix",
+		    "Add prefix to source file path names in programs (with --prefix-strip)"),
+	OPT_STRING(0, "prefix-strip", &top.annotation_opts.prefix_strip, "N",
+		    "Strip first N entries of source file path name in programs (with --prefix)"),
 	OPT_STRING('u', "uid", &target->uid_str, "user", "user to profile"),
 	OPT_CALLBACK(0, "percent-limit", &top, "percent",
 		     "Don't show entries under that percent", parse_percent_limit),
@@ -1539,6 +1565,12 @@ int cmd_top(int argc, const char **argv)
 			"number of thread to run event synthesize"),
 	OPT_BOOLEAN(0, "namespaces", &opts->record_namespaces,
 		    "Record namespaces events"),
+	OPT_BOOLEAN(0, "all-cgroups", &opts->record_cgroup,
+		    "Record cgroup events"),
+	OPT_INTEGER(0, "group-sort-idx", &symbol_conf.group_sort_idx,
+		    "Sort the output by the event at the index n in group. "
+		    "If n is invalid, sort by the first event. "
+		    "WARNING: should be used on grouped events."),
 	OPTS_EVSWITCH(&top.evswitch),
 	OPT_END()
 	};
@@ -1581,6 +1613,9 @@ int cmd_top(int argc, const char **argv)
 	argc = parse_options(argc, argv, options, top_usage, 0);
 	if (argc)
 		usage_with_options(top_usage, options);
+
+	if (annotate_check_args(&top.annotation_opts) < 0)
+		goto out_delete_evlist;
 
 	if (!top.evlist->core.nr_entries &&
 	    perf_evlist__add_default(top.evlist) < 0) {
@@ -1676,7 +1711,7 @@ int cmd_top(int argc, const char **argv)
 	if (status < 0)
 		goto out_delete_evlist;
 
-	annotation_config__init();
+	annotation_config__init(&top.annotation_opts);
 
 	symbol_conf.try_vmlinux_path = (symbol_conf.vmlinux_name == NULL);
 	status = symbol__init(NULL);

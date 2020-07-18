@@ -371,6 +371,11 @@ enum wmi_10_4_service {
 	WMI_10_4_SERVICE_EXT_PEER_TID_CONFIGS_SUPPORT,
 	WMI_10_4_SERVICE_REPORT_AIRTIME,
 	WMI_10_4_SERVICE_TX_PWR_PER_PEER,
+	WMI_10_4_SERVICE_FETCH_PEER_TX_PN,
+	WMI_10_4_SERVICE_MULTIPLE_VDEV_RESTART,
+	WMI_10_4_SERVICE_ENHANCED_RADIO_COUNTERS,
+	WMI_10_4_SERVICE_QINQ_SUPPORT,
+	WMI_10_4_SERVICE_RESET_CHIP,
 };
 
 static inline char *wmi_service_name(enum wmi_service service_id)
@@ -827,6 +832,8 @@ static inline void wmi_10_4_svc_map(const __le32 *in, unsigned long *out,
 	       WMI_SERVICE_REPORT_AIRTIME, len);
 	SVCMAP(WMI_10_4_SERVICE_TX_PWR_PER_PEER,
 	       WMI_SERVICE_TX_PWR_PER_PEER, len);
+	SVCMAP(WMI_10_4_SERVICE_RESET_CHIP,
+	       WMI_SERVICE_RESET_CHIP, len);
 }
 
 #undef SVCMAP
@@ -6786,6 +6793,7 @@ struct wmi_peer_delete_resp_ev_arg {
 	struct wmi_mac_addr peer_addr;
 };
 
+#define WMI_MGMT_RX_NUM_RSSI 4
 struct wmi_mgmt_rx_ev_arg {
 	__le32 channel;
 	__le32 snr;
@@ -6794,6 +6802,7 @@ struct wmi_mgmt_rx_ev_arg {
 	__le32 buf_len;
 	__le32 status; /* %WMI_RX_STATUS_ */
 	struct wmi_mgmt_rx_ext_info ext_info;
+	__le32 rssi[WMI_MGMT_RX_NUM_RSSI];
 };
 
 struct wmi_ch_info_ev_arg {

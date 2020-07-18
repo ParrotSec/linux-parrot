@@ -96,9 +96,10 @@ void phy_print_status(struct phy_device *phydev)
 {
 	if (phydev->link) {
 		netdev_info(phydev->attached_dev,
-			"Link is Up - %s/%s - flow control %s\n",
+			"Link is Up - %s/%s %s- flow control %s\n",
 			phy_speed_to_str(phydev->speed),
 			phy_duplex_to_str(phydev->duplex),
+			phydev->downshifted_rate ? "(downshifted) " : "",
 			phy_pause_str(phydev));
 	} else	{
 		netdev_info(phydev->attached_dev, "Link is Down\n");
@@ -422,8 +423,8 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
 		return 0;
 
 	case SIOCSHWTSTAMP:
-		if (phydev->drv && phydev->drv->hwtstamp)
-			return phydev->drv->hwtstamp(phydev, ifr);
+		if (phydev->mii_ts && phydev->mii_ts->hwtstamp)
+			return phydev->mii_ts->hwtstamp(phydev->mii_ts, ifr);
 		/* fall through */
 
 	default:
@@ -431,6 +432,31 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
 	}
 }
 EXPORT_SYMBOL(phy_mii_ioctl);
+
+/**
+ * phy_do_ioctl - generic ndo_do_ioctl implementation
+ * @dev: the net_device struct
+ * @ifr: &struct ifreq for socket ioctl's
+ * @cmd: ioctl cmd to execute
+ */
+int phy_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	if (!dev->phydev)
+		return -ENODEV;
+
+	return phy_mii_ioctl(dev->phydev, ifr, cmd);
+}
+EXPORT_SYMBOL(phy_do_ioctl);
+
+/* same as phy_do_ioctl, but ensures that net_device is running */
+int phy_do_ioctl_running(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	if (!netif_running(dev))
+		return -ENODEV;
+
+	return phy_do_ioctl(dev, ifr, cmd);
+}
+EXPORT_SYMBOL(phy_do_ioctl_running);
 
 void phy_queue_state_machine(struct phy_device *phydev, unsigned long jiffies)
 {
@@ -482,6 +508,7 @@ static int phy_check_link_status(struct phy_device *phydev)
 		return err;
 
 	if (phydev->link && phydev->state != PHY_RUNNING) {
+		phy_check_downshift(phydev);
 		phydev->state = PHY_RUNNING;
 		phy_link_up(phydev);
 	} else if (!phydev->link && phydev->state != PHY_NOLINK) {
@@ -690,26 +717,24 @@ static int phy_disable_interrupts(struct phy_device *phydev)
 static irqreturn_t phy_interrupt(int irq, void *phy_dat)
 {
 	struct phy_device *phydev = phy_dat;
+	struct phy_driver *drv = phydev->drv;
 
-	if (phydev->drv->did_interrupt && !phydev->drv->did_interrupt(phydev))
+	if (drv->handle_interrupt)
+		return drv->handle_interrupt(phydev);
+
+	if (drv->did_interrupt && !drv->did_interrupt(phydev))
 		return IRQ_NONE;
 
-	if (phydev->drv->handle_interrupt) {
-		if (phydev->drv->handle_interrupt(phydev))
-			goto phy_err;
-	} else {
-		/* reschedule state queue work to run as soon as possible */
-		phy_trigger_machine(phydev);
-	}
+	/* reschedule state queue work to run as soon as possible */
+	phy_trigger_machine(phydev);
 
 	/* did_interrupt() may have cleared the interrupt already */
-	if (!phydev->drv->did_interrupt && phy_clear_interrupt(phydev))
-		goto phy_err;
-	return IRQ_HANDLED;
+	if (!drv->did_interrupt && phy_clear_interrupt(phydev)) {
+		phy_error(phydev);
+		return IRQ_NONE;
+	}
 
-phy_err:
-	phy_error(phydev);
-	return IRQ_NONE;
+	return IRQ_HANDLED;
 }
 
 /**
@@ -1107,9 +1132,11 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
 		/* Restart autonegotiation so the new modes get sent to the
 		 * link partner.
 		 */
-		ret = phy_restart_aneg(phydev);
-		if (ret < 0)
-			return ret;
+		if (phydev->autoneg == AUTONEG_ENABLE) {
+			ret = phy_restart_aneg(phydev);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	return 0;

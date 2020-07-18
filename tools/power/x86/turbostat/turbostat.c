@@ -3278,6 +3278,7 @@ int probe_nhm_msrs(unsigned int family, unsigned int model)
 	case INTEL_FAM6_ATOM_GOLDMONT:	/* BXT */
 	case INTEL_FAM6_ATOM_GOLDMONT_PLUS:
 	case INTEL_FAM6_ATOM_GOLDMONT_D:	/* DNV */
+	case INTEL_FAM6_ATOM_TREMONT:	/* EHL */
 		pkg_cstate_limits = glm_pkg_cstate_limits;
 		break;
 	default:
@@ -3345,6 +3346,17 @@ int is_skx(unsigned int family, unsigned int model)
 
 	switch (model) {
 	case INTEL_FAM6_SKYLAKE_X:
+		return 1;
+	}
+	return 0;
+}
+int is_ehl(unsigned int family, unsigned int model)
+{
+	if (!genuine_intel)
+		return 0;
+
+	switch (model) {
+	case INTEL_FAM6_ATOM_TREMONT:
 		return 1;
 	}
 	return 0;
@@ -3491,6 +3503,23 @@ dump_cstate_pstate_config_info(unsigned int family, unsigned int model)
 	dump_nhm_cst_cfg();
 }
 
+static void dump_sysfs_file(char *path)
+{
+	FILE *input;
+	char cpuidle_buf[64];
+
+	input = fopen(path, "r");
+	if (input == NULL) {
+		if (debug)
+			fprintf(outf, "NSFOD %s\n", path);
+		return;
+	}
+	if (!fgets(cpuidle_buf, sizeof(cpuidle_buf), input))
+		err(1, "%s: failed to read file", path);
+	fclose(input);
+
+	fprintf(outf, "%s: %s", strrchr(path, '/') + 1, cpuidle_buf);
+}
 static void
 dump_sysfs_cstate_config(void)
 {
@@ -3503,6 +3532,15 @@ dump_sysfs_cstate_config(void)
 
 	if (!DO_BIC(BIC_sysfs))
 		return;
+
+	if (access("/sys/devices/system/cpu/cpuidle", R_OK)) {
+		fprintf(outf, "cpuidle not loaded\n");
+		return;
+	}
+
+	dump_sysfs_file("/sys/devices/system/cpu/cpuidle/current_driver");
+	dump_sysfs_file("/sys/devices/system/cpu/cpuidle/current_governor");
+	dump_sysfs_file("/sys/devices/system/cpu/cpuidle/current_governor_ro");
 
 	for (state = 0; state < 10; ++state) {
 
@@ -3907,6 +3945,20 @@ void rapl_probe_intel(unsigned int family, unsigned int model)
 		else
 			BIC_PRESENT(BIC_PkgWatt);
 		break;
+	case INTEL_FAM6_ATOM_TREMONT:	/* EHL */
+		do_rapl = RAPL_PKG | RAPL_CORES | RAPL_CORE_POLICY | RAPL_DRAM | RAPL_DRAM_PERF_STATUS | RAPL_PKG_PERF_STATUS | RAPL_GFX | RAPL_PKG_POWER_INFO;
+		if (rapl_joules) {
+			BIC_PRESENT(BIC_Pkg_J);
+			BIC_PRESENT(BIC_Cor_J);
+			BIC_PRESENT(BIC_RAM_J);
+			BIC_PRESENT(BIC_GFX_J);
+		} else {
+			BIC_PRESENT(BIC_PkgWatt);
+			BIC_PRESENT(BIC_CorWatt);
+			BIC_PRESENT(BIC_RAMWatt);
+			BIC_PRESENT(BIC_GFXWatt);
+		}
+		break;
 	case INTEL_FAM6_SKYLAKE_L:	/* SKL */
 	case INTEL_FAM6_CANNONLAKE_L:	/* CNL */
 		do_rapl = RAPL_PKG | RAPL_CORES | RAPL_CORE_POLICY | RAPL_DRAM | RAPL_DRAM_PERF_STATUS | RAPL_PKG_PERF_STATUS | RAPL_GFX | RAPL_PKG_POWER_INFO;
@@ -4308,6 +4360,7 @@ int has_snb_msrs(unsigned int family, unsigned int model)
 	case INTEL_FAM6_ATOM_GOLDMONT:		/* BXT */
 	case INTEL_FAM6_ATOM_GOLDMONT_PLUS:
 	case INTEL_FAM6_ATOM_GOLDMONT_D:	/* DNV */
+	case INTEL_FAM6_ATOM_TREMONT:		/* EHL */
 		return 1;
 	}
 	return 0;
@@ -4337,6 +4390,7 @@ int has_c8910_msrs(unsigned int family, unsigned int model)
 	case INTEL_FAM6_CANNONLAKE_L:	/* CNL */
 	case INTEL_FAM6_ATOM_GOLDMONT:	/* BXT */
 	case INTEL_FAM6_ATOM_GOLDMONT_PLUS:
+	case INTEL_FAM6_ATOM_TREMONT:	/* EHL */
 		return 1;
 	}
 	return 0;
@@ -4512,10 +4566,10 @@ void decode_feature_control_msr(void)
 {
 	unsigned long long msr;
 
-	if (!get_msr(base_cpu, MSR_IA32_FEATURE_CONTROL, &msr))
+	if (!get_msr(base_cpu, MSR_IA32_FEAT_CTL, &msr))
 		fprintf(outf, "cpu%d: MSR_IA32_FEATURE_CONTROL: 0x%08llx (%sLocked %s)\n",
 			base_cpu, msr,
-			msr & FEATURE_CONTROL_LOCKED ? "" : "UN-",
+			msr & FEAT_CTL_LOCKED ? "" : "UN-",
 			msr & (1 << 18) ? "SGX" : "");
 }
 
@@ -4623,14 +4677,24 @@ unsigned int intel_model_duplicates(unsigned int model)
 	case INTEL_FAM6_SKYLAKE:
 	case INTEL_FAM6_KABYLAKE_L:
 	case INTEL_FAM6_KABYLAKE:
+	case INTEL_FAM6_COMETLAKE_L:
+	case INTEL_FAM6_COMETLAKE:
 		return INTEL_FAM6_SKYLAKE_L;
 
 	case INTEL_FAM6_ICELAKE_L:
 	case INTEL_FAM6_ICELAKE_NNPI:
+	case INTEL_FAM6_TIGERLAKE_L:
+	case INTEL_FAM6_TIGERLAKE:
 		return INTEL_FAM6_CANNONLAKE_L;
 
 	case INTEL_FAM6_ATOM_TREMONT_D:
 		return INTEL_FAM6_ATOM_GOLDMONT_D;
+
+	case INTEL_FAM6_ATOM_TREMONT_L:
+		return INTEL_FAM6_ATOM_TREMONT;
+
+	case INTEL_FAM6_ICELAKE_X:
+		return INTEL_FAM6_SKYLAKE_X;
 	}
 	return model;
 }
@@ -4885,7 +4949,8 @@ void process_cpuid()
 	do_slm_cstates = is_slm(family, model);
 	do_knl_cstates  = is_knl(family, model);
 
-	if (do_slm_cstates || do_knl_cstates || is_cnl(family, model))
+	if (do_slm_cstates || do_knl_cstates || is_cnl(family, model) ||
+	    is_ehl(family, model))
 		BIC_NOT_PRESENT(BIC_CPU_c3);
 
 	if (!quiet)
@@ -5325,7 +5390,7 @@ int get_and_dump_counters(void)
 }
 
 void print_version() {
-	fprintf(outf, "turbostat version 19.08.31"
+	fprintf(outf, "turbostat version 20.03.20"
 		" - Len Brown <lenb@kernel.org>\n");
 }
 

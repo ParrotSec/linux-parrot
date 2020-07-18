@@ -142,6 +142,9 @@ static void rtsx_comm_pm_full_on(struct rtsx_pcr *pcr)
 
 	rtsx_disable_aspm(pcr);
 
+	/* Fixes DMA transfer timout issue after disabling ASPM on RTS5260 */
+	msleep(1);
+
 	if (option->ltr_enabled)
 		rtsx_set_ltr_latency(pcr, option->ltr_active_latency);
 
@@ -1512,7 +1515,7 @@ static int rtsx_pci_probe(struct pci_dev *pcidev,
 		bar = 1;
 	len = pci_resource_len(pcidev, bar);
 	base = pci_resource_start(pcidev, bar);
-	pcr->remap_addr = ioremap_nocache(base, len);
+	pcr->remap_addr = ioremap(base, len);
 	if (!pcr->remap_addr) {
 		ret = -ENOMEM;
 		goto free_handle;

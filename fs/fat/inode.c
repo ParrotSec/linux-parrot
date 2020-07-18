@@ -21,6 +21,7 @@
 #include <linux/blkdev.h>
 #include <linux/backing-dev.h>
 #include <asm/unaligned.h>
+#include <linux/random.h>
 #include <linux/iversion.h>
 #include "fat.h"
 
@@ -521,7 +522,7 @@ int fat_fill_inode(struct inode *inode, struct msdos_dir_entry *de)
 	inode->i_uid = sbi->options.fs_uid;
 	inode->i_gid = sbi->options.fs_gid;
 	inode_inc_iversion(inode);
-	inode->i_generation = get_seconds();
+	inode->i_generation = prandom_u32();
 
 	if ((de->attr & ATTR_DIR) && !IS_FREE(de->name)) {
 		inode->i_generation &= ~1;
@@ -1516,6 +1517,12 @@ static int fat_read_bpb(struct super_block *sb, struct fat_boot_sector *b,
 		if (!silent)
 			fat_msg(sb, KERN_ERR, "bogus sectors per cluster %u",
 				(unsigned)bpb->fat_sec_per_clus);
+		goto out;
+	}
+
+	if (bpb->fat_fat_length == 0 && bpb->fat32_length == 0) {
+		if (!silent)
+			fat_msg(sb, KERN_ERR, "bogus number of FAT sectors");
 		goto out;
 	}
 

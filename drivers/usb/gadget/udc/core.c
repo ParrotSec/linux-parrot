@@ -1297,6 +1297,8 @@ static void usb_gadget_remove_driver(struct usb_udc *udc)
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 
 	usb_gadget_disconnect(udc->gadget);
+	if (udc->gadget->irq)
+		synchronize_irq(udc->gadget->irq);
 	udc->driver->unbind(udc->gadget);
 	usb_gadget_udc_stop(udc);
 
@@ -1414,6 +1416,8 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver)
 	}
 
 	mutex_unlock(&udc_lock);
+	if (ret)
+		pr_warn("udc-core: couldn't find an available UDC or it's busy\n");
 	return ret;
 found:
 	ret = udc_bind_to_driver(udc, driver);
