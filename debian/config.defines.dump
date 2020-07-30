@@ -8,7 +8,7 @@ tp3
 (dp4
 Vabiname
 p5
-V1parrot1
+V2parrot1
 p6
 sVignore-changes
 p7
@@ -2974,7 +2974,7 @@ tp1595
 (dp1596
 Vsource
 p1597
-V5.7.6-1parrot2
+V5.7.10-1parrot1
 p1598
 sVupstream
 p1599
@@ -2986,6 +2986,6 @@ V5.7.0
 p1602
 sVabiname
 p1603
-V5.7.0-1parrot1
+V5.7.0-2parrot1
 p1604
 ss.

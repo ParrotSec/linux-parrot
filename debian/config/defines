@@ -1,5 +1,5 @@
 [abi]
-abiname: 1parrot1
+abiname: 2parrot1
 ignore-changes:
  __cpuhp_*
  bpf_analyzer

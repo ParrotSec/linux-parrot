@@ -1,13 +1,13 @@
 6466af0c4289c5593ce20845c50a0c40  debian/bin/gencontrol.py
-29e9fe6acf7a9189a997e10e54934cd3  debian/build/version-info
+55f91272f7b49be84fa89df50d2df8af  debian/build/version-info
 74b180a87aa1f6377d9bf8a10368c657  debian/templates/control.main.in
 1cfc49a285f1f37ce6415e811e5c737f  debian/templates/control.image-unsigned.in
 38004750aa03cea41d5d3aeafff16fcc  debian/templates/image.preinst.in
 ce8590d760adf6efb95181ec626c4aca  debian/templates/control.headers.meta.in
 b9fe2696413d459ffa80aac2996e1e9e  debian/templates/control.tools-unversioned.in
 0961d6fa0a85c406d40b83db932807fe  debian/templates/image.meta.maintscript.in
-d86b25f11187a0dbf01990c3f60cbc76  debian/templates/control.tools-versioned.meta.in
-5343850f6529eabf019ff091376be476  debian/templates/control.tools-versioned.in
+6ac27e0078a5284814d0cf7b3a129d5c  debian/templates/control.tools-versioned.meta.in
+ebd530107480c7f86443512f7e28ac40  debian/templates/control.tools-versioned.in
 358db3af53a223fe60ae89c7a481609f  debian/templates/control.docs.meta.in
 381bc892fd36ef7ea5327f649b99cb98  debian/templates/sourcebin.meta.maintscript.in
 a4a60fc48b3240e46bbac6a1ddcaad30  debian/templates/image.postrm.in
@@ -38,7 +38,7 @@ ed25b8839b8e5cb08adfbfde488dd0cd  debian/templates/headers.meta.maintscript.in
 817873a7b9fa61d433b2c39f6b2491de  debian/templates/control.image-dbg.meta.in
 fe4456d48e3218fb8980c8577d03a7ae  debian/templates/control.config.in
 769a43efb579711359e12554e34d0baa  debian/templates/image.meta.bug-presubj.in
-9c2e7479710cdbc70b72b80148ca68e8  debian/config/defines
+76d42353ff2ce39fef2adb4b8d1508f0  debian/config/defines
 db7474e798bb15c6a23d2a4ab9162c52  debian/config/i386/defines
 aa0dc1c23ac4dee04d5abc5bca888f72  debian/config/mips64el/defines
 8f2e4969633ff660d026f2b7e02e6336  debian/config/sh3/defines
