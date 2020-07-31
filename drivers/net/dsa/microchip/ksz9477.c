@@ -516,6 +516,9 @@ static int ksz9477_port_vlan_filtering(struct dsa_switch *ds, int port,
 			     PORT_VLAN_LOOKUP_VID_0, false);
 	}
 
+	/* set the real number of ports */
+	dev->ds->num_ports = dev->port_cnt;
+
 	return 0;
 }
 
@@ -1587,6 +1590,9 @@ static int ksz9477_switch_init(struct ksz_device *dev)
 		if (!dev->ports[i].mib.counters)
 			return -ENOMEM;
 	}
+
+	/* set the real number of ports */
+	dev->ds->num_ports = dev->port_cnt;
 
 	return 0;
 }
