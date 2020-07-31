@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-riscv64 linux-headers-5.7.0-2parrot1-riscv64 5.7~rc5-1~exp1 linux-headers-riscv64
+dir_to_symlink /usr/share/doc/linux-headers-riscv64 linux-headers-5.7.0-2parrot2-riscv64 5.7~rc5-1~exp1 linux-headers-riscv64

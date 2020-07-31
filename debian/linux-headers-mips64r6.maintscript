@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-mips64r6 linux-headers-5.7.0-2parrot1-mips64r6 5.7~rc5-1~exp1 linux-headers-mips64r6
+dir_to_symlink /usr/share/doc/linux-headers-mips64r6 linux-headers-5.7.0-2parrot2-mips64r6 5.7~rc5-1~exp1 linux-headers-mips64r6

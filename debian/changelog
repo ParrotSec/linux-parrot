@@ -1,3 +1,9 @@
+linux (5.7.10-1parrot2) rolling-testing; urgency=medium
+
+  * Rebuild package.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Sat, 01 Aug 2020 00:22:42 +0200
+
 linux (5.7.10-1parrot1) rolling-testing; urgency=medium
 
   * Import new Debian release.
