@@ -51,8 +51,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  config INTEL_IOMMU_BROKEN_GFX_WA
  	bool "Workaround broken graphics drivers (going away soon)"
---- a/drivers/iommu/intel-iommu.c
-+++ b/drivers/iommu/intel-iommu.c
+--- a/drivers/iommu/intel/iommu.c
++++ b/drivers/iommu/intel/iommu.c
 @@ -368,11 +368,7 @@ static int intel_iommu_attach_device(str
  static phys_addr_t intel_iommu_iova_to_phys(struct iommu_domain *domain,
  					    dma_addr_t iova);

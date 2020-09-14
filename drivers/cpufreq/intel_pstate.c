@@ -649,11 +649,12 @@ static int intel_pstate_set_energy_pref_index(struct cpudata *cpu_data,
 	mutex_lock(&intel_pstate_limits_lock);
 
 	if (boot_cpu_has(X86_FEATURE_HWP_EPP)) {
-		u64 value;
-
-		ret = rdmsrl_on_cpu(cpu_data->cpu, MSR_HWP_REQUEST, &value);
-		if (ret)
-			goto return_pref;
+		/*
+		 * Use the cached HWP Request MSR value, because the register
+		 * itself may be updated by intel_pstate_hwp_boost_up() or
+		 * intel_pstate_hwp_boost_down() at any time.
+		 */
+		u64 value = READ_ONCE(cpu_data->hwp_req_cached);
 
 		value &= ~GENMASK_ULL(31, 24);
 
@@ -661,13 +662,18 @@ static int intel_pstate_set_energy_pref_index(struct cpudata *cpu_data,
 			epp = epp_values[pref_index - 1];
 
 		value |= (u64)epp << 24;
+		/*
+		 * The only other updater of hwp_req_cached in the active mode,
+		 * intel_pstate_hwp_set(), is called under the same lock as this
+		 * function, so it cannot run in parallel with the update below.
+		 */
+		WRITE_ONCE(cpu_data->hwp_req_cached, value);
 		ret = wrmsrl_on_cpu(cpu_data->cpu, MSR_HWP_REQUEST, value);
 	} else {
 		if (epp == -EINVAL)
 			epp = (pref_index - 1) << 2;
 		ret = intel_pstate_set_epb(cpu_data->cpu, epp);
 	}
-return_pref:
 	mutex_unlock(&intel_pstate_limits_lock);
 
 	return ret;
@@ -1572,6 +1578,7 @@ static void intel_pstate_get_cpu_pstates(struct cpudata *cpu)
 
 		intel_pstate_get_hwp_max(cpu->cpu, &phy_max, &current_max);
 		cpu->pstate.turbo_freq = phy_max * cpu->pstate.scaling;
+		cpu->pstate.turbo_pstate = phy_max;
 	} else {
 		cpu->pstate.turbo_freq = cpu->pstate.turbo_pstate * cpu->pstate.scaling;
 	}
@@ -2464,7 +2471,7 @@ static struct cpufreq_driver intel_cpufreq = {
 	.name		= "intel_cpufreq",
 };
 
-static struct cpufreq_driver *default_driver = &intel_pstate;
+static struct cpufreq_driver *default_driver;
 
 static void intel_pstate_driver_cleanup(void)
 {
@@ -2677,6 +2684,8 @@ static struct acpi_platform_list plat_info[] __initdata = {
 	{ } /* End */
 };
 
+#define BITMASK_OOB	(BIT(8) | BIT(18))
+
 static bool __init intel_pstate_platform_pwr_mgmt_exists(void)
 {
 	const struct x86_cpu_id *id;
@@ -2686,8 +2695,9 @@ static bool __init intel_pstate_platform_pwr_mgmt_exists(void)
 	id = x86_match_cpu(intel_pstate_cpu_oob_ids);
 	if (id) {
 		rdmsrl(MSR_MISC_PWR_MGMT, misc_pwr);
-		if (misc_pwr & (1 << 8)) {
-			pr_debug("Bit 8 in the MISC_PWR_MGMT MSR set\n");
+		if (misc_pwr & BITMASK_OOB) {
+			pr_debug("Bit 8 or 18 in the MISC_PWR_MGMT MSR set\n");
+			pr_debug("P states are controlled in Out of Band mode by the firmware/hardware\n");
 			return true;
 		}
 	}
@@ -2755,6 +2765,7 @@ static int __init intel_pstate_init(void)
 			hwp_active++;
 			hwp_mode_bdw = id->driver_data;
 			intel_pstate.attr = hwp_cpufreq_attrs;
+			default_driver = &intel_pstate;
 			goto hwp_cpu_matched;
 		}
 	} else {
@@ -2771,6 +2782,9 @@ static int __init intel_pstate_init(void)
 		pr_info("Invalid MSRs\n");
 		return -ENODEV;
 	}
+	/* Without HWP start in the passive mode. */
+	if (!default_driver)
+		default_driver = &intel_cpufreq;
 
 hwp_cpu_matched:
 	/*
@@ -2815,8 +2829,9 @@ static int __init intel_pstate_setup(char *str)
 
 	if (!strcmp(str, "disable")) {
 		no_load = 1;
+	} else if (!strcmp(str, "active")) {
+		default_driver = &intel_pstate;
 	} else if (!strcmp(str, "passive")) {
-		pr_info("Passive mode enabled\n");
 		default_driver = &intel_cpufreq;
 		no_hwp = 1;
 	}

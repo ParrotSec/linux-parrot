@@ -3,12 +3,18 @@ Date: Fri, 05 Jan 2007 15:55:24 +0000
 Subject: Add removal patches for: 3c359, smctr, keyspan, cops
 Forwarded: not-needed
 
-diff -ruN a/drivers/net/appletalk/Kconfig b/drivers/net/appletalk/Kconfig
---- a/drivers/net/appletalk/Kconfig	2006-11-29 21:57:37.000000000 +0000
-+++ b/drivers/net/appletalk/Kconfig	2007-01-05 15:34:44.000000000 +0000
-@@ -49,32 +49,6 @@
+---
+ drivers/net/appletalk/Kconfig  | 26 --------------------------
+ drivers/net/appletalk/Makefile |  1 -
+ 2 files changed, 27 deletions(-)
+
+diff --git a/drivers/net/appletalk/Kconfig b/drivers/net/appletalk/Kconfig
+index 09f94d4b14e2..14f8cf40f035 100644
+--- a/drivers/net/appletalk/Kconfig
++++ b/drivers/net/appletalk/Kconfig
+@@ -50,32 +50,6 @@ config LTPC
  	  This driver is experimental, which means that it may not work.
- 	  See the file <file:Documentation/networking/ltpc.txt>.
+ 	  See the file <file:Documentation/networking/ltpc.rst>.
  
 -config COPS
 -	tristate "COPS LocalTalk PC support"
@@ -19,7 +25,7 @@ diff -ruN a/drivers/net/appletalk/Kconfig b/drivers/net/appletalk/Kconfig
 -	  package. This driver is experimental, which means that it may not
 -	  work. This driver will only work if you choose "AppleTalk DDP"
 -	  networking support, above.
--	  Please read the file <file:Documentation/networking/cops.txt>.
+-	  Please read the file <file:Documentation/networking/cops.rst>.
 -
 -config COPS_DAYNA
 -	bool "Dayna firmware support"
@@ -39,12 +45,16 @@ diff -ruN a/drivers/net/appletalk/Kconfig b/drivers/net/appletalk/Kconfig
  config IPDDP
  	tristate "Appletalk-IP driver support"
  	depends on DEV_APPLETALK && ATALK
-diff -ruN a/drivers/net/appletalk/Makefile b/drivers/net/appletalk/Makefile
---- a/drivers/net/appletalk/Makefile	2006-11-29 21:57:37.000000000 +0000
-+++ b/drivers/net/appletalk/Makefile	2007-01-05 15:34:11.000000000 +0000
-@@ -3,5 +3,4 @@
+diff --git a/drivers/net/appletalk/Makefile b/drivers/net/appletalk/Makefile
+index 903da3303f41..7482020f7e77 100644
+--- a/drivers/net/appletalk/Makefile
++++ b/drivers/net/appletalk/Makefile
+@@ -4,5 +4,4 @@
  #
  
  obj-$(CONFIG_IPDDP) += ipddp.o
 -obj-$(CONFIG_COPS) += cops.o
  obj-$(CONFIG_LTPC) += ltpc.o
+-- 
+2.27.0
+

@@ -75,8 +75,8 @@ Description: PATA drivers
  This package contains PATA drivers for the kernel.
 
 Package: cdrom-core-modules
-Depends: kernel-image, scsi-core-modules, isofs-modules
-Depends_ia64: kernel-image, scsi-core-modules, ide-modules, isofs-modules
+Depends: kernel-image, scsi-core-modules
+Depends_ia64: kernel-image, scsi-core-modules, ide-modules
 Depends_m68k: kernel-image, scsi-core-modules, ide-modules
 Priority: standard
 Description: CDROM support
@@ -133,7 +133,7 @@ Description: ext2/ext3/ext4 filesystem support
  also supports ext2 and ext3.
 
 Package: isofs-modules
-Depends: kernel-image
+Depends: kernel-image, cdrom-core-modules
 Priority: standard
 Description: ISOFS filesystem support
  This package contains the ISOFS filesystem module for the kernel.
@@ -172,7 +172,7 @@ Description: FAT filesystem support
  This package contains the FAT and VFAT filesystem modules for the kernel.
 
 Package: hfs-modules
-Depends: kernel-image
+Depends: kernel-image, cdrom-core-modules
 Priority: optional
 Description: HFS filesystem support
  This package contains the HFS and HFS+ filesystem modules for the kernel.
@@ -202,7 +202,7 @@ Description: squashfs modules
  This package contains squashfs modules.
 
 Package: udf-modules
-Depends: kernel-image, crc-modules
+Depends: kernel-image, crc-modules, cdrom-core-modules
 Priority: optional
 Description: UDF modules
  This package contains the UDF filesystem module.

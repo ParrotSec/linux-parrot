@@ -1,5 +1,5 @@
 [abi]
-abiname: 2parrot2
+abiname: 1parrot1
 ignore-changes:
  __cpuhp_*
  bpf_analyzer
@@ -131,7 +131,7 @@ arches:
  sparc
  sparc64
  x32
-compiler: gcc-9
+compiler: gcc-10
 featuresets:
  none
  rt
@@ -155,7 +155,7 @@ recommends: apparmor
 
 [relations]
 # compilers
-gcc-9: gcc-9 <!stage1 !cross !pkg.linux.nokernel>, gcc-9-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
+gcc-10: gcc-10 <!stage1 !cross !pkg.linux.nokernel>, gcc-10-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
 
 # initramfs-generators
 initramfs-fallback: linux-initramfs-tool

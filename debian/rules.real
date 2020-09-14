@@ -63,6 +63,7 @@ build-arch-arch: \
 	$(call if_package, linux-kbuild-$(VERSION),      build-kbuild) \
 	$(call if_package, linux-perf-$(VERSION),        build-perf) \
 	$(call if_package, linux-bootwrapper-$(ABINAME), build-bootwrapper) \
+	$(call if_package, bpftool,                      build-bpftool) \
 	$(call if_package, usbip,                        build-usbip) \
 	$(call if_package, linux-cpupower,               build-cpupower) \
 	$(call if_package, liblockdep-dev,               build-liblockdep) \
@@ -76,6 +77,7 @@ binary-arch-arch: \
 	$(if $(filter-out x-$(VERSION),x$(SOURCE_SUFFIX)), \
 	  $(call if_package, linux-perf$(SOURCE_SUFFIX), install-perf-meta)) \
 	$(call if_package, linux-bootwrapper-$(ABINAME), install-bootwrapper) \
+	$(call if_package, bpftool,                      install-bpftool) \
 	$(call if_package, usbip,                        install-usbip) \
 	$(call if_package, linux-cpupower,               install-cpupower) \
 	$(call if_package, liblockdep-dev,               install-liblockdep) \
@@ -440,7 +442,8 @@ ifeq ($(DEBUG),True)
 	fi
 endif
 	cp $(DIR)/.config $(PACKAGE_DIR)/boot/config-$(REAL_VERSION)
-	cp $(DIR)/System.map $(PACKAGE_DIR)/boot/System.map-$(REAL_VERSION)
+	echo "ffffffffffffffff B The real System.map is in the linux-image-<version>-dbg package" \
+		> $(PACKAGE_DIR)/boot/System.map-$(REAL_VERSION)
 	rm -f $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/build
 	rm -f $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/source
 	rm $(PACKAGE_DIR)/lib/firmware -rf
@@ -502,6 +505,7 @@ install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/build_$(ARCH)_
 	dh_installdirs usr/lib/debug usr/lib/debug/boot usr/share/lintian/overrides/
 	dh_lintian
 	install -m644 $(DIR)/vmlinux $(DEBUG_DIR)/boot/vmlinux-$(REAL_VERSION)
+	install -m644 $(DIR)/System.map $(DEBUG_DIR)/boot/System.map-$(REAL_VERSION)
 	+$(MAKE_CLEAN) -C $(DIR) modules_install DEPMOD='$(CURDIR)/debian/bin/no-depmod' INSTALL_MOD_PATH='$(CURDIR)'/$(DEBUG_DIR)
 	find $(DEBUG_DIR)/lib/modules/$(REAL_VERSION)/ -mindepth 1 -maxdepth 1 \! -name kernel -exec rm {} \+
 	rm $(DEBUG_DIR)/lib/firmware -rf
@@ -619,6 +623,31 @@ $(STAMPS_DIR)/build-tools-headers:
 		INSTALL_HDR_PATH=$(CURDIR)/$(BUILD_DIR)/build-tools \
 		headers_install
 	@$(stamp)
+
+build-bpftool: $(STAMPS_DIR)/build-tools-headers
+	$(call make-tools,tools/bpf/bpftool)
+
+install-bpftool: PACKAGE_NAME = bpftool
+install-bpftool: DH_OPTIONS = -p$(PACKAGE_NAME)
+install-bpftool: DIR = $(CURDIR)/debian/$(PACKAGE_NAME)
+install-bpftool: build-bpftool
+	dh_testdir
+	dh_testroot
+	dh_prep
+	$(call make-tools,tools/bpf/bpftool) install DESTDIR=$(DIR)
+	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
+	dh_installdocs
+endif
+	dh_lintian
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
 
 build-kbuild: $(STAMPS_DIR)/build-tools-headers
 	$(call make-tools,scripts)
@@ -765,21 +794,17 @@ install-hyperv-daemons: build-hyperv-daemons
 	dh_prep
 	$(call make-tools,tools/hv) install DESTDIR=$(DIR)
 	dh_install
-	for service in fcopy kvp vss; do \
-		install -D -m755 debian/hyperv-daemons.hv-$$service-daemon.init \
-			$(DIR)/etc/init.d/hyperv-daemons.hv-$$service-daemon \
-			|| break; \
-	done
 	dh_installchangelogs
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
 endif
-	dh_installsystemd
 	for service in fcopy kvp vss; do \
-		dh_installinit --name hyperv-daemons.hv-$$service-daemon \
-			--onlyscripts \
+		dh_installsystemd --name hv-$$service-daemon --no-enable --no-start \
+			|| break; \
+		dh_installinit --name hv-$$service-daemon \
 			|| break; \
 	done
+	dh_installudev
 	dh_lintian
 	dh_strip
 	dh_compress

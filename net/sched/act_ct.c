@@ -30,6 +30,7 @@
 #include <net/netfilter/nf_conntrack_core.h>
 #include <net/netfilter/nf_conntrack_zones.h>
 #include <net/netfilter/nf_conntrack_helper.h>
+#include <net/netfilter/nf_conntrack_acct.h>
 #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
 #include <uapi/linux/netfilter/nf_nat.h>
 
@@ -539,6 +540,7 @@ static bool tcf_ct_flow_table_lookup(struct tcf_ct_params *p,
 	flow_offload_refresh(nf_ft, flow);
 	nf_conntrack_get(&ct->ct_general);
 	nf_ct_set(skb, ct, ctinfo);
+	nf_ct_acct_update(ct, dir, skb->len);
 
 	return true;
 }
@@ -671,9 +673,10 @@ static int tcf_ct_ipv6_is_fragment(struct sk_buff *skb, bool *frag)
 }
 
 static int tcf_ct_handle_fragments(struct net *net, struct sk_buff *skb,
-				   u8 family, u16 zone)
+				   u8 family, u16 zone, bool *defrag)
 {
 	enum ip_conntrack_info ctinfo;
+	struct qdisc_skb_cb cb;
 	struct nf_conn *ct;
 	int err = 0;
 	bool frag;
@@ -691,6 +694,7 @@ static int tcf_ct_handle_fragments(struct net *net, struct sk_buff *skb,
 		return err;
 
 	skb_get(skb);
+	cb = *qdisc_skb_cb(skb);
 
 	if (family == NFPROTO_IPV4) {
 		enum ip_defrag_users user = IP_DEFRAG_CONNTRACK_IN + zone;
@@ -700,7 +704,10 @@ static int tcf_ct_handle_fragments(struct net *net, struct sk_buff *skb,
 		err = ip_defrag(net, skb, user);
 		local_bh_enable();
 		if (err && err != -EINPROGRESS)
-			goto out_free;
+			return err;
+
+		if (!err)
+			*defrag = true;
 	} else { /* NFPROTO_IPV6 */
 #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
 		enum ip6_defrag_users user = IP6_DEFRAG_CONNTRACK_IN + zone;
@@ -709,12 +716,16 @@ static int tcf_ct_handle_fragments(struct net *net, struct sk_buff *skb,
 		err = nf_ct_frag6_gather(net, skb, user);
 		if (err && err != -EINPROGRESS)
 			goto out_free;
+
+		if (!err)
+			*defrag = true;
 #else
 		err = -EOPNOTSUPP;
 		goto out_free;
 #endif
 	}
 
+	*qdisc_skb_cb(skb) = cb;
 	skb_clear_hash(skb);
 	skb->ignore_df = 1;
 	return err;
@@ -912,6 +923,7 @@ static int tcf_ct_act(struct sk_buff *skb, const struct tc_action *a,
 	int nh_ofs, err, retval;
 	struct tcf_ct_params *p;
 	bool skip_add = false;
+	bool defrag = false;
 	struct nf_conn *ct;
 	u8 family;
 
@@ -922,6 +934,8 @@ static int tcf_ct_act(struct sk_buff *skb, const struct tc_action *a,
 	clear = p->ct_action & TCA_CT_ACT_CLEAR;
 	force = p->ct_action & TCA_CT_ACT_FORCE;
 	tmpl = p->tmpl;
+
+	tcf_lastuse_update(&c->tcf_tm);
 
 	if (clear) {
 		ct = nf_ct_get(skb, &ctinfo);
@@ -942,7 +956,7 @@ static int tcf_ct_act(struct sk_buff *skb, const struct tc_action *a,
 	 */
 	nh_ofs = skb_network_offset(skb);
 	skb_pull_rcsum(skb, nh_ofs);
-	err = tcf_ct_handle_fragments(net, skb, family, p->zone);
+	err = tcf_ct_handle_fragments(net, skb, family, p->zone, &defrag);
 	if (err == -EINPROGRESS) {
 		retval = TC_ACT_STOLEN;
 		goto out;
@@ -1010,6 +1024,8 @@ out_push:
 
 out:
 	tcf_action_update_bstats(&c->common, skb);
+	if (defrag)
+		qdisc_skb_cb(skb)->pkt_len = skb->len;
 	return retval;
 
 drop:
@@ -1527,10 +1543,10 @@ static int __init ct_init_module(void)
 
 	return 0;
 
-err_tbl_init:
-	destroy_workqueue(act_ct_wq);
 err_register:
 	tcf_ct_flow_tables_uninit();
+err_tbl_init:
+	destroy_workqueue(act_ct_wq);
 	return err;
 }
 
@@ -1540,17 +1556,6 @@ static void __exit ct_cleanup_module(void)
 	tcf_ct_flow_tables_uninit();
 	destroy_workqueue(act_ct_wq);
 }
-
-void tcf_ct_flow_table_restore_skb(struct sk_buff *skb, unsigned long cookie)
-{
-	enum ip_conntrack_info ctinfo = cookie & NFCT_INFOMASK;
-	struct nf_conn *ct;
-
-	ct = (struct nf_conn *)(cookie & NFCT_PTRMASK);
-	nf_conntrack_get(&ct->ct_general);
-	nf_ct_set(skb, ct, ctinfo);
-}
-EXPORT_SYMBOL_GPL(tcf_ct_flow_table_restore_skb);
 
 module_init(ct_init_module);
 module_exit(ct_cleanup_module);

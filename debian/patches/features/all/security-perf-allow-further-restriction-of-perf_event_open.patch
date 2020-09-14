@@ -20,13 +20,13 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  security/Kconfig           | 9 +++++++++
  3 files changed, 22 insertions(+)
 
-diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index 6d4c22aee384..e9c8c4e0cc5b 100644
---- a/include/linux/perf_event.h
-+++ b/include/linux/perf_event.h
-@@ -1270,6 +1270,11 @@ extern int perf_cpu_time_max_percent_handler(struct ctl_table *table, int write,
+Index: debian-kernel/include/linux/perf_event.h
+===================================================================
+--- debian-kernel.orig/include/linux/perf_event.h
++++ debian-kernel/include/linux/perf_event.h
+@@ -1287,6 +1287,11 @@ int perf_cpu_time_max_percent_handler(st
  int perf_event_max_stack_handler(struct ctl_table *table, int write,
- 				 void __user *buffer, size_t *lenp, loff_t *ppos);
+ 		void *buffer, size_t *lenp, loff_t *ppos);
  
 +static inline bool perf_paranoid_any(void)
 +{
@@ -36,11 +36,11 @@ index 6d4c22aee384..e9c8c4e0cc5b 100644
  /* Access to perf_event_open(2) syscall. */
  #define PERF_SECURITY_OPEN		0
  
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 4ff86d57f9e5..4bc23d47ec07 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -398,8 +398,13 @@ static cpumask_var_t perf_online_mask;
+Index: debian-kernel/kernel/events/core.c
+===================================================================
+--- debian-kernel.orig/kernel/events/core.c
++++ debian-kernel/kernel/events/core.c
+@@ -406,8 +406,13 @@ static cpumask_var_t perf_online_mask;
   *   0 - disallow raw tracepoint access for unpriv
   *   1 - disallow cpu events for unpriv
   *   2 - disallow kernel profiling for unpriv
@@ -54,7 +54,7 @@ index 4ff86d57f9e5..4bc23d47ec07 100644
  
  /* Minimum for 512 kiB + 1 user control page */
  int sysctl_perf_event_mlock __read_mostly = 512 + (PAGE_SIZE / 1024); /* 'free' kiB per user */
-@@ -11170,6 +11175,9 @@ SYSCALL_DEFINE5(perf_event_open,
+@@ -11498,6 +11503,9 @@ SYSCALL_DEFINE5(perf_event_open,
  	if (flags & ~PERF_FLAG_ALL)
  		return -EINVAL;
  
@@ -64,10 +64,10 @@ index 4ff86d57f9e5..4bc23d47ec07 100644
  	/* Do we allow access to perf_event_open(2) ? */
  	err = security_perf_event_open(&attr, PERF_SECURITY_OPEN);
  	if (err)
-diff --git a/security/Kconfig b/security/Kconfig
-index 2a1a2d396228..c66f43a36dbe 100644
---- a/security/Kconfig
-+++ b/security/Kconfig
+Index: debian-kernel/security/Kconfig
+===================================================================
+--- debian-kernel.orig/security/Kconfig
++++ debian-kernel/security/Kconfig
 @@ -19,6 +19,15 @@ config SECURITY_DMESG_RESTRICT
  
  	  If you are unsure how to answer this question, answer N.
@@ -84,6 +84,3 @@ index 2a1a2d396228..c66f43a36dbe 100644
  config SECURITY
  	bool "Enable different security models"
  	depends on SYSFS
--- 
-2.24.0
-

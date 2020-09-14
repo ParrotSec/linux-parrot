@@ -168,6 +168,12 @@ CONFIG_FUJITSU_ES=m
 CONFIG_AMD_XGBE=m
 
 ##
+## file: drivers/net/ethernet/google/Kconfig
+##
+CONFIG_NET_VENDOR_GOOGLE=y
+CONFIG_GVE=y
+
+##
 ## file: drivers/net/wireless/intel/ipw2x00/Kconfig
 ##
 # CONFIG_IPW2100 is not set
@@ -255,5 +261,4 @@ CONFIG_LSM_MMAP_MIN_ADDR=65536
 ## file: sound/soc/sof/intel/Kconfig
 ##
 CONFIG_SND_SOC_SOF_COMETLAKE_LP_SUPPORT=y
-CONFIG_SND_SOC_SOF_COMETLAKE_H_SUPPORT=y
 

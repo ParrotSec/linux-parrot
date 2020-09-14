@@ -6,10 +6,12 @@ Forwarded: not-needed
 MIPS generic trys to generate uImage when build, which then ask for
 u-boot-tools.
 
---- a/arch/mips/generic/Platform
-+++ b/arch/mips/generic/Platform
-@@ -11,9 +11,7 @@
- platform-$(CONFIG_MIPS_GENERIC)	+= generic/
+Index: debian-kernel/arch/mips/generic/Platform
+===================================================================
+--- debian-kernel.orig/arch/mips/generic/Platform
++++ debian-kernel/arch/mips/generic/Platform
+@@ -10,9 +10,7 @@
+ 
  cflags-$(CONFIG_MIPS_GENERIC)	+= -I$(srctree)/arch/mips/include/asm/mach-generic
  load-$(CONFIG_MIPS_GENERIC)	+= 0xffffffff80100000
 -all-$(CONFIG_MIPS_GENERIC)	:= vmlinux.gz.itb

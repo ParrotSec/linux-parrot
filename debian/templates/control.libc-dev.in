@@ -1,9 +1,6 @@
 Package: linux-libc-dev
 Section: devel
 Depends: ${misc:Depends}
-# Remove this Provides when nothing Depends/Build-Depends/B-D-Arch on it.
-# See bug #959462.
-Provides: linux-kernel-headers
 Multi-Arch: same
 Description: Linux support headers for userspace development
  This package provides userspaces headers from the Linux kernel.  These headers

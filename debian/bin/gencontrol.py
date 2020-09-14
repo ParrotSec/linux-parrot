@@ -58,6 +58,12 @@ class Gencontrol(Base):
         }
     }
 
+    env_flags = [
+        ('DEBIAN_KERNEL_DISABLE_DEBUG', 'disable_debug', 'debug infos'),
+        ('DEBIAN_KERNEL_DISABLE_INSTALLER', 'disable_installer', 'installer modules'),
+        ('DEBIAN_KERNEL_DISABLE_SIGNED', 'disable_signed', 'signed code'),
+    ]
+
     def __init__(self, config_dirs=["debian/config"],
                  template_dirs=["debian/templates"]):
         super(Gencontrol, self).__init__(
@@ -66,6 +72,17 @@ class Gencontrol(Base):
             VersionLinux)
         self.process_changelog()
         self.config_dirs = config_dirs
+
+        for env, attr, desc in self.env_flags:
+            setattr(self, attr, False)
+            if os.getenv(env):
+                if self.changelog[0].distribution == 'UNRELEASED':
+                    import warnings
+                    warnings.warn(f'Disable {desc} on request ({env} set)')
+                    setattr(self, attr, True)
+                else:
+                    raise RuntimeError(
+                        'Unable to disable {desc} in release build ({env} set)')
 
     def _setup_makeflags(self, names, makeflags, data):
         for src, dst, optional in names:
@@ -90,16 +107,7 @@ class Gencontrol(Base):
 
         self.installer_packages = {}
 
-        if os.getenv('DEBIAN_KERNEL_DISABLE_INSTALLER'):
-            if self.changelog[0].distribution == 'UNRELEASED':
-                import warnings
-                warnings.warn('Disable installer modules on request '
-                              '(DEBIAN_KERNEL_DISABLE_INSTALLER set)')
-            else:
-                raise RuntimeError(
-                    'Unable to disable installer modules in release build '
-                    '(DEBIAN_KERNEL_DISABLE_INSTALLER set)')
-        elif self.config.merge('packages').get('installer', True):
+        if not self.disable_installer and self.config.merge('packages').get('installer', True):
             # Add udebs using kernel-wedge
             kw_env = os.environ.copy()
             kw_env['KW_DEFCONFIG_DIR'] = 'debian/installer'
@@ -129,8 +137,11 @@ class Gencontrol(Base):
             # configuration errors before building linux-signed.
             build_signed = {}
             for arch in arches:
-                build_signed[arch] = self.config.merge('build', arch) \
-                                                .get('signed-code', False)
+                if not self.disable_signed:
+                    build_signed[arch] = self.config.merge('build', arch) \
+                                                    .get('signed-code', False)
+                else:
+                    build_signed[arch] = False
 
             for package in udeb_packages:
                 # kernel-wedge currently chokes on Build-Profiles so add it now
@@ -264,8 +275,11 @@ class Gencontrol(Base):
             makeflags['ABINAME'] = vars['abiname'] = \
                 self.abiname_version + abiname_part
 
-        build_signed = self.config.merge('build', arch) \
-                                  .get('signed-code', False)
+        if not self.disable_signed:
+            build_signed = self.config.merge('build', arch) \
+                                      .get('signed-code', False)
+        else:
+            build_signed = False
 
         if self.config.merge('packages').get('libc-dev', True):
             libc_dev = self.templates["control.libc-dev"]
@@ -462,7 +476,10 @@ class Gencontrol(Base):
 
         packages_own = []
 
-        build_signed = config_entry_build.get('signed-code')
+        if not self.disable_signed:
+            build_signed = config_entry_build.get('signed-code')
+        else:
+            build_signed = False
 
         image = self.templates[build_signed and "control.image-unsigned"
                                or "control.image"]
@@ -506,18 +523,7 @@ class Gencontrol(Base):
 
         build_debug = config_entry_build.get('debug-info')
 
-        if os.getenv('DEBIAN_KERNEL_DISABLE_DEBUG'):
-            if self.changelog[0].distribution == 'UNRELEASED':
-                import warnings
-                warnings.warn('Disable debug infos on request '
-                              '(DEBIAN_KERNEL_DISABLE_DEBUG set)')
-                build_debug = False
-            else:
-                raise RuntimeError(
-                    'Unable to disable debug infos in release build '
-                    '(DEBIAN_KERNEL_DISABLE_DEBUG set)')
-
-        if build_debug:
+        if not self.disable_debug:
             makeflags['DEBUG'] = True
             packages_own.extend(self.process_packages(
                 self.templates['control.image-dbg'], vars))

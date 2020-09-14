@@ -8,7 +8,7 @@ tp3
 (dp4
 Vabiname
 p5
-V2parrot2
+V1parrot1
 p6
 sVignore-changes
 p7
@@ -250,7 +250,7 @@ aVx32
 p127
 asVcompiler
 p128
-Vgcc-9
+Vgcc-10
 p129
 sVfeaturesets
 p130
@@ -311,9 +311,9 @@ ass(Vrelations
 p162
 tp163
 (dp164
-Vgcc-9
+Vgcc-10
 p165
-Vgcc-9 <!stage1 !cross !pkg.linux.nokernel>, gcc-9-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
+Vgcc-10 <!stage1 !cross !pkg.linux.nokernel>, gcc-10-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
 p166
 sVinitramfs-fallback
 p167
@@ -469,9 +469,9 @@ p248
 g219
 tp249
 (dp250
-Vheaders%gcc-9
+Vheaders%gcc-10
 p251
-Vlinux-compiler-gcc-9-x86
+Vlinux-compiler-gcc-10-x86
 p252
 ss(Vdescription
 p253
@@ -634,13 +634,13 @@ p338
 g293
 tp339
 (dp340
-Vgcc-9
+Vgcc-10
 p341
-Vgcc-9 <!stage1 !cross !pkg.linux.nokernel>, gcc-9-aarch64-linux-gnu <!stage1 cross !pkg.linux.nokernel>, gcc-arm-linux-gnueabihf <!stage1 !pkg.linux.nokernel>
+Vgcc-10 <!stage1 !cross !pkg.linux.nokernel>, gcc-10-aarch64-linux-gnu <!stage1 cross !pkg.linux.nokernel>, gcc-arm-linux-gnueabihf <!stage1 !pkg.linux.nokernel>
 p342
-sVheaders%gcc-9
+sVheaders%gcc-10
 p343
-Vgcc-9
+Vgcc-10
 p344
 ss(Vbase
 p345
@@ -736,9 +736,9 @@ p395
 g377
 tp396
 (dp397
-Vheaders%gcc-9
+Vheaders%gcc-10
 p398
-Vlinux-compiler-gcc-9-arm
+Vlinux-compiler-gcc-10-arm
 p399
 ss(Vdescription
 p400
@@ -852,9 +852,9 @@ p455
 g435
 tp456
 (dp457
-Vheaders%gcc-9
+Vheaders%gcc-10
 p458
-Vlinux-compiler-gcc-9-arm
+Vlinux-compiler-gcc-10-arm
 p459
 ss(Vdescription
 p460
@@ -1001,9 +1001,9 @@ p536
 g492
 tp537
 (dp538
-Vgcc-9
+Vgcc-10
 p539
-Vgcc-9 <!stage1 !cross !pkg.linux.nokernel>, gcc-9-hppa-linux-gnu <!stage1 cross !pkg.linux.nokernel>, binutils-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>, gcc-9-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>
+Vgcc-10 <!stage1 !cross !pkg.linux.nokernel>, gcc-10-hppa-linux-gnu <!stage1 cross !pkg.linux.nokernel>, binutils-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>, gcc-10-hppa64-linux-gnu <!stage1 !pkg.linux.nokernel>
 p540
 ss(g210
 g492
@@ -1087,9 +1087,9 @@ p581
 g547
 tp582
 (dp583
-Vheaders%gcc-9
+Vheaders%gcc-10
 p584
-Vlinux-compiler-gcc-9-x86
+Vlinux-compiler-gcc-10-x86
 p585
 ss(Vdescription
 p586
@@ -2682,9 +2682,9 @@ p1436
 g1416
 tp1437
 (dp1438
-Vheaders%gcc-9
+Vheaders%gcc-10
 p1439
-Vlinux-compiler-gcc-9-s390
+Vlinux-compiler-gcc-10-s390
 p1440
 ss(Vdescription
 p1441
@@ -2974,18 +2974,18 @@ tp1595
 (dp1596
 Vsource
 p1597
-V5.7.10-1parrot2
+V5.8.7-1parrot1
 p1598
 sVupstream
 p1599
-V5.7
+V5.8
 p1600
 sVabiname_base
 p1601
-V5.7.0
+V5.8.0
 p1602
 sVabiname
 p1603
-V5.7.0-2parrot2
+V5.8.0-1parrot1
 p1604
 ss.

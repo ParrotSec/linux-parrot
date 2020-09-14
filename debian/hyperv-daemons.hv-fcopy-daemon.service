@@ -1,6 +1,7 @@
 [Unit]
 Description=Hyper-V file copy service (FCOPY) daemon
-ConditionPathExists=/dev/vmbus/hv_fcopy
+Conflicts=hyperv-daemons.hv-fcopy-daemon.service
+BindsTo=sys-devices-virtual-misc-vmbus\x21hv_fcopy.device
 
 [Service]
 ExecStart=/usr/sbin/hv_fcopy_daemon -n

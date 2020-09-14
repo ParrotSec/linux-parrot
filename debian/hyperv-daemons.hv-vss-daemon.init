@@ -1,6 +1,6 @@
 #! /bin/sh
 ### BEGIN INIT INFO
-# Provides:          hyperv-daemons.hv-vss-daemon
+# Provides:          hv-vss-daemon
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
@@ -13,7 +13,7 @@ DESC="Hyper-V volume shadow copy service (VSS) daemon"
 NAME=hv_vss_daemon
 DAEMON=/usr/sbin/$NAME
 PIDFILE=/run/$NAME.pid
-SCRIPTNAME=/etc/init.d/hyperv-daemons.hv-vss-daemon
+SCRIPTNAME=/etc/init.d/hv-vss-daemon
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0

@@ -1,26 +1,42 @@
-Package: linux-compiler-gcc-9-arm
+Package: linux-compiler-gcc-10-arm
 Build-Profiles: <!stage1>
-Depends: gcc-9, ${misc:Depends}
+Depends: gcc-10, ${misc:Depends}
 Architecture: armel armhf
 Multi-Arch: foreign
 Description: Compiler for Linux on ARM (meta-package)
  This package depends on GCC of the appropriate version and architecture
  for Linux on armel and armhf.
 
-Package: linux-compiler-gcc-9-s390
+Package: linux-compiler-gcc-10-s390
 Build-Profiles: <!stage1>
-Depends: gcc-9, ${misc:Depends}
+Depends: gcc-10, ${misc:Depends}
 Architecture: s390 s390x
 Multi-Arch: foreign
 Description: Compiler for Linux on IBM zSeries (meta-package)
  This package depends on GCC of the appropriate version and architecture
  for Linux on s390 and s390x.
 
-Package: linux-compiler-gcc-9-x86
+Package: linux-compiler-gcc-10-x86
 Build-Profiles: <!stage1>
-Depends: gcc-9, ${misc:Depends}
+Depends: gcc-10, ${misc:Depends}
 Architecture: amd64 i386 x32
 Multi-Arch: foreign
 Description: Compiler for Linux on x86 (meta-package)
  This package depends on GCC of the appropriate version and architecture
  for Linux on amd64, i386 and x32.
+
+Package: linux-image-parisc64-smp
+Architecture: hppa
+Section: oldlibs
+Priority: extra
+Depends: linux-image-parisc64, ${misc:Depends}
+Description: Linux for multiprocessor 64-bit PA-RISC (dummy package)
+ This is a dummy transitional package.  It can be safely removed.
+
+Package: linux-image-parisc-smp
+Architecture: hppa
+Section: oldlibs
+Priority: extra
+Depends: linux-image-parisc, ${misc:Depends}
+Description: Linux for multiprocessor 32-bit PA-RISC (dummy package)
+ This is a dummy transitional package.  It can be safely removed.

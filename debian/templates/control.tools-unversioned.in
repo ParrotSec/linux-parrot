@@ -1,3 +1,16 @@
+Package: bpftool
+Build-Profiles: <!stage1 !pkg.linux.notools>
+Section: devel
+Architecture: linux-any
+Build-Depends:
+  python3-docutils <!stage1 !nodoc !pkg.linux.notools>,
+  libelf-dev,
+  zlib1g-dev,
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Inspection and simple manipulation of BPF programs and maps
+ The bpftool command allows for inspection and simple modification of
+ Berkeley Packet Filter (BPF) objects on the system.
+
 Package: linux-cpupower
 Build-Profiles: <!stage1 !pkg.linux.notools>
 Section: admin

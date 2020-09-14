@@ -1232,11 +1232,6 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_STAGING is not set
 
 ##
-## file: drivers/target/Kconfig
-##
-# CONFIG_TARGET_CORE is not set
-
-##
 ## file: drivers/target/iscsi/cxgbit/Kconfig
 ##
 # CONFIG_ISCSI_TARGET_CXGB4 is not set
@@ -1416,6 +1411,11 @@ CONFIG_FB_HYPERV=m
 # CONFIG_BFS_FS is not set
 
 ##
+## file: fs/dlm/Kconfig
+##
+# CONFIG_DLM is not set
+
+##
 ## file: fs/efs/Kconfig
 ##
 # CONFIG_EFS_FS is not set
@@ -1434,6 +1434,16 @@ CONFIG_EXT4_FS=y
 ## file: fs/freevxfs/Kconfig
 ##
 # CONFIG_VXFS_FS is not set
+
+##
+## file: fs/gfs2/Kconfig
+##
+# CONFIG_GFS2_FS is not set
+
+##
+## file: fs/ocfs2/Kconfig
+##
+# CONFIG_OCFS2_FS is not set
 
 ##
 ## file: fs/omfs/Kconfig

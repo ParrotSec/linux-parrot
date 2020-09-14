@@ -1,0 +1,52 @@
+From 252aa79fdbd4ac2da09d9b98f81bf11f5e3e1870 Mon Sep 17 00:00:00 2001
+From: Bastian Blank <waldi@debian.org>
+Date: Tue, 4 Aug 2020 09:44:19 +0000
+Subject: [PATCH 1/2] Documentation: Drop sphinx version check
+Forwarded: not-needed
+
+---
+ Documentation/Makefile | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/Documentation/Makefile b/Documentation/Makefile
+index 6b12dd82f712..613276ca41f6 100644
+--- a/Documentation/Makefile
++++ b/Documentation/Makefile
+@@ -78,14 +78,12 @@ quiet_cmd_sphinx = SPHINX  $@ --> file://$(abspath $(BUILDDIR)/$3/$4)
+ 	$(abspath $(BUILDDIR)/$3/$4)
+ 
+ htmldocs:
+-	@$(srctree)/scripts/sphinx-pre-install --version-check
+ 	@+$(foreach var,$(SPHINXDIRS),$(call loop_cmd,sphinx,html,$(var),,$(var)))
+ 
+ linkcheckdocs:
+ 	@$(foreach var,$(SPHINXDIRS),$(call loop_cmd,sphinx,linkcheck,$(var),,$(var)))
+ 
+ latexdocs:
+-	@$(srctree)/scripts/sphinx-pre-install --version-check
+ 	@+$(foreach var,$(SPHINXDIRS),$(call loop_cmd,sphinx,latex,$(var),latex,$(var)))
+ 
+ ifeq ($(HAVE_PDFLATEX),0)
+@@ -97,7 +95,6 @@ pdfdocs:
+ else # HAVE_PDFLATEX
+ 
+ pdfdocs: latexdocs
+-	@$(srctree)/scripts/sphinx-pre-install --version-check
+ 	$(foreach var,$(SPHINXDIRS), \
+ 	   $(MAKE) PDFLATEX="$(PDFLATEX)" LATEXOPTS="$(LATEXOPTS)" -C $(BUILDDIR)/$(var)/latex || exit; \
+ 	   mkdir -p $(BUILDDIR)/$(var)/pdf; \
+@@ -107,11 +104,9 @@ pdfdocs: latexdocs
+ endif # HAVE_PDFLATEX
+ 
+ epubdocs:
+-	@$(srctree)/scripts/sphinx-pre-install --version-check
+ 	@+$(foreach var,$(SPHINXDIRS),$(call loop_cmd,sphinx,epub,$(var),epub,$(var)))
+ 
+ xmldocs:
+-	@$(srctree)/scripts/sphinx-pre-install --version-check
+ 	@+$(foreach var,$(SPHINXDIRS),$(call loop_cmd,sphinx,xml,$(var),xml,$(var)))
+ 
+ endif # HAVE_SPHINX
+-- 
+2.28.0
+

@@ -1,0 +1,3 @@
+mv_conffile /etc/init.d/hyperv-daemons.hv-fcopy-daemon /etc/init.d/hv-fcopy-daemon 5.8~rc7-1~exp1
+mv_conffile /etc/init.d/hyperv-daemons.hv-kvp-daemon /etc/init.d/hv-kvp-daemon 5.8~rc7-1~exp1
+mv_conffile /etc/init.d/hyperv-daemons.hv-vss-daemon /etc/init.d/hv-vss-daemon 5.8~rc7-1~exp1

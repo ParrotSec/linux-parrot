@@ -1,0 +1,3 @@
+KERNEL=="vmbus/hv_fcopy", TAG+="systemd", ENV{SYSTEMD_WANTS}+="hv-fcopy-daemon.service"
+KERNEL=="vmbus/hv_kvp", TAG+="systemd", ENV{SYSTEMD_WANTS}+="hv-kvp-daemon.service"
+KERNEL=="vmbus/hv_vss", TAG+="systemd", ENV{SYSTEMD_WANTS}+="hv-vss-daemon.service"

@@ -24,11 +24,11 @@ their own scripts in the future.
  arch/ia64/Makefile | 17 ++---------------
  1 file changed, 2 insertions(+), 15 deletions(-)
 
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index 32240000dc0c..27c1b0bc39c1 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -28,16 +28,7 @@ cflags-y	:= -pipe $(EXTRA) -ffixed-r13 -mfixed-range=f12-f15,f32-f127 \
+Index: debian-kernel/arch/ia64/Makefile
+===================================================================
+--- debian-kernel.orig/arch/ia64/Makefile
++++ debian-kernel/arch/ia64/Makefile
+@@ -28,16 +28,7 @@ cflags-y	:= -pipe $(EXTRA) -ffixed-r13 -
  		   -falign-functions=32 -frename-registers -fno-optimize-sibling-calls
  KBUILD_CFLAGS_KERNEL := -mconstant-gp
  
@@ -45,8 +45,8 @@ index 32240000dc0c..27c1b0bc39c1 100644
 +KBUILD_CPPFLAGS += -DHAVE_WORKING_TEXT_ALIGN -DHAVE_MODEL_SMALL_ATTRIBUTE -DHAVE_SERIALIZE_DIRECTIVE
  
  quiet_cmd_gzip = GZIP    $@
- cmd_gzip = cat $(real-prereqs) | gzip -n -f -9 > $@
-@@ -57,7 +48,7 @@ drivers-$(CONFIG_OPROFILE)	+= arch/ia64/oprofile/
+ cmd_gzip = cat $(real-prereqs) | $(KGZIP) -n -f -9 > $@
+@@ -57,7 +48,7 @@ drivers-$(CONFIG_OPROFILE)	+= arch/ia64/
  
  PHONY += compressed check
  
@@ -73,6 +73,3 @@ index 32240000dc0c..27c1b0bc39c1 100644
  endef
  
  archprepare: make_nr_irqs_h
--- 
-2.23.0
-

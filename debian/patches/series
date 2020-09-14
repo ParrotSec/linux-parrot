@@ -21,6 +21,8 @@ debian/tools-perf-install.patch
 debian/wireless-add-debian-wireless-regdb-certificates.patch
 debian/export-symbols-needed-by-android-drivers.patch
 debian/android-enable-building-ashmem-and-binder-as-modules.patch
+debian/documentation-drop-sphinx-version-check.patch
+debian/perf-traceevent-support-asciidoctor-for-documentatio.patch
 
 # Fixes/improvements to firmware loading
 features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
@@ -35,6 +37,10 @@ debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
 features/all/aufs5/aufs5-base.patch
 features/all/aufs5/aufs5-mmap.patch
 features/all/aufs5/aufs5-standalone.patch
+
+# Parrot patches
+features/all/wifi-injection.patch
+features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Change some defaults for security reasons
 debian/af_802154-Disable-auto-loading-as-mitigation-against.patch
@@ -83,8 +89,8 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
-bugfix/all/perf-cs-etm-Move-definition-of-traceid_list-global-v.patch
 bugfix/all/usbip-tools-fix-build-error-for-multiple-definition.patch
+bugfix/all/iwlwifi-yoyo-don-t-print-failure-if-debug-firmware-i.patch
 
 # Miscellaneous features
 
@@ -107,6 +113,7 @@ features/all/db-mok-keyring/KEYS-Make-use-of-platform-keyring-for-module-signatu
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 debian/ntfs-mark-it-as-broken.patch
+bugfix/all/net-packet-fix-overflow-in-tpacket_rcv.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -123,13 +130,12 @@ bugfix/all/libcpupower-hide-private-function.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/tools-perf-pmu-events-fix-reproducibility.patch
 bugfix/all/0005-libtraceevent-Add-dependency-on-libdl.patch
-bugfix/all/libtraceevent-fix-build-with-binutils-2.35.patch
+bugfix/all/bpftool-fix-version-string-in-recursive-builds.patch
+bugfix/all/tools-include-uapi-fix-errno.h.patch
 
 # overlay: allow mounting in user namespaces
 debian/overlayfs-permit-mounts-in-userns.patch
 
-# Parrot patches
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
+debian/doc-disable-extension-incompatible-with-sphinx-3.patch
 
 # ABI maintenance

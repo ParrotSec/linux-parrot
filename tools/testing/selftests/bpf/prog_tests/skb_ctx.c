@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <test_progs.h>
+#include <network_helpers.h>
 
 void test_skb_ctx(void)
 {
@@ -79,7 +80,7 @@ void test_skb_ctx(void)
 
 	CHECK_ATTR(tattr.ctx_size_out != sizeof(skb),
 		   "ctx_size_out",
-		   "incorrect output size, want %lu have %u\n",
+		   "incorrect output size, want %zu have %u\n",
 		   sizeof(skb), tattr.ctx_size_out);
 
 	for (i = 0; i < 5; i++)

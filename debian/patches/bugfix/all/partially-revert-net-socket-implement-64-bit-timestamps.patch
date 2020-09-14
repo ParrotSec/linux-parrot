@@ -27,6 +27,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
  
  #endif /* _ASM_ALPHA_SOCKIOS_H */
+diff --git a/arch/mips/include/uapi/asm/sockios.h b/arch/mips/include/uapi/asm/sockios.h
+index 66f60234f290..5b40a88593fa 100644
 --- a/arch/mips/include/uapi/asm/sockios.h
 +++ b/arch/mips/include/uapi/asm/sockios.h
 @@ -21,7 +21,7 @@
@@ -39,9 +41,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
  
  #endif /* _ASM_SOCKIOS_H */
+diff --git a/arch/sh/include/uapi/asm/sockios.h b/arch/sh/include/uapi/asm/sockios.h
+index ef01ced9e169..24a67f46b703 100644
 --- a/arch/sh/include/uapi/asm/sockios.h
 +++ b/arch/sh/include/uapi/asm/sockios.h
-@@ -10,7 +10,6 @@
+@@ -12,7 +12,6 @@
  #define SIOCSPGRP	_IOW('s', 8, pid_t)
  #define SIOCGPGRP	_IOR('s', 9, pid_t)
  
@@ -51,6 +55,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +#define SIOCGSTAMP	_IOR('s', 100, struct __kernel_old_timeval) /* Get stamp (timeval) */
 +#define SIOCGSTAMPNS	_IOR('s', 101, struct __kernel_old_timespec) /* Get stamp (timespec) */
  #endif /* __ASM_SH_SOCKIOS_H */
+diff --git a/arch/xtensa/include/uapi/asm/sockios.h b/arch/xtensa/include/uapi/asm/sockios.h
+index 1a1f58f4b75a..fb8ac3607189 100644
 --- a/arch/xtensa/include/uapi/asm/sockios.h
 +++ b/arch/xtensa/include/uapi/asm/sockios.h
 @@ -26,7 +26,7 @@
@@ -63,6 +69,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
  
  #endif	/* _XTENSA_SOCKIOS_H */
+diff --git a/include/uapi/asm-generic/sockios.h b/include/uapi/asm-generic/sockios.h
+index 44fa3ed70483..64f658c7cec2 100644
 --- a/include/uapi/asm-generic/sockios.h
 +++ b/include/uapi/asm-generic/sockios.h
 @@ -8,7 +8,7 @@
@@ -75,6 +83,8 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
  
  #endif /* __ASM_GENERIC_SOCKIOS_H */
+diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
+index 7d1bccbbef78..ac2e9d9e1f41 100644
 --- a/include/uapi/linux/sockios.h
 +++ b/include/uapi/linux/sockios.h
 @@ -19,7 +19,6 @@
@@ -103,9 +113,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  /* Routing table calls. */
  #define SIOCADDRT	0x890B		/* add routing table entry	*/
  #define SIOCDELRT	0x890C		/* delete routing table entry	*/
+diff --git a/net/socket.c b/net/socket.c
+index 976426d03f09..976b4c31c0ea 100644
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -1180,14 +1180,14 @@ static long sock_ioctl(struct file *file
+@@ -1175,14 +1175,14 @@ static long sock_ioctl(struct file *file, unsigned cmd, unsigned long arg)
  
  			err = open_related_ns(&net->ns, get_net_ns);
  			break;
@@ -123,10 +135,10 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  						   !IS_ENABLED(CONFIG_64BIT));
  			break;
  		case SIOCGSTAMP_NEW:
-@@ -3488,11 +3488,11 @@ static int compat_sock_ioctl_trans(struc
- 	case SIOCADDRT:
- 	case SIOCDELRT:
- 		return routing_ioctl(net, sock, cmd, argp);
+@@ -3404,11 +3404,11 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
+ 	case SIOCGIFMAP:
+ 	case SIOCSIFMAP:
+ 		return compat_sioc_ifmap(net, cmd, argp);
 -	case SIOCGSTAMP_OLD:
 -	case SIOCGSTAMPNS_OLD:
 +	case SIOCGSTAMP:
@@ -138,3 +150,6 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  					    !COMPAT_USE_64BIT_TIME);
  
  	case SIOCBONDSLAVEINFOQUERY:
+-- 
+2.27.0
+

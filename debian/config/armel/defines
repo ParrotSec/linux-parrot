@@ -13,7 +13,7 @@ uncompressed-image-file: arch/arm/boot/Image
 install-stem: vmlinuz
 
 [relations]
-headers%gcc-9: linux-compiler-gcc-9-arm
+headers%gcc-10: linux-compiler-gcc-10-arm
 
 [marvell_description]
 hardware: Marvell Kirkwood/Orion

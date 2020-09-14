@@ -1,6 +1,6 @@
 #! /bin/sh
 ### BEGIN INIT INFO
-# Provides:          hyperv-daemons.hv-fcopy-daemon
+# Provides:          hv-fcopy-daemon
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
@@ -13,7 +13,7 @@ DESC="Hyper-V file copy service (FCOPY) daemon"
 NAME=hv_fcopy_daemon
 DAEMON=/usr/sbin/$NAME
 PIDFILE=/run/$NAME.pid
-SCRIPTNAME=/etc/init.d/hyperv-daemons.hv-fcopy-daemon
+SCRIPTNAME=/etc/init.d/hv-fcopy-daemon
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0

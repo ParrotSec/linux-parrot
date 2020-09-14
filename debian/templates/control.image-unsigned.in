@@ -1,7 +1,7 @@
 Package: linux-image-@abiname@@localversion@-unsigned
 Build-Profiles: <!stage1 !pkg.linux.nokernel>
 Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}
-Recommends: firmware-linux-free, ${kernel:Recommends}
+Recommends: firmware-linux-free
 Suggests: linux-doc-@version@, debian-kernel-handbook
 Conflicts: linux-image-@abiname@@localversion@
 Replaces: linux-image-@abiname@@localversion@

@@ -715,11 +715,6 @@ CONFIG_DRM_BOCHS=m
 # CONFIG_DRM_ANALOGIX_ANX78XX is not set
 
 ##
-## file: drivers/gpu/drm/cirrus/Kconfig
-##
-CONFIG_DRM_CIRRUS_QEMU=m
-
-##
 ## file: drivers/gpu/drm/hisilicon/hibmc/Kconfig
 ##
 # CONFIG_DRM_HISI_HIBMC is not set
@@ -783,6 +778,11 @@ CONFIG_DRM_QXL=m
 ## file: drivers/gpu/drm/radeon/Kconfig
 ##
 # CONFIG_DRM_RADEON_USERPTR is not set
+
+##
+## file: drivers/gpu/drm/tiny/Kconfig
+##
+CONFIG_DRM_CIRRUS_QEMU=m
 
 ##
 ## file: drivers/gpu/drm/udl/Kconfig
@@ -1071,8 +1071,8 @@ CONFIG_I2C_HELPER_AUTO=y
 CONFIG_I2C_ISCH=m
 CONFIG_I2C_NFORCE2_S4985=m
 # CONFIG_I2C_CBUS_GPIO is not set
-# CONFIG_I2C_DESIGNWARE_PLATFORM is not set
 # CONFIG_I2C_DESIGNWARE_SLAVE is not set
+# CONFIG_I2C_DESIGNWARE_PLATFORM is not set
 # CONFIG_I2C_DESIGNWARE_BAYTRAIL is not set
 # CONFIG_I2C_EMEV2 is not set
 # CONFIG_I2C_GPIO is not set
@@ -1587,7 +1587,6 @@ CONFIG_KEYBOARD_STOWAWAY=m
 # CONFIG_INPUT_BMA150 is not set
 # CONFIG_INPUT_E3X0_BUTTON is not set
 # CONFIG_INPUT_MMA8450 is not set
-# CONFIG_INPUT_GP2A is not set
 # CONFIG_INPUT_GPIO_BEEPER is not set
 # CONFIG_INPUT_GPIO_DECODER is not set
 CONFIG_INPUT_ATI_REMOTE2=m
@@ -1923,16 +1922,28 @@ CONFIG_BCACHE=m
 ## file: drivers/media/Kconfig
 ##
 CONFIG_MEDIA_SUPPORT=m
+CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
 CONFIG_MEDIA_CAMERA_SUPPORT=y
 CONFIG_MEDIA_ANALOG_TV_SUPPORT=y
 CONFIG_MEDIA_DIGITAL_TV_SUPPORT=y
 CONFIG_MEDIA_RADIO_SUPPORT=y
 CONFIG_MEDIA_SDR_SUPPORT=y
+CONFIG_MEDIA_CONTROLLER=y
+
+##
+## file: drivers/media/cec/Kconfig
+##
 CONFIG_MEDIA_CEC_SUPPORT=y
-# CONFIG_VIDEO_V4L2_SUBDEV_API is not set
-# CONFIG_DVB_MMAP is not set
-CONFIG_DVB_NET=y
-CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
+
+##
+## file: drivers/media/cec/usb/pulse8/Kconfig
+##
+CONFIG_USB_PULSE8_CEC=m
+
+##
+## file: drivers/media/cec/usb/rainshadow/Kconfig
+##
+CONFIG_USB_RAINSHADOW_CEC=m
 
 ##
 ## file: drivers/media/common/siano/Kconfig
@@ -1943,6 +1954,8 @@ CONFIG_SMS_SIANO_RC=y
 ##
 ## file: drivers/media/dvb-core/Kconfig
 ##
+# CONFIG_DVB_MMAP is not set
+CONFIG_DVB_NET=y
 CONFIG_DVB_DYNAMIC_MINORS=y
 # CONFIG_DVB_DEMUX_SECTION_LOSS_LOG is not set
 # CONFIG_DVB_ULE_DEBUG is not set
@@ -2024,6 +2037,8 @@ CONFIG_VIDEO_SAA7127=m
 CONFIG_VIDEO_SAA7185=m
 CONFIG_VIDEO_ADV7170=m
 CONFIG_VIDEO_ADV7175=m
+CONFIG_VIDEO_UPD64031A=m
+CONFIG_VIDEO_UPD64083=m
 # CONFIG_VIDEO_OV2640 is not set
 # CONFIG_VIDEO_OV772X is not set
 CONFIG_VIDEO_OV7670=m
@@ -2033,8 +2048,6 @@ CONFIG_VIDEO_OV7670=m
 CONFIG_VIDEO_SR030PC30=m
 CONFIG_VIDEO_NOON010PC30=m
 # CONFIG_VIDEO_RJ54N1 is not set
-CONFIG_VIDEO_UPD64031A=m
-CONFIG_VIDEO_UPD64083=m
 
 ##
 ## file: drivers/media/i2c/cx25840/Kconfig
@@ -2044,7 +2057,6 @@ CONFIG_VIDEO_CX25840=m
 ##
 ## file: drivers/media/mc/Kconfig
 ##
-CONFIG_MEDIA_CONTROLLER=y
 # CONFIG_MEDIA_CONTROLLER_DVB is not set
 
 ##
@@ -2056,6 +2068,7 @@ CONFIG_SMS_SDIO_DRV=m
 ## file: drivers/media/pci/Kconfig
 ##
 CONFIG_MEDIA_PCI_SUPPORT=y
+# CONFIG_VIDEO_PCI_SKELETON is not set
 
 ##
 ## file: drivers/media/pci/b2c2/Kconfig
@@ -2219,11 +2232,7 @@ CONFIG_V4L_PLATFORM_DRIVERS=y
 # CONFIG_VIDEO_RENESAS_CEU is not set
 CONFIG_V4L_MEM2MEM_DRIVERS=y
 # CONFIG_VIDEO_MEM2MEM_DEINTERLACE is not set
-# CONFIG_VIDEO_SH_VEU is not set
-CONFIG_V4L_TEST_DRIVERS=y
-# CONFIG_VIDEO_VIM2M is not set
 # CONFIG_DVB_PLATFORM_DRIVERS is not set
-# CONFIG_CEC_PLATFORM_DRIVERS is not set
 # CONFIG_SDR_PLATFORM_DRIVERS is not set
 
 ##
@@ -2235,13 +2244,6 @@ CONFIG_V4L_TEST_DRIVERS=y
 ## file: drivers/media/platform/marvell-ccic/Kconfig
 ##
 CONFIG_VIDEO_CAFE_CCIC=m
-
-##
-## file: drivers/media/platform/vivid/Kconfig
-##
-CONFIG_VIDEO_VIVID=m
-CONFIG_VIDEO_VIVID_CEC=y
-CONFIG_VIDEO_VIVID_MAX_DEVS=64
 
 ##
 ## file: drivers/media/radio/Kconfig
@@ -2322,6 +2324,19 @@ CONFIG_RC_MAP=m
 ## file: drivers/media/spi/Kconfig
 ##
 # CONFIG_CXD2880_SPI_DRV is not set
+
+##
+## file: drivers/media/test-drivers/Kconfig
+##
+CONFIG_V4L_TEST_DRIVERS=y
+# CONFIG_VIDEO_VIM2M is not set
+
+##
+## file: drivers/media/test-drivers/vivid/Kconfig
+##
+CONFIG_VIDEO_VIVID=m
+CONFIG_VIDEO_VIVID_CEC=y
+CONFIG_VIDEO_VIVID_MAX_DEVS=64
 
 ##
 ## file: drivers/media/tuners/Kconfig
@@ -2520,11 +2535,6 @@ CONFIG_VIDEO_HDPVR=m
 CONFIG_USB_MSI2500=m
 
 ##
-## file: drivers/media/usb/pulse8-cec/Kconfig
-##
-CONFIG_USB_PULSE8_CEC=m
-
-##
 ## file: drivers/media/usb/pvrusb2/Kconfig
 ##
 CONFIG_VIDEO_PVRUSB2=m
@@ -2538,11 +2548,6 @@ CONFIG_VIDEO_PVRUSB2_DVB=y
 CONFIG_USB_PWC=m
 # CONFIG_USB_PWC_DEBUG is not set
 CONFIG_USB_PWC_INPUT_EVDEV=y
-
-##
-## file: drivers/media/usb/rainshadow-cec/Kconfig
-##
-CONFIG_USB_RAINSHADOW_CEC=m
 
 ##
 ## file: drivers/media/usb/s2255/Kconfig
@@ -2593,9 +2598,9 @@ CONFIG_USB_ZR364XX=m
 ##
 ## file: drivers/media/v4l2-core/Kconfig
 ##
+# CONFIG_VIDEO_V4L2_SUBDEV_API is not set
 # CONFIG_VIDEO_ADV_DEBUG is not set
 # CONFIG_VIDEO_FIXED_MINOR_RANGES is not set
-# CONFIG_VIDEO_PCI_SKELETON is not set
 
 ##
 ## file: drivers/memory/Kconfig
@@ -5282,6 +5287,7 @@ CONFIG_USB_CYTHERM=m
 CONFIG_USB_IDMOUSE=m
 CONFIG_USB_FTDI_ELAN=m
 CONFIG_USB_APPLEDISPLAY=m
+CONFIG_APPLE_MFI_FASTCHARGE=m
 CONFIG_USB_LD=m
 CONFIG_USB_TRANCEVIBRATOR=m
 CONFIG_USB_IOWARRIOR=m
@@ -6220,8 +6226,6 @@ CONFIG_NUMA_BALANCING=y
 CONFIG_NUMA_BALANCING_DEFAULT_ENABLED=y
 CONFIG_CGROUPS=y
 CONFIG_MEMCG=y
-CONFIG_MEMCG_SWAP=y
-# CONFIG_MEMCG_SWAP_ENABLED is not set
 CONFIG_BLK_CGROUP=y
 CONFIG_CGROUP_SCHED=y
 CONFIG_FAIR_GROUP_SCHED=y
@@ -6339,8 +6343,8 @@ CONFIG_MODULE_SIG_SHA256=y
 ##
 ## choice: Timer frequency
 # CONFIG_HZ_100 is not set
-# CONFIG_HZ_250 is not set
-CONFIG_HZ_300=y
+CONFIG_HZ_250=y
+# CONFIG_HZ_300 is not set
 # CONFIG_HZ_1000 is not set
 ## end choice
 
@@ -6624,7 +6628,6 @@ CONFIG_ZSWAP=y
 CONFIG_ZBUD=y
 CONFIG_Z3FOLD=m
 CONFIG_ZSMALLOC=m
-# CONFIG_PGTABLE_MAPPING is not set
 # CONFIG_ZSMALLOC_STAT is not set
 CONFIG_DEFERRED_STRUCT_PAGE_INIT=y
 # CONFIG_IDLE_PAGE_TRACKING is not set
@@ -6741,8 +6744,8 @@ CONFIG_BT_HS=y
 CONFIG_BT_LE=y
 CONFIG_BT_6LOWPAN=m
 # CONFIG_BT_LEDS is not set
-# CONFIG_BT_SELFTEST is not set
 CONFIG_BT_DEBUGFS=y
+# CONFIG_BT_SELFTEST is not set
 
 ##
 ## file: net/bluetooth/bnep/Kconfig
@@ -7573,6 +7576,11 @@ CONFIG_DEFAULT_SECURITY_APPARMOR=y
 CONFIG_SECURITY_APPARMOR=y
 CONFIG_SECURITY_APPARMOR_HASH=y
 CONFIG_SECURITY_APPARMOR_HASH_DEFAULT=y
+
+##
+## file: security/Kconfig.hardening
+##
+CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
 
 ##
 ## file: security/integrity/Kconfig

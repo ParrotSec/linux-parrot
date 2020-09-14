@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-m68k linux-headers-5.7.0-2parrot2-m68k 5.7~rc5-1~exp1 linux-headers-m68k
+dir_to_symlink /usr/share/doc/linux-headers-m68k linux-headers-5.8.0-1parrot1-m68k 5.7~rc5-1~exp1 linux-headers-m68k

@@ -22,8 +22,10 @@ Export the currently un-exported symbols they depend on.
  security/security.c | 4 ++++
  9 files changed, 17 insertions(+)
 
---- a/fs/file.c
-+++ b/fs/file.c
+Index: debian-kernel/fs/file.c
+===================================================================
+--- debian-kernel.orig/fs/file.c
++++ debian-kernel/fs/file.c
 @@ -409,6 +409,7 @@ struct files_struct *get_files_struct(st
  
  	return files;
@@ -64,9 +66,11 @@ Export the currently un-exported symbols they depend on.
  
  void do_close_on_exec(struct files_struct *files)
  {
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -1123,6 +1123,7 @@ void mmput_async(struct mm_struct *mm)
+Index: debian-kernel/kernel/fork.c
+===================================================================
+--- debian-kernel.orig/kernel/fork.c
++++ debian-kernel/kernel/fork.c
+@@ -1131,6 +1131,7 @@ void mmput_async(struct mm_struct *mm)
  		schedule_work(&mm->async_put_work);
  	}
  }
@@ -74,9 +78,11 @@ Export the currently un-exported symbols they depend on.
  #endif
  
  /**
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -4574,6 +4574,7 @@ int can_nice(const struct task_struct *p
+Index: debian-kernel/kernel/sched/core.c
+===================================================================
+--- debian-kernel.orig/kernel/sched/core.c
++++ debian-kernel/kernel/sched/core.c
+@@ -4667,6 +4667,7 @@ int can_nice(const struct task_struct *p
  	return (nice_rlim <= task_rlimit(p, RLIMIT_NICE) ||
  		capable(CAP_SYS_NICE));
  }
@@ -84,8 +90,10 @@ Export the currently un-exported symbols they depend on.
  
  #ifdef __ARCH_WANT_SYS_NICE
  
---- a/kernel/signal.c
-+++ b/kernel/signal.c
+Index: debian-kernel/kernel/signal.c
+===================================================================
+--- debian-kernel.orig/kernel/signal.c
++++ debian-kernel/kernel/signal.c
 @@ -1396,6 +1396,7 @@ struct sighand_struct *__lock_task_sigha
  
  	return sighand;
@@ -94,8 +102,10 @@ Export the currently un-exported symbols they depend on.
  
  /*
   * send signal info to all the members of a group
---- a/kernel/task_work.c
-+++ b/kernel/task_work.c
+Index: debian-kernel/kernel/task_work.c
+===================================================================
+--- debian-kernel.orig/kernel/task_work.c
++++ debian-kernel/kernel/task_work.c
 @@ -52,6 +52,7 @@ task_work_add(struct task_struct *task,
  
  	return 0;
@@ -104,9 +114,11 @@ Export the currently un-exported symbols they depend on.
  
  /**
   * task_work_cancel - cancel a pending work added by task_work_add()
---- a/mm/memory.c
-+++ b/mm/memory.c
-@@ -1370,6 +1370,7 @@ void zap_page_range(struct vm_area_struc
+Index: debian-kernel/mm/memory.c
+===================================================================
+--- debian-kernel.orig/mm/memory.c
++++ debian-kernel/mm/memory.c
+@@ -1367,6 +1367,7 @@ void zap_page_range(struct vm_area_struc
  	mmu_notifier_invalidate_range_end(&range);
  	tlb_finish_mmu(&tlb, start, range.end);
  }
@@ -114,9 +126,11 @@ Export the currently un-exported symbols they depend on.
  
  /**
   * zap_page_range_single - remove user pages in a given range
---- a/mm/shmem.c
-+++ b/mm/shmem.c
-@@ -4185,6 +4185,7 @@ int shmem_zero_setup(struct vm_area_stru
+Index: debian-kernel/mm/shmem.c
+===================================================================
+--- debian-kernel.orig/mm/shmem.c
++++ debian-kernel/mm/shmem.c
+@@ -4158,6 +4158,7 @@ int shmem_zero_setup(struct vm_area_stru
  
  	return 0;
  }
@@ -124,17 +138,19 @@ Export the currently un-exported symbols they depend on.
  
  /**
   * shmem_read_mapping_page_gfp - read into page cache, using specified page allocation flags.
---- a/mm/vmalloc.c
-+++ b/mm/vmalloc.c
-@@ -2011,6 +2011,7 @@ int map_kernel_range_noflush(unsigned lo
- {
- 	return vmap_page_range_noflush(addr, addr + size, prot, pages);
+Index: debian-kernel/mm/vmalloc.c
+===================================================================
+--- debian-kernel.orig/mm/vmalloc.c
++++ debian-kernel/mm/vmalloc.c
+@@ -1278,6 +1278,7 @@ overflow:
+ 	kmem_cache_free(vmap_area_cachep, va);
+ 	return ERR_PTR(-EBUSY);
  }
 +EXPORT_SYMBOL_GPL(map_kernel_range_noflush);
  
- /**
-  * unmap_kernel_range_noflush - unmap kernel VM area
-@@ -2161,6 +2162,7 @@ struct vm_struct *get_vm_area(unsigned l
+ int register_vmap_purge_notifier(struct notifier_block *nb)
+ {
+@@ -2147,6 +2148,7 @@ struct vm_struct *get_vm_area(unsigned l
  				  NUMA_NO_NODE, GFP_KERNEL,
  				  __builtin_return_address(0));
  }
@@ -142,8 +158,10 @@ Export the currently un-exported symbols they depend on.
  
  struct vm_struct *get_vm_area_caller(unsigned long size, unsigned long flags,
  				const void *caller)
---- a/security/security.c
-+++ b/security/security.c
+Index: debian-kernel/security/security.c
+===================================================================
+--- debian-kernel.orig/security/security.c
++++ debian-kernel/security/security.c
 @@ -725,24 +725,28 @@ int security_binder_set_context_mgr(stru
  {
  	return call_int_hook(binder_set_context_mgr, 0, mgr);

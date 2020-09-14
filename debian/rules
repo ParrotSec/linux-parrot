@@ -68,7 +68,19 @@ maintainerclean:
 	rm -rf $(CLEAN_PATTERNS)
 # We cannot use dh_clean here because it requires debian/control to exist
 	rm -rf debian/*.debhelper* debian/files
-	rm -f debian/*.bug-presubj debian/*.lintian-overrides debian/*.maintscript debian/*.postinst debian/*.postrm debian/*.preinst debian/*.prerm debian/config.defines.dump debian/control debian/control.md5sum debian/rules.gen debian/tests/control
+	rm -f \
+		debian/linux-*.bug-presubj \
+		debian/linux-*.lintian-overrides \
+		debian/linux-*.maintscript \
+		debian/linux-*.postinst \
+		debian/linux-*.postrm \
+		debian/linux-*.preinst \
+		debian/linux-*.prerm \
+		debian/config.defines.dump \
+		debian/control \
+		debian/control.md5sum \
+		debian/rules.gen \
+		debian/tests/control
 	rm -rf $(filter-out debian .svk .svn .git, $(wildcard * .[^.]*))
 
 clean: debian/control

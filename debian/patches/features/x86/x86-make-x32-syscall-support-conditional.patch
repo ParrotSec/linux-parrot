@@ -27,11 +27,13 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  arch/x86/include/asm/syscall.h                | 13 ++++++
  6 files changed, 78 insertions(+), 2 deletions(-)
 
---- a/Documentation/admin-guide/kernel-parameters.txt
-+++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4893,6 +4893,10 @@
- 
- 	switches=	[HW,M68k]
+Index: debian-kernel/Documentation/admin-guide/kernel-parameters.txt
+===================================================================
+--- debian-kernel.orig/Documentation/admin-guide/kernel-parameters.txt
++++ debian-kernel/Documentation/admin-guide/kernel-parameters.txt
+@@ -5000,6 +5000,10 @@
+ 			later by a loaded module cannot be set this way.
+ 			Example: sysctl.vm.swappiness=40
  
 +	syscall.x32=	[KNL,x86_64] Enable/disable use of x32 syscalls on
 +			an x86_64 kernel where CONFIG_X86_X32 is enabled.
@@ -40,9 +42,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	sysfs.deprecated=0|1 [KNL]
  			Enable/disable old style sysfs layout for old udev
  			on older distributions. When this option is enabled
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -2909,6 +2909,14 @@ config COMPAT_32
+Index: debian-kernel/arch/x86/Kconfig
+===================================================================
+--- debian-kernel.orig/arch/x86/Kconfig
++++ debian-kernel/arch/x86/Kconfig
+@@ -2888,6 +2888,14 @@ config COMPAT_32
  	select HAVE_UID16
  	select OLD_SIGSUSPEND3
  
@@ -57,9 +61,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  config COMPAT
  	def_bool y
  	depends on IA32_EMULATION || X86_X32
---- a/arch/x86/entry/common.c
-+++ b/arch/x86/entry/common.c
-@@ -294,7 +294,8 @@ __visible void do_syscall_64(unsigned lo
+Index: debian-kernel/arch/x86/entry/common.c
+===================================================================
+--- debian-kernel.orig/arch/x86/entry/common.c
++++ debian-kernel/arch/x86/entry/common.c
+@@ -383,7 +383,8 @@ __visible noinstr void do_syscall_64(uns
  		nr = array_index_nospec(nr, NR_syscalls);
  		regs->ax = sys_call_table[nr](regs);
  #ifdef CONFIG_X86_X32_ABI
@@ -69,8 +75,10 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  			  (nr & ~__X32_SYSCALL_BIT) < X32_NR_syscalls)) {
  		nr = array_index_nospec(nr & ~__X32_SYSCALL_BIT,
  					X32_NR_syscalls);
---- a/arch/x86/entry/syscall_x32.c
-+++ b/arch/x86/entry/syscall_x32.c
+Index: debian-kernel/arch/x86/entry/syscall_x32.c
+===================================================================
+--- debian-kernel.orig/arch/x86/entry/syscall_x32.c
++++ debian-kernel/arch/x86/entry/syscall_x32.c
 @@ -4,6 +4,9 @@
  #include <linux/linkage.h>
  #include <linux/sys.h>
@@ -128,8 +136,10 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +};
 +
 +arch_param_cb(x32, &x32_param_ops, NULL, 0444);
---- a/arch/x86/include/asm/elf.h
-+++ b/arch/x86/include/asm/elf.h
+Index: debian-kernel/arch/x86/include/asm/elf.h
+===================================================================
+--- debian-kernel.orig/arch/x86/include/asm/elf.h
++++ debian-kernel/arch/x86/include/asm/elf.h
 @@ -11,6 +11,9 @@
  #include <asm/user.h>
  #include <asm/auxvec.h>
@@ -150,8 +160,10 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  #if __USER32_DS != __USER_DS
  # error "The following code assumes __USER32_DS == __USER_DS"
---- a/arch/x86/include/asm/syscall.h
-+++ b/arch/x86/include/asm/syscall.h
+Index: debian-kernel/arch/x86/include/asm/syscall.h
+===================================================================
+--- debian-kernel.orig/arch/x86/include/asm/syscall.h
++++ debian-kernel/arch/x86/include/asm/syscall.h
 @@ -13,6 +13,7 @@
  #include <uapi/linux/audit.h>
  #include <linux/sched.h>

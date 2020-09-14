@@ -16,11 +16,13 @@ libtraceevent.so.1 libtraceevent1 #MINVER#
  kbuffer_load_subbuffer@Base 5.4
  kbuffer_missed_events@Base 5.4
  kbuffer_next_event@Base 5.4
+ kbuffer_ptr_delta@Base 5.8
  kbuffer_raw_get@Base 5.4
  kbuffer_read_at_offset@Base 5.4
  kbuffer_read_event@Base 5.4
  kbuffer_set_old_format@Base 5.4
  kbuffer_start_of_data@Base 5.4
+ kbuffer_subbuf_timestamp@Base 5.8
  kbuffer_subbuffer_size@Base 5.4
  kbuffer_timestamp@Base 5.4
  kbuffer_translate_data@Base 5.4

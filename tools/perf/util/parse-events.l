@@ -41,14 +41,6 @@ static int value(yyscan_t scanner, int base)
 	return __value(yylval, text, base, PE_VALUE);
 }
 
-static int raw(yyscan_t scanner)
-{
-	YYSTYPE *yylval = parse_events_get_lval(scanner);
-	char *text = parse_events_get_text(scanner);
-
-	return __value(yylval, text + 1, 16, PE_RAW);
-}
-
 static int str(yyscan_t scanner, int token)
 {
 	YYSTYPE *yylval = parse_events_get_lval(scanner);
@@ -70,6 +62,17 @@ static int str(yyscan_t scanner, int token)
 	}
 
 	return token;
+}
+
+static int raw(yyscan_t scanner)
+{
+	YYSTYPE *yylval = parse_events_get_lval(scanner);
+	char *text = parse_events_get_text(scanner);
+
+	if (perf_pmu__parse_check(text) == PMU_EVENT_SYMBOL)
+		return str(scanner, PE_NAME);
+
+	return __value(yylval, text + 1, 16, PE_RAW);
 }
 
 static bool isbpf_suffix(char *text)
@@ -209,10 +212,10 @@ modifier_bp	[rwx]{1,3}
 %%
 
 %{
-	{
-		int start_token;
+	struct parse_events_state *_parse_state = parse_events_get_extra(yyscanner);
 
-		start_token = parse_events_get_extra(yyscanner);
+	{
+		int start_token = _parse_state->stoken;
 
 		if (start_token == PE_START_TERMS)
 			BEGIN(config);
@@ -220,7 +223,7 @@ modifier_bp	[rwx]{1,3}
 			BEGIN(event);
 
 		if (start_token) {
-			parse_events_set_extra(NULL, yyscanner);
+			_parse_state->stoken = 0;
 			/*
 			 * The flex parser does not init locations variable
 			 * via the scan_string interface, so we need do the
@@ -252,7 +255,9 @@ modifier_bp	[rwx]{1,3}
 			BEGIN(INITIAL);
 			REWIND(0);
 		}
-
+,		{
+			return ',';
+		}
 }
 
 <array>{
@@ -286,6 +291,7 @@ no-overwrite		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_NOOVERWRITE); }
 percore			{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_PERCORE); }
 aux-output		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_AUX_OUTPUT); }
 aux-sample-size		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_AUX_SAMPLE_SIZE); }
+r{num_raw_hex}		{ return raw(yyscanner); }
 ,			{ return ','; }
 "/"			{ BEGIN(INITIAL); return '/'; }
 {name_minus}		{ return str(yyscanner, PE_NAME); }
