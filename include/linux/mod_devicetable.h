@@ -318,7 +318,7 @@ struct pcmcia_device_id {
 #define INPUT_DEVICE_ID_LED_MAX		0x0f
 #define INPUT_DEVICE_ID_SND_MAX		0x07
 #define INPUT_DEVICE_ID_FF_MAX		0x7f
-#define INPUT_DEVICE_ID_SW_MAX		0x0f
+#define INPUT_DEVICE_ID_SW_MAX		0x10
 #define INPUT_DEVICE_ID_PROP_MAX	0x1f
 
 #define INPUT_DEVICE_ID_MATCH_BUS	1
@@ -434,7 +434,7 @@ struct virtio_device_id {
  * For Hyper-V devices we use the device guid as the id.
  */
 struct hv_vmbus_device_id {
-	uuid_le guid;
+	guid_t guid;
 	kernel_ulong_t driver_data;	/* Data private to the driver */
 };
 
@@ -532,6 +532,8 @@ enum dmi_field {
 	DMI_BIOS_VENDOR,
 	DMI_BIOS_VERSION,
 	DMI_BIOS_DATE,
+	DMI_BIOS_RELEASE,
+	DMI_EC_FIRMWARE_RELEASE,
 	DMI_SYS_VENDOR,
 	DMI_PRODUCT_NAME,
 	DMI_PRODUCT_VERSION,

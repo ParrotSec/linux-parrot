@@ -176,7 +176,7 @@
  * - updates to non leaf nodes just happen synchronously (see btree_split()).
  */
 
-#define pr_fmt(fmt) "bcache: %s() " fmt "\n", __func__
+#define pr_fmt(fmt) "bcache: %s() " fmt, __func__
 
 #include <linux/bcache.h>
 #include <linux/bio.h>
@@ -264,7 +264,7 @@ struct bcache_device {
 #define BCACHE_DEV_UNLINK_DONE		2
 #define BCACHE_DEV_WB_RUNNING		3
 #define BCACHE_DEV_RATE_DW_RUNNING	4
-	unsigned int		nr_stripes;
+	int			nr_stripes;
 	unsigned int		stripe_size;
 	atomic_t		*stripe_sectors_dirty;
 	unsigned long		*full_dirty_stripes;

@@ -63,6 +63,7 @@
 #include <linux/debugobjects.h>
 #include <linux/lockdep.h>
 #include <linux/kmemleak.h>
+#include <linux/padata.h>
 #include <linux/pid_namespace.h>
 #include <linux/device/driver.h>
 #include <linux/kthread.h>
@@ -94,6 +95,7 @@
 #include <linux/rodata_test.h>
 #include <linux/jump_label.h>
 #include <linux/mem_encrypt.h>
+#include <linux/kcsan.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -385,8 +387,6 @@ static int __init bootconfig_params(char *param, char *val,
 {
 	if (strcmp(param, "bootconfig") == 0) {
 		bootconfig_found = true;
-	} else if (strcmp(param, "--") == 0) {
-		initargs_found = true;
 	}
 	return 0;
 }
@@ -397,18 +397,22 @@ static void __init setup_boot_config(const char *cmdline)
 	const char *msg;
 	int pos;
 	u32 size, csum;
-	char *data, *copy;
+	char *data, *copy, *err;
 	int ret;
 
 	/* Cut out the bootconfig data even if we have no bootconfig option */
 	data = get_boot_config_from_initrd(&size, &csum);
 
 	strlcpy(tmp_cmdline, boot_command_line, COMMAND_LINE_SIZE);
-	parse_args("bootconfig", tmp_cmdline, NULL, 0, 0, 0, NULL,
-		   bootconfig_params);
+	err = parse_args("bootconfig", tmp_cmdline, NULL, 0, 0, 0, NULL,
+			 bootconfig_params);
 
-	if (!bootconfig_found)
+	if (IS_ERR(err) || !bootconfig_found)
 		return;
+
+	/* parse_args() stops at '--' and returns an address */
+	if (err)
+		initargs_found = true;
 
 	if (!data) {
 		pr_err("'bootconfig' found on command line, but no bootconfig found\n");
@@ -1035,6 +1039,7 @@ asmlinkage __visible void __init start_kernel(void)
 	acpi_subsystem_init();
 	arch_post_acpi_subsys_init();
 	sfi_init_late();
+	kcsan_init();
 
 	/* Do the rest non-__init'ed, we're now alive */
 	arch_call_rest_init();
@@ -1411,6 +1416,8 @@ static int __ref kernel_init(void *unused)
 
 	rcu_end_inkernel_boot();
 
+	do_sysctl_args();
+
 	if (ramdisk_execute_command) {
 		ret = run_init_process(ramdisk_execute_command);
 		if (!ret)
@@ -1432,6 +1439,16 @@ static int __ref kernel_init(void *unused)
 		panic("Requested init %s failed (error %d).",
 		      execute_command, ret);
 	}
+
+	if (CONFIG_DEFAULT_INIT[0] != '\0') {
+		ret = run_init_process(CONFIG_DEFAULT_INIT);
+		if (ret)
+			pr_err("Default init %s failed (error %d)\n",
+			       CONFIG_DEFAULT_INIT, ret);
+		else
+			return 0;
+	}
+
 	if (!try_to_run_init_process("/sbin/init") ||
 	    !try_to_run_init_process("/etc/init") ||
 	    !try_to_run_init_process("/bin/init") ||
@@ -1482,6 +1499,7 @@ static noinline void __init kernel_init_freeable(void)
 	smp_init();
 	sched_init_smp();
 
+	padata_init();
 	page_alloc_init_late();
 	/* Initialize page ext after all struct pages are initialized. */
 	page_ext_init();

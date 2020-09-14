@@ -562,8 +562,9 @@ static int ast_primary_plane_helper_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
-void ast_primary_plane_helper_atomic_update(struct drm_plane *plane,
-					    struct drm_plane_state *old_state)
+static void
+ast_primary_plane_helper_atomic_update(struct drm_plane *plane,
+				       struct drm_plane_state *old_state)
 {
 	struct ast_private *ast = plane->dev->dev_private;
 	struct drm_plane_state *state = plane->state;
@@ -768,9 +769,6 @@ static void ast_crtc_dpms(struct drm_crtc *crtc, int mode)
 {
 	struct ast_private *ast = crtc->dev->dev_private;
 
-	if (ast->chip == AST1180)
-		return;
-
 	/* TODO: Maybe control display signal generation with
 	 *       Sync Enable (bit CR17.7).
 	 */
@@ -792,15 +790,9 @@ static void ast_crtc_dpms(struct drm_crtc *crtc, int mode)
 static int ast_crtc_helper_atomic_check(struct drm_crtc *crtc,
 					struct drm_crtc_state *state)
 {
-	struct ast_private *ast = crtc->dev->dev_private;
 	struct ast_crtc_state *ast_state;
 	const struct drm_format_info *format;
 	bool succ;
-
-	if (ast->chip == AST1180) {
-		DRM_ERROR("AST 1180 modesetting not supported\n");
-		return -EINVAL;
-	}
 
 	if (!state->enable)
 		return 0; /* no mode checks if CRTC is being disabled */
@@ -935,7 +927,6 @@ static void ast_crtc_atomic_destroy_state(struct drm_crtc *crtc,
 
 static const struct drm_crtc_funcs ast_crtc_funcs = {
 	.reset = ast_crtc_reset,
-	.set_config = drm_crtc_helper_set_config,
 	.gamma_set = drm_atomic_helper_legacy_gamma_set,
 	.destroy = ast_crtc_destroy,
 	.set_config = drm_atomic_helper_set_config,
@@ -1044,7 +1035,7 @@ static enum drm_mode_status ast_mode_valid(struct drm_connector *connector,
 
 		if ((ast->chip == AST2100) || (ast->chip == AST2200) ||
 		    (ast->chip == AST2300) || (ast->chip == AST2400) ||
-		    (ast->chip == AST2500) || (ast->chip == AST1180)) {
+		    (ast->chip == AST2500)) {
 			if ((mode->hdisplay == 1920) && (mode->vdisplay == 1080))
 				return MODE_OK;
 
@@ -1084,7 +1075,6 @@ static void ast_connector_destroy(struct drm_connector *connector)
 {
 	struct ast_connector *ast_connector = to_ast_connector(connector);
 	ast_i2c_destroy(ast_connector->i2c);
-	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
 	kfree(connector);
 }
@@ -1126,8 +1116,6 @@ static int ast_connector_init(struct drm_device *dev)
 
 	connector->interlace_allowed = 0;
 	connector->doublescan_allowed = 0;
-
-	drm_connector_register(connector);
 
 	connector->polled = DRM_CONNECTOR_POLL_CONNECT;
 

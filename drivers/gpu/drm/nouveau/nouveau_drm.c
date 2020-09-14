@@ -681,8 +681,6 @@ static int nouveau_drm_probe(struct pci_dev *pdev,
 {
 	struct nvkm_device *device;
 	struct drm_device *drm_dev;
-	struct apertures_struct *aper;
-	bool boot = false;
 	int ret;
 
 	if (vga_switcheroo_client_probe_defer(pdev))
@@ -699,32 +697,9 @@ static int nouveau_drm_probe(struct pci_dev *pdev,
 	nvkm_device_del(&device);
 
 	/* Remove conflicting drivers (vesafb, efifb etc). */
-	aper = alloc_apertures(3);
-	if (!aper)
-		return -ENOMEM;
-
-	aper->ranges[0].base = pci_resource_start(pdev, 1);
-	aper->ranges[0].size = pci_resource_len(pdev, 1);
-	aper->count = 1;
-
-	if (pci_resource_len(pdev, 2)) {
-		aper->ranges[aper->count].base = pci_resource_start(pdev, 2);
-		aper->ranges[aper->count].size = pci_resource_len(pdev, 2);
-		aper->count++;
-	}
-
-	if (pci_resource_len(pdev, 3)) {
-		aper->ranges[aper->count].base = pci_resource_start(pdev, 3);
-		aper->ranges[aper->count].size = pci_resource_len(pdev, 3);
-		aper->count++;
-	}
-
-#ifdef CONFIG_X86
-	boot = pdev->resource[PCI_ROM_RESOURCE].flags & IORESOURCE_ROM_SHADOW;
-#endif
-	if (nouveau_modeset != 2)
-		drm_fb_helper_remove_conflicting_framebuffers(aper, "nouveaufb", boot);
-	kfree(aper);
+	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, "nouveaufb");
+	if (ret)
+		return ret;
 
 	ret = nvkm_device_pci_new(pdev, nouveau_config, nouveau_debug,
 				  true, true, ~0ULL, &device);
@@ -1051,8 +1026,10 @@ nouveau_drm_open(struct drm_device *dev, struct drm_file *fpriv)
 
 	/* need to bring up power immediately if opening device */
 	ret = pm_runtime_get_sync(dev->dev);
-	if (ret < 0 && ret != -EACCES)
+	if (ret < 0 && ret != -EACCES) {
+		pm_runtime_put_autosuspend(dev->dev);
 		return ret;
+	}
 
 	get_task_comm(tmpname, current);
 	snprintf(name, sizeof(name), "%s[%d]", tmpname, pid_nr(fpriv->pid));
@@ -1134,8 +1111,10 @@ nouveau_drm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	long ret;
 
 	ret = pm_runtime_get_sync(dev->dev);
-	if (ret < 0 && ret != -EACCES)
+	if (ret < 0 && ret != -EACCES) {
+		pm_runtime_put_autosuspend(dev->dev);
 		return ret;
+	}
 
 	switch (_IOC_NR(cmd) - DRM_COMMAND_BASE) {
 	case DRM_NOUVEAU_NVIF:

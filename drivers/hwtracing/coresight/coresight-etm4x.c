@@ -412,7 +412,7 @@ out:
 static int etm4_enable_sysfs(struct coresight_device *csdev)
 {
 	struct etmv4_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
-	struct etm4_enable_arg arg = { 0 };
+	struct etm4_enable_arg arg = { };
 	int ret;
 
 	spin_lock(&drvdata->spinlock);
@@ -505,6 +505,12 @@ static void etm4_disable_hw(void *info)
 	for (i = 0; i < drvdata->nr_ss_cmp; i++) {
 		config->ss_status[i] =
 			readl_relaxed(drvdata->base + TRCSSCSRn(i));
+	}
+
+	/* read back the current counter values */
+	for (i = 0; i < drvdata->nr_cntr; i++) {
+		config->cntr_val[i] =
+			readl_relaxed(drvdata->base + TRCCNTVRn(i));
 	}
 
 	coresight_disclaim_device_unlocked(drvdata->base);
@@ -791,7 +797,7 @@ static void etm4_set_default_config(struct etmv4_config *config)
 	config->ts_ctrl = 0x0;
 
 	/* TRCVICTLR::EVENT = 0x01, select the always on logic */
-	config->vinst_ctrl |= BIT(0);
+	config->vinst_ctrl = BIT(0);
 }
 
 static u64 etm4_get_ns_access_type(struct etmv4_config *config)
@@ -894,17 +900,8 @@ static void etm4_set_start_stop_filter(struct etmv4_config *config,
 
 static void etm4_set_default_filter(struct etmv4_config *config)
 {
-	u64 start, stop;
-
-	/*
-	 * Configure address range comparator '0' to encompass all
-	 * possible addresses.
-	 */
-	start = 0x0;
-	stop = ~0x0;
-
-	etm4_set_comparator_filter(config, start, stop,
-				   ETM_DEFAULT_ADDR_COMP);
+	/* Trace everything 'default' filter achieved by no filtering */
+	config->viiectlr = 0x0;
 
 	/*
 	 * TRCVICTLR::SSSTATUS == 1, the start-stop logic is
@@ -925,11 +922,9 @@ static void etm4_set_default(struct etmv4_config *config)
 	/*
 	 * Make default initialisation trace everything
 	 *
-	 * Select the "always true" resource selector on the
-	 * "Enablign Event" line and configure address range comparator
-	 * '0' to trace all the possible address range.  From there
-	 * configure the "include/exclude" engine to include address
-	 * range comparator '0'.
+	 * This is done by a minimum default config sufficient to enable
+	 * full instruction trace - with a default filter for trace all
+	 * achieved by having no filtering.
 	 */
 	etm4_set_default_config(config);
 	etm4_set_default_filter(config);
@@ -1207,8 +1202,8 @@ static int etm4_cpu_save(struct etmv4_drvdata *drvdata)
 	}
 
 	for (i = 0; i < drvdata->nr_addr_cmp * 2; i++) {
-		state->trcacvr[i] = readl(drvdata->base + TRCACVRn(i));
-		state->trcacatr[i] = readl(drvdata->base + TRCACATRn(i));
+		state->trcacvr[i] = readq(drvdata->base + TRCACVRn(i));
+		state->trcacatr[i] = readq(drvdata->base + TRCACATRn(i));
 	}
 
 	/*
@@ -1219,10 +1214,10 @@ static int etm4_cpu_save(struct etmv4_drvdata *drvdata)
 	 */
 
 	for (i = 0; i < drvdata->numcidc; i++)
-		state->trccidcvr[i] = readl(drvdata->base + TRCCIDCVRn(i));
+		state->trccidcvr[i] = readq(drvdata->base + TRCCIDCVRn(i));
 
 	for (i = 0; i < drvdata->numvmidc; i++)
-		state->trcvmidcvr[i] = readl(drvdata->base + TRCVMIDCVRn(i));
+		state->trcvmidcvr[i] = readq(drvdata->base + TRCVMIDCVRn(i));
 
 	state->trccidcctlr0 = readl(drvdata->base + TRCCIDCCTLR0);
 	state->trccidcctlr1 = readl(drvdata->base + TRCCIDCCTLR1);
@@ -1320,18 +1315,18 @@ static void etm4_cpu_restore(struct etmv4_drvdata *drvdata)
 	}
 
 	for (i = 0; i < drvdata->nr_addr_cmp * 2; i++) {
-		writel_relaxed(state->trcacvr[i],
+		writeq_relaxed(state->trcacvr[i],
 			       drvdata->base + TRCACVRn(i));
-		writel_relaxed(state->trcacatr[i],
+		writeq_relaxed(state->trcacatr[i],
 			       drvdata->base + TRCACATRn(i));
 	}
 
 	for (i = 0; i < drvdata->numcidc; i++)
-		writel_relaxed(state->trccidcvr[i],
+		writeq_relaxed(state->trccidcvr[i],
 			       drvdata->base + TRCCIDCVRn(i));
 
 	for (i = 0; i < drvdata->numvmidc; i++)
-		writel_relaxed(state->trcvmidcvr[i],
+		writeq_relaxed(state->trcvmidcvr[i],
 			       drvdata->base + TRCVMIDCVRn(i));
 
 	writel_relaxed(state->trccidcctlr0, drvdata->base + TRCCIDCCTLR0);
@@ -1577,10 +1572,13 @@ static const struct amba_id etm4_ids[] = {
 	CS_AMBA_ID(0x000bb95a),			/* Cortex-A72 */
 	CS_AMBA_ID(0x000bb959),			/* Cortex-A73 */
 	CS_AMBA_UCI_ID(0x000bb9da, uci_id_etm4),/* Cortex-A35 */
+	CS_AMBA_UCI_ID(0x000bbd0c, uci_id_etm4),/* Neoverse N1 */
 	CS_AMBA_UCI_ID(0x000f0205, uci_id_etm4),/* Qualcomm Kryo */
 	CS_AMBA_UCI_ID(0x000f0211, uci_id_etm4),/* Qualcomm Kryo */
-	CS_AMBA_ID(0x000bb802),			/* Qualcomm Kryo 385 Cortex-A55 */
-	CS_AMBA_ID(0x000bb803),			/* Qualcomm Kryo 385 Cortex-A75 */
+	CS_AMBA_UCI_ID(0x000bb802, uci_id_etm4),/* Qualcomm Kryo 385 Cortex-A55 */
+	CS_AMBA_UCI_ID(0x000bb803, uci_id_etm4),/* Qualcomm Kryo 385 Cortex-A75 */
+	CS_AMBA_UCI_ID(0x000bb805, uci_id_etm4),/* Qualcomm Kryo 4XX Cortex-A55 */
+	CS_AMBA_UCI_ID(0x000bb804, uci_id_etm4),/* Qualcomm Kryo 4XX Cortex-A76 */
 	CS_AMBA_UCI_ID(0x000cc0af, uci_id_etm4),/* Marvell ThunderX2 */
 	{},
 };

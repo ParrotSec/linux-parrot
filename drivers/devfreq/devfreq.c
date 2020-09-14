@@ -60,12 +60,12 @@ static struct devfreq *find_device_devfreq(struct device *dev)
 {
 	struct devfreq *tmp_devfreq;
 
+	lockdep_assert_held(&devfreq_list_lock);
+
 	if (IS_ERR_OR_NULL(dev)) {
 		pr_err("DEVFREQ: %s: Invalid parameters\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	WARN(!mutex_is_locked(&devfreq_list_lock),
-	     "devfreq_list_lock must be locked.");
 
 	list_for_each_entry(tmp_devfreq, &devfreq_list, node) {
 		if (tmp_devfreq->dev.parent == dev)
@@ -258,12 +258,12 @@ static struct devfreq_governor *find_devfreq_governor(const char *name)
 {
 	struct devfreq_governor *tmp_governor;
 
+	lockdep_assert_held(&devfreq_list_lock);
+
 	if (IS_ERR_OR_NULL(name)) {
 		pr_err("DEVFREQ: %s: Invalid parameters\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	WARN(!mutex_is_locked(&devfreq_list_lock),
-	     "devfreq_list_lock must be locked.");
 
 	list_for_each_entry(tmp_governor, &devfreq_governor_list, node) {
 		if (!strncmp(tmp_governor->name, name, DEVFREQ_NAME_LEN))
@@ -289,12 +289,12 @@ static struct devfreq_governor *try_then_request_governor(const char *name)
 	struct devfreq_governor *governor;
 	int err = 0;
 
+	lockdep_assert_held(&devfreq_list_lock);
+
 	if (IS_ERR_OR_NULL(name)) {
 		pr_err("DEVFREQ: %s: Invalid parameters\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	WARN(!mutex_is_locked(&devfreq_list_lock),
-	     "devfreq_list_lock must be locked.");
 
 	governor = find_devfreq_governor(name);
 	if (IS_ERR(governor)) {
@@ -392,10 +392,7 @@ int update_devfreq(struct devfreq *devfreq)
 	int err = 0;
 	u32 flags = 0;
 
-	if (!mutex_is_locked(&devfreq->lock)) {
-		WARN(true, "devfreq->lock must be locked by the caller.\n");
-		return -EINVAL;
-	}
+	lockdep_assert_held(&devfreq->lock);
 
 	if (!devfreq->governor)
 		return -EINVAL;
@@ -768,7 +765,7 @@ struct devfreq *devfreq_add_device(struct device *dev,
 	devfreq->dev.release = devfreq_dev_release;
 	INIT_LIST_HEAD(&devfreq->node);
 	devfreq->profile = profile;
-	strncpy(devfreq->governor_name, governor_name, DEVFREQ_NAME_LEN);
+	strscpy(devfreq->governor_name, governor_name, DEVFREQ_NAME_LEN);
 	devfreq->previous_freq = profile->initial_freq;
 	devfreq->last_status.current_frequency = profile->initial_freq;
 	devfreq->data = data;
@@ -1660,8 +1657,7 @@ static int devfreq_summary_show(struct seq_file *s, void *data)
 	unsigned long cur_freq, min_freq, max_freq;
 	unsigned int polling_ms;
 
-	seq_printf(s, "%-30s %-10s %-10s %-15s %10s %12s %12s %12s\n",
-			"dev_name",
+	seq_printf(s, "%-30s %-30s %-15s %10s %12s %12s %12s\n",
 			"dev",
 			"parent_dev",
 			"governor",
@@ -1669,10 +1665,9 @@ static int devfreq_summary_show(struct seq_file *s, void *data)
 			"cur_freq_Hz",
 			"min_freq_Hz",
 			"max_freq_Hz");
-	seq_printf(s, "%30s %10s %10s %15s %10s %12s %12s %12s\n",
+	seq_printf(s, "%30s %30s %15s %10s %12s %12s %12s\n",
 			"------------------------------",
-			"----------",
-			"----------",
+			"------------------------------",
 			"---------------",
 			"----------",
 			"------------",
@@ -1695,14 +1690,13 @@ static int devfreq_summary_show(struct seq_file *s, void *data)
 #endif
 
 		mutex_lock(&devfreq->lock);
-		cur_freq = devfreq->previous_freq,
+		cur_freq = devfreq->previous_freq;
 		get_freq_range(devfreq, &min_freq, &max_freq);
-		polling_ms = devfreq->profile->polling_ms,
+		polling_ms = devfreq->profile->polling_ms;
 		mutex_unlock(&devfreq->lock);
 
 		seq_printf(s,
-			"%-30s %-10s %-10s %-15s %10d %12ld %12ld %12ld\n",
-			dev_name(devfreq->dev.parent),
+			"%-30s %-30s %-15s %10d %12ld %12ld %12ld\n",
 			dev_name(&devfreq->dev),
 			p_devfreq ? dev_name(&p_devfreq->dev) : "null",
 			devfreq->governor_name,

@@ -245,7 +245,9 @@ static int __btrfs_map_block(struct btrfs_fs_info *fs_info,
  *
  * global::fs_devs - add, remove, updates to the global list
  *
- * does not protect: manipulation of the fs_devices::devices list!
+ * does not protect: manipulation of the fs_devices::devices list in general
+ * but in mount context it could be used to exclude list modifications by eg.
+ * scan ioctl
  *
  * btrfs_device::name - renames (write side), read is RCU
  *
@@ -257,6 +259,9 @@ static int __btrfs_map_block(struct btrfs_fs_info *fs_info,
  *
  * may be used to exclude some operations from running concurrently without any
  * modifications to the list (see write_all_supers)
+ *
+ * Is not required at mount and close times, because our device list is
+ * protected by the uuid_mutex at that point.
  *
  * balance_mutex
  * -------------
@@ -280,10 +285,9 @@ static int __btrfs_map_block(struct btrfs_fs_info *fs_info,
  * ============
  *
  * uuid_mutex
- *   volume_mutex
- *     device_list_mutex
- *       chunk_mutex
- *     balance_mutex
+ *   device_list_mutex
+ *     chunk_mutex
+ *   balance_mutex
  *
  *
  * Exclusive operations, BTRFS_FS_EXCL_OP
@@ -603,6 +607,11 @@ static int btrfs_free_stale_devices(const char *path,
 	return ret;
 }
 
+/*
+ * This is only used on mount, and we are protected from competing things
+ * messing with our fs_devices by the uuid_mutex, thus we do not need the
+ * fs_devices->device_list_mutex here.
+ */
 static int btrfs_open_one_device(struct btrfs_fs_devices *fs_devices,
 			struct btrfs_device *device, fmode_t flags,
 			void *holder)
@@ -1187,7 +1196,6 @@ static int open_fs_devices(struct btrfs_fs_devices *fs_devices,
 {
 	struct btrfs_device *device;
 	struct btrfs_device *latest_dev = NULL;
-	int ret = 0;
 
 	flags |= FMODE_EXCL;
 
@@ -1200,16 +1208,15 @@ static int open_fs_devices(struct btrfs_fs_devices *fs_devices,
 		    device->generation > latest_dev->generation)
 			latest_dev = device;
 	}
-	if (fs_devices->open_devices == 0) {
-		ret = -EINVAL;
-		goto out;
-	}
+	if (fs_devices->open_devices == 0)
+		return -EINVAL;
+
 	fs_devices->opened = 1;
 	fs_devices->latest_bdev = latest_dev->bdev;
 	fs_devices->total_rw_bytes = 0;
 	fs_devices->chunk_alloc_policy = BTRFS_CHUNK_ALLOC_REGULAR;
-out:
-	return ret;
+
+	return 0;
 }
 
 static int devid_cmp(void *priv, struct list_head *a, struct list_head *b)
@@ -1232,8 +1239,14 @@ int btrfs_open_devices(struct btrfs_fs_devices *fs_devices,
 	int ret;
 
 	lockdep_assert_held(&uuid_mutex);
+	/*
+	 * The device_list_mutex cannot be taken here in case opening the
+	 * underlying device takes further locks like bd_mutex.
+	 *
+	 * We also don't need the lock here as this is called during mount and
+	 * exclusion is provided by uuid_mutex
+	 */
 
-	mutex_lock(&fs_devices->device_list_mutex);
 	if (fs_devices->opened) {
 		fs_devices->opened++;
 		ret = 0;
@@ -1241,7 +1254,6 @@ int btrfs_open_devices(struct btrfs_fs_devices *fs_devices,
 		list_sort(NULL, &fs_devices->devices, devid_cmp);
 		ret = open_fs_devices(fs_devices, flags, holder);
 	}
-	mutex_unlock(&fs_devices->device_list_mutex);
 
 	return ret;
 }
@@ -1253,49 +1265,48 @@ void btrfs_release_disk_super(struct btrfs_super_block *super)
 	put_page(page);
 }
 
-static int btrfs_read_disk_super(struct block_device *bdev, u64 bytenr,
-				 struct page **page,
-				 struct btrfs_super_block **disk_super)
+static struct btrfs_super_block *btrfs_read_disk_super(struct block_device *bdev,
+						       u64 bytenr)
 {
+	struct btrfs_super_block *disk_super;
+	struct page *page;
 	void *p;
 	pgoff_t index;
 
 	/* make sure our super fits in the device */
 	if (bytenr + PAGE_SIZE >= i_size_read(bdev->bd_inode))
-		return 1;
+		return ERR_PTR(-EINVAL);
 
 	/* make sure our super fits in the page */
-	if (sizeof(**disk_super) > PAGE_SIZE)
-		return 1;
+	if (sizeof(*disk_super) > PAGE_SIZE)
+		return ERR_PTR(-EINVAL);
 
 	/* make sure our super doesn't straddle pages on disk */
 	index = bytenr >> PAGE_SHIFT;
-	if ((bytenr + sizeof(**disk_super) - 1) >> PAGE_SHIFT != index)
-		return 1;
+	if ((bytenr + sizeof(*disk_super) - 1) >> PAGE_SHIFT != index)
+		return ERR_PTR(-EINVAL);
 
 	/* pull in the page with our super */
-	*page = read_cache_page_gfp(bdev->bd_inode->i_mapping,
-				   index, GFP_KERNEL);
+	page = read_cache_page_gfp(bdev->bd_inode->i_mapping, index, GFP_KERNEL);
 
-	if (IS_ERR(*page))
-		return 1;
+	if (IS_ERR(page))
+		return ERR_CAST(page);
 
-	p = page_address(*page);
+	p = page_address(page);
 
 	/* align our pointer to the offset of the super block */
-	*disk_super = p + offset_in_page(bytenr);
+	disk_super = p + offset_in_page(bytenr);
 
-	if (btrfs_super_bytenr(*disk_super) != bytenr ||
-	    btrfs_super_magic(*disk_super) != BTRFS_MAGIC) {
+	if (btrfs_super_bytenr(disk_super) != bytenr ||
+	    btrfs_super_magic(disk_super) != BTRFS_MAGIC) {
 		btrfs_release_disk_super(p);
-		return 1;
+		return ERR_PTR(-EINVAL);
 	}
 
-	if ((*disk_super)->label[0] &&
-		(*disk_super)->label[BTRFS_LABEL_SIZE - 1])
-		(*disk_super)->label[BTRFS_LABEL_SIZE - 1] = '\0';
+	if (disk_super->label[0] && disk_super->label[BTRFS_LABEL_SIZE - 1])
+		disk_super->label[BTRFS_LABEL_SIZE - 1] = 0;
 
-	return 0;
+	return disk_super;
 }
 
 int btrfs_forget_devices(const char *path)
@@ -1321,7 +1332,6 @@ struct btrfs_device *btrfs_scan_one_device(const char *path, fmode_t flags,
 	bool new_device_added = false;
 	struct btrfs_device *device = NULL;
 	struct block_device *bdev;
-	struct page *page;
 	u64 bytenr;
 
 	lockdep_assert_held(&uuid_mutex);
@@ -1339,8 +1349,9 @@ struct btrfs_device *btrfs_scan_one_device(const char *path, fmode_t flags,
 	if (IS_ERR(bdev))
 		return ERR_CAST(bdev);
 
-	if (btrfs_read_disk_super(bdev, bytenr, &page, &disk_super)) {
-		device = ERR_PTR(-EINVAL);
+	disk_super = btrfs_read_disk_super(bdev, bytenr);
+	if (IS_ERR(disk_super)) {
+		device = ERR_CAST(disk_super);
 		goto error_bdev_put;
 	}
 
@@ -3235,7 +3246,7 @@ static int del_balance_item(struct btrfs_fs_info *fs_info)
 	if (!path)
 		return -ENOMEM;
 
-	trans = btrfs_start_transaction(root, 0);
+	trans = btrfs_start_transaction_fallback_global_rsv(root, 0);
 	if (IS_ERR(trans)) {
 		btrfs_free_path(path);
 		return PTR_ERR(trans);
@@ -4139,7 +4150,22 @@ int btrfs_balance(struct btrfs_fs_info *fs_info,
 	mutex_lock(&fs_info->balance_mutex);
 	if (ret == -ECANCELED && atomic_read(&fs_info->balance_pause_req))
 		btrfs_info(fs_info, "balance: paused");
-	else if (ret == -ECANCELED && atomic_read(&fs_info->balance_cancel_req))
+	/*
+	 * Balance can be canceled by:
+	 *
+	 * - Regular cancel request
+	 *   Then ret == -ECANCELED and balance_cancel_req > 0
+	 *
+	 * - Fatal signal to "btrfs" process
+	 *   Either the signal caught by wait_reserve_ticket() and callers
+	 *   got -EINTR, or caught by btrfs_should_cancel_balance() and
+	 *   got -ECANCELED.
+	 *   Either way, in this case balance_cancel_req = 0, and
+	 *   ret == -EINTR or ret == -ECANCELED.
+	 *
+	 * So here we only check the return value to catch canceled balance.
+	 */
+	else if (ret == -ECANCELED || ret == -EINTR)
 		btrfs_info(fs_info, "balance: canceled");
 	else
 		btrfs_info(fs_info, "balance: ended with status: %d", ret);
@@ -4694,6 +4720,10 @@ again:
 	}
 
 	mutex_lock(&fs_info->chunk_mutex);
+	/* Clear all state bits beyond the shrunk device size */
+	clear_extent_bits(&device->alloc_state, new_size, (u64)-1,
+			  CHUNK_STATE_MASK);
+
 	btrfs_device_set_disk_total_bytes(device, new_size);
 	if (list_empty(&device->post_commit_list))
 		list_add_tail(&device->post_commit_list,
@@ -7053,7 +7083,14 @@ int btrfs_read_chunk_tree(struct btrfs_fs_info *fs_info)
 	 * otherwise we don't need it.
 	 */
 	mutex_lock(&uuid_mutex);
-	mutex_lock(&fs_info->chunk_mutex);
+
+	/*
+	 * It is possible for mount and umount to race in such a way that
+	 * we execute this code path, but open_fs_devices failed to clear
+	 * total_rw_bytes. We certainly want it cleared before reading the
+	 * device items, so clear it here.
+	 */
+	fs_info->fs_devices->total_rw_bytes = 0;
 
 	/*
 	 * Read all device items, and then all the chunk items. All
@@ -7090,7 +7127,9 @@ int btrfs_read_chunk_tree(struct btrfs_fs_info *fs_info)
 		} else if (found_key.type == BTRFS_CHUNK_ITEM_KEY) {
 			struct btrfs_chunk *chunk;
 			chunk = btrfs_item_ptr(leaf, slot, struct btrfs_chunk);
+			mutex_lock(&fs_info->chunk_mutex);
 			ret = read_one_chunk(&found_key, leaf, chunk);
+			mutex_unlock(&fs_info->chunk_mutex);
 			if (ret)
 				goto error;
 		}
@@ -7120,7 +7159,6 @@ int btrfs_read_chunk_tree(struct btrfs_fs_info *fs_info)
 	}
 	ret = 0;
 error:
-	mutex_unlock(&fs_info->chunk_mutex);
 	mutex_unlock(&uuid_mutex);
 
 	btrfs_free_path(path);

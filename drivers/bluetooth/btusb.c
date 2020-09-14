@@ -336,11 +336,14 @@ static const struct usb_device_id blacklist_table[] = {
 
 	/* Intel Bluetooth devices */
 	{ USB_DEVICE(0x8087, 0x0025), .driver_info = BTUSB_INTEL_NEW |
-						     BTUSB_WIDEBAND_SPEECH },
+						     BTUSB_WIDEBAND_SPEECH |
+						     BTUSB_VALID_LE_STATES },
 	{ USB_DEVICE(0x8087, 0x0026), .driver_info = BTUSB_INTEL_NEW |
 						     BTUSB_WIDEBAND_SPEECH },
 	{ USB_DEVICE(0x8087, 0x0029), .driver_info = BTUSB_INTEL_NEW |
 						     BTUSB_WIDEBAND_SPEECH },
+	{ USB_DEVICE(0x8087, 0x0032), .driver_info = BTUSB_INTEL_NEW |
+						     BTUSB_WIDEBAND_SPEECH},
 	{ USB_DEVICE(0x8087, 0x07da), .driver_info = BTUSB_CSR },
 	{ USB_DEVICE(0x8087, 0x07dc), .driver_info = BTUSB_INTEL },
 	{ USB_DEVICE(0x8087, 0x0a2a), .driver_info = BTUSB_INTEL },
@@ -349,7 +352,8 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x8087, 0x0aa7), .driver_info = BTUSB_INTEL |
 						     BTUSB_WIDEBAND_SPEECH },
 	{ USB_DEVICE(0x8087, 0x0aaa), .driver_info = BTUSB_INTEL_NEW |
-						     BTUSB_WIDEBAND_SPEECH },
+						     BTUSB_WIDEBAND_SPEECH |
+						     BTUSB_VALID_LE_STATES },
 
 	/* Other Intel Bluetooth devices */
 	{ USB_VENDOR_AND_INTERFACE_INFO(0x8087, 0xe0, 0x01, 0x01),
@@ -493,6 +497,8 @@ struct btusb_data {
 	__u8 cmdreq;
 
 	unsigned int sco_num;
+	unsigned int air_mode;
+	bool usb_alt6_packet_flow;
 	int isoc_altsetting;
 	int suspend_count;
 
@@ -984,6 +990,42 @@ static void btusb_isoc_complete(struct urb *urb)
 	}
 }
 
+static inline void __fill_isoc_descriptor_msbc(struct urb *urb, int len,
+					       int mtu, struct btusb_data *data)
+{
+	int i, offset = 0;
+	unsigned int interval;
+
+	BT_DBG("len %d mtu %d", len, mtu);
+
+	/* For mSBC ALT 6 setting the host will send the packet at continuous
+	 * flow. As per core spec 5, vol 4, part B, table 2.1. For ALT setting
+	 * 6 the HCI PACKET INTERVAL should be 7.5ms for every usb packets.
+	 * To maintain the rate we send 63bytes of usb packets alternatively for
+	 * 7ms and 8ms to maintain the rate as 7.5ms.
+	 */
+	if (data->usb_alt6_packet_flow) {
+		interval = 7;
+		data->usb_alt6_packet_flow = false;
+	} else {
+		interval = 6;
+		data->usb_alt6_packet_flow = true;
+	}
+
+	for (i = 0; i < interval; i++) {
+		urb->iso_frame_desc[i].offset = offset;
+		urb->iso_frame_desc[i].length = offset;
+	}
+
+	if (len && i < BTUSB_MAX_ISOC_FRAMES) {
+		urb->iso_frame_desc[i].offset = offset;
+		urb->iso_frame_desc[i].length = len;
+		i++;
+	}
+
+	urb->number_of_packets = i;
+}
+
 static inline void __fill_isoc_descriptor(struct urb *urb, int len, int mtu)
 {
 	int i, offset = 0;
@@ -1387,9 +1429,13 @@ static struct urb *alloc_isoc_urb(struct hci_dev *hdev, struct sk_buff *skb)
 
 	urb->transfer_flags  = URB_ISO_ASAP;
 
-	__fill_isoc_descriptor(urb, skb->len,
-			       le16_to_cpu(data->isoc_tx_ep->wMaxPacketSize));
-
+	if (data->isoc_altsetting == 6)
+		__fill_isoc_descriptor_msbc(urb, skb->len,
+					    le16_to_cpu(data->isoc_tx_ep->wMaxPacketSize),
+					    data);
+	else
+		__fill_isoc_descriptor(urb, skb->len,
+				       le16_to_cpu(data->isoc_tx_ep->wMaxPacketSize));
 	skb->dev = (void *)hdev;
 
 	return urb;
@@ -1485,6 +1531,7 @@ static void btusb_notify(struct hci_dev *hdev, unsigned int evt)
 
 	if (hci_conn_num(hdev, SCO_LINK) != data->sco_num) {
 		data->sco_num = hci_conn_num(hdev, SCO_LINK);
+		data->air_mode = evt;
 		schedule_work(&data->work);
 	}
 }
@@ -1532,11 +1579,70 @@ static inline int __set_isoc_interface(struct hci_dev *hdev, int altsetting)
 	return 0;
 }
 
+static int btusb_switch_alt_setting(struct hci_dev *hdev, int new_alts)
+{
+	struct btusb_data *data = hci_get_drvdata(hdev);
+	int err;
+
+	if (data->isoc_altsetting != new_alts) {
+		unsigned long flags;
+
+		clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
+		usb_kill_anchored_urbs(&data->isoc_anchor);
+
+		/* When isochronous alternate setting needs to be
+		 * changed, because SCO connection has been added
+		 * or removed, a packet fragment may be left in the
+		 * reassembling state. This could lead to wrongly
+		 * assembled fragments.
+		 *
+		 * Clear outstanding fragment when selecting a new
+		 * alternate setting.
+		 */
+		spin_lock_irqsave(&data->rxlock, flags);
+		kfree_skb(data->sco_skb);
+		data->sco_skb = NULL;
+		spin_unlock_irqrestore(&data->rxlock, flags);
+
+		err = __set_isoc_interface(hdev, new_alts);
+		if (err < 0)
+			return err;
+	}
+
+	if (!test_and_set_bit(BTUSB_ISOC_RUNNING, &data->flags)) {
+		if (btusb_submit_isoc_urb(hdev, GFP_KERNEL) < 0)
+			clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
+		else
+			btusb_submit_isoc_urb(hdev, GFP_KERNEL);
+	}
+
+	return 0;
+}
+
+static struct usb_host_interface *btusb_find_altsetting(struct btusb_data *data,
+							int alt)
+{
+	struct usb_interface *intf = data->isoc;
+	int i;
+
+	BT_DBG("Looking for Alt no :%d", alt);
+
+	if (!intf)
+		return NULL;
+
+	for (i = 0; i < intf->num_altsetting; i++) {
+		if (intf->altsetting[i].desc.bAlternateSetting == alt)
+			return &intf->altsetting[i];
+	}
+
+	return NULL;
+}
+
 static void btusb_work(struct work_struct *work)
 {
 	struct btusb_data *data = container_of(work, struct btusb_data, work);
 	struct hci_dev *hdev = data->hdev;
-	int new_alts;
+	int new_alts = 0;
 	int err;
 
 	if (data->sco_num > 0) {
@@ -1551,44 +1657,27 @@ static void btusb_work(struct work_struct *work)
 			set_bit(BTUSB_DID_ISO_RESUME, &data->flags);
 		}
 
-		if (hdev->voice_setting & 0x0020) {
-			static const int alts[3] = { 2, 4, 5 };
+		if (data->air_mode == HCI_NOTIFY_ENABLE_SCO_CVSD) {
+			if (hdev->voice_setting & 0x0020) {
+				static const int alts[3] = { 2, 4, 5 };
 
-			new_alts = alts[data->sco_num - 1];
-		} else {
-			new_alts = data->sco_num;
-		}
+				new_alts = alts[data->sco_num - 1];
+			} else {
+				new_alts = data->sco_num;
+			}
+		} else if (data->air_mode == HCI_NOTIFY_ENABLE_SCO_TRANSP) {
 
-		if (data->isoc_altsetting != new_alts) {
-			unsigned long flags;
+			data->usb_alt6_packet_flow = true;
 
-			clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
-			usb_kill_anchored_urbs(&data->isoc_anchor);
-
-			/* When isochronous alternate setting needs to be
-			 * changed, because SCO connection has been added
-			 * or removed, a packet fragment may be left in the
-			 * reassembling state. This could lead to wrongly
-			 * assembled fragments.
-			 *
-			 * Clear outstanding fragment when selecting a new
-			 * alternate setting.
-			 */
-			spin_lock_irqsave(&data->rxlock, flags);
-			kfree_skb(data->sco_skb);
-			data->sco_skb = NULL;
-			spin_unlock_irqrestore(&data->rxlock, flags);
-
-			if (__set_isoc_interface(hdev, new_alts) < 0)
-				return;
-		}
-
-		if (!test_and_set_bit(BTUSB_ISOC_RUNNING, &data->flags)) {
-			if (btusb_submit_isoc_urb(hdev, GFP_KERNEL) < 0)
-				clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
+			/* Check if Alt 6 is supported for Transparent audio */
+			if (btusb_find_altsetting(data, 6))
+				new_alts = 6;
 			else
-				btusb_submit_isoc_urb(hdev, GFP_KERNEL);
+				bt_dev_err(hdev, "Device does not support ALT setting 6");
 		}
+
+		if (btusb_switch_alt_setting(hdev, new_alts) < 0)
+			bt_dev_err(hdev, "set USB alt:(%d) failed!", new_alts);
 	} else {
 		clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
 		usb_kill_anchored_urbs(&data->isoc_anchor);
@@ -1631,6 +1720,7 @@ static int btusb_setup_csr(struct hci_dev *hdev)
 {
 	struct hci_rp_read_local_version *rp;
 	struct sk_buff *skb;
+	bool is_fake = false;
 
 	BT_DBG("%s", hdev->name);
 
@@ -1650,18 +1740,69 @@ static int btusb_setup_csr(struct hci_dev *hdev)
 
 	rp = (struct hci_rp_read_local_version *)skb->data;
 
-	/* Detect controllers which aren't real CSR ones. */
+	/* Detect a wide host of Chinese controllers that aren't CSR.
+	 *
+	 * Known fake bcdDevices: 0x0100, 0x0134, 0x1915, 0x2520, 0x7558, 0x8891
+	 *
+	 * The main thing they have in common is that these are really popular low-cost
+	 * options that support newer Bluetooth versions but rely on heavy VID/PID
+	 * squatting of this poor old Bluetooth 1.1 device. Even sold as such.
+	 *
+	 * We detect actual CSR devices by checking that the HCI manufacturer code
+	 * is Cambridge Silicon Radio (10) and ensuring that LMP sub-version and
+	 * HCI rev values always match. As they both store the firmware number.
+	 */
 	if (le16_to_cpu(rp->manufacturer) != 10 ||
-	    le16_to_cpu(rp->lmp_subver) == 0x0c5c) {
+	    le16_to_cpu(rp->hci_rev) != le16_to_cpu(rp->lmp_subver))
+		is_fake = true;
+
+	/* Known legit CSR firmware build numbers and their supported BT versions:
+	 * - 1.1 (0x1) -> 0x0073, 0x020d, 0x033c, 0x034e
+	 * - 1.2 (0x2) ->                 0x04d9, 0x0529
+	 * - 2.0 (0x3) ->         0x07a6, 0x07ad, 0x0c5c
+	 * - 2.1 (0x4) ->         0x149c, 0x1735, 0x1899 (0x1899 is a BlueCore4-External)
+	 * - 4.0 (0x6) ->         0x1d86, 0x2031, 0x22bb
+	 *
+	 * e.g. Real CSR dongles with LMP subversion 0x73 are old enough that
+	 *      support BT 1.1 only; so it's a dead giveaway when some
+	 *      third-party BT 4.0 dongle reuses it.
+	 */
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x034e &&
+		 le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_1_1)
+		is_fake = true;
+
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x0529 &&
+		 le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_1_2)
+		is_fake = true;
+
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x0c5c &&
+		 le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_2_0)
+		is_fake = true;
+
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x1899 &&
+		 le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_2_1)
+		is_fake = true;
+
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x22bb &&
+		 le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_4_0)
+		is_fake = true;
+
+	if (is_fake) {
+		bt_dev_warn(hdev, "CSR: Unbranded CSR clone detected; adding workarounds...");
+
+		/* Generally these clones have big discrepancies between
+		 * advertised features and what's actually supported.
+		 * Probably will need to be expanded in the future;
+		 * without these the controller will lock up.
+		 */
+		set_bit(HCI_QUIRK_BROKEN_STORED_LINK_KEY, &hdev->quirks);
+		set_bit(HCI_QUIRK_BROKEN_ERR_DATA_REPORTING, &hdev->quirks);
+
 		/* Clear the reset quirk since this is not an actual
 		 * early Bluetooth 1.1 device from CSR.
 		 */
 		clear_bit(HCI_QUIRK_RESET_ON_CLOSE, &hdev->quirks);
-
-		/* These fake CSR controllers have all a broken
-		 * stored link key handling and so just disable it.
-		 */
-		set_bit(HCI_QUIRK_BROKEN_STORED_LINK_KEY, &hdev->quirks);
+		clear_bit(HCI_QUIRK_SIMULTANEOUS_DISCOVERY, &hdev->quirks);
 	}
 
 	kfree_skb(skb);
@@ -2253,7 +2394,7 @@ static int btusb_setup_intel_new(struct hci_dev *hdev)
 	if (ver.fw_variant == 0x23) {
 		clear_bit(BTUSB_BOOTLOADER, &data->flags);
 		btintel_check_bdaddr(hdev);
-		return 0;
+		goto finish;
 	}
 
 	/* If the device is not in bootloader mode, then the only possible
@@ -2453,6 +2594,23 @@ done:
 	 */
 	btintel_load_ddc_config(hdev, fwname);
 
+	/* Read the Intel version information after loading the FW  */
+	err = btintel_read_version(hdev, &ver);
+	if (err)
+		return err;
+
+	btintel_version_info(hdev, &ver);
+
+finish:
+	/* All Intel controllers that support the Microsoft vendor
+	 * extension are using 0xFC1E for VsMsftOpCode.
+	 */
+	switch (ver.hw_variant) {
+	case 0x12:	/* ThP */
+		hci_set_msft_opcode(hdev, 0xFC1E);
+		break;
+	}
+
 	/* Set the event mask for Intel specific vendor events. This enables
 	 * a few extra events that are useful during general operation. It
 	 * does not enable any debugging related events.
@@ -2461,13 +2619,6 @@ done:
 	 * and thus no need to fail the setup.
 	 */
 	btintel_set_event_mask(hdev, false);
-
-	/* Read the Intel version information after loading the FW  */
-	err = btintel_read_version(hdev, &ver);
-	if (err)
-		return err;
-
-	btintel_version_info(hdev, &ver);
 
 	return 0;
 }
@@ -2826,11 +2977,25 @@ static int btusb_mtk_setup_firmware(struct hci_dev *hdev, const char *fwname)
 	const u8 *fw_ptr;
 	size_t fw_size;
 	int err, dlen;
-	u8 flag;
+	u8 flag, param;
 
 	err = request_firmware(&fw, fwname, &hdev->dev);
 	if (err < 0) {
 		bt_dev_err(hdev, "Failed to load firmware file (%d)", err);
+		return err;
+	}
+
+	/* Power on data RAM the firmware relies on. */
+	param = 1;
+	wmt_params.op = BTMTK_WMT_FUNC_CTRL;
+	wmt_params.flag = 3;
+	wmt_params.dlen = sizeof(param);
+	wmt_params.data = &param;
+	wmt_params.status = NULL;
+
+	err = btusb_mtk_hci_wmt_sync(hdev, &wmt_params);
+	if (err < 0) {
+		bt_dev_err(hdev, "Failed to power on data RAM (%d)", err);
 		return err;
 	}
 
@@ -3601,6 +3766,13 @@ static void btusb_check_needs_reset_resume(struct usb_interface *intf)
 		interface_to_usbdev(intf)->quirks |= USB_QUIRK_RESET_RESUME;
 }
 
+static bool btusb_prevent_wake(struct hci_dev *hdev)
+{
+	struct btusb_data *data = hci_get_drvdata(hdev);
+
+	return !device_may_wakeup(&data->udev->dev);
+}
+
 static int btusb_probe(struct usb_interface *intf,
 		       const struct usb_device_id *id)
 {
@@ -3734,6 +3906,7 @@ static int btusb_probe(struct usb_interface *intf,
 	hdev->flush  = btusb_flush;
 	hdev->send   = btusb_send_frame;
 	hdev->notify = btusb_notify;
+	hdev->prevent_wake = btusb_prevent_wake;
 
 #ifdef CONFIG_PM
 	err = btusb_config_oob_wake(hdev);
@@ -3878,6 +4051,9 @@ static int btusb_probe(struct usb_interface *intf,
 	if (id->driver_info & BTUSB_WIDEBAND_SPEECH)
 		set_bit(HCI_QUIRK_WIDEBAND_SPEECH_SUPPORTED, &hdev->quirks);
 
+	if (id->driver_info & BTUSB_VALID_LE_STATES)
+		set_bit(HCI_QUIRK_VALID_LE_STATES, &hdev->quirks);
+
 	if (id->driver_info & BTUSB_DIGIANSWER) {
 		data->cmdreq_type = USB_TYPE_VENDOR;
 		set_bit(HCI_QUIRK_RESET_ON_CLOSE, &hdev->quirks);
@@ -3891,11 +4067,13 @@ static int btusb_probe(struct usb_interface *intf,
 		if (bcdDevice < 0x117)
 			set_bit(HCI_QUIRK_RESET_ON_CLOSE, &hdev->quirks);
 
-		/* Fake CSR devices with broken commands */
-		if (bcdDevice <= 0x100 || bcdDevice == 0x134)
-			hdev->setup = btusb_setup_csr;
-
+		/* This must be set first in case we disable it for fakes */
 		set_bit(HCI_QUIRK_SIMULTANEOUS_DISCOVERY, &hdev->quirks);
+
+		/* Fake CSR devices with broken commands */
+		if (le16_to_cpu(udev->descriptor.idVendor)  == 0x0a12 &&
+		    le16_to_cpu(udev->descriptor.idProduct) == 0x0001)
+			hdev->setup = btusb_setup_csr;
 	}
 
 	if (id->driver_info & BTUSB_SNIFFER) {

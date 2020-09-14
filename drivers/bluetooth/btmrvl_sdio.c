@@ -328,7 +328,7 @@ static const struct btmrvl_sdio_device btmrvl_sdio_sd8897 = {
 
 static const struct btmrvl_sdio_device btmrvl_sdio_sd8977 = {
 	.helper         = NULL,
-	.firmware       = "mrvl/sd8977_uapsta.bin",
+	.firmware       = "mrvl/sdsd8977_combo_v2.bin",
 	.reg            = &btmrvl_reg_8977,
 	.support_pscan_win_report = true,
 	.sd_blksz_fw_dl = 256,
@@ -346,7 +346,7 @@ static const struct btmrvl_sdio_device btmrvl_sdio_sd8987 = {
 
 static const struct btmrvl_sdio_device btmrvl_sdio_sd8997 = {
 	.helper         = NULL,
-	.firmware       = "mrvl/sd8997_uapsta.bin",
+	.firmware       = "mrvl/sdsd8997_combo_v4.bin",
 	.reg            = &btmrvl_reg_8997,
 	.support_pscan_win_report = true,
 	.sd_blksz_fw_dl = 256,
@@ -355,31 +355,31 @@ static const struct btmrvl_sdio_device btmrvl_sdio_sd8997 = {
 
 static const struct sdio_device_id btmrvl_sdio_ids[] = {
 	/* Marvell SD8688 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x9105),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8688_BT),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8688 },
 	/* Marvell SD8787 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x911A),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8787_BT),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8787 },
 	/* Marvell SD8787 Bluetooth AMP device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x911B),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8787_BT_AMP),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8787 },
 	/* Marvell SD8797 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x912A),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8797_BT),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8797 },
 	/* Marvell SD8887 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x9136),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8887_BT),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8887 },
 	/* Marvell SD8897 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x912E),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8897_BT),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8897 },
 	/* Marvell SD8977 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x9146),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8977_BT),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8977 },
 	/* Marvell SD8987 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x914A),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8987_BT),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8987 },
 	/* Marvell SD8997 Bluetooth device */
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x9142),
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8997_BT),
 			.driver_data = (unsigned long)&btmrvl_sdio_sd8997 },
 
 	{ }	/* Terminating entry */
@@ -1831,6 +1831,6 @@ MODULE_FIRMWARE("mrvl/sd8787_uapsta.bin");
 MODULE_FIRMWARE("mrvl/sd8797_uapsta.bin");
 MODULE_FIRMWARE("mrvl/sd8887_uapsta.bin");
 MODULE_FIRMWARE("mrvl/sd8897_uapsta.bin");
-MODULE_FIRMWARE("mrvl/sd8977_uapsta.bin");
+MODULE_FIRMWARE("mrvl/sdsd8977_combo_v2.bin");
 MODULE_FIRMWARE("mrvl/sd8987_uapsta.bin");
-MODULE_FIRMWARE("mrvl/sd8997_uapsta.bin");
+MODULE_FIRMWARE("mrvl/sdsd8997_combo_v4.bin");

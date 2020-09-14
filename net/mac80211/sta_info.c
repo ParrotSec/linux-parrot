@@ -1050,7 +1050,7 @@ static void __sta_info_destroy_part2(struct sta_info *sta)
 	might_sleep();
 	lockdep_assert_held(&local->sta_mtx);
 
-	while (sta->sta_state == IEEE80211_STA_AUTHORIZED) {
+	if (sta->sta_state == IEEE80211_STA_AUTHORIZED) {
 		ret = sta_info_move_state(sta, IEEE80211_STA_ASSOC);
 		WARN_ON_ONCE(ret);
 	}
@@ -1923,9 +1923,7 @@ void ieee80211_sta_update_pending_airtime(struct ieee80211_local *local,
 	if (sta) {
 		tx_pending = atomic_sub_return(tx_airtime,
 					       &sta->airtime[ac].aql_tx_pending);
-		if (WARN_ONCE(tx_pending < 0,
-			      "STA %pM AC %d txq pending airtime underflow: %u, %u",
-			      sta->addr, ac, tx_pending, tx_airtime))
+		if (tx_pending < 0)
 			atomic_cmpxchg(&sta->airtime[ac].aql_tx_pending,
 				       tx_pending, 0);
 	}

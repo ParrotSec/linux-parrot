@@ -582,6 +582,7 @@ struct btrfs_fs_info {
 	struct btrfs_root *quota_root;
 	struct btrfs_root *uuid_root;
 	struct btrfs_root *free_space_root;
+	struct btrfs_root *data_reloc_root;
 
 	/* the log root tree is a directory of all the other log roots */
 	struct btrfs_root *log_root_tree;
@@ -758,7 +759,6 @@ struct btrfs_fs_info {
 	struct btrfs_workqueue *endio_workers;
 	struct btrfs_workqueue *endio_meta_workers;
 	struct btrfs_workqueue *endio_raid56_workers;
-	struct btrfs_workqueue *endio_repair_workers;
 	struct btrfs_workqueue *rmw_workers;
 	struct btrfs_workqueue *endio_meta_write_workers;
 	struct btrfs_workqueue *endio_write_workers;
@@ -970,7 +970,28 @@ enum {
 	 * is used to tell us when more checks are required
 	 */
 	BTRFS_ROOT_IN_TRANS_SETUP,
-	BTRFS_ROOT_REF_COWS,
+
+	/*
+	 * Set if tree blocks of this root can be shared by other roots.
+	 * Only subvolume trees and their reloc trees have this bit set.
+	 * Conflicts with TRACK_DIRTY bit.
+	 *
+	 * This affects two things:
+	 *
+	 * - How balance works
+	 *   For shareable roots, we need to use reloc tree and do path
+	 *   replacement for balance, and need various pre/post hooks for
+	 *   snapshot creation to handle them.
+	 *
+	 *   While for non-shareable trees, we just simply do a tree search
+	 *   with COW.
+	 *
+	 * - How dirty roots are tracked
+	 *   For shareable roots, btrfs_record_root_in_trans() is needed to
+	 *   track them, while non-subvolume roots have TRACK_DIRTY bit, they
+	 *   don't need to set this manually.
+	 */
+	BTRFS_ROOT_SHAREABLE,
 	BTRFS_ROOT_TRACK_DIRTY,
 	BTRFS_ROOT_IN_RADIX,
 	BTRFS_ROOT_ORPHAN_ITEM_INSERTED,
@@ -1038,8 +1059,10 @@ struct btrfs_root {
 	wait_queue_head_t log_writer_wait;
 	wait_queue_head_t log_commit_wait[2];
 	struct list_head log_ctxs[2];
+	/* Used only for log trees of subvolumes, not for the log root tree */
 	atomic_t log_writers;
 	atomic_t log_commit[2];
+	/* Used only for log trees of subvolumes, not for the log root tree */
 	atomic_t log_batch;
 	int log_transid;
 	/* No matter the commit succeeds or not*/
@@ -1058,7 +1081,7 @@ struct btrfs_root {
 	struct btrfs_key defrag_progress;
 	struct btrfs_key defrag_max;
 
-	/* the dirty list is only used by non-reference counted roots */
+	/* The dirty list is only used by non-shareable roots */
 	struct list_head dirty_list;
 
 	struct list_head root_list;
@@ -1346,7 +1369,7 @@ do {                                                                   \
 	 BTRFS_INODE_ROOT_ITEM_INIT)
 
 struct btrfs_map_token {
-	const struct extent_buffer *eb;
+	struct extent_buffer *eb;
 	char *kaddr;
 	unsigned long offset;
 };
@@ -1358,7 +1381,8 @@ static inline void btrfs_init_map_token(struct btrfs_map_token *token,
 					struct extent_buffer *eb)
 {
 	token->eb = eb;
-	token->kaddr = NULL;
+	token->kaddr = page_address(eb->pages[0]);
+	token->offset = 0;
 }
 
 /* some macros to generate set/get functions for the struct fields.  This
@@ -1382,15 +1406,14 @@ static inline void btrfs_init_map_token(struct btrfs_map_token *token,
 			   sizeof(((type *)0)->member)))
 
 #define DECLARE_BTRFS_SETGET_BITS(bits)					\
-u##bits btrfs_get_token_##bits(const struct extent_buffer *eb,		\
-			       const void *ptr, unsigned long off,	\
-			       struct btrfs_map_token *token);		\
-void btrfs_set_token_##bits(struct extent_buffer *eb, const void *ptr,	\
-			    unsigned long off, u##bits val,		\
-			    struct btrfs_map_token *token);		\
+u##bits btrfs_get_token_##bits(struct btrfs_map_token *token,		\
+			       const void *ptr, unsigned long off);	\
+void btrfs_set_token_##bits(struct btrfs_map_token *token,		\
+			    const void *ptr, unsigned long off,		\
+			    u##bits val);				\
 u##bits btrfs_get_##bits(const struct extent_buffer *eb,		\
 			 const void *ptr, unsigned long off);		\
-void btrfs_set_##bits(struct extent_buffer *eb, void *ptr,		\
+void btrfs_set_##bits(const struct extent_buffer *eb, void *ptr,	\
 		      unsigned long off, u##bits val);
 
 DECLARE_BTRFS_SETGET_BITS(8)
@@ -1405,25 +1428,23 @@ static inline u##bits btrfs_##name(const struct extent_buffer *eb,	\
 	BUILD_BUG_ON(sizeof(u##bits) != sizeof(((type *)0))->member);	\
 	return btrfs_get_##bits(eb, s, offsetof(type, member));		\
 }									\
-static inline void btrfs_set_##name(struct extent_buffer *eb, type *s,	\
+static inline void btrfs_set_##name(const struct extent_buffer *eb, type *s, \
 				    u##bits val)			\
 {									\
 	BUILD_BUG_ON(sizeof(u##bits) != sizeof(((type *)0))->member);	\
 	btrfs_set_##bits(eb, s, offsetof(type, member), val);		\
 }									\
-static inline u##bits btrfs_token_##name(const struct extent_buffer *eb,\
-					 const type *s,			\
-					 struct btrfs_map_token *token)	\
+static inline u##bits btrfs_token_##name(struct btrfs_map_token *token,	\
+					 const type *s)			\
 {									\
 	BUILD_BUG_ON(sizeof(u##bits) != sizeof(((type *)0))->member);	\
-	return btrfs_get_token_##bits(eb, s, offsetof(type, member), token); \
+	return btrfs_get_token_##bits(token, s, offsetof(type, member));\
 }									\
-static inline void btrfs_set_token_##name(struct extent_buffer *eb,	\
-					  type *s, u##bits val,		\
-                                         struct btrfs_map_token *token)	\
+static inline void btrfs_set_token_##name(struct btrfs_map_token *token,\
+					  type *s, u##bits val)		\
 {									\
 	BUILD_BUG_ON(sizeof(u##bits) != sizeof(((type *)0))->member);	\
-	btrfs_set_token_##bits(eb, s, offsetof(type, member), val, token); \
+	btrfs_set_token_##bits(token, s, offsetof(type, member), val);	\
 }
 
 #define BTRFS_SETGET_HEADER_FUNCS(name, type, member, bits)		\
@@ -1433,7 +1454,7 @@ static inline u##bits btrfs_##name(const struct extent_buffer *eb)	\
 	u##bits res = le##bits##_to_cpu(p->member);			\
 	return res;							\
 }									\
-static inline void btrfs_set_##name(struct extent_buffer *eb,		\
+static inline void btrfs_set_##name(const struct extent_buffer *eb,	\
 				    u##bits val)			\
 {									\
 	type *p = page_address(eb->pages[0]);				\
@@ -1451,7 +1472,7 @@ static inline void btrfs_set_##name(type *s, u##bits val)		\
 }
 
 
-static inline u64 btrfs_device_total_bytes(struct extent_buffer *eb,
+static inline u64 btrfs_device_total_bytes(const struct extent_buffer *eb,
 					   struct btrfs_dev_item *s)
 {
 	BUILD_BUG_ON(sizeof(u64) !=
@@ -1459,7 +1480,7 @@ static inline u64 btrfs_device_total_bytes(struct extent_buffer *eb,
 	return btrfs_get_64(eb, s, offsetof(struct btrfs_dev_item,
 					    total_bytes));
 }
-static inline void btrfs_set_device_total_bytes(struct extent_buffer *eb,
+static inline void btrfs_set_device_total_bytes(const struct extent_buffer *eb,
 						struct btrfs_dev_item *s,
 						u64 val)
 {
@@ -1563,13 +1584,13 @@ static inline char *btrfs_stripe_dev_uuid_nr(struct btrfs_chunk *c, int nr)
 	return btrfs_stripe_dev_uuid(btrfs_stripe_nr(c, nr));
 }
 
-static inline u64 btrfs_stripe_offset_nr(struct extent_buffer *eb,
+static inline u64 btrfs_stripe_offset_nr(const struct extent_buffer *eb,
 					 struct btrfs_chunk *c, int nr)
 {
 	return btrfs_stripe_offset(eb, btrfs_stripe_nr(c, nr));
 }
 
-static inline u64 btrfs_stripe_devid_nr(struct extent_buffer *eb,
+static inline u64 btrfs_stripe_devid_nr(const struct extent_buffer *eb,
 					 struct btrfs_chunk *c, int nr)
 {
 	return btrfs_stripe_devid(eb, btrfs_stripe_nr(c, nr));
@@ -1649,31 +1670,21 @@ BTRFS_SETGET_FUNCS(dev_extent_chunk_objectid, struct btrfs_dev_extent,
 BTRFS_SETGET_FUNCS(dev_extent_chunk_offset, struct btrfs_dev_extent,
 		   chunk_offset, 64);
 BTRFS_SETGET_FUNCS(dev_extent_length, struct btrfs_dev_extent, length, 64);
-
-static inline unsigned long btrfs_dev_extent_chunk_tree_uuid(struct btrfs_dev_extent *dev)
-{
-	unsigned long ptr = offsetof(struct btrfs_dev_extent, chunk_tree_uuid);
-	return (unsigned long)dev + ptr;
-}
-
 BTRFS_SETGET_FUNCS(extent_refs, struct btrfs_extent_item, refs, 64);
 BTRFS_SETGET_FUNCS(extent_generation, struct btrfs_extent_item,
 		   generation, 64);
 BTRFS_SETGET_FUNCS(extent_flags, struct btrfs_extent_item, flags, 64);
 
-BTRFS_SETGET_FUNCS(extent_refs_v0, struct btrfs_extent_item_v0, refs, 32);
-
-
 BTRFS_SETGET_FUNCS(tree_block_level, struct btrfs_tree_block_info, level, 8);
 
-static inline void btrfs_tree_block_key(struct extent_buffer *eb,
+static inline void btrfs_tree_block_key(const struct extent_buffer *eb,
 					struct btrfs_tree_block_info *item,
 					struct btrfs_disk_key *key)
 {
 	read_eb_member(eb, item, struct btrfs_tree_block_info, key, key);
 }
 
-static inline void btrfs_set_tree_block_key(struct extent_buffer *eb,
+static inline void btrfs_set_tree_block_key(const struct extent_buffer *eb,
 					    struct btrfs_tree_block_info *item,
 					    struct btrfs_disk_key *key)
 {
@@ -1711,12 +1722,6 @@ static inline u32 btrfs_extent_inline_ref_size(int type)
 	return 0;
 }
 
-BTRFS_SETGET_FUNCS(ref_root_v0, struct btrfs_extent_ref_v0, root, 64);
-BTRFS_SETGET_FUNCS(ref_generation_v0, struct btrfs_extent_ref_v0,
-		   generation, 64);
-BTRFS_SETGET_FUNCS(ref_objectid_v0, struct btrfs_extent_ref_v0, objectid, 64);
-BTRFS_SETGET_FUNCS(ref_count_v0, struct btrfs_extent_ref_v0, count, 32);
-
 /* struct btrfs_node */
 BTRFS_SETGET_FUNCS(key_blockptr, struct btrfs_key_ptr, blockptr, 64);
 BTRFS_SETGET_FUNCS(key_generation, struct btrfs_key_ptr, generation, 64);
@@ -1725,7 +1730,7 @@ BTRFS_SETGET_STACK_FUNCS(stack_key_blockptr, struct btrfs_key_ptr,
 BTRFS_SETGET_STACK_FUNCS(stack_key_generation, struct btrfs_key_ptr,
 			 generation, 64);
 
-static inline u64 btrfs_node_blockptr(struct extent_buffer *eb, int nr)
+static inline u64 btrfs_node_blockptr(const struct extent_buffer *eb, int nr)
 {
 	unsigned long ptr;
 	ptr = offsetof(struct btrfs_node, ptrs) +
@@ -1733,7 +1738,7 @@ static inline u64 btrfs_node_blockptr(struct extent_buffer *eb, int nr)
 	return btrfs_key_blockptr(eb, (struct btrfs_key_ptr *)ptr);
 }
 
-static inline void btrfs_set_node_blockptr(struct extent_buffer *eb,
+static inline void btrfs_set_node_blockptr(const struct extent_buffer *eb,
 					   int nr, u64 val)
 {
 	unsigned long ptr;
@@ -1742,7 +1747,7 @@ static inline void btrfs_set_node_blockptr(struct extent_buffer *eb,
 	btrfs_set_key_blockptr(eb, (struct btrfs_key_ptr *)ptr, val);
 }
 
-static inline u64 btrfs_node_ptr_generation(struct extent_buffer *eb, int nr)
+static inline u64 btrfs_node_ptr_generation(const struct extent_buffer *eb, int nr)
 {
 	unsigned long ptr;
 	ptr = offsetof(struct btrfs_node, ptrs) +
@@ -1750,7 +1755,7 @@ static inline u64 btrfs_node_ptr_generation(struct extent_buffer *eb, int nr)
 	return btrfs_key_generation(eb, (struct btrfs_key_ptr *)ptr);
 }
 
-static inline void btrfs_set_node_ptr_generation(struct extent_buffer *eb,
+static inline void btrfs_set_node_ptr_generation(const struct extent_buffer *eb,
 						 int nr, u64 val)
 {
 	unsigned long ptr;
@@ -1768,7 +1773,7 @@ static inline unsigned long btrfs_node_key_ptr_offset(int nr)
 void btrfs_node_key(const struct extent_buffer *eb,
 		    struct btrfs_disk_key *disk_key, int nr);
 
-static inline void btrfs_set_node_key(struct extent_buffer *eb,
+static inline void btrfs_set_node_key(const struct extent_buffer *eb,
 				      struct btrfs_disk_key *disk_key, int nr)
 {
 	unsigned long ptr;
@@ -2463,7 +2468,7 @@ int btrfs_pin_extent_for_log_replay(struct btrfs_trans_handle *trans,
 				    u64 bytenr, u64 num_bytes);
 int btrfs_exclude_logged_extents(struct extent_buffer *eb);
 int btrfs_cross_ref_exist(struct btrfs_root *root,
-			  u64 objectid, u64 offset, u64 bytenr);
+			  u64 objectid, u64 offset, u64 bytenr, bool strict);
 struct extent_buffer *btrfs_alloc_tree_block(struct btrfs_trans_handle *trans,
 					     struct btrfs_root *root,
 					     u64 parent, u64 root_objectid,
@@ -2503,8 +2508,6 @@ int btrfs_inc_extent_ref(struct btrfs_trans_handle *trans,
 			 struct btrfs_ref *generic_ref);
 
 int btrfs_extent_readonly(struct btrfs_fs_info *fs_info, u64 bytenr);
-void btrfs_get_block_group_trimming(struct btrfs_block_group *cache);
-void btrfs_put_block_group_trimming(struct btrfs_block_group *cache);
 void btrfs_clear_space_info_full(struct btrfs_fs_info *info);
 
 enum btrfs_reserve_flush_enum {
@@ -2557,7 +2560,7 @@ void btrfs_wait_for_snapshot_creation(struct btrfs_root *root);
 
 /* ctree.c */
 int btrfs_bin_search(struct extent_buffer *eb, const struct btrfs_key *key,
-		     int level, int *slot);
+		     int *slot);
 int __pure btrfs_comp_cpu_keys(const struct btrfs_key *k1, const struct btrfs_key *k2);
 int btrfs_previous_item(struct btrfs_root *root,
 			struct btrfs_path *path, u64 min_objectid,
@@ -2851,7 +2854,7 @@ struct extent_map *btrfs_get_extent_fiemap(struct btrfs_inode *inode,
 					   u64 start, u64 len);
 noinline int can_nocow_extent(struct inode *inode, u64 offset, u64 *len,
 			      u64 *orig_start, u64 *orig_block_len,
-			      u64 *ram_bytes);
+			      u64 *ram_bytes, bool strict);
 
 void __btrfs_del_delalloc_inode(struct btrfs_root *root,
 				struct btrfs_inode *inode);
@@ -2902,10 +2905,9 @@ void btrfs_free_inode(struct inode *inode);
 int btrfs_drop_inode(struct inode *inode);
 int __init btrfs_init_cachep(void);
 void __cold btrfs_destroy_cachep(void);
-struct inode *btrfs_iget_path(struct super_block *s, struct btrfs_key *location,
+struct inode *btrfs_iget_path(struct super_block *s, u64 ino,
 			      struct btrfs_root *root, struct btrfs_path *path);
-struct inode *btrfs_iget(struct super_block *s, struct btrfs_key *location,
-			 struct btrfs_root *root);
+struct inode *btrfs_iget(struct super_block *s, u64 ino, struct btrfs_root *root);
 struct extent_map *btrfs_get_extent(struct btrfs_inode *inode,
 				    struct page *page, size_t pg_offset,
 				    u64 start, u64 end);
@@ -2982,6 +2984,8 @@ int btrfs_dirty_pages(struct inode *inode, struct page **pages,
 		      size_t num_pages, loff_t pos, size_t write_bytes,
 		      struct extent_state **cached);
 int btrfs_fdatawrite_range(struct inode *inode, loff_t start, loff_t end);
+int btrfs_check_can_nocow(struct btrfs_inode *inode, loff_t pos,
+			  size_t *write_bytes, bool nowait);
 
 /* tree-defrag.c */
 int btrfs_defrag_leaves(struct btrfs_trans_handle *trans,
@@ -3194,7 +3198,7 @@ do {								\
 	/* Report first abort since mount */			\
 	if (!test_and_set_bit(BTRFS_FS_STATE_TRANS_ABORTED,	\
 			&((trans)->fs_info->fs_state))) {	\
-		if ((errno) != -EIO) {				\
+		if ((errno) != -EIO && (errno) != -EROFS) {		\
 			WARN(1, KERN_DEBUG				\
 			"BTRFS: Transaction aborted (error %d)\n",	\
 			(errno));					\
@@ -3387,6 +3391,9 @@ void btrfs_reloc_pre_snapshot(struct btrfs_pending_snapshot *pending,
 int btrfs_reloc_post_snapshot(struct btrfs_trans_handle *trans,
 			      struct btrfs_pending_snapshot *pending);
 int btrfs_should_cancel_balance(struct btrfs_fs_info *fs_info);
+struct btrfs_root *find_reloc_root(struct btrfs_fs_info *fs_info,
+				   u64 bytenr);
+int btrfs_should_ignore_reloc_root(struct btrfs_root *root);
 
 /* scrub.c */
 int btrfs_scrub_dev(struct btrfs_fs_info *fs_info, u64 devid, u64 start,

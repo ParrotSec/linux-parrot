@@ -215,6 +215,7 @@ EXT4_RW_ATTR_SBI_UI(mb_min_to_scan, s_mb_min_to_scan);
 EXT4_RW_ATTR_SBI_UI(mb_order2_req, s_mb_order2_reqs);
 EXT4_RW_ATTR_SBI_UI(mb_stream_req, s_mb_stream_request);
 EXT4_RW_ATTR_SBI_UI(mb_group_prealloc, s_mb_group_prealloc);
+EXT4_RW_ATTR_SBI_UI(mb_max_inode_prealloc, s_mb_max_inode_prealloc);
 EXT4_RW_ATTR_SBI_UI(extent_max_zeroout_kb, s_extent_max_zeroout_kb);
 EXT4_ATTR(trigger_fs_error, 0200, trigger_test_error);
 EXT4_RW_ATTR_SBI_UI(err_ratelimit_interval_ms, s_err_ratelimit_state.interval);
@@ -257,6 +258,7 @@ static struct attribute *ext4_attrs[] = {
 	ATTR_LIST(mb_order2_req),
 	ATTR_LIST(mb_stream_req),
 	ATTR_LIST(mb_group_prealloc),
+	ATTR_LIST(mb_max_inode_prealloc),
 	ATTR_LIST(max_writeback_mb_bump),
 	ATTR_LIST(extent_max_zeroout_kb),
 	ATTR_LIST(trigger_fs_error),
@@ -293,6 +295,7 @@ EXT4_ATTR_FEATURE(batched_discard);
 EXT4_ATTR_FEATURE(meta_bg_resize);
 #ifdef CONFIG_FS_ENCRYPTION
 EXT4_ATTR_FEATURE(encryption);
+EXT4_ATTR_FEATURE(test_dummy_encryption_v2);
 #endif
 #ifdef CONFIG_UNICODE
 EXT4_ATTR_FEATURE(casefold);
@@ -308,6 +311,7 @@ static struct attribute *ext4_feat_attrs[] = {
 	ATTR_LIST(meta_bg_resize),
 #ifdef CONFIG_FS_ENCRYPTION
 	ATTR_LIST(encryption),
+	ATTR_LIST(test_dummy_encryption_v2),
 #endif
 #ifdef CONFIG_UNICODE
 	ATTR_LIST(casefold),

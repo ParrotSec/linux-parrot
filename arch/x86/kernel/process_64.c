@@ -40,7 +40,6 @@
 #include <linux/ftrace.h>
 #include <linux/syscalls.h>
 
-#include <asm/pgtable.h>
 #include <asm/processor.h>
 #include <asm/fpu/internal.h>
 #include <asm/mmu_context.h>
@@ -52,7 +51,7 @@
 #include <asm/switch_to.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/vdso.h>
-#include <asm/resctrl_sched.h>
+#include <asm/resctrl.h>
 #include <asm/unistd.h>
 #include <asm/fsgsbase.h>
 #ifdef CONFIG_IA32_EMULATION
@@ -315,7 +314,7 @@ static unsigned long x86_fsgsbase_read_task(struct task_struct *task,
 		 */
 		mutex_lock(&task->mm->context.lock);
 		ldt = task->mm->context.ldt;
-		if (unlikely(idx >= ldt->nr_entries))
+		if (unlikely(!ldt || idx >= ldt->nr_entries))
 			base = 0;
 		else
 			base = get_desc_base(ldt->entries + idx);

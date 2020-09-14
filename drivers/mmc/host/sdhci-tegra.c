@@ -605,6 +605,39 @@ static void tegra_sdhci_parse_pad_autocal_dt(struct sdhci_host *host)
 		autocal->pull_down_1v8 = 0;
 
 	err = device_property_read_u32(host->mmc->parent,
+			"nvidia,pad-autocal-pull-up-offset-sdr104",
+			&autocal->pull_up_sdr104);
+	if (err)
+		autocal->pull_up_sdr104 = autocal->pull_up_1v8;
+
+	err = device_property_read_u32(host->mmc->parent,
+			"nvidia,pad-autocal-pull-down-offset-sdr104",
+			&autocal->pull_down_sdr104);
+	if (err)
+		autocal->pull_down_sdr104 = autocal->pull_down_1v8;
+
+	err = device_property_read_u32(host->mmc->parent,
+			"nvidia,pad-autocal-pull-up-offset-hs400",
+			&autocal->pull_up_hs400);
+	if (err)
+		autocal->pull_up_hs400 = autocal->pull_up_1v8;
+
+	err = device_property_read_u32(host->mmc->parent,
+			"nvidia,pad-autocal-pull-down-offset-hs400",
+			&autocal->pull_down_hs400);
+	if (err)
+		autocal->pull_down_hs400 = autocal->pull_down_1v8;
+
+	/*
+	 * Different fail-safe drive strength values based on the signaling
+	 * voltage are applicable for SoCs supporting 3V3 and 1V8 pad controls.
+	 * So, avoid reading below device tree properties for SoCs that don't
+	 * have NVQUIRK_NEEDS_PAD_CONTROL.
+	 */
+	if (!(tegra_host->soc_data->nvquirks & NVQUIRK_NEEDS_PAD_CONTROL))
+		return;
+
+	err = device_property_read_u32(host->mmc->parent,
 			"nvidia,pad-autocal-pull-up-offset-3v3-timeout",
 			&autocal->pull_up_3v3_timeout);
 	if (err) {
@@ -647,30 +680,6 @@ static void tegra_sdhci_parse_pad_autocal_dt(struct sdhci_host *host)
 				mmc_hostname(host->mmc));
 		autocal->pull_down_1v8_timeout = 0;
 	}
-
-	err = device_property_read_u32(host->mmc->parent,
-			"nvidia,pad-autocal-pull-up-offset-sdr104",
-			&autocal->pull_up_sdr104);
-	if (err)
-		autocal->pull_up_sdr104 = autocal->pull_up_1v8;
-
-	err = device_property_read_u32(host->mmc->parent,
-			"nvidia,pad-autocal-pull-down-offset-sdr104",
-			&autocal->pull_down_sdr104);
-	if (err)
-		autocal->pull_down_sdr104 = autocal->pull_down_1v8;
-
-	err = device_property_read_u32(host->mmc->parent,
-			"nvidia,pad-autocal-pull-up-offset-hs400",
-			&autocal->pull_up_hs400);
-	if (err)
-		autocal->pull_up_hs400 = autocal->pull_up_1v8;
-
-	err = device_property_read_u32(host->mmc->parent,
-			"nvidia,pad-autocal-pull-down-offset-hs400",
-			&autocal->pull_down_hs400);
-	if (err)
-		autocal->pull_down_hs400 = autocal->pull_down_1v8;
 }
 
 static void tegra_sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -1400,7 +1409,6 @@ static const struct sdhci_ops tegra210_sdhci_ops = {
 
 static const struct sdhci_pltfm_data sdhci_tegra210_pdata = {
 	.quirks = SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
-		  SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
 		  SDHCI_QUIRK_SINGLE_POWER_WRITE |
 		  SDHCI_QUIRK_NO_HISPD_BIT |
 		  SDHCI_QUIRK_BROKEN_ADMA_ZEROLEN_DESC |
@@ -1438,7 +1446,6 @@ static const struct sdhci_ops tegra186_sdhci_ops = {
 
 static const struct sdhci_pltfm_data sdhci_tegra186_pdata = {
 	.quirks = SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
-		  SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
 		  SDHCI_QUIRK_SINGLE_POWER_WRITE |
 		  SDHCI_QUIRK_NO_HISPD_BIT |
 		  SDHCI_QUIRK_BROKEN_ADMA_ZEROLEN_DESC |

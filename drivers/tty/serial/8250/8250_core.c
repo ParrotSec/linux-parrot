@@ -524,6 +524,7 @@ static void __init serial8250_isa_init_ports(void)
 		 */
 		up->mcr_mask = ~ALPHA_KLUDGE_MCR;
 		up->mcr_force = ALPHA_KLUDGE_MCR;
+		serial8250_set_defaults(up);
 	}
 
 	/* chain base port ops to support Remote Supervisor Adapter */
@@ -547,7 +548,6 @@ static void __init serial8250_isa_init_ports(void)
 		port->membase  = old_serial_port[i].iomem_base;
 		port->iotype   = old_serial_port[i].io_type;
 		port->regshift = old_serial_port[i].iomem_reg_shift;
-		serial8250_set_defaults(up);
 
 		port->irqflags |= irqflag;
 		if (serial8250_isa_config != NULL)
@@ -1026,7 +1026,9 @@ int serial8250_register_8250_port(struct uart_8250_port *up)
 
 		if (up->port.dev) {
 			uart->port.dev = up->port.dev;
-			uart_get_rs485_mode(uart->port.dev, &uart->port.rs485);
+			ret = uart_get_rs485_mode(&uart->port);
+			if (ret)
+				goto err;
 		}
 
 		if (up->port.flags & UPF_FIXED_TYPE)

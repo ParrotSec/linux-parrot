@@ -238,7 +238,7 @@ exit_free:
 	return fd;
 }
 
-static void show_prog_maps(int fd, u32 num_maps)
+static void show_prog_maps(int fd, __u32 num_maps)
 {
 	struct bpf_prog_info info = {};
 	__u32 len = sizeof(info);
@@ -537,14 +537,14 @@ prog_dump(struct bpf_prog_info *info, enum dump_mode mode,
 			p_info("no instructions returned");
 			return -1;
 		}
-		buf = (unsigned char *)(info->jited_prog_insns);
+		buf = u64_to_ptr(info->jited_prog_insns);
 		member_len = info->jited_prog_len;
 	} else {	/* DUMP_XLATED */
 		if (info->xlated_prog_len == 0 || !info->xlated_prog_insns) {
 			p_err("error retrieving insn dump: kernel.kptr_restrict set?");
 			return -1;
 		}
-		buf = (unsigned char *)info->xlated_prog_insns;
+		buf = u64_to_ptr(info->xlated_prog_insns);
 		member_len = info->xlated_prog_len;
 	}
 
@@ -553,7 +553,7 @@ prog_dump(struct bpf_prog_info *info, enum dump_mode mode,
 		return -1;
 	}
 
-	func_info = (void *)info->func_info;
+	func_info = u64_to_ptr(info->func_info);
 
 	if (info->nr_line_info) {
 		prog_linfo = bpf_prog_linfo__new(info);
@@ -571,7 +571,7 @@ prog_dump(struct bpf_prog_info *info, enum dump_mode mode,
 
 		n = write(fd, buf, member_len);
 		close(fd);
-		if (n != member_len) {
+		if (n != (ssize_t)member_len) {
 			p_err("error writing output file: %s",
 			      n < 0 ? strerror(errno) : "short write");
 			return -1;
@@ -601,13 +601,13 @@ prog_dump(struct bpf_prog_info *info, enum dump_mode mode,
 			__u32 i;
 			if (info->nr_jited_ksyms) {
 				kernel_syms_load(&dd);
-				ksyms = (__u64 *) info->jited_ksyms;
+				ksyms = u64_to_ptr(info->jited_ksyms);
 			}
 
 			if (json_output)
 				jsonw_start_array(json_wtr);
 
-			lens = (__u32 *) info->jited_func_lens;
+			lens = u64_to_ptr(info->jited_func_lens);
 			for (i = 0; i < info->nr_jited_func_lens; i++) {
 				if (ksyms) {
 					sym = kernel_syms_search(&dd, ksyms[i]);
@@ -668,7 +668,7 @@ prog_dump(struct bpf_prog_info *info, enum dump_mode mode,
 	} else {
 		kernel_syms_load(&dd);
 		dd.nr_jited_ksyms = info->nr_jited_ksyms;
-		dd.jited_ksyms = (__u64 *) info->jited_ksyms;
+		dd.jited_ksyms = u64_to_ptr(info->jited_ksyms);
 		dd.btf = btf;
 		dd.func_info = func_info;
 		dd.finfo_rec_size = info->func_info_rec_size;
@@ -1790,7 +1790,7 @@ static char *profile_target_name(int tgt_fd)
 		goto out;
 	}
 
-	func_info = (struct bpf_func_info *)(info_linear->info.func_info);
+	func_info = u64_to_ptr(info_linear->info.func_info);
 	t = btf__type_by_id(btf, func_info[0].type_id);
 	if (!t) {
 		p_err("btf %d doesn't have type %d",
@@ -1984,24 +1984,24 @@ static int do_help(int argc, char **argv)
 	}
 
 	fprintf(stderr,
-		"Usage: %s %s { show | list } [PROG]\n"
-		"       %s %s dump xlated PROG [{ file FILE | opcodes | visual | linum }]\n"
-		"       %s %s dump jited  PROG [{ file FILE | opcodes | linum }]\n"
-		"       %s %s pin   PROG FILE\n"
-		"       %s %s { load | loadall } OBJ  PATH \\\n"
+		"Usage: %1$s %2$s { show | list } [PROG]\n"
+		"       %1$s %2$s dump xlated PROG [{ file FILE | opcodes | visual | linum }]\n"
+		"       %1$s %2$s dump jited  PROG [{ file FILE | opcodes | linum }]\n"
+		"       %1$s %2$s pin   PROG FILE\n"
+		"       %1$s %2$s { load | loadall } OBJ  PATH \\\n"
 		"                         [type TYPE] [dev NAME] \\\n"
 		"                         [map { idx IDX | name NAME } MAP]\\\n"
 		"                         [pinmaps MAP_DIR]\n"
-		"       %s %s attach PROG ATTACH_TYPE [MAP]\n"
-		"       %s %s detach PROG ATTACH_TYPE [MAP]\n"
-		"       %s %s run PROG \\\n"
+		"       %1$s %2$s attach PROG ATTACH_TYPE [MAP]\n"
+		"       %1$s %2$s detach PROG ATTACH_TYPE [MAP]\n"
+		"       %1$s %2$s run PROG \\\n"
 		"                         data_in FILE \\\n"
 		"                         [data_out FILE [data_size_out L]] \\\n"
 		"                         [ctx_in FILE [ctx_out FILE [ctx_size_out M]]] \\\n"
 		"                         [repeat N]\n"
-		"       %s %s profile PROG [duration DURATION] METRICs\n"
-		"       %s %s tracelog\n"
-		"       %s %s help\n"
+		"       %1$s %2$s profile PROG [duration DURATION] METRICs\n"
+		"       %1$s %2$s tracelog\n"
+		"       %1$s %2$s help\n"
 		"\n"
 		"       " HELP_SPEC_MAP "\n"
 		"       " HELP_SPEC_PROGRAM "\n"
@@ -2012,18 +2012,17 @@ static int do_help(int argc, char **argv)
 		"                 sk_reuseport | flow_dissector | cgroup/sysctl |\n"
 		"                 cgroup/bind4 | cgroup/bind6 | cgroup/post_bind4 |\n"
 		"                 cgroup/post_bind6 | cgroup/connect4 | cgroup/connect6 |\n"
-		"                 cgroup/sendmsg4 | cgroup/sendmsg6 | cgroup/recvmsg4 |\n"
-		"                 cgroup/recvmsg6 | cgroup/getsockopt | cgroup/setsockopt |\n"
+		"                 cgroup/getpeername4 | cgroup/getpeername6 |\n"
+		"                 cgroup/getsockname4 | cgroup/getsockname6 | cgroup/sendmsg4 |\n"
+		"                 cgroup/sendmsg6 | cgroup/recvmsg4 | cgroup/recvmsg6 |\n"
+		"                 cgroup/getsockopt | cgroup/setsockopt |\n"
 		"                 struct_ops | fentry | fexit | freplace }\n"
 		"       ATTACH_TYPE := { msg_verdict | stream_verdict | stream_parser |\n"
 		"                        flow_dissector }\n"
 		"       METRIC := { cycles | instructions | l1d_loads | llc_misses }\n"
 		"       " HELP_SPEC_OPTIONS "\n"
 		"",
-		bin_name, argv[-2], bin_name, argv[-2], bin_name, argv[-2],
-		bin_name, argv[-2], bin_name, argv[-2], bin_name, argv[-2],
-		bin_name, argv[-2], bin_name, argv[-2], bin_name, argv[-2],
-		bin_name, argv[-2], bin_name, argv[-2]);
+		bin_name, argv[-2]);
 
 	return 0;
 }
