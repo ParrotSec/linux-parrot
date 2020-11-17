@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 28 May 2018 15:24:22 +0200
 Subject: [PATCH 3/4] mm/SLxB: change list_lock to raw_spinlock_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 The list_lock is used with used with IRQs off on RT. Make it a raw_spinlock_t
 otherwise the interrupts won't be disabled on -RT.  The locking rules remain
@@ -40,7 +40,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	slabs_destroy(cachep, &list);
  }
-@@ -688,7 +688,7 @@ static void __drain_alien_cache(struct k
+@@ -698,7 +698,7 @@ static void __drain_alien_cache(struct k
  	struct kmem_cache_node *n = get_node(cachep, node);
  
  	if (ac->avail) {
@@ -49,7 +49,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/*
  		 * Stuff objects into the remote nodes shared array first.
  		 * That way we could avoid the overhead of putting the objects
-@@ -699,7 +699,7 @@ static void __drain_alien_cache(struct k
+@@ -709,7 +709,7 @@ static void __drain_alien_cache(struct k
  
  		free_block(cachep, ac->entry, ac->avail, node, list);
  		ac->avail = 0;
@@ -58,7 +58,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  }
  
-@@ -772,9 +772,9 @@ static int __cache_free_alien(struct kme
+@@ -782,9 +782,9 @@ static int __cache_free_alien(struct kme
  		slabs_destroy(cachep, &list);
  	} else {
  		n = get_node(cachep, page_node);
@@ -70,7 +70,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		slabs_destroy(cachep, &list);
  	}
  	return 1;
-@@ -815,10 +815,10 @@ static int init_cache_node(struct kmem_c
+@@ -825,10 +825,10 @@ static int init_cache_node(struct kmem_c
  	 */
  	n = get_node(cachep, node);
  	if (n) {
@@ -83,7 +83,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		return 0;
  	}
-@@ -897,7 +897,7 @@ static int setup_kmem_cache_node(struct
+@@ -907,7 +907,7 @@ static int setup_kmem_cache_node(struct
  		goto fail;
  
  	n = get_node(cachep, node);
@@ -92,7 +92,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (n->shared && force_change) {
  		free_block(cachep, n->shared->entry,
  				n->shared->avail, node, &list);
-@@ -915,7 +915,7 @@ static int setup_kmem_cache_node(struct
+@@ -925,7 +925,7 @@ static int setup_kmem_cache_node(struct
  		new_alien = NULL;
  	}
  
@@ -101,7 +101,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	slabs_destroy(cachep, &list);
  
  	/*
-@@ -954,7 +954,7 @@ static void cpuup_canceled(long cpu)
+@@ -964,7 +964,7 @@ static void cpuup_canceled(long cpu)
  		if (!n)
  			continue;
  
@@ -110,7 +110,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/* Free limit for this kmem_cache_node */
  		n->free_limit -= cachep->batchcount;
-@@ -965,7 +965,7 @@ static void cpuup_canceled(long cpu)
+@@ -975,7 +975,7 @@ static void cpuup_canceled(long cpu)
  		nc->avail = 0;
  
  		if (!cpumask_empty(mask)) {
@@ -119,7 +119,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			goto free_slab;
  		}
  
-@@ -979,7 +979,7 @@ static void cpuup_canceled(long cpu)
+@@ -989,7 +989,7 @@ static void cpuup_canceled(long cpu)
  		alien = n->alien;
  		n->alien = NULL;
  
@@ -128,7 +128,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		kfree(shared);
  		if (alien) {
-@@ -1163,7 +1163,7 @@ static void __init init_list(struct kmem
+@@ -1173,7 +1173,7 @@ static void __init init_list(struct kmem
  	/*
  	 * Do not assume that spinlocks can be initialized via memcpy:
  	 */
@@ -137,7 +137,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	MAKE_ALL_LISTS(cachep, ptr, nodeid);
  	cachep->node[nodeid] = ptr;
-@@ -1335,11 +1335,11 @@ slab_out_of_memory(struct kmem_cache *ca
+@@ -1344,11 +1344,11 @@ slab_out_of_memory(struct kmem_cache *ca
  	for_each_kmem_cache_node(cachep, node, n) {
  		unsigned long total_slabs, free_slabs, free_objs;
  
@@ -151,7 +151,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		pr_warn("  node %d: slabs: %ld/%ld, objs: %ld/%ld\n",
  			node, total_slabs - free_slabs, total_slabs,
-@@ -2097,7 +2097,7 @@ static void check_spinlock_acquired(stru
+@@ -2106,7 +2106,7 @@ static void check_spinlock_acquired(stru
  {
  #ifdef CONFIG_SMP
  	check_irq_off();
@@ -160,7 +160,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif
  }
  
-@@ -2105,7 +2105,7 @@ static void check_spinlock_acquired_node
+@@ -2114,7 +2114,7 @@ static void check_spinlock_acquired_node
  {
  #ifdef CONFIG_SMP
  	check_irq_off();
@@ -169,7 +169,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif
  }
  
-@@ -2145,9 +2145,9 @@ static void do_drain(void *arg)
+@@ -2154,9 +2154,9 @@ static void do_drain(void *arg)
  	check_irq_off();
  	ac = cpu_cache_get(cachep);
  	n = get_node(cachep, node);
@@ -178,10 +178,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	free_block(cachep, ac->entry, ac->avail, node, &list);
 -	spin_unlock(&n->list_lock);
 +	raw_spin_unlock(&n->list_lock);
- 	slabs_destroy(cachep, &list);
  	ac->avail = 0;
+ 	slabs_destroy(cachep, &list);
  }
-@@ -2165,9 +2165,9 @@ static void drain_cpu_caches(struct kmem
+@@ -2174,9 +2174,9 @@ static void drain_cpu_caches(struct kmem
  			drain_alien_cache(cachep, n->alien);
  
  	for_each_kmem_cache_node(cachep, node, n) {
@@ -193,7 +193,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		slabs_destroy(cachep, &list);
  	}
-@@ -2189,10 +2189,10 @@ static int drain_freelist(struct kmem_ca
+@@ -2198,10 +2198,10 @@ static int drain_freelist(struct kmem_ca
  	nr_freed = 0;
  	while (nr_freed < tofree && !list_empty(&n->slabs_free)) {
  
@@ -206,7 +206,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			goto out;
  		}
  
-@@ -2205,7 +2205,7 @@ static int drain_freelist(struct kmem_ca
+@@ -2214,7 +2214,7 @@ static int drain_freelist(struct kmem_ca
  		 * to the cache.
  		 */
  		n->free_objects -= cache->num;
@@ -215,7 +215,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		slab_destroy(cache, page);
  		nr_freed++;
  	}
-@@ -2658,7 +2658,7 @@ static void cache_grow_end(struct kmem_c
+@@ -2652,7 +2652,7 @@ static void cache_grow_end(struct kmem_c
  	INIT_LIST_HEAD(&page->slab_list);
  	n = get_node(cachep, page_to_nid(page));
  
@@ -224,7 +224,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	n->total_slabs++;
  	if (!page->active) {
  		list_add_tail(&page->slab_list, &n->slabs_free);
-@@ -2668,7 +2668,7 @@ static void cache_grow_end(struct kmem_c
+@@ -2662,7 +2662,7 @@ static void cache_grow_end(struct kmem_c
  
  	STATS_INC_GROWN(cachep);
  	n->free_objects += cachep->num - page->active;
@@ -233,7 +233,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	fixup_objfreelist_debug(cachep, &list);
  }
-@@ -2834,7 +2834,7 @@ static struct page *get_first_slab(struc
+@@ -2828,7 +2828,7 @@ static struct page *get_first_slab(struc
  {
  	struct page *page;
  
@@ -242,7 +242,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	page = list_first_entry_or_null(&n->slabs_partial, struct page,
  					slab_list);
  	if (!page) {
-@@ -2861,10 +2861,10 @@ static noinline void *cache_alloc_pfmema
+@@ -2855,10 +2855,10 @@ static noinline void *cache_alloc_pfmema
  	if (!gfp_pfmemalloc_allowed(flags))
  		return NULL;
  
@@ -255,7 +255,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return NULL;
  	}
  
-@@ -2873,7 +2873,7 @@ static noinline void *cache_alloc_pfmema
+@@ -2867,7 +2867,7 @@ static noinline void *cache_alloc_pfmema
  
  	fixup_slab_list(cachep, n, page, &list);
  
@@ -264,7 +264,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	fixup_objfreelist_debug(cachep, &list);
  
  	return obj;
-@@ -2932,7 +2932,7 @@ static void *cache_alloc_refill(struct k
+@@ -2926,7 +2926,7 @@ static void *cache_alloc_refill(struct k
  	if (!n->free_objects && (!shared || !shared->avail))
  		goto direct_grow;
  
@@ -273,7 +273,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	shared = READ_ONCE(n->shared);
  
  	/* See if we can refill from the shared array */
-@@ -2956,7 +2956,7 @@ static void *cache_alloc_refill(struct k
+@@ -2950,7 +2950,7 @@ static void *cache_alloc_refill(struct k
  must_grow:
  	n->free_objects -= ac->avail;
  alloc_done:
@@ -282,7 +282,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	fixup_objfreelist_debug(cachep, &list);
  
  direct_grow:
-@@ -3181,7 +3181,7 @@ static void *____cache_alloc_node(struct
+@@ -3175,7 +3175,7 @@ static void *____cache_alloc_node(struct
  	BUG_ON(!n);
  
  	check_irq_off();
@@ -291,7 +291,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	page = get_first_slab(n, false);
  	if (!page)
  		goto must_grow;
-@@ -3199,12 +3199,12 @@ static void *____cache_alloc_node(struct
+@@ -3193,12 +3193,12 @@ static void *____cache_alloc_node(struct
  
  	fixup_slab_list(cachep, n, page, &list);
  
@@ -306,7 +306,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	page = cache_grow_begin(cachep, gfp_exact_node(flags), nodeid);
  	if (page) {
  		/* This slab isn't counted yet so don't update free_objects */
-@@ -3380,7 +3380,7 @@ static void cache_flusharray(struct kmem
+@@ -3376,7 +3376,7 @@ static void cache_flusharray(struct kmem
  
  	check_irq_off();
  	n = get_node(cachep, node);
@@ -315,16 +315,16 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (n->shared) {
  		struct array_cache *shared_array = n->shared;
  		int max = shared_array->limit - shared_array->avail;
-@@ -3409,7 +3409,7 @@ static void cache_flusharray(struct kmem
+@@ -3405,7 +3405,7 @@ static void cache_flusharray(struct kmem
  		STATS_SET_FREEABLE(cachep, i);
  	}
  #endif
 -	spin_unlock(&n->list_lock);
 +	raw_spin_unlock(&n->list_lock);
- 	slabs_destroy(cachep, &list);
  	ac->avail -= batchcount;
  	memmove(ac->entry, &(ac->entry[batchcount]), sizeof(void *)*ac->avail);
-@@ -3831,9 +3831,9 @@ static int __do_tune_cpucache(struct kme
+ 	slabs_destroy(cachep, &list);
+@@ -3834,9 +3834,9 @@ static int do_tune_cpucache(struct kmem_
  
  		node = cpu_to_mem(cpu);
  		n = get_node(cachep, node);
@@ -336,7 +336,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		slabs_destroy(cachep, &list);
  	}
  	free_percpu(prev);
-@@ -3958,9 +3958,9 @@ static void drain_array(struct kmem_cach
+@@ -3931,9 +3931,9 @@ static void drain_array(struct kmem_cach
  		return;
  	}
  
@@ -348,7 +348,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	slabs_destroy(cachep, &list);
  }
-@@ -4044,7 +4044,7 @@ void get_slabinfo(struct kmem_cache *cac
+@@ -4017,7 +4017,7 @@ void get_slabinfo(struct kmem_cache *cac
  
  	for_each_kmem_cache_node(cachep, node, n) {
  		check_irq_on();
@@ -357,7 +357,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		total_slabs += n->total_slabs;
  		free_slabs += n->free_slabs;
-@@ -4053,7 +4053,7 @@ void get_slabinfo(struct kmem_cache *cac
+@@ -4026,7 +4026,7 @@ void get_slabinfo(struct kmem_cache *cac
  		if (n->shared)
  			shared_avail += n->shared->avail;
  
@@ -368,7 +368,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	active_slabs = total_slabs - free_slabs;
 --- a/mm/slab.h
 +++ b/mm/slab.h
-@@ -596,7 +596,7 @@ static inline void slab_post_alloc_hook(
+@@ -530,7 +530,7 @@ static inline void slab_post_alloc_hook(
   * The slab lists for all objects.
   */
  struct kmem_cache_node {
@@ -379,8 +379,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct list_head slabs_partial;	/* partial list first, better asm code */
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -1196,7 +1196,7 @@ static noinline int free_debug_processin
- 	unsigned long uninitialized_var(flags);
+@@ -1213,7 +1213,7 @@ static noinline int free_debug_processin
+ 	unsigned long flags;
  	int ret = 0;
  
 -	spin_lock_irqsave(&n->list_lock, flags);
@@ -388,7 +388,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	slab_lock(page);
  
  	if (s->flags & SLAB_CONSISTENCY_CHECKS) {
-@@ -1231,7 +1231,7 @@ static noinline int free_debug_processin
+@@ -1248,7 +1248,7 @@ static noinline int free_debug_processin
  			 bulk_cnt, cnt);
  
  	slab_unlock(page);
@@ -397,7 +397,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!ret)
  		slab_fix(s, "Object at 0x%p not freed", object);
  	return ret;
-@@ -1869,7 +1869,7 @@ static void *get_partial_node(struct kme
+@@ -1962,7 +1962,7 @@ static void *get_partial_node(struct kme
  	if (!n || !n->nr_partial)
  		return NULL;
  
@@ -406,7 +406,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	list_for_each_entry_safe(page, page2, &n->partial, slab_list) {
  		void *t;
  
-@@ -1894,7 +1894,7 @@ static void *get_partial_node(struct kme
+@@ -1987,7 +1987,7 @@ static void *get_partial_node(struct kme
  			break;
  
  	}
@@ -415,7 +415,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return object;
  }
  
-@@ -2140,7 +2140,7 @@ static void deactivate_slab(struct kmem_
+@@ -2241,7 +2241,7 @@ static void deactivate_slab(struct kmem_
  			 * that acquire_slab() will see a slab page that
  			 * is frozen
  			 */
@@ -424,7 +424,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		}
  	} else {
  		m = M_FULL;
-@@ -2151,7 +2151,7 @@ static void deactivate_slab(struct kmem_
+@@ -2252,7 +2252,7 @@ static void deactivate_slab(struct kmem_
  			 * slabs from diagnostic functions will not see
  			 * any frozen slabs.
  			 */
@@ -433,7 +433,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		}
  	}
  
-@@ -2175,7 +2175,7 @@ static void deactivate_slab(struct kmem_
+@@ -2276,7 +2276,7 @@ static void deactivate_slab(struct kmem_
  		goto redo;
  
  	if (lock)
@@ -442,7 +442,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (m == M_PARTIAL)
  		stat(s, tail);
-@@ -2214,10 +2214,10 @@ static void unfreeze_partials(struct kme
+@@ -2315,10 +2315,10 @@ static void unfreeze_partials(struct kme
  		n2 = get_node(s, page_to_nid(page));
  		if (n != n2) {
  			if (n)
@@ -455,7 +455,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		}
  
  		do {
-@@ -2246,7 +2246,7 @@ static void unfreeze_partials(struct kme
+@@ -2347,7 +2347,7 @@ static void unfreeze_partials(struct kme
  	}
  
  	if (n)
@@ -464,7 +464,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	while (discard_page) {
  		page = discard_page;
-@@ -2413,10 +2413,10 @@ static unsigned long count_partial(struc
+@@ -2514,10 +2514,10 @@ static unsigned long count_partial(struc
  	unsigned long x = 0;
  	struct page *page;
  
@@ -477,7 +477,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return x;
  }
  #endif /* CONFIG_SLUB_DEBUG || CONFIG_SYSFS */
-@@ -2873,7 +2873,7 @@ static void __slab_free(struct kmem_cach
+@@ -2975,7 +2975,7 @@ static void __slab_free(struct kmem_cach
  
  	do {
  		if (unlikely(n)) {
@@ -486,7 +486,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			n = NULL;
  		}
  		prior = page->freelist;
-@@ -2905,7 +2905,7 @@ static void __slab_free(struct kmem_cach
+@@ -3007,7 +3007,7 @@ static void __slab_free(struct kmem_cach
  				 * Otherwise the list_lock will synchronize with
  				 * other processors updating the list of slabs.
  				 */
@@ -495,7 +495,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  			}
  		}
-@@ -2946,7 +2946,7 @@ static void __slab_free(struct kmem_cach
+@@ -3048,7 +3048,7 @@ static void __slab_free(struct kmem_cach
  		add_partial(n, page, DEACTIVATE_TO_TAIL);
  		stat(s, FREE_ADD_PARTIAL);
  	}
@@ -504,7 +504,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return;
  
  slab_empty:
-@@ -2961,7 +2961,7 @@ static void __slab_free(struct kmem_cach
+@@ -3063,7 +3063,7 @@ static void __slab_free(struct kmem_cach
  		remove_full(s, n, page);
  	}
  
@@ -513,7 +513,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	stat(s, FREE_SLAB);
  	discard_slab(s, page);
  }
-@@ -3362,7 +3362,7 @@ static void
+@@ -3467,7 +3467,7 @@ static void
  init_kmem_cache_node(struct kmem_cache_node *n)
  {
  	n->nr_partial = 0;
@@ -522,7 +522,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	INIT_LIST_HEAD(&n->partial);
  #ifdef CONFIG_SLUB_DEBUG
  	atomic_long_set(&n->nr_slabs, 0);
-@@ -3743,7 +3743,7 @@ static void free_partial(struct kmem_cac
+@@ -3868,7 +3868,7 @@ static void free_partial(struct kmem_cac
  	struct page *page, *h;
  
  	BUG_ON(irqs_disabled());
@@ -531,8 +531,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	list_for_each_entry_safe(page, h, &n->partial, slab_list) {
  		if (!page->inuse) {
  			remove_partial(n, page);
-@@ -3753,7 +3753,7 @@ static void free_partial(struct kmem_cac
- 			"Objects remaining in %s on __kmem_cache_shutdown()");
+@@ -3878,7 +3878,7 @@ static void free_partial(struct kmem_cac
+ 			  "Objects remaining in %s on __kmem_cache_shutdown()");
  		}
  	}
 -	spin_unlock_irq(&n->list_lock);
@@ -540,7 +540,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	list_for_each_entry_safe(page, h, &discard, slab_list)
  		discard_slab(s, page);
-@@ -4025,7 +4025,7 @@ int __kmem_cache_shrink(struct kmem_cach
+@@ -4149,7 +4149,7 @@ int __kmem_cache_shrink(struct kmem_cach
  		for (i = 0; i < SHRINK_PROMOTE_MAX; i++)
  			INIT_LIST_HEAD(promote + i);
  
@@ -549,7 +549,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/*
  		 * Build lists of slabs to discard or promote.
-@@ -4056,7 +4056,7 @@ int __kmem_cache_shrink(struct kmem_cach
+@@ -4180,7 +4180,7 @@ int __kmem_cache_shrink(struct kmem_cach
  		for (i = SHRINK_PROMOTE_MAX - 1; i >= 0; i--)
  			list_splice(promote + i, &n->partial);
  
@@ -558,7 +558,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		/* Release empty slabs */
  		list_for_each_entry_safe(page, t, &discard, slab_list)
-@@ -4454,7 +4454,7 @@ static int validate_slab_node(struct kme
+@@ -4542,7 +4542,7 @@ static int validate_slab_node(struct kme
  	struct page *page;
  	unsigned long flags;
  
@@ -567,7 +567,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	list_for_each_entry(page, &n->partial, slab_list) {
  		validate_slab(s, page);
-@@ -4476,7 +4476,7 @@ static int validate_slab_node(struct kme
+@@ -4564,7 +4564,7 @@ static int validate_slab_node(struct kme
  		       s->name, count, atomic_long_read(&n->nr_slabs));
  
  out:
@@ -576,7 +576,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return count;
  }
  
-@@ -4655,12 +4655,12 @@ static int list_locations(struct kmem_ca
+@@ -4743,12 +4743,12 @@ static int list_locations(struct kmem_ca
  		if (!atomic_long_read(&n->nr_slabs))
  			continue;
  

@@ -1,7 +1,7 @@
 Subject: scsi/fcoe: Make RT aware.
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sat, 12 Nov 2011 14:00:48 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 Do not disable preemption while taking sleeping locks. All user look safe
 for migrate_diable() only.
@@ -71,7 +71,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
 --- a/drivers/scsi/fcoe/fcoe_ctlr.c
 +++ b/drivers/scsi/fcoe/fcoe_ctlr.c
-@@ -826,7 +826,7 @@ static unsigned long fcoe_ctlr_age_fcfs(
+@@ -828,7 +828,7 @@ static unsigned long fcoe_ctlr_age_fcfs(
  
  	INIT_LIST_HEAD(&del_list);
  
@@ -80,7 +80,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	list_for_each_entry_safe(fcf, next, &fip->fcfs, list) {
  		deadline = fcf->time + fcf->fka_period + fcf->fka_period / 2;
-@@ -862,7 +862,7 @@ static unsigned long fcoe_ctlr_age_fcfs(
+@@ -864,7 +864,7 @@ static unsigned long fcoe_ctlr_age_fcfs(
  				sel_time = fcf->time;
  		}
  	}
@@ -91,7 +91,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		/* Removes fcf from current list */
 --- a/drivers/scsi/libfc/fc_exch.c
 +++ b/drivers/scsi/libfc/fc_exch.c
-@@ -821,10 +821,10 @@ static struct fc_exch *fc_exch_em_alloc(
+@@ -826,10 +826,10 @@ static struct fc_exch *fc_exch_em_alloc(
  	}
  	memset(ep, 0, sizeof(*ep));
  

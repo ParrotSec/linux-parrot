@@ -2,6 +2,7 @@
 flavours:
  sparc64
  sparc64-smp
+default-flavour: sparc64-smp
 kernel-arch: sparc
 
 [build]

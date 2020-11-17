@@ -32,3 +32,6 @@ pl330 ?
 
 # Regulator-SoC synchronization
 rockchip-io-domain ?
+
+# Pin controllers
+drivers/pinctrl/**

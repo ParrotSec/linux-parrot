@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 11 Feb 2019 10:40:46 +0100
 Subject: [PATCH] mm: workingset: replace IRQ-off check with a lockdep assert.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 Commit
 
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/mm/workingset.c
 +++ b/mm/workingset.c
-@@ -404,6 +404,8 @@ static struct list_lru shadow_nodes;
+@@ -432,6 +432,8 @@ static struct list_lru shadow_nodes;
  
  void workingset_update_node(struct xa_node *node)
  {
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * Track non-empty nodes that contain only shadow entries;
  	 * unlink those that contain pages or are being freed.
-@@ -412,7 +414,8 @@ void workingset_update_node(struct xa_no
+@@ -440,7 +442,8 @@ void workingset_update_node(struct xa_no
  	 * already where they should be. The list_empty() test is safe
  	 * as node->private_list is protected by the i_pages lock.
  	 */

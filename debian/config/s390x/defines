@@ -1,6 +1,7 @@
 [base]
 flavours:
  s390x
+default-flavour: s390x
 kernel-arch: s390
 
 [build]

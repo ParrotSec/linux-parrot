@@ -1,0 +1,110 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Tue, 13 Oct 2020 23:19:35 +0200
+Subject: [PATCH 03/15] printk: change @clear_seq to atomic64_t
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+
+Currently @clear_seq access is protected by @logbuf_lock. Once
+@logbuf_lock is removed some other form of synchronization will be
+required. Change the type of @clear_seq to atomic64_t to provide the
+synchronization.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/printk/printk.c |   22 ++++++++++++++--------
+ 1 file changed, 14 insertions(+), 8 deletions(-)
+
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -403,7 +403,7 @@ static u64 exclusive_console_stop_seq;
+ static unsigned long console_dropped;
+ 
+ /* the next printk record to read after the last 'clear' command */
+-static u64 clear_seq;
++static atomic64_t clear_seq = ATOMIC64_INIT(0);
+ 
+ #ifdef CONFIG_PRINTK_CALLER
+ #define PREFIX_MAX		48
+@@ -843,7 +843,7 @@ static loff_t devkmsg_llseek(struct file
+ 		 * like issued by 'dmesg -c'. Reading /dev/kmsg itself
+ 		 * changes no global state, and does not clear anything.
+ 		 */
+-		user->seq = clear_seq;
++		user->seq = atomic64_read(&clear_seq);
+ 		break;
+ 	case SEEK_END:
+ 		/* after the last record */
+@@ -960,6 +960,9 @@ void log_buf_vmcoreinfo_setup(void)
+ 	 * parse it and detect any changes to structure down the line.
+ 	 */
+ 
++	VMCOREINFO_SIZE(atomic64_t);
++	VMCOREINFO_TYPE_OFFSET(atomic64_t, counter);
++
+ 	VMCOREINFO_STRUCT_SIZE(printk_ringbuffer);
+ 	VMCOREINFO_OFFSET(printk_ringbuffer, desc_ring);
+ 	VMCOREINFO_OFFSET(printk_ringbuffer, text_data_ring);
+@@ -1522,6 +1525,7 @@ static int syslog_print_all(char __user
+ 	struct printk_info info;
+ 	unsigned int line_count;
+ 	struct printk_record r;
++	u64 clr_seq;
+ 	char *text;
+ 	int len = 0;
+ 	u64 seq;
+@@ -1533,15 +1537,17 @@ static int syslog_print_all(char __user
+ 
+ 	time = printk_time;
+ 	logbuf_lock_irq();
++	clr_seq = atomic64_read(&clear_seq);
++
+ 	/*
+ 	 * Find first record that fits, including all following records,
+ 	 * into the user-provided buffer for this dump.
+ 	 */
+-	prb_for_each_info(clear_seq, prb, seq, &info, &line_count)
++	prb_for_each_info(clr_seq, prb, seq, &info, &line_count)
+ 		len += get_record_print_text_size(&info, line_count, true, time);
+ 
+ 	/* move first record forward until length fits into the buffer */
+-	prb_for_each_info(clear_seq, prb, seq, &info, &line_count) {
++	prb_for_each_info(clr_seq, prb, seq, &info, &line_count) {
+ 		if (len <= size)
+ 			break;
+ 		len -= get_record_print_text_size(&info, line_count, true, time);
+@@ -1572,7 +1578,7 @@ static int syslog_print_all(char __user
+ 	}
+ 
+ 	if (clear)
+-		clear_seq = seq;
++		atomic64_set(&clear_seq, seq);
+ 	logbuf_unlock_irq();
+ 
+ 	kfree(text);
+@@ -1582,7 +1588,7 @@ static int syslog_print_all(char __user
+ static void syslog_clear(void)
+ {
+ 	logbuf_lock_irq();
+-	clear_seq = prb_next_seq(prb);
++	atomic64_set(&clear_seq, prb_next_seq(prb));
+ 	logbuf_unlock_irq();
+ }
+ 
+@@ -3355,7 +3361,7 @@ void kmsg_dump(enum kmsg_dump_reason rea
+ 		dumper->active = true;
+ 
+ 		logbuf_lock_irqsave(flags);
+-		dumper->cur_seq = clear_seq;
++		dumper->cur_seq = atomic64_read(&clear_seq);
+ 		dumper->next_seq = prb_next_seq(prb);
+ 		logbuf_unlock_irqrestore(flags);
+ 
+@@ -3563,7 +3569,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
+  */
+ void kmsg_dump_rewind_nolock(struct kmsg_dumper *dumper)
+ {
+-	dumper->cur_seq = clear_seq;
++	dumper->cur_seq = atomic64_read(&clear_seq);
+ 	dumper->next_seq = prb_next_seq(prb);
+ }
+ 

@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 24 Jul 2009 12:38:56 +0200
 Subject: preempt: Provide preempt_*_(no)rt variants
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 RT needs a few preempt_disable/enable points which are not necessary
 otherwise. Implement variants to avoid #ifdeffery.
@@ -14,7 +14,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
-@@ -178,7 +178,11 @@ do { \
+@@ -185,7 +185,11 @@ do { \
  	preempt_count_dec(); \
  } while (0)
  
@@ -27,7 +27,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  #define preemptible()	(preempt_count() == 0 && !irqs_disabled())
  
-@@ -272,6 +276,18 @@ do { \
+@@ -279,6 +283,18 @@ do { \
  		set_preempt_need_resched(); \
  } while (0)
  

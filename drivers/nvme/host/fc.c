@@ -227,6 +227,7 @@ static DECLARE_COMPLETION(nvme_fc_unload_proceed);
  */
 static struct device *fc_udev_device;
 
+static void nvme_fc_complete_rq(struct request *rq);
 
 /* *********************** FC-NVME Port Management ************************ */
 
@@ -2034,7 +2035,8 @@ done:
 	}
 
 	__nvme_fc_fcpop_chk_teardowns(ctrl, op, opstate);
-	nvme_end_request(rq, status, result);
+	if (!nvme_try_complete_req(rq, status, result))
+		nvme_fc_complete_rq(rq);
 
 check_error:
 	if (terminate_assoc)
@@ -2158,6 +2160,7 @@ nvme_fc_term_aen_ops(struct nvme_fc_ctrl *ctrl)
 	struct nvme_fc_fcp_op *aen_op;
 	int i;
 
+	cancel_work_sync(&ctrl->ctrl.async_event_work);
 	aen_op = ctrl->aen_ops;
 	for (i = 0; i < NVME_NR_AEN_COMMANDS; i++, aen_op++) {
 		__nvme_fc_exit_request(ctrl, aen_op);
@@ -3000,8 +3003,9 @@ nvme_fc_create_association(struct nvme_fc_ctrl *ctrl)
 	if (ret)
 		goto out_disconnect_admin_queue;
 
-	ctrl->ctrl.max_hw_sectors =
-		(ctrl->lport->ops->max_sgl_segments - 1) << (PAGE_SHIFT - 9);
+	ctrl->ctrl.max_segments = ctrl->lport->ops->max_sgl_segments;
+	ctrl->ctrl.max_hw_sectors = ctrl->ctrl.max_segments <<
+						(ilog2(SZ_4K) - 9);
 
 	blk_mq_unquiesce_queue(ctrl->ctrl.admin_q);
 
@@ -3667,12 +3671,14 @@ nvme_fc_create_ctrl(struct device *dev, struct nvmf_ctrl_options *opts)
 	spin_lock_irqsave(&nvme_fc_lock, flags);
 	list_for_each_entry(lport, &nvme_fc_lport_list, port_list) {
 		if (lport->localport.node_name != laddr.nn ||
-		    lport->localport.port_name != laddr.pn)
+		    lport->localport.port_name != laddr.pn ||
+		    lport->localport.port_state != FC_OBJSTATE_ONLINE)
 			continue;
 
 		list_for_each_entry(rport, &lport->endp_list, endp_list) {
 			if (rport->remoteport.node_name != raddr.nn ||
-			    rport->remoteport.port_name != raddr.pn)
+			    rport->remoteport.port_name != raddr.pn ||
+			    rport->remoteport.port_state != FC_OBJSTATE_ONLINE)
 				continue;
 
 			/* if fail to get reference fall through. Will error */

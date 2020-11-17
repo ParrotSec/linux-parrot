@@ -2,8 +2,8 @@ Source: linux-signed-@arch@
 Section: kernel
 Priority: optional
 Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
-Uploaders: Ben Hutchings <ben@decadent.org.uk>
-Standards-Version: 4.1.1
+Uploaders: Bastian Blank <waldi@debian.org>, maximilian attems <maks@debian.org>, Ben Hutchings <benh@debian.org>, Salvatore Bonaccorso <carnil@debian.org>
+Standards-Version: 4.2.0
 Build-Depends:
  debhelper-compat (= 12),
  rsync,

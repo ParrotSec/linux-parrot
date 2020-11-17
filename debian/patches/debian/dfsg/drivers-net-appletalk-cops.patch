@@ -8,11 +8,9 @@ Forwarded: not-needed
  drivers/net/appletalk/Makefile |  1 -
  2 files changed, 27 deletions(-)
 
-diff --git a/drivers/net/appletalk/Kconfig b/drivers/net/appletalk/Kconfig
-index 09f94d4b14e2..14f8cf40f035 100644
 --- a/drivers/net/appletalk/Kconfig
 +++ b/drivers/net/appletalk/Kconfig
-@@ -50,32 +50,6 @@ config LTPC
+@@ -50,33 +50,6 @@ config LTPC
  	  This driver is experimental, which means that it may not work.
  	  See the file <file:Documentation/networking/ltpc.rst>.
  
@@ -25,7 +23,8 @@ index 09f94d4b14e2..14f8cf40f035 100644
 -	  package. This driver is experimental, which means that it may not
 -	  work. This driver will only work if you choose "AppleTalk DDP"
 -	  networking support, above.
--	  Please read the file <file:Documentation/networking/cops.rst>.
+-	  Please read the file
+-	  <file:Documentation/networking/device_drivers/appletalk/cops.rst>.
 -
 -config COPS_DAYNA
 -	bool "Dayna firmware support"
@@ -45,8 +44,6 @@ index 09f94d4b14e2..14f8cf40f035 100644
  config IPDDP
  	tristate "Appletalk-IP driver support"
  	depends on DEV_APPLETALK && ATALK
-diff --git a/drivers/net/appletalk/Makefile b/drivers/net/appletalk/Makefile
-index 903da3303f41..7482020f7e77 100644
 --- a/drivers/net/appletalk/Makefile
 +++ b/drivers/net/appletalk/Makefile
 @@ -4,5 +4,4 @@
@@ -55,6 +52,3 @@ index 903da3303f41..7482020f7e77 100644
  obj-$(CONFIG_IPDDP) += ipddp.o
 -obj-$(CONFIG_COPS) += cops.o
  obj-$(CONFIG_LTPC) += ltpc.o
--- 
-2.27.0
-

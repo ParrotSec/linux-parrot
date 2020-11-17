@@ -26,6 +26,7 @@ Description: Compiler for Linux on x86 (meta-package)
  for Linux on amd64, i386 and x32.
 
 Package: linux-image-parisc64-smp
+Build-Profiles: <!stage1 !pkg.linux.nokernel !pkg.linux.nometa>
 Architecture: hppa
 Section: oldlibs
 Priority: extra
@@ -34,6 +35,7 @@ Description: Linux for multiprocessor 64-bit PA-RISC (dummy package)
  This is a dummy transitional package.  It can be safely removed.
 
 Package: linux-image-parisc-smp
+Build-Profiles: <!stage1 !pkg.linux.nokernel !pkg.linux.nometa>
 Architecture: hppa
 Section: oldlibs
 Priority: extra

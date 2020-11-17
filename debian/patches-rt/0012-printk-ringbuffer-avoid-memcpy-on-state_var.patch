@@ -1,0 +1,42 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Mon, 14 Sep 2020 11:54:03 +0206
+Subject: [PATCH 12/25] printk: ringbuffer: avoid memcpy() on state_var
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+
+@state_var is copied as part of the descriptor copying via
+memcpy(). This is not allowed because @state_var is an atomic type,
+which in some implementations may contain a spinlock.
+
+Avoid using memcpy() with @state_var by explicitly copying the other
+fields of the descriptor. @state_var is set using atomic set
+operator before returning.
+
+Fixes: b6cf8b3f3312 ("printk: add lockless ringbuffer")
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Reviewed-by: Petr Mladek <pmladek@suse.com>
+Signed-off-by: Petr Mladek <pmladek@suse.com>
+Link: https://lore.kernel.org/r/20200914094803.27365-2-john.ogness@linutronix.de
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/printk/printk_ringbuffer.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+--- a/kernel/printk/printk_ringbuffer.c
++++ b/kernel/printk/printk_ringbuffer.c
+@@ -412,9 +412,14 @@ static enum desc_state desc_read(struct
+ 
+ 	/*
+ 	 * Copy the descriptor data. The data is not valid until the
+-	 * state has been re-checked.
++	 * state has been re-checked. A memcpy() for all of @desc
++	 * cannot be used because of the atomic_t @state_var field.
+ 	 */
+-	memcpy(desc_out, desc, sizeof(*desc_out)); /* LMM(desc_read:C) */
++	memcpy(&desc_out->info, &desc->info, sizeof(desc_out->info)); /* LMM(desc_read:C) */
++	memcpy(&desc_out->text_blk_lpos, &desc->text_blk_lpos,
++	       sizeof(desc_out->text_blk_lpos)); /* also part of desc_read:C */
++	memcpy(&desc_out->dict_blk_lpos, &desc->dict_blk_lpos,
++	       sizeof(desc_out->dict_blk_lpos)); /* also part of desc_read:C */
+ 
+ 	/*
+ 	 * 1. Guarantee the descriptor content is loaded before re-checking

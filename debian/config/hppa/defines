@@ -1,5 +1,6 @@
 [base]
 flavours: parisc parisc64
+default-flavour: parisc
 kernel-arch: parisc
 
 [build]

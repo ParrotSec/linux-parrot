@@ -1,6 +1,7 @@
 [base]
 flavours:
  mips64r6el
+default-flavour: mips64r6el
 kernel-arch: mips
 
 [build]

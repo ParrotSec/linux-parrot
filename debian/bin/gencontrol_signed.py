@@ -11,8 +11,9 @@ import subprocess
 import sys
 
 from debian_linux.config import ConfigCoreDump
-from debian_linux.debian import VersionLinux
-from debian_linux.gencontrol import Gencontrol as Base, merge_packages
+from debian_linux.debian import PackageRelation, VersionLinux
+from debian_linux.gencontrol import Gencontrol as Base, merge_packages, \
+    iter_flavours
 from debian_linux.utils import Templates, read_control
 
 
@@ -36,13 +37,16 @@ class Gencontrol(Base):
             'template': 'linux-image-%s-signed-template' % arch,
             'upstreamversion': self.version.linux_upstream,
             'version': self.version.linux_version,
-            'source_suffix': '',
+            'source_basename': re.sub(r'-[\d.]+$', '',
+                                      self.changelog[0].source),
             'source_upstream': self.version.upstream,
             'abiname': self.abiname,
             'imagebinaryversion': image_binary_version,
             'imagesourceversion': self.version.complete,
             'arch': arch,
         }
+        self.vars['source_suffix'] = \
+            self.changelog[0].source[len(self.vars['source_basename']):]
 
         self.package_dir = 'debian/%(template)s' % self.vars
         self.template_top_dir = (self.package_dir
@@ -139,6 +143,19 @@ class Gencontrol(Base):
                           (arch, makeflags,
                            ' '.join(p['Package'] for p in udeb_packages))])
 
+    def do_featureset_setup(self, vars, makeflags, arch, featureset, extra):
+        self.default_flavour = self.config.merge('base', arch, featureset) \
+                                          .get('default-flavour')
+        if self.default_flavour is not None:
+            if featureset != 'none':
+                raise RuntimeError("default-flavour set for %s %s,"
+                                   " but must only be set for featureset none"
+                                   % (arch, featureset))
+            if self.default_flavour \
+               not in iter_flavours(self.config, arch, featureset):
+                raise RuntimeError("default-flavour %s for %s %s does not exist"
+                                   % (self.default_flavour, arch, featureset))
+
     def do_flavour_setup(self, vars, makeflags, arch, featureset, flavour,
                          extra):
         super(Gencontrol, self).do_flavour_setup(vars, makeflags, arch,
@@ -211,7 +228,15 @@ class Gencontrol(Base):
             for package in packages_meta:
                 del package['Build-Profiles']
 
+            if flavour == self.default_flavour \
+               and not self.vars['source_suffix']:
+                packages_meta[0].setdefault('Provides', PackageRelation()) \
+                                .append('linux-image-generic')
+                packages_meta[1].setdefault('Provides', PackageRelation()) \
+                                .append('linux-headers-generic')
+
             packages_own.extend(packages_meta)
+
             cmds_binary_arch += [
                 "$(MAKE) -f debian/rules.real install-meta "
                 "PACKAGE_NAME='%s' LINK_DOC_PACKAGE_NAME='%s' %s" %

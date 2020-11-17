@@ -10,8 +10,11 @@ nls_base
 nls_utf8
 thermal_sys ?
 
-# In case it becomes modular again
+# In case they become modular again
+lzo_compress
+lzo_decompress
 zlib_deflate
+zstd_decompress
 
 # Basic paravirtual modules
 hv_utils ?

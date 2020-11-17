@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 17:36:35 +0200
 Subject: [PATCH] net/Qdisc: use a seqlock instead seqcount
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 The seqcount disables preemption on -RT while it is held which can't
 remove. Also we don't want the reader to spin for ages if the writer is
@@ -10,35 +10,16 @@ the lock while writer is active.
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/seqlock.h    |    9 +++++++++
  include/net/gen_stats.h    |   11 ++++++-----
- include/net/net_seq_lock.h |   15 +++++++++++++++
+ include/net/net_seq_lock.h |   24 ++++++++++++++++++++++++
  include/net/sch_generic.h  |   19 +++++++++++++++++--
  net/core/gen_estimator.c   |    6 +++---
  net/core/gen_stats.c       |   12 ++++++------
  net/sched/sch_api.c        |    2 +-
- net/sched/sch_generic.c    |   13 +++++++++++++
- 8 files changed, 70 insertions(+), 17 deletions(-)
+ net/sched/sch_generic.c    |   10 ++++++++++
+ 7 files changed, 67 insertions(+), 17 deletions(-)
  create mode 100644 include/net/net_seq_lock.h
 
---- a/include/linux/seqlock.h
-+++ b/include/linux/seqlock.h
-@@ -482,6 +482,15 @@ static inline void write_seqlock(seqlock
- 	__raw_write_seqcount_begin(&sl->seqcount);
- }
- 
-+static inline int try_write_seqlock(seqlock_t *sl)
-+{
-+	if (spin_trylock(&sl->lock)) {
-+		__raw_write_seqcount_begin(&sl->seqcount);
-+		return 1;
-+	}
-+	return 0;
-+}
-+
- static inline void write_sequnlock(seqlock_t *sl)
- {
- 	__raw_write_seqcount_end(&sl->seqcount);
 --- a/include/net/gen_stats.h
 +++ b/include/net/gen_stats.h
 @@ -6,6 +6,7 @@
@@ -86,7 +67,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			struct gnet_stats_rate_est64 *sample);
 --- /dev/null
 +++ b/include/net/net_seq_lock.h
-@@ -0,0 +1,15 @@
+@@ -0,0 +1,24 @@
 +#ifndef __NET_NET_SEQ_LOCK_H__
 +#define __NET_NET_SEQ_LOCK_H__
 +
@@ -94,6 +75,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +# define net_seqlock_t			seqlock_t
 +# define net_seq_begin(__r)		read_seqbegin(__r)
 +# define net_seq_retry(__r, __s)	read_seqretry(__r, __s)
++
++static inline int try_write_seqlock(seqlock_t *sl)
++{
++	if (spin_trylock(&sl->lock)) {
++		write_seqcount_begin(&sl->seqcount);
++		return 1;
++	}
++	return 0;
++}
 +
 +#else
 +# define net_seqlock_t			seqcount_t
@@ -161,7 +151,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (qdisc->flags & TCQ_F_NOLOCK)
  		spin_unlock(&qdisc->seqlock);
  }
-@@ -541,7 +556,7 @@ static inline spinlock_t *qdisc_root_sle
+@@ -547,7 +562,7 @@ static inline spinlock_t *qdisc_root_sle
  	return qdisc_lock(root);
  }
  
@@ -249,7 +239,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			 struct gnet_stats_basic_packed *b)
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -1248,7 +1248,7 @@ static struct Qdisc *qdisc_create(struct
+@@ -1257,7 +1257,7 @@ static struct Qdisc *qdisc_create(struct
  		rcu_assign_pointer(sch->stab, stab);
  	}
  	if (tca[TCA_RATE]) {
@@ -260,7 +250,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (sch->flags & TCQ_F_MQROOT) {
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -552,7 +552,11 @@ struct Qdisc noop_qdisc = {
+@@ -553,7 +553,11 @@ struct Qdisc noop_qdisc = {
  	.ops		=	&noop_qdisc_ops,
  	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
  	.dev_queue	=	&noop_netdev_queue,
@@ -272,28 +262,19 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	.busylock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.busylock),
  	.gso_skb = {
  		.next = (struct sk_buff *)&noop_qdisc.gso_skb,
-@@ -848,7 +852,11 @@ struct Qdisc *qdisc_alloc(struct netdev_
- 	spin_lock_init(&sch->busylock);
- 	/* seqlock has the same scope of busylock, for NOLOCK qdisc */
- 	spin_lock_init(&sch->seqlock);
+@@ -858,9 +862,15 @@ struct Qdisc *qdisc_alloc(struct netdev_
+ 	lockdep_set_class(&sch->busylock,
+ 			  dev->qdisc_tx_busylock ?: &qdisc_tx_busylock);
+ 
 +#ifdef CONFIG_PREEMPT_RT
 +	seqlock_init(&sch->running);
++	lockdep_set_class(&sch->running.lock,
++			  dev->qdisc_running_key ?: &qdisc_running_key);
 +#else
  	seqcount_init(&sch->running);
+ 	lockdep_set_class(&sch->running,
+ 			  dev->qdisc_running_key ?: &qdisc_running_key);
 +#endif
  
  	sch->ops = ops;
  	sch->flags = ops->static_flags;
-@@ -862,7 +870,12 @@ struct Qdisc *qdisc_alloc(struct netdev_
- 	if (sch != &noop_qdisc) {
- 		lockdep_set_class(&sch->busylock, &dev->qdisc_tx_busylock_key);
- 		lockdep_set_class(&sch->seqlock, &dev->qdisc_tx_busylock_key);
-+#ifdef CONFIG_PREEMPT_RT
-+		lockdep_set_class(&sch->running.seqcount, &dev->qdisc_running_key);
-+		lockdep_set_class(&sch->running.lock, &dev->qdisc_running_key);
-+#else
- 		lockdep_set_class(&sch->running, &dev->qdisc_running_key);
-+#endif
- 	}
- 
- 	return sch;

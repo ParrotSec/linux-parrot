@@ -1,7 +1,7 @@
 Subject: softirq: Disable softirq stacks for RT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 18 Jul 2011 13:59:17 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 Disable extra stacks for softirqs. We want to preempt softirqs and
 having them on special IRQ-stack does not make this easier.
@@ -13,14 +13,14 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  arch/powerpc/kernel/misc_64.S |    2 ++
  arch/sh/kernel/irq.c          |    2 ++
  arch/sparc/kernel/irq_64.c    |    2 ++
- arch/x86/entry/entry_64.S     |    2 ++
  arch/x86/kernel/irq_32.c      |    2 ++
+ arch/x86/kernel/irq_64.c      |    2 ++
  include/linux/interrupt.h     |    2 +-
  8 files changed, 15 insertions(+), 1 deletion(-)
 
 --- a/arch/powerpc/kernel/irq.c
 +++ b/arch/powerpc/kernel/irq.c
-@@ -701,10 +701,12 @@ void *mcheckirq_ctx[NR_CPUS] __read_most
+@@ -784,10 +784,12 @@ void *mcheckirq_ctx[NR_CPUS] __read_most
  void *softirq_ctx[NR_CPUS] __read_mostly;
  void *hardirq_ctx[NR_CPUS] __read_mostly;
  
@@ -105,24 +105,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  #ifdef CONFIG_HOTPLUG_CPU
  void fixup_irqs(void)
---- a/arch/x86/entry/entry_64.S
-+++ b/arch/x86/entry/entry_64.S
-@@ -1074,6 +1074,7 @@ SYM_CODE_START_LOCAL_NOALIGN(.Lbad_gs)
- SYM_CODE_END(.Lbad_gs)
- 	.previous
- 
-+#ifndef CONFIG_PREEMPT_RT
- /* Call softirq on interrupt stack. Interrupts are off. */
- SYM_FUNC_START(do_softirq_own_stack)
- 	pushq	%rbp
-@@ -1084,6 +1085,7 @@ SYM_FUNC_START(do_softirq_own_stack)
- 	leaveq
- 	ret
- SYM_FUNC_END(do_softirq_own_stack)
-+#endif
- 
- #ifdef CONFIG_XEN_PV
- idtentry hypervisor_callback xen_do_hypervisor_callback has_error_code=0
 --- a/arch/x86/kernel/irq_32.c
 +++ b/arch/x86/kernel/irq_32.c
 @@ -131,6 +131,7 @@ int irq_init_percpu_irqstack(unsigned in
@@ -139,11 +121,23 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
 +#endif
  
- void handle_irq(struct irq_desc *desc, struct pt_regs *regs)
+ void __handle_irq(struct irq_desc *desc, struct pt_regs *regs)
  {
+--- a/arch/x86/kernel/irq_64.c
++++ b/arch/x86/kernel/irq_64.c
+@@ -72,7 +72,9 @@ int irq_init_percpu_irqstack(unsigned in
+ 	return map_irq_stack(cpu);
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	run_on_irqstack_cond(__do_softirq, NULL);
+ }
++#endif
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
-@@ -558,7 +558,7 @@ struct softirq_action
+@@ -560,7 +560,7 @@ struct softirq_action
  asmlinkage void do_softirq(void);
  asmlinkage void __do_softirq(void);
  

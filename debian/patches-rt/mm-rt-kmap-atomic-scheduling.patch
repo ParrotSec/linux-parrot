@@ -1,7 +1,7 @@
 Subject: mm, rt: kmap_atomic scheduling
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Thu, 28 Jul 2011 10:43:51 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 In fact, with migrate_disable() existing one could play games with
 kmap_atomic. You could save/restore the kmap_atomic slots on context
@@ -21,13 +21,12 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
 		     Shortens the context switch code. ]
 ---
  arch/x86/kernel/process_32.c |   32 ++++++++++++++++++++++++++++++++
- arch/x86/mm/highmem_32.c     |   13 ++++++++++---
- arch/x86/mm/iomap_32.c       |    9 ++++++++-
- include/linux/highmem.h      |   31 +++++++++++++++++++++++++------
+ arch/x86/mm/highmem_32.c     |   10 +++++++++-
+ arch/x86/mm/iomap_32.c       |   13 ++++++++++---
+ include/linux/highmem.h      |   33 ++++++++++++++++++++++++++-------
  include/linux/sched.h        |    7 +++++++
- include/linux/uaccess.h      |    2 ++
  mm/highmem.c                 |    5 +++--
- 7 files changed, 87 insertions(+), 12 deletions(-)
+ 6 files changed, 87 insertions(+), 13 deletions(-)
 
 --- a/arch/x86/kernel/process_32.c
 +++ b/arch/x86/kernel/process_32.c
@@ -37,9 +36,9 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  #include <linux/syscalls.h>
 +#include <linux/highmem.h>
  
- #include <asm/pgtable.h>
  #include <asm/ldt.h>
-@@ -127,6 +128,35 @@ start_thread(struct pt_regs *regs, unsig
+ #include <asm/processor.h>
+@@ -126,6 +127,35 @@ start_thread(struct pt_regs *regs, unsig
  }
  EXPORT_SYMBOL_GPL(start_thread);
  
@@ -75,7 +74,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  
  /*
   *	switch_to(x,y) should switch tasks from x to y.
-@@ -188,6 +218,8 @@ EXPORT_SYMBOL_GPL(start_thread);
+@@ -187,6 +217,8 @@ EXPORT_SYMBOL_GPL(start_thread);
  
  	switch_to_extra(prev_p, next_p);
  
@@ -86,24 +85,18 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  	 * This must be done before restoring TLS segments so
 --- a/arch/x86/mm/highmem_32.c
 +++ b/arch/x86/mm/highmem_32.c
-@@ -33,10 +33,11 @@ EXPORT_SYMBOL(kunmap);
-  */
- void *kmap_atomic_prot(struct page *page, pgprot_t prot)
+@@ -8,12 +8,17 @@ void *kmap_atomic_high_prot(struct page
  {
-+	pte_t pte = mk_pte(page, prot);
  	unsigned long vaddr;
  	int idx, type;
++	pte_t pte;
  
--	preempt_disable();
-+	preempt_disable_nort();
- 	pagefault_disable();
- 
- 	if (!PageHighMem(page))
-@@ -46,7 +47,10 @@ void *kmap_atomic_prot(struct page *page
+ 	type = kmap_atomic_idx_push();
  	idx = type + KM_TYPE_NR*smp_processor_id();
  	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
  	BUG_ON(!pte_none(*(kmap_pte-idx)));
 -	set_pte(kmap_pte-idx, mk_pte(page, prot));
++	pte = mk_pte(page, prot);
 +#ifdef CONFIG_PREEMPT_RT
 +	current->kmap_pte[type] = pte;
 +#endif
@@ -111,7 +104,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  	arch_flush_lazy_mmu_mode();
  
  	return (void *)vaddr;
-@@ -89,6 +93,9 @@ void __kunmap_atomic(void *kvaddr)
+@@ -50,6 +55,9 @@ void kunmap_atomic_high(void *kvaddr)
  		 * is a bad idea also, in case the page changes cacheability
  		 * attributes or becomes a protected page in a hypervisor.
  		 */
@@ -121,18 +114,9 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  		kpte_clear_flush(kmap_pte-idx, vaddr);
  		kmap_atomic_idx_pop();
  		arch_flush_lazy_mmu_mode();
-@@ -101,7 +108,7 @@ void __kunmap_atomic(void *kvaddr)
- #endif
- 
- 	pagefault_enable();
--	preempt_enable();
-+	preempt_enable_nort();
- }
- EXPORT_SYMBOL(__kunmap_atomic);
- 
 --- a/arch/x86/mm/iomap_32.c
 +++ b/arch/x86/mm/iomap_32.c
-@@ -46,6 +46,7 @@ EXPORT_SYMBOL_GPL(iomap_free);
+@@ -46,16 +46,20 @@ EXPORT_SYMBOL_GPL(iomap_free);
  
  void *kmap_atomic_prot_pfn(unsigned long pfn, pgprot_t prot)
  {
@@ -140,7 +124,10 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  	unsigned long vaddr;
  	int idx, type;
  
-@@ -55,7 +56,10 @@ void *kmap_atomic_prot_pfn(unsigned long
+-	preempt_disable();
++	migrate_disable();
+ 	pagefault_disable();
+ 
  	type = kmap_atomic_idx_push();
  	idx = type + KM_TYPE_NR * smp_processor_id();
  	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
@@ -152,7 +139,7 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  	arch_flush_lazy_mmu_mode();
  
  	return (void *)vaddr;
-@@ -106,6 +110,9 @@ iounmap_atomic(void __iomem *kvaddr)
+@@ -106,11 +110,14 @@ iounmap_atomic(void __iomem *kvaddr)
  		 * is a bad idea also, in case the page changes cacheability
  		 * attributes or becomes a protected page in a hypervisor.
  		 */
@@ -162,27 +149,33 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  		kpte_clear_flush(kmap_pte-idx, vaddr);
  		kmap_atomic_idx_pop();
  	}
+ 
+ 	pagefault_enable();
+-	preempt_enable();
++	migrate_enable();
+ }
+ EXPORT_SYMBOL_GPL(iounmap_atomic);
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
-@@ -90,7 +90,7 @@ static inline void kunmap(struct page *p
+@@ -83,7 +83,7 @@ static inline void kunmap(struct page *p
+  */
+ static inline void *kmap_atomic_prot(struct page *page, pgprot_t prot)
+ {
+-	preempt_disable();
++	migrate_disable();
+ 	pagefault_disable();
+ 	if (!PageHighMem(page))
+ 		return page_address(page);
+@@ -153,7 +153,7 @@ static inline void kunmap(struct page *p
  
  static inline void *kmap_atomic(struct page *page)
  {
 -	preempt_disable();
-+	preempt_disable_nort();
++	migrate_disable();
  	pagefault_disable();
  	return page_address(page);
  }
-@@ -99,7 +99,7 @@ static inline void *kmap_atomic(struct p
- static inline void __kunmap_atomic(void *addr)
- {
- 	pagefault_enable();
--	preempt_enable();
-+	preempt_enable_nort();
- }
- 
- #define kmap_atomic_pfn(pfn)	kmap_atomic(pfn_to_page(pfn))
-@@ -111,32 +111,51 @@ static inline void __kunmap_atomic(void
+@@ -178,32 +178,51 @@ static inline void kunmap_atomic_high(vo
  
  #if defined(CONFIG_HIGHMEM) || defined(CONFIG_X86_32)
  
@@ -238,17 +231,26 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  #endif
  }
  
+@@ -218,7 +237,7 @@ do {
+ 	BUILD_BUG_ON(__same_type((addr), struct page *));       \
+ 	kunmap_atomic_high(addr);                                  \
+ 	pagefault_enable();                                     \
+-	preempt_enable();                                       \
++	migrate_enable();					\
+ } while (0)
+ 
+ 
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -31,6 +31,7 @@
- #include <linux/task_io_accounting.h>
- #include <linux/posix-timers.h>
+@@ -34,6 +34,7 @@
  #include <linux/rseq.h>
+ #include <linux/seqlock.h>
+ #include <linux/kcsan.h>
 +#include <asm/kmap_types.h>
  
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
-@@ -1283,6 +1284,12 @@ struct task_struct {
+@@ -1297,6 +1298,12 @@ struct task_struct {
  	unsigned int			sequential_io;
  	unsigned int			sequential_io_avg;
  #endif
@@ -261,24 +263,6 @@ Link: http://lkml.kernel.org/r/1311842631.5890.208.camel@twins
  #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
  	unsigned long			task_state_change;
  #endif
---- a/include/linux/uaccess.h
-+++ b/include/linux/uaccess.h
-@@ -182,6 +182,7 @@ static __always_inline void pagefault_di
-  */
- static inline void pagefault_disable(void)
- {
-+	migrate_disable();
- 	pagefault_disabled_inc();
- 	/*
- 	 * make sure to have issued the store before a pagefault
-@@ -198,6 +199,7 @@ static inline void pagefault_enable(void
- 	 */
- 	barrier();
- 	pagefault_disabled_dec();
-+	migrate_enable();
- }
- 
- /*
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -31,8 +31,11 @@

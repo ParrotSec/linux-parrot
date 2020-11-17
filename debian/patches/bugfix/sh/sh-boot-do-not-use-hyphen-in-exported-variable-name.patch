@@ -23,11 +23,9 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  arch/sh/boot/romimage/Makefile   |  4 ++--
  4 files changed, 18 insertions(+), 18 deletions(-)
 
-diff --git a/arch/sh/Makefile b/arch/sh/Makefile
-index 974bbd9dcfcf..bb952611af6a 100644
 --- a/arch/sh/Makefile
 +++ b/arch/sh/Makefile
-@@ -106,16 +106,16 @@ UTS_MACHINE		:= sh
+@@ -102,16 +102,16 @@ UTS_MACHINE		:= sh
  LDFLAGS_vmlinux		+= -e _stext
  
  ifdef CONFIG_CPU_LITTLE_ENDIAN
@@ -49,8 +47,6 @@ index 974bbd9dcfcf..bb952611af6a 100644
  
  head-y	:= arch/sh/kernel/head_32.o
  
-diff --git a/arch/sh/boot/Makefile b/arch/sh/boot/Makefile
-index 58592dfa5cb6..296b25474395 100644
 --- a/arch/sh/boot/Makefile
 +++ b/arch/sh/boot/Makefile
 @@ -19,12 +19,12 @@ CONFIG_ZERO_PAGE_OFFSET	?= 0x00001000
@@ -72,7 +68,7 @@ index 58592dfa5cb6..296b25474395 100644
  
  targets := zImage vmlinux.srec romImage uImage uImage.srec uImage.gz \
  	   uImage.bz2 uImage.lzma uImage.xz uImage.lzo uImage.bin
-@@ -106,10 +106,10 @@ OBJCOPYFLAGS_uImage.srec := -I binary -O srec
+@@ -106,10 +106,10 @@ OBJCOPYFLAGS_uImage.srec := -I binary -O
  $(obj)/uImage.srec: $(obj)/uImage
  	$(call if_changed,objcopy)
  
@@ -85,20 +81,18 @@ index 58592dfa5cb6..296b25474395 100644
         CONFIG_PHYSICAL_START CONFIG_ZERO_PAGE_OFFSET CONFIG_ENTRY_OFFSET \
 -       KERNEL_MEMORY suffix-y
 +       KERNEL_MEMORY suffix_y
-diff --git a/arch/sh/boot/compressed/Makefile b/arch/sh/boot/compressed/Makefile
-index ad0e2403e56f..c711416699bd 100644
 --- a/arch/sh/boot/compressed/Makefile
 +++ b/arch/sh/boot/compressed/Makefile
-@@ -33,7 +33,7 @@ ORIG_CFLAGS := $(KBUILD_CFLAGS)
- KBUILD_CFLAGS = $(subst -pg, , $(ORIG_CFLAGS))
- endif
+@@ -30,7 +30,7 @@ endif
+ 
+ ccflags-remove-$(CONFIG_MCOUNT) += -pg
  
 -LDFLAGS_vmlinux := --oformat $(ld-bfd) -Ttext $(IMAGE_OFFSET) -e startup \
 +LDFLAGS_vmlinux := --oformat $(ld_bfd) -Ttext $(IMAGE_OFFSET) -e startup \
  		   -T $(obj)/../../kernel/vmlinux.lds
  
  #
-@@ -71,7 +71,7 @@ $(obj)/vmlinux.bin.lzo: $(vmlinux.bin.all-y) FORCE
+@@ -68,7 +68,7 @@ $(obj)/vmlinux.bin.lzo: $(vmlinux.bin.al
  
  OBJCOPYFLAGS += -R .empty_zero_page
  
@@ -108,11 +102,9 @@ index ad0e2403e56f..c711416699bd 100644
 -$(obj)/piggy.o: $(obj)/vmlinux.scr $(obj)/vmlinux.bin.$(suffix-y) FORCE
 +$(obj)/piggy.o: $(obj)/vmlinux.scr $(obj)/vmlinux.bin.$(suffix_y) FORCE
  	$(call if_changed,ld)
-diff --git a/arch/sh/boot/romimage/Makefile b/arch/sh/boot/romimage/Makefile
-index c7c8be58400c..17b03df0a8de 100644
 --- a/arch/sh/boot/romimage/Makefile
 +++ b/arch/sh/boot/romimage/Makefile
-@@ -13,7 +13,7 @@ mmcif-obj-$(CONFIG_CPU_SUBTYPE_SH7724)	:= $(obj)/mmcif-sh7724.o
+@@ -13,7 +13,7 @@ mmcif-obj-$(CONFIG_CPU_SUBTYPE_SH7724)	:
  load-$(CONFIG_ROMIMAGE_MMCIF)		:= $(mmcif-load-y)
  obj-$(CONFIG_ROMIMAGE_MMCIF)		:= $(mmcif-obj-y)
  
@@ -130,6 +122,3 @@ index c7c8be58400c..17b03df0a8de 100644
  
  $(obj)/piggy.o: $(obj)/vmlinux.scr $(obj)/zeropage.bin arch/sh/boot/zImage FORCE
  	$(call if_changed,ld)
--- 
-2.27.0
-

@@ -34,7 +34,6 @@
 #include <linux/dma-direct.h>
 #include <linux/kprobes.h>
 
-#include <asm/pgalloc.h>
 #include <asm/prom.h>
 #include <asm/io.h>
 #include <asm/mmu_context.h>
@@ -50,6 +49,7 @@
 #include <asm/swiotlb.h>
 #include <asm/rtas.h>
 #include <asm/kasan.h>
+#include <asm/svm.h>
 
 #include <mm/mmu_decl.h>
 
@@ -127,8 +127,6 @@ int __ref arch_add_memory(int nid, u64 start, u64 size,
 	unsigned long nr_pages = size >> PAGE_SHIFT;
 	int rc;
 
-	resize_hpt_for_hotplug(memblock_phys_mem_size());
-
 	start = (unsigned long)__va(start);
 	rc = create_section_mapping(start, start + size, nid,
 				    params->pgprot);
@@ -161,9 +159,6 @@ void __ref arch_remove_memory(int nid, u64 start, u64 size,
 	 * hit that section of memory
 	 */
 	vm_unmap_aliases();
-
-	if (resize_hpt_for_hotplug(memblock_phys_mem_size()) == -ENOSPC)
-		pr_warn("Hash collision while resizing HPT\n");
 }
 #endif
 
@@ -184,8 +179,6 @@ void __init mem_topology_setup(void)
 
 void __init initmem_init(void)
 {
-	/* XXX need to clip this if using highmem? */
-	sparse_memory_present_with_active_regions(0);
 	sparse_init();
 }
 
@@ -290,7 +283,10 @@ void __init mem_init(void)
 	 * back to to-down.
 	 */
 	memblock_set_bottom_up(true);
-	swiotlb_init(0);
+	if (is_secure_guest())
+		svm_swiotlb_init();
+	else
+		swiotlb_init(0);
 #endif
 
 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);

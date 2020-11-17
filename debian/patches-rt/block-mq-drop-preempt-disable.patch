@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
 Subject: block/mq: do not invoke preempt_disable()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 preempt_disable() and get_cpu() don't play well together with the sleeping
 locks it tries to allocate later.
@@ -9,30 +9,12 @@ It seems to be enough to replace it with get_cpu_light() and migrate_disable().
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- block/blk-mq.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ block/blk-mq.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
-@@ -589,7 +589,7 @@ static void __blk_mq_complete_request(st
- 		return;
- 	}
- 
--	cpu = get_cpu();
-+	cpu = get_cpu_light();
- 	if (!test_bit(QUEUE_FLAG_SAME_FORCE, &q->queue_flags))
- 		shared = cpus_share_cache(cpu, ctx->cpu);
- 
-@@ -601,7 +601,7 @@ static void __blk_mq_complete_request(st
- 	} else {
- 		q->mq_ops->complete(rq);
- 	}
--	put_cpu();
-+	put_cpu_light();
- }
- 
- static void hctx_unlock(struct blk_mq_hw_ctx *hctx, int srcu_idx)
-@@ -1456,14 +1456,14 @@ static void __blk_mq_delay_run_hw_queue(
+@@ -1571,14 +1571,14 @@ static void __blk_mq_delay_run_hw_queue(
  		return;
  
  	if (!async && !(hctx->flags & BLK_MQ_F_BLOCKING)) {

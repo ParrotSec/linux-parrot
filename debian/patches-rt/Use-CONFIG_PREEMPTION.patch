@@ -1,20 +1,20 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 26 Jul 2019 11:30:49 +0200
 Subject: [PATCH] Use CONFIG_PREEMPTION
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 Thisi is an all-in-one patch of the current `PREEMPTION' branch.
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- Documentation/RCU/checklist.txt |    4 ++--
- Documentation/RCU/stallwarn.txt |    4 ++--
+ Documentation/RCU/checklist.rst |    4 ++--
+ Documentation/RCU/stallwarn.rst |    4 ++--
  arch/powerpc/kernel/traps.c     |    7 ++++++-
  3 files changed, 10 insertions(+), 5 deletions(-)
 
---- a/Documentation/RCU/checklist.txt
-+++ b/Documentation/RCU/checklist.txt
-@@ -210,8 +210,8 @@ over a rather long period of time, but i
+--- a/Documentation/RCU/checklist.rst
++++ b/Documentation/RCU/checklist.rst
+@@ -214,8 +214,8 @@ over a rather long period of time, but i
  	the rest of the system.
  
  7.	As of v4.20, a given kernel implements only one RCU flavor,
@@ -25,23 +25,23 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	then the corresponding readers my use rcu_read_lock() and
  	rcu_read_unlock(), rcu_read_lock_bh() and rcu_read_unlock_bh(),
  	or any pair of primitives that disables and re-enables preemption,
---- a/Documentation/RCU/stallwarn.txt
-+++ b/Documentation/RCU/stallwarn.txt
-@@ -20,7 +20,7 @@ o	A CPU looping with preemption disabled
+--- a/Documentation/RCU/stallwarn.rst
++++ b/Documentation/RCU/stallwarn.rst
+@@ -25,7 +25,7 @@ So your kernel printed an RCU CPU stall
  
- o	A CPU looping with bottom halves disabled.
+ -	A CPU looping with bottom halves disabled.
  
--o	For !CONFIG_PREEMPT kernels, a CPU looping anywhere in the kernel
-+o	For !CONFIG_PREEMPTION kernels, a CPU looping anywhere in the kernel
+--	For !CONFIG_PREEMPT kernels, a CPU looping anywhere in the kernel
++-	For !CONFIG_PREEMPTION kernels, a CPU looping anywhere in the kernel
  	without invoking schedule().  If the looping in the kernel is
  	really expected and desirable behavior, you might need to add
  	some calls to cond_resched().
-@@ -39,7 +39,7 @@ o	Anything that prevents RCU's grace-per
- 	result in the "rcu_.*kthread starved for" console-log message,
+@@ -44,7 +44,7 @@ So your kernel printed an RCU CPU stall
+ 	result in the ``rcu_.*kthread starved for`` console-log message,
  	which will include additional debugging information.
  
--o	A CPU-bound real-time task in a CONFIG_PREEMPT kernel, which might
-+o	A CPU-bound real-time task in a CONFIG_PREEMPTION kernel, which might
+--	A CPU-bound real-time task in a CONFIG_PREEMPT kernel, which might
++-	A CPU-bound real-time task in a CONFIG_PREEMPTION kernel, which might
  	happen to preempt a low-priority task in the middle of an RCU
  	read-side critical section.   This is especially damaging if
  	that low-priority task is not permitted to run on any other CPU,

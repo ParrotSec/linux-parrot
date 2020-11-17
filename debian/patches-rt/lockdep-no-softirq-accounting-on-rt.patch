@@ -1,7 +1,7 @@
 Subject: lockdep: Make it RT aware
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 18:51:23 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 teach lockdep that we don't really do softirqs on -RT.
 
@@ -13,9 +13,9 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/irqflags.h
 +++ b/include/linux/irqflags.h
-@@ -43,14 +43,6 @@ do {						\
+@@ -71,14 +71,6 @@ do {						\
  do {						\
- 	current->hardirq_context--;		\
+ 	__this_cpu_dec(hardirq_context);	\
  } while (0)
 -# define lockdep_softirq_enter()		\
 -do {						\
@@ -25,14 +25,13 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 -do {						\
 -	current->softirq_context--;		\
 -} while (0)
- #else
- # define trace_hardirqs_on()		do { } while (0)
- # define trace_hardirqs_off()		do { } while (0)
-@@ -63,6 +55,21 @@ do {						\
- # define lockdep_softirq_enter()	do { } while (0)
- # define lockdep_softirq_exit()		do { } while (0)
+ 
+ # define lockdep_hrtimer_enter(__hrtimer)		\
+ ({							\
+@@ -140,6 +132,21 @@ do {						\
+ # define lockdep_irq_work_exit(__work)		do { } while (0)
  #endif
-+
+ 
 +#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_PREEMPT_RT)
 +# define lockdep_softirq_enter()		\
 +do {						\
@@ -44,15 +43,16 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +} while (0)
 +
 +#else
-+# define lockdep_softirq_enter()	do { } while (0)
-+# define lockdep_softirq_exit()		do { } while (0)
++# define lockdep_softirq_enter()		do { } while (0)
++# define lockdep_softirq_exit()			do { } while (0)
 +#endif
- 
++
  #if defined(CONFIG_IRQSOFF_TRACER) || \
  	defined(CONFIG_PREEMPT_TRACER)
+  extern void stop_critical_timings(void);
 --- a/kernel/locking/lockdep.c
 +++ b/kernel/locking/lockdep.c
-@@ -4411,6 +4411,7 @@ static void check_flags(unsigned long fl
+@@ -4896,6 +4896,7 @@ static void check_flags(unsigned long fl
  		}
  	}
  
@@ -60,7 +60,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	/*
  	 * We dont accurately track softirq state in e.g.
  	 * hardirq contexts (such as on 4KSTACKS), so only
-@@ -4425,6 +4426,7 @@ static void check_flags(unsigned long fl
+@@ -4910,6 +4911,7 @@ static void check_flags(unsigned long fl
  			DEBUG_LOCKS_WARN_ON(!current->softirqs_enabled);
  		}
  	}

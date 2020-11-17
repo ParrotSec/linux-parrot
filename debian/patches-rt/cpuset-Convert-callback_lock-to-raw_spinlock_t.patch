@@ -1,7 +1,7 @@
 From: Mike Galbraith <efault@gmx.de>
 Date: Sun, 8 Jan 2017 09:32:25 +0100
 Subject: [PATCH] cpuset: Convert callback_lock to raw_spinlock_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 The two commits below add up to a cpuset might_sleep() splat for RT:
 
@@ -60,7 +60,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static struct workqueue_struct *cpuset_migrate_mm_wq;
  
-@@ -1253,7 +1253,7 @@ static int update_parent_subparts_cpumas
+@@ -1257,7 +1257,7 @@ static int update_parent_subparts_cpumas
  	 * Newly added CPUs will be removed from effective_cpus and
  	 * newly deleted ones will be added back to effective_cpus.
  	 */
@@ -69,7 +69,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (adding) {
  		cpumask_or(parent->subparts_cpus,
  			   parent->subparts_cpus, tmp->addmask);
-@@ -1272,7 +1272,7 @@ static int update_parent_subparts_cpumas
+@@ -1276,7 +1276,7 @@ static int update_parent_subparts_cpumas
  	}
  
  	parent->nr_subparts_cpus = cpumask_weight(parent->subparts_cpus);
@@ -78,7 +78,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return cmd == partcmd_update;
  }
-@@ -1377,7 +1377,7 @@ static void update_cpumasks_hier(struct
+@@ -1381,7 +1381,7 @@ static void update_cpumasks_hier(struct
  			continue;
  		rcu_read_unlock();
  
@@ -87,7 +87,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		cpumask_copy(cp->effective_cpus, tmp->new_cpus);
  		if (cp->nr_subparts_cpus &&
-@@ -1408,7 +1408,7 @@ static void update_cpumasks_hier(struct
+@@ -1412,7 +1412,7 @@ static void update_cpumasks_hier(struct
  					= cpumask_weight(cp->subparts_cpus);
  			}
  		}
@@ -96,7 +96,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		WARN_ON(!is_in_v2_mode() &&
  			!cpumask_equal(cp->cpus_allowed, cp->effective_cpus));
-@@ -1526,7 +1526,7 @@ static int update_cpumask(struct cpuset
+@@ -1530,7 +1530,7 @@ static int update_cpumask(struct cpuset
  			return -EINVAL;
  	}
  
@@ -105,7 +105,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	cpumask_copy(cs->cpus_allowed, trialcs->cpus_allowed);
  
  	/*
-@@ -1537,7 +1537,7 @@ static int update_cpumask(struct cpuset
+@@ -1541,7 +1541,7 @@ static int update_cpumask(struct cpuset
  			       cs->cpus_allowed);
  		cs->nr_subparts_cpus = cpumask_weight(cs->subparts_cpus);
  	}
@@ -114,7 +114,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	update_cpumasks_hier(cs, &tmp);
  
-@@ -1731,9 +1731,9 @@ static void update_nodemasks_hier(struct
+@@ -1735,9 +1735,9 @@ static void update_nodemasks_hier(struct
  			continue;
  		rcu_read_unlock();
  
@@ -126,7 +126,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		WARN_ON(!is_in_v2_mode() &&
  			!nodes_equal(cp->mems_allowed, cp->effective_mems));
-@@ -1801,9 +1801,9 @@ static int update_nodemask(struct cpuset
+@@ -1805,9 +1805,9 @@ static int update_nodemask(struct cpuset
  	if (retval < 0)
  		goto done;
  
@@ -138,7 +138,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* use trialcs->mems_allowed as a temp variable */
  	update_nodemasks_hier(cs, &trialcs->mems_allowed);
-@@ -1894,9 +1894,9 @@ static int update_flag(cpuset_flagbits_t
+@@ -1898,9 +1898,9 @@ static int update_flag(cpuset_flagbits_t
  	spread_flag_changed = ((is_spread_slab(cs) != is_spread_slab(trialcs))
  			|| (is_spread_page(cs) != is_spread_page(trialcs)));
  
@@ -150,7 +150,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (!cpumask_empty(trialcs->cpus_allowed) && balance_flag_changed)
  		rebuild_sched_domains_locked();
-@@ -2405,7 +2405,7 @@ static int cpuset_common_seq_show(struct
+@@ -2409,7 +2409,7 @@ static int cpuset_common_seq_show(struct
  	cpuset_filetype_t type = seq_cft(sf)->private;
  	int ret = 0;
  
@@ -159,7 +159,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	switch (type) {
  	case FILE_CPULIST:
-@@ -2427,7 +2427,7 @@ static int cpuset_common_seq_show(struct
+@@ -2431,7 +2431,7 @@ static int cpuset_common_seq_show(struct
  		ret = -EINVAL;
  	}
  
@@ -168,7 +168,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return ret;
  }
  
-@@ -2740,14 +2740,14 @@ static int cpuset_css_online(struct cgro
+@@ -2744,14 +2744,14 @@ static int cpuset_css_online(struct cgro
  
  	cpuset_inc();
  
@@ -185,7 +185,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (!test_bit(CGRP_CPUSET_CLONE_CHILDREN, &css->cgroup->flags))
  		goto out_unlock;
-@@ -2774,12 +2774,12 @@ static int cpuset_css_online(struct cgro
+@@ -2778,12 +2778,12 @@ static int cpuset_css_online(struct cgro
  	}
  	rcu_read_unlock();
  
@@ -200,7 +200,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  out_unlock:
  	percpu_up_write(&cpuset_rwsem);
  	put_online_cpus();
-@@ -2835,7 +2835,7 @@ static void cpuset_css_free(struct cgrou
+@@ -2839,7 +2839,7 @@ static void cpuset_css_free(struct cgrou
  static void cpuset_bind(struct cgroup_subsys_state *root_css)
  {
  	percpu_down_write(&cpuset_rwsem);
@@ -209,7 +209,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (is_in_v2_mode()) {
  		cpumask_copy(top_cpuset.cpus_allowed, cpu_possible_mask);
-@@ -2846,7 +2846,7 @@ static void cpuset_bind(struct cgroup_su
+@@ -2850,7 +2850,7 @@ static void cpuset_bind(struct cgroup_su
  		top_cpuset.mems_allowed = top_cpuset.effective_mems;
  	}
  
@@ -218,7 +218,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	percpu_up_write(&cpuset_rwsem);
  }
  
-@@ -2943,12 +2943,12 @@ hotplug_update_tasks_legacy(struct cpuse
+@@ -2947,12 +2947,12 @@ hotplug_update_tasks_legacy(struct cpuse
  {
  	bool is_empty;
  
@@ -233,7 +233,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * Don't call update_tasks_cpumask() if the cpuset becomes empty,
-@@ -2985,10 +2985,10 @@ hotplug_update_tasks(struct cpuset *cs,
+@@ -2989,10 +2989,10 @@ hotplug_update_tasks(struct cpuset *cs,
  	if (nodes_empty(*new_mems))
  		*new_mems = parent_cs(cs)->effective_mems;
  
@@ -246,7 +246,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (cpus_updated)
  		update_tasks_cpumask(cs);
-@@ -3143,7 +3143,7 @@ static void cpuset_hotplug_workfn(struct
+@@ -3147,7 +3147,7 @@ static void cpuset_hotplug_workfn(struct
  
  	/* synchronize cpus_allowed to cpu_active_mask */
  	if (cpus_updated) {
@@ -255,7 +255,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (!on_dfl)
  			cpumask_copy(top_cpuset.cpus_allowed, &new_cpus);
  		/*
-@@ -3163,17 +3163,17 @@ static void cpuset_hotplug_workfn(struct
+@@ -3167,17 +3167,17 @@ static void cpuset_hotplug_workfn(struct
  			}
  		}
  		cpumask_copy(top_cpuset.effective_cpus, &new_cpus);
@@ -276,7 +276,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		update_tasks_nodemask(&top_cpuset);
  	}
  
-@@ -3274,11 +3274,11 @@ void cpuset_cpus_allowed(struct task_str
+@@ -3278,11 +3278,11 @@ void cpuset_cpus_allowed(struct task_str
  {
  	unsigned long flags;
  
@@ -290,7 +290,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -3339,11 +3339,11 @@ nodemask_t cpuset_mems_allowed(struct ta
+@@ -3343,11 +3343,11 @@ nodemask_t cpuset_mems_allowed(struct ta
  	nodemask_t mask;
  	unsigned long flags;
  
@@ -304,7 +304,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return mask;
  }
-@@ -3435,14 +3435,14 @@ bool __cpuset_node_allowed(int node, gfp
+@@ -3439,14 +3439,14 @@ bool __cpuset_node_allowed(int node, gfp
  		return true;
  
  	/* Not hardwall and node outside mems_allowed: scan up cpusets */

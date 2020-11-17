@@ -2,6 +2,7 @@
 flavours:
  itanium
  mckinley
+default-flavour: itanium
 kernel-arch: ia64
 
 [build]

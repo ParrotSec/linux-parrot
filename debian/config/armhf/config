@@ -737,6 +737,7 @@ CONFIG_TEGRA124_EMC=y
 CONFIG_MFD_AS3722=y
 CONFIG_MFD_AC100=y
 CONFIG_MFD_AXP20X_I2C=y
+CONFIG_MFD_AXP20X_RSB=y
 # CONFIG_MFD_CROS_EC_DEV is not set
 CONFIG_MFD_DA9052_SPI=y
 CONFIG_MFD_DA9052_I2C=y
@@ -1302,6 +1303,21 @@ CONFIG_SPI_SUN6I=m
 CONFIG_SPI_TEGRA114=m
 CONFIG_SPI_TEGRA20_SFLASH=m
 CONFIG_SPI_SLAVE=y
+
+##
+## file: drivers/staging/media/Kconfig
+##
+CONFIG_STAGING_MEDIA=y
+
+##
+## file: drivers/staging/media/sunxi/Kconfig
+##
+CONFIG_VIDEO_SUNXI=y
+
+##
+## file: drivers/staging/media/sunxi/cedrus/Kconfig
+##
+CONFIG_VIDEO_SUNXI_CEDRUS=m
 
 ##
 ## file: drivers/staging/vc04_services/bcm2835-audio/Kconfig

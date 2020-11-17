@@ -1,0 +1,29 @@
+From: "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Date: Fri, 2 Oct 2020 17:46:27 -0500
+Subject: [PATCH 24/25] printk: Use fallthrough pseudo-keyword
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+
+Replace /* FALL THRU */ comment with the new pseudo-keyword macro
+fallthrough[1].
+
+[1] https://www.kernel.org/doc/html/v5.7/process/deprecated.html?highlight=fallthrough#implicit-switch-case-fall-through
+
+Signed-off-by: Gustavo A. R. Silva <gustavoars@kernel.org>
+Signed-off-by: Petr Mladek <pmladek@suse.com>
+Link: https://lore.kernel.org/r/20201002224627.GA30475@embeddedor
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/printk/printk.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -1617,7 +1617,7 @@ int do_syslog(int type, char __user *buf
+ 	/* Read/clear last kernel messages */
+ 	case SYSLOG_ACTION_READ_CLEAR:
+ 		clear = true;
+-		/* FALL THRU */
++		fallthrough;
+ 	/* Read last kernel messages */
+ 	case SYSLOG_ACTION_READ_ALL:
+ 		if (!buf || len < 0)

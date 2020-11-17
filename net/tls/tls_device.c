@@ -418,14 +418,14 @@ static int tls_push_data(struct sock *sk,
 	struct tls_context *tls_ctx = tls_get_ctx(sk);
 	struct tls_prot_info *prot = &tls_ctx->prot_info;
 	struct tls_offload_context_tx *ctx = tls_offload_ctx_tx(tls_ctx);
-	int more = flags & (MSG_SENDPAGE_NOTLAST | MSG_MORE);
 	struct tls_record_info *record = ctx->open_record;
 	int tls_push_record_flags;
 	struct page_frag *pfrag;
 	size_t orig_size = size;
 	u32 max_open_record_len;
-	int copy, rc = 0;
+	bool more = false;
 	bool done = false;
+	int copy, rc = 0;
 	long timeo;
 
 	if (flags &
@@ -492,9 +492,8 @@ handle_error:
 		if (!size) {
 last_record:
 			tls_push_record_flags = flags;
-			if (more) {
-				tls_ctx->pending_open_record_frags =
-						!!record->num_frags;
+			if (flags & (MSG_SENDPAGE_NOTLAST | MSG_MORE)) {
+				more = true;
 				break;
 			}
 
@@ -525,6 +524,8 @@ last_record:
 				break;
 		}
 	} while (!done);
+
+	tls_ctx->pending_open_record_frags = more;
 
 	if (orig_size - size > 0)
 		rc = orig_size - size;
@@ -691,15 +692,55 @@ static void tls_device_resync_rx(struct tls_context *tls_ctx,
 	TLS_INC_STATS(sock_net(sk), LINUX_MIB_TLSRXDEVICERESYNC);
 }
 
+static bool
+tls_device_rx_resync_async(struct tls_offload_resync_async *resync_async,
+			   s64 resync_req, u32 *seq)
+{
+	u32 is_async = resync_req & RESYNC_REQ_ASYNC;
+	u32 req_seq = resync_req >> 32;
+	u32 req_end = req_seq + ((resync_req >> 16) & 0xffff);
+
+	if (is_async) {
+		/* asynchronous stage: log all headers seq such that
+		 * req_seq <= seq <= end_seq, and wait for real resync request
+		 */
+		if (between(*seq, req_seq, req_end) &&
+		    resync_async->loglen < TLS_DEVICE_RESYNC_ASYNC_LOGMAX)
+			resync_async->log[resync_async->loglen++] = *seq;
+
+		return false;
+	}
+
+	/* synchronous stage: check against the logged entries and
+	 * proceed to check the next entries if no match was found
+	 */
+	while (resync_async->loglen) {
+		if (req_seq == resync_async->log[resync_async->loglen - 1] &&
+		    atomic64_try_cmpxchg(&resync_async->req,
+					 &resync_req, 0)) {
+			resync_async->loglen = 0;
+			*seq = req_seq;
+			return true;
+		}
+		resync_async->loglen--;
+	}
+
+	if (req_seq == *seq &&
+	    atomic64_try_cmpxchg(&resync_async->req,
+				 &resync_req, 0))
+		return true;
+
+	return false;
+}
+
 void tls_device_rx_resync_new_rec(struct sock *sk, u32 rcd_len, u32 seq)
 {
 	struct tls_context *tls_ctx = tls_get_ctx(sk);
 	struct tls_offload_context_rx *rx_ctx;
-	bool is_req_pending, is_force_resync;
 	u8 rcd_sn[TLS_MAX_REC_SEQ_SIZE];
+	u32 sock_data, is_req_pending;
 	struct tls_prot_info *prot;
 	s64 resync_req;
-	u32 sock_data;
 	u32 req_seq;
 
 	if (tls_ctx->rx_conf != TLS_HW)
@@ -714,11 +755,9 @@ void tls_device_rx_resync_new_rec(struct sock *sk, u32 rcd_len, u32 seq)
 		resync_req = atomic64_read(&rx_ctx->resync_req);
 		req_seq = resync_req >> 32;
 		seq += TLS_HEADER_SIZE - 1;
-		is_req_pending = resync_req & RESYNC_REQ;
-		is_force_resync = resync_req & RESYNC_REQ_FORCE;
+		is_req_pending = resync_req;
 
-		if (likely(!is_req_pending) ||
-		    (!is_force_resync && req_seq != seq) ||
+		if (likely(!is_req_pending) || req_seq != seq ||
 		    !atomic64_try_cmpxchg(&rx_ctx->resync_req, &resync_req, 0))
 			return;
 		break;
@@ -739,6 +778,16 @@ void tls_device_rx_resync_new_rec(struct sock *sk, u32 rcd_len, u32 seq)
 		rx_ctx->resync_nh_do_now = 0;
 		seq += rcd_len;
 		tls_bigint_increment(rcd_sn, prot->rec_seq_size);
+		break;
+	case TLS_OFFLOAD_SYNC_TYPE_DRIVER_REQ_ASYNC:
+		resync_req = atomic64_read(&rx_ctx->resync_async->req);
+		is_req_pending = resync_req;
+		if (likely(!is_req_pending))
+			return;
+
+		if (!tls_device_rx_resync_async(rx_ctx->resync_async,
+						resync_req, &seq))
+			return;
 		break;
 	}
 

@@ -67,8 +67,7 @@ build-arch-arch: \
 	$(call if_package, usbip,                        build-usbip) \
 	$(call if_package, linux-cpupower,               build-cpupower) \
 	$(call if_package, liblockdep-dev,               build-liblockdep) \
-	$(call if_package, hyperv-daemons,               build-hyperv-daemons) \
-	$(call if_package, libtraceevent-dev,            build-libtraceevent)
+	$(call if_package, hyperv-daemons,               build-hyperv-daemons)
 binary-arch-arch: \
 	$(call if_package, $(SOURCE_BASENAME)-config-$(VERSION), install-config_$(ARCH)) \
 	$(call if_package, linux-libc-dev,               install-libc-dev_$(ARCH)) \
@@ -81,8 +80,7 @@ binary-arch-arch: \
 	$(call if_package, usbip,                        install-usbip) \
 	$(call if_package, linux-cpupower,               install-cpupower) \
 	$(call if_package, liblockdep-dev,               install-liblockdep) \
-	$(call if_package, hyperv-daemons,               install-hyperv-daemons) \
-	$(call if_package, libtraceevent-dev,            install-libtraceevent)
+	$(call if_package, hyperv-daemons,               install-hyperv-daemons)
 
 build-indep: \
 	$(call if_package, $(SOURCE_BASENAME)-doc-$(VERSION), $(STAMPS_DIR)/build-doc)
@@ -881,35 +879,6 @@ install-bootwrapper: build-bootwrapper
 	dh_strip
 	dh_compress
 	dh_fixperms
-	dh_installdeb
-	dh_shlibdeps
-	dh_gencontrol
-	dh_md5sums
-	dh_builddeb
-
-build-libtraceevent: $(STAMPS_DIR)/build-tools-headers
-	$(call make-tools,tools/lib/traceevent)
-
-install-libtraceevent: DH_OPTIONS = $(addprefix -p,$(filter libtraceevent%,$(packages_enabled)))
-install-libtraceevent: SHLIB_PACKAGE = $(filter-out libtraceevent%-plugin,$(filter-out libtraceevent-dev,$(filter libtraceevent%,$(packages_enabled))))
-install-libtraceevent: DIR = $(CURDIR)/debian/libtraceevent-tmp
-install-libtraceevent: build-libtraceevent
-	dh_testdir
-	dh_testroot
-	dh_prep
-	$(call make-tools,tools/lib/traceevent) install DESTDIR=$(DIR)
-	env -u DH_OPTIONS dh_install -p$(SHLIB_PACKAGE) --sourcedir=$(DIR) \
-		'usr/lib/*/libtraceevent.so.*'
-	dh_install --sourcedir=$(DIR)
-	dh_installchangelogs
-ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
-	dh_installdocs
-endif
-	dh_strip
-	dh_compress
-	dh_fixperms
-	env -u DH_OPTIONS dh_makeshlibs -p$(SHLIB_PACKAGE) \
-		$(SHLIB_PACKAGE)
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol

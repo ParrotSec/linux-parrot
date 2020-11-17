@@ -20,21 +20,17 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  drivers/iommu/intel/iommu.c                     | 14 ++++++++++++++
  2 files changed, 16 insertions(+)
 
-diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index fb95fad81c79..d387ff772ae5 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -1814,6 +1814,8 @@
+@@ -1837,6 +1837,8 @@
  			bypassed by not enabling DMAR with this option. In
  			this case, gfx device will use physical address for
  			DMA.
 +		intgpu_off [Default Off]
 +			Bypass the DMAR unit for an integrated GPU only.
- 		forcedac [x86_64]
+ 		forcedac [X86-64]
  			With this option iommu will not optimize to look
  			for io virtual address below 32-bit forcing dual
-diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index d759e7234e98..cf38b7c496b6 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
 @@ -54,6 +54,9 @@
@@ -55,7 +51,7 @@ index d759e7234e98..cf38b7c496b6 100644
  static int dmar_forcedac;
  static int intel_iommu_strict;
  static int intel_iommu_superpage = 1;
-@@ -359,6 +363,7 @@ static int intel_no_bounce;
+@@ -360,6 +364,7 @@ static int iommu_skip_te_disable;
  
  #define IDENTMAP_GFX		2
  #define IDENTMAP_AZALIA		4
@@ -63,7 +59,7 @@ index d759e7234e98..cf38b7c496b6 100644
  
  int intel_iommu_gfx_mapped;
  EXPORT_SYMBOL_GPL(intel_iommu_gfx_mapped);
-@@ -446,6 +451,9 @@ static int __init intel_iommu_setup(char *str)
+@@ -445,6 +450,9 @@ static int __init intel_iommu_setup(char
  		} else if (!strncmp(str, "igfx_off", 8)) {
  			dmar_map_gfx = 0;
  			pr_info("Disable GFX device mapping\n");
@@ -73,7 +69,7 @@ index d759e7234e98..cf38b7c496b6 100644
  		} else if (!strncmp(str, "forcedac", 8)) {
  			pr_info("Forcing DAC for PCI devices\n");
  			dmar_forcedac = 1;
-@@ -2838,6 +2846,9 @@ static int device_def_domain_type(struct device *dev)
+@@ -2890,6 +2898,9 @@ static int device_def_domain_type(struct
  
  		if ((iommu_identity_mapping & IDENTMAP_GFX) && IS_GFX_DEVICE(pdev))
  			return IOMMU_DOMAIN_IDENTITY;
@@ -83,7 +79,7 @@ index d759e7234e98..cf38b7c496b6 100644
  	}
  
  	return 0;
-@@ -3273,6 +3284,9 @@ static int __init init_dmars(void)
+@@ -3325,6 +3336,9 @@ static int __init init_dmars(void)
  	if (!dmar_map_gfx)
  		iommu_identity_mapping |= IDENTMAP_GFX;
  
@@ -93,6 +89,3 @@ index d759e7234e98..cf38b7c496b6 100644
  	check_tylersburg_isoch();
  
  	ret = si_domain_init(hw_pass_through);
--- 
-2.20.1
-

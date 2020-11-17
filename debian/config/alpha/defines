@@ -1,5 +1,6 @@
 [base]
 flavours: alpha-generic alpha-smp
+default-flavour: alpha-smp
 kernel-arch: alpha
 
 [build]

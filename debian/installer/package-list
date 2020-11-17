@@ -119,7 +119,7 @@ Description: IPv6 driver
  This package contains the IPv6 driver for the kernel.
 
 Package: btrfs-modules
-Depends: kernel-image, crc-modules, compress-modules, md-modules
+Depends: kernel-image, crc-modules, md-modules
 Priority: optional
 Description: BTRFS filesystem support
  This package contains the BTRFS filesystem module for the kernel.
@@ -139,7 +139,7 @@ Description: ISOFS filesystem support
  This package contains the ISOFS filesystem module for the kernel.
 
 Package: jffs2-modules
-Depends: kernel-image, compress-modules, mtd-modules
+Depends: kernel-image, mtd-modules
 Priority: optional
 Description: JFFS2 filesystem support
  This package contains the JFFS2 filesystem module for the kernel.
@@ -196,7 +196,7 @@ Description: NFS filesystem support
  This package contains the NFS filesystem module for the kernel.
 
 Package: squashfs-modules
-Depends: kernel-image, compress-modules
+Depends: kernel-image
 Priority: optional
 Description: squashfs modules
  This package contains squashfs modules.
@@ -258,7 +258,7 @@ Description: Frame buffer support
  This package contains Frame buffer drivers for the kernel.
 
 Package: input-modules
-Depends: kernel-image, usb-modules, i2c-modules, rfkill-modules
+Depends: kernel-image, usb-modules, i2c-modules, rfkill-modules, crc-modules
 Priority: optional
 Description: Input devices support
  This package contains input device drivers for the kernel.
@@ -385,12 +385,6 @@ Depends: kernel-image, i2c-modules, usb-modules, pcmcia-modules, firewire-core-m
 Priority: optional
 Description: sound support
  This package contains sound modules.
-
-Package: compress-modules
-Depends: kernel-image
-Priority: optional
-Description: lzo modules
- This package contains lzo modules.
 
 Package: leds-modules
 Depends: kernel-image

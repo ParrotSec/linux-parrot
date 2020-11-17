@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:30:13 -0500
 Subject: mm/vmstat: Protect per cpu variables with preempt disable on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 Disable preemption on -RT for the vmstat code. On vanila the code runs in
 IRQ-off regions while on -RT it is not. "preempt_disable" ensures that the
@@ -17,7 +17,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/include/linux/vmstat.h
 +++ b/include/linux/vmstat.h
-@@ -60,7 +60,9 @@ DECLARE_PER_CPU(struct vm_event_state, v
+@@ -63,7 +63,9 @@ DECLARE_PER_CPU(struct vm_event_state, v
   */
  static inline void __count_vm_event(enum vm_event_item item)
  {
@@ -27,7 +27,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  static inline void count_vm_event(enum vm_event_item item)
-@@ -70,7 +72,9 @@ static inline void count_vm_event(enum v
+@@ -73,7 +75,9 @@ static inline void count_vm_event(enum v
  
  static inline void __count_vm_events(enum vm_event_item item, long delta)
  {
@@ -55,15 +55,15 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  EXPORT_SYMBOL(__mod_zone_page_state);
  
-@@ -341,6 +343,7 @@ void __mod_node_page_state(struct pglist
- 	long x;
- 	long t;
+@@ -346,6 +348,7 @@ void __mod_node_page_state(struct pglist
+ 		delta >>= PAGE_SHIFT;
+ 	}
  
 +	preempt_disable_rt();
  	x = delta + __this_cpu_read(*p);
  
  	t = __this_cpu_read(pcp->stat_threshold);
-@@ -350,6 +353,7 @@ void __mod_node_page_state(struct pglist
+@@ -355,6 +358,7 @@ void __mod_node_page_state(struct pglist
  		x = 0;
  	}
  	__this_cpu_write(*p, x);
@@ -71,7 +71,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  EXPORT_SYMBOL(__mod_node_page_state);
  
-@@ -382,6 +386,7 @@ void __inc_zone_state(struct zone *zone,
+@@ -387,6 +391,7 @@ void __inc_zone_state(struct zone *zone,
  	s8 __percpu *p = pcp->vm_stat_diff + item;
  	s8 v, t;
  
@@ -79,7 +79,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	v = __this_cpu_inc_return(*p);
  	t = __this_cpu_read(pcp->stat_threshold);
  	if (unlikely(v > t)) {
-@@ -390,6 +395,7 @@ void __inc_zone_state(struct zone *zone,
+@@ -395,6 +400,7 @@ void __inc_zone_state(struct zone *zone,
  		zone_page_state_add(v + overstep, zone, item);
  		__this_cpu_write(*p, -overstep);
  	}
@@ -87,15 +87,15 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  void __inc_node_state(struct pglist_data *pgdat, enum node_stat_item item)
-@@ -398,6 +404,7 @@ void __inc_node_state(struct pglist_data
- 	s8 __percpu *p = pcp->vm_node_stat_diff + item;
- 	s8 v, t;
+@@ -405,6 +411,7 @@ void __inc_node_state(struct pglist_data
+ 
+ 	VM_WARN_ON_ONCE(vmstat_item_in_bytes(item));
  
 +	preempt_disable_rt();
  	v = __this_cpu_inc_return(*p);
  	t = __this_cpu_read(pcp->stat_threshold);
  	if (unlikely(v > t)) {
-@@ -406,6 +413,7 @@ void __inc_node_state(struct pglist_data
+@@ -413,6 +420,7 @@ void __inc_node_state(struct pglist_data
  		node_page_state_add(v + overstep, pgdat, item);
  		__this_cpu_write(*p, -overstep);
  	}
@@ -103,7 +103,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  void __inc_zone_page_state(struct page *page, enum zone_stat_item item)
-@@ -426,6 +434,7 @@ void __dec_zone_state(struct zone *zone,
+@@ -433,6 +441,7 @@ void __dec_zone_state(struct zone *zone,
  	s8 __percpu *p = pcp->vm_stat_diff + item;
  	s8 v, t;
  
@@ -111,7 +111,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	v = __this_cpu_dec_return(*p);
  	t = __this_cpu_read(pcp->stat_threshold);
  	if (unlikely(v < - t)) {
-@@ -434,6 +443,7 @@ void __dec_zone_state(struct zone *zone,
+@@ -441,6 +450,7 @@ void __dec_zone_state(struct zone *zone,
  		zone_page_state_add(v - overstep, zone, item);
  		__this_cpu_write(*p, overstep);
  	}
@@ -119,15 +119,15 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  void __dec_node_state(struct pglist_data *pgdat, enum node_stat_item item)
-@@ -442,6 +452,7 @@ void __dec_node_state(struct pglist_data
- 	s8 __percpu *p = pcp->vm_node_stat_diff + item;
- 	s8 v, t;
+@@ -451,6 +461,7 @@ void __dec_node_state(struct pglist_data
+ 
+ 	VM_WARN_ON_ONCE(vmstat_item_in_bytes(item));
  
 +	preempt_disable_rt();
  	v = __this_cpu_dec_return(*p);
  	t = __this_cpu_read(pcp->stat_threshold);
  	if (unlikely(v < - t)) {
-@@ -450,6 +461,7 @@ void __dec_node_state(struct pglist_data
+@@ -459,6 +470,7 @@ void __dec_node_state(struct pglist_data
  		node_page_state_add(v - overstep, pgdat, item);
  		__this_cpu_write(*p, overstep);
  	}

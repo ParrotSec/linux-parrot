@@ -2,3 +2,4 @@
 flavours:
  686
  686-pae
+default-flavour: 686-pae

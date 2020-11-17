@@ -1,7 +1,7 @@
 From: Oleg Nesterov <oleg@redhat.com>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
 Subject: signal/x86: Delay calling signals in atomic
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 On x86_64 we must disable preemption before we enable interrupts
 for stack faults, int3 and debugging, because the current task is using
@@ -33,28 +33,12 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
 
- arch/x86/entry/common.c       |    7 +++++++
  arch/x86/include/asm/signal.h |   13 +++++++++++++
  include/linux/sched.h         |    4 ++++
+ kernel/entry/common.c         |    8 ++++++++
  kernel/signal.c               |   28 ++++++++++++++++++++++++++++
- 4 files changed, 52 insertions(+)
+ 4 files changed, 53 insertions(+)
 
---- a/arch/x86/entry/common.c
-+++ b/arch/x86/entry/common.c
-@@ -149,6 +149,13 @@ static void exit_to_usermode_loop(struct
- 		if (cached_flags & _TIF_NEED_RESCHED)
- 			schedule();
- 
-+#ifdef ARCH_RT_DELAYS_SIGNAL_SEND
-+		if (unlikely(current->forced_info.si_signo)) {
-+			struct task_struct *t = current;
-+			force_sig_info(&t->forced_info);
-+			t->forced_info.si_signo = 0;
-+		}
-+#endif
- 		if (cached_flags & _TIF_UPROBE)
- 			uprobe_notify_resume(regs);
- 
 --- a/arch/x86/include/asm/signal.h
 +++ b/arch/x86/include/asm/signal.h
 @@ -28,6 +28,19 @@ typedef struct {
@@ -79,7 +63,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -923,6 +923,10 @@ struct task_struct {
+@@ -959,6 +959,10 @@ struct task_struct {
  	/* Restored if set_restore_sigmask() was used: */
  	sigset_t			saved_sigmask;
  	struct sigpending		pending;
@@ -90,6 +74,23 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	unsigned long			sas_ss_sp;
  	size_t				sas_ss_size;
  	unsigned int			sas_ss_flags;
+--- a/kernel/entry/common.c
++++ b/kernel/entry/common.c
+@@ -151,6 +151,14 @@ static unsigned long exit_to_user_mode_l
+ 		if (ti_work & _TIF_NEED_RESCHED)
+ 			schedule();
+ 
++#ifdef ARCH_RT_DELAYS_SIGNAL_SEND
++		if (unlikely(current->forced_info.si_signo)) {
++			struct task_struct *t = current;
++			force_sig_info(&t->forced_info);
++			t->forced_info.si_signo = 0;
++		}
++#endif
++
+ 		if (ti_work & _TIF_UPROBE)
+ 			uprobe_notify_resume(regs);
+ 
 --- a/kernel/signal.c
 +++ b/kernel/signal.c
 @@ -1313,6 +1313,34 @@ force_sig_info_to_task(struct kernel_sig

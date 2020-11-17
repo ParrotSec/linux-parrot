@@ -135,39 +135,3 @@ Description: Support daemons for Linux running on Hyper-V
 # be used to detect actual and potential deadlocks and other locking bugs.
 # .
 # This package is needed to compile programs against liblockdep.
-
-Package: libtraceevent1
-Build-Profiles: <!stage1 !pkg.linux.notools>
-Architecture: linux-any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Section: libs
-Multi-Arch: same
-Description: Linux kernel trace event library (shared library)
- The libtraceevent library provides APIs to access kernel tracepoint events,
- located in the tracefs file system under the events directory.
- .
- This package contains the shared library.
-
-Package: libtraceevent-dev
-Build-Profiles: <!stage1 !pkg.linux.notools>
-Architecture: linux-any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libtraceevent1 (= ${binary:Version})
-Section: libdevel
-Multi-Arch: same
-Description: Linux kernel trace event library (development files)
- The libtraceevent library provides APIs to access kernel tracepoint events,
- located in the tracefs file system under the events directory.
- .
- This package is needed to compile programs against libtraceevent1.
-
-Package: libtraceevent1-plugin
-Build-Profiles: <!stage1 !pkg.linux.notools>
-Architecture: linux-any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libtraceevent1 (= ${binary:Version})
-Section: libs
-Multi-Arch: same
-Description: Linux kernel trace event library (plugins)
- The libtraceevent library provides APIs to access kernel tracepoint events,
- located in the tracefs file system under the events directory.
- .
- This package provides the plugins needed by the programs using libtraceevent1.

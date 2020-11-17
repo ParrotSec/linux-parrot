@@ -12,7 +12,7 @@ from debian_linux import config
 from debian_linux.debian import PackageDescription, PackageRelation, \
     PackageRelationEntry, PackageRelationGroup, VersionLinux
 from debian_linux.gencontrol import Gencontrol as Base, merge_packages, \
-    iter_featuresets
+    iter_featuresets, iter_flavours
 from debian_linux.utils import Templates, read_control
 
 locale.setlocale(locale.LC_CTYPE, "C.UTF-8")
@@ -334,6 +334,18 @@ class Gencontrol(Base):
         vars['localversion_headers'] = vars['localversion']
         makeflags['LOCALVERSION_HEADERS'] = vars['localversion_headers']
 
+        self.default_flavour = self.config.merge('base', arch, featureset) \
+                                          .get('default-flavour')
+        if self.default_flavour is not None:
+            if featureset != 'none':
+                raise RuntimeError("default-flavour set for %s %s,"
+                                   " but must only be set for featureset none"
+                                   % (arch, featureset))
+            if self.default_flavour \
+               not in iter_flavours(self.config, arch, featureset):
+                raise RuntimeError("default-flavour %s for %s %s does not exist"
+                                   % (self.default_flavour, arch, featureset))
+
     flavour_makeflags_base = (
         ('compiler', 'COMPILER', False),
         ('compiler-filename', 'COMPILER', True),
@@ -491,16 +503,6 @@ class Gencontrol(Base):
         packages_own.append(image_main)
         makeflags['IMAGE_PACKAGE_NAME'] = image_main['Package']
 
-        # The image meta-packages will depend on signed linux-image
-        # packages where applicable, so should be built from the
-        # signed source packages
-        if do_meta and not build_signed:
-            packages_own.extend(self.process_packages(
-                self.templates["control.image.meta"], vars))
-            self.substitute_debhelper_config(
-                "image.meta", vars,
-                "linux-image%(localversion)s" % vars)
-
         package_headers = self.process_package(headers[0], vars)
         package_headers['Depends'].extend(relations_compiler_headers)
         packages_own.append(package_headers)
@@ -508,12 +510,32 @@ class Gencontrol(Base):
             extra['headers_arch_depends'].append('%s (= ${binary:Version})' %
                                                  packages_own[-1]['Package'])
 
-        # The header meta-packages will be built along with the signed
-        # packages, to create a dependency relationship that ensures
-        # src:linux and src:linux-signed-* transition to testing together.
+        # The image meta-packages will depend on signed linux-image
+        # packages where applicable, so should be built from the
+        # signed source packages The header meta-packages will also be
+        # built along with the signed packages, to create a dependency
+        # relationship that ensures src:linux and src:linux-signed-*
+        # transition to testing together.
         if do_meta and not build_signed:
-            packages_own.extend(self.process_packages(
-                self.templates["control.headers.meta"], vars))
+            packages_meta = self.process_packages(
+                self.templates['control.image.meta'], vars)
+            assert len(packages_meta) == 1
+            packages_meta += self.process_packages(
+                self.templates['control.headers.meta'], vars)
+            assert len(packages_meta) == 2
+
+            if flavour == self.default_flavour \
+               and not self.vars['source_suffix']:
+                packages_meta[0].setdefault('Provides', PackageRelation()) \
+                                .append('linux-image-generic')
+                packages_meta[1].setdefault('Provides', PackageRelation()) \
+                                .append('linux-headers-generic')
+
+            packages_own.extend(packages_meta)
+
+            self.substitute_debhelper_config(
+                "image.meta", vars,
+                "linux-image%(localversion)s" % vars)
             self.substitute_debhelper_config(
                 'headers.meta', vars,
                 'linux-headers%(localversion)s' % vars)
@@ -521,9 +543,12 @@ class Gencontrol(Base):
         if config_entry_build.get('vdso', False):
             makeflags['VDSO'] = True
 
-        build_debug = config_entry_build.get('debug-info')
-
         if not self.disable_debug:
+            build_debug = config_entry_build.get('debug-info')
+        else:
+            build_debug = False
+
+        if build_debug:
             makeflags['DEBUG'] = True
             packages_own.extend(self.process_packages(
                 self.templates['control.image-dbg'], vars))

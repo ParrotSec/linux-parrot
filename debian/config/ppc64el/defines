@@ -1,6 +1,7 @@
 [base]
 flavours:
  powerpc64le
+default-flavour: powerpc64le
 kernel-arch: powerpc
 
 [build]

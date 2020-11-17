@@ -1,0 +1,75 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Mon, 14 Sep 2020 11:54:02 +0206
+Subject: [PATCH 11/25] printk: ringbuffer: fix setting state in desc_read()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+
+It is expected that desc_read() will always set at least the
+@state_var field. However, if the descriptor is in an inconsistent
+state, no fields are set.
+
+Also, the second load of @state_var is not stored in @desc_out and
+so might not match the state value that is returned.
+
+Always set the last loaded @state_var into @desc_out, regardless of
+the descriptor consistency.
+
+Fixes: b6cf8b3f3312 ("printk: add lockless ringbuffer")
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Reviewed-by: Petr Mladek <pmladek@suse.com>
+Signed-off-by: Petr Mladek <pmladek@suse.com>
+Link: https://lore.kernel.org/r/20200914094803.27365-1-john.ogness@linutronix.de
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/printk/printk_ringbuffer.c |   26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+--- a/kernel/printk/printk_ringbuffer.c
++++ b/kernel/printk/printk_ringbuffer.c
+@@ -368,9 +368,9 @@ static enum desc_state get_desc_state(un
+ }
+ 
+ /*
+- * Get a copy of a specified descriptor and its queried state. A descriptor
+- * that is not in the committed or reusable state must be considered garbage
+- * by the reader.
++ * Get a copy of a specified descriptor and return its queried state. If the
++ * descriptor is in an inconsistent state (miss or reserved), the caller can
++ * only expect the descriptor's @state_var field to be valid.
+  */
+ static enum desc_state desc_read(struct prb_desc_ring *desc_ring,
+ 				 unsigned long id, struct prb_desc *desc_out)
+@@ -383,8 +383,14 @@ static enum desc_state desc_read(struct
+ 	/* Check the descriptor state. */
+ 	state_val = atomic_long_read(state_var); /* LMM(desc_read:A) */
+ 	d_state = get_desc_state(id, state_val);
+-	if (d_state != desc_committed && d_state != desc_reusable)
+-		return d_state;
++	if (d_state == desc_miss || d_state == desc_reserved) {
++		/*
++		 * The descriptor is in an inconsistent state. Set at least
++		 * @state_var so that the caller can see the details of
++		 * the inconsistent state.
++		 */
++		goto out;
++	}
+ 
+ 	/*
+ 	 * Guarantee the state is loaded before copying the descriptor
+@@ -449,9 +455,15 @@ static enum desc_state desc_read(struct
+ 	 */
+ 	smp_rmb(); /* LMM(desc_read:D) */
+ 
+-	/* Re-check the descriptor state. */
++	/*
++	 * The data has been copied. Return the current descriptor state,
++	 * which may have changed since the load above.
++	 */
+ 	state_val = atomic_long_read(state_var); /* LMM(desc_read:E) */
+-	return get_desc_state(id, state_val);
++	d_state = get_desc_state(id, state_val);
++out:
++	atomic_long_set(&desc_out->state_var, state_val);
++	return d_state;
+ }
+ 
+ /*

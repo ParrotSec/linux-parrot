@@ -1,106 +1,29 @@
 Subject: x86: Support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 01 Nov 2012 11:03:47 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 Implement the x86 pieces for lazy preempt.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
  arch/x86/Kconfig                   |    1 +
- arch/x86/entry/common.c            |    4 ++--
- arch/x86/entry/entry_32.S          |   18 ++++++++++++++++++
- arch/x86/entry/entry_64.S          |   16 ++++++++++++++++
  arch/x86/include/asm/preempt.h     |   33 ++++++++++++++++++++++++++++++++-
  arch/x86/include/asm/thread_info.h |   11 +++++++++++
- arch/x86/kernel/asm-offsets.c      |    5 +++++
- 7 files changed, 85 insertions(+), 3 deletions(-)
+ include/linux/entry-common.h       |    2 +-
+ kernel/entry/common.c              |    2 +-
+ 5 files changed, 46 insertions(+), 3 deletions(-)
 
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -204,6 +204,7 @@ config X86
+@@ -209,6 +209,7 @@ config X86
  	select HAVE_PCI
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
 +	select HAVE_PREEMPT_LAZY
  	select MMU_GATHER_RCU_TABLE_FREE		if PARAVIRT
+ 	select HAVE_POSIX_CPU_TIMERS_TASK_WORK
  	select HAVE_REGS_AND_STACK_ACCESS_API
- 	select HAVE_RELIABLE_STACKTRACE		if X86_64 && (UNWINDER_FRAME_POINTER || UNWINDER_ORC) && STACK_VALIDATION
---- a/arch/x86/entry/common.c
-+++ b/arch/x86/entry/common.c
-@@ -131,7 +131,7 @@ static long syscall_trace_enter(struct p
- 
- #define EXIT_TO_USERMODE_LOOP_FLAGS				\
- 	(_TIF_SIGPENDING | _TIF_NOTIFY_RESUME | _TIF_UPROBE |	\
--	 _TIF_NEED_RESCHED | _TIF_USER_RETURN_NOTIFY | _TIF_PATCH_PENDING)
-+	 _TIF_NEED_RESCHED_MASK | _TIF_USER_RETURN_NOTIFY | _TIF_PATCH_PENDING)
- 
- static void exit_to_usermode_loop(struct pt_regs *regs, u32 cached_flags)
- {
-@@ -146,7 +146,7 @@ static void exit_to_usermode_loop(struct
- 		/* We have work to do. */
- 		local_irq_enable();
- 
--		if (cached_flags & _TIF_NEED_RESCHED)
-+		if (cached_flags & _TIF_NEED_RESCHED_MASK)
- 			schedule();
- 
- #ifdef ARCH_RT_DELAYS_SIGNAL_SEND
---- a/arch/x86/entry/entry_32.S
-+++ b/arch/x86/entry/entry_32.S
-@@ -1110,8 +1110,26 @@ SYM_FUNC_START(entry_INT80_32)
- restore_all_kernel:
- #ifdef CONFIG_PREEMPTION
- 	DISABLE_INTERRUPTS(CLBR_ANY)
-+	# preempt count == 0 + NEED_RS set?
- 	cmpl	$0, PER_CPU_VAR(__preempt_count)
-+#ifndef CONFIG_PREEMPT_LAZY
- 	jnz	.Lno_preempt
-+#else
-+	jz	test_int_off
-+
-+	# atleast preempt count == 0 ?
-+	cmpl	$_PREEMPT_ENABLED,PER_CPU_VAR(__preempt_count)
-+	jne	.Lno_preempt
-+
-+	movl	PER_CPU_VAR(current_task), %ebp
-+	cmpl	$0,TASK_TI_preempt_lazy_count(%ebp)	# non-zero preempt_lazy_count ?
-+	jnz	.Lno_preempt
-+
-+	testl	$_TIF_NEED_RESCHED_LAZY, TASK_TI_flags(%ebp)
-+	jz	.Lno_preempt
-+
-+test_int_off:
-+#endif
- 	testl	$X86_EFLAGS_IF, PT_EFLAGS(%esp)	# interrupts off (exception path) ?
- 	jz	.Lno_preempt
- 	call	preempt_schedule_irq
---- a/arch/x86/entry/entry_64.S
-+++ b/arch/x86/entry/entry_64.S
-@@ -670,7 +670,23 @@ SYM_INNER_LABEL(swapgs_restore_regs_and_
- 	btl	$9, EFLAGS(%rsp)		/* were interrupts off? */
- 	jnc	1f
- 	cmpl	$0, PER_CPU_VAR(__preempt_count)
-+#ifndef CONFIG_PREEMPT_LAZY
- 	jnz	1f
-+#else
-+	jz	do_preempt_schedule_irq
-+
-+	# atleast preempt count == 0 ?
-+	cmpl	$_PREEMPT_ENABLED,PER_CPU_VAR(__preempt_count)
-+	jnz	1f
-+
-+	movq	PER_CPU_VAR(current_task), %rcx
-+	cmpl	$0, TASK_TI_preempt_lazy_count(%rcx)
-+	jnz	1f
-+
-+	btl	$TIF_NEED_RESCHED_LAZY,TASK_TI_flags(%rcx)
-+	jnc	1f
-+do_preempt_schedule_irq:
-+#endif
- 	call	preempt_schedule_irq
- 1:
- #endif
 --- a/arch/x86/include/asm/preempt.h
 +++ b/arch/x86/include/asm/preempt.h
 @@ -89,17 +89,48 @@ static __always_inline void __preempt_co
@@ -180,23 +103,23 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  
  /*
-@@ -92,6 +99,7 @@ struct thread_info {
- #define TIF_NOCPUID		15	/* CPUID is not accessible in userland */
+@@ -93,6 +100,7 @@ struct thread_info {
  #define TIF_NOTSC		16	/* TSC is not accessible in userland */
  #define TIF_IA32		17	/* IA32 compatibility process */
-+#define TIF_NEED_RESCHED_LAZY	18	/* lazy rescheduling necessary */
- #define TIF_NOHZ		19	/* in adaptive nohz mode */
+ #define TIF_SLD			18	/* Restore split lock detection on context switch */
++#define TIF_NEED_RESCHED_LAZY	19	/* lazy rescheduling necessary */
  #define TIF_MEMDIE		20	/* is terminating due to OOM killer */
  #define TIF_POLLING_NRFLAG	21	/* idle is polling for TIF_NEED_RESCHED */
-@@ -122,6 +130,7 @@ struct thread_info {
- #define _TIF_NOCPUID		(1 << TIF_NOCPUID)
+ #define TIF_IO_BITMAP		22	/* uses I/O bitmap */
+@@ -123,6 +131,7 @@ struct thread_info {
  #define _TIF_NOTSC		(1 << TIF_NOTSC)
  #define _TIF_IA32		(1 << TIF_IA32)
+ #define _TIF_SLD		(1 << TIF_SLD)
 +#define _TIF_NEED_RESCHED_LAZY	(1 << TIF_NEED_RESCHED_LAZY)
- #define _TIF_NOHZ		(1 << TIF_NOHZ)
  #define _TIF_POLLING_NRFLAG	(1 << TIF_POLLING_NRFLAG)
  #define _TIF_IO_BITMAP		(1 << TIF_IO_BITMAP)
-@@ -165,6 +174,8 @@ struct thread_info {
+ #define _TIF_FORCED_TF		(1 << TIF_FORCED_TF)
+@@ -156,6 +165,8 @@ struct thread_info {
  
  #define _TIF_WORK_CTXSW_NEXT	(_TIF_WORK_CTXSW)
  
@@ -205,24 +128,25 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define STACK_WARN		(THREAD_SIZE/8)
  
  /*
---- a/arch/x86/kernel/asm-offsets.c
-+++ b/arch/x86/kernel/asm-offsets.c
-@@ -38,6 +38,10 @@ static void __used common(void)
- #endif
+--- a/include/linux/entry-common.h
++++ b/include/linux/entry-common.h
+@@ -69,7 +69,7 @@
  
- 	BLANK();
-+#ifdef CONFIG_PREEMPT_LAZY
-+	OFFSET(TASK_TI_flags, task_struct, thread_info.flags);
-+	OFFSET(TASK_TI_preempt_lazy_count, task_struct, thread_info.preempt_lazy_count);
-+#endif
- 	OFFSET(TASK_addr_limit, task_struct, thread.addr_limit);
+ #define EXIT_TO_USER_MODE_WORK						\
+ 	(_TIF_SIGPENDING | _TIF_NOTIFY_RESUME | _TIF_UPROBE |		\
+-	 _TIF_NEED_RESCHED | _TIF_PATCH_PENDING |			\
++	 _TIF_NEED_RESCHED_MASK | _TIF_PATCH_PENDING |			\
+ 	 ARCH_EXIT_TO_USER_MODE_WORK)
  
- 	BLANK();
-@@ -92,6 +96,7 @@ static void __used common(void)
+ /**
+--- a/kernel/entry/common.c
++++ b/kernel/entry/common.c
+@@ -148,7 +148,7 @@ static unsigned long exit_to_user_mode_l
  
- 	BLANK();
- 	DEFINE(PTREGS_SIZE, sizeof(struct pt_regs));
-+	DEFINE(_PREEMPT_ENABLED, PREEMPT_ENABLED);
+ 		local_irq_enable_exit_to_user(ti_work);
  
- 	/* TLB state for the entry code */
- 	OFFSET(TLB_STATE_user_pcid_flush_mask, tlb_state, user_pcid_flush_mask);
+-		if (ti_work & _TIF_NEED_RESCHED)
++		if (ti_work & _TIF_NEED_RESCHED_MASK)
+ 			schedule();
+ 
+ #ifdef ARCH_RT_DELAYS_SIGNAL_SEND

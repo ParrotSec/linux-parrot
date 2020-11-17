@@ -1,6 +1,6 @@
 Section: kernel
 Priority: optional
-Maintainer: Parrot Kernel Team <team@parrotsec.org>
+Maintainer: Parrot Dev Team <team@parrotsec.org>
 Uploaders: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>
 Standards-Version: 4.2.0
 Build-Depends:
@@ -36,6 +36,6 @@ Build-Depends-Arch:
  rsync,
  lz4 [amd64 arm64] <!stage1 !pkg.linux.nokernel>
 Rules-Requires-Root: no
-Vcs-Git: https://nest.parrotsec.org/packages/kernel/linux.git
+Vcs-Git: https://nest.parrotsec.org/packages/kernel/linux
 Vcs-Browser: https://nest.parrotsec.org/packages/kernel/linux
 Homepage: https://www.kernel.org/

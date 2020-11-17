@@ -1,7 +1,7 @@
 Subject: kconfig: Disable config options which are not RT compatible
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 24 Jul 2011 12:11:43 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 Disable stuff which is known to have issues on RT
 
@@ -13,7 +13,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/Kconfig
 +++ b/arch/Kconfig
-@@ -31,6 +31,7 @@ config OPROFILE
+@@ -34,6 +34,7 @@ config OPROFILE
  	tristate "OProfile system profiling"
  	depends on PROFILING
  	depends on HAVE_OPROFILE
@@ -23,7 +23,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	help
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
-@@ -370,7 +370,7 @@ config NOMMU_INITIAL_TRIM_EXCESS
+@@ -387,7 +387,7 @@ config NOMMU_INITIAL_TRIM_EXCESS
  
  config TRANSPARENT_HUGEPAGE
  	bool "Transparent Hugepage Support"

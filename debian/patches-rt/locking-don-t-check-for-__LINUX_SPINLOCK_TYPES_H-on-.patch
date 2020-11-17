@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 4 Aug 2017 17:40:42 +0200
 Subject: [PATCH 1/2] locking: don't check for __LINUX_SPINLOCK_TYPES_H on -RT
  archs
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 Upstream uses arch_spinlock_t within spinlock_t and requests that
 spinlock_types.h header file is included first.
@@ -101,9 +101,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -# error "please don't include this file directly"
 -#endif
 -
- typedef struct {
- 	volatile unsigned int slock;
- } arch_spinlock_t;
+ #ifdef CONFIG_PPC_QUEUED_SPINLOCKS
+ #include <asm-generic/qspinlock_types.h>
+ #include <asm-generic/qrwlock_types.h>
 --- a/arch/s390/include/asm/spinlock_types.h
 +++ b/arch/s390/include/asm/spinlock_types.h
 @@ -2,10 +2,6 @@

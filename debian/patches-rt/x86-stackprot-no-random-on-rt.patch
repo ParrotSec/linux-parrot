@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 16 Dec 2010 14:25:18 +0100
 Subject: x86: stackprotector: Avoid random pool on rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.6/older/patches-5.6.10-rt5.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
 
 CPU bringup calls into the random pool to initialize the stack
 canary. During boot that works nicely even on RT as the might sleep
@@ -20,16 +20,16 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/arch/x86/include/asm/stackprotector.h
 +++ b/arch/x86/include/asm/stackprotector.h
-@@ -60,7 +60,7 @@
+@@ -65,7 +65,7 @@
   */
  static __always_inline void boot_init_stack_canary(void)
  {
 -	u64 canary;
-+	u64 uninitialized_var(canary);
++	u64 canary = 0;
  	u64 tsc;
  
  #ifdef CONFIG_X86_64
-@@ -71,8 +71,14 @@ static __always_inline void boot_init_st
+@@ -76,8 +76,14 @@ static __always_inline void boot_init_st
  	 * of randomness. The TSC only matters for very early init,
  	 * there it already has some randomness on most systems. Later
  	 * on during the bootup the random pool has true entropy too.

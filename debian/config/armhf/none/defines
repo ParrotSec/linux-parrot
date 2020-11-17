@@ -2,3 +2,4 @@
 flavours:
  armmp
  armmp-lpae
+default-flavour: armmp

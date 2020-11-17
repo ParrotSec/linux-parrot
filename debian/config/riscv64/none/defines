@@ -1,3 +1,4 @@
 [base]
 flavours:
  riscv64
+default-flavour: riscv64

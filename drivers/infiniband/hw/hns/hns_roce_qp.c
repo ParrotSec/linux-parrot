@@ -410,7 +410,6 @@ static int set_extend_sge_param(struct hns_roce_dev *hr_dev, u32 sq_wqe_cnt,
 				struct hns_roce_qp *hr_qp,
 				struct ib_qp_cap *cap)
 {
-	struct ib_device *ibdev = &hr_dev->ib_dev;
 	u32 cnt;
 
 	cnt = max(1U, cap->max_send_sge);
@@ -430,15 +429,6 @@ static int set_extend_sge_param(struct hns_roce_dev *hr_dev, u32 sq_wqe_cnt,
 	} else if (hr_qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE) {
 		cnt = roundup_pow_of_two(sq_wqe_cnt *
 				     (hr_qp->sq.max_gs - HNS_ROCE_SGE_IN_WQE));
-
-		if (hr_dev->pci_dev->revision == PCI_REVISION_ID_HIP08_A) {
-			if (cnt > hr_dev->caps.max_extend_sg) {
-				ibdev_err(ibdev,
-					  "failed to check exSGE num, exSGE num = %d.\n",
-					  cnt);
-				return -EINVAL;
-			}
-		}
 	} else {
 		cnt = 0;
 	}
@@ -1171,8 +1161,10 @@ int hns_roce_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 
 	mutex_lock(&hr_qp->mutex);
 
-	cur_state = attr_mask & IB_QP_CUR_STATE ?
-		    attr->cur_qp_state : (enum ib_qp_state)hr_qp->state;
+	if (attr_mask & IB_QP_CUR_STATE && attr->cur_qp_state != hr_qp->state)
+		goto out;
+
+	cur_state = hr_qp->state;
 	new_state = attr_mask & IB_QP_STATE ? attr->qp_state : cur_state;
 
 	if (ibqp->uobject &&
