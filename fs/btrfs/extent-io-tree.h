@@ -48,6 +48,7 @@ enum {
 	IO_TREE_INODE_FILE_EXTENT,
 	IO_TREE_LOG_CSUM_RANGE,
 	IO_TREE_SELFTEST,
+	IO_TREE_DEVICE_ALLOC_STATE,
 };
 
 struct extent_io_tree {
@@ -235,14 +236,11 @@ bool btrfs_find_delalloc_range(struct extent_io_tree *tree, u64 *start,
 			       struct extent_state **cached_state);
 
 /* This should be reworked in the future and put elsewhere. */
-int get_state_failrec(struct extent_io_tree *tree, u64 start,
-		      struct io_failure_record **failrec);
+struct io_failure_record *get_state_failrec(struct extent_io_tree *tree, u64 start);
 int set_state_failrec(struct extent_io_tree *tree, u64 start,
 		      struct io_failure_record *failrec);
 void btrfs_free_io_failure_record(struct btrfs_inode *inode, u64 start,
 		u64 end);
-int btrfs_get_io_failure_record(struct inode *inode, u64 start, u64 end,
-				struct io_failure_record **failrec_ret);
 int free_io_failure(struct extent_io_tree *failure_tree,
 		    struct extent_io_tree *io_tree,
 		    struct io_failure_record *rec);

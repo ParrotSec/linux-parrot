@@ -233,8 +233,6 @@ static bool smc_llc_flow_start(struct smc_llc_flow *flow,
 	default:
 		flow->type = SMC_LLC_FLOW_NONE;
 	}
-	if (qentry == lgr->delayed_event)
-		lgr->delayed_event = NULL;
 	smc_llc_flow_qentry_set(flow, qentry);
 	spin_unlock_bh(&lgr->llc_flow_lock);
 	return true;
@@ -841,6 +839,9 @@ int smc_llc_cli_add_link(struct smc_link *link, struct smc_llc_qentry *qentry)
 	struct smc_init_info ini;
 	int lnk_idx, rc = 0;
 
+	if (!llc->qp_mtu)
+		goto out_reject;
+
 	ini.vlan_id = lgr->vlan_id;
 	smc_pnet_find_alt_roce(lgr, &ini, link->smcibdev);
 	if (!memcmp(llc->sender_gid, link->peer_gid, SMC_GID_SIZE) &&
@@ -917,10 +918,20 @@ out:
 	kfree(qentry);
 }
 
+static bool smc_llc_is_empty_llc_message(union smc_llc_msg *llc)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(llc->raw.data); i++)
+		if (llc->raw.data[i])
+			return false;
+	return true;
+}
+
 static bool smc_llc_is_local_add_link(union smc_llc_msg *llc)
 {
 	if (llc->raw.hdr.common.type == SMC_LLC_ADD_LINK &&
-	    !llc->add_link.qp_mtu && !llc->add_link.link_num)
+	    smc_llc_is_empty_llc_message(llc))
 		return true;
 	return false;
 }
@@ -1590,13 +1601,12 @@ static void smc_llc_event_work(struct work_struct *work)
 	struct smc_llc_qentry *qentry;
 
 	if (!lgr->llc_flow_lcl.type && lgr->delayed_event) {
-		if (smc_link_usable(lgr->delayed_event->link)) {
-			smc_llc_event_handler(lgr->delayed_event);
-		} else {
-			qentry = lgr->delayed_event;
-			lgr->delayed_event = NULL;
+		qentry = lgr->delayed_event;
+		lgr->delayed_event = NULL;
+		if (smc_link_usable(qentry->link))
+			smc_llc_event_handler(qentry);
+		else
 			kfree(qentry);
-		}
 	}
 
 again:

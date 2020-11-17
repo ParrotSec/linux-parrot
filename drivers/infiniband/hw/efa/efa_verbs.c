@@ -843,7 +843,7 @@ static int efa_destroy_cq_idx(struct efa_dev *dev, int cq_idx)
 	return efa_com_destroy_cq(&dev->edev, &params);
 }
 
-void efa_destroy_cq(struct ib_cq *ibcq, struct ib_udata *udata)
+int efa_destroy_cq(struct ib_cq *ibcq, struct ib_udata *udata)
 {
 	struct efa_dev *dev = to_edev(ibcq->device);
 	struct efa_cq *cq = to_ecq(ibcq);
@@ -856,6 +856,7 @@ void efa_destroy_cq(struct ib_cq *ibcq, struct ib_udata *udata)
 	efa_destroy_cq_idx(dev, cq->cq_idx);
 	efa_free_mapped(dev, cq->cpu_addr, cq->dma_addr, cq->size,
 			DMA_FROM_DEVICE);
+	return 0;
 }
 
 static int cq_mmap_entries_setup(struct efa_dev *dev, struct efa_cq *cq,
@@ -1502,11 +1503,39 @@ static int efa_dealloc_uar(struct efa_dev *dev, u16 uarn)
 	return efa_com_dealloc_uar(&dev->edev, &params);
 }
 
+#define EFA_CHECK_USER_COMP(_dev, _comp_mask, _attr, _mask, _attr_str) \
+	(_attr_str = (!(_dev)->dev_attr._attr || ((_comp_mask) & (_mask))) ? \
+		     NULL : #_attr)
+
+static int efa_user_comp_handshake(const struct ib_ucontext *ibucontext,
+				   const struct efa_ibv_alloc_ucontext_cmd *cmd)
+{
+	struct efa_dev *dev = to_edev(ibucontext->device);
+	char *attr_str;
+
+	if (EFA_CHECK_USER_COMP(dev, cmd->comp_mask, max_tx_batch,
+				EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH, attr_str))
+		goto err;
+
+	if (EFA_CHECK_USER_COMP(dev, cmd->comp_mask, min_sq_depth,
+				EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR,
+				attr_str))
+		goto err;
+
+	return 0;
+
+err:
+	ibdev_dbg(&dev->ibdev, "Userspace handshake failed for %s attribute\n",
+		  attr_str);
+	return -EOPNOTSUPP;
+}
+
 int efa_alloc_ucontext(struct ib_ucontext *ibucontext, struct ib_udata *udata)
 {
 	struct efa_ucontext *ucontext = to_eucontext(ibucontext);
 	struct efa_dev *dev = to_edev(ibucontext->device);
 	struct efa_ibv_alloc_ucontext_resp resp = {};
+	struct efa_ibv_alloc_ucontext_cmd cmd = {};
 	struct efa_com_alloc_uar_result result;
 	int err;
 
@@ -1514,6 +1543,18 @@ int efa_alloc_ucontext(struct ib_ucontext *ibucontext, struct ib_udata *udata)
 	 * it's fine if the driver does not know all request fields,
 	 * we will ack input fields in our response.
 	 */
+
+	err = ib_copy_from_udata(&cmd, udata,
+				 min(sizeof(cmd), udata->inlen));
+	if (err) {
+		ibdev_dbg(&dev->ibdev,
+			  "Cannot copy udata for alloc_ucontext\n");
+		goto err_out;
+	}
+
+	err = efa_user_comp_handshake(ibucontext, &cmd);
+	if (err)
+		goto err_out;
 
 	err = efa_com_alloc_uar(&dev->edev, &result);
 	if (err)
@@ -1526,6 +1567,8 @@ int efa_alloc_ucontext(struct ib_ucontext *ibucontext, struct ib_udata *udata)
 	resp.sub_cqs_per_cq = dev->dev_attr.sub_cqs_per_cq;
 	resp.inline_buf_size = dev->dev_attr.inline_buf_size;
 	resp.max_llq_size = dev->dev_attr.max_llq_size;
+	resp.max_tx_batch = dev->dev_attr.max_tx_batch;
+	resp.min_sq_wr = dev->dev_attr.min_sq_depth;
 
 	if (udata && udata->outlen) {
 		err = ib_copy_to_udata(udata, &resp,

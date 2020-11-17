@@ -52,7 +52,7 @@ void qedr_dealloc_pd(struct ib_pd *pd, struct ib_udata *udata);
 int qedr_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		   struct ib_udata *udata);
 int qedr_resize_cq(struct ib_cq *, int cqe, struct ib_udata *);
-void qedr_destroy_cq(struct ib_cq *ibcq, struct ib_udata *udata);
+int qedr_destroy_cq(struct ib_cq *ibcq, struct ib_udata *udata);
 int qedr_arm_cq(struct ib_cq *ibcq, enum ib_cq_notify_flags flags);
 struct ib_qp *qedr_create_qp(struct ib_pd *, struct ib_qp_init_attr *attrs,
 			     struct ib_udata *);
@@ -84,7 +84,7 @@ int qedr_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg,
 		   int sg_nents, unsigned int *sg_offset);
 
 struct ib_mr *qedr_alloc_mr(struct ib_pd *pd, enum ib_mr_type mr_type,
-			    u32 max_num_sg, struct ib_udata *udata);
+			    u32 max_num_sg);
 int qedr_poll_cq(struct ib_cq *, int num_entries, struct ib_wc *wc);
 int qedr_post_send(struct ib_qp *, const struct ib_send_wr *,
 		   const struct ib_send_wr **bad_wr);

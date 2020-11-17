@@ -665,7 +665,7 @@ void svm_refresh_apicv_exec_ctrl(struct kvm_vcpu *vcpu)
 	} else {
 		vmcb->control.int_ctl &= ~AVIC_ENABLE_MASK;
 	}
-	mark_dirty(vmcb, VMCB_AVIC);
+	vmcb_mark_dirty(vmcb, VMCB_AVIC);
 
 	svm_set_pi_irte_mode(vcpu, activated);
 }
@@ -868,6 +868,7 @@ int svm_update_pi_irte(struct kvm *kvm, unsigned int host_irq,
 			 * - Tell IOMMU to use legacy mode for this interrupt.
 			 * - Retrieve ga_tag of prior interrupt remapping data.
 			 */
+			pi.prev_ga_tag = 0;
 			pi.is_guest_mode = false;
 			ret = irq_set_vcpu_affinity(host_irq, &pi);
 

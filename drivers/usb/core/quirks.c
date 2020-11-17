@@ -368,11 +368,11 @@ static const struct usb_device_id usb_quirk_list[] = {
 
 	/* Sound Devices USBPre2 */
 	{ USB_DEVICE(0x0926, 0x0202), .driver_info =
-			USB_QUIRK_ENDPOINT_BLACKLIST },
+			USB_QUIRK_ENDPOINT_IGNORE },
 
 	/* Sound Devices MixPre-D */
 	{ USB_DEVICE(0x0926, 0x0208), .driver_info =
-			USB_QUIRK_ENDPOINT_BLACKLIST },
+			USB_QUIRK_ENDPOINT_IGNORE },
 
 	/* Keytouch QWERTY Panel keyboard */
 	{ USB_DEVICE(0x0926, 0x3333), .driver_info =
@@ -396,6 +396,10 @@ static const struct usb_device_id usb_quirk_list[] = {
 
 	/* Generic RTL8153 based ethernet adapters */
 	{ USB_DEVICE(0x0bda, 0x8153), .driver_info = USB_QUIRK_NO_LPM },
+
+	/* SONiX USB DEVICE Touchpad */
+	{ USB_DEVICE(0x0c45, 0x7056), .driver_info =
+			USB_QUIRK_IGNORE_REMOTE_WAKEUP },
 
 	/* Action Semiconductor flash disk */
 	{ USB_DEVICE(0x10d6, 0x2200), .driver_info =
@@ -508,25 +512,25 @@ static const struct usb_device_id usb_amd_resume_quirk_list[] = {
 };
 
 /*
- * Entries for blacklisted endpoints that should be ignored when parsing
- * configuration descriptors.
+ * Entries for endpoints that should be ignored when parsing configuration
+ * descriptors.
  *
- * Matched for devices with USB_QUIRK_ENDPOINT_BLACKLIST.
+ * Matched for devices with USB_QUIRK_ENDPOINT_IGNORE.
  */
-static const struct usb_device_id usb_endpoint_blacklist[] = {
+static const struct usb_device_id usb_endpoint_ignore[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x0926, 0x0202, 1), .driver_info = 0x85 },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x0926, 0x0208, 1), .driver_info = 0x85 },
 	{ }
 };
 
-bool usb_endpoint_is_blacklisted(struct usb_device *udev,
-		struct usb_host_interface *intf,
-		struct usb_endpoint_descriptor *epd)
+bool usb_endpoint_is_ignored(struct usb_device *udev,
+			     struct usb_host_interface *intf,
+			     struct usb_endpoint_descriptor *epd)
 {
 	const struct usb_device_id *id;
 	unsigned int address;
 
-	for (id = usb_endpoint_blacklist; id->match_flags; ++id) {
+	for (id = usb_endpoint_ignore; id->match_flags; ++id) {
 		if (!usb_match_device(udev, id))
 			continue;
 

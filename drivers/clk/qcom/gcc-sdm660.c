@@ -666,7 +666,7 @@ static struct clk_rcg2 hmss_rbcpr_clk_src = {
 	.cmd_rcgr = 0x48044,
 	.mnd_width = 0,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_xo_gpll0_gpll0_early_div,
+	.parent_map = gcc_parent_map_xo_gpll0,
 	.freq_tbl = ftbl_hmss_rbcpr_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "hmss_rbcpr_clk_src",
@@ -2405,6 +2405,7 @@ static const struct qcom_reset_map gcc_sdm660_resets[] = {
 	[GCC_USB_20_BCR] = { 0x2f000 },
 	[GCC_USB_30_BCR] = { 0xf000 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x6a000 },
+	[GCC_MSS_RESTART] = { 0x79000 },
 };
 
 static const struct regmap_config gcc_sdm660_regmap_config = {
