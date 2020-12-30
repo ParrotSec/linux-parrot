@@ -8,7 +8,7 @@ tp3
 (dp4
 Vabiname
 p5
-V2parrot1
+V5
 p6
 sVignore-changes
 p7
@@ -441,7 +441,7 @@ Varch/x86/boot/bzImage
 p234
 sVsigned-code
 p235
-I00
+I01
 sVvdso
 p236
 I01
@@ -584,7 +584,7 @@ Varch/arm64/boot/Image
 p312
 sVsigned-code
 p313
-I00
+I01
 sVvdso
 p314
 I01
@@ -1066,7 +1066,7 @@ Varch/x86/boot/bzImage
 p570
 sVsigned-code
 p571
-I00
+I01
 sVvdso
 p572
 I01
@@ -3042,7 +3042,7 @@ tp1629
 (dp1630
 Vsource
 p1631
-V5.9.6-2parrot1
+V5.9.15-1parrot1
 p1632
 sVupstream
 p1633
@@ -3054,6 +3054,6 @@ V5.9.0
 p1636
 sVabiname
 p1637
-V5.9.0-2parrot1
+V5.9.0-5
 p1638
 ss.

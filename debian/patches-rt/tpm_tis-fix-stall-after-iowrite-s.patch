@@ -55,8 +55,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	tpm_tis_flush(iobase);
 +}
 +
- static bool interrupts = true;
- module_param(interrupts, bool, 0444);
+ static int interrupts = -1;
+ module_param(interrupts, int, 0444);
  MODULE_PARM_DESC(interrupts, "Enable interrupts");
 @@ -146,7 +171,7 @@ static int tpm_tcg_write_bytes(struct tp
  	struct tpm_tis_tcg_phy *phy = to_tpm_tis_tcg_phy(data);

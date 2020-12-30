@@ -1,0 +1,35 @@
+From: Vanshidhar Konda <vanshikonda@os.amperecomputing.com>
+Date: Fri, 30 Oct 2020 10:30:50 -0700
+Subject: [1/2] arm64: NUMA: Kconfig: Increase NODES_SHIFT to 4
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux.git/commit?id=2a13c13b39a8aea4c69a31549e4cb0094f30103b
+
+The current arm64 default config limits max NUMA nodes available on
+system to 4 (NODES_SHIFT = 2). Today's arm64 systems can reach or
+exceed 16 NUMA nodes. To accomodate current hardware and to fit
+NODES_SHIFT within page flags on arm64, increase NODES_SHIFT to 4.
+
+Signed-off-by: Vanshidhar Konda <vanshikonda@os.amperecomputing.com>
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Link: https://lore.kernel.org/r/20201020173409.1266576-1-vanshikonda@os.amperecomputing.com/
+Link: https://lore.kernel.org/r/20201030173050.1182876-1-vanshikonda@os.amperecomputing.com
+Signed-off-by: Will Deacon <will@kernel.org>
+---
+ arch/arm64/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 1d466addb078..1515f6f153a0 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1002,7 +1002,7 @@ config NUMA
+ config NODES_SHIFT
+ 	int "Maximum NUMA Nodes (as a power of 2)"
+ 	range 1 10
+-	default "2"
++	default "4"
+ 	depends on NEED_MULTIPLE_NODES
+ 	help
+ 	  Specify the maximum number of NUMA Nodes available on the target
+-- 
+2.26.2
+

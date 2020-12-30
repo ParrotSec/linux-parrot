@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-sparc64 linux-headers-5.9.0-2parrot1-sparc64 5.7~rc5-1~exp1 linux-headers-sparc64
+dir_to_symlink /usr/share/doc/linux-headers-sparc64 linux-headers-5.9.0-5-sparc64 5.7~rc5-1~exp1 linux-headers-sparc64

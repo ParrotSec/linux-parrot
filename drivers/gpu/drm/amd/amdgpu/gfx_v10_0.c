@@ -128,6 +128,9 @@
 #define PA_SC_ENHANCE_3__FORCE_PBB_WORKLOAD_MODE_TO_ZERO__SHIFT 0x3
 #define PA_SC_ENHANCE_3__FORCE_PBB_WORKLOAD_MODE_TO_ZERO_MASK   0x00000008L
 
+#define mmCGTT_SPI_CS_CLK_CTRL			0x507c
+#define mmCGTT_SPI_CS_CLK_CTRL_BASE_IDX         1
+
 MODULE_FIRMWARE("amdgpu/navi10_ce.bin");
 MODULE_FIRMWARE("amdgpu/navi10_pfp.bin");
 MODULE_FIRMWARE("amdgpu/navi10_me.bin");
@@ -3094,6 +3097,7 @@ static const struct soc15_reg_golden golden_settings_gc_rlc_spm_10_1_2_nv12[] =
 
 static const struct soc15_reg_golden golden_settings_gc_10_3[] =
 {
+	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_SPI_CS_CLK_CTRL, 0x78000000, 0x78000100),
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_SPI_PS_CLK_CTRL, 0xff7f0fff, 0x78000100),
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_SPI_RA0_CLK_CTRL, 0xff7f0fff, 0x30000100),
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_SPI_RA1_CLK_CTRL, 0xff7f0fff, 0x7e000100),
@@ -3101,6 +3105,8 @@ static const struct soc15_reg_golden golden_settings_gc_10_3[] =
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmDB_DEBUG3, 0xffffffff, 0x00000280),
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmDB_DEBUG4, 0xffffffff, 0x00800000),
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmDB_EXCEPTION_CONTROL, 0x7fff0f1f, 0x00b80000),
+	SOC15_REG_GOLDEN_VALUE(GC, 0 ,mmGCEA_SDP_TAG_RESERVE0, 0xffffffff, 0x10100100),
+	SOC15_REG_GOLDEN_VALUE(GC, 0, mmGCEA_SDP_TAG_RESERVE1, 0xffffffff, 0x17000088),
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmGCR_GENERAL_CNTL_Sienna_Cichlid, 0x1ff1ffff, 0x00000500),
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmGE_PC_CNTL, 0x003fffff, 0x00280400),
 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmGL2A_ADDR_MATCH_MASK, 0xffffffff, 0xffffffcf),
@@ -3590,6 +3596,17 @@ static void gfx_v10_0_init_rlc_ext_microcode(struct amdgpu_device *adev)
 			le32_to_cpu(rlc_hdr->reg_list_format_direct_reg_list_length);
 }
 
+static void gfx_v10_0_init_rlc_iram_dram_microcode(struct amdgpu_device *adev)
+{
+	const struct rlc_firmware_header_v2_2 *rlc_hdr;
+
+	rlc_hdr = (const struct rlc_firmware_header_v2_2 *)adev->gfx.rlc_fw->data;
+	adev->gfx.rlc.rlc_iram_ucode_size_bytes = le32_to_cpu(rlc_hdr->rlc_iram_ucode_size_bytes);
+	adev->gfx.rlc.rlc_iram_ucode = (u8 *)rlc_hdr + le32_to_cpu(rlc_hdr->rlc_iram_ucode_offset_bytes);
+	adev->gfx.rlc.rlc_dram_ucode_size_bytes = le32_to_cpu(rlc_hdr->rlc_dram_ucode_size_bytes);
+	adev->gfx.rlc.rlc_dram_ucode = (u8 *)rlc_hdr + le32_to_cpu(rlc_hdr->rlc_dram_ucode_offset_bytes);
+}
+
 static bool gfx_v10_0_navi10_gfxoff_should_enable(struct amdgpu_device *adev)
 {
 	bool ret = false;
@@ -3705,8 +3722,6 @@ static int gfx_v10_0_init_microcode(struct amdgpu_device *adev)
 		rlc_hdr = (const struct rlc_firmware_header_v2_0 *)adev->gfx.rlc_fw->data;
 		version_major = le16_to_cpu(rlc_hdr->header.header_version_major);
 		version_minor = le16_to_cpu(rlc_hdr->header.header_version_minor);
-		if (version_major == 2 && version_minor == 1)
-			adev->gfx.rlc.is_rlc_v2_1 = true;
 
 		adev->gfx.rlc_fw_version = le32_to_cpu(rlc_hdr->header.ucode_version);
 		adev->gfx.rlc_feature_version = le32_to_cpu(rlc_hdr->ucode_feature_version);
@@ -3748,8 +3763,12 @@ static int gfx_v10_0_init_microcode(struct amdgpu_device *adev)
 		for (i = 0 ; i < (rlc_hdr->reg_list_size_bytes >> 2); i++)
 			adev->gfx.rlc.register_restore[i] = le32_to_cpu(tmp[i]);
 
-		if (adev->gfx.rlc.is_rlc_v2_1)
-			gfx_v10_0_init_rlc_ext_microcode(adev);
+		if (version_major == 2) {
+			if (version_minor >= 1)
+				gfx_v10_0_init_rlc_ext_microcode(adev);
+			if (version_minor == 2)
+				gfx_v10_0_init_rlc_iram_dram_microcode(adev);
+		}
 	}
 
 	snprintf(fw_name, sizeof(fw_name), "amdgpu/%s_mec%s.bin", chip_name, wks);
@@ -3810,8 +3829,7 @@ static int gfx_v10_0_init_microcode(struct amdgpu_device *adev)
 			adev->firmware.fw_size +=
 				ALIGN(le32_to_cpu(header->ucode_size_bytes), PAGE_SIZE);
 		}
-		if (adev->gfx.rlc.is_rlc_v2_1 &&
-		    adev->gfx.rlc.save_restore_list_cntl_size_bytes &&
+		if (adev->gfx.rlc.save_restore_list_cntl_size_bytes &&
 		    adev->gfx.rlc.save_restore_list_gpm_size_bytes &&
 		    adev->gfx.rlc.save_restore_list_srm_size_bytes) {
 			info = &adev->firmware.ucode[AMDGPU_UCODE_ID_RLC_RESTORE_LIST_CNTL];
@@ -3831,6 +3849,21 @@ static int gfx_v10_0_init_microcode(struct amdgpu_device *adev)
 			info->fw = adev->gfx.rlc_fw;
 			adev->firmware.fw_size +=
 				ALIGN(adev->gfx.rlc.save_restore_list_srm_size_bytes, PAGE_SIZE);
+
+			if (adev->gfx.rlc.rlc_iram_ucode_size_bytes &&
+			    adev->gfx.rlc.rlc_dram_ucode_size_bytes) {
+				info = &adev->firmware.ucode[AMDGPU_UCODE_ID_RLC_IRAM];
+				info->ucode_id = AMDGPU_UCODE_ID_RLC_IRAM;
+				info->fw = adev->gfx.rlc_fw;
+				adev->firmware.fw_size +=
+					ALIGN(adev->gfx.rlc.rlc_iram_ucode_size_bytes, PAGE_SIZE);
+
+				info = &adev->firmware.ucode[AMDGPU_UCODE_ID_RLC_DRAM];
+				info->ucode_id = AMDGPU_UCODE_ID_RLC_DRAM;
+				info->fw = adev->gfx.rlc_fw;
+				adev->firmware.fw_size +=
+					ALIGN(adev->gfx.rlc.rlc_dram_ucode_size_bytes, PAGE_SIZE);
+			}
 		}
 
 		info = &adev->firmware.ucode[AMDGPU_UCODE_ID_CP_MEC1];
