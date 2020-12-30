@@ -321,8 +321,7 @@ static const struct flexcan_devtype_data fsl_vf610_devtype_data = {
 
 static const struct flexcan_devtype_data fsl_ls1021a_r2_devtype_data = {
 	.quirks = FLEXCAN_QUIRK_DISABLE_RXFG | FLEXCAN_QUIRK_ENABLE_EACEN_RRS |
-		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_BROKEN_PERR_STATE |
-		FLEXCAN_QUIRK_USE_OFF_TIMESTAMP,
+		FLEXCAN_QUIRK_BROKEN_PERR_STATE | FLEXCAN_QUIRK_USE_OFF_TIMESTAMP,
 };
 
 static const struct can_bittiming_const flexcan_bittiming_const = {
@@ -615,8 +614,10 @@ static int flexcan_get_berr_counter(const struct net_device *dev,
 	int err;
 
 	err = pm_runtime_get_sync(priv->dev);
-	if (err < 0)
+	if (err < 0) {
+		pm_runtime_put_noidle(priv->dev);
 		return err;
+	}
 
 	err = __flexcan_get_berr_counter(dev, bec);
 
@@ -1228,14 +1229,10 @@ static int flexcan_chip_start(struct net_device *dev)
 		priv->write(reg_mecr, &regs->mecr);
 	}
 
-	err = flexcan_transceiver_enable(priv);
-	if (err)
-		goto out_chip_disable;
-
 	/* synchronize with the can bus */
 	err = flexcan_chip_unfreeze(priv);
 	if (err)
-		goto out_transceiver_disable;
+		goto out_chip_disable;
 
 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 
@@ -1253,8 +1250,6 @@ static int flexcan_chip_start(struct net_device *dev)
 
 	return 0;
 
- out_transceiver_disable:
-	flexcan_transceiver_disable(priv);
  out_chip_disable:
 	flexcan_chip_disable(priv);
 	return err;
@@ -1284,7 +1279,6 @@ static int __flexcan_chip_stop(struct net_device *dev, bool disable_on_error)
 	priv->write(priv->reg_ctrl_default & ~FLEXCAN_CTRL_ERR_ALL,
 		    &regs->ctrl);
 
-	flexcan_transceiver_disable(priv);
 	priv->can.state = CAN_STATE_STOPPED;
 
 	return 0;
@@ -1311,16 +1305,22 @@ static int flexcan_open(struct net_device *dev)
 	int err;
 
 	err = pm_runtime_get_sync(priv->dev);
-	if (err < 0)
+	if (err < 0) {
+		pm_runtime_put_noidle(priv->dev);
 		return err;
+	}
 
 	err = open_candev(dev);
 	if (err)
 		goto out_runtime_put;
 
-	err = request_irq(dev->irq, flexcan_irq, IRQF_SHARED, dev->name, dev);
+	err = flexcan_transceiver_enable(priv);
 	if (err)
 		goto out_close;
+
+	err = request_irq(dev->irq, flexcan_irq, IRQF_SHARED, dev->name, dev);
+	if (err)
+		goto out_transceiver_disable;
 
 	priv->mb_size = sizeof(struct flexcan_mb) + CAN_MAX_DLEN;
 	priv->mb_count = (sizeof(priv->regs->mb[0]) / priv->mb_size) +
@@ -1370,6 +1370,8 @@ static int flexcan_open(struct net_device *dev)
 	can_rx_offload_del(&priv->offload);
  out_free_irq:
 	free_irq(dev->irq, dev);
+ out_transceiver_disable:
+	flexcan_transceiver_disable(priv);
  out_close:
 	close_candev(dev);
  out_runtime_put:
@@ -1388,6 +1390,7 @@ static int flexcan_close(struct net_device *dev)
 
 	can_rx_offload_del(&priv->offload);
 	free_irq(dev->irq, dev);
+	flexcan_transceiver_disable(priv);
 
 	close_candev(dev);
 	pm_runtime_put(priv->dev);
@@ -1696,6 +1699,8 @@ static int flexcan_remove(struct platform_device *pdev)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
 
+	device_set_wakeup_enable(&pdev->dev, false);
+	device_set_wakeup_capable(&pdev->dev, false);
 	unregister_flexcandev(dev);
 	pm_runtime_disable(&pdev->dev);
 	free_candev(dev);
