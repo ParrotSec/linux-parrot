@@ -35,7 +35,7 @@ MODULE_SUPPORTED_DEVICE("PEAK-System PCAN-USB Pro FD adapter");
 #define PCAN_UFD_RX_BUFFER_SIZE		2048
 #define PCAN_UFD_TX_BUFFER_SIZE		512
 
-/* read some versions info from the hw devcie */
+/* read some versions info from the hw device */
 struct __packed pcan_ufd_fw_info {
 	__le16	size_of;	/* sizeof this */
 	__le16	type;		/* type of this structure */
@@ -512,10 +512,10 @@ static int pcan_usb_fd_decode_canmsg(struct pcan_usb_fd_if *usb_if,
 	else
 		memcpy(cfd->data, rm->d, cfd->len);
 
-	peak_usb_netif_rx(skb, &usb_if->time_ref, le32_to_cpu(rm->ts_low));
-
 	netdev->stats.rx_packets++;
 	netdev->stats.rx_bytes += cfd->len;
+
+	peak_usb_netif_rx(skb, &usb_if->time_ref, le32_to_cpu(rm->ts_low));
 
 	return 0;
 }
@@ -578,10 +578,10 @@ static int pcan_usb_fd_decode_status(struct pcan_usb_fd_if *usb_if,
 	if (!skb)
 		return -ENOMEM;
 
-	peak_usb_netif_rx(skb, &usb_if->time_ref, le32_to_cpu(sm->ts_low));
-
 	netdev->stats.rx_packets++;
 	netdev->stats.rx_bytes += cf->can_dlc;
+
+	peak_usb_netif_rx(skb, &usb_if->time_ref, le32_to_cpu(sm->ts_low));
 
 	return 0;
 }
@@ -822,7 +822,7 @@ static int pcan_usb_fd_start(struct peak_usb_device *dev)
 	return err;
 }
 
-/* socket callback used to copy berr counters values receieved through USB */
+/* socket callback used to copy berr counters values received through USB */
 static int pcan_usb_fd_get_berr_counter(const struct net_device *netdev,
 					struct can_berr_counter *bec)
 {

@@ -820,7 +820,7 @@ static void logi_dj_recv_queue_unknown_work(struct dj_receiver_dev *djrcv_dev)
 {
 	struct dj_workitem workitem = { .type = WORKITEM_TYPE_UNKNOWN };
 
-	/* Rate limit queries done because of unhandeled reports to 2/sec */
+	/* Rate limit queries done because of unhandled reports to 2/sec */
 	if (time_before(jiffies, djrcv_dev->last_query + HZ / 2))
 		return;
 
@@ -1868,6 +1868,10 @@ static const struct hid_device_id logi_dj_receivers[] = {
 	{ /* Logitech G700(s) receiver (0xc531) */
 	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH,
 		0xc531),
+	 .driver_data = recvr_type_gaming_hidpp},
+	{ /* Logitech G602 receiver (0xc537) */
+	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH,
+		0xc537),
 	 .driver_data = recvr_type_gaming_hidpp},
 	{ /* Logitech lightspeed receiver (0xc539) */
 	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH,

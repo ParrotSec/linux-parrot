@@ -106,6 +106,7 @@ static void time_travel_handle_message(struct um_timetravel_msg *msg,
 		break;
 	}
 
+	resp.seq = msg->seq;
 	os_write_file(time_travel_ext_fd, &resp, sizeof(resp));
 }
 
@@ -258,11 +259,6 @@ static void __time_travel_add_event(struct time_travel_event *e,
 {
 	struct time_travel_event *tmp;
 	bool inserted = false;
-
-	if (WARN(time_travel_mode == TT_MODE_BASIC &&
-		 e != &time_travel_timer_event,
-		 "only timer events can be handled in basic mode"))
-		return;
 
 	if (e->pending)
 		return;

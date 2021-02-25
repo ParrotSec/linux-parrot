@@ -1060,7 +1060,7 @@ static int acpi_pci_propagate_wakeup(struct pci_bus *bus, bool enable)
 {
 	while (bus->parent) {
 		if (acpi_pm_device_can_wakeup(&bus->self->dev))
-			return acpi_pm_set_bridge_wakeup(&bus->self->dev, enable);
+			return acpi_pm_set_device_wakeup(&bus->self->dev, enable);
 
 		bus = bus->parent;
 	}
@@ -1068,7 +1068,7 @@ static int acpi_pci_propagate_wakeup(struct pci_bus *bus, bool enable)
 	/* We have reached the root bus. */
 	if (bus->bridge) {
 		if (acpi_pm_device_can_wakeup(bus->bridge))
-			return acpi_pm_set_bridge_wakeup(bus->bridge, enable);
+			return acpi_pm_set_device_wakeup(bus->bridge, enable);
 	}
 	return 0;
 }
@@ -1177,7 +1177,7 @@ static struct acpi_device *acpi_pci_find_companion(struct device *dev)
  * @pdev: the PCI device whose delay is to be updated
  * @handle: ACPI handle of this device
  *
- * Update the d3_delay and d3cold_delay of a PCI device from the ACPI _DSM
+ * Update the d3hot_delay and d3cold_delay of a PCI device from the ACPI _DSM
  * control method of either the device itself or the PCI host bridge.
  *
  * Function 8, "Reset Delay," applies to the entire hierarchy below a PCI
@@ -1216,8 +1216,8 @@ static void pci_acpi_optimize_delay(struct pci_dev *pdev,
 		}
 		if (elements[3].type == ACPI_TYPE_INTEGER) {
 			value = (int)elements[3].integer.value / 1000;
-			if (value < PCI_PM_D3_WAIT)
-				pdev->d3_delay = value;
+			if (value < PCI_PM_D3HOT_WAIT)
+				pdev->d3hot_delay = value;
 		}
 	}
 	ACPI_FREE(obj);

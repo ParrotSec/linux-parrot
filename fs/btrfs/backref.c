@@ -3008,7 +3008,6 @@ int btrfs_backref_finish_upper_links(struct btrfs_backref_cache *cache,
 	while (!list_empty(&pending_edge)) {
 		struct btrfs_backref_node *upper;
 		struct btrfs_backref_node *lower;
-		struct rb_node *rb_node;
 
 		edge = list_first_entry(&pending_edge,
 				struct btrfs_backref_edge, list[UPPER]);
@@ -3125,7 +3124,7 @@ void btrfs_backref_error_cleanup(struct btrfs_backref_cache *cache,
 		list_del_init(&lower->list);
 		if (lower == node)
 			node = NULL;
-		btrfs_backref_free_node(cache, lower);
+		btrfs_backref_drop_node(cache, lower);
 	}
 
 	btrfs_backref_cleanup_node(cache, node);

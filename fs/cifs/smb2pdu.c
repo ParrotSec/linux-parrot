@@ -427,8 +427,8 @@ build_preauth_ctxt(struct smb2_preauth_neg_context *pneg_ctxt)
 	pneg_ctxt->ContextType = SMB2_PREAUTH_INTEGRITY_CAPABILITIES;
 	pneg_ctxt->DataLength = cpu_to_le16(38);
 	pneg_ctxt->HashAlgorithmCount = cpu_to_le16(1);
-	pneg_ctxt->SaltLength = cpu_to_le16(SMB311_SALT_SIZE);
-	get_random_bytes(pneg_ctxt->Salt, SMB311_SALT_SIZE);
+	pneg_ctxt->SaltLength = cpu_to_le16(SMB311_LINUX_CLIENT_SALT_SIZE);
+	get_random_bytes(pneg_ctxt->Salt, SMB311_LINUX_CLIENT_SALT_SIZE);
 	pneg_ctxt->HashAlgorithms = SMB2_PREAUTH_INTEGRITY_SHA512;
 }
 
@@ -449,10 +449,22 @@ static void
 build_encrypt_ctxt(struct smb2_encryption_neg_context *pneg_ctxt)
 {
 	pneg_ctxt->ContextType = SMB2_ENCRYPTION_CAPABILITIES;
-	pneg_ctxt->DataLength = cpu_to_le16(6); /* Cipher Count + two ciphers */
-	pneg_ctxt->CipherCount = cpu_to_le16(2);
-	pneg_ctxt->Ciphers[0] = SMB2_ENCRYPTION_AES128_GCM;
-	pneg_ctxt->Ciphers[1] = SMB2_ENCRYPTION_AES128_CCM;
+	if (require_gcm_256) {
+		pneg_ctxt->DataLength = cpu_to_le16(4); /* Cipher Count + 1 cipher */
+		pneg_ctxt->CipherCount = cpu_to_le16(1);
+		pneg_ctxt->Ciphers[0] = SMB2_ENCRYPTION_AES256_GCM;
+	} else if (enable_gcm_256) {
+		pneg_ctxt->DataLength = cpu_to_le16(8); /* Cipher Count + 3 ciphers */
+		pneg_ctxt->CipherCount = cpu_to_le16(3);
+		pneg_ctxt->Ciphers[0] = SMB2_ENCRYPTION_AES128_GCM;
+		pneg_ctxt->Ciphers[1] = SMB2_ENCRYPTION_AES256_GCM;
+		pneg_ctxt->Ciphers[2] = SMB2_ENCRYPTION_AES128_CCM;
+	} else {
+		pneg_ctxt->DataLength = cpu_to_le16(6); /* Cipher Count + 2 ciphers */
+		pneg_ctxt->CipherCount = cpu_to_le16(2);
+		pneg_ctxt->Ciphers[0] = SMB2_ENCRYPTION_AES128_GCM;
+		pneg_ctxt->Ciphers[1] = SMB2_ENCRYPTION_AES128_CCM;
+	}
 }
 
 static unsigned int
@@ -554,6 +566,9 @@ static void decode_preauth_context(struct smb2_preauth_neg_context *ctxt)
 	if (len < MIN_PREAUTH_CTXT_DATA_LEN) {
 		pr_warn_once("server sent bad preauth context\n");
 		return;
+	} else if (len < MIN_PREAUTH_CTXT_DATA_LEN + le16_to_cpu(ctxt->SaltLength)) {
+		pr_warn_once("server sent invalid SaltLength\n");
+		return;
 	}
 	if (le16_to_cpu(ctxt->HashAlgorithmCount) != 1)
 		pr_warn_once("Invalid SMB3 hash algorithm count\n");
@@ -598,8 +613,29 @@ static int decode_encrypt_ctx(struct TCP_Server_Info *server,
 		return -EINVAL;
 	}
 	cifs_dbg(FYI, "SMB311 cipher type:%d\n", le16_to_cpu(ctxt->Ciphers[0]));
-	if ((ctxt->Ciphers[0] != SMB2_ENCRYPTION_AES128_CCM) &&
-	    (ctxt->Ciphers[0] != SMB2_ENCRYPTION_AES128_GCM)) {
+	if (require_gcm_256) {
+		if (ctxt->Ciphers[0] != SMB2_ENCRYPTION_AES256_GCM) {
+			cifs_dbg(VFS, "Server does not support requested encryption type (AES256 GCM)\n");
+			return -EOPNOTSUPP;
+		}
+	} else if (ctxt->Ciphers[0] == 0) {
+		/*
+		 * e.g. if server only supported AES256_CCM (very unlikely)
+		 * or server supported no encryption types or had all disabled.
+		 * Since GLOBAL_CAP_ENCRYPTION will be not set, in the case
+		 * in which mount requested encryption ("seal") checks later
+		 * on during tree connection will return proper rc, but if
+		 * seal not requested by client, since server is allowed to
+		 * return 0 to indicate no supported cipher, we can't fail here
+		 */
+		server->cipher_type = 0;
+		server->capabilities &= ~SMB2_GLOBAL_CAP_ENCRYPTION;
+		pr_warn_once("Server does not support requested encryption types\n");
+		return 0;
+	} else if ((ctxt->Ciphers[0] != SMB2_ENCRYPTION_AES128_CCM) &&
+		   (ctxt->Ciphers[0] != SMB2_ENCRYPTION_AES128_GCM) &&
+		   (ctxt->Ciphers[0] != SMB2_ENCRYPTION_AES256_GCM)) {
+		/* server returned a cipher we didn't ask for */
 		pr_warn_once("Invalid SMB3.11 cipher returned\n");
 		return -EINVAL;
 	}
@@ -1948,9 +1984,11 @@ smb2_parse_contexts(struct TCP_Server_Info *server,
 	unsigned int next;
 	unsigned int remaining;
 	char *name;
-	const char smb3_create_tag_posix[] = {0x93, 0xAD, 0x25, 0x50, 0x9C,
-					0xB4, 0x11, 0xE7, 0xB4, 0x23, 0x83,
-					0xDE, 0x96, 0x8B, 0xCD, 0x7C};
+	static const char smb3_create_tag_posix[] = {
+		0x93, 0xAD, 0x25, 0x50, 0x9C,
+		0xB4, 0x11, 0xE7, 0xB4, 0x23, 0x83,
+		0xDE, 0x96, 0x8B, 0xCD, 0x7C
+	};
 
 	*oplock = 0;
 	data_offset = (char *)rsp + le32_to_cpu(rsp->CreateContextsOffset);
@@ -3210,7 +3248,7 @@ close_exit:
 	free_rsp_buf(resp_buftype, rsp);
 
 	/* retry close in a worker thread if this one is interrupted */
-	if (rc == -EINTR) {
+	if (is_interrupt_error(rc)) {
 		int tmp_rc;
 
 		tmp_rc = smb2_handle_cancelled_close(tcon, persistent_fid,

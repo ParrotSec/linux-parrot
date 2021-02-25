@@ -47,7 +47,7 @@ enum psp_gfx_crtl_cmd_id
     GFX_CTRL_CMD_ID_DISABLE_INT     = 0x00060000,   /* disable PSP-to-Gfx interrupt */
     GFX_CTRL_CMD_ID_MODE1_RST       = 0x00070000,   /* trigger the Mode 1 reset */
     GFX_CTRL_CMD_ID_GBR_IH_SET      = 0x00080000,   /* set Gbr IH_RB_CNTL registers */
-    GFX_CTRL_CMD_ID_CONSUME_CMD     = 0x000A0000,   /* send interrupt to psp for updating write pointer of vf */
+    GFX_CTRL_CMD_ID_CONSUME_CMD     = 0x00090000,   /* send interrupt to psp for updating write pointer of vf */
     GFX_CTRL_CMD_ID_DESTROY_GPCOM_RING = 0x000C0000, /* destroy GPCOM ring */
 
     GFX_CTRL_CMD_ID_MAX             = 0x000F0000,   /* max command ID */
@@ -82,19 +82,6 @@ struct psp_gfx_ctrl
 *  When PSP GFX I/F is initialized, the flag is set.
 */
 #define GFX_FLAG_RESPONSE               0x80000000
-
-/* Gbr IH registers ID */
-enum ih_reg_id {
-	IH_RB		= 0,		// IH_RB_CNTL
-	IH_RB_RNG1	= 1,		// IH_RB_CNTL_RING1
-	IH_RB_RNG2	= 2,		// IH_RB_CNTL_RING2
-};
-
-/* Command to setup Gibraltar IH register */
-struct psp_gfx_cmd_gbr_ih_reg {
-	uint32_t		reg_value;	/* Value to be set to the IH_RB_CNTL... register*/
-	enum ih_reg_id		reg_id;		/* ID of the register */
-};
 
 /* TEE Gfx Command IDs for the ring buffer interface. */
 enum psp_gfx_cmd_id
