@@ -14,6 +14,12 @@ CONFIG_HOTPLUG_CPU=y
 CONFIG_NR_CPUS=16
 
 ##
+## file: arch/mips/kvm/Kconfig
+##
+CONFIG_VIRTUALIZATION=y
+CONFIG_KVM=y
+
+##
 ## file: arch/mips/loongson64/Kconfig
 ##
 CONFIG_RS780_HPET=y
@@ -72,9 +78,14 @@ CONFIG_8139TOO=m
 CONFIG_OF=y
 
 ##
-## file: drivers/pci/pcie/Kconfig
+## file: drivers/pci/hotplug/Kconfig
 ##
-# CONFIG_PCIEPORTBUS is not set
+CONFIG_HOTPLUG_PCI=y
+
+##
+## file: drivers/platform/goldfish/Kconfig
+##
+CONFIG_GOLDFISH=y
 
 ##
 ## file: drivers/regulator/Kconfig
@@ -85,6 +96,7 @@ CONFIG_REGULATOR=y
 ## file: drivers/rtc/Kconfig
 ##
 CONFIG_RTC_DRV_CMOS=y
+CONFIG_RTC_DRV_GOLDFISH=y
 
 ##
 ## file: drivers/staging/sm750fb/Kconfig

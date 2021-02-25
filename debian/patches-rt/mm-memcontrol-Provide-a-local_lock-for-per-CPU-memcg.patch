@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 18 Aug 2020 10:30:00 +0200
 Subject: [PATCH] mm: memcontrol: Provide a local_lock for per-CPU memcg_stock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 The interrupts are disabled to ensure CPU-local access to the per-CPU
 variable `memcg_stock'.
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -2156,6 +2156,7 @@ void unlock_page_memcg(struct page *page
+@@ -2206,6 +2206,7 @@ void unlock_page_memcg(struct page *page
  EXPORT_SYMBOL(unlock_page_memcg);
  
  struct memcg_stock_pcp {
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct mem_cgroup *cached; /* this never be root cgroup */
  	unsigned int nr_pages;
  
-@@ -2207,7 +2208,7 @@ static bool consume_stock(struct mem_cgr
+@@ -2257,7 +2258,7 @@ static bool consume_stock(struct mem_cgr
  	if (nr_pages > MEMCG_CHARGE_BATCH)
  		return ret;
  
@@ -38,7 +38,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	stock = this_cpu_ptr(&memcg_stock);
  	if (memcg == stock->cached && stock->nr_pages >= nr_pages) {
-@@ -2215,7 +2216,7 @@ static bool consume_stock(struct mem_cgr
+@@ -2265,7 +2266,7 @@ static bool consume_stock(struct mem_cgr
  		ret = true;
  	}
  
@@ -47,7 +47,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return ret;
  }
-@@ -2250,14 +2251,14 @@ static void drain_local_stock(struct wor
+@@ -2300,14 +2301,14 @@ static void drain_local_stock(struct wor
  	 * The only protection from memory hotplug vs. drain_stock races is
  	 * that we always operate on local CPU stock here with IRQ disabled
  	 */
@@ -64,7 +64,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /*
-@@ -2269,7 +2270,7 @@ static void refill_stock(struct mem_cgro
+@@ -2319,7 +2320,7 @@ static void refill_stock(struct mem_cgro
  	struct memcg_stock_pcp *stock;
  	unsigned long flags;
  
@@ -73,7 +73,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	stock = this_cpu_ptr(&memcg_stock);
  	if (stock->cached != memcg) { /* reset if necessary */
-@@ -2282,7 +2283,7 @@ static void refill_stock(struct mem_cgro
+@@ -2332,7 +2333,7 @@ static void refill_stock(struct mem_cgro
  	if (stock->nr_pages > MEMCG_CHARGE_BATCH)
  		drain_stock(stock);
  
@@ -82,7 +82,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /*
-@@ -3086,7 +3087,7 @@ static bool consume_obj_stock(struct obj
+@@ -3145,7 +3146,7 @@ static bool consume_obj_stock(struct obj
  	unsigned long flags;
  	bool ret = false;
  
@@ -91,7 +91,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	stock = this_cpu_ptr(&memcg_stock);
  	if (objcg == stock->cached_objcg && stock->nr_bytes >= nr_bytes) {
-@@ -3094,7 +3095,7 @@ static bool consume_obj_stock(struct obj
+@@ -3153,7 +3154,7 @@ static bool consume_obj_stock(struct obj
  		ret = true;
  	}
  
@@ -100,7 +100,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return ret;
  }
-@@ -3153,7 +3154,7 @@ static void refill_obj_stock(struct obj_
+@@ -3212,7 +3213,7 @@ static void refill_obj_stock(struct obj_
  	struct memcg_stock_pcp *stock;
  	unsigned long flags;
  
@@ -109,7 +109,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	stock = this_cpu_ptr(&memcg_stock);
  	if (stock->cached_objcg != objcg) { /* reset if necessary */
-@@ -3167,7 +3168,7 @@ static void refill_obj_stock(struct obj_
+@@ -3226,7 +3227,7 @@ static void refill_obj_stock(struct obj_
  	if (stock->nr_bytes > PAGE_SIZE)
  		drain_obj_stock(stock);
  
@@ -118,7 +118,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  int obj_cgroup_charge(struct obj_cgroup *objcg, gfp_t gfp, size_t size)
-@@ -7052,9 +7053,13 @@ static int __init mem_cgroup_init(void)
+@@ -7138,9 +7139,13 @@ static int __init mem_cgroup_init(void)
  	cpuhp_setup_state_nocalls(CPUHP_MM_MEMCQ_DEAD, "mm/memctrl:dead", NULL,
  				  memcg_hotplug_cpu_dead);
  

@@ -355,6 +355,12 @@
 #define RADIO_RSP_ADDR_POS		(6)
 #define RADIO_RSP_RD_CMD		(3)
 
+/* LTR control (Qu only) */
+#define HPM_MAC_LTR_CSR			0xa0348c
+#define HPM_MAC_LRT_ENABLE_ALL		0xf
+/* also uses CSR_LTR_* for values */
+#define HPM_UMAC_LTR			0xa03480
+
 /* FW monitor */
 #define MON_BUFF_SAMPLE_CTL		(0xa03c00)
 #define MON_BUFF_BASE_ADDR		(0xa03c1c)
@@ -460,6 +466,7 @@ enum {
 #define UREG_DOORBELL_TO_ISR6_NMI_BIT	BIT(0)
 #define UREG_DOORBELL_TO_ISR6_SUSPEND	BIT(18)
 #define UREG_DOORBELL_TO_ISR6_RESUME	BIT(19)
+#define UREG_DOORBELL_TO_ISR6_PNVM	BIT(20)
 
 #define FSEQ_ERROR_CODE			0xA340C8
 #define FSEQ_TOP_INIT_VERSION		0xA34038

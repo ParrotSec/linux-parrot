@@ -1,7 +1,7 @@
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Tue, 22 Mar 2016 11:16:09 +0100
 Subject: [PATCH] mm/zsmalloc: copy with get_cpu_var() and locking
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 get_cpu_var() disables preemption and triggers a might_sleep() splat later.
 This is replaced with get_locked_var().
@@ -47,15 +47,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Object location (<PFN>, <obj_idx>) is encoded as
   * a single (unsigned long) handle value.
-@@ -293,6 +308,7 @@
+@@ -293,6 +308,7 @@ struct zspage {
  };
  
  struct mapping_area {
-+	local_lock_t	lock;
++	local_lock_t lock;
  	char *vm_buf; /* copy buffer for objects that span pages */
  	char *vm_addr; /* address of kmap_atomic()'ed pages */
  	enum zs_mapmode vm_mm; /* mapping mode */
-@@ -322,7 +338,7 @@
+@@ -322,7 +338,7 @@ static void SetZsPageMovable(struct zs_p
  
  static int create_cache(struct zs_pool *pool)
  {
@@ -64,7 +64,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  					0, 0, NULL);
  	if (!pool->handle_cachep)
  		return 1;
-@@ -346,9 +362,26 @@
+@@ -346,9 +362,26 @@ static void destroy_cache(struct zs_pool
  
  static unsigned long cache_alloc_handle(struct zs_pool *pool, gfp_t gfp)
  {
@@ -93,7 +93,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static void cache_free_handle(struct zs_pool *pool, unsigned long handle)
  {
-@@ -368,12 +401,18 @@
+@@ -368,12 +401,18 @@ static void cache_free_zspage(struct zs_
  
  static void record_obj(unsigned long handle, unsigned long obj)
  {
@@ -112,7 +112,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /* zpool driver */
-@@ -455,7 +494,10 @@
+@@ -455,7 +494,10 @@ MODULE_ALIAS("zpool-zsmalloc");
  #endif /* CONFIG_ZPOOL */
  
  /* per-cpu VM mapping areas for zspage accesses that cross page boundaries */
@@ -124,7 +124,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static bool is_zspage_isolated(struct zspage *zspage)
  {
-@@ -865,7 +907,13 @@
+@@ -865,7 +907,13 @@ static unsigned long location_to_obj(str
  
  static unsigned long handle_to_obj(unsigned long handle)
  {
@@ -138,7 +138,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static unsigned long obj_to_head(struct page *page, void *obj)
-@@ -879,22 +927,46 @@
+@@ -879,22 +927,46 @@ static unsigned long obj_to_head(struct
  
  static inline int testpin_tag(unsigned long handle)
  {
@@ -185,7 +185,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static void reset_page(struct page *page)
-@@ -1278,7 +1350,8 @@
+@@ -1278,7 +1350,8 @@ void *zs_map_object(struct zs_pool *pool
  	class = pool->size_class[class_idx];
  	off = (class->size * obj_idx) & ~PAGE_MASK;
  
@@ -195,7 +195,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	area->vm_mm = mm;
  	if (off + class->size <= PAGE_SIZE) {
  		/* this object is contained entirely within a page */
-@@ -1332,7 +1405,7 @@
+@@ -1332,7 +1405,7 @@ void zs_unmap_object(struct zs_pool *poo
  
  		__zs_unmap_object(area, pages, off, class->size);
  	}

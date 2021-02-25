@@ -6,7 +6,7 @@ kernel-arch: x86
 
 [build]
 image-file: arch/x86/boot/bzImage
-signed-code: true
+signed-code: false
 vdso: true
 
 [description]

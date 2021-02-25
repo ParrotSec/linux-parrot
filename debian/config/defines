@@ -1,5 +1,5 @@
 [abi]
-abiname: 5
+abiname: 3parrot1
 ignore-changes:
  __cpuhp_*
  bpf_analyzer
@@ -77,6 +77,8 @@ ignore-changes:
 # Not OOT
  nf_nat_masquerade_ipv4_register_notifier
  nf_nat_masquerade_ipv6_register_notifier
+# Not used in OOT (and changed in 5.10.5)
+ dfltcc_*
 # ignore changes to hisi_sas/*
  module:drivers/scsi/hisi_sas/*
 # KVM internal
@@ -95,6 +97,8 @@ ignore-changes:
  module:arch/powerpc/kvm/*
  module:arch/s390/kvm/*
  module:arch/x86/kvm/*
+# used only within arch/s390
+ uv_info
 
 [base]
 arches:

@@ -1,9 +1,6 @@
 ##
 ## file: arch/mips/Kconfig
 ##
-## choice: System type
-CONFIG_MIPS_GENERIC=y
-## end choice
 CONFIG_MIPS_CPS=y
 CONFIG_HIGHMEM=y
 CONFIG_NR_CPUS=16

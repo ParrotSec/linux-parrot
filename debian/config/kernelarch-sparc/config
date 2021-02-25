@@ -1,8 +1,12 @@
 ##
+## file: arch/Kconfig
+##
+CONFIG_SECCOMP=y
+
+##
 ## file: arch/sparc/Kconfig
 ##
 CONFIG_64BIT=y
-CONFIG_SECCOMP=y
 # CONFIG_CMDLINE_BOOL is not set
 CONFIG_SUN_LDOMS=y
 CONFIG_SUN_OPENPROMFS=m

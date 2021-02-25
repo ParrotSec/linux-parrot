@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 28 Oct 2020 11:08:21 +0100
 Subject: [PATCH 3/3] blk-mq: Use llist_head for blk_cpu_done
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 With llist_head it is possible to avoid the locking (the irq-off region)
 when items are added. This makes it possible to add items on a remote
@@ -144,7 +144,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	return true;
-@@ -3877,7 +3849,7 @@ static int __init blk_mq_init(void)
+@@ -3905,7 +3877,7 @@ static int __init blk_mq_init(void)
  	int i;
  
  	for_each_possible_cpu(i)
@@ -155,7 +155,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	cpuhp_setup_state_nocalls(CPUHP_BLOCK_SOFTIRQ_DEAD,
 --- a/include/linux/blkdev.h
 +++ b/include/linux/blkdev.h
-@@ -154,7 +154,7 @@ struct request {
+@@ -153,7 +153,7 @@ struct request {
  	 */
  	union {
  		struct hlist_node hash;	/* merge hash */

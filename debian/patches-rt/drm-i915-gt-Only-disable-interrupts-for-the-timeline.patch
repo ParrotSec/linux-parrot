@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 7 Jul 2020 12:25:11 +0200
 Subject: [PATCH] drm/i915/gt: Only disable interrupts for the timeline lock on
  !force-threaded
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 According to commit
     d67739268cf0e ("drm/i915/gt: Mark up the nested engine-pm timeline lock as irqsafe")
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/gpu/drm/i915/gt/intel_engine_pm.c
 +++ b/drivers/gpu/drm/i915/gt/intel_engine_pm.c
-@@ -59,9 +59,10 @@ static int __engine_unpark(struct intel_
+@@ -60,9 +60,10 @@ static int __engine_unpark(struct intel_
  
  static inline unsigned long __timeline_mark_lock(struct intel_context *ce)
  {
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	mutex_acquire(&ce->timeline->mutex.dep_map, 2, 0, _THIS_IP_);
  
  	return flags;
-@@ -71,7 +72,8 @@ static inline void __timeline_mark_unloc
+@@ -72,7 +73,8 @@ static inline void __timeline_mark_unloc
  					  unsigned long flags)
  {
  	mutex_release(&ce->timeline->mutex.dep_map, _THIS_IP_);

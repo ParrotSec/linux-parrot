@@ -1,7 +1,7 @@
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Fri, 23 Oct 2020 12:12:17 +0200
 Subject: [PATCH 19/19] sched: Comment affine_move_task()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 Signed-off-by: Valentin Schneider <valentin.schneider@arm.com>
 Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
@@ -13,7 +13,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -2084,7 +2084,75 @@ void do_set_cpus_allowed(struct task_str
+@@ -2080,7 +2080,75 @@ void do_set_cpus_allowed(struct task_str
  }
  
  /*
@@ -90,7 +90,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   */
  static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flags *rf,
  			    int dest_cpu, unsigned int flags)
-@@ -2128,6 +2196,7 @@ static int affine_move_task(struct rq *r
+@@ -2124,6 +2192,7 @@ static int affine_move_task(struct rq *r
  	if (!(flags & SCA_MIGRATE_ENABLE)) {
  		/* serialized by p->pi_lock */
  		if (!p->migration_pending) {
@@ -98,7 +98,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			refcount_set(&my_pending.refs, 1);
  			init_completion(&my_pending.done);
  			p->migration_pending = &my_pending;
-@@ -2171,7 +2240,11 @@ static int affine_move_task(struct rq *r
+@@ -2167,7 +2236,11 @@ static int affine_move_task(struct rq *r
  	}
  
  	if (task_running(rq, p) || p->state == TASK_WAKING) {
@@ -111,7 +111,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		task_rq_unlock(rq, p, rf);
  		stop_one_cpu(cpu_of(rq), migration_cpu_stop, &arg);
  
-@@ -2196,6 +2269,10 @@ static int affine_move_task(struct rq *r
+@@ -2192,6 +2265,10 @@ static int affine_move_task(struct rq *r
  	if (refcount_dec_and_test(&pending->refs))
  		wake_up_var(&pending->refs);
  

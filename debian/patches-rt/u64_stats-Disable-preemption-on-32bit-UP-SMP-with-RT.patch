@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 17 Aug 2020 12:28:10 +0200
 Subject: [PATCH] u64_stats: Disable preemption on 32bit-UP/SMP with RT during
  updates
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 On RT the seqcount_t is required even on UP because the softirq can be
 preempted. The IRQ handler is threaded so it is also preemptible.

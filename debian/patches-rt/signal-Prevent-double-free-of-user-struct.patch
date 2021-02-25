@@ -1,7 +1,7 @@
 From: Matt Fleming <matt@codeblueprint.co.uk>
 Date: Tue, 7 Apr 2020 10:54:13 +0100
 Subject: [PATCH] signal: Prevent double-free of user struct
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 The way user struct reference counting works changed significantly with,
 
@@ -33,7 +33,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/signal.c
 +++ b/kernel/signal.c
-@@ -494,8 +494,8 @@ static void sigqueue_free_current(struct
+@@ -495,8 +495,8 @@ static void sigqueue_free_current(struct
  
  	up = q->user;
  	if (rt_prio(current->normal_prio) && !put_task_cache(current, q)) {

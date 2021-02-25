@@ -60,6 +60,11 @@ CONFIG_CRYPTO_SERPENT_SSE2_586=m
 CONFIG_CRYPTO_TWOFISH_586=m
 
 ##
+## file: drivers/accessibility/speakup/Kconfig
+##
+CONFIG_SPEAKUP_SYNTH_DECPC=m
+
+##
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_PATA_CS5520=m
@@ -161,7 +166,7 @@ CONFIG_MOUSE_LOGIBM=m
 CONFIG_MOUSE_PC110PAD=m
 
 ##
-## file: drivers/iommu/Kconfig
+## file: drivers/iommu/intel/Kconfig
 ##
 # CONFIG_INTEL_IOMMU is not set
 
@@ -392,11 +397,6 @@ CONFIG_COMEDI_MULTIQ3=m
 ## file: drivers/staging/olpc_dcon/Kconfig
 ##
 CONFIG_FB_OLPC_DCON=m
-
-##
-## file: drivers/staging/speakup/Kconfig
-##
-CONFIG_SPEAKUP_SYNTH_DECPC=m
 
 ##
 ## file: drivers/tty/Kconfig

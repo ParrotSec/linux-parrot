@@ -14,9 +14,9 @@ it can still be enabled using "pci=bios".
 ---
 --- a/arch/x86/pci/common.c
 +++ b/arch/x86/pci/common.c
-@@ -19,8 +19,8 @@
- #include <asm/pci_x86.h>
+@@ -21,8 +21,8 @@
  #include <asm/setup.h>
+ #include <asm/irqdomain.h>
  
 -unsigned int pci_probe = PCI_PROBE_BIOS | PCI_PROBE_CONF1 | PCI_PROBE_CONF2 |
 -				PCI_PROBE_MMCONF;

@@ -24,9 +24,11 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 [bwh: Forward-ported to 5.5.9:
  - get_cert_list() takes a pointer to status and returns the cert list
  - Adjust filename, context]
+[bwh: Forward-ported to 5.10: MokListRT and MokListXRT are now both
+ loaded through a single code path.]
 ---
- .../platform_certs/load_uefi.c | 35 +++++++++++++++++++++++------------
- 1 file changed, 23 insertions(+), 12 deletions(-)
+ security/integrity/platform_certs/load_uefi.c | 27 ++++++++++++++-----
+ 1 file changed, 21 insertions(+), 6 deletions(-)
 
 --- a/security/integrity/platform_certs/load_uefi.c
 +++ b/security/integrity/platform_certs/load_uefi.c
@@ -45,7 +47,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  
  	*status = efi.get_variable(name, guid, NULL, &lsize, &tmpdb);
  	if (*status == EFI_NOT_FOUND)
-@@ -54,12 +56,20 @@ static __init void *get_cert_list(efi_ch
+@@ -54,13 +56,22 @@ static __init void *get_cert_list(efi_ch
  	if (!db)
  		return NULL;
  
@@ -56,6 +58,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  		pr_err("Error reading db var: 0x%lx\n", *status);
  		return NULL;
  	}
+ 
 +	/* must have positive attributes and no negative attributes */
 +	if ((pos_attr && !(attr & pos_attr)) ||
 +	    (neg_attr && (attr & neg_attr))) {
@@ -64,11 +67,22 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 +		*status = EFI_SECURITY_VIOLATION;
 +		return NULL;
 +	}
- 
++
  	*size = lsize;
  	return db;
-@@ -86,7 +96,8 @@ static int __init load_uefi_certs(void)
- 	 * an error if we can't get them.
+ }
+@@ -115,7 +126,8 @@ load_moklist_certs(const char *list_name
+ 	/* Get MokList(X)RT. It might not exist, so it isn't an error
+ 	 * if we can't get it.
+ 	 */
+-	mok = get_cert_list(list_name_w, &mok_var, &moksize, &status);
++	mok = get_cert_list(list_name_w, &mok_var, &moksize, &status,
++				0, EFI_VARIABLE_NON_VOLATILE);
+ 	if (mok) {
+ 		rc = parse_efi_signature_list(efivar_list_desc,
+ 					      mok, moksize, get_handler);
+@@ -154,7 +166,8 @@ static int __init load_uefi_certs(void)
+ 	 * if we can't get them.
  	 */
  	if (!uefi_check_ignore_db()) {
 -		db = get_cert_list(L"db", &secure_var, &dbsize, &status);
@@ -77,7 +91,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  		if (!db) {
  			if (status == EFI_NOT_FOUND)
  				pr_debug("MODSIGN: db variable wasn't found\n");
-@@ -102,7 +113,8 @@ static int __init load_uefi_certs(void)
+@@ -170,7 +183,8 @@ static int __init load_uefi_certs(void)
  		}
  	}
  
@@ -87,23 +101,3 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	if (!dbx) {
  		if (status == EFI_NOT_FOUND)
  			pr_debug("dbx variable wasn't found\n");
-@@ -121,7 +133,8 @@ static int __init load_uefi_certs(void)
- 	if (!efi_enabled(EFI_SECURE_BOOT))
- 		return 0;
- 
--	mok = get_cert_list(L"MokListRT", &mok_var, &moksize, &status);
-+	mok = get_cert_list(L"MokListRT", &mok_var, &moksize, &status,
-+				0, EFI_VARIABLE_NON_VOLATILE);
- 	if (!mok) {
- 		if (status == EFI_NOT_FOUND)
- 			pr_debug("MokListRT variable wasn't found\n");
-@@ -135,7 +148,8 @@ static int __init load_uefi_certs(void)
- 		kfree(mok);
- 	}
- 
--	mokx = get_cert_list(L"MokListXRT", &mok_var, &mokxsize, &status);
-+	mokx = get_cert_list(L"MokListXRT", &mok_var, &mokxsize, &status,
-+				0, EFI_VARIABLE_NON_VOLATILE);
- 	if (!mokx) {
- 		if (status == EFI_NOT_FOUND)
- 			pr_debug("MokListXRT variable wasn't found\n");

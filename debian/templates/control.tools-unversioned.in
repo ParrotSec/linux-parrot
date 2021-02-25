@@ -61,7 +61,7 @@ Build-Depends:
  libglib2.0-dev,
  libudev-dev,
  libwrap0-dev,
-Depends: usbutils, ${shlibs:Depends}, ${misc:Depends}
+Depends: usb.ids, ${shlibs:Depends}, ${misc:Depends}
 Section: admin
 Description: USB device sharing system over IP network
  USB/IP is a system for sharing USB devices over the network.

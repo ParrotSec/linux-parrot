@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 14 Aug 2020 18:53:34 +0200
 Subject: [PATCH] shmem: Use raw_spinlock_t for ->stat_lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 Each CPU has SHMEM_INO_BATCH inodes available in `->ino_batch' which is
 per-CPU. Access here is serialized by disabling preemption. If the pool is
@@ -97,7 +97,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  	return mpol;
  }
-@@ -3582,9 +3583,10 @@ static int shmem_reconfigure(struct fs_c
+@@ -3592,9 +3593,10 @@ static int shmem_reconfigure(struct fs_c
  	struct shmem_options *ctx = fc->fs_private;
  	struct shmem_sb_info *sbinfo = SHMEM_SB(fc->root->d_sb);
  	unsigned long inodes;
@@ -109,7 +109,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	inodes = sbinfo->max_inodes - sbinfo->free_inodes;
  	if ((ctx->seen & SHMEM_SEEN_BLOCKS) && ctx->blocks) {
  		if (!sbinfo->max_blocks) {
-@@ -3629,14 +3631,15 @@ static int shmem_reconfigure(struct fs_c
+@@ -3639,14 +3641,15 @@ static int shmem_reconfigure(struct fs_c
  	 * Preserve previous mempolicy unless mpol remount option was specified.
  	 */
  	if (ctx->mpol) {
@@ -128,7 +128,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return invalfc(fc, "%s", err);
  }
  
-@@ -3753,7 +3756,7 @@ static int shmem_fill_super(struct super
+@@ -3763,7 +3766,7 @@ static int shmem_fill_super(struct super
  	sbinfo->mpol = ctx->mpol;
  	ctx->mpol = NULL;
  

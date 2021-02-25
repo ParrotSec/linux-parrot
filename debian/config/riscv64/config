@@ -1,8 +1,12 @@
 ##
+## file: arch/Kconfig
+##
+CONFIG_SECCOMP=y
+
+##
 ## file: arch/riscv/Kconfig
 ##
 CONFIG_SMP=y
-CONFIG_SECCOMP=y
 
 ##
 ## file: arch/riscv/Kconfig.socs
@@ -50,6 +54,7 @@ CONFIG_PCI=y
 ##
 ## file: drivers/pci/controller/Kconfig
 ##
+CONFIG_PCI_HOST_GENERIC=y
 CONFIG_PCIE_XILINX=y
 
 ##

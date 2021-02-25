@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 7 Aug 2019 18:15:38 +0200
 Subject: [PATCH] x86: Allow to enable RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 Allow to select RT.
 
@@ -12,7 +12,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -25,6 +25,7 @@ config X86_64
+@@ -27,6 +27,7 @@ config X86_64
  	# Options that are inherently 64-bit kernel only:
  	select ARCH_HAS_GIGANTIC_PAGE
  	select ARCH_SUPPORTS_INT128 if CC_HAS_INT128

@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:11:19 +0200
 Subject: [PATCH 15/22] locking/rtmutex: add sleeping lock implementation
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
-@@ -218,6 +218,10 @@ extern void __cant_sleep(const char *fil
+@@ -220,6 +220,10 @@
   */
  # define might_sleep() \
  	do { __might_sleep(__FILE__, __LINE__, 0); might_resched(); } while (0)
@@ -35,17 +35,17 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /**
   * cant_sleep - annotation for functions that cannot sleep
   *
-@@ -249,6 +253,7 @@ extern void __cant_sleep(const char *fil
+@@ -263,6 +267,7 @@
    static inline void __might_sleep(const char *file, int line,
  				   int preempt_offset) { }
  # define might_sleep() do { might_resched(); } while (0)
 +# define might_sleep_no_state_check() do { might_resched(); } while (0)
  # define cant_sleep() do { } while (0)
+ # define cant_migrate()		do { } while (0)
  # define sched_annotate_sleep() do { } while (0)
- # define non_block_start() do { } while (0)
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
-@@ -118,7 +118,11 @@
+@@ -121,7 +121,11 @@
  /*
   * The preempt_count offset after spin_lock()
   */
@@ -70,7 +70,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /**
   * The rt_mutex structure
   *
-@@ -31,6 +35,7 @@ struct rt_mutex {
+@@ -31,6 +35,7 @@
  	raw_spinlock_t		wait_lock;
  	struct rb_root_cached   waiters;
  	struct task_struct	*owner;
@@ -78,7 +78,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #ifdef CONFIG_DEBUG_LOCK_ALLOC
  	struct lockdep_map	dep_map;
  #endif
-@@ -67,11 +72,19 @@ do { \
+@@ -67,11 +72,19 @@
  #define __DEP_MAP_RT_MUTEX_INITIALIZER(mutexname)
  #endif
  
@@ -103,7 +103,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct rt_mutex mutexname = __RT_MUTEX_INITIALIZER(mutexname)
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -139,6 +139,9 @@ struct task_group;
+@@ -141,6 +141,9 @@
  		smp_store_mb(current->state, (state_value));	\
  	} while (0)
  
@@ -113,7 +113,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #define set_special_state(state_value)					\
  	do {								\
  		unsigned long flags; /* may shadow */			\
-@@ -192,6 +195,9 @@ struct task_group;
+@@ -194,6 +197,9 @@
  #define set_current_state(state_value)					\
  	smp_store_mb(current->state, (state_value))
  
@@ -123,7 +123,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * set_special_state() should be used for those states when the blocking task
   * can not use the regular condition based wait-loop. In that case we must
-@@ -979,6 +985,7 @@ struct task_struct {
+@@ -1014,6 +1020,7 @@
  	raw_spinlock_t			pi_lock;
  
  	struct wake_q_node		wake_q;
@@ -133,7 +133,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* PI waiters blocked on a rt_mutex held by this task: */
 --- a/include/linux/sched/wake_q.h
 +++ b/include/linux/sched/wake_q.h
-@@ -58,6 +58,17 @@ static inline bool wake_q_empty(struct w
+@@ -58,6 +58,17 @@
  
  extern void wake_q_add(struct wake_q_head *head, struct task_struct *task);
  extern void wake_q_add_safe(struct wake_q_head *head, struct task_struct *task);
@@ -353,7 +353,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#endif
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -924,6 +924,7 @@ static struct task_struct *dup_task_stru
+@@ -931,6 +931,7 @@
  	tsk->splice_pipe = NULL;
  	tsk->task_frag.page = NULL;
  	tsk->wake_q.next = NULL;
@@ -363,7 +363,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -1479,6 +1479,7 @@ static int wake_futex_pi(u32 __user *uad
+@@ -1499,6 +1499,7 @@
  	struct task_struct *new_owner;
  	bool postunlock = false;
  	DEFINE_WAKE_Q(wake_q);
@@ -371,14 +371,15 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	int ret = 0;
  
  	new_owner = rt_mutex_next_owner(&pi_state->pi_mutex);
-@@ -1538,13 +1539,13 @@ static int wake_futex_pi(u32 __user *uad
- 	pi_state->owner = new_owner;
- 	raw_spin_unlock(&new_owner->pi_lock);
+@@ -1548,14 +1549,15 @@
+ 		 * not fail.
+ 		 */
+ 		pi_state_update_owner(pi_state, new_owner);
+-		postunlock = __rt_mutex_futex_unlock(&pi_state->pi_mutex, &wake_q);
++		postunlock = __rt_mutex_futex_unlock(&pi_state->pi_mutex, &wake_q,
++						     &wake_sleeper_q);
+ 	}
  
--	postunlock = __rt_mutex_futex_unlock(&pi_state->pi_mutex, &wake_q);
--
-+	postunlock = __rt_mutex_futex_unlock(&pi_state->pi_mutex, &wake_q,
-+					     &wake_sleeper_q);
  out_unlock:
  	raw_spin_unlock_irq(&pi_state->pi_mutex.wait_lock);
  
@@ -388,7 +389,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	return ret;
  }
-@@ -2840,7 +2841,7 @@ static int futex_lock_pi(u32 __user *uad
+@@ -2859,7 +2861,7 @@
  		goto no_block;
  	}
  
@@ -397,7 +398,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * On PREEMPT_RT_FULL, when hb->lock becomes an rt_mutex, we must not
-@@ -3202,7 +3203,7 @@ static int futex_wait_requeue_pi(u32 __u
+@@ -3205,7 +3207,7 @@
  	 * The waiter is allocated on our stack, manipulated by the requeue
  	 * code while we sleep on uaddr.
  	 */
@@ -420,7 +421,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   *
   *  See Documentation/locking/rt-mutex-design.rst for details.
   */
-@@ -233,7 +238,7 @@ static inline bool unlock_rt_mutex_safe(
+@@ -233,7 +238,7 @@
   * Only use with rt_mutex_waiter_{less,equal}()
   */
  #define task_to_waiter(p)	\
@@ -429,7 +430,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static inline int
  rt_mutex_waiter_less(struct rt_mutex_waiter *left,
-@@ -273,6 +278,27 @@ rt_mutex_waiter_equal(struct rt_mutex_wa
+@@ -273,6 +278,27 @@
  	return 1;
  }
  
@@ -457,7 +458,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static void
  rt_mutex_enqueue(struct rt_mutex *lock, struct rt_mutex_waiter *waiter)
  {
-@@ -377,6 +403,14 @@ static bool rt_mutex_cond_detect_deadloc
+@@ -377,6 +403,14 @@
  	return debug_rt_mutex_detect_deadlock(waiter, chwalk);
  }
  
@@ -472,7 +473,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Max number of times we'll walk the boosting chain:
   */
-@@ -700,13 +734,16 @@ static int rt_mutex_adjust_prio_chain(st
+@@ -700,13 +734,16 @@
  	 * follow here. This is the end of the chain we are walking.
  	 */
  	if (!rt_mutex_owner(lock)) {
@@ -491,7 +492,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		raw_spin_unlock_irq(&lock->wait_lock);
  		return 0;
  	}
-@@ -807,9 +844,11 @@ static int rt_mutex_adjust_prio_chain(st
+@@ -807,9 +844,11 @@
   * @task:   The task which wants to acquire the lock
   * @waiter: The waiter that is queued to the lock's wait tree if the
   *	    callsite called task_blocked_on_lock(), otherwise NULL
@@ -505,7 +506,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	lockdep_assert_held(&lock->wait_lock);
  
-@@ -845,12 +884,11 @@ static int try_to_take_rt_mutex(struct r
+@@ -845,12 +884,11 @@
  	 */
  	if (waiter) {
  		/*
@@ -521,7 +522,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/*
  		 * We can acquire the lock. Remove the waiter from the
  		 * lock waiters tree.
-@@ -868,14 +906,12 @@ static int try_to_take_rt_mutex(struct r
+@@ -868,14 +906,12 @@
  		 */
  		if (rt_mutex_has_waiters(lock)) {
  			/*
@@ -540,7 +541,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			/*
  			 * The current top waiter stays enqueued. We
  			 * don't have to change anything in the lock
-@@ -922,6 +958,289 @@ static int try_to_take_rt_mutex(struct r
+@@ -922,6 +958,289 @@
  	return 1;
  }
  
@@ -830,7 +831,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * Task blocks on lock.
   *
-@@ -1035,6 +1354,7 @@ static int task_blocks_on_rt_mutex(struc
+@@ -1035,6 +1354,7 @@
   * Called with lock->wait_lock held and interrupts disabled.
   */
  static void mark_wakeup_next_waiter(struct wake_q_head *wake_q,
@@ -838,7 +839,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				    struct rt_mutex *lock)
  {
  	struct rt_mutex_waiter *waiter;
-@@ -1074,7 +1394,10 @@ static void mark_wakeup_next_waiter(stru
+@@ -1074,7 +1394,10 @@
  	 * Pairs with preempt_enable() in rt_mutex_postunlock();
  	 */
  	preempt_disable();
@@ -850,7 +851,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	raw_spin_unlock(&current->pi_lock);
  }
  
-@@ -1158,21 +1481,22 @@ void rt_mutex_adjust_pi(struct task_stru
+@@ -1158,21 +1481,22 @@
  		return;
  	}
  	next_lock = waiter->lock;
@@ -875,7 +876,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -1283,7 +1607,7 @@ rt_mutex_slowlock(struct rt_mutex *lock,
+@@ -1283,7 +1607,7 @@
  	unsigned long flags;
  	int ret = 0;
  
@@ -884,7 +885,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * Technically we could use raw_spin_[un]lock_irq() here, but this can
-@@ -1356,7 +1680,8 @@ static inline int rt_mutex_slowtrylock(s
+@@ -1356,7 +1680,8 @@
   * Return whether the current task needs to call rt_mutex_postunlock().
   */
  static bool __sched rt_mutex_slowunlock(struct rt_mutex *lock,
@@ -894,7 +895,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	unsigned long flags;
  
-@@ -1410,7 +1735,7 @@ static bool __sched rt_mutex_slowunlock(
+@@ -1410,7 +1735,7 @@
  	 *
  	 * Queue the next waiter for wakeup once we release the wait_lock.
  	 */
@@ -903,7 +904,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
  
  	return true; /* call rt_mutex_postunlock() */
-@@ -1447,9 +1772,11 @@ rt_mutex_fasttrylock(struct rt_mutex *lo
+@@ -1447,9 +1772,11 @@
  /*
   * Performs the wakeup of the the top-waiter and re-enables preemption.
   */
@@ -916,7 +917,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/* Pairs with preempt_disable() in rt_mutex_slowunlock() */
  	preempt_enable();
-@@ -1458,15 +1785,17 @@ void rt_mutex_postunlock(struct wake_q_h
+@@ -1458,15 +1785,17 @@
  static inline void
  rt_mutex_fastunlock(struct rt_mutex *lock,
  		    bool (*slowfn)(struct rt_mutex *lock,
@@ -937,7 +938,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  int __sched __rt_mutex_lock_state(struct rt_mutex *lock, int state)
-@@ -1597,16 +1926,13 @@ void __sched __rt_mutex_unlock(struct rt
+@@ -1597,16 +1926,13 @@
  void __sched rt_mutex_unlock(struct rt_mutex *lock)
  {
  	mutex_release(&lock->dep_map, _RET_IP_);
@@ -958,7 +959,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	lockdep_assert_held(&lock->wait_lock);
  
-@@ -1623,23 +1949,35 @@ bool __sched __rt_mutex_futex_unlock(str
+@@ -1623,23 +1949,35 @@
  	 * avoid inversion prior to the wakeup.  preempt_disable()
  	 * therein pairs with rt_mutex_postunlock().
  	 */
@@ -997,7 +998,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /**
-@@ -1675,7 +2013,7 @@ void __rt_mutex_init(struct rt_mutex *lo
+@@ -1675,7 +2013,7 @@
  	if (name && key)
  		debug_rt_mutex_init(lock, name, key);
  }
@@ -1006,7 +1007,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  /**
   * rt_mutex_init_proxy_locked - initialize and lock a rt_mutex on behalf of a
-@@ -1695,6 +2033,14 @@ void rt_mutex_init_proxy_locked(struct r
+@@ -1695,6 +2033,14 @@
  				struct task_struct *proxy_owner)
  {
  	__rt_mutex_init(lock, NULL, NULL);
@@ -1021,7 +1022,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	debug_rt_mutex_proxy_lock(lock, proxy_owner);
  	rt_mutex_set_owner(lock, proxy_owner);
  }
-@@ -1718,6 +2064,26 @@ void rt_mutex_proxy_unlock(struct rt_mut
+@@ -1717,6 +2063,26 @@
  	rt_mutex_set_owner(lock, NULL);
  }
  
@@ -1048,7 +1049,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /**
   * __rt_mutex_start_proxy_lock() - Start lock acquisition for another task
   * @lock:		the rt_mutex to take
-@@ -1790,6 +2156,9 @@ int __rt_mutex_start_proxy_lock(struct r
+@@ -1789,6 +2155,9 @@
  		ret = 0;
  	}
  
@@ -1058,7 +1059,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return ret;
  }
  
-@@ -1879,6 +2248,9 @@ int rt_mutex_wait_proxy_lock(struct rt_m
+@@ -1878,6 +2247,9 @@
  	 * have to fix that up.
  	 */
  	fixup_rt_mutex_waiters(lock);
@@ -1070,7 +1071,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return ret;
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
-@@ -31,6 +31,7 @@ struct rt_mutex_waiter {
+@@ -31,6 +31,7 @@
  	struct task_struct	*task;
  	struct rt_mutex		*lock;
  	int prio;
@@ -1078,16 +1079,16 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	u64 deadline;
  };
  
-@@ -134,7 +135,7 @@ extern void rt_mutex_init_proxy_locked(s
+@@ -133,7 +134,7 @@
+ extern void rt_mutex_init_proxy_locked(struct rt_mutex *lock,
  				       struct task_struct *proxy_owner);
- extern void rt_mutex_proxy_unlock(struct rt_mutex *lock,
- 				  struct task_struct *proxy_owner);
+ extern void rt_mutex_proxy_unlock(struct rt_mutex *lock);
 -extern void rt_mutex_init_waiter(struct rt_mutex_waiter *waiter);
 +extern void rt_mutex_init_waiter(struct rt_mutex_waiter *waiter, bool savetate);
  extern int __rt_mutex_start_proxy_lock(struct rt_mutex *lock,
  				     struct rt_mutex_waiter *waiter,
  				     struct task_struct *task);
-@@ -152,9 +153,12 @@ extern int __rt_mutex_futex_trylock(stru
+@@ -151,9 +152,12 @@
  
  extern void rt_mutex_futex_unlock(struct rt_mutex *lock);
  extern bool __rt_mutex_futex_unlock(struct rt_mutex *lock,
@@ -1102,7 +1103,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /* RW semaphore special interface */
  
  extern int __rt_mutex_lock_state(struct rt_mutex *lock, int state);
-@@ -164,6 +168,10 @@ int __sched rt_mutex_slowlock_locked(str
+@@ -163,6 +167,10 @@
  				     struct hrtimer_sleeper *timeout,
  				     enum rtmutex_chainwalk chwalk,
  				     struct rt_mutex_waiter *waiter);
@@ -1115,7 +1116,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  # include "rtmutex-debug.h"
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -511,9 +511,15 @@ static bool set_nr_if_polling(struct tas
+@@ -512,9 +512,15 @@
  #endif
  #endif
  
@@ -1133,7 +1134,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * Atomically grab the task, if ->wake_q is !nil already it means
-@@ -549,7 +555,13 @@ static bool __wake_q_add(struct wake_q_h
+@@ -550,7 +556,13 @@
   */
  void wake_q_add(struct wake_q_head *head, struct task_struct *task)
  {
@@ -1148,7 +1149,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		get_task_struct(task);
  }
  
-@@ -572,28 +584,39 @@ void wake_q_add(struct wake_q_head *head
+@@ -573,28 +585,39 @@
   */
  void wake_q_add_safe(struct wake_q_head *head, struct task_struct *task)
  {

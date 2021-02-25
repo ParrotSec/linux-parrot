@@ -1,7 +1,7 @@
 Subject: drm,radeon,i915: Use preempt_disable/enable_rt() where recommended
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Sat, 27 Feb 2016 08:09:11 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 DRM folks identified the spots, so use them.
 
@@ -16,7 +16,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
 --- a/drivers/gpu/drm/i915/i915_irq.c
 +++ b/drivers/gpu/drm/i915/i915_irq.c
-@@ -865,6 +865,7 @@ static bool i915_get_crtc_scanoutpos(str
+@@ -847,6 +847,7 @@ static bool i915_get_crtc_scanoutpos(str
  	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
  
  	/* preempt_disable_rt() should go right here in PREEMPT_RT patchset. */
@@ -24,7 +24,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	/* Get optional system timestamp before query. */
  	if (stime)
-@@ -916,6 +917,7 @@ static bool i915_get_crtc_scanoutpos(str
+@@ -898,6 +899,7 @@ static bool i915_get_crtc_scanoutpos(str
  		*etime = ktime_get();
  
  	/* preempt_enable_rt() should go right here in PREEMPT_RT patchset. */

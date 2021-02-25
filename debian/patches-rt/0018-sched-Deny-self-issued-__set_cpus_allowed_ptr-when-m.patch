@@ -2,7 +2,7 @@ From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Fri, 23 Oct 2020 12:12:16 +0200
 Subject: [PATCH 18/19] sched: Deny self-issued __set_cpus_allowed_ptr() when
  migrate_disable()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
   migrate_disable();
   set_cpus_allowed_ptr(current, {something excluding task_cpu(current)});
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -2244,8 +2244,17 @@ static int __set_cpus_allowed_ptr(struct
+@@ -2240,8 +2240,17 @@ static int __set_cpus_allowed_ptr(struct
  		goto out;
  	}
  

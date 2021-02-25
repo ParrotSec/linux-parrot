@@ -1,11 +1,15 @@
 ##
+## file: arch/Kconfig
+##
+CONFIG_SECCOMP=y
+
+##
 ## file: arch/arm/Kconfig
 ##
 CONFIG_MMU=y
 CONFIG_AEABI=y
 # CONFIG_OABI_COMPAT is not set
 CONFIG_CPU_SW_DOMAIN_PAN=y
-CONFIG_SECCOMP=y
 CONFIG_KEXEC=y
 CONFIG_CRASH_DUMP=y
 
@@ -14,6 +18,7 @@ CONFIG_CRASH_DUMP=y
 ##
 CONFIG_CRYPTO_SHA1_ARM=m
 CONFIG_CRYPTO_AES_ARM=m
+CONFIG_CRYPTO_NHPOLY1305_NEON=m
 
 ##
 ## file: arch/arm/Kconfig.debug
@@ -27,6 +32,12 @@ CONFIG_EARLY_PRINTK=y
 ##
 #. Support Thumb user binaries
 CONFIG_ARM_THUMB=y
+
+##
+## file: drivers/gpu/drm/vc4/Kconfig
+##
+CONFIG_DRM_VC4=m
+CONFIG_DRM_VC4_HDMI_CEC=y
 
 ##
 ## file: drivers/iio/humidity/Kconfig

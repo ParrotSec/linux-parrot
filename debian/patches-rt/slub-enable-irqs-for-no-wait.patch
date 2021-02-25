@@ -1,7 +1,7 @@
 Subject: slub: Enable irqs for __GFP_WAIT
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 09 Jan 2013 12:08:15 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 SYSTEM_RUNNING might be too late for enabling interrupts. Allocations
 with GFP_WAIT can happen before that. So use this as an indicator.
@@ -46,7 +46,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  		local_irq_disable();
  	if (!page)
  		return NULL;
-@@ -2861,6 +2869,10 @@ static __always_inline void *slab_alloc_
+@@ -2865,6 +2873,10 @@ static __always_inline void *slab_alloc_
  	unsigned long tid;
  	struct obj_cgroup *objcg = NULL;
  
@@ -57,7 +57,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	s = slab_pre_alloc_hook(s, &objcg, 1, gfpflags);
  	if (!s)
  		return NULL;
-@@ -3326,6 +3338,10 @@ int kmem_cache_alloc_bulk(struct kmem_ca
+@@ -3331,6 +3343,10 @@ int kmem_cache_alloc_bulk(struct kmem_ca
  	int i;
  	struct obj_cgroup *objcg = NULL;
  

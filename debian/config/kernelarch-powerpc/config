@@ -1,11 +1,14 @@
 ##
+## file: arch/Kconfig
+##
+CONFIG_SECCOMP=y
+
+##
 ## file: arch/powerpc/Kconfig
 ##
 # CONFIG_HOTPLUG_CPU is not set
 CONFIG_KEXEC=y
-CONFIG_CMDLINE_BOOL=y
 CONFIG_CMDLINE="console=ttyS0,9600 console=tty0"
-CONFIG_SECCOMP=y
 # CONFIG_ADVANCED_OPTIONS is not set
 
 ##
@@ -31,7 +34,6 @@ CONFIG_VIRTUALIZATION=y
 ##
 CONFIG_KVM_GUEST=y
 CONFIG_RTAS_PROC=y
-CONFIG_PPC601_SYNC_FIX=y
 CONFIG_TAU=y
 # CONFIG_TAU_INT is not set
 # CONFIG_TAU_AVERAGE is not set

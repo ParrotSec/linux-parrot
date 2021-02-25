@@ -1,7 +1,7 @@
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:13 +0200
 Subject: [PATCH 15/19] sched: Fix migrate_disable() vs rt/dl balancing
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 In order to minimize the interference of migrate_disable() on lower
 priority tasks, which can be deprived of runtime due to being stuck
@@ -83,7 +83,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * The reason we have it anyway.
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -715,8 +715,9 @@ struct task_struct {
+@@ -724,8 +724,9 @@ struct task_struct {
  	cpumask_t			cpus_mask;
  	void				*migration_pending;
  #if defined(CONFIG_SMP) && defined(CONFIG_PREEMPT_RT)
@@ -96,7 +96,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	int				rcu_read_lock_nesting;
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1767,11 +1767,6 @@ void migrate_enable(void)
+@@ -1763,11 +1763,6 @@ void migrate_enable(void)
  }
  EXPORT_SYMBOL_GPL(migrate_enable);
  
@@ -108,7 +108,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static inline bool rq_has_pinned_tasks(struct rq *rq)
  {
  	return rq->nr_pinned;
-@@ -1976,6 +1971,49 @@ static int migration_cpu_stop(void *data
+@@ -1972,6 +1967,49 @@ static int migration_cpu_stop(void *data
  	return 0;
  }
  
@@ -158,7 +158,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /*
   * sched_class::set_cpus_allowed must do the below, but is not required to
   * actually call this function.
-@@ -2056,6 +2094,14 @@ static int affine_move_task(struct rq *r
+@@ -2052,6 +2090,14 @@ static int affine_move_task(struct rq *r
  
  	/* Can the task run on the task's current CPU? If so, we're done */
  	if (cpumask_test_cpu(task_cpu(p), &p->cpus_mask)) {
@@ -173,7 +173,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		pending = p->migration_pending;
  		if (pending) {
  			refcount_inc(&pending->refs);
-@@ -2064,6 +2110,11 @@ static int affine_move_task(struct rq *r
+@@ -2060,6 +2106,11 @@ static int affine_move_task(struct rq *r
  		}
  		task_rq_unlock(rq, p, rf);
  
@@ -185,7 +185,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		if (complete)
  			goto do_complete;
  
-@@ -2100,6 +2151,7 @@ static int affine_move_task(struct rq *r
+@@ -2096,6 +2147,7 @@ static int affine_move_task(struct rq *r
  	if (flags & SCA_MIGRATE_ENABLE) {
  
  		refcount_inc(&pending->refs); /* pending->{arg,stop_work} */
@@ -193,7 +193,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		task_rq_unlock(rq, p, rf);
  
  		pending->arg = (struct migration_arg) {
-@@ -2718,11 +2770,6 @@ static inline int __set_cpus_allowed_ptr
+@@ -2714,11 +2766,6 @@ static inline int __set_cpus_allowed_ptr
  
  static inline void migrate_disable_switch(struct rq *rq, struct task_struct *p) { }
  
@@ -207,7 +207,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return false;
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
-@@ -2105,6 +2105,9 @@ static int push_dl_task(struct rq *rq)
+@@ -2135,6 +2135,9 @@ static int push_dl_task(struct rq *rq)
  		return 0;
  
  retry:
@@ -217,7 +217,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (WARN_ON(next_task == rq->curr))
  		return 0;
  
-@@ -2182,7 +2185,7 @@ static void push_dl_tasks(struct rq *rq)
+@@ -2212,7 +2215,7 @@ static void push_dl_tasks(struct rq *rq)
  static void pull_dl_task(struct rq *this_rq)
  {
  	int this_cpu = this_rq->cpu, cpu;
@@ -226,7 +226,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	bool resched = false;
  	struct rq *src_rq;
  	u64 dmin = LONG_MAX;
-@@ -2212,6 +2215,7 @@ static void pull_dl_task(struct rq *this
+@@ -2242,6 +2245,7 @@ static void pull_dl_task(struct rq *this
  			continue;
  
  		/* Might drop this_rq->lock */
@@ -234,7 +234,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		double_lock_balance(this_rq, src_rq);
  
  		/*
-@@ -2243,17 +2247,27 @@ static void pull_dl_task(struct rq *this
+@@ -2273,17 +2277,27 @@ static void pull_dl_task(struct rq *this
  					   src_rq->curr->dl.deadline))
  				goto skip;
  
@@ -268,7 +268,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	if (resched)
-@@ -2500,6 +2514,7 @@ const struct sched_class dl_sched_class
+@@ -2530,6 +2544,7 @@ const struct sched_class dl_sched_class
  	.rq_online              = rq_online_dl,
  	.rq_offline             = rq_offline_dl,
  	.task_woken		= task_woken_dl,
@@ -416,7 +416,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	.task_tick		= task_tick_rt,
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -1057,6 +1057,8 @@ struct rq {
+@@ -1051,6 +1051,8 @@ struct rq {
  #if defined(CONFIG_PREEMPT_RT) && defined(CONFIG_SMP)
  	unsigned int		nr_pinned;
  #endif
@@ -425,7 +425,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  };
  
  #ifdef CONFIG_FAIR_GROUP_SCHED
-@@ -1084,6 +1086,16 @@ static inline int cpu_of(struct rq *rq)
+@@ -1078,6 +1080,16 @@ static inline int cpu_of(struct rq *rq)
  #endif
  }
  
@@ -442,7 +442,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  #ifdef CONFIG_SCHED_SMT
  extern void __update_idle_core(struct rq *rq);
-@@ -1816,6 +1828,8 @@ struct sched_class {
+@@ -1817,6 +1829,8 @@ struct sched_class {
  
  	void (*rq_online)(struct rq *rq);
  	void (*rq_offline)(struct rq *rq);
@@ -451,7 +451,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif
  
  	void (*task_tick)(struct rq *rq, struct task_struct *p, int queued);
-@@ -1911,6 +1925,24 @@ extern void trigger_load_balance(struct
+@@ -1912,6 +1926,24 @@ extern void trigger_load_balance(struct
  
  extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask, u32 flags);
  

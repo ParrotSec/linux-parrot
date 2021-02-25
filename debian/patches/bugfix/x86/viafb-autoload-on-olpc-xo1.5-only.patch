@@ -16,7 +16,7 @@ un-blacklist it in udev.
 ---
 --- a/drivers/video/fbdev/via/via-core.c
 +++ b/drivers/video/fbdev/via/via-core.c
-@@ -753,7 +753,14 @@ static struct pci_device_id via_pci_tabl
+@@ -695,7 +695,14 @@ static const struct pci_device_id via_pc
  	  .driver_data = UNICHROME_VX900 },
  	{ }
  };
@@ -30,5 +30,5 @@ un-blacklist it in udev.
 +};
 +MODULE_DEVICE_TABLE(pci, via_pci_autoload_table);
  
- static struct pci_driver via_driver = {
- 	.name		= "viafb",
+ static const struct dev_pm_ops via_pm_ops = {
+ #ifdef CONFIG_PM_SLEEP

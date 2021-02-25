@@ -29,16 +29,18 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  - Since Xen does not have a property name defined for Secure Boot mode,
    change efi_get_fdt_prop() to handle a missing property name by clearing
    the output variable]
+[Salvatore Bonaccorso: Forward-ported to 5.10: f30f242fb131 ("efi: Rename
+arm-init to efi-init common for all arch") renamed arm-init.c to efi-init.c]
 ---
- drivers/firmware/efi/arm-init.c    |    5 ++++-
+ drivers/firmware/efi/efi-init.c    |    5 ++++-
  drivers/firmware/efi/fdtparams.c   |   12 +++++++++++-
  drivers/firmware/efi/libstub/fdt.c |    6 ++++++
  include/linux/efi.h                |    3 ++-
  4 files changed, 23 insertions(+), 3 deletions(-)
 
---- a/drivers/firmware/efi/arm-init.c
-+++ b/drivers/firmware/efi/arm-init.c
-@@ -206,9 +206,10 @@ void __init efi_init(void)
+--- a/drivers/firmware/efi/efi-init.c
++++ b/drivers/firmware/efi/efi-init.c
+@@ -210,9 +210,10 @@ void __init efi_init(void)
  {
  	struct efi_memory_map_data data;
  	u64 efi_system_table;
@@ -50,7 +52,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  	if (!efi_system_table)
  		return;
  
-@@ -230,6 +231,8 @@ void __init efi_init(void)
+@@ -234,6 +235,8 @@ void __init efi_init(void)
  		return;
  	}
  
@@ -58,7 +60,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
 +
  	reserve_regions();
  	efi_esrt_init();
- 
+ 	efi_mokvar_table_init();
 --- a/drivers/firmware/efi/fdtparams.c
 +++ b/drivers/firmware/efi/fdtparams.c
 @@ -16,6 +16,7 @@ enum {
@@ -124,7 +126,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  	BUILD_BUG_ON(ARRAY_SIZE(target) != ARRAY_SIZE(name));
 --- a/drivers/firmware/efi/libstub/fdt.c
 +++ b/drivers/firmware/efi/libstub/fdt.c
-@@ -150,6 +150,12 @@ static efi_status_t update_fdt(void *ori
+@@ -148,6 +148,12 @@ static efi_status_t update_fdt(void *ori
  		}
  	}
  
@@ -139,7 +141,7 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  
 --- a/include/linux/efi.h
 +++ b/include/linux/efi.h
-@@ -655,7 +655,8 @@ extern void efi_mem_reserve(phys_addr_t
+@@ -665,7 +665,8 @@ extern void efi_mem_reserve(phys_addr_t
  extern int efi_mem_reserve_persistent(phys_addr_t addr, u64 size);
  extern void efi_initialize_iomem_resources(struct resource *code_resource,
  		struct resource *data_resource, struct resource *bss_resource);

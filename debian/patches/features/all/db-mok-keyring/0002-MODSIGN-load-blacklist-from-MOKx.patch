@@ -1,37 +1,100 @@
-From: "Lee, Chun-Yi" <joeyli.kernel@gmail.com>
-Date: Tue, 13 Mar 2018 18:38:01 +0800
-Subject: [PATCH 2/4] MODSIGN: load blacklist from MOKx
-Origin: https://lore.kernel.org/patchwork/patch/933177/
+From: Ben Hutchings <benh@debian.org>
+Date: Sun, 15 Nov 2020 01:01:03 +0000
+Subject: MODSIGN: load blacklist from MOKx
+
+Loosely based on a patch by "Lee, Chun-Yi" <joeyli.kernel@gmail.com>
+at <https://lore.kernel.org/patchwork/patch/933177/> which was later
+rebased by Luca Boccassi.
 
 This patch adds the logic to load the blacklisted hash and
 certificates from MOKx which is maintained by shim bootloader.
 
-Cc: David Howells <dhowells@redhat.com>
-Cc: Josh Boyer <jwboyer@fedoraproject.org>
-Cc: James Bottomley <James.Bottomley@HansenPartnership.com>
-Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
-[Rebased by Luca Boccassi]
-[bwh: Forward-ported to 5.5.9:
- - get_cert_list() takes a pointer to status and returns the cert list
- - Adjust filename]
+Since MOK list loading became more complicated in 5.10 and was moved
+to load_moklist_certs(), add parameters to that and call it once for
+each of MokListRT and MokListXRT.
+
+Signed-off-by: Ben Hutchings <benh@debian.org>
 ---
- security/integrity/platform_certs/load_uefi.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ security/integrity/platform_certs/load_uefi.c |   47 +++++++++++++++++---------
+ 1 file changed, 31 insertions(+), 16 deletions(-)
 
 --- a/security/integrity/platform_certs/load_uefi.c
 +++ b/security/integrity/platform_certs/load_uefi.c
-@@ -74,8 +74,8 @@ static int __init load_uefi_certs(void)
+@@ -76,49 +76,59 @@ static __init void *get_cert_list(efi_ch
+  *
+  * Return:	Status
+  */
+-static int __init load_moklist_certs(void)
++static int __init
++load_moklist_certs(const char *list_name, efi_char16_t *list_name_w,
++		   efi_element_handler_t (*get_handler)(const efi_guid_t *))
  {
- 	efi_guid_t secure_var = EFI_IMAGE_SECURITY_DATABASE_GUID;
+ 	struct efi_mokvar_table_entry *mokvar_entry;
  	efi_guid_t mok_var = EFI_SHIM_LOCK_GUID;
--	void *db = NULL, *dbx = NULL, *mok = NULL;
--	unsigned long dbsize = 0, dbxsize = 0, moksize = 0;
-+	void *db = NULL, *dbx = NULL, *mok = NULL, *mokx = NULL;
-+	unsigned long dbsize = 0, dbxsize = 0, moksize = 0, mokxsize = 0;
+ 	void *mok;
+ 	unsigned long moksize;
  	efi_status_t status;
- 	int rc = 0;
++	char mokvar_list_desc[40];
++	char efivar_list_desc[20];
+ 	int rc;
  
-@@ -117,7 +117,7 @@ static int __init load_uefi_certs(void)
++	snprintf(mokvar_list_desc, sizeof(mokvar_list_desc),
++		 "UEFI:%s (MOKvar table)", list_name);
++	snprintf(efivar_list_desc, sizeof(efivar_list_desc),
++		 "UEFI:%s", list_name);
++
+ 	/* First try to load certs from the EFI MOKvar config table.
+ 	 * It's not an error if the MOKvar config table doesn't exist
+-	 * or the MokListRT entry is not found in it.
++	 * or the MokList(X)RT entry is not found in it.
+ 	 */
+-	mokvar_entry = efi_mokvar_entry_find("MokListRT");
++	mokvar_entry = efi_mokvar_entry_find(list_name);
+ 	if (mokvar_entry) {
+-		rc = parse_efi_signature_list("UEFI:MokListRT (MOKvar table)",
++		rc = parse_efi_signature_list(mokvar_list_desc,
+ 					      mokvar_entry->data,
+ 					      mokvar_entry->data_size,
+-					      get_handler_for_db);
++					      get_handler);
+ 		/* All done if that worked. */
+ 		if (!rc)
+ 			return rc;
+ 
+-		pr_err("Couldn't parse MokListRT signatures from EFI MOKvar config table: %d\n",
+-		       rc);
++		pr_err("Couldn't parse %s signatures from EFI MOKvar config table: %d\n",
++		       list_name, rc);
+ 	}
+ 
+-	/* Get MokListRT. It might not exist, so it isn't an error
++	/* Get MokList(X)RT. It might not exist, so it isn't an error
+ 	 * if we can't get it.
+ 	 */
+-	mok = get_cert_list(L"MokListRT", &mok_var, &moksize, &status);
++	mok = get_cert_list(list_name_w, &mok_var, &moksize, &status);
+ 	if (mok) {
+-		rc = parse_efi_signature_list("UEFI:MokListRT",
+-					      mok, moksize, get_handler_for_db);
++		rc = parse_efi_signature_list(efivar_list_desc,
++					      mok, moksize, get_handler);
+ 		kfree(mok);
+ 		if (rc)
+-			pr_err("Couldn't parse MokListRT signatures: %d\n", rc);
++			pr_err("Couldn't parse %s signatures: %d\n",
++			       list_name, rc);
+ 		return rc;
+ 	}
+ 	if (status == EFI_NOT_FOUND)
+-		pr_debug("MokListRT variable wasn't found\n");
++		pr_debug("%s variable wasn't found\n", list_name);
+ 	else
+-		pr_info("Couldn't get UEFI MokListRT\n");
++		pr_info("Couldn't get UEFI %s\n", list_name);
+ 	return 0;
+ }
+ 
+@@ -175,12 +185,17 @@ static int __init load_uefi_certs(void)
  		kfree(dbx);
  	}
  
@@ -40,25 +103,14 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	if (!efi_enabled(EFI_SECURE_BOOT))
  		return 0;
  
-@@ -135,6 +135,21 @@ static int __init load_uefi_certs(void)
- 		kfree(mok);
- 	}
+ 	/* Load the MokListRT certs */
+-	rc = load_moklist_certs();
++	rc = load_moklist_certs("MokListRT", L"MokListRT",
++				get_handler_for_db);
++	if (rc)
++		return rc;
++	rc = load_moklist_certs("MokListXRT", L"MokListXRT",
++				get_handler_for_dbx);
  
-+	mokx = get_cert_list(L"MokListXRT", &mok_var, &mokxsize, &status);
-+	if (!mokx) {
-+		if (status == EFI_NOT_FOUND)
-+			pr_debug("MokListXRT variable wasn't found\n");
-+		else
-+			pr_info("Couldn't get UEFI MokListXRT\n");
-+	} else {
-+		rc = parse_efi_signature_list("UEFI:mokx",
-+					      mokx, mokxsize,
-+					      get_handler_for_dbx);
-+		if (rc)
-+			pr_err("Couldn't parse MokListXRT signatures: %d\n", rc);
-+		kfree(mokx);
-+	}
-+
  	return rc;
  }
- late_initcall(load_uefi_certs);

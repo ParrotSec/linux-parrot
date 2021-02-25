@@ -1,13 +1,13 @@
 ##
 ## file: arch/Kconfig
 ##
+CONFIG_SECCOMP=y
 # CONFIG_STACKPROTECTOR_STRONG is not set
 
 ##
 ## file: arch/sh/Kconfig
 ##
 CONFIG_KEXEC=y
-CONFIG_SECCOMP=y
 
 ##
 ## file: arch/sh/Kconfig.cpu

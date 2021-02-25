@@ -36,5 +36,5 @@ check-size: 2729712
 check-size-with-dtb: true
 ## Maximum uncompressed kernel size for supported devices
 # Buffalo Linkstation LS-WSXL/WXL/WVL: 7340032
-check-uncompressed-size: 7340032
+#TODO# check-uncompressed-size: 7340032
 breaks: flash-kernel (<< 3.57~)

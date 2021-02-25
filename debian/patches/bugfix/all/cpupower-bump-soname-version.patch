@@ -14,13 +14,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  tools/power/cpupower/Makefile | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/tools/power/cpupower/Makefile b/tools/power/cpupower/Makefile
-index 8358863259c5..0b85f5915ce8 100644
 --- a/tools/power/cpupower/Makefile
 +++ b/tools/power/cpupower/Makefile
-@@ -64,7 +64,7 @@ DESTDIR ?=
+@@ -53,7 +53,7 @@ DESTDIR ?=
  
- VERSION=			$(shell ./utils/version-gen.sh)
+ VERSION:=			$(shell ./utils/version-gen.sh)
  LIB_MAJ=			0.0.1
 -LIB_MIN=			0
 +LIB_MIN=			1

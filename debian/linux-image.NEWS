@@ -1,3 +1,22 @@
+linux (5.10~rc7-1~exp2) unstable; urgency=medium
+
+  * From Linux 5.10, all users are allowed to create user namespaces by
+    default.  This will allow programs such as web browsers and container
+    managers to create more restricted sandboxes for untrusted or
+    less-trusted code, without the need to run as root or to use a
+    setuid-root helper.
+
+    The previous Debian default was to restrict this feature to processes
+    running as root, because it exposed more security issues in the
+    kernel.  However, the security benefits of more widespread sandboxing
+    probably now outweigh this risk.
+
+    If you prefer to keep this feature restricted, set the sysctl:
+
+        kernel.unprivileged_userns_clone = 0
+
+ -- Ben Hutchings <benh@debian.org>  Sun, 13 Dec 2020 17:11:36 +0100
+
 linux-latest (86) unstable; urgency=medium
 
   * From Linux 4.13.10-1, AppArmor is enabled by default.  This allows

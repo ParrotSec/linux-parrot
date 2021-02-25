@@ -7,7 +7,7 @@ Forwarded: not-needed
 
 --- a/.gitignore
 +++ b/.gitignore
-@@ -67,11 +67,6 @@ modules.builtin
+@@ -71,11 +71,6 @@ modules.order
  /*.spec
  
  #
@@ -19,7 +19,7 @@ Forwarded: not-needed
  # Snap directory (make snap-pkg)
  #
  /snap/
-@@ -82,16 +77,6 @@ modules.builtin
+@@ -86,16 +81,6 @@ modules.order
  /tar-install/
  
  #
@@ -36,10 +36,10 @@ Forwarded: not-needed
  # Generated include files
  #
  /include/config/
-@@ -145,3 +130,10 @@ x509.genkey
+@@ -155,3 +140,10 @@ x509.genkey
  
- # Clang's compilation database file
- /compile_commands.json
+ # Documentation toolchain
+ sphinx_*/
 +
 +#
 +# Debian packaging: ignore everything at the top level, since it isn't

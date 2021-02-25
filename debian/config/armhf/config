@@ -28,6 +28,7 @@ CONFIG_EFI=y
 #. Enable floating point unit
 CONFIG_VFP=y
 CONFIG_NEON=y
+CONFIG_KERNEL_MODE_NEON=y
 
 ##
 ## file: arch/arm/Kconfig.debug
@@ -336,6 +337,7 @@ CONFIG_GPIOLIB=y
 CONFIG_GPIO_ASPEED=m
 CONFIG_GPIO_GENERIC_PLATFORM=m
 CONFIG_GPIO_PCA953X=m
+CONFIG_GPIO_PCA953X_IRQ=y
 CONFIG_GPIO_PCF857X=m
 CONFIG_GPIO_DA9052=m
 CONFIG_GPIO_PALMAS=y
@@ -475,11 +477,6 @@ CONFIG_DRM_TEGRA_STAGING=y
 CONFIG_DRM_TILCDC=m
 
 ##
-## file: drivers/gpu/drm/vc4/Kconfig
-##
-CONFIG_DRM_VC4=m
-
-##
 ## file: drivers/gpu/host1x/Kconfig
 ##
 CONFIG_TEGRA_HOST1X=m
@@ -573,28 +570,6 @@ CONFIG_I2C_MUX_PINCTRL=m
 CONFIG_IIO=m
 
 ##
-## file: drivers/iio/accel/Kconfig
-##
-CONFIG_IIO_ST_ACCEL_3AXIS=m
-CONFIG_MMA8452=m
-
-##
-## file: drivers/iio/adc/Kconfig
-##
-CONFIG_ASPEED_ADC=m
-CONFIG_AXP20X_ADC=m
-CONFIG_AXP288_ADC=m
-CONFIG_EXYNOS_ADC=m
-CONFIG_ROCKCHIP_SARADC=m
-CONFIG_TI_AM335X_ADC=m
-CONFIG_TWL4030_MADC=m
-
-##
-## file: drivers/iio/light/Kconfig
-##
-CONFIG_SENSORS_TSL2563=m
-
-##
 ## file: drivers/input/keyboard/Kconfig
 ##
 CONFIG_KEYBOARD_GPIO=y
@@ -681,6 +656,8 @@ CONFIG_MEDIA_CONTROLLER=y
 ##
 CONFIG_VIDEO_ASPEED=m
 CONFIG_VIDEO_OMAP3=m
+CONFIG_VIDEO_CODA=m
+CONFIG_VIDEO_IMX_PXP=m
 CONFIG_VIDEO_TI_VPE=m
 
 ##
@@ -980,10 +957,10 @@ CONFIG_FDDI=y
 CONFIG_SKFP=m
 
 ##
-## file: drivers/net/phy/Kconfig
+## file: drivers/net/mdio/Kconfig
 ##
-CONFIG_MDIO_ASPEED=m
 CONFIG_MDIO_SUN4I=y
+CONFIG_MDIO_ASPEED=m
 
 ##
 ## file: drivers/net/wireless/broadcom/brcm80211/brcmfmac/Kconfig
@@ -1115,8 +1092,6 @@ CONFIG_PINCTRL_WM8850=y
 ##
 ## file: drivers/platform/chrome/Kconfig
 ##
-#. Obsolete compatibility option
-# CONFIG_MFD_CROS_EC is not set
 CONFIG_CHROME_PLATFORMS=y
 CONFIG_CROS_EC=m
 CONFIG_CROS_EC_SPI=m
@@ -1126,12 +1101,6 @@ CONFIG_CROS_EC_SPI=m
 ##
 CONFIG_OLPC_XO175=y
 CONFIG_OLPC_XO175_EC=m
-
-##
-## file: drivers/power/avs/Kconfig
-##
-CONFIG_POWER_AVS=y
-CONFIG_ROCKCHIP_IODOMAIN=m
 
 ##
 ## file: drivers/power/reset/Kconfig
@@ -1270,6 +1239,7 @@ CONFIG_RASPBERRYPI_POWER=y
 ##
 ## file: drivers/soc/rockchip/Kconfig
 ##
+CONFIG_ROCKCHIP_IODOMAIN=m
 CONFIG_ROCKCHIP_PM_DOMAINS=y
 
 ##
@@ -1494,7 +1464,6 @@ CONFIG_USB_MXS_PHY=m
 ##
 ## file: drivers/video/backlight/Kconfig
 ##
-CONFIG_BACKLIGHT_PWM=m
 CONFIG_BACKLIGHT_PANDORA=m
 CONFIG_BACKLIGHT_GPIO=m
 

@@ -67,8 +67,9 @@ CLEAN_PATTERNS := $(BUILD_DIR) $(STAMPS_DIR) debian/lib/python/debian_linux/*.py
 maintainerclean:
 	rm -rf $(CLEAN_PATTERNS)
 # We cannot use dh_clean here because it requires debian/control to exist
-	rm -rf debian/*.debhelper* debian/files
+	rm -rf debian/.debhelper debian/*.debhelper* debian/files
 	rm -f \
+		debian/linux-image-*.NEWS \
 		debian/linux-*.bug-presubj \
 		debian/linux-*.lintian-overrides \
 		debian/linux-*.maintscript \

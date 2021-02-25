@@ -1,9 +1,4 @@
 ##
-## file: arch/powerpc/Kconfig
-##
-# CONFIG_CMDLINE_BOOL is not set
-
-##
 ## file: arch/powerpc/platforms/Kconfig.cputype
 ##
 ## choice: Endianness selection

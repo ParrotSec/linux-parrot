@@ -82,7 +82,7 @@ class Gencontrol(Base):
                     setattr(self, attr, True)
                 else:
                     raise RuntimeError(
-                        'Unable to disable {desc} in release build ({env} set)')
+                        f'Unable to disable {desc} in release build ({env} set)')
 
     def _setup_makeflags(self, names, makeflags, data):
         for src, dst, optional in names:

@@ -10,7 +10,7 @@ Forwarded: no
 
 --- a/tools/perf/Makefile.perf
 +++ b/tools/perf/Makefile.perf
-@@ -854,8 +854,8 @@ endif
+@@ -952,8 +952,8 @@ endif
  ifndef NO_LIBPERL
  	$(call QUIET_INSTALL, perl-scripts) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/Perf-Trace-Util/lib/Perf/Trace'; \
@@ -21,7 +21,7 @@ Forwarded: no
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/bin'; \
  		$(INSTALL) scripts/perl/bin/* -t '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/bin'
  endif
-@@ -869,21 +869,21 @@ ifndef NO_LIBPYTHON
+@@ -967,22 +967,22 @@ ifndef NO_LIBPYTHON
  endif
  	$(call QUIET_INSTALL, perf_completion-script) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(sysconfdir_SQ)/bash_completion.d'; \
@@ -37,6 +37,7 @@ Forwarded: no
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/tests'; \
 -		$(INSTALL) tests/attr.py '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/tests'; \
 +		$(INSTALL) -m 644 tests/attr.py '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/tests'; \
+ 		$(INSTALL) tests/pe-file.exe* '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/tests'; \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/tests/attr'; \
 -		$(INSTALL) tests/attr/* '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/tests/attr'; \
 +		$(INSTALL) -m 644 tests/attr/* '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/tests/attr'; \

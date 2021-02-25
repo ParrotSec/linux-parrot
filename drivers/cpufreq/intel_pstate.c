@@ -1420,6 +1420,24 @@ static void __init intel_pstate_sysfs_expose_params(void)
 	}
 }
 
+static void __init intel_pstate_sysfs_remove(void)
+{
+	if (!intel_pstate_kobject)
+		return;
+
+	sysfs_remove_group(intel_pstate_kobject, &intel_pstate_attr_group);
+
+	if (!per_cpu_limits) {
+		sysfs_remove_file(intel_pstate_kobject, &max_perf_pct.attr);
+		sysfs_remove_file(intel_pstate_kobject, &min_perf_pct.attr);
+
+		if (x86_match_cpu(intel_pstate_cpu_ee_disable_ids))
+			sysfs_remove_file(intel_pstate_kobject, &energy_efficiency.attr);
+	}
+
+	kobject_put(intel_pstate_kobject);
+}
+
 static void intel_pstate_sysfs_expose_hwp_dynamic_boost(void)
 {
 	int rc;
@@ -2189,9 +2207,9 @@ static void intel_pstate_update_perf_limits(struct cpudata *cpu,
 					    unsigned int policy_min,
 					    unsigned int policy_max)
 {
-	int max_freq = intel_pstate_get_max_freq(cpu);
 	int32_t max_policy_perf, min_policy_perf;
 	int max_state, turbo_max;
+	int max_freq;
 
 	/*
 	 * HWP needs some special consideration, because on BDX the
@@ -2205,6 +2223,7 @@ static void intel_pstate_update_perf_limits(struct cpudata *cpu,
 			cpu->pstate.max_pstate : cpu->pstate.turbo_pstate;
 		turbo_max = cpu->pstate.turbo_pstate;
 	}
+	max_freq = max_state * cpu->pstate.scaling;
 
 	max_policy_perf = max_state * policy_max / max_freq;
 	if (policy_max == policy_min) {
@@ -2307,9 +2326,18 @@ static void intel_pstate_adjust_policy_max(struct cpudata *cpu,
 static void intel_pstate_verify_cpu_policy(struct cpudata *cpu,
 					   struct cpufreq_policy_data *policy)
 {
+	int max_freq;
+
 	update_turbo_state();
-	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
-				     intel_pstate_get_max_freq(cpu));
+	if (hwp_active) {
+		int max_state, turbo_max;
+
+		intel_pstate_get_hwp_max(cpu->cpu, &turbo_max, &max_state);
+		max_freq = max_state * cpu->pstate.scaling;
+	} else {
+		max_freq = intel_pstate_get_max_freq(cpu);
+	}
+	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq, max_freq);
 
 	intel_pstate_adjust_policy_max(cpu, policy);
 }
@@ -3064,8 +3092,10 @@ hwp_cpu_matched:
 	mutex_lock(&intel_pstate_driver_lock);
 	rc = intel_pstate_register_driver(default_driver);
 	mutex_unlock(&intel_pstate_driver_lock);
-	if (rc)
+	if (rc) {
+		intel_pstate_sysfs_remove();
 		return rc;
+	}
 
 	if (hwp_active) {
 		const struct x86_cpu_id *id;

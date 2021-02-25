@@ -12,7 +12,7 @@ Forwarded: not-needed
 +++ b/drivers/net/appletalk/Kconfig
 @@ -50,33 +50,6 @@ config LTPC
  	  This driver is experimental, which means that it may not work.
- 	  See the file <file:Documentation/networking/ltpc.rst>.
+ 	  See the file <file:Documentation/networking/device_drivers/appletalk/ltpc.rst>.
  
 -config COPS
 -	tristate "COPS LocalTalk PC support"

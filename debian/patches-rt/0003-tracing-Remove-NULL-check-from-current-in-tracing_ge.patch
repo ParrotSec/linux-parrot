@@ -1,0 +1,33 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 12 Jan 2021 21:01:38 +0100
+Subject: [PATCH 3/3] tracing: Remove NULL check from current in
+ tracing_generic_entry_update().
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+
+I can't imagine when or why `current' would return a NULL pointer. This
+check was added in commit
+      72829bc3d63cd ("ftrace: move enums to ftrace.h and make helper function global")
+
+but it doesn't give me hint why it was needed.
+
+Assume `current' never returns a NULL pointer and remove the check.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/trace_events.h |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+--- a/include/linux/trace_events.h
++++ b/include/linux/trace_events.h
+@@ -152,10 +152,8 @@ static inline void tracing_generic_entry
+ 						unsigned short type,
+ 						unsigned int trace_ctx)
+ {
+-	struct task_struct *tsk = current;
+-
+ 	entry->preempt_count		= trace_ctx & 0xff;
+-	entry->pid			= (tsk) ? tsk->pid : 0;
++	entry->pid			= current->pid;
+ 	entry->type			= type;
+ 	entry->flags =			trace_ctx >> 16;
+ }

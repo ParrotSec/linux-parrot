@@ -17,34 +17,16 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 [bwh: Forward-ported to 5.5.9:
  - get_cert_list() takes a pointer to status and returns the cert list
  - Adjust filename]
+[Salvatore Bonaccorso: Forward-ported to 5.10: Refresh for changes in
+38a1f03aa240 ("integrity: Move import of MokListRT certs to a separate
+routine")]
 ---
  security/integrity/platform_certs/load_uefi.c | 26 +++++++++++++++-----------
  1 file changed, 15 insertions(+), 11 deletions(-)
 
 --- a/security/integrity/platform_certs/load_uefi.c
 +++ b/security/integrity/platform_certs/load_uefi.c
-@@ -102,20 +102,6 @@ static int __init load_uefi_certs(void)
- 		}
- 	}
- 
--	mok = get_cert_list(L"MokListRT", &mok_var, &moksize, &status);
--	if (!mok) {
--		if (status == EFI_NOT_FOUND)
--			pr_debug("MokListRT variable wasn't found\n");
--		else
--			pr_info("Couldn't get UEFI MokListRT\n");
--	} else {
--		rc = parse_efi_signature_list("UEFI:MokListRT",
--					      mok, moksize, get_handler_for_db);
--		if (rc)
--			pr_err("Couldn't parse MokListRT signatures: %d\n", rc);
--		kfree(mok);
--	}
--
- 	dbx = get_cert_list(L"dbx", &secure_var, &dbxsize, &status);
- 	if (!dbx) {
- 		if (status == EFI_NOT_FOUND)
-@@ -131,6 +117,24 @@ static int __init load_uefi_certs(void)
+@@ -175,6 +175,10 @@ static int __init load_uefi_certs(void)
  		kfree(dbx);
  	}
  
@@ -52,20 +34,6 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 +	if (!efi_enabled(EFI_SECURE_BOOT))
 +		return 0;
 +
-+	mok = get_cert_list(L"MokListRT", &mok_var, &moksize, &status);
-+	if (!mok) {
-+		if (status == EFI_NOT_FOUND)
-+			pr_debug("MokListRT variable wasn't found\n");
-+		else
-+			pr_info("Couldn't get UEFI MokListRT\n");
-+	} else {
-+		rc = parse_efi_signature_list("UEFI:MokListRT",
-+					      mok, moksize, get_handler_for_db);
-+		if (rc)
-+			pr_err("Couldn't parse MokListRT signatures: %d\n", rc);
-+		kfree(mok);
-+	}
-+
- 	return rc;
- }
- late_initcall(load_uefi_certs);
+ 	/* Load the MokListRT certs */
+ 	rc = load_moklist_certs();
+ 

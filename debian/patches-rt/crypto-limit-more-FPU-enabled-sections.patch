@@ -4,7 +4,7 @@ Subject: [PATCH] crypto: limit more FPU-enabled sections
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 Those crypto drivers use SSE/AVX/… for their crypto work and in order to
 do so in kernel they need to enable the "FPU" in kernel mode which
@@ -35,17 +35,17 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/arch/x86/include/asm/fpu/api.h
 +++ b/arch/x86/include/asm/fpu/api.h
-@@ -23,6 +23,7 @@ extern void kernel_fpu_begin(void);
+@@ -28,6 +28,7 @@
  extern void kernel_fpu_end(void);
  extern bool irq_fpu_usable(void);
  extern void fpregs_mark_activate(void);
 +extern void kernel_fpu_resched(void);
  
- /*
-  * Use fpregs_lock() while editing CPU's FPU registers or fpu->state.
+ /* Code that is unaware of kernel_fpu_begin_mask() can use this */
+ static inline void kernel_fpu_begin(void)
 --- a/arch/x86/kernel/fpu/core.c
 +++ b/arch/x86/kernel/fpu/core.c
-@@ -158,6 +158,18 @@ void kernel_fpu_end(void)
+@@ -159,6 +159,18 @@
  }
  EXPORT_SYMBOL_GPL(kernel_fpu_end);
  

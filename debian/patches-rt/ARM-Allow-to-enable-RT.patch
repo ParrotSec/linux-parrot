@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 11 Oct 2019 13:14:29 +0200
 Subject: [PATCH] ARM: Allow to enable RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 Allow to select RT.
 
@@ -20,11 +20,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	select ARCH_USE_BUILTIN_BSWAP
  	select ARCH_USE_CMPXCHG_LOCKREF
  	select ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT if MMU
-@@ -118,6 +119,7 @@ config ARM
+@@ -121,6 +122,7 @@ config ARM
  	select OLD_SIGSUSPEND3
  	select PCI_SYSCALL if PCI
  	select PERF_USE_VMALLOC
 +	select HAVE_POSIX_CPU_TIMERS_TASK_WORK if !KVM
  	select RTC_LIB
+ 	select SET_FS
  	select SYS_SUPPORTS_APM_EMULATION
- 	# Above selects are sorted alphabetically; please add new ones

@@ -307,7 +307,7 @@ install-common-headers_$(FEATURESET): $(STAMPS_DIR)/source_$(FEATURESET)
 		echo Makefile; \
 		for arch in $(ALL_KERNEL_ARCHES); do \
 			find arch/$$arch -maxdepth 1 -name 'Makefile*' -print; \
-			find arch/$$arch \( -name 'module.lds' -o -name 'Kbuild.platforms' -o -name 'Platform' \) -print; \
+			find arch/$$arch \( -name 'Kbuild.platforms' -o -name 'Platform' \) -print; \
 			find $$(find arch/$$arch \( -name include -o -name scripts \) -type d -print) -print; \
 		done; \
 		find include -print; \
@@ -345,6 +345,8 @@ install-headers_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/build_$(ARCH)_$(
 		mkdir $(DIR)/arch/$(KERNEL_ARCH)/lib; \
 		cp -a $(SOURCE_DIR)/arch/$(KERNEL_ARCH)/lib/crtsavres.o $(DIR)/arch/$(KERNEL_ARCH)/lib; \
 	fi
+
+	cp -a $(SOURCE_DIR)/scripts/module.lds $(DIR)/arch/$(KERNEL_ARCH)
 
 	@echo 'include $(BASE_DIR_COMMON)/Makefile' >> $(DIR)/Makefile
 

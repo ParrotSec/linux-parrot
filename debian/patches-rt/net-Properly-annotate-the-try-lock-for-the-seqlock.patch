@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 8 Sep 2020 16:57:11 +0200
 Subject: [PATCH] net: Properly annotate the try-lock for the seqlock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.9/older/patches-5.9.1-rt20.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
 
 In patch
    ("net/Qdisc: use a seqlock instead seqcount")
@@ -42,7 +42,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  # define net_seq_begin(__r)		read_seqcount_begin(__r)
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -168,8 +168,16 @@ static inline bool qdisc_run_begin(struc
+@@ -171,8 +171,16 @@ static inline bool qdisc_run_begin(struc
  		return false;
  	}
  #ifdef CONFIG_PREEMPT_RT

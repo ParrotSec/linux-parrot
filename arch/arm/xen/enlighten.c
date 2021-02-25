@@ -158,7 +158,8 @@ static int xen_starting_cpu(unsigned int cpu)
 	BUG_ON(err);
 	per_cpu(xen_vcpu, cpu) = vcpup;
 
-	xen_setup_runstate_info(cpu);
+	if (!xen_kernel_unmapped_at_usr())
+		xen_setup_runstate_info(cpu);
 
 after_register_vcpu_info:
 	enable_percpu_irq(xen_events_irq, 0);
@@ -370,7 +371,7 @@ static int __init xen_guest_init(void)
 	}
 	gnttab_init();
 	if (!xen_initial_domain())
-		xenbus_probe(NULL);
+		xenbus_probe();
 
 	/*
 	 * Making sure board specific code will not set up ops for
@@ -387,7 +388,8 @@ static int __init xen_guest_init(void)
 		return -EINVAL;
 	}
 
-	xen_time_setup_guest();
+	if (!xen_kernel_unmapped_at_usr())
+		xen_time_setup_guest();
 
 	if (xen_initial_domain())
 		pvclock_gtod_register_notifier(&xen_pvclock_gtod_notifier);

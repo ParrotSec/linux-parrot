@@ -12,6 +12,7 @@ issues are found, we have a fail-safe.
 
 Signed-off-by: Serge Hallyn <serge.hallyn@ubuntu.com>
 [bwh: Remove unneeded binary sysctl bits]
+[bwh: Keep this sysctl, but change the default to enabled]
 ---
 diff --git a/kernel/fork.c b/kernel/fork.c
 index efc5493203ae..bc596683cc31 100644
@@ -93,7 +94,7 @@ index 87804e0371fe..2fd16493231b 100644
  #include <linux/sort.h>
  
 +/* sysctl */
-+int unprivileged_userns_clone;
++int unprivileged_userns_clone = 1;
 +
  static struct kmem_cache *user_ns_cachep __read_mostly;
  static DEFINE_MUTEX(userns_state_mutex);

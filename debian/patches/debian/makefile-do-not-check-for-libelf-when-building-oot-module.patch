@@ -16,7 +16,7 @@ Compile resolve_btfids tool at kernel compilation start".
 
 --- a/Makefile
 +++ b/Makefile
-@@ -1071,26 +1071,6 @@ export mod_sign_cmd
+@@ -1067,28 +1067,6 @@ export mod_sign_cmd
  
  HOST_LIBELF_LIBS = $(shell pkg-config libelf --libs 2>/dev/null || echo -lelf)
  
@@ -32,18 +32,20 @@ Compile resolve_btfids tool at kernel compilation start".
 -  endif
 -endif
 -
+-ifdef CONFIG_BPF
 -ifdef CONFIG_DEBUG_INFO_BTF
 -  ifeq ($(has_libelf),1)
 -    resolve_btfids_target := tools/bpf/resolve_btfids FORCE
 -  else
 -    ERROR_RESOLVE_BTFIDS := 1
 -  endif
--endif
+-endif # CONFIG_DEBUG_INFO_BTF
+-endif # CONFIG_BPF
 -
  PHONY += prepare0
  
  export MODORDER := $(extmod-prefix)modules.order
-@@ -1214,6 +1194,26 @@ uapi-asm-generic:
+@@ -1212,6 +1190,28 @@ uapi-asm-generic:
  	$(Q)$(MAKE) $(asm-generic)=arch/$(SRCARCH)/include/generated/uapi/asm \
  	generic=include/uapi/asm-generic
  
@@ -59,13 +61,15 @@ Compile resolve_btfids tool at kernel compilation start".
 +  endif
 +endif
 +
++ifdef CONFIG_BPF
 +ifdef CONFIG_DEBUG_INFO_BTF
 +  ifeq ($(has_libelf),1)
 +    resolve_btfids_target := tools/bpf/resolve_btfids FORCE
 +  else
 +    ERROR_RESOLVE_BTFIDS := 1
 +  endif
-+endif
++endif # CONFIG_DEBUG_INFO_BTF
++endif # CONFIG_BPF
 +
  PHONY += prepare-objtool prepare-resolve_btfids
  prepare-objtool: $(objtool_target)

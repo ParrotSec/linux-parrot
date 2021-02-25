@@ -6,7 +6,6 @@ CONFIG_SCHED_SMT=y
 CONFIG_PERMIT_BSP_REMOVE=y
 CONFIG_NODES_SHIFT=8
 CONFIG_IA64_MCA_RECOVERY=m
-CONFIG_PERFMON=y
 CONFIG_IA64_PALINFO=m
 CONFIG_KEXEC=y
 CONFIG_CRASH_DUMP=y
@@ -131,11 +130,6 @@ CONFIG_IA64_ACPI_CPUFREQ=m
 ## file: drivers/firmware/Kconfig
 ##
 CONFIG_DMIID=y
-
-##
-## file: drivers/firmware/efi/Kconfig
-##
-CONFIG_EFI_VARS=y
 
 ##
 ## file: drivers/gpu/drm/Kconfig

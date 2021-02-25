@@ -34,8 +34,10 @@ Build-Depends-Arch:
  libelf-dev <!stage1 !pkg.linux.notools>,
 # used by upstream headers_install target and by debian/rules.d/tools/usb/usbip
  rsync,
- lz4 [amd64 arm64] <!stage1 !pkg.linux.nokernel>
+ lz4 [amd64 arm64] <!stage1 !pkg.linux.nokernel>,
+# used for bft debug info
+ dwarves (>= 1.16~) [amd64 arm64] <!stage1 !pkg.linux.nokernel>,
 Rules-Requires-Root: no
-Vcs-Git: https://salsa.debian.org/kernel-team/linux.git
-Vcs-Browser: https://salsa.debian.org/kernel-team/linux
+Vcs-Git: https://nest.parrotsec.org/packages/kernel/linux
+Vcs-Browser: https://nest.parrotsec.org/packages/kernel/linux
 Homepage: https://www.kernel.org/

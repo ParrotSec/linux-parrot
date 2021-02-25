@@ -455,7 +455,7 @@ CONFIG_HYPERV_KEYBOARD=m
 # CONFIG_INPUT_TOUCHSCREEN is not set
 
 ##
-## file: drivers/iommu/Kconfig
+## file: drivers/iommu/amd/Kconfig
 ##
 # CONFIG_AMD_IOMMU is not set
 
@@ -563,13 +563,6 @@ CONFIG_HYPERV_KEYBOARD=m
 ##
 # CONFIG_INTEL_MEI is not set
 # CONFIG_INTEL_MEI_ME is not set
-
-##
-## file: drivers/misc/mic/Kconfig
-##
-# CONFIG_INTEL_MIC_BUS is not set
-# CONFIG_SCIF_BUS is not set
-# CONFIG_VOP_BUS is not set
 
 ##
 ## file: drivers/mmc/Kconfig
@@ -728,6 +721,8 @@ CONFIG_NET_VENDOR_INTEL=y
 CONFIG_IXGBEVF=m
 # CONFIG_I40E is not set
 # CONFIG_I40EVF is not set
+# CONFIG_ICE is not set
+# CONFIG_IGC is not set
 
 ##
 ## file: drivers/net/ethernet/marvell/Kconfig
@@ -744,6 +739,11 @@ CONFIG_NET_VENDOR_MELLANOX=y
 ## file: drivers/net/ethernet/micrel/Kconfig
 ##
 # CONFIG_NET_VENDOR_MICREL is not set
+
+##
+## file: drivers/net/ethernet/microchip/Kconfig
+##
+# CONFIG_NET_VENDOR_MICROCHIP is not set
 
 ##
 ## file: drivers/net/ethernet/myricom/Kconfig
@@ -892,9 +892,13 @@ CONFIG_NET_VENDOR_MELLANOX=y
 CONFIG_HYPERV_NET=m
 
 ##
-## file: drivers/net/phy/Kconfig
+## file: drivers/net/mdio/Kconfig
 ##
 # CONFIG_MDIO_DEVICE is not set
+
+##
+## file: drivers/net/phy/Kconfig
+##
 # CONFIG_PHYLIB is not set
 
 ##
@@ -1411,9 +1415,19 @@ CONFIG_FB_HYPERV=m
 # CONFIG_BFS_FS is not set
 
 ##
+## file: fs/coda/Kconfig
+##
+# CONFIG_CODA_FS is not set
+
+##
 ## file: fs/dlm/Kconfig
 ##
 # CONFIG_DLM is not set
+
+##
+## file: fs/ecryptfs/Kconfig
+##
+# CONFIG_ECRYPT_FS is not set
 
 ##
 ## file: fs/efs/Kconfig
@@ -1441,6 +1455,36 @@ CONFIG_EXT4_FS=y
 # CONFIG_GFS2_FS is not set
 
 ##
+## file: fs/hfs/Kconfig
+##
+# CONFIG_HFS_FS is not set
+
+##
+## file: fs/hfsplus/Kconfig
+##
+# CONFIG_HFSPLUS_FS is not set
+
+##
+## file: fs/hpfs/Kconfig
+##
+# CONFIG_HPFS_FS is not set
+
+##
+## file: fs/jfs/Kconfig
+##
+# CONFIG_JFS_FS is not set
+
+##
+## file: fs/minix/Kconfig
+##
+# CONFIG_MINIX_FS is not set
+
+##
+## file: fs/nilfs2/Kconfig
+##
+# CONFIG_NILFS2_FS is not set
+
+##
 ## file: fs/ocfs2/Kconfig
 ##
 # CONFIG_OCFS2_FS is not set
@@ -1461,6 +1505,11 @@ CONFIG_EXT4_FS=y
 # CONFIG_QNX6FS_FS is not set
 
 ##
+## file: fs/reiserfs/Kconfig
+##
+# CONFIG_REISERFS_FS is not set
+
+##
 ## file: fs/ufs/Kconfig
 ##
 # CONFIG_UFS_FS is not set
@@ -1476,7 +1525,6 @@ CONFIG_KERNEL_LZ4=y
 ##
 ## file: kernel/power/Kconfig
 ##
-# CONFIG_SUSPEND is not set
 # CONFIG_PM is not set
 # CONFIG_PM_DEBUG is not set
 
