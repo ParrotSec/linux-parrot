@@ -10,7 +10,7 @@
 static void
 nfp_flower_compile_meta_tci(struct nfp_flower_meta_tci *ext,
 			    struct nfp_flower_meta_tci *msk,
-			    struct flow_rule *rule, u8 key_type)
+			    struct flow_rule *rule, u8 key_type, bool qinq_sup)
 {
 	u16 tmp_tci;
 
@@ -24,7 +24,7 @@ nfp_flower_compile_meta_tci(struct nfp_flower_meta_tci *ext,
 	msk->nfp_flow_key_layer = key_type;
 	msk->mask_id = ~0;
 
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_VLAN)) {
+	if (!qinq_sup && flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_VLAN)) {
 		struct flow_match_vlan match;
 
 		flow_rule_match_vlan(rule, &match);
@@ -74,9 +74,10 @@ nfp_flower_compile_port(struct nfp_flower_in_port *frame, u32 cmsg_port,
 	return 0;
 }
 
-static void
+static int
 nfp_flower_compile_mac(struct nfp_flower_mac_mpls *ext,
-		       struct nfp_flower_mac_mpls *msk, struct flow_rule *rule)
+		       struct nfp_flower_mac_mpls *msk, struct flow_rule *rule,
+		       struct netlink_ext_ack *extack)
 {
 	memset(ext, 0, sizeof(struct nfp_flower_mac_mpls));
 	memset(msk, 0, sizeof(struct nfp_flower_mac_mpls));
@@ -97,14 +98,28 @@ nfp_flower_compile_mac(struct nfp_flower_mac_mpls *ext,
 		u32 t_mpls;
 
 		flow_rule_match_mpls(rule, &match);
-		t_mpls = FIELD_PREP(NFP_FLOWER_MASK_MPLS_LB, match.key->mpls_label) |
-			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_TC, match.key->mpls_tc) |
-			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_BOS, match.key->mpls_bos) |
+
+		/* Only support matching the first LSE */
+		if (match.mask->used_lses != 1) {
+			NL_SET_ERR_MSG_MOD(extack,
+					   "unsupported offload: invalid LSE depth for MPLS match offload");
+			return -EOPNOTSUPP;
+		}
+
+		t_mpls = FIELD_PREP(NFP_FLOWER_MASK_MPLS_LB,
+				    match.key->ls[0].mpls_label) |
+			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_TC,
+				    match.key->ls[0].mpls_tc) |
+			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_BOS,
+				    match.key->ls[0].mpls_bos) |
 			 NFP_FLOWER_MASK_MPLS_Q;
 		ext->mpls_lse = cpu_to_be32(t_mpls);
-		t_mpls = FIELD_PREP(NFP_FLOWER_MASK_MPLS_LB, match.mask->mpls_label) |
-			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_TC, match.mask->mpls_tc) |
-			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_BOS, match.mask->mpls_bos) |
+		t_mpls = FIELD_PREP(NFP_FLOWER_MASK_MPLS_LB,
+				    match.mask->ls[0].mpls_label) |
+			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_TC,
+				    match.mask->ls[0].mpls_tc) |
+			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_BOS,
+				    match.mask->ls[0].mpls_bos) |
 			 NFP_FLOWER_MASK_MPLS_Q;
 		msk->mpls_lse = cpu_to_be32(t_mpls);
 	} else if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_BASIC)) {
@@ -121,6 +136,8 @@ nfp_flower_compile_mac(struct nfp_flower_mac_mpls *ext,
 			msk->mpls_lse = cpu_to_be32(NFP_FLOWER_MASK_MPLS_Q);
 		}
 	}
+
+	return 0;
 }
 
 static void
@@ -210,6 +227,50 @@ nfp_flower_compile_ip_ext(struct nfp_flower_ip_ext *ext,
 			ext->flags |= NFP_FL_IP_FRAG_FIRST;
 		if (match.mask->flags & FLOW_DIS_FIRST_FRAG)
 			msk->flags |= NFP_FL_IP_FRAG_FIRST;
+	}
+}
+
+static void
+nfp_flower_fill_vlan(struct flow_dissector_key_vlan *key,
+		     struct nfp_flower_vlan *frame,
+		     bool outer_vlan)
+{
+	u16 tci;
+
+	tci = NFP_FLOWER_MASK_VLAN_PRESENT;
+	tci |= FIELD_PREP(NFP_FLOWER_MASK_VLAN_PRIO,
+			  key->vlan_priority) |
+	       FIELD_PREP(NFP_FLOWER_MASK_VLAN_VID,
+			  key->vlan_id);
+
+	if (outer_vlan) {
+		frame->outer_tci = cpu_to_be16(tci);
+		frame->outer_tpid = key->vlan_tpid;
+	} else {
+		frame->inner_tci = cpu_to_be16(tci);
+		frame->inner_tpid = key->vlan_tpid;
+	}
+}
+
+static void
+nfp_flower_compile_vlan(struct nfp_flower_vlan *ext,
+			struct nfp_flower_vlan *msk,
+			struct flow_rule *rule)
+{
+	struct flow_match_vlan match;
+
+	memset(ext, 0, sizeof(struct nfp_flower_vlan));
+	memset(msk, 0, sizeof(struct nfp_flower_vlan));
+
+	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_VLAN)) {
+		flow_rule_match_vlan(rule, &match);
+		nfp_flower_fill_vlan(match.key, ext, true);
+		nfp_flower_fill_vlan(match.mask, msk, true);
+	}
+	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_CVLAN)) {
+		flow_rule_match_cvlan(rule, &match);
+		nfp_flower_fill_vlan(match.key, ext, false);
+		nfp_flower_fill_vlan(match.mask, msk, false);
 	}
 }
 
@@ -416,7 +477,10 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 				  struct netlink_ext_ack *extack)
 {
 	struct flow_rule *rule = flow_cls_offload_flow_rule(flow);
+	struct nfp_flower_priv *priv = app->priv;
+	bool qinq_sup;
 	u32 port_id;
+	int ext_len;
 	int err;
 	u8 *ext;
 	u8 *msk;
@@ -429,9 +493,11 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 	ext = nfp_flow->unmasked_data;
 	msk = nfp_flow->mask_data;
 
+	qinq_sup = !!(priv->flower_ext_feats & NFP_FL_FEATS_VLAN_QINQ);
+
 	nfp_flower_compile_meta_tci((struct nfp_flower_meta_tci *)ext,
 				    (struct nfp_flower_meta_tci *)msk,
-				    rule, key_ls->key_layer);
+				    rule, key_ls->key_layer, qinq_sup);
 	ext += sizeof(struct nfp_flower_meta_tci);
 	msk += sizeof(struct nfp_flower_meta_tci);
 
@@ -461,9 +527,12 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 	msk += sizeof(struct nfp_flower_in_port);
 
 	if (NFP_FLOWER_LAYER_MAC & key_ls->key_layer) {
-		nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)ext,
-				       (struct nfp_flower_mac_mpls *)msk,
-				       rule);
+		err = nfp_flower_compile_mac((struct nfp_flower_mac_mpls *)ext,
+					     (struct nfp_flower_mac_mpls *)msk,
+					     rule, extack);
+		if (err)
+			return err;
+
 		ext += sizeof(struct nfp_flower_mac_mpls);
 		msk += sizeof(struct nfp_flower_mac_mpls);
 	}
@@ -527,6 +596,14 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 		}
 	}
 
+	if (NFP_FLOWER_LAYER2_QINQ & key_ls->key_layer_two) {
+		nfp_flower_compile_vlan((struct nfp_flower_vlan *)ext,
+					(struct nfp_flower_vlan *)msk,
+					rule);
+		ext += sizeof(struct nfp_flower_vlan);
+		msk += sizeof(struct nfp_flower_vlan);
+	}
+
 	if (key_ls->key_layer & NFP_FLOWER_LAYER_VXLAN ||
 	    key_ls->key_layer_two & NFP_FLOWER_LAYER2_GENEVE) {
 		if (key_ls->key_layer_two & NFP_FLOWER_LAYER2_TUN_IPV6) {
@@ -567,6 +644,16 @@ int nfp_flower_compile_flow_match(struct nfp_app *app,
 			if (err)
 				return err;
 		}
+	}
+
+	/* Check that the flow key does not exceed the maximum limit.
+	 * All structures in the key is multiples of 4 bytes, so use u32.
+	 */
+	ext_len = (u32 *)ext - (u32 *)nfp_flow->unmasked_data;
+	if (ext_len > NFP_FLOWER_KEY_MAX_LW) {
+		NL_SET_ERR_MSG_MOD(extack,
+				   "unsupported offload: flow key too long");
+		return -EOPNOTSUPP;
 	}
 
 	return 0;

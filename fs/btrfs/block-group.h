@@ -114,8 +114,7 @@ struct btrfs_block_group {
 	/* For block groups in the same raid type */
 	struct list_head list;
 
-	/* Usage count */
-	atomic_t count;
+	refcount_t refs;
 
 	/*
 	 * List of struct btrfs_free_clusters for this block group.
@@ -129,8 +128,17 @@ struct btrfs_block_group {
 	/* For read-only block groups */
 	struct list_head ro_list;
 
+	/*
+	 * When non-zero it means the block group's logical address and its
+	 * device extents can not be reused for future block group allocations
+	 * until the counter goes down to 0. This is to prevent them from being
+	 * reused while some task is still using the block group after it was
+	 * deleted - we want to make sure they can only be reused for new block
+	 * groups after that task is done with the deleted block group.
+	 */
+	atomic_t frozen;
+
 	/* For discard operations */
-	atomic_t trimming;
 	struct list_head discard_list;
 	int discard_index;
 	u64 discard_eligible_time;
@@ -172,6 +180,12 @@ struct btrfs_block_group {
 	 * Protected by free_space_lock.
 	 */
 	int needs_free_space;
+
+	/*
+	 * Number of extents in this block group used for swap files.
+	 * All accesses protected by the spinlock 'lock'.
+	 */
+	int swap_extents;
 
 	/* Record locked full stripes for RAID5/6 block group */
 	struct btrfs_full_stripe_locks_tree full_stripe_locks_root;
@@ -283,9 +297,15 @@ static inline int btrfs_block_group_done(struct btrfs_block_group *cache)
 		cache->cached == BTRFS_CACHE_ERROR;
 }
 
+void btrfs_freeze_block_group(struct btrfs_block_group *cache);
+void btrfs_unfreeze_block_group(struct btrfs_block_group *cache);
+
 #ifdef CONFIG_BTRFS_FS_RUN_SANITY_TESTS
 int btrfs_rmap_block(struct btrfs_fs_info *fs_info, u64 chunk_start,
 		     u64 physical, u64 **logical, int *naddrs, int *stripe_len);
 #endif
+
+bool btrfs_inc_block_group_swap_extents(struct btrfs_block_group *bg);
+void btrfs_dec_block_group_swap_extents(struct btrfs_block_group *bg, int amount);
 
 #endif /* BTRFS_BLOCK_GROUP_H */

@@ -28,7 +28,6 @@
 #include <linux/platform_device.h>
 
 #include <asm/page.h>
-#include <asm/pgtable.h>
 #include <asm/irq.h>
 #include <asm/delay.h>
 
@@ -125,16 +124,4 @@ static struct platform_driver snirm710_driver = {
 		.name	= "snirm_53c710",
 	},
 };
-
-static int __init snirm710_init(void)
-{
-	return platform_driver_register(&snirm710_driver);
-}
-
-static void __exit snirm710_exit(void)
-{
-	platform_driver_unregister(&snirm710_driver);
-}
-
-module_init(snirm710_init);
-module_exit(snirm710_exit);
+module_platform_driver(snirm710_driver);

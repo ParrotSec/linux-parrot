@@ -109,6 +109,7 @@ struct scsi_device {
 	atomic_t device_busy;		/* commands actually active on LLDD */
 	atomic_t device_blocked;	/* Device returned QUEUE_FULL. */
 
+	atomic_t restarts;
 	spinlock_t list_lock;
 	struct list_head starved_entry;
 	unsigned short queue_depth;	/* How deep of a queue we want */
@@ -228,6 +229,9 @@ struct scsi_device {
 
 	struct scsi_device_handler *handler;
 	void			*handler_data;
+
+	size_t			dma_drain_len;
+	void			*dma_drain_buf;
 
 	unsigned char		access_state;
 	struct mutex		state_mutex;

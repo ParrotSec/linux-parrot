@@ -68,14 +68,14 @@ static void dwc2_set_his_params(struct dwc2_hsotg *hsotg)
 	p->ahbcfg = GAHBCFG_HBSTLEN_INCR16 <<
 		GAHBCFG_HBSTLEN_SHIFT;
 	p->change_speed_quirk = true;
-	p->power_down = false;
+	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
 }
 
 static void dwc2_set_s3c6400_params(struct dwc2_hsotg *hsotg)
 {
 	struct dwc2_core_params *p = &hsotg->params;
 
-	p->power_down = 0;
+	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
 	p->phy_utmi_width = 8;
 }
 
@@ -89,7 +89,7 @@ static void dwc2_set_rk_params(struct dwc2_hsotg *hsotg)
 	p->host_perio_tx_fifo_size = 256;
 	p->ahbcfg = GAHBCFG_HBSTLEN_INCR16 <<
 		GAHBCFG_HBSTLEN_SHIFT;
-	p->power_down = 0;
+	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
 }
 
 static void dwc2_set_ltq_params(struct dwc2_hsotg *hsotg)
@@ -185,7 +185,7 @@ static void dwc2_set_stm32mp15_hsotg_params(struct dwc2_hsotg *hsotg)
 	struct dwc2_core_params *p = &hsotg->params;
 
 	p->otg_cap = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
-	p->activate_stm_id_vb_detection = true;
+	p->activate_stm_id_vb_detection = !device_property_read_bool(hsotg->dev, "usb-role-switch");
 	p->host_rx_fifo_size = 440;
 	p->host_nperio_tx_fifo_size = 256;
 	p->host_perio_tx_fifo_size = 256;
@@ -210,6 +210,7 @@ const struct of_device_id dwc2_of_match_table[] = {
 	{ .compatible = "amlogic,meson-g12a-usb",
 	  .data = dwc2_set_amlogic_g12a_params },
 	{ .compatible = "amcc,dwc-otg", .data = dwc2_set_amcc_params },
+	{ .compatible = "apm,apm82181-dwc-otg", .data = dwc2_set_amcc_params },
 	{ .compatible = "st,stm32f4x9-fsotg",
 	  .data = dwc2_set_stm32f4x9_fsotg_params },
 	{ .compatible = "st,stm32f4x9-hsotg" },
@@ -319,11 +320,11 @@ static void dwc2_set_param_power_down(struct dwc2_hsotg *hsotg)
 	int val;
 
 	if (hsotg->hw_params.hibernation)
-		val = 2;
+		val = DWC2_POWER_DOWN_PARAM_HIBERNATION;
 	else if (hsotg->hw_params.power_optimized)
-		val = 1;
+		val = DWC2_POWER_DOWN_PARAM_PARTIAL;
 	else
-		val = 0;
+		val = DWC2_POWER_DOWN_PARAM_NONE;
 
 	hsotg->params.power_down = val;
 }
@@ -782,25 +783,6 @@ int dwc2_get_hwparams(struct dwc2_hsotg *hsotg)
 	u32 hwcfg1, hwcfg2, hwcfg3, hwcfg4;
 	u32 grxfsiz;
 
-	/*
-	 * Attempt to ensure this device is really a DWC_otg Controller.
-	 * Read and verify the GSNPSID register contents. The value should be
-	 * 0x45f4xxxx, 0x5531xxxx or 0x5532xxxx
-	 */
-
-	hw->snpsid = dwc2_readl(hsotg, GSNPSID);
-	if ((hw->snpsid & GSNPSID_ID_MASK) != DWC2_OTG_ID &&
-	    (hw->snpsid & GSNPSID_ID_MASK) != DWC2_FS_IOT_ID &&
-	    (hw->snpsid & GSNPSID_ID_MASK) != DWC2_HS_IOT_ID) {
-		dev_err(hsotg->dev, "Bad value for GSNPSID: 0x%08x\n",
-			hw->snpsid);
-		return -ENODEV;
-	}
-
-	dev_dbg(hsotg->dev, "Core Release: %1x.%1x%1x%1x (snpsid=%x)\n",
-		hw->snpsid >> 12 & 0xf, hw->snpsid >> 8 & 0xf,
-		hw->snpsid >> 4 & 0xf, hw->snpsid & 0xf, hw->snpsid);
-
 	hwcfg1 = dwc2_readl(hsotg, GHWCFG1);
 	hwcfg2 = dwc2_readl(hsotg, GHWCFG2);
 	hwcfg3 = dwc2_readl(hsotg, GHWCFG3);
@@ -879,7 +861,7 @@ int dwc2_get_hwparams(struct dwc2_hsotg *hsotg)
 int dwc2_init_params(struct dwc2_hsotg *hsotg)
 {
 	const struct of_device_id *match;
-	void (*set_params)(void *data);
+	void (*set_params)(struct dwc2_hsotg *data);
 
 	dwc2_set_default_params(hsotg);
 	dwc2_get_device_properties(hsotg);

@@ -527,8 +527,8 @@ The following commands are supported:
 
   See Documentation/trace/histogram.rst for details and examples.
 
-6.3 In-kernel trace event API
------------------------------
+7. In-kernel trace event API
+============================
 
 In most cases, the command-line interface to trace events is more than
 sufficient.  Sometimes, however, applications might find the need for
@@ -560,8 +560,8 @@ following:
   - tracing synthetic events from in-kernel code
   - the low-level "dynevent_cmd" API
 
-6.3.1 Dyamically creating synthetic event definitions
------------------------------------------------------
+7.1 Dyamically creating synthetic event definitions
+---------------------------------------------------
 
 There are a couple ways to create a new synthetic event from a kernel
 module or other kernel code.
@@ -589,8 +589,19 @@ name::
         { .type = "int",                .name = "my_int_field" },
   };
 
-See synth_field_size() for available types. If field_name contains [n]
-the field is considered to be an array.
+See synth_field_size() for available types.
+
+If field_name contains [n], the field is considered to be a static array.
+
+If field_names contains[] (no subscript), the field is considered to
+be a dynamic array, which will only take as much space in the event as
+is required to hold the array.
+
+Because space for an event is reserved before assigning field values
+to the event, using dynamic arrays implies that the piecewise
+in-kernel API described below can't be used with dynamic arrays.  The
+other non-piecewise in-kernel APIs can, however, be used with dynamic
+arrays.
 
 If the event is created from within a module, a pointer to the module
 must be passed to synth_event_create().  This will ensure that the
@@ -666,8 +677,8 @@ registered by calling the synth_event_gen_cmd_end() function::
 At this point, the event object is ready to be used for tracing new
 events.
 
-6.3.3 Tracing synthetic events from in-kernel code
---------------------------------------------------
+7.2 Tracing synthetic events from in-kernel code
+------------------------------------------------
 
 To trace a synthetic event, there are several options.  The first
 option is to trace the event in one call, using synth_event_trace()
@@ -678,8 +689,8 @@ synth_event_trace_start() and synth_event_trace_end() along with
 synth_event_add_next_val() or synth_event_add_val() to add the values
 piecewise.
 
-6.3.3.1 Tracing a synthetic event all at once
----------------------------------------------
+7.2.1 Tracing a synthetic event all at once
+-------------------------------------------
 
 To trace a synthetic event all at once, the synth_event_trace() or
 synth_event_trace_array() functions can be used.
@@ -780,8 +791,8 @@ remove the event::
 
        ret = synth_event_delete("schedtest");
 
-6.3.3.1 Tracing a synthetic event piecewise
--------------------------------------------
+7.2.2 Tracing a synthetic event piecewise
+-----------------------------------------
 
 To trace a synthetic using the piecewise method described above, the
 synth_event_trace_start() function is used to 'open' the synthetic
@@ -864,8 +875,8 @@ Note that synth_event_trace_end() must be called at the end regardless
 of whether any of the add calls failed (say due to a bad field name
 being passed in).
 
-6.3.4 Dyamically creating kprobe and kretprobe event definitions
-----------------------------------------------------------------
+7.3 Dyamically creating kprobe and kretprobe event definitions
+--------------------------------------------------------------
 
 To create a kprobe or kretprobe trace event from kernel code, the
 kprobe_event_gen_cmd_start() or kretprobe_event_gen_cmd_start()
@@ -941,8 +952,8 @@ used to give the kprobe event file back and delete the event::
 
   ret = kprobe_event_delete("gen_kprobe_test");
 
-6.3.4 The "dynevent_cmd" low-level API
---------------------------------------
+7.4 The "dynevent_cmd" low-level API
+------------------------------------
 
 Both the in-kernel synthetic event and kprobe interfaces are built on
 top of a lower-level "dynevent_cmd" interface.  This interface is

@@ -335,7 +335,7 @@ static const struct device_type mtd_devtype = {
 	.release	= mtd_release,
 };
 
-static int mtd_partid_show(struct seq_file *s, void *p)
+static int mtd_partid_debug_show(struct seq_file *s, void *p)
 {
 	struct mtd_info *mtd = s->private;
 
@@ -344,19 +344,9 @@ static int mtd_partid_show(struct seq_file *s, void *p)
 	return 0;
 }
 
-static int mtd_partid_debugfs_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mtd_partid_show, inode->i_private);
-}
+DEFINE_SHOW_ATTRIBUTE(mtd_partid_debug);
 
-static const struct file_operations mtd_partid_debug_fops = {
-	.open           = mtd_partid_debugfs_open,
-	.read           = seq_read,
-	.llseek         = seq_lseek,
-	.release        = single_release,
-};
-
-static int mtd_partname_show(struct seq_file *s, void *p)
+static int mtd_partname_debug_show(struct seq_file *s, void *p)
 {
 	struct mtd_info *mtd = s->private;
 
@@ -365,17 +355,7 @@ static int mtd_partname_show(struct seq_file *s, void *p)
 	return 0;
 }
 
-static int mtd_partname_debugfs_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mtd_partname_show, inode->i_private);
-}
-
-static const struct file_operations mtd_partname_debug_fops = {
-	.open           = mtd_partname_debugfs_open,
-	.read           = seq_read,
-	.llseek         = seq_lseek,
-	.release        = single_release,
-};
+DEFINE_SHOW_ATTRIBUTE(mtd_partname_debug);
 
 static struct dentry *dfs_dir_mtd;
 
@@ -617,6 +597,19 @@ int add_mtd_device(struct mtd_info *mtd)
 		    !(mtd->flags & MTD_NO_ERASE)))
 		return -EINVAL;
 
+	/*
+	 * MTD_SLC_ON_MLC_EMULATION can only be set on partitions, when the
+	 * master is an MLC NAND and has a proper pairing scheme defined.
+	 * We also reject masters that implement ->_writev() for now, because
+	 * NAND controller drivers don't implement this hook, and adding the
+	 * SLC -> MLC address/length conversion to this path is useless if we
+	 * don't have a user.
+	 */
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION &&
+	    (!mtd_is_partition(mtd) || master->type != MTD_MLCNANDFLASH ||
+	     !master->pairing || master->_writev))
+		return -EINVAL;
+
 	mutex_lock(&mtd_table_mutex);
 
 	i = idr_alloc(&mtd_idr, mtd, 0, 0, GFP_KERNEL);
@@ -631,6 +624,14 @@ int add_mtd_device(struct mtd_info *mtd)
 	/* default value if not set by driver */
 	if (mtd->bitflip_threshold == 0)
 		mtd->bitflip_threshold = mtd->ecc_strength;
+
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION) {
+		int ngroups = mtd_pairing_groups(master);
+
+		mtd->erasesize /= ngroups;
+		mtd->size = (u64)mtd_div_by_eb(mtd->size, master) *
+			    mtd->erasesize;
+	}
 
 	if (is_power_of_2(mtd->erasesize))
 		mtd->erasesize_shift = ffs(mtd->erasesize) - 1;
@@ -992,6 +993,8 @@ int __get_mtd_device(struct mtd_info *mtd)
 		}
 	}
 
+	master->usecount++;
+
 	while (mtd->parent) {
 		mtd->usecount++;
 		mtd = mtd->parent;
@@ -1058,6 +1061,8 @@ void __put_mtd_device(struct mtd_info *mtd)
 		mtd = mtd->parent;
 	}
 
+	master->usecount--;
+
 	if (master->_put_device)
 		master->_put_device(master);
 
@@ -1074,9 +1079,11 @@ int mtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
 	struct mtd_info *master = mtd_get_master(mtd);
 	u64 mst_ofs = mtd_get_master_ofs(mtd, 0);
+	struct erase_info adjinstr;
 	int ret;
 
 	instr->fail_addr = MTD_FAIL_ADDR_UNKNOWN;
+	adjinstr = *instr;
 
 	if (!mtd->erasesize || !master->_erase)
 		return -ENOTSUPP;
@@ -1091,12 +1098,27 @@ int mtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 
 	ledtrig_mtd_activity();
 
-	instr->addr += mst_ofs;
-	ret = master->_erase(master, instr);
-	if (instr->fail_addr != MTD_FAIL_ADDR_UNKNOWN)
-		instr->fail_addr -= mst_ofs;
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION) {
+		adjinstr.addr = (loff_t)mtd_div_by_eb(instr->addr, mtd) *
+				master->erasesize;
+		adjinstr.len = ((u64)mtd_div_by_eb(instr->addr + instr->len, mtd) *
+				master->erasesize) -
+			       adjinstr.addr;
+	}
 
-	instr->addr -= mst_ofs;
+	adjinstr.addr += mst_ofs;
+
+	ret = master->_erase(master, &adjinstr);
+
+	if (adjinstr.fail_addr != MTD_FAIL_ADDR_UNKNOWN) {
+		instr->fail_addr = adjinstr.fail_addr - mst_ofs;
+		if (mtd->flags & MTD_SLC_ON_MLC_EMULATION) {
+			instr->fail_addr = mtd_div_by_eb(instr->fail_addr,
+							 master);
+			instr->fail_addr *= mtd->erasesize;
+		}
+	}
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtd_erase);
@@ -1235,8 +1257,8 @@ int mtd_panic_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 		return -EROFS;
 	if (!len)
 		return 0;
-	if (!mtd->oops_panic_write)
-		mtd->oops_panic_write = true;
+	if (!master->oops_panic_write)
+		master->oops_panic_write = true;
 
 	return master->_panic_write(master, mtd_get_master_ofs(mtd, to), len,
 				    retlen, buf);
@@ -1276,6 +1298,101 @@ static int mtd_check_oob_ops(struct mtd_info *mtd, loff_t offs,
 	return 0;
 }
 
+static int mtd_read_oob_std(struct mtd_info *mtd, loff_t from,
+			    struct mtd_oob_ops *ops)
+{
+	struct mtd_info *master = mtd_get_master(mtd);
+	int ret;
+
+	from = mtd_get_master_ofs(mtd, from);
+	if (master->_read_oob)
+		ret = master->_read_oob(master, from, ops);
+	else
+		ret = master->_read(master, from, ops->len, &ops->retlen,
+				    ops->datbuf);
+
+	return ret;
+}
+
+static int mtd_write_oob_std(struct mtd_info *mtd, loff_t to,
+			     struct mtd_oob_ops *ops)
+{
+	struct mtd_info *master = mtd_get_master(mtd);
+	int ret;
+
+	to = mtd_get_master_ofs(mtd, to);
+	if (master->_write_oob)
+		ret = master->_write_oob(master, to, ops);
+	else
+		ret = master->_write(master, to, ops->len, &ops->retlen,
+				     ops->datbuf);
+
+	return ret;
+}
+
+static int mtd_io_emulated_slc(struct mtd_info *mtd, loff_t start, bool read,
+			       struct mtd_oob_ops *ops)
+{
+	struct mtd_info *master = mtd_get_master(mtd);
+	int ngroups = mtd_pairing_groups(master);
+	int npairs = mtd_wunit_per_eb(master) / ngroups;
+	struct mtd_oob_ops adjops = *ops;
+	unsigned int wunit, oobavail;
+	struct mtd_pairing_info info;
+	int max_bitflips = 0;
+	u32 ebofs, pageofs;
+	loff_t base, pos;
+
+	ebofs = mtd_mod_by_eb(start, mtd);
+	base = (loff_t)mtd_div_by_eb(start, mtd) * master->erasesize;
+	info.group = 0;
+	info.pair = mtd_div_by_ws(ebofs, mtd);
+	pageofs = mtd_mod_by_ws(ebofs, mtd);
+	oobavail = mtd_oobavail(mtd, ops);
+
+	while (ops->retlen < ops->len || ops->oobretlen < ops->ooblen) {
+		int ret;
+
+		if (info.pair >= npairs) {
+			info.pair = 0;
+			base += master->erasesize;
+		}
+
+		wunit = mtd_pairing_info_to_wunit(master, &info);
+		pos = mtd_wunit_to_offset(mtd, base, wunit);
+
+		adjops.len = ops->len - ops->retlen;
+		if (adjops.len > mtd->writesize - pageofs)
+			adjops.len = mtd->writesize - pageofs;
+
+		adjops.ooblen = ops->ooblen - ops->oobretlen;
+		if (adjops.ooblen > oobavail - adjops.ooboffs)
+			adjops.ooblen = oobavail - adjops.ooboffs;
+
+		if (read) {
+			ret = mtd_read_oob_std(mtd, pos + pageofs, &adjops);
+			if (ret > 0)
+				max_bitflips = max(max_bitflips, ret);
+		} else {
+			ret = mtd_write_oob_std(mtd, pos + pageofs, &adjops);
+		}
+
+		if (ret < 0)
+			return ret;
+
+		max_bitflips = max(max_bitflips, ret);
+		ops->retlen += adjops.retlen;
+		ops->oobretlen += adjops.oobretlen;
+		adjops.datbuf += adjops.retlen;
+		adjops.oobbuf += adjops.oobretlen;
+		adjops.ooboffs = 0;
+		pageofs = 0;
+		info.pair++;
+	}
+
+	return max_bitflips;
+}
+
 int mtd_read_oob(struct mtd_info *mtd, loff_t from, struct mtd_oob_ops *ops)
 {
 	struct mtd_info *master = mtd_get_master(mtd);
@@ -1294,12 +1411,10 @@ int mtd_read_oob(struct mtd_info *mtd, loff_t from, struct mtd_oob_ops *ops)
 	if (!master->_read_oob && (!master->_read || ops->oobbuf))
 		return -EOPNOTSUPP;
 
-	from = mtd_get_master_ofs(mtd, from);
-	if (master->_read_oob)
-		ret_code = master->_read_oob(master, from, ops);
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION)
+		ret_code = mtd_io_emulated_slc(mtd, from, true, ops);
 	else
-		ret_code = master->_read(master, from, ops->len, &ops->retlen,
-					 ops->datbuf);
+		ret_code = mtd_read_oob_std(mtd, from, ops);
 
 	mtd_update_ecc_stats(mtd, master, &old_stats);
 
@@ -1338,13 +1453,10 @@ int mtd_write_oob(struct mtd_info *mtd, loff_t to,
 	if (!master->_write_oob && (!master->_write || ops->oobbuf))
 		return -EOPNOTSUPP;
 
-	to = mtd_get_master_ofs(mtd, to);
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION)
+		return mtd_io_emulated_slc(mtd, to, false, ops);
 
-	if (master->_write_oob)
-		return master->_write_oob(master, to, ops);
-	else
-		return master->_write(master, to, ops->len, &ops->retlen,
-				      ops->datbuf);
+	return mtd_write_oob_std(mtd, to, ops);
 }
 EXPORT_SYMBOL_GPL(mtd_write_oob);
 
@@ -1672,7 +1784,7 @@ EXPORT_SYMBOL_GPL(mtd_ooblayout_get_databytes);
  * @start: first ECC byte to set
  * @nbytes: number of ECC bytes to set
  *
- * Works like mtd_ooblayout_get_bytes(), except it acts on free bytes.
+ * Works like mtd_ooblayout_set_bytes(), except it acts on free bytes.
  *
  * Returns zero on success, a negative error code otherwise.
  */
@@ -1817,6 +1929,12 @@ int mtd_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 		return -EINVAL;
 	if (!len)
 		return 0;
+
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION) {
+		ofs = (loff_t)mtd_div_by_eb(ofs, mtd) * master->erasesize;
+		len = (u64)mtd_div_by_eb(len, mtd) * master->erasesize;
+	}
+
 	return master->_lock(master, mtd_get_master_ofs(mtd, ofs), len);
 }
 EXPORT_SYMBOL_GPL(mtd_lock);
@@ -1831,6 +1949,12 @@ int mtd_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 		return -EINVAL;
 	if (!len)
 		return 0;
+
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION) {
+		ofs = (loff_t)mtd_div_by_eb(ofs, mtd) * master->erasesize;
+		len = (u64)mtd_div_by_eb(len, mtd) * master->erasesize;
+	}
+
 	return master->_unlock(master, mtd_get_master_ofs(mtd, ofs), len);
 }
 EXPORT_SYMBOL_GPL(mtd_unlock);
@@ -1845,6 +1969,12 @@ int mtd_is_locked(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 		return -EINVAL;
 	if (!len)
 		return 0;
+
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION) {
+		ofs = (loff_t)mtd_div_by_eb(ofs, mtd) * master->erasesize;
+		len = (u64)mtd_div_by_eb(len, mtd) * master->erasesize;
+	}
+
 	return master->_is_locked(master, mtd_get_master_ofs(mtd, ofs), len);
 }
 EXPORT_SYMBOL_GPL(mtd_is_locked);
@@ -1857,6 +1987,10 @@ int mtd_block_isreserved(struct mtd_info *mtd, loff_t ofs)
 		return -EINVAL;
 	if (!master->_block_isreserved)
 		return 0;
+
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION)
+		ofs = (loff_t)mtd_div_by_eb(ofs, mtd) * master->erasesize;
+
 	return master->_block_isreserved(master, mtd_get_master_ofs(mtd, ofs));
 }
 EXPORT_SYMBOL_GPL(mtd_block_isreserved);
@@ -1869,6 +2003,10 @@ int mtd_block_isbad(struct mtd_info *mtd, loff_t ofs)
 		return -EINVAL;
 	if (!master->_block_isbad)
 		return 0;
+
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION)
+		ofs = (loff_t)mtd_div_by_eb(ofs, mtd) * master->erasesize;
+
 	return master->_block_isbad(master, mtd_get_master_ofs(mtd, ofs));
 }
 EXPORT_SYMBOL_GPL(mtd_block_isbad);
@@ -1884,6 +2022,9 @@ int mtd_block_markbad(struct mtd_info *mtd, loff_t ofs)
 		return -EINVAL;
 	if (!(mtd->flags & MTD_WRITEABLE))
 		return -EROFS;
+
+	if (mtd->flags & MTD_SLC_ON_MLC_EMULATION)
+		ofs = (loff_t)mtd_div_by_eb(ofs, mtd) * master->erasesize;
 
 	ret = master->_block_markbad(master, mtd_get_master_ofs(mtd, ofs));
 	if (ret)
@@ -2036,11 +2177,12 @@ static struct backing_dev_info * __init mtd_bdi_init(char *name)
 	struct backing_dev_info *bdi;
 	int ret;
 
-	bdi = bdi_alloc(GFP_KERNEL);
+	bdi = bdi_alloc(NUMA_NO_NODE);
 	if (!bdi)
 		return ERR_PTR(-ENOMEM);
+	bdi->ra_pages = 0;
+	bdi->io_pages = 0;
 
-	bdi->name = name;
 	/*
 	 * We put '-0' suffix to the name to get the same name format as we
 	 * used to get. Since this is called only once, we get a unique name. 

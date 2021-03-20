@@ -76,8 +76,8 @@
 #define MPT3SAS_DRIVER_NAME		"mpt3sas"
 #define MPT3SAS_AUTHOR "Avago Technologies <MPT-FusionLinux.pdl@avagotech.com>"
 #define MPT3SAS_DESCRIPTION	"LSI MPT Fusion SAS 3.0 Device Driver"
-#define MPT3SAS_DRIVER_VERSION		"33.100.00.00"
-#define MPT3SAS_MAJOR_VERSION		33
+#define MPT3SAS_DRIVER_VERSION		"35.100.00.00"
+#define MPT3SAS_MAJOR_VERSION		35
 #define MPT3SAS_MINOR_VERSION		100
 #define MPT3SAS_BUILD_VERSION		0
 #define MPT3SAS_RELEASE_VERSION	00
@@ -367,6 +367,7 @@ struct mpt3sas_nvme_cmd {
 #define MPT3SAS_HIGH_IOPS_REPLY_QUEUES		8
 #define MPT3SAS_HIGH_IOPS_BATCH_COUNT		16
 #define MPT3SAS_GEN35_MAX_MSIX_QUEUES		128
+#define RDPQ_MAX_INDEX_IN_ONE_CHUNK		16
 
 /* OEM Specific Flags will come from OEM specific header files */
 struct Mpi2ManufacturingPage10_t {
@@ -1026,7 +1027,6 @@ typedef void (*MPT3SAS_FLUSH_RUNNING_CMDS)(struct MPT3SAS_ADAPTER *ioc);
  * @ir_firmware: IR firmware present
  * @bars: bitmask of BAR's that must be configured
  * @mask_interrupts: ignore interrupt
- * @dma_mask: used to set the consistent dma mask
  * @pci_access_mutex: Mutex to synchronize ioctl, sysfs show path and
  *			pci resource handling
  * @fault_reset_work_q_name: fw fault work queue
@@ -1036,6 +1036,8 @@ typedef void (*MPT3SAS_FLUSH_RUNNING_CMDS)(struct MPT3SAS_ADAPTER *ioc);
  * @firmware_event_thread: ""
  * @fw_event_lock:
  * @fw_event_list: list of fw events
+ * @current_evet: current processing firmware event
+ * @fw_event_cleanup: set to one while cleaning up the fw events
  * @aen_event_read_flag: event log was read
  * @broadcast_aen_busy: broadcast aen waiting to be serviced
  * @shost_recovery: host reset in progress
@@ -1064,6 +1066,7 @@ typedef void (*MPT3SAS_FLUSH_RUNNING_CMDS)(struct MPT3SAS_ADAPTER *ioc);
  * @thresh_hold: Max number of reply descriptors processed
  *				before updating Host Index
  * @drv_support_bitmap: driver's supported feature bit map
+ * @use_32bit_dma: Flag to use 32 bit consistent dma mask
  * @scsi_io_cb_idx: shost generated commands
  * @tm_cb_idx: task management commands
  * @scsih_cb_idx: scsih internal commands
@@ -1205,7 +1208,6 @@ struct MPT3SAS_ADAPTER {
 	u8		ir_firmware;
 	int		bars;
 	u8		mask_interrupts;
-	int		dma_mask;
 
 	/* fw fault handler */
 	char		fault_reset_work_q_name[20];
@@ -1217,6 +1219,8 @@ struct MPT3SAS_ADAPTER {
 	struct workqueue_struct	*firmware_event_thread;
 	spinlock_t	fw_event_lock;
 	struct list_head fw_event_list;
+	struct fw_event_work	*current_event;
+	u8		fw_events_cleanup;
 
 	 /* misc flags */
 	int		aen_event_read_flag;
@@ -1254,6 +1258,7 @@ struct MPT3SAS_ADAPTER {
 	u8		high_iops_queues;
 	u32		drv_support_bitmap;
 	bool		enable_sdev_max_qd;
+	bool		use_32bit_dma;
 
 	/* internal commands, callback index */
 	u8		scsi_io_cb_idx;
@@ -1471,11 +1476,18 @@ struct MPT3SAS_ADAPTER {
 	u16		device_remove_in_progress_sz;
 	u8		is_gen35_ioc;
 	u8		is_aero_ioc;
+	struct dentry	*debugfs_root;
+	struct dentry	*ioc_dump;
 	PUT_SMID_IO_FP_HIP put_smid_scsi_io;
 	PUT_SMID_IO_FP_HIP put_smid_fast_path;
 	PUT_SMID_IO_FP_HIP put_smid_hi_priority;
 	PUT_SMID_DEFAULT put_smid_default;
 	GET_MSIX_INDEX get_msix_index_for_smlio;
+};
+
+struct mpt3sas_debugfs_buffer {
+	void	*buf;
+	u32	len;
 };
 
 #define MPT_DRV_SUPPORT_BITMAP_MEMMOVE 0x00000001
@@ -1516,7 +1528,9 @@ __le32 mpt3sas_base_get_sense_buffer_dma(struct MPT3SAS_ADAPTER *ioc,
 	u16 smid);
 void *mpt3sas_base_get_pcie_sgl(struct MPT3SAS_ADAPTER *ioc, u16 smid);
 dma_addr_t mpt3sas_base_get_pcie_sgl_dma(struct MPT3SAS_ADAPTER *ioc, u16 smid);
-void mpt3sas_base_sync_reply_irqs(struct MPT3SAS_ADAPTER *ioc);
+void mpt3sas_base_sync_reply_irqs(struct MPT3SAS_ADAPTER *ioc, u8 poll);
+void mpt3sas_base_mask_interrupts(struct MPT3SAS_ADAPTER *ioc);
+void mpt3sas_base_unmask_interrupts(struct MPT3SAS_ADAPTER *ioc);
 
 void mpt3sas_base_put_smid_fast_path(struct MPT3SAS_ADAPTER *ioc, u16 smid,
 	u16 handle);
@@ -1596,11 +1610,12 @@ void mpt3sas_scsih_clear_outstanding_scsi_tm_commands(
 	struct MPT3SAS_ADAPTER *ioc);
 void mpt3sas_scsih_reset_done_handler(struct MPT3SAS_ADAPTER *ioc);
 
-int mpt3sas_scsih_issue_tm(struct MPT3SAS_ADAPTER *ioc, u16 handle, u64 lun,
-	u8 type, u16 smid_task, u16 msix_task, u8 timeout, u8 tr_method);
+int mpt3sas_scsih_issue_tm(struct MPT3SAS_ADAPTER *ioc, u16 handle,
+	uint channel, uint id, u64 lun, u8 type, u16 smid_task,
+	u16 msix_task, u8 timeout, u8 tr_method);
 int mpt3sas_scsih_issue_locked_tm(struct MPT3SAS_ADAPTER *ioc, u16 handle,
-	u64 lun, u8 type, u16 smid_task, u16 msix_task,
-	u8 timeout, u8 tr_method);
+	uint channel, uint id, u64 lun, u8 type, u16 smid_task,
+	u16 msix_task, u8 timeout, u8 tr_method);
 
 void mpt3sas_scsih_set_tm_flag(struct MPT3SAS_ADAPTER *ioc, u16 handle);
 void mpt3sas_scsih_clear_tm_flag(struct MPT3SAS_ADAPTER *ioc, u16 handle);
@@ -1762,7 +1777,7 @@ void mpt3sas_send_trigger_data_event(struct MPT3SAS_ADAPTER *ioc,
 void mpt3sas_process_trigger_data(struct MPT3SAS_ADAPTER *ioc,
 	struct SL_WH_TRIGGERS_EVENT_DATA_T *event_data);
 void mpt3sas_trigger_master(struct MPT3SAS_ADAPTER *ioc,
-	u32 tigger_bitmask);
+	u32 trigger_bitmask);
 void mpt3sas_trigger_event(struct MPT3SAS_ADAPTER *ioc, u16 event,
 	u16 log_entry_qualifier);
 void mpt3sas_trigger_scsi(struct MPT3SAS_ADAPTER *ioc, u8 sense_key,
@@ -1780,6 +1795,11 @@ mpt3sas_setup_direct_io(struct MPT3SAS_ADAPTER *ioc, struct scsi_cmnd *scmd,
 
 /* NCQ Prio Handling Check */
 bool scsih_ncq_prio_supp(struct scsi_device *sdev);
+
+void mpt3sas_setup_debugfs(struct MPT3SAS_ADAPTER *ioc);
+void mpt3sas_destroy_debugfs(struct MPT3SAS_ADAPTER *ioc);
+void mpt3sas_init_debugfs(void);
+void mpt3sas_exit_debugfs(void);
 
 /**
  * _scsih_is_pcie_scsi_device - determines if device is an pcie scsi device

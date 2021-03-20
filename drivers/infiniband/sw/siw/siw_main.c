@@ -67,12 +67,13 @@ static int siw_device_register(struct siw_device *sdev, const char *name)
 	static int dev_id = 1;
 	int rv;
 
-	rv = ib_register_device(base_dev, name);
+	sdev->vendor_part_id = dev_id++;
+
+	rv = ib_register_device(base_dev, name, NULL);
 	if (rv) {
 		pr_warn("siw: device registration error %d\n", rv);
 		return rv;
 	}
-	sdev->vendor_part_id = dev_id++;
 
 	siw_dbg(base_dev, "HWaddr=%pM\n", sdev->netdev->dev_addr);
 
@@ -134,7 +135,7 @@ static struct {
 
 static int siw_init_cpulist(void)
 {
-	int i, num_nodes = num_possible_nodes();
+	int i, num_nodes = nr_node_ids;
 
 	memset(siw_tx_thread, 0, sizeof(siw_tx_thread));
 
@@ -288,7 +289,6 @@ static const struct ib_device_ops siw_device_ops = {
 	.post_srq_recv = siw_post_srq_recv,
 	.query_device = siw_query_device,
 	.query_gid = siw_query_gid,
-	.query_pkey = siw_query_pkey,
 	.query_port = siw_query_port,
 	.query_qp = siw_query_qp,
 	.query_srq = siw_query_srq,
@@ -305,24 +305,8 @@ static struct siw_device *siw_device_create(struct net_device *netdev)
 {
 	struct siw_device *sdev = NULL;
 	struct ib_device *base_dev;
-	struct device *parent = netdev->dev.parent;
 	int rv;
 
-	if (!parent) {
-		/*
-		 * The loopback device has no parent device,
-		 * so it appears as a top-level device. To support
-		 * loopback device connectivity, take this device
-		 * as the parent device. Skip all other devices
-		 * w/o parent device.
-		 */
-		if (netdev->type != ARPHRD_LOOPBACK) {
-			pr_warn("siw: device %s error: no parent device\n",
-				netdev->name);
-			return NULL;
-		}
-		parent = &netdev->dev;
-	}
 	sdev = ib_alloc_device(siw_device, base_dev);
 	if (!sdev)
 		return NULL;
@@ -381,11 +365,6 @@ static struct siw_device *siw_device_create(struct net_device *netdev)
 	 * per physical port.
 	 */
 	base_dev->phys_port_cnt = 1;
-	base_dev->dev.parent = parent;
-	base_dev->dev.dma_ops = &dma_virt_ops;
-	base_dev->dev.dma_parms = &sdev->dma_parms;
-	sdev->dma_parms = (struct device_dma_parameters)
-		{ .max_segment_size = SZ_2G };
 	base_dev->num_comp_vectors = num_possible_cpus();
 
 	xa_init_flags(&sdev->qp_xa, XA_FLAGS_ALLOC1);
@@ -413,7 +392,6 @@ static struct siw_device *siw_device_create(struct net_device *netdev)
 	sdev->attrs.max_mr = SIW_MAX_MR;
 	sdev->attrs.max_pd = SIW_MAX_PD;
 	sdev->attrs.max_mw = SIW_MAX_MW;
-	sdev->attrs.max_fmr = SIW_MAX_FMR;
 	sdev->attrs.max_srq = SIW_MAX_SRQ;
 	sdev->attrs.max_srq_wr = SIW_MAX_SRQ_WR;
 	sdev->attrs.max_srq_sge = SIW_MAX_SGE;
@@ -428,7 +406,7 @@ static struct siw_device *siw_device_create(struct net_device *netdev)
 	atomic_set(&sdev->num_mr, 0);
 	atomic_set(&sdev->num_pd, 0);
 
-	sdev->numa_node = dev_to_node(parent);
+	sdev->numa_node = dev_to_node(&netdev->dev);
 	spin_lock_init(&sdev->lock);
 
 	return sdev;

@@ -766,8 +766,6 @@ static int ar933x_uart_probe(struct platform_device *pdev)
 		goto err_disable_clk;
 	}
 
-	uart_get_rs485_mode(&pdev->dev, &port->rs485);
-
 	port->mapbase = mem_res->start;
 	port->line = id;
 	port->irq = irq_res->start;
@@ -786,9 +784,15 @@ static int ar933x_uart_probe(struct platform_device *pdev)
 	baud = ar933x_uart_get_baud(port->uartclk, 0, AR933X_UART_MAX_STEP);
 	up->max_baud = min_t(unsigned int, baud, AR933X_UART_MAX_BAUD);
 
+	ret = uart_get_rs485_mode(port);
+	if (ret)
+		goto err_disable_clk;
+
 	up->gpios = mctrl_gpio_init(port, 0);
-	if (IS_ERR(up->gpios) && PTR_ERR(up->gpios) != -ENOSYS)
-		return PTR_ERR(up->gpios);
+	if (IS_ERR(up->gpios) && PTR_ERR(up->gpios) != -ENOSYS) {
+		ret = PTR_ERR(up->gpios);
+		goto err_disable_clk;
+	}
 
 	up->rts_gpiod = mctrl_gpio_to_gpiod(up->gpios, UART_GPIO_RTS);
 

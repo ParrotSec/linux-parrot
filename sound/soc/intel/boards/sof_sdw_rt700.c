@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 // Copyright (c) 2020 Intel Corporation
 
 /*
@@ -8,8 +8,10 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/input.h>
+#include <sound/control.h>
 #include <sound/soc.h>
 #include <sound/soc-acpi.h>
+#include <sound/soc-dapm.h>
 #include <sound/jack.h>
 #include "sof_sdw_common.h"
 
@@ -21,9 +23,9 @@ static const struct snd_soc_dapm_widget rt700_widgets[] = {
 
 static const struct snd_soc_dapm_route rt700_map[] = {
 	/* Headphones */
-	{ "Headphones", NULL, "HP" },
-	{ "Speaker", NULL, "SPK" },
-	{ "MIC2", NULL, "AMIC" },
+	{ "Headphones", NULL, "rt700 HP" },
+	{ "Speaker", NULL, "rt700 SPK" },
+	{ "rt700 MIC2", NULL, "AMIC" },
 };
 
 static const struct snd_kcontrol_new rt700_controls[] = {
@@ -47,7 +49,8 @@ static int rt700_rtd_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_card *card = rtd->card;
 	struct mc_private *ctx = snd_soc_card_get_drvdata(card);
-	struct snd_soc_component *component = rtd->codec_dai->component;
+	struct snd_soc_dai *codec_dai = asoc_rtd_to_codec(rtd, 0);
+	struct snd_soc_component *component = codec_dai->component;
 	struct snd_soc_jack *jack;
 	int ret;
 
@@ -94,10 +97,10 @@ static int rt700_rtd_init(struct snd_soc_pcm_runtime *rtd)
 
 	jack = &ctx->sdw_headset;
 
-	snd_jack_set_key(jack->jack, SND_JACK_BTN_0, KEY_VOLUMEUP);
-	snd_jack_set_key(jack->jack, SND_JACK_BTN_1, KEY_PLAYPAUSE);
-	snd_jack_set_key(jack->jack, SND_JACK_BTN_2, KEY_VOLUMEDOWN);
-	snd_jack_set_key(jack->jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
+	snd_jack_set_key(jack->jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
+	snd_jack_set_key(jack->jack, SND_JACK_BTN_1, KEY_VOICECOMMAND);
+	snd_jack_set_key(jack->jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(jack->jack, SND_JACK_BTN_3, KEY_VOLUMEDOWN);
 
 	ret = snd_soc_component_set_jack(component, jack, NULL);
 	if (ret)

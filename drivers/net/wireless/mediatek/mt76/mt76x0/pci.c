@@ -29,6 +29,7 @@ static void mt76x0e_stop_hw(struct mt76x02_dev *dev)
 {
 	cancel_delayed_work_sync(&dev->cal_work);
 	cancel_delayed_work_sync(&dev->mt76.mac_work);
+	clear_bit(MT76_RESTART, &dev->mphy.state);
 
 	if (!mt76_poll(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_TX_DMA_BUSY,
 		       0, 1000))
@@ -83,6 +84,7 @@ static const struct ieee80211_ops mt76x0e_ops = {
 	.set_coverage_class = mt76x02_set_coverage_class,
 	.set_rts_threshold = mt76x02_set_rts_threshold,
 	.get_antenna = mt76_get_antenna,
+	.reconfig_complete = mt76x02_reconfig_complete,
 };
 
 static int mt76x0e_register_device(struct mt76x02_dev *dev)
@@ -178,6 +180,8 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	mdev->rev = mt76_rr(dev, MT_ASIC_VERSION);
 	dev_info(mdev->dev, "ASIC revision: %08x\n", mdev->rev);
 
+	mt76_wr(dev, MT_INT_MASK_CSR, 0);
+
 	ret = devm_request_irq(mdev->dev, pdev->irq, mt76x02_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (ret)
@@ -190,7 +194,8 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	return 0;
 
 error:
-	ieee80211_free_hw(mt76_hw(dev));
+	mt76_free_device(&dev->mt76);
+
 	return ret;
 }
 
@@ -200,7 +205,7 @@ static void mt76x0e_cleanup(struct mt76x02_dev *dev)
 	tasklet_disable(&dev->mt76.pre_tbtt_tasklet);
 	mt76x0_chip_onoff(dev, false, false);
 	mt76x0e_stop_hw(dev);
-	mt76x02_dma_cleanup(dev);
+	mt76_dma_cleanup(&dev->mt76);
 	mt76x02_mcu_cleanup(dev);
 }
 
@@ -216,6 +221,7 @@ mt76x0e_remove(struct pci_dev *pdev)
 }
 
 static const struct pci_device_id mt76x0e_device_table[] = {
+	{ PCI_DEVICE(0x14c3, 0x7610) },
 	{ PCI_DEVICE(0x14c3, 0x7630) },
 	{ PCI_DEVICE(0x14c3, 0x7650) },
 	{ },

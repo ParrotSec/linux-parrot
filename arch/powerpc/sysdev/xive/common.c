@@ -197,6 +197,9 @@ static notrace u8 xive_esb_read(struct xive_irq_data *xd, u32 offset)
 {
 	u64 val;
 
+	if (offset == XIVE_ESB_SET_PQ_10 && xd->flags & XIVE_IRQ_FLAG_STORE_EOI)
+		offset |= XIVE_ESB_LD_ST_MO;
+
 	/* Handle HW errata */
 	if (xd->flags & XIVE_IRQ_FLAG_SHIFT_BUG)
 		offset |= offset << 4;
@@ -1562,7 +1565,7 @@ static int __init xive_off(char *arg)
 }
 __setup("xive=off", xive_off);
 
-void xive_debug_show_cpu(struct seq_file *m, int cpu)
+static void xive_debug_show_cpu(struct seq_file *m, int cpu)
 {
 	struct xive_cpu *xc = per_cpu(xive_cpu, cpu);
 
@@ -1596,7 +1599,7 @@ void xive_debug_show_cpu(struct seq_file *m, int cpu)
 	seq_puts(m, "\n");
 }
 
-void xive_debug_show_irq(struct seq_file *m, u32 hw_irq, struct irq_data *d)
+static void xive_debug_show_irq(struct seq_file *m, u32 hw_irq, struct irq_data *d)
 {
 	struct irq_chip *chip = irq_data_get_irq_chip(d);
 	int rc;
@@ -1661,7 +1664,8 @@ DEFINE_SHOW_ATTRIBUTE(xive_core_debug);
 
 int xive_core_debug_init(void)
 {
-	debugfs_create_file("xive", 0400, powerpc_debugfs_root,
-			    NULL, &xive_core_debug_fops);
+	if (xive_enabled())
+		debugfs_create_file("xive", 0400, powerpc_debugfs_root,
+				    NULL, &xive_core_debug_fops);
 	return 0;
 }

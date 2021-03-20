@@ -149,7 +149,6 @@ static int platform_pci_probe(struct pci_dev *pdev,
 	ret = gnttab_init();
 	if (ret)
 		goto grant_out;
-	xenbus_probe(NULL);
 	return 0;
 grant_out:
 	gnttab_free_auto_xlat_frames();
@@ -168,7 +167,7 @@ static const struct pci_device_id platform_pci_tbl[] = {
 	{0,}
 };
 
-static struct dev_pm_ops platform_pm_ops = {
+static const struct dev_pm_ops platform_pm_ops = {
 	.resume_noirq =   platform_pci_resume,
 };
 

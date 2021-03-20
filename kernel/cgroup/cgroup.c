@@ -153,11 +153,7 @@ static struct static_key_true *cgroup_subsys_on_dfl_key[] = {
 
 static DEFINE_PER_CPU(struct cgroup_rstat_cpu, cgrp_dfl_root_rstat_cpu);
 
-/*
- * The default hierarchy, reserved for the subsystems that are otherwise
- * unattached - it never has more than a single cgroup, and all tasks are
- * part of that cgroup.
- */
+/* the default hierarchy */
 struct cgroup_root cgrp_dfl_root = { .cgrp.rstat_cpu = &cgrp_dfl_root_rstat_cpu };
 EXPORT_SYMBOL_GPL(cgrp_dfl_root);
 
@@ -250,9 +246,6 @@ bool cgroup_ssid_enabled(int ssid)
  * can be used to test whether a cgroup is on the default hierarchy for
  * cases where a subsystem should behave differnetly depending on the
  * interface version.
- *
- * The set of behaviors which change on the default hierarchy are still
- * being determined and the mount option is prefixed with __DEVEL__.
  *
  * List of changed behaviors:
  *
@@ -2013,7 +2006,6 @@ int cgroup_setup_root(struct cgroup_root *root, u16 ss_mask)
 	BUG_ON(!list_empty(&root_cgrp->self.children));
 	BUG_ON(atomic_read(&root->nr_cgrps) != 1);
 
-	kernfs_activate(root_cgrp->kn);
 	ret = 0;
 	goto out;
 
@@ -3575,6 +3567,7 @@ static ssize_t cgroup_pressure_write(struct kernfs_open_file *of, char *buf,
 {
 	struct psi_trigger *new;
 	struct cgroup *cgrp;
+	struct psi_group *psi;
 
 	cgrp = cgroup_kn_lock_live(of->kn, false);
 	if (!cgrp)
@@ -3583,7 +3576,8 @@ static ssize_t cgroup_pressure_write(struct kernfs_open_file *of, char *buf,
 	cgroup_get(cgrp);
 	cgroup_kn_unlock(of->kn);
 
-	new = psi_trigger_create(&cgrp->psi, buf, nbytes, res);
+	psi = cgroup_ino(cgrp) == 1 ? &psi_system : &cgrp->psi;
+	new = psi_trigger_create(psi, buf, nbytes, res);
 	if (IS_ERR(new)) {
 		cgroup_put(cgrp);
 		return PTR_ERR(new);
@@ -3688,6 +3682,9 @@ static ssize_t cgroup_file_write(struct kernfs_open_file *of, char *buf,
 	struct cftype *cft = of->kn->priv;
 	struct cgroup_subsys_state *css;
 	int ret;
+
+	if (!nbytes)
+		return 0;
 
 	/*
 	 * If namespaces are delegation boundaries, disallow writes to
@@ -4881,7 +4878,6 @@ static struct cftype cgroup_base_files[] = {
 	},
 	{
 		.name = "cpu.stat",
-		.flags = CFTYPE_NOT_ON_ROOT,
 		.seq_show = cpu_stat_show,
 	},
 #ifdef CONFIG_PSI
@@ -6447,18 +6443,8 @@ void cgroup_sk_alloc_disable(void)
 
 void cgroup_sk_alloc(struct sock_cgroup_data *skcd)
 {
-	if (cgroup_sk_alloc_disabled)
-		return;
-
-	/* Socket clone path */
-	if (skcd->val) {
-		/*
-		 * We might be cloning a socket which is left in an empty
-		 * cgroup and the cgroup might have already been rmdir'd.
-		 * Don't use cgroup_get_live().
-		 */
-		cgroup_get(sock_cgroup_ptr(skcd));
-		cgroup_bpf_get(sock_cgroup_ptr(skcd));
+	if (cgroup_sk_alloc_disabled) {
+		skcd->no_refcnt = 1;
 		return;
 	}
 
@@ -6483,10 +6469,27 @@ void cgroup_sk_alloc(struct sock_cgroup_data *skcd)
 	rcu_read_unlock();
 }
 
+void cgroup_sk_clone(struct sock_cgroup_data *skcd)
+{
+	if (skcd->val) {
+		if (skcd->no_refcnt)
+			return;
+		/*
+		 * We might be cloning a socket which is left in an empty
+		 * cgroup and the cgroup might have already been rmdir'd.
+		 * Don't use cgroup_get_live().
+		 */
+		cgroup_get(sock_cgroup_ptr(skcd));
+		cgroup_bpf_get(sock_cgroup_ptr(skcd));
+	}
+}
+
 void cgroup_sk_free(struct sock_cgroup_data *skcd)
 {
 	struct cgroup *cgrp = sock_cgroup_ptr(skcd);
 
+	if (skcd->no_refcnt)
+		return;
 	cgroup_bpf_put(cgrp);
 	cgroup_put(cgrp);
 }
@@ -6504,33 +6507,6 @@ int cgroup_bpf_attach(struct cgroup *cgrp,
 
 	mutex_lock(&cgroup_mutex);
 	ret = __cgroup_bpf_attach(cgrp, prog, replace_prog, link, type, flags);
-	mutex_unlock(&cgroup_mutex);
-	return ret;
-}
-
-int cgroup_bpf_replace(struct bpf_link *link, struct bpf_prog *old_prog,
-		       struct bpf_prog *new_prog)
-{
-	struct bpf_cgroup_link *cg_link;
-	int ret;
-
-	if (link->ops != &bpf_cgroup_link_lops)
-		return -EINVAL;
-
-	cg_link = container_of(link, struct bpf_cgroup_link, link);
-
-	mutex_lock(&cgroup_mutex);
-	/* link might have been auto-released by dying cgroup, so fail */
-	if (!cg_link->cgroup) {
-		ret = -EINVAL;
-		goto out_unlock;
-	}
-	if (old_prog && link->prog != old_prog) {
-		ret = -EPERM;
-		goto out_unlock;
-	}
-	ret = __cgroup_bpf_replace(cg_link->cgroup, cg_link, new_prog);
-out_unlock:
 	mutex_unlock(&cgroup_mutex);
 	return ret;
 }

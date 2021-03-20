@@ -2,6 +2,8 @@
 /* Copyright(c) 2018-2019  Realtek Corporation
  */
 
+#include <linux/iopoll.h>
+
 #include "main.h"
 #include "coex.h"
 #include "fw.h"
@@ -23,7 +25,7 @@ static void rtw_fw_c2h_cmd_handle_ext(struct rtw_dev *rtwdev,
 
 	switch (sub_cmd_id) {
 	case C2H_CCX_RPT:
-		rtw_tx_report_handle(rtwdev, skb);
+		rtw_tx_report_handle(rtwdev, skb, C2H_CCX_RPT);
 		break;
 	default:
 		break;
@@ -140,6 +142,9 @@ void rtw_fw_c2h_cmd_handle(struct rtw_dev *rtwdev, struct sk_buff *skb)
 		goto unlock;
 
 	switch (c2h->id) {
+	case C2H_CCX_TX_RPT:
+		rtw_tx_report_handle(rtwdev, skb, C2H_CCX_TX_RPT);
+		break;
 	case C2H_BT_INFO:
 		rtw_coex_bt_info_notify(rtwdev, c2h->payload, len);
 		break;
@@ -153,6 +158,7 @@ void rtw_fw_c2h_cmd_handle(struct rtw_dev *rtwdev, struct sk_buff *skb)
 		rtw_fw_ra_report_handle(rtwdev, c2h->payload, len);
 		break;
 	default:
+		rtw_dbg(rtwdev, RTW_DBG_FW, "C2H 0x%x isn't handled\n", c2h->id);
 		break;
 	}
 
@@ -187,14 +193,23 @@ void rtw_fw_c2h_cmd_rx_irqsafe(struct rtw_dev *rtwdev, u32 pkt_offset,
 }
 EXPORT_SYMBOL(rtw_fw_c2h_cmd_rx_irqsafe);
 
+void rtw_fw_c2h_cmd_isr(struct rtw_dev *rtwdev)
+{
+	if (rtw_read8(rtwdev, REG_MCU_TST_CFG) == VAL_FW_TRIGGER)
+		rtw_fw_recovery(rtwdev);
+	else
+		rtw_warn(rtwdev, "unhandled firmware c2h interrupt\n");
+}
+EXPORT_SYMBOL(rtw_fw_c2h_cmd_isr);
+
 static void rtw_fw_send_h2c_command(struct rtw_dev *rtwdev,
 				    u8 *h2c)
 {
 	u8 box;
 	u8 box_state;
 	u32 box_reg, box_ex_reg;
-	u32 h2c_wait;
 	int idx;
+	int ret;
 
 	rtw_dbg(rtwdev, RTW_DBG_FW,
 		"send H2C content %02x%02x%02x%02x %02x%02x%02x%02x\n",
@@ -226,12 +241,11 @@ static void rtw_fw_send_h2c_command(struct rtw_dev *rtwdev,
 		goto out;
 	}
 
-	h2c_wait = 20;
-	do {
-		box_state = rtw_read8(rtwdev, REG_HMETFR);
-	} while ((box_state >> box) & 0x1 && --h2c_wait > 0);
+	ret = read_poll_timeout_atomic(rtw_read8, box_state,
+				       !((box_state >> box) & 0x1), 100, 3000,
+				       false, rtwdev, REG_HMETFR);
 
-	if (!h2c_wait) {
+	if (ret) {
 		rtw_err(rtwdev, "failed to send h2c command\n");
 		goto out;
 	}
@@ -246,6 +260,11 @@ static void rtw_fw_send_h2c_command(struct rtw_dev *rtwdev,
 
 out:
 	spin_unlock(&rtwdev->h2c.lock);
+}
+
+void rtw_fw_h2c_cmd_dbg(struct rtw_dev *rtwdev, u8 *h2c)
+{
+	rtw_fw_send_h2c_command(rtwdev, h2c);
 }
 
 static void rtw_fw_send_h2c_packet(struct rtw_dev *rtwdev, u8 *h2c_pkt)
@@ -270,6 +289,9 @@ rtw_fw_send_general_info(struct rtw_dev *rtwdev)
 	u8 h2c_pkt[H2C_PKT_SIZE] = {0};
 	u16 total_size = H2C_PKT_HDR_SIZE + 4;
 
+	if (rtw_chip_wcpu_11n(rtwdev))
+		return;
+
 	rtw_h2c_pkt_set_header(h2c_pkt, H2C_PKT_GENERAL_INFO);
 
 	SET_PKT_H2C_TOTAL_LEN(h2c_pkt, total_size);
@@ -289,6 +311,9 @@ rtw_fw_send_phydm_info(struct rtw_dev *rtwdev)
 	u8 h2c_pkt[H2C_PKT_SIZE] = {0};
 	u16 total_size = H2C_PKT_HDR_SIZE + 8;
 	u8 fw_rf_type = 0;
+
+	if (rtw_chip_wcpu_11n(rtwdev))
+		return;
 
 	if (hal->rf_type == RF_1T1R)
 		fw_rf_type = FW_RF_1T1R;
@@ -319,6 +344,7 @@ void rtw_fw_do_iqk(struct rtw_dev *rtwdev, struct rtw_iqk_para *para)
 
 	rtw_fw_send_h2c_packet(rtwdev, h2c_pkt);
 }
+EXPORT_SYMBOL(rtw_fw_do_iqk);
 
 void rtw_fw_query_bt_info(struct rtw_dev *rtwdev)
 {
@@ -444,7 +470,7 @@ void rtw_fw_send_ra_info(struct rtw_dev *rtwdev, struct rtw_sta_info *si)
 	SET_RA_INFO_INIT_RA_LVL(h2c_pkt, si->init_ra_lv);
 	SET_RA_INFO_SGI_EN(h2c_pkt, si->sgi_enable);
 	SET_RA_INFO_BW_MODE(h2c_pkt, si->bw_mode);
-	SET_RA_INFO_LDPC(h2c_pkt, si->ldpc_en);
+	SET_RA_INFO_LDPC(h2c_pkt, !!si->ldpc_en);
 	SET_RA_INFO_NO_UPDATE(h2c_pkt, no_update);
 	SET_RA_INFO_VHT_EN(h2c_pkt, si->vht_enable);
 	SET_RA_INFO_DIS_PT(h2c_pkt, disable_pt);
@@ -630,8 +656,8 @@ void rtw_fw_set_pg_info(struct rtw_dev *rtwdev)
 	rtw_fw_send_h2c_command(rtwdev, h2c_pkt);
 }
 
-u8 rtw_get_rsvd_page_probe_req_location(struct rtw_dev *rtwdev,
-					struct cfg80211_ssid *ssid)
+static u8 rtw_get_rsvd_page_probe_req_location(struct rtw_dev *rtwdev,
+					       struct cfg80211_ssid *ssid)
 {
 	struct rtw_rsvd_page *rsvd_pkt;
 	u8 location = 0;
@@ -647,8 +673,8 @@ u8 rtw_get_rsvd_page_probe_req_location(struct rtw_dev *rtwdev,
 	return location;
 }
 
-u16 rtw_get_rsvd_page_probe_req_size(struct rtw_dev *rtwdev,
-				     struct cfg80211_ssid *ssid)
+static u16 rtw_get_rsvd_page_probe_req_size(struct rtw_dev *rtwdev,
+					    struct cfg80211_ssid *ssid)
 {
 	struct rtw_rsvd_page *rsvd_pkt;
 	u16 size = 0;
@@ -903,14 +929,14 @@ static struct sk_buff *rtw_get_rsvd_page_skb(struct ieee80211_hw *hw,
 	return skb_new;
 }
 
-static void rtw_fill_rsvd_page_desc(struct rtw_dev *rtwdev, struct sk_buff *skb)
+static void rtw_fill_rsvd_page_desc(struct rtw_dev *rtwdev, struct sk_buff *skb,
+				    enum rtw_rsvd_packet_type type)
 {
-	struct rtw_tx_pkt_info pkt_info;
+	struct rtw_tx_pkt_info pkt_info = {0};
 	struct rtw_chip_info *chip = rtwdev->chip;
 	u8 *pkt_desc;
 
-	memset(&pkt_info, 0, sizeof(pkt_info));
-	rtw_rsvd_page_pkt_info_update(rtwdev, &pkt_info, skb);
+	rtw_tx_rsvd_page_pkt_info_update(rtwdev, &pkt_info, skb, type);
 	pkt_desc = skb_push(skb, chip->tx_pkt_desc_sz);
 	memset(pkt_desc, 0, chip->tx_pkt_desc_sz);
 	rtw_tx_fill_tx_desc(&pkt_info, skb);
@@ -1078,6 +1104,8 @@ int rtw_fw_write_data_rsvd_page(struct rtw_dev *rtwdev, u16 pg_addr,
 	u8 bckp[2];
 	u8 val;
 	u16 rsvd_pg_head;
+	u32 bcn_valid_addr;
+	u32 bcn_valid_mask;
 	int ret;
 
 	lockdep_assert_held(&rtwdev->mutex);
@@ -1085,8 +1113,13 @@ int rtw_fw_write_data_rsvd_page(struct rtw_dev *rtwdev, u16 pg_addr,
 	if (!size)
 		return -EINVAL;
 
-	pg_addr &= BIT_MASK_BCN_HEAD_1_V1;
-	rtw_write16(rtwdev, REG_FIFOPAGE_CTRL_2, pg_addr | BIT_BCN_VALID_V1);
+	if (rtw_chip_wcpu_11n(rtwdev)) {
+		rtw_write32_set(rtwdev, REG_DWBCN0_CTRL, BIT_BCN_VALID);
+	} else {
+		pg_addr &= BIT_MASK_BCN_HEAD_1_V1;
+		pg_addr |= BIT_BCN_VALID_V1;
+		rtw_write16(rtwdev, REG_FIFOPAGE_CTRL_2, pg_addr);
+	}
 
 	val = rtw_read8(rtwdev, REG_CR + 1);
 	bckp[0] = val;
@@ -1104,7 +1137,15 @@ int rtw_fw_write_data_rsvd_page(struct rtw_dev *rtwdev, u16 pg_addr,
 		goto restore;
 	}
 
-	if (!check_hw_ready(rtwdev, REG_FIFOPAGE_CTRL_2, BIT_BCN_VALID_V1, 1)) {
+	if (rtw_chip_wcpu_11n(rtwdev)) {
+		bcn_valid_addr = REG_DWBCN0_CTRL;
+		bcn_valid_mask = BIT_BCN_VALID;
+	} else {
+		bcn_valid_addr = REG_FIFOPAGE_CTRL_2;
+		bcn_valid_mask = BIT_BCN_VALID_V1;
+	}
+
+	if (!check_hw_ready(rtwdev, bcn_valid_addr, bcn_valid_mask, 1)) {
 		rtw_err(rtwdev, "error beacon valid\n");
 		ret = -EBUSY;
 	}
@@ -1234,7 +1275,7 @@ static u8 *rtw_build_rsvd_page(struct rtw_dev *rtwdev, u32 *size)
 		 * And iter->len will be added with size of tx_desc_sz.
 		 */
 		if (rsvd_pkt->add_txdesc)
-			rtw_fill_rsvd_page_desc(rtwdev, iter);
+			rtw_fill_rsvd_page_desc(rtwdev, iter, rsvd_pkt->type);
 
 		rsvd_pkt->skb = iter;
 		rsvd_pkt->page = total_page;
@@ -1372,29 +1413,16 @@ free:
 	return ret;
 }
 
-int rtw_dump_drv_rsvd_page(struct rtw_dev *rtwdev,
-			   u32 offset, u32 size, u32 *buf)
+static void rtw_fw_read_fifo_page(struct rtw_dev *rtwdev, u32 offset, u32 size,
+				  u32 *buf, u32 residue, u16 start_pg)
 {
-	struct rtw_fifo_conf *fifo = &rtwdev->fifo;
-	u32 residue, i;
-	u16 start_pg;
+	u32 i;
 	u16 idx = 0;
 	u16 ctl;
 	u8 rcr;
 
-	if (size & 0x3) {
-		rtw_warn(rtwdev, "should be 4-byte aligned\n");
-		return -EINVAL;
-	}
-
-	offset += fifo->rsvd_boundary << TX_PAGE_SIZE_SHIFT;
-	residue = offset & (FIFO_PAGE_SIZE - 1);
-	start_pg = offset >> FIFO_PAGE_SIZE_SHIFT;
-	start_pg += RSVD_PAGE_START_ADDR;
-
 	rcr = rtw_read8(rtwdev, REG_RCR + 2);
 	ctl = rtw_read16(rtwdev, REG_PKTBUF_DBG_CTRL) & 0xf000;
-
 	/* disable rx clock gate */
 	rtw_write8(rtwdev, REG_RCR, rcr | BIT(3));
 
@@ -1416,6 +1444,64 @@ int rtw_dump_drv_rsvd_page(struct rtw_dev *rtwdev,
 out:
 	rtw_write16(rtwdev, REG_PKTBUF_DBG_CTRL, ctl);
 	rtw_write8(rtwdev, REG_RCR + 2, rcr);
+}
+
+static void rtw_fw_read_fifo(struct rtw_dev *rtwdev, enum rtw_fw_fifo_sel sel,
+			     u32 offset, u32 size, u32 *buf)
+{
+	struct rtw_chip_info *chip = rtwdev->chip;
+	u32 start_pg, residue;
+
+	if (sel >= RTW_FW_FIFO_MAX) {
+		rtw_dbg(rtwdev, RTW_DBG_FW, "wrong fw fifo sel\n");
+		return;
+	}
+	if (sel == RTW_FW_FIFO_SEL_RSVD_PAGE)
+		offset += rtwdev->fifo.rsvd_boundary << TX_PAGE_SIZE_SHIFT;
+	residue = offset & (FIFO_PAGE_SIZE - 1);
+	start_pg = (offset >> FIFO_PAGE_SIZE_SHIFT) + chip->fw_fifo_addr[sel];
+
+	rtw_fw_read_fifo_page(rtwdev, offset, size, buf, residue, start_pg);
+}
+
+static bool rtw_fw_dump_check_size(struct rtw_dev *rtwdev,
+				   enum rtw_fw_fifo_sel sel,
+				   u32 start_addr, u32 size)
+{
+	switch (sel) {
+	case RTW_FW_FIFO_SEL_TX:
+	case RTW_FW_FIFO_SEL_RX:
+		if ((start_addr + size) > rtwdev->chip->fw_fifo_addr[sel])
+			return false;
+		/*fall through*/
+	default:
+		return true;
+	}
+}
+
+int rtw_fw_dump_fifo(struct rtw_dev *rtwdev, u8 fifo_sel, u32 addr, u32 size,
+		     u32 *buffer)
+{
+	if (!rtwdev->chip->fw_fifo_addr[0]) {
+		rtw_dbg(rtwdev, RTW_DBG_FW, "chip not support dump fw fifo\n");
+		return -ENOTSUPP;
+	}
+
+	if (size == 0 || !buffer)
+		return -EINVAL;
+
+	if (size & 0x3) {
+		rtw_dbg(rtwdev, RTW_DBG_FW, "not 4byte alignment\n");
+		return -EINVAL;
+	}
+
+	if (!rtw_fw_dump_check_size(rtwdev, fifo_sel, addr, size)) {
+		rtw_dbg(rtwdev, RTW_DBG_FW, "fw fifo dump size overflow\n");
+		return -EINVAL;
+	}
+
+	rtw_fw_read_fifo(rtwdev, fifo_sel, addr, size, buffer);
+
 	return 0;
 }
 

@@ -4,7 +4,7 @@
 
 NetApp provides this source code under the GPL v2 License.
 The GPL v2 license is available at
-http://opensource.org/licenses/gpl-license.php.
+https://opensource.org/licenses/gpl-license.php.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -52,4 +52,5 @@ static inline int sock_is_loopback(struct sock *sk)
 
 int rpc_clients_notifier_register(void);
 void rpc_clients_notifier_unregister(void);
+void auth_domain_cleanup(void);
 #endif /* _NET_SUNRPC_SUNRPC_H */

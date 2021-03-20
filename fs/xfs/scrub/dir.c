@@ -558,14 +558,27 @@ xchk_directory_leaf1_bestfree(
 	/* Check all the bestfree entries. */
 	for (i = 0; i < bestcount; i++, bestp++) {
 		best = be16_to_cpu(*bestp);
-		if (best == NULLDATAOFF)
-			continue;
 		error = xfs_dir3_data_read(sc->tp, sc->ip,
-				i * args->geo->fsbcount, 0, &dbp);
+				xfs_dir2_db_to_da(args->geo, i),
+				XFS_DABUF_MAP_HOLE_OK,
+				&dbp);
 		if (!xchk_fblock_process_error(sc, XFS_DATA_FORK, lblk,
 				&error))
 			break;
-		xchk_directory_check_freesp(sc, lblk, dbp, best);
+
+		if (!dbp) {
+			if (best != NULLDATAOFF) {
+				xchk_fblock_set_corrupt(sc, XFS_DATA_FORK,
+						lblk);
+				break;
+			}
+			continue;
+		}
+
+		if (best == NULLDATAOFF)
+			xchk_fblock_set_corrupt(sc, XFS_DATA_FORK, lblk);
+		else
+			xchk_directory_check_freesp(sc, lblk, dbp, best);
 		xfs_trans_brelse(sc->tp, dbp);
 		if (sc->sm->sm_flags & XFS_SCRUB_OFLAG_CORRUPT)
 			break;
@@ -635,7 +648,7 @@ xchk_directory_blocks(
 {
 	struct xfs_bmbt_irec	got;
 	struct xfs_da_args	args;
-	struct xfs_ifork	*ifp;
+	struct xfs_ifork	*ifp = XFS_IFORK_PTR(sc->ip, XFS_DATA_FORK);
 	struct xfs_mount	*mp = sc->mp;
 	xfs_fileoff_t		leaf_lblk;
 	xfs_fileoff_t		free_lblk;
@@ -647,11 +660,10 @@ xchk_directory_blocks(
 	int			error;
 
 	/* Ignore local format directories. */
-	if (sc->ip->i_d.di_format != XFS_DINODE_FMT_EXTENTS &&
-	    sc->ip->i_d.di_format != XFS_DINODE_FMT_BTREE)
+	if (ifp->if_format != XFS_DINODE_FMT_EXTENTS &&
+	    ifp->if_format != XFS_DINODE_FMT_BTREE)
 		return 0;
 
-	ifp = XFS_IFORK_PTR(sc->ip, XFS_DATA_FORK);
 	lblk = XFS_B_TO_FSB(mp, XFS_DIR2_DATA_OFFSET);
 	leaf_lblk = XFS_B_TO_FSB(mp, XFS_DIR2_LEAF_OFFSET);
 	free_lblk = XFS_B_TO_FSB(mp, XFS_DIR2_FREE_OFFSET);

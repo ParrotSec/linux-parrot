@@ -54,8 +54,8 @@ properties:
         reg:  register reset
     oneOf:
       - items:
-        - const: nand
-        - const: reg
+          - const: nand
+          - const: reg
       - const: nand
       - const: reg
 
@@ -127,6 +127,8 @@ required:
   - interrupts
   - clock-names
   - clocks
+
+unevaluatedProperties: false
 
 examples:
   - |

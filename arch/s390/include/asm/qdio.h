@@ -26,9 +26,9 @@
 
 /**
  * struct qdesfmt0 - queue descriptor, format 0
- * @sliba: storage list information block address
- * @sla: storage list address
- * @slsba: storage list state block address
+ * @sliba: absolute address of storage list information block
+ * @sla: absolute address of storage list
+ * @slsba: absolute address of storage list state block
  * @akey: access key for SLIB
  * @bkey: access key for SL
  * @ckey: access key for SBALs
@@ -56,7 +56,7 @@ struct qdesfmt0 {
  * @oqdcnt: output queue descriptor count
  * @iqdsz: input queue descriptor size
  * @oqdsz: output queue descriptor size
- * @qiba: queue information block address
+ * @qiba: absolute address of queue information block
  * @qkey: queue information block key
  * @qdf0: queue descriptions
  */
@@ -327,7 +327,6 @@ typedef void qdio_handler_t(struct ccw_device *, unsigned int, int,
  * struct qdio_initialize - qdio initialization data
  * @q_format: queue format
  * @qdr_ac: feature flags to set
- * @adapter_name: name for the adapter
  * @qib_param_field_format: format for qib_parm_field
  * @qib_param_field: pointer to 128 bytes or NULL, if no param field
  * @qib_rflags: rflags to set
@@ -347,7 +346,6 @@ typedef void qdio_handler_t(struct ccw_device *, unsigned int, int,
 struct qdio_initialize {
 	unsigned char q_format;
 	unsigned char qdr_ac;
-	unsigned char adapter_name[8];
 	unsigned int qib_param_field_format;
 	unsigned char *qib_param_field;
 	unsigned char qib_rflags;
@@ -364,34 +362,6 @@ struct qdio_initialize {
 	struct qdio_buffer ***output_sbal_addr_array;
 	struct qdio_outbuf_state *output_sbal_state_array;
 };
-
-/**
- * enum qdio_brinfo_entry_type - type of address entry for qdio_brinfo_desc()
- * @l3_ipv6_addr: entry contains IPv6 address
- * @l3_ipv4_addr: entry contains IPv4 address
- * @l2_addr_lnid: entry contains MAC address and VLAN ID
- */
-enum qdio_brinfo_entry_type {l3_ipv6_addr, l3_ipv4_addr, l2_addr_lnid};
-
-/**
- * struct qdio_brinfo_entry_XXX - Address entry for qdio_brinfo_desc()
- * @nit:  Network interface token
- * @addr: Address of one of the three types
- *
- * The struct is passed to the callback function by qdio_brinfo_desc()
- */
-struct qdio_brinfo_entry_l3_ipv6 {
-	u64 nit;
-	struct { unsigned char _s6_addr[16]; } addr;
-} __packed;
-struct qdio_brinfo_entry_l3_ipv4 {
-	u64 nit;
-	struct { uint32_t _s_addr; } addr;
-} __packed;
-struct qdio_brinfo_entry_l2 {
-	u64 nit;
-	struct { u8 mac[6]; u16 lnid; } addr_lnid;
-} __packed;
 
 #define QDIO_STATE_INACTIVE		0x00000002 /* after qdio_cleanup */
 #define QDIO_STATE_ESTABLISHED		0x00000004 /* after qdio_establish */
@@ -423,10 +393,5 @@ extern int qdio_inspect_queue(struct ccw_device *cdev, unsigned int nr,
 extern int qdio_shutdown(struct ccw_device *, int);
 extern int qdio_free(struct ccw_device *);
 extern int qdio_get_ssqd_desc(struct ccw_device *, struct qdio_ssqd_desc *);
-extern int qdio_pnso_brinfo(struct subchannel_id schid,
-		int cnc, u16 *response,
-		void (*cb)(void *priv, enum qdio_brinfo_entry_type type,
-				void *entry),
-		void *priv);
 
 #endif /* __QDIO_H__ */

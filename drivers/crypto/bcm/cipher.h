@@ -388,7 +388,6 @@ struct spu_hw {
 				      u16 spu_req_hdr_len,
 				      unsigned int is_inbound,
 				      struct spu_cipher_parms *cipher_parms,
-				      bool update_key,
 				      unsigned int data_size);
 	void (*spu_request_pad)(u8 *pad_start, u32 gcm_padding,
 				u32 hash_pad_len, enum hash_alg auth_alg,
@@ -420,7 +419,7 @@ struct spu_hw {
 	u32 num_chan;
 };
 
-struct device_private {
+struct bcm_device_private {
 	struct platform_device *pdev;
 
 	struct spu_hw spu;
@@ -467,6 +466,6 @@ struct device_private {
 	struct mbox_chan **mbox;
 };
 
-extern struct device_private iproc_priv;
+extern struct bcm_device_private iproc_priv;
 
 #endif

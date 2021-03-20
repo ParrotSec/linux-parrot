@@ -142,7 +142,7 @@ static dev_t dynamic_issm_dev;
 
 static DEFINE_IDA(umad_ida);
 
-static void ib_umad_add_one(struct ib_device *device);
+static int ib_umad_add_one(struct ib_device *device);
 static void ib_umad_remove_one(struct ib_device *device, void *client_data);
 
 static void ib_umad_dev_free(struct kref *kref)
@@ -379,6 +379,11 @@ static ssize_t ib_umad_read(struct file *filp, char __user *buf,
 
 	mutex_lock(&file->mutex);
 
+	if (file->agents_dead) {
+		mutex_unlock(&file->mutex);
+		return -EIO;
+	}
+
 	while (list_empty(&file->recv_list)) {
 		mutex_unlock(&file->mutex);
 
@@ -390,6 +395,11 @@ static ssize_t ib_umad_read(struct file *filp, char __user *buf,
 			return -ERESTARTSYS;
 
 		mutex_lock(&file->mutex);
+	}
+
+	if (file->agents_dead) {
+		mutex_unlock(&file->mutex);
+		return -EIO;
 	}
 
 	packet = list_entry(file->recv_list.next, struct ib_umad_packet, list);
@@ -524,7 +534,7 @@ static ssize_t ib_umad_write(struct file *filp, const char __user *buf,
 
 	agent = __get_agent(file, packet->mad.hdr.id);
 	if (!agent) {
-		ret = -EINVAL;
+		ret = -EIO;
 		goto err_up;
 	}
 
@@ -653,10 +663,14 @@ static __poll_t ib_umad_poll(struct file *filp, struct poll_table_struct *wait)
 	/* we will always be able to post a MAD send */
 	__poll_t mask = EPOLLOUT | EPOLLWRNORM;
 
+	mutex_lock(&file->mutex);
 	poll_wait(filp, &file->recv_wait, wait);
 
 	if (!list_empty(&file->recv_list))
 		mask |= EPOLLIN | EPOLLRDNORM;
+	if (file->agents_dead)
+		mask = EPOLLERR;
+	mutex_unlock(&file->mutex);
 
 	return mask;
 }
@@ -1336,6 +1350,7 @@ static void ib_umad_kill_port(struct ib_umad_port *port)
 	list_for_each_entry(file, &port->file_list, port_list) {
 		mutex_lock(&file->mutex);
 		file->agents_dead = 1;
+		wake_up_interruptible(&file->recv_wait);
 		mutex_unlock(&file->mutex);
 
 		for (id = 0; id < IB_UMAD_MAX_AGENTS; ++id)
@@ -1352,37 +1367,41 @@ static void ib_umad_kill_port(struct ib_umad_port *port)
 	put_device(&port->dev);
 }
 
-static void ib_umad_add_one(struct ib_device *device)
+static int ib_umad_add_one(struct ib_device *device)
 {
 	struct ib_umad_device *umad_dev;
 	int s, e, i;
 	int count = 0;
+	int ret;
 
 	s = rdma_start_port(device);
 	e = rdma_end_port(device);
 
 	umad_dev = kzalloc(struct_size(umad_dev, ports, e - s + 1), GFP_KERNEL);
 	if (!umad_dev)
-		return;
+		return -ENOMEM;
 
 	kref_init(&umad_dev->kref);
 	for (i = s; i <= e; ++i) {
 		if (!rdma_cap_ib_mad(device, i))
 			continue;
 
-		if (ib_umad_init_port(device, i, umad_dev,
-				      &umad_dev->ports[i - s]))
+		ret = ib_umad_init_port(device, i, umad_dev,
+					&umad_dev->ports[i - s]);
+		if (ret)
 			goto err;
 
 		count++;
 	}
 
-	if (!count)
+	if (!count) {
+		ret = -EOPNOTSUPP;
 		goto free;
+	}
 
 	ib_set_client_data(device, &umad_client, umad_dev);
 
-	return;
+	return 0;
 
 err:
 	while (--i >= s) {
@@ -1394,15 +1413,13 @@ err:
 free:
 	/* balances kref_init */
 	ib_umad_dev_put(umad_dev);
+	return ret;
 }
 
 static void ib_umad_remove_one(struct ib_device *device, void *client_data)
 {
 	struct ib_umad_device *umad_dev = client_data;
 	unsigned int i;
-
-	if (!umad_dev)
-		return;
 
 	rdma_for_each_port (device, i) {
 		if (rdma_cap_ib_mad(device, i))

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0
  *
- * Copyright 2016-2018 HabanaLabs, Ltd.
+ * Copyright 2016-2020 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  */
@@ -28,6 +28,8 @@
 #define HOP2_SHIFT			30
 #define HOP3_SHIFT			21
 #define HOP4_SHIFT			12
+
+#define MMU_ARCH_5_HOPS			5
 
 #define HOP_PHYS_ADDR_MASK		(~FLAGS_MASK)
 

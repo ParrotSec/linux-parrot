@@ -16,142 +16,44 @@
 static int blkpg_do_ioctl(struct block_device *bdev,
 			  struct blkpg_partition __user *upart, int op)
 {
-	struct block_device *bdevp;
-	struct gendisk *disk;
-	struct hd_struct *part, *lpart;
 	struct blkpg_partition p;
-	struct disk_part_iter piter;
 	long long start, length;
-	int partno;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
 	if (copy_from_user(&p, upart, sizeof(struct blkpg_partition)))
 		return -EFAULT;
-	disk = bdev->bd_disk;
-	if (bdev != bdev->bd_contains)
+	if (bdev_is_partition(bdev))
 		return -EINVAL;
-	partno = p.pno;
-	if (partno <= 0)
+
+	if (p.pno <= 0)
 		return -EINVAL;
-	switch (op) {
-		case BLKPG_ADD_PARTITION:
-			start = p.start >> 9;
-			length = p.length >> 9;
-			/* check for fit in a hd_struct */
-			if (sizeof(sector_t) == sizeof(long) &&
-			    sizeof(long long) > sizeof(long)) {
-				long pstart = start, plength = length;
-				if (pstart != start || plength != length
-				    || pstart < 0 || plength < 0 || partno > 65535)
-					return -EINVAL;
-			}
-			/* check if partition is aligned to blocksize */
-			if (p.start & (bdev_logical_block_size(bdev) - 1))
-				return -EINVAL;
 
-			mutex_lock(&bdev->bd_mutex);
+	if (op == BLKPG_DEL_PARTITION)
+		return bdev_del_partition(bdev, p.pno);
 
-			/* overlap? */
-			disk_part_iter_init(&piter, disk,
-					    DISK_PITER_INCL_EMPTY);
-			while ((part = disk_part_iter_next(&piter))) {
-				if (!(start + length <= part->start_sect ||
-				      start >= part->start_sect + part->nr_sects)) {
-					disk_part_iter_exit(&piter);
-					mutex_unlock(&bdev->bd_mutex);
-					return -EBUSY;
-				}
-			}
-			disk_part_iter_exit(&piter);
+	start = p.start >> SECTOR_SHIFT;
+	length = p.length >> SECTOR_SHIFT;
 
-			/* all seems OK */
-			part = add_partition(disk, partno, start, length,
-					     ADDPART_FLAG_NONE, NULL);
-			mutex_unlock(&bdev->bd_mutex);
-			return PTR_ERR_OR_ZERO(part);
-		case BLKPG_DEL_PARTITION:
-			part = disk_get_part(disk, partno);
-			if (!part)
-				return -ENXIO;
+	/* check for fit in a hd_struct */
+	if (sizeof(sector_t) < sizeof(long long)) {
+		long pstart = start, plength = length;
 
-			bdevp = bdget(part_devt(part));
-			disk_put_part(part);
-			if (!bdevp)
-				return -ENOMEM;
-
-			mutex_lock(&bdevp->bd_mutex);
-			if (bdevp->bd_openers) {
-				mutex_unlock(&bdevp->bd_mutex);
-				bdput(bdevp);
-				return -EBUSY;
-			}
-			/* all seems OK */
-			fsync_bdev(bdevp);
-			invalidate_bdev(bdevp);
-
-			mutex_lock_nested(&bdev->bd_mutex, 1);
-			delete_partition(disk, partno);
-			mutex_unlock(&bdev->bd_mutex);
-			mutex_unlock(&bdevp->bd_mutex);
-			bdput(bdevp);
-
-			return 0;
-		case BLKPG_RESIZE_PARTITION:
-			start = p.start >> 9;
-			/* new length of partition in bytes */
-			length = p.length >> 9;
-			/* check for fit in a hd_struct */
-			if (sizeof(sector_t) == sizeof(long) &&
-			    sizeof(long long) > sizeof(long)) {
-				long pstart = start, plength = length;
-				if (pstart != start || plength != length
-				    || pstart < 0 || plength < 0)
-					return -EINVAL;
-			}
-			part = disk_get_part(disk, partno);
-			if (!part)
-				return -ENXIO;
-			bdevp = bdget(part_devt(part));
-			if (!bdevp) {
-				disk_put_part(part);
-				return -ENOMEM;
-			}
-			mutex_lock(&bdevp->bd_mutex);
-			mutex_lock_nested(&bdev->bd_mutex, 1);
-			if (start != part->start_sect) {
-				mutex_unlock(&bdevp->bd_mutex);
-				mutex_unlock(&bdev->bd_mutex);
-				bdput(bdevp);
-				disk_put_part(part);
-				return -EINVAL;
-			}
-			/* overlap? */
-			disk_part_iter_init(&piter, disk,
-					    DISK_PITER_INCL_EMPTY);
-			while ((lpart = disk_part_iter_next(&piter))) {
-				if (lpart->partno != partno &&
-				   !(start + length <= lpart->start_sect ||
-				   start >= lpart->start_sect + lpart->nr_sects)
-				   ) {
-					disk_part_iter_exit(&piter);
-					mutex_unlock(&bdevp->bd_mutex);
-					mutex_unlock(&bdev->bd_mutex);
-					bdput(bdevp);
-					disk_put_part(part);
-					return -EBUSY;
-				}
-			}
-			disk_part_iter_exit(&piter);
-			part_nr_sects_write(part, (sector_t)length);
-			i_size_write(bdevp->bd_inode, p.length);
-			mutex_unlock(&bdevp->bd_mutex);
-			mutex_unlock(&bdev->bd_mutex);
-			bdput(bdevp);
-			disk_put_part(part);
-			return 0;
-		default:
+		if (pstart != start || plength != length || pstart < 0 ||
+		    plength < 0 || p.pno > 65535)
 			return -EINVAL;
+	}
+
+	switch (op) {
+	case BLKPG_ADD_PARTITION:
+		/* check if partition is aligned to blocksize */
+		if (p.start & (bdev_logical_block_size(bdev) - 1))
+			return -EINVAL;
+		return bdev_add_partition(bdev, p.pno, start, length);
+	case BLKPG_RESIZE_PARTITION:
+		return bdev_resize_partition(bdev, p.pno, start, length);
+	default:
+		return -EINVAL;
 	}
 }
 
@@ -188,20 +90,27 @@ static int compat_blkpg_ioctl(struct block_device *bdev,
 }
 #endif
 
-static int blkdev_reread_part(struct block_device *bdev)
+static int blkdev_reread_part(struct block_device *bdev, fmode_t mode)
 {
-	int ret;
+	struct block_device *tmp;
 
-	if (!disk_part_scan_enabled(bdev->bd_disk) || bdev != bdev->bd_contains)
+	if (!disk_part_scan_enabled(bdev->bd_disk) || bdev_is_partition(bdev))
 		return -EINVAL;
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
 
-	mutex_lock(&bdev->bd_mutex);
-	ret = bdev_disk_changed(bdev, false);
-	mutex_unlock(&bdev->bd_mutex);
+	/*
+	 * Reopen the device to revalidate the driver state and force a
+	 * partition rescan.
+	 */
+	mode &= ~FMODE_EXCL;
+	set_bit(GD_NEED_PART_SCAN, &bdev->bd_disk->state);
 
-	return ret;
+	tmp = blkdev_get_by_dev(bdev->bd_dev, mode, NULL);
+	if (IS_ERR(tmp))
+		return PTR_ERR(tmp);
+	blkdev_put(tmp, mode);
+	return 0;
 }
 
 static int blk_ioctl_discard(struct block_device *bdev, fmode_t mode,
@@ -210,8 +119,7 @@ static int blk_ioctl_discard(struct block_device *bdev, fmode_t mode,
 	uint64_t range[2];
 	uint64_t start, len;
 	struct request_queue *q = bdev_get_queue(bdev);
-	struct address_space *mapping = bdev->bd_inode->i_mapping;
-
+	int err;
 
 	if (!(mode & FMODE_WRITE))
 		return -EBADF;
@@ -232,7 +140,11 @@ static int blk_ioctl_discard(struct block_device *bdev, fmode_t mode,
 
 	if (start + len > i_size_read(bdev->bd_inode))
 		return -EINVAL;
-	truncate_inode_pages_range(mapping, start, start + len - 1);
+
+	err = truncate_bdev_range(bdev, mode, start, start + len - 1);
+	if (err)
+		return err;
+
 	return blkdev_issue_discard(bdev, start >> 9, len >> 9,
 				    GFP_KERNEL, flags);
 }
@@ -241,8 +153,8 @@ static int blk_ioctl_zeroout(struct block_device *bdev, fmode_t mode,
 		unsigned long arg)
 {
 	uint64_t range[2];
-	struct address_space *mapping;
 	uint64_t start, end, len;
+	int err;
 
 	if (!(mode & FMODE_WRITE))
 		return -EBADF;
@@ -264,8 +176,9 @@ static int blk_ioctl_zeroout(struct block_device *bdev, fmode_t mode,
 		return -EINVAL;
 
 	/* Invalidate the page cache, including dirty pages */
-	mapping = bdev->bd_inode->i_mapping;
-	truncate_inode_pages_range(mapping, start, end);
+	err = truncate_bdev_range(bdev, mode, start, end);
+	if (err)
+		return err;
 
 	return blkdev_issue_zeroout(bdev, start >> 9, len >> 9, GFP_KERNEL,
 			BLKDEV_ZERO_NOUNMAP);
@@ -302,12 +215,12 @@ static int put_u64(u64 __user *argp, u64 val)
 }
 
 #ifdef CONFIG_COMPAT
-static int compat_put_long(compat_long_t *argp, long val)
+static int compat_put_long(compat_long_t __user *argp, long val)
 {
 	return put_user(val, argp);
 }
 
-static int compat_put_ulong(compat_ulong_t *argp, compat_ulong_t val)
+static int compat_put_ulong(compat_ulong_t __user *argp, compat_ulong_t val)
 {
 	return put_user(val, argp);
 }
@@ -572,15 +485,14 @@ static int blkdev_bszset(struct block_device *bdev, fmode_t mode,
 	if (get_user(n, argp))
 		return -EFAULT;
 
-	if (!(mode & FMODE_EXCL)) {
-		bdgrab(bdev);
-		if (blkdev_get(bdev, mode | FMODE_EXCL, &bdev) < 0)
-			return -EBUSY;
-	}
+	if (mode & FMODE_EXCL)
+		return set_blocksize(bdev, n);
 
+	if (IS_ERR(blkdev_get_by_dev(bdev->bd_dev, mode | FMODE_EXCL, &bdev)))
+		return -EBUSY;
 	ret = set_blocksize(bdev, n);
-	if (!(mode & FMODE_EXCL))
-		blkdev_put(bdev, mode | FMODE_EXCL);
+	blkdev_put(bdev, mode | FMODE_EXCL);
+
 	return ret;
 }
 
@@ -644,7 +556,7 @@ static int blkdev_common_ioctl(struct block_device *bdev, fmode_t mode,
 		bdev->bd_bdi->ra_pages = (arg * 512) / PAGE_SIZE;
 		return 0;
 	case BLKRRPART:
-		return blkdev_reread_part(bdev);
+		return blkdev_reread_part(bdev, mode);
 	case BLKTRACESTART:
 	case BLKTRACESTOP:
 	case BLKTRACETEARDOWN:

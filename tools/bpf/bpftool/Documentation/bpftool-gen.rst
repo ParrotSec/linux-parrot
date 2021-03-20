@@ -14,7 +14,7 @@ SYNOPSIS
 
 	*OPTIONS* := { { **-j** | **--json** } [{ **-p** | **--pretty** }] }
 
-	*COMMAND* := { **skeleton | **help** }
+	*COMMAND* := { **skeleton** | **help** }
 
 GEN COMMANDS
 =============
@@ -36,12 +36,12 @@ DESCRIPTION
 		  etc. Skeleton eliminates the need to lookup mentioned
 		  components by name. Instead, if skeleton instantiation
 		  succeeds, they are populated in skeleton structure as valid
-		  libbpf types (e.g., struct bpf_map pointer) and can be
+		  libbpf types (e.g., **struct bpf_map** pointer) and can be
 		  passed to existing generic libbpf APIs.
 
 		  In addition to simple and reliable access to maps and
-		  programs, skeleton provides a storage for BPF links (struct
-		  bpf_link) for each BPF program within BPF object. When
+		  programs, skeleton provides a storage for BPF links (**struct
+		  bpf_link**) for each BPF program within BPF object. When
 		  requested, supported BPF programs will be automatically
 		  attached and resulting BPF links stored for further use by
 		  user in pre-allocated fields in skeleton struct. For BPF
@@ -82,14 +82,14 @@ DESCRIPTION
 
 		  - **example__open** and **example__open_opts**.
 		    These functions are used to instantiate skeleton. It
-		    corresponds to libbpf's **bpf_object__open()** API.
+		    corresponds to libbpf's **bpf_object__open**\ () API.
 		    **_opts** variants accepts extra **bpf_object_open_opts**
 		    options.
 
 		  - **example__load**.
 		    This function creates maps, loads and verifies BPF
 		    programs, initializes global data maps. It corresponds to
-		    libppf's **bpf_object__load** API.
+		    libppf's **bpf_object__load**\ () API.
 
 		  - **example__open_and_load** combines **example__open** and
 		    **example__load** invocations in one commonly used
@@ -126,26 +126,12 @@ DESCRIPTION
 
 OPTIONS
 =======
-	-h, --help
-		  Print short generic help message (similar to **bpftool help**).
-
-	-V, --version
-		  Print version number (similar to **bpftool version**).
-
-	-j, --json
-		  Generate JSON output. For commands that cannot produce JSON,
-		  this option has no effect.
-
-	-p, --pretty
-		  Generate human-readable JSON output. Implies **-j**.
-
-	-d, --debug
-		  Print all logs available from libbpf, including debug-level
-		  information.
+	.. include:: common_options.rst
 
 EXAMPLES
 ========
 **$ cat example.c**
+
 ::
 
   #include <stdbool.h>
@@ -187,6 +173,7 @@ This is example BPF application with two BPF programs and a mix of BPF maps
 and global variables.
 
 **$ bpftool gen skeleton example.o**
+
 ::
 
   /* SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause) */
@@ -241,6 +228,7 @@ and global variables.
   #endif /* __EXAMPLE_SKEL_H__ */
 
 **$ cat example_user.c**
+
 ::
 
   #include "example.skel.h"
@@ -283,6 +271,7 @@ and global variables.
   }
 
 **# ./example_user**
+
 ::
 
   my_map name: my_map
@@ -290,16 +279,3 @@ and global variables.
   my_static_var: 7
 
 This is a stripped-out version of skeleton generated for above example code.
-
-SEE ALSO
-========
-	**bpf**\ (2),
-	**bpf-helpers**\ (7),
-	**bpftool**\ (8),
-	**bpftool-map**\ (8),
-	**bpftool-prog**\ (8),
-	**bpftool-cgroup**\ (8),
-	**bpftool-feature**\ (8),
-	**bpftool-net**\ (8),
-	**bpftool-perf**\ (8),
-	**bpftool-btf**\ (8)

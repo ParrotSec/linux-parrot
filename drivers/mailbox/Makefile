@@ -5,7 +5,7 @@ obj-$(CONFIG_MAILBOX)		+= mailbox.o
 
 obj-$(CONFIG_MAILBOX_TEST)	+= mailbox-test.o
 
-obj-$(CONFIG_ARM_MHU)	+= arm_mhu.o
+obj-$(CONFIG_ARM_MHU)	+= arm_mhu.o arm_mhu_db.o
 
 obj-$(CONFIG_IMX_MBOX)	+= imx-mailbox.o
 
@@ -50,3 +50,7 @@ obj-$(CONFIG_MTK_CMDQ_MBOX)	+= mtk-cmdq-mailbox.o
 obj-$(CONFIG_ZYNQMP_IPI_MBOX)	+= zynqmp-ipi-mailbox.o
 
 obj-$(CONFIG_SUN6I_MSGBOX)	+= sun6i-msgbox.o
+
+obj-$(CONFIG_SPRD_MBOX)		+= sprd-mailbox.o
+
+obj-$(CONFIG_QCOM_IPCC)		+= qcom-ipcc.o

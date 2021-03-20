@@ -15,6 +15,7 @@
 #include <linux/gfp.h>
 #include <linux/hwmon.h>
 #include <linux/idr.h>
+#include <linux/list.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
@@ -31,7 +32,7 @@ struct hwmon_device {
 	const char *name;
 	struct device dev;
 	const struct hwmon_chip_info *chip;
-
+	struct list_head tzdata;
 	struct attribute_group group;
 	const struct attribute_group **groups;
 };
@@ -55,12 +56,12 @@ struct hwmon_device_attribute {
 
 /*
  * Thermal zone information
- * In addition to the reference to the hwmon device,
- * also provides the sensor index.
  */
 struct hwmon_thermal_data {
+	struct list_head node;		/* hwmon tzdata list entry */
 	struct device *dev;		/* Reference to hwmon device */
 	int index;			/* sensor index */
+	struct thermal_zone_device *tzd;/* thermal zone device */
 };
 
 static ssize_t
@@ -156,10 +157,17 @@ static const struct thermal_zone_of_device_ops hwmon_thermal_ops = {
 	.get_temp = hwmon_thermal_get_temp,
 };
 
+static void hwmon_thermal_remove_sensor(void *data)
+{
+	list_del(data);
+}
+
 static int hwmon_thermal_add_sensor(struct device *dev, int index)
 {
+	struct hwmon_device *hwdev = to_hwmon_device(dev);
 	struct hwmon_thermal_data *tdata;
 	struct thermal_zone_device *tzd;
+	int err;
 
 	tdata = devm_kzalloc(dev, sizeof(*tdata), GFP_KERNEL);
 	if (!tdata)
@@ -177,13 +185,68 @@ static int hwmon_thermal_add_sensor(struct device *dev, int index)
 	if (IS_ERR(tzd) && (PTR_ERR(tzd) != -ENODEV))
 		return PTR_ERR(tzd);
 
+	err = devm_add_action(dev, hwmon_thermal_remove_sensor, &tdata->node);
+	if (err)
+		return err;
+
+	tdata->tzd = tzd;
+	list_add(&tdata->node, &hwdev->tzdata);
+
 	return 0;
 }
+
+static int hwmon_thermal_register_sensors(struct device *dev)
+{
+	struct hwmon_device *hwdev = to_hwmon_device(dev);
+	const struct hwmon_chip_info *chip = hwdev->chip;
+	const struct hwmon_channel_info **info = chip->info;
+	void *drvdata = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 1; info[i]; i++) {
+		int j;
+
+		if (info[i]->type != hwmon_temp)
+			continue;
+
+		for (j = 0; info[i]->config[j]; j++) {
+			int err;
+
+			if (!(info[i]->config[j] & HWMON_T_INPUT) ||
+			    !chip->ops->is_visible(drvdata, hwmon_temp,
+						   hwmon_temp_input, j))
+				continue;
+
+			err = hwmon_thermal_add_sensor(dev, j);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
+}
+
+static void hwmon_thermal_notify(struct device *dev, int index)
+{
+	struct hwmon_device *hwdev = to_hwmon_device(dev);
+	struct hwmon_thermal_data *tzdata;
+
+	list_for_each_entry(tzdata, &hwdev->tzdata, node) {
+		if (tzdata->index == index) {
+			thermal_zone_device_update(tzdata->tzd,
+						   THERMAL_EVENT_UNSPECIFIED);
+		}
+	}
+}
+
 #else
-static int hwmon_thermal_add_sensor(struct device *dev, int index)
+static int hwmon_thermal_register_sensors(struct device *dev)
 {
 	return 0;
 }
+
+static void hwmon_thermal_notify(struct device *dev, int index) { }
+
 #endif /* IS_REACHABLE(CONFIG_THERMAL) && ... */
 
 static int hwmon_attr_base(enum hwmon_sensor_types type)
@@ -368,6 +431,8 @@ static const char * const hwmon_temp_attr_templates[] = {
 	[hwmon_temp_lowest] = "temp%d_lowest",
 	[hwmon_temp_highest] = "temp%d_highest",
 	[hwmon_temp_reset_history] = "temp%d_reset_history",
+	[hwmon_temp_rated_min] = "temp%d_rated_min",
+	[hwmon_temp_rated_max] = "temp%d_rated_max",
 };
 
 static const char * const hwmon_in_attr_templates[] = {
@@ -387,6 +452,8 @@ static const char * const hwmon_in_attr_templates[] = {
 	[hwmon_in_max_alarm] = "in%d_max_alarm",
 	[hwmon_in_lcrit_alarm] = "in%d_lcrit_alarm",
 	[hwmon_in_crit_alarm] = "in%d_crit_alarm",
+	[hwmon_in_rated_min] = "in%d_rated_min",
+	[hwmon_in_rated_max] = "in%d_rated_max",
 };
 
 static const char * const hwmon_curr_attr_templates[] = {
@@ -406,6 +473,8 @@ static const char * const hwmon_curr_attr_templates[] = {
 	[hwmon_curr_max_alarm] = "curr%d_max_alarm",
 	[hwmon_curr_lcrit_alarm] = "curr%d_lcrit_alarm",
 	[hwmon_curr_crit_alarm] = "curr%d_crit_alarm",
+	[hwmon_curr_rated_min] = "curr%d_rated_min",
+	[hwmon_curr_rated_max] = "curr%d_rated_max",
 };
 
 static const char * const hwmon_power_attr_templates[] = {
@@ -438,6 +507,8 @@ static const char * const hwmon_power_attr_templates[] = {
 	[hwmon_power_max_alarm] = "power%d_max_alarm",
 	[hwmon_power_lcrit_alarm] = "power%d_lcrit_alarm",
 	[hwmon_power_crit_alarm] = "power%d_crit_alarm",
+	[hwmon_power_rated_min] = "power%d_rated_min",
+	[hwmon_power_rated_max] = "power%d_rated_max",
 };
 
 static const char * const hwmon_energy_attr_templates[] = {
@@ -456,6 +527,8 @@ static const char * const hwmon_humidity_attr_templates[] = {
 	[hwmon_humidity_max_hyst] = "humidity%d_max_hyst",
 	[hwmon_humidity_alarm] = "humidity%d_alarm",
 	[hwmon_humidity_fault] = "humidity%d_fault",
+	[hwmon_humidity_rated_min] = "humidity%d_rated_min",
+	[hwmon_humidity_rated_max] = "humidity%d_rated_max",
 };
 
 static const char * const hwmon_fan_attr_templates[] = {
@@ -510,6 +583,35 @@ static const int __templates_size[] = {
 	[hwmon_pwm] = ARRAY_SIZE(hwmon_pwm_attr_templates),
 	[hwmon_intrusion] = ARRAY_SIZE(hwmon_intrusion_attr_templates),
 };
+
+int hwmon_notify_event(struct device *dev, enum hwmon_sensor_types type,
+		       u32 attr, int channel)
+{
+	char sattr[MAX_SYSFS_ATTR_NAME_LENGTH];
+	const char * const *templates;
+	const char *template;
+	int base;
+
+	if (type >= ARRAY_SIZE(__templates))
+		return -EINVAL;
+	if (attr >= __templates_size[type])
+		return -EINVAL;
+
+	templates = __templates[type];
+	template = templates[attr];
+
+	base = hwmon_attr_base(type);
+
+	scnprintf(sattr, MAX_SYSFS_ATTR_NAME_LENGTH, template, base + channel);
+	sysfs_notify(&dev->kobj, NULL, sattr);
+	kobject_uevent(&dev->kobj, KOBJ_CHANGE);
+
+	if (type == hwmon_temp)
+		hwmon_thermal_notify(dev, channel);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(hwmon_notify_event);
 
 static int hwmon_num_channel_attrs(const struct hwmon_channel_info *info)
 {
@@ -596,7 +698,7 @@ __hwmon_device_register(struct device *dev, const char *name, void *drvdata,
 {
 	struct hwmon_device *hwdev;
 	struct device *hdev;
-	int i, j, err, id;
+	int i, err, id;
 
 	/* Complain about invalid characters in hwmon name attribute */
 	if (name && (!strlen(name) || strpbrk(name, "-* \t\n")))
@@ -661,33 +763,19 @@ __hwmon_device_register(struct device *dev, const char *name, void *drvdata,
 	if (err)
 		goto free_hwmon;
 
+	INIT_LIST_HEAD(&hwdev->tzdata);
+
 	if (dev && dev->of_node && chip && chip->ops->read &&
 	    chip->info[0]->type == hwmon_chip &&
 	    (chip->info[0]->config[0] & HWMON_C_REGISTER_TZ)) {
-		const struct hwmon_channel_info **info = chip->info;
-
-		for (i = 1; info[i]; i++) {
-			if (info[i]->type != hwmon_temp)
-				continue;
-
-			for (j = 0; info[i]->config[j]; j++) {
-				if (!chip->ops->is_visible(drvdata, hwmon_temp,
-							   hwmon_temp_input, j))
-					continue;
-				if (info[i]->config[j] & HWMON_T_INPUT) {
-					err = hwmon_thermal_add_sensor(hdev, j);
-					if (err) {
-						device_unregister(hdev);
-						/*
-						 * Don't worry about hwdev;
-						 * hwmon_dev_release(), called
-						 * from device_unregister(),
-						 * will free it.
-						 */
-						goto ida_remove;
-					}
-				}
-			}
+		err = hwmon_thermal_register_sensors(hdev);
+		if (err) {
+			device_unregister(hdev);
+			/*
+			 * Don't worry about hwdev; hwmon_dev_release(), called
+			 * from device_unregister(), will free it.
+			 */
+			goto ida_remove;
 		}
 	}
 

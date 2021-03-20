@@ -159,17 +159,15 @@ governor uses that information depends on what algorithm is implemented by it
 and that is the primary reason for having more than one governor in the
 ``CPUIdle`` subsystem.
 
-There are three ``CPUIdle`` governors available, ``menu``, `TEO <teo-gov_>`_
-and ``ladder``.  Which of them is used by default depends on the configuration
-of the kernel and in particular on whether or not the scheduler tick can be
-`stopped by the idle loop <idle-cpus-and-tick_>`_.  It is possible to change the
-governor at run time if the ``cpuidle_sysfs_switch`` command line parameter has
-been passed to the kernel, but that is not safe in general, so it should not be
-done on production systems (that may change in the future, though).  The name of
-the ``CPUIdle`` governor currently used by the kernel can be read from the
-:file:`current_governor_ro` (or :file:`current_governor` if
-``cpuidle_sysfs_switch`` is present in the kernel command line) file under
-:file:`/sys/devices/system/cpu/cpuidle/` in ``sysfs``.
+There are four ``CPUIdle`` governors available, ``menu``, `TEO <teo-gov_>`_,
+``ladder`` and ``haltpoll``.  Which of them is used by default depends on the
+configuration of the kernel and in particular on whether or not the scheduler
+tick can be `stopped by the idle loop <idle-cpus-and-tick_>`_.  Available
+governors can be read from the :file:`available_governors`, and the governor
+can be changed at runtime.  The name of the ``CPUIdle`` governor currently
+used by the kernel can be read from the :file:`current_governor_ro` or
+:file:`current_governor` file under :file:`/sys/devices/system/cpu/cpuidle/`
+in ``sysfs``.
 
 Which ``CPUIdle`` driver is used, on the other hand, usually depends on the
 platform the kernel is running on, but there are platforms with more than one
@@ -480,7 +478,7 @@ order to ask the hardware to enter that state.  Also, for each
 statistics of the given idle state.  That information is exposed by the kernel
 via ``sysfs``.
 
-For each CPU in the system, there is a :file:`/sys/devices/system/cpu<N>/cpuidle/`
+For each CPU in the system, there is a :file:`/sys/devices/system/cpu/cpu<N>/cpuidle/`
 directory in ``sysfs``, where the number ``<N>`` is assigned to the given
 CPU at the initialization time.  That directory contains a set of subdirectories
 called :file:`state0`, :file:`state1` and so on, up to the number of idle state
@@ -496,7 +494,7 @@ object corresponding to it, as follows:
 	residency.
 
 ``below``
-	Total number of times this idle state had been asked for, but cerainly
+	Total number of times this idle state had been asked for, but certainly
 	a deeper idle state would have been a better match for the observed idle
 	duration.
 
@@ -529,6 +527,10 @@ object corresponding to it, as follows:
 ``usage``
 	Total number of times the hardware has been asked by the given CPU to
 	enter this idle state.
+
+``rejected``
+	Total number of times a request to enter this idle state on the given
+	CPU was rejected.
 
 The :file:`desc` and :file:`name` files both contain strings.  The difference
 between them is that the name is expected to be more concise, while the
@@ -574,6 +576,11 @@ particular case.  For these reasons, the only reliable way to find out how
 much time has been spent by the hardware in different idle states supported by
 it is to use idle state residency counters in the hardware, if available.
 
+Generally, an interrupt received when trying to enter an idle state causes the
+idle state entry request to be rejected, in which case the ``CPUIdle`` driver
+may return an error code to indicate that this was the case. The :file:`usage`
+and :file:`rejected` files report the number of times the given idle state
+was entered successfully or rejected, respectively.
 
 .. _cpu-pm-qos:
 
@@ -692,7 +699,7 @@ which of the two parameters is added to the kernel command line.  In the
 instruction of the CPUs (which, as a rule, suspends the execution of the program
 and causes the hardware to attempt to enter the shallowest available idle state)
 for this purpose, and if ``idle=poll`` is used, idle CPUs will execute a
-more or less ``lightweight'' sequence of instructions in a tight loop.  [Note
+more or less "lightweight" sequence of instructions in a tight loop.  [Note
 that using ``idle=poll`` is somewhat drastic in many cases, as preventing idle
 CPUs from saving almost any energy at all may not be the only effect of it.
 For example, on Intel hardware it effectively prevents CPUs from using

@@ -271,6 +271,13 @@ struct scsi_host_template {
 	int (* map_queues)(struct Scsi_Host *shost);
 
 	/*
+	 * Check if scatterlists need to be padded for DMA draining.
+	 *
+	 * Status: OPTIONAL
+	 */
+	bool (* dma_need_drain)(struct request *rq);
+
+	/*
 	 * This function determines the BIOS parameters for a given
 	 * harddisk.  These tend to be numbers that are made up by
 	 * the host adapter.  Parameters:
@@ -428,6 +435,9 @@ struct scsi_host_template {
 
 	/* True if the controller does not support WRITE SAME */
 	unsigned no_write_same:1;
+
+	/* True if the host uses host-wide tagspace */
+	unsigned host_tagset:1;
 
 	/*
 	 * Countdown for host blocking with no commands outstanding.
@@ -596,7 +606,8 @@ struct Scsi_Host {
 	 *
 	 * Note: it is assumed that each hardware queue has a queue depth of
 	 * can_queue. In other words, the total queue depth per host
-	 * is nr_hw_queues * can_queue.
+	 * is nr_hw_queues * can_queue. However, for when host_tagset is set,
+	 * the total queue depth is can_queue.
 	 */
 	unsigned nr_hw_queues;
 	unsigned active_mode:2;
@@ -626,6 +637,9 @@ struct Scsi_Host {
 
 	/* The controller does not support WRITE SAME */
 	unsigned no_write_same:1;
+
+	/* True if the host uses host-wide tagspace */
+	unsigned host_tagset:1;
 
 	/* Host responded with short (<36 bytes) INQUIRY result */
 	unsigned short_inquiry:1;

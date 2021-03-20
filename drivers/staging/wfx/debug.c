@@ -2,7 +2,7 @@
 /*
  * Debugfs interface.
  *
- * Copyright (c) 2017-2019, Silicon Laboratories, Inc.
+ * Copyright (c) 2017-2020, Silicon Laboratories, Inc.
  * Copyright (c) 2010, ST-Ericsson
  */
 #include <linux/debugfs.h>
@@ -32,7 +32,7 @@ static const struct trace_print_flags wfx_reg_print_map[] = {
 };
 
 static const char *get_symbol(unsigned long val,
-		const struct trace_print_flags *symbol_array)
+			      const struct trace_print_flags *symbol_array)
 {
 	int i;
 
@@ -61,19 +61,26 @@ const char *get_reg_name(unsigned long id)
 
 static int wfx_counters_show(struct seq_file *seq, void *v)
 {
-	int ret;
+	int ret, i;
 	struct wfx_dev *wdev = seq->private;
-	struct hif_mib_extended_count_table counters;
+	struct hif_mib_extended_count_table counters[3];
 
-	ret = hif_get_counters_table(wdev, &counters);
-	if (ret < 0)
-		return ret;
-	if (ret > 0)
-		return -EIO;
+	for (i = 0; i < ARRAY_SIZE(counters); i++) {
+		ret = hif_get_counters_table(wdev, i, counters + i);
+		if (ret < 0)
+			return ret;
+		if (ret > 0)
+			return -EIO;
+	}
+
+	seq_printf(seq, "%-24s %12s %12s %12s\n",
+		   "", "global", "iface 0", "iface 1");
 
 #define PUT_COUNTER(name) \
-	seq_printf(seq, "%24s %d\n", #name ":",\
-		   le32_to_cpu(counters.count_##name))
+	seq_printf(seq, "%-24s %12d %12d %12d\n", #name, \
+		   le32_to_cpu(counters[2].count_##name), \
+		   le32_to_cpu(counters[0].count_##name), \
+		   le32_to_cpu(counters[1].count_##name))
 
 	PUT_COUNTER(tx_packets);
 	PUT_COUNTER(tx_multicast_frames);
@@ -104,6 +111,12 @@ static int wfx_counters_show(struct seq_file *seq, void *v)
 	PUT_COUNTER(miss_beacon);
 
 #undef PUT_COUNTER
+
+	for (i = 0; i < ARRAY_SIZE(counters[0].reserved); i++)
+		seq_printf(seq, "reserved[%02d]%12s %12d %12d %12d\n", i, "",
+			   le32_to_cpu(counters[2].reserved[i]),
+			   le32_to_cpu(counters[0].reserved[i]),
+			   le32_to_cpu(counters[1].reserved[i]));
 
 	return 0;
 }
@@ -165,6 +178,30 @@ static int wfx_rx_stats_show(struct seq_file *seq, void *v)
 }
 DEFINE_SHOW_ATTRIBUTE(wfx_rx_stats);
 
+static int wfx_tx_power_loop_show(struct seq_file *seq, void *v)
+{
+	struct wfx_dev *wdev = seq->private;
+	struct hif_tx_power_loop_info *st = &wdev->tx_power_loop_info;
+	int tmp;
+
+	mutex_lock(&wdev->tx_power_loop_info_lock);
+	tmp = le16_to_cpu(st->tx_gain_dig);
+	seq_printf(seq, "Tx gain digital: %d\n", tmp);
+	tmp = le16_to_cpu(st->tx_gain_pa);
+	seq_printf(seq, "Tx gain PA: %d\n", tmp);
+	tmp = (s16)le16_to_cpu(st->target_pout);
+	seq_printf(seq, "Target Pout: %d.%02d dBm\n", tmp / 4, (tmp % 4) * 25);
+	tmp = (s16)le16_to_cpu(st->p_estimation);
+	seq_printf(seq, "FEM Pout: %d.%02d dBm\n", tmp / 4, (tmp % 4) * 25);
+	tmp = le16_to_cpu(st->vpdet);
+	seq_printf(seq, "Vpdet: %d mV\n", tmp);
+	seq_printf(seq, "Measure index: %d\n", st->measurement_index);
+	mutex_unlock(&wdev->tx_power_loop_info_lock);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(wfx_tx_power_loop);
+
 static ssize_t wfx_send_pds_write(struct file *file,
 				  const char __user *user_buf,
 				  size_t count, loff_t *ppos)
@@ -193,21 +230,6 @@ static const struct file_operations wfx_send_pds_fops = {
 	.write = wfx_send_pds_write,
 };
 
-static ssize_t wfx_burn_slk_key_write(struct file *file,
-				      const char __user *user_buf,
-				      size_t count, loff_t *ppos)
-{
-	struct wfx_dev *wdev = file->private_data;
-
-	dev_info(wdev->dev, "this driver does not support secure link\n");
-	return -EINVAL;
-}
-
-static const struct file_operations wfx_burn_slk_key_fops = {
-	.open = simple_open,
-	.write = wfx_burn_slk_key_write,
-};
-
 struct dbgfs_hif_msg {
 	struct wfx_dev *wdev;
 	struct completion complete;
@@ -230,14 +252,14 @@ static ssize_t wfx_send_hif_msg_write(struct file *file,
 	if (count < sizeof(struct hif_msg))
 		return -EINVAL;
 
-	// wfx_cmd_send() chekc that reply buffer is wide enough, but do not
+	// wfx_cmd_send() checks that reply buffer is wide enough, but does not
 	// return precise length read. User have to know how many bytes should
 	// be read. Filling reply buffer with a memory pattern may help user.
 	memset(context->reply, 0xFF, sizeof(context->reply));
 	request = memdup_user(user_buf, count);
 	if (IS_ERR(request))
 		return PTR_ERR(request);
-	if (request->len != count) {
+	if (le16_to_cpu(request->len) != count) {
 		kfree(request);
 		return -EINVAL;
 	}
@@ -262,8 +284,8 @@ static ssize_t wfx_send_hif_msg_read(struct file *file, char __user *user_buf,
 		return ret;
 	if (context->ret < 0)
 		return context->ret;
-	// Be carefull, write() is waiting for a full message while read()
-	// only return a payload
+	// Be careful, write() is waiting for a full message while read()
+	// only returns a payload
 	if (copy_to_user(user_buf, context->reply, count))
 		return -EFAULT;
 
@@ -297,6 +319,28 @@ static const struct file_operations wfx_send_hif_msg_fops = {
 	.read = wfx_send_hif_msg_read,
 };
 
+static int wfx_ps_timeout_set(void *data, u64 val)
+{
+	struct wfx_dev *wdev = (struct wfx_dev *)data;
+	struct wfx_vif *wvif;
+
+	wdev->force_ps_timeout = val;
+	wvif = NULL;
+	while ((wvif = wvif_iterate(wdev, wvif)) != NULL)
+		wfx_update_pm(wvif);
+	return 0;
+}
+
+static int wfx_ps_timeout_get(void *data, u64 *val)
+{
+	struct wfx_dev *wdev = (struct wfx_dev *)data;
+
+	*val = wdev->force_ps_timeout;
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(wfx_ps_timeout_fops, wfx_ps_timeout_get, wfx_ps_timeout_set, "%lld\n");
+
 int wfx_debug_init(struct wfx_dev *wdev)
 {
 	struct dentry *d;
@@ -304,11 +348,12 @@ int wfx_debug_init(struct wfx_dev *wdev)
 	d = debugfs_create_dir("wfx", wdev->hw->wiphy->debugfsdir);
 	debugfs_create_file("counters", 0444, d, wdev, &wfx_counters_fops);
 	debugfs_create_file("rx_stats", 0444, d, wdev, &wfx_rx_stats_fops);
+	debugfs_create_file("tx_power_loop", 0444, d, wdev,
+			    &wfx_tx_power_loop_fops);
 	debugfs_create_file("send_pds", 0200, d, wdev, &wfx_send_pds_fops);
-	debugfs_create_file("burn_slk_key", 0200, d, wdev,
-			    &wfx_burn_slk_key_fops);
 	debugfs_create_file("send_hif_msg", 0600, d, wdev,
 			    &wfx_send_hif_msg_fops);
+	debugfs_create_file("ps_timeout", 0600, d, wdev, &wfx_ps_timeout_fops);
 
 	return 0;
 }

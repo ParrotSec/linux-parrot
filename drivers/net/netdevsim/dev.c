@@ -40,7 +40,9 @@ static struct dentry *nsim_dev_ddir;
 #define NSIM_DEV_DUMMY_REGION_SIZE (1024 * 32)
 
 static int
-nsim_dev_take_snapshot(struct devlink *devlink, struct netlink_ext_ack *extack,
+nsim_dev_take_snapshot(struct devlink *devlink,
+		       const struct devlink_region_ops *ops,
+		       struct netlink_ext_ack *extack,
 		       u8 **data)
 {
 	void *dummy_data;
@@ -68,7 +70,7 @@ static ssize_t nsim_dev_take_snapshot_write(struct file *file,
 
 	devlink = priv_to_devlink(nsim_dev);
 
-	err = nsim_dev_take_snapshot(devlink, NULL, &dummy_data);
+	err = nsim_dev_take_snapshot(devlink, NULL, NULL, &dummy_data);
 	if (err)
 		return err;
 
@@ -94,6 +96,7 @@ static const struct file_operations nsim_dev_take_snapshot_fops = {
 	.open = simple_open,
 	.write = nsim_dev_take_snapshot_write,
 	.llseek = generic_file_llseek,
+	.owner = THIS_MODULE,
 };
 
 static ssize_t nsim_dev_trap_fa_cookie_read(struct file *file,
@@ -186,6 +189,7 @@ static const struct file_operations nsim_dev_trap_fa_cookie_fops = {
 	.read = nsim_dev_trap_fa_cookie_read,
 	.write = nsim_dev_trap_fa_cookie_write,
 	.llseek = generic_file_llseek,
+	.owner = THIS_MODULE,
 };
 
 static int nsim_dev_debugfs_init(struct nsim_dev *nsim_dev)
@@ -201,6 +205,8 @@ static int nsim_dev_debugfs_init(struct nsim_dev *nsim_dev)
 		return PTR_ERR(nsim_dev->ports_ddir);
 	debugfs_create_bool("fw_update_status", 0600, nsim_dev->ddir,
 			    &nsim_dev->fw_update_status);
+	debugfs_create_u32("fw_update_overwrite_mask", 0600, nsim_dev->ddir,
+			    &nsim_dev->fw_update_overwrite_mask);
 	debugfs_create_u32("max_macs", 0600, nsim_dev->ddir,
 			   &nsim_dev->max_macs);
 	debugfs_create_bool("test1", 0600, nsim_dev->ddir,
@@ -225,6 +231,7 @@ static int nsim_dev_debugfs_init(struct nsim_dev *nsim_dev)
 	debugfs_create_bool("fail_trap_policer_counter_get", 0600,
 			    nsim_dev->ddir,
 			    &nsim_dev->fail_trap_policer_counter_get);
+	nsim_udp_tunnels_debugfs_create(nsim_dev);
 	return 0;
 }
 
@@ -431,6 +438,10 @@ enum {
 	DEVLINK_TRAP_GENERIC(EXCEPTION, TRAP, _id,			      \
 			     DEVLINK_TRAP_GROUP_GENERIC_ID_##_group_id,	      \
 			     NSIM_TRAP_METADATA)
+#define NSIM_TRAP_CONTROL(_id, _group_id, _action)			      \
+	DEVLINK_TRAP_GENERIC(CONTROL, _action, _id,			      \
+			     DEVLINK_TRAP_GROUP_GENERIC_ID_##_group_id,	      \
+			     NSIM_TRAP_METADATA)
 #define NSIM_TRAP_DRIVER_EXCEPTION(_id, _group_id)			      \
 	DEVLINK_TRAP_DRIVER(EXCEPTION, TRAP, NSIM_TRAP_ID_##_id,	      \
 			    NSIM_TRAP_NAME_##_id,			      \
@@ -458,8 +469,10 @@ static const struct devlink_trap_policer nsim_trap_policers_arr[] = {
 static const struct devlink_trap_group nsim_trap_groups_arr[] = {
 	DEVLINK_TRAP_GROUP_GENERIC(L2_DROPS, 0),
 	DEVLINK_TRAP_GROUP_GENERIC(L3_DROPS, 1),
+	DEVLINK_TRAP_GROUP_GENERIC(L3_EXCEPTIONS, 1),
 	DEVLINK_TRAP_GROUP_GENERIC(BUFFER_DROPS, 2),
 	DEVLINK_TRAP_GROUP_GENERIC(ACL_DROPS, 3),
+	DEVLINK_TRAP_GROUP_GENERIC(MC_SNOOPING, 3),
 };
 
 static const struct devlink_trap nsim_traps_arr[] = {
@@ -471,12 +484,14 @@ static const struct devlink_trap nsim_traps_arr[] = {
 	NSIM_TRAP_DROP(PORT_LOOPBACK_FILTER, L2_DROPS),
 	NSIM_TRAP_DRIVER_EXCEPTION(FID_MISS, L2_DROPS),
 	NSIM_TRAP_DROP(BLACKHOLE_ROUTE, L3_DROPS),
-	NSIM_TRAP_EXCEPTION(TTL_ERROR, L3_DROPS),
+	NSIM_TRAP_EXCEPTION(TTL_ERROR, L3_EXCEPTIONS),
 	NSIM_TRAP_DROP(TAIL_DROP, BUFFER_DROPS),
 	NSIM_TRAP_DROP_EXT(INGRESS_FLOW_ACTION_DROP, ACL_DROPS,
 			   DEVLINK_TRAP_METADATA_TYPE_F_FA_COOKIE),
 	NSIM_TRAP_DROP_EXT(EGRESS_FLOW_ACTION_DROP, ACL_DROPS,
 			   DEVLINK_TRAP_METADATA_TYPE_F_FA_COOKIE),
+	NSIM_TRAP_CONTROL(IGMP_QUERY, MC_SNOOPING, MIRROR),
+	NSIM_TRAP_CONTROL(IGMP_V1_REPORT, MC_SNOOPING, TRAP),
 };
 
 #define NSIM_TRAP_L4_DATA_LEN 100
@@ -688,6 +703,7 @@ static int nsim_dev_reload_create(struct nsim_dev *nsim_dev,
 static void nsim_dev_reload_destroy(struct nsim_dev *nsim_dev);
 
 static int nsim_dev_reload_down(struct devlink *devlink, bool netns_change,
+				enum devlink_reload_action action, enum devlink_reload_limit limit,
 				struct netlink_ext_ack *extack)
 {
 	struct nsim_dev *nsim_dev = devlink_priv(devlink);
@@ -704,7 +720,8 @@ static int nsim_dev_reload_down(struct devlink *devlink, bool netns_change,
 	return 0;
 }
 
-static int nsim_dev_reload_up(struct devlink *devlink,
+static int nsim_dev_reload_up(struct devlink *devlink, enum devlink_reload_action action,
+			      enum devlink_reload_limit limit, u32 *actions_performed,
 			      struct netlink_ext_ack *extack)
 {
 	struct nsim_dev *nsim_dev = devlink_priv(devlink);
@@ -717,6 +734,7 @@ static int nsim_dev_reload_up(struct devlink *devlink,
 		return -EINVAL;
 	}
 
+	*actions_performed = BIT(DEVLINK_RELOAD_ACTION_DRIVER_REINIT);
 	return nsim_dev_reload_create(nsim_dev, extack);
 }
 
@@ -731,24 +749,27 @@ static int nsim_dev_info_get(struct devlink *devlink,
 #define NSIM_DEV_FLASH_CHUNK_SIZE 1000
 #define NSIM_DEV_FLASH_CHUNK_TIME_MS 10
 
-static int nsim_dev_flash_update(struct devlink *devlink, const char *file_name,
-				 const char *component,
+static int nsim_dev_flash_update(struct devlink *devlink,
+				 struct devlink_flash_update_params *params,
 				 struct netlink_ext_ack *extack)
 {
 	struct nsim_dev *nsim_dev = devlink_priv(devlink);
 	int i;
 
+	if ((params->overwrite_mask & ~nsim_dev->fw_update_overwrite_mask) != 0)
+		return -EOPNOTSUPP;
+
 	if (nsim_dev->fw_update_status) {
 		devlink_flash_update_begin_notify(devlink);
 		devlink_flash_update_status_notify(devlink,
 						   "Preparing to flash",
-						   component, 0, 0);
+						   params->component, 0, 0);
 	}
 
 	for (i = 0; i < NSIM_DEV_FLASH_SIZE / NSIM_DEV_FLASH_CHUNK_SIZE; i++) {
 		if (nsim_dev->fw_update_status)
 			devlink_flash_update_status_notify(devlink, "Flashing",
-							   component,
+							   params->component,
 							   i * NSIM_DEV_FLASH_CHUNK_SIZE,
 							   NSIM_DEV_FLASH_SIZE);
 		msleep(NSIM_DEV_FLASH_CHUNK_TIME_MS);
@@ -756,11 +777,13 @@ static int nsim_dev_flash_update(struct devlink *devlink, const char *file_name,
 
 	if (nsim_dev->fw_update_status) {
 		devlink_flash_update_status_notify(devlink, "Flashing",
-						   component,
+						   params->component,
 						   NSIM_DEV_FLASH_SIZE,
 						   NSIM_DEV_FLASH_SIZE);
+		devlink_flash_update_timeout_notify(devlink, "Flash select",
+						    params->component, 81);
 		devlink_flash_update_status_notify(devlink, "Flashing done",
-						   component, 0, 0);
+						   params->component, 0, 0);
 		devlink_flash_update_end_notify(devlink);
 	}
 
@@ -801,7 +824,8 @@ static int nsim_dev_devlink_trap_init(struct devlink *devlink,
 static int
 nsim_dev_devlink_trap_action_set(struct devlink *devlink,
 				 const struct devlink_trap *trap,
-				 enum devlink_trap_action action)
+				 enum devlink_trap_action action,
+				 struct netlink_ext_ack *extack)
 {
 	struct nsim_dev *nsim_dev = devlink_priv(devlink);
 	struct nsim_trap_item *nsim_trap_item;
@@ -820,7 +844,8 @@ nsim_dev_devlink_trap_action_set(struct devlink *devlink,
 static int
 nsim_dev_devlink_trap_group_set(struct devlink *devlink,
 				const struct devlink_trap_group *group,
-				const struct devlink_trap_policer *policer)
+				const struct devlink_trap_policer *policer,
+				struct netlink_ext_ack *extack)
 {
 	struct nsim_dev *nsim_dev = devlink_priv(devlink);
 
@@ -864,6 +889,9 @@ nsim_dev_devlink_trap_policer_counter_get(struct devlink *devlink,
 }
 
 static const struct devlink_ops nsim_dev_devlink_ops = {
+	.supported_flash_update_params = DEVLINK_SUPPORT_FLASH_UPDATE_COMPONENT |
+					 DEVLINK_SUPPORT_FLASH_UPDATE_OVERWRITE_MASK,
+	.reload_actions = BIT(DEVLINK_RELOAD_ACTION_DRIVER_REINIT),
 	.reload_down = nsim_dev_reload_down,
 	.reload_up = nsim_dev_reload_up,
 	.info_get = nsim_dev_info_get,
@@ -881,6 +909,7 @@ static const struct devlink_ops nsim_dev_devlink_ops = {
 static int __nsim_dev_port_add(struct nsim_dev *nsim_dev,
 			       unsigned int port_index)
 {
+	struct devlink_port_attrs attrs = {};
 	struct nsim_dev_port *nsim_dev_port;
 	struct devlink_port *devlink_port;
 	int err;
@@ -891,10 +920,11 @@ static int __nsim_dev_port_add(struct nsim_dev *nsim_dev,
 	nsim_dev_port->port_index = port_index;
 
 	devlink_port = &nsim_dev_port->devlink_port;
-	devlink_port_attrs_set(devlink_port, DEVLINK_PORT_FLAVOUR_PHYSICAL,
-			       port_index + 1, 0, 0,
-			       nsim_dev->switch_id.id,
-			       nsim_dev->switch_id.id_len);
+	attrs.flavour = DEVLINK_PORT_FLAVOUR_PHYSICAL;
+	attrs.phys.port_number = port_index + 1;
+	memcpy(attrs.switch_id.id, nsim_dev->switch_id.id, nsim_dev->switch_id.id_len);
+	attrs.switch_id.id_len = nsim_dev->switch_id.id_len;
+	devlink_port_attrs_set(devlink_port, &attrs);
 	err = devlink_port_register(priv_to_devlink(nsim_dev), devlink_port,
 				    port_index);
 	if (err)
@@ -976,6 +1006,7 @@ static int nsim_dev_reload_create(struct nsim_dev *nsim_dev,
 	INIT_LIST_HEAD(&nsim_dev->port_list);
 	mutex_init(&nsim_dev->port_list_lock);
 	nsim_dev->fw_update_status = true;
+	nsim_dev->fw_update_overwrite_mask = 0;
 
 	nsim_dev->fib_data = nsim_fib_create(devlink, extack);
 	if (IS_ERR(nsim_dev->fib_data))
@@ -1034,6 +1065,7 @@ int nsim_dev_probe(struct nsim_bus_dev *nsim_bus_dev)
 	INIT_LIST_HEAD(&nsim_dev->port_list);
 	mutex_init(&nsim_dev->port_list_lock);
 	nsim_dev->fw_update_status = true;
+	nsim_dev->fw_update_overwrite_mask = 0;
 	nsim_dev->max_macs = NSIM_DEV_MAX_MACS_DEFAULT;
 	nsim_dev->test1 = NSIM_DEV_TEST1_DEFAULT;
 	spin_lock_init(&nsim_dev->fa_cookie_lock);

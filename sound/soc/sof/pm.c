@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0 OR BSD-3-Clause)
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
 //
 // This file is provided under a dual BSD/GPLv2 license.  When using or
 // redistributing this file, you may do so under either license.
@@ -114,8 +114,12 @@ static int sof_resume(struct device *dev, bool runtime_resume)
 		return ret;
 	}
 
-	/* Nothing further to do if resuming from a low-power D0 substate */
-	if (!runtime_resume && old_state == SOF_DSP_PM_D0)
+	/*
+	 * Nothing further to be done for platforms that support the low power
+	 * D0 substate.
+	 */
+	if (!runtime_resume && sof_ops(sdev)->set_power_state &&
+	    old_state == SOF_DSP_PM_D0)
 		return 0;
 
 	sdev->fw_state = SOF_FW_BOOT_PREPARE;
@@ -252,8 +256,18 @@ suspend:
 
 	/* reset FW state */
 	sdev->fw_state = SOF_FW_BOOT_NOT_STARTED;
+	sdev->enabled_cores_mask = 0;
 
 	return ret;
+}
+
+int snd_sof_dsp_power_down_notify(struct snd_sof_dev *sdev)
+{
+	/* Notify DSP of upcoming power down */
+	if (sof_ops(sdev)->remove)
+		return sof_send_pm_ctx_ipc(sdev, SOF_IPC_PM_CTX_SAVE);
+
+	return 0;
 }
 
 int snd_sof_runtime_suspend(struct device *dev)
@@ -291,15 +305,17 @@ EXPORT_SYMBOL(snd_sof_suspend);
 int snd_sof_prepare(struct device *dev)
 {
 	struct snd_sof_dev *sdev = dev_get_drvdata(dev);
+	const struct sof_dev_desc *desc = sdev->pdata->desc;
+
+	/* will suspend to S3 by default */
+	sdev->system_suspend_target = SOF_SUSPEND_S3;
+
+	if (!desc->use_acpi_target_states)
+		return 0;
 
 #if defined(CONFIG_ACPI)
 	if (acpi_target_system_state() == ACPI_STATE_S0)
 		sdev->system_suspend_target = SOF_SUSPEND_S0IX;
-	else
-		sdev->system_suspend_target = SOF_SUSPEND_S3;
-#else
-	/* will suspend to S3 by default */
-	sdev->system_suspend_target = SOF_SUSPEND_S3;
 #endif
 
 	return 0;

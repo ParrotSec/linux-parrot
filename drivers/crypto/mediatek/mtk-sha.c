@@ -239,7 +239,7 @@ static int mtk_sha_append_sg(struct mtk_sha_reqctx *ctx)
 static void mtk_sha_fill_padding(struct mtk_sha_reqctx *ctx, u32 len)
 {
 	u32 index, padlen;
-	u64 bits[2];
+	__be64 bits[2];
 	u64 size = ctx->digcnt;
 
 	size += ctx->bufcnt;
@@ -805,12 +805,9 @@ static int mtk_sha_setkey(struct crypto_ahash *tfm, const u8 *key,
 	size_t ds = crypto_shash_digestsize(bctx->shash);
 	int err, i;
 
-	SHASH_DESC_ON_STACK(shash, bctx->shash);
-
-	shash->tfm = bctx->shash;
-
 	if (keylen > bs) {
-		err = crypto_shash_digest(shash, key, keylen, bctx->ipad);
+		err = crypto_shash_tfm_digest(bctx->shash, key, keylen,
+					      bctx->ipad);
 		if (err)
 			return err;
 		keylen = ds;

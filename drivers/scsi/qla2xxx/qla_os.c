@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * QLogic Fibre Channel HBA Driver
  * Copyright (c)  2003-2014 QLogic Corporation
- *
- * See LICENSE.qla2xxx for copyright and licensing details.
  */
 #include "qla_def.h"
 
@@ -34,6 +33,16 @@ static int apidev_major;
  * SRB allocation cache
  */
 struct kmem_cache *srb_cachep;
+
+int ql2xfulldump_on_mpifail;
+module_param(ql2xfulldump_on_mpifail, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(ql2xfulldump_on_mpifail,
+		 "Set this to take full dump on MPI hang.");
+
+int ql2xenforce_iocb_limit = 1;
+module_param(ql2xenforce_iocb_limit, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(ql2xenforce_iocb_limit,
+		 "Enforce IOCB throttling, to avoid FW congestion. (default: 1)");
 
 /*
  * CT6 CTX allocation cache
@@ -1216,9 +1225,9 @@ uint32_t qla2x00_isp_reg_stat(struct qla_hw_data *ha)
 	struct device_reg_82xx __iomem *reg82 = &ha->iobase->isp82;
 
 	if (IS_P3P_TYPE(ha))
-		return ((RD_REG_DWORD(&reg82->host_int)) == ISP_REG_DISCONNECT);
+		return ((rd_reg_dword(&reg82->host_int)) == ISP_REG_DISCONNECT);
 	else
-		return ((RD_REG_DWORD(&reg->host_status)) ==
+		return ((rd_reg_dword(&reg->host_status)) ==
 			ISP_REG_DISCONNECT);
 }
 
@@ -1880,7 +1889,7 @@ qla2x00_config_dma_addressing(struct qla_hw_data *ha)
 	if (!dma_set_mask(&ha->pdev->dev, DMA_BIT_MASK(64))) {
 		/* Any upper-dword bits set? */
 		if (MSD(dma_get_required_mask(&ha->pdev->dev)) &&
-		    !pci_set_consistent_dma_mask(ha->pdev, DMA_BIT_MASK(64))) {
+		    !dma_set_coherent_mask(&ha->pdev->dev, DMA_BIT_MASK(64))) {
 			/* Ok, a 64bit DMA mask is applicable. */
 			ha->flags.enable_64bit_addressing = 1;
 			ha->isp_ops->calc_req_entries = qla2x00_calc_iocbs_64;
@@ -1890,7 +1899,7 @@ qla2x00_config_dma_addressing(struct qla_hw_data *ha)
 	}
 
 	dma_set_mask(&ha->pdev->dev, DMA_BIT_MASK(32));
-	pci_set_consistent_dma_mask(ha->pdev, DMA_BIT_MASK(32));
+	dma_set_coherent_mask(&ha->pdev->dev, DMA_BIT_MASK(32));
 }
 
 static void
@@ -1902,8 +1911,8 @@ qla2x00_enable_intrs(struct qla_hw_data *ha)
 	spin_lock_irqsave(&ha->hardware_lock, flags);
 	ha->interrupts_on = 1;
 	/* enable risc and host interrupts */
-	WRT_REG_WORD(&reg->ictrl, ICR_EN_INT | ICR_EN_RISC);
-	RD_REG_WORD(&reg->ictrl);
+	wrt_reg_word(&reg->ictrl, ICR_EN_INT | ICR_EN_RISC);
+	rd_reg_word(&reg->ictrl);
 	spin_unlock_irqrestore(&ha->hardware_lock, flags);
 
 }
@@ -1917,8 +1926,8 @@ qla2x00_disable_intrs(struct qla_hw_data *ha)
 	spin_lock_irqsave(&ha->hardware_lock, flags);
 	ha->interrupts_on = 0;
 	/* disable risc and host interrupts */
-	WRT_REG_WORD(&reg->ictrl, 0);
-	RD_REG_WORD(&reg->ictrl);
+	wrt_reg_word(&reg->ictrl, 0);
+	rd_reg_word(&reg->ictrl);
 	spin_unlock_irqrestore(&ha->hardware_lock, flags);
 }
 
@@ -1930,8 +1939,8 @@ qla24xx_enable_intrs(struct qla_hw_data *ha)
 
 	spin_lock_irqsave(&ha->hardware_lock, flags);
 	ha->interrupts_on = 1;
-	WRT_REG_DWORD(&reg->ictrl, ICRX_EN_RISC_INT);
-	RD_REG_DWORD(&reg->ictrl);
+	wrt_reg_dword(&reg->ictrl, ICRX_EN_RISC_INT);
+	rd_reg_dword(&reg->ictrl);
 	spin_unlock_irqrestore(&ha->hardware_lock, flags);
 }
 
@@ -1945,8 +1954,8 @@ qla24xx_disable_intrs(struct qla_hw_data *ha)
 		return;
 	spin_lock_irqsave(&ha->hardware_lock, flags);
 	ha->interrupts_on = 0;
-	WRT_REG_DWORD(&reg->ictrl, 0);
-	RD_REG_DWORD(&reg->ictrl);
+	wrt_reg_dword(&reg->ictrl, 0);
+	rd_reg_dword(&reg->ictrl);
 	spin_unlock_irqrestore(&ha->hardware_lock, flags);
 }
 
@@ -2012,6 +2021,11 @@ skip_pio:
 	/* Determine queue resources */
 	ha->max_req_queues = ha->max_rsp_queues = 1;
 	ha->msix_count = QLA_BASE_VECTORS;
+
+	/* Check if FW supports MQ or not */
+	if (!(ha->fw_attributes & BIT_6))
+		goto mqiobase_exit;
+
 	if (!ql2xmqsupport || !ql2xnvmeenable ||
 	    (!IS_QLA25XX(ha) && !IS_QLA81XX(ha)))
 		goto mqiobase_exit;
@@ -2518,6 +2532,7 @@ static struct isp_operations qla27xx_isp_ops = {
 	.read_nvram		= NULL,
 	.write_nvram		= NULL,
 	.fw_dump		= qla27xx_fwdump,
+	.mpi_fw_dump		= qla27xx_mpi_fwdump,
 	.beacon_on		= qla24xx_beacon_on,
 	.beacon_off		= qla24xx_beacon_off,
 	.beacon_blink		= qla83xx_beacon_blink,
@@ -2822,10 +2837,6 @@ qla2x00_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	/* This may fail but that's ok */
 	pci_enable_pcie_error_reporting(pdev);
-
-	/* Turn off T10-DIF when FC-NVMe is enabled */
-	if (ql2xnvmeenable)
-		ql2xenabledif = 0;
 
 	ha = kzalloc(sizeof(struct qla_hw_data), GFP_KERNEL);
 	if (!ha) {
@@ -3309,6 +3320,7 @@ qla2x00_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 		for (i = 0; i < ha->max_qpairs; i++)
 			qla2xxx_create_qpair(base_vha, 5, 0, startit);
 	}
+	qla_init_iocb_limit(base_vha);
 
 	if (ha->flags.running_gold_fw)
 		goto skip_dpc;
@@ -4212,6 +4224,17 @@ qla2x00_mem_alloc(struct qla_hw_data *ha, uint16_t req_len, uint16_t rsp_len,
 		    "ex_init_cb=%p.\n", ha->ex_init_cb);
 	}
 
+	/* Get consistent memory allocated for Special Features-CB. */
+	if (IS_QLA27XX(ha) || IS_QLA28XX(ha)) {
+		ha->sf_init_cb = dma_pool_alloc(ha->s_dma_pool, GFP_KERNEL,
+						&ha->sf_init_cb_dma);
+		if (!ha->sf_init_cb)
+			goto fail_sf_init_cb;
+		memset(ha->sf_init_cb, 0, sizeof(struct init_sf_cb));
+		ql_dbg_pci(ql_dbg_init, ha->pdev, 0x0199,
+			   "sf_init_cb=%p.\n", ha->sf_init_cb);
+	}
+
 	INIT_LIST_HEAD(&ha->gbl_dsd_list);
 
 	/* Get consistent memory allocated for Async Port-Database. */
@@ -4265,6 +4288,8 @@ fail_sfp_data:
 fail_loop_id_map:
 	dma_pool_free(ha->s_dma_pool, ha->async_pd, ha->async_pd_dma);
 fail_async_pd:
+	dma_pool_free(ha->s_dma_pool, ha->sf_init_cb, ha->sf_init_cb_dma);
+fail_sf_init_cb:
 	dma_pool_free(ha->s_dma_pool, ha->ex_init_cb, ha->ex_init_cb_dma);
 fail_ex_init_cb:
 	kfree(ha->npiv_info);
@@ -4360,11 +4385,12 @@ int
 qla2x00_set_exlogins_buffer(scsi_qla_host_t *vha)
 {
 	int rval;
-	uint16_t	size, max_cnt, temp;
+	uint16_t	size, max_cnt;
+	uint32_t temp;
 	struct qla_hw_data *ha = vha->hw;
 
 	/* Return if we don't need to alloacate any extended logins */
-	if (!ql2xexlogins)
+	if (ql2xexlogins <= MAX_FIBRE_DEVICES_2400)
 		return QLA_SUCCESS;
 
 	if (!IS_EXLOGIN_OFFLD_CAPABLE(ha))
@@ -4614,7 +4640,7 @@ qla2x00_free_fw_dump(struct qla_hw_data *ha)
 	ha->flags.fce_enabled = 0;
 	ha->eft = NULL;
 	ha->eft_dma = 0;
-	ha->fw_dumped = 0;
+	ha->fw_dumped = false;
 	ha->fw_dump_cap_flags = 0;
 	ha->fw_dump_reading = 0;
 	ha->fw_dump = NULL;
@@ -4686,6 +4712,10 @@ qla2x00_mem_free(struct qla_hw_data *ha)
 		dma_pool_free(ha->s_dma_pool, ha->ms_iocb, ha->ms_iocb_dma);
 	ha->ms_iocb = NULL;
 	ha->ms_iocb_dma = 0;
+
+	if (ha->sf_init_cb)
+		dma_pool_free(ha->s_dma_pool,
+			      ha->sf_init_cb, ha->sf_init_cb_dma);
 
 	if (ha->ex_init_cb)
 		dma_pool_free(ha->s_dma_pool,
@@ -4774,6 +4804,8 @@ qla2x00_mem_free(struct qla_hw_data *ha)
 	kfree(ha->swl);
 	ha->swl = NULL;
 	kfree(ha->loop_id_map);
+	ha->sf_init_cb = NULL;
+	ha->sf_init_cb_dma = 0;
 	ha->loop_id_map = NULL;
 }
 
@@ -4847,7 +4879,7 @@ struct scsi_qla_host *qla2x00_create_host(struct scsi_host_template *sht,
 	}
 	INIT_DELAYED_WORK(&vha->scan.scan_work, qla_scan_work_fn);
 
-	sprintf(vha->host_str, "%s_%ld", QLA2XXX_DRIVER_NAME, vha->host_no);
+	sprintf(vha->host_str, "%s_%lu", QLA2XXX_DRIVER_NAME, vha->host_no);
 	ql_dbg(ql_dbg_init, vha, 0x0041,
 	    "Allocated the host=%p hw=%p vha=%p dev_name=%s",
 	    vha->host, vha->hw, vha,
@@ -4976,7 +5008,7 @@ qla2x00_uevent_emit(struct scsi_qla_host *vha, u32 code)
 
 	switch (code) {
 	case QLA_UEVENT_CODE_FW_DUMP:
-		snprintf(event_string, sizeof(event_string), "FW_DUMP=%ld",
+		snprintf(event_string, sizeof(event_string), "FW_DUMP=%lu",
 		    vha->host_no);
 		break;
 	default:
@@ -5064,6 +5096,8 @@ void qla24xx_create_new_sess(struct scsi_qla_host *vha, struct qla_work_evt *e)
 
 			fcport->fc4_type = e->u.new_sess.fc4_type;
 			if (e->u.new_sess.fc4_type & FS_FCP_IS_N2N) {
+				fcport->dm_login_expire = jiffies +
+					QLA_N2N_WAIT_TIME * HZ;
 				fcport->fc4_type = FS_FC4TYPE_FCP;
 				fcport->n2n_flag = 1;
 				if (vha->flags.nvme_enabled)
@@ -5758,7 +5792,8 @@ qla25xx_rdp_rsp_reduce_size(struct scsi_qla_host *vha,
 	if (!pdb) {
 		ql_dbg(ql_dbg_init, vha, 0x0181,
 		    "%s: Failed allocate pdb\n", __func__);
-	} else if (qla24xx_get_port_database(vha, purex->nport_handle, pdb)) {
+	} else if (qla24xx_get_port_database(vha,
+				le16_to_cpu(purex->nport_handle), pdb)) {
 		ql_dbg(ql_dbg_init, vha, 0x0181,
 		    "%s: Failed get pdb sid=%x\n", __func__, sid);
 	} else if (pdb->current_login_state != PDS_PLOGI_COMPLETE &&
@@ -5784,98 +5819,6 @@ qla25xx_rdp_rsp_reduce_size(struct scsi_qla_host *vha,
 	return true;
 }
 
-static uint
-qla25xx_rdp_port_speed_capability(struct qla_hw_data *ha)
-{
-	if (IS_CNA_CAPABLE(ha))
-		return RDP_PORT_SPEED_10GB;
-
-	if (IS_QLA27XX(ha) || IS_QLA28XX(ha)) {
-		unsigned int speeds = 0;
-
-		if (ha->max_supported_speed == 2) {
-			if (ha->min_supported_speed <= 6)
-				speeds |= RDP_PORT_SPEED_64GB;
-		}
-
-		if (ha->max_supported_speed == 2 ||
-		    ha->max_supported_speed == 1) {
-			if (ha->min_supported_speed <= 5)
-				speeds |= RDP_PORT_SPEED_32GB;
-		}
-
-		if (ha->max_supported_speed == 2 ||
-		    ha->max_supported_speed == 1 ||
-		    ha->max_supported_speed == 0) {
-			if (ha->min_supported_speed <= 4)
-				speeds |= RDP_PORT_SPEED_16GB;
-		}
-
-		if (ha->max_supported_speed == 1 ||
-		    ha->max_supported_speed == 0) {
-			if (ha->min_supported_speed <= 3)
-				speeds |= RDP_PORT_SPEED_8GB;
-		}
-
-		if (ha->max_supported_speed == 0) {
-			if (ha->min_supported_speed <= 2)
-				speeds |= RDP_PORT_SPEED_4GB;
-		}
-
-		return speeds;
-	}
-
-	if (IS_QLA2031(ha))
-		return RDP_PORT_SPEED_16GB|RDP_PORT_SPEED_8GB|
-		       RDP_PORT_SPEED_4GB;
-
-	if (IS_QLA25XX(ha))
-		return RDP_PORT_SPEED_8GB|RDP_PORT_SPEED_4GB|
-		       RDP_PORT_SPEED_2GB|RDP_PORT_SPEED_1GB;
-
-	if (IS_QLA24XX_TYPE(ha))
-		return RDP_PORT_SPEED_4GB|RDP_PORT_SPEED_2GB|
-		       RDP_PORT_SPEED_1GB;
-
-	if (IS_QLA23XX(ha))
-		return RDP_PORT_SPEED_2GB|RDP_PORT_SPEED_1GB;
-
-	return RDP_PORT_SPEED_1GB;
-}
-
-static uint
-qla25xx_rdp_port_speed_currently(struct qla_hw_data *ha)
-{
-	switch (ha->link_data_rate) {
-	case PORT_SPEED_1GB:
-		return RDP_PORT_SPEED_1GB;
-
-	case PORT_SPEED_2GB:
-		return RDP_PORT_SPEED_2GB;
-
-	case PORT_SPEED_4GB:
-		return RDP_PORT_SPEED_4GB;
-
-	case PORT_SPEED_8GB:
-		return RDP_PORT_SPEED_8GB;
-
-	case PORT_SPEED_10GB:
-		return RDP_PORT_SPEED_10GB;
-
-	case PORT_SPEED_16GB:
-		return RDP_PORT_SPEED_16GB;
-
-	case PORT_SPEED_32GB:
-		return RDP_PORT_SPEED_32GB;
-
-	case PORT_SPEED_64GB:
-		return RDP_PORT_SPEED_64GB;
-
-	default:
-		return RDP_PORT_SPEED_UNKNOWN;
-	}
-}
-
 /*
  * Function Name: qla24xx_process_purex_iocb
  *
@@ -5886,19 +5829,19 @@ qla25xx_rdp_port_speed_currently(struct qla_hw_data *ha)
  * vha:	SCSI qla host
  * purex: RDP request received by HBA
  */
-void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
+void qla24xx_process_purex_rdp(struct scsi_qla_host *vha,
+			       struct purex_item *item)
 {
 	struct qla_hw_data *ha = vha->hw;
-	struct purex_entry_24xx *purex = pkt;
+	struct purex_entry_24xx *purex =
+	    (struct purex_entry_24xx *)&item->iocb;
 	dma_addr_t rsp_els_dma;
 	dma_addr_t rsp_payload_dma;
 	dma_addr_t stat_dma;
-	dma_addr_t bbc_dma;
 	dma_addr_t sfp_dma;
 	struct els_entry_24xx *rsp_els = NULL;
 	struct rdp_rsp_payload *rsp_payload = NULL;
 	struct link_statistics *stat = NULL;
-	struct buffer_credit_24xx *bbc = NULL;
 	uint8_t *sfp = NULL;
 	uint16_t sfp_flags = 0;
 	uint rsp_payload_length = sizeof(*rsp_payload);
@@ -5910,7 +5853,7 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 	ql_dbg(ql_dbg_init + ql_dbg_verbose, vha, 0x0181,
 	    "-------- ELS REQ -------\n");
 	ql_dump_buffer(ql_dbg_init + ql_dbg_verbose, vha, 0x0182,
-	    (void *)purex, sizeof(*purex));
+	    purex, sizeof(*purex));
 
 	if (qla25xx_rdp_rsp_reduce_size(vha, purex)) {
 		rsp_payload_length =
@@ -5942,9 +5885,6 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 	stat = dma_alloc_coherent(&ha->pdev->dev, sizeof(*stat),
 	    &stat_dma, GFP_KERNEL);
 
-	bbc = dma_alloc_coherent(&ha->pdev->dev, sizeof(*bbc),
-	    &bbc_dma, GFP_KERNEL);
-
 	/* Prepare Response IOCB */
 	rsp_els->entry_type = ELS_IOCB_TYPE;
 	rsp_els->entry_count = 1;
@@ -5952,7 +5892,7 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 	rsp_els->entry_status = 0;
 	rsp_els->handle = 0;
 	rsp_els->nport_handle = purex->nport_handle;
-	rsp_els->tx_dsd_count = 1;
+	rsp_els->tx_dsd_count = cpu_to_le16(1);
 	rsp_els->vp_index = purex->vp_idx;
 	rsp_els->sof_type = EST_SOFI3;
 	rsp_els->rx_xchg_address = purex->rx_xchg_addr;
@@ -5963,7 +5903,7 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 	rsp_els->d_id[1] = purex->s_id[1];
 	rsp_els->d_id[2] = purex->s_id[2];
 
-	rsp_els->control_flags = EPD_ELS_ACC;
+	rsp_els->control_flags = cpu_to_le16(EPD_ELS_ACC);
 	rsp_els->rx_byte_count = 0;
 	rsp_els->tx_byte_count = cpu_to_le32(rsp_payload_length);
 
@@ -5975,8 +5915,8 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 
 	/* Prepare Response Payload */
 	rsp_payload->hdr.cmd = cpu_to_be32(0x2 << 24); /* LS_ACC */
-	rsp_payload->hdr.len = cpu_to_be32(
-	    rsp_els->tx_byte_count - sizeof(rsp_payload->hdr));
+	rsp_payload->hdr.len = cpu_to_be32(le32_to_cpu(rsp_els->tx_byte_count) -
+					   sizeof(rsp_payload->hdr));
 
 	/* Link service Request Info Descriptor */
 	rsp_payload->ls_req_info_desc.desc_tag = cpu_to_be32(0x1);
@@ -6026,7 +5966,7 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 		memset(sfp, 0, SFP_RTDI_LEN);
 		rval = qla2x00_read_sfp(vha, sfp_dma, sfp, 0xa2, 0x60, 10, 0);
 		if (!rval) {
-			uint16_t *trx = (void *)sfp; /* already be16 */
+			__be16 *trx = (__force __be16 *)sfp; /* already be16 */
 			rsp_payload->sfp_diag_desc.temperature = trx[0];
 			rsp_payload->sfp_diag_desc.vcc = trx[1];
 			rsp_payload->sfp_diag_desc.tx_bias = trx[2];
@@ -6040,9 +5980,9 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 	rsp_payload->port_speed_desc.desc_len =
 	    cpu_to_be32(RDP_DESC_LEN(rsp_payload->port_speed_desc));
 	rsp_payload->port_speed_desc.speed_capab = cpu_to_be16(
-	    qla25xx_rdp_port_speed_capability(ha));
+	    qla25xx_fdmi_port_speed_capability(ha));
 	rsp_payload->port_speed_desc.operating_speed = cpu_to_be16(
-	    qla25xx_rdp_port_speed_currently(ha));
+	    qla25xx_fdmi_port_speed_currently(ha));
 
 	/* Link Error Status Descriptor */
 	rsp_payload->ls_err_desc.desc_tag = cpu_to_be32(0x10002);
@@ -6053,17 +5993,17 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 		rval = qla24xx_get_isp_stats(vha, stat, stat_dma, 0);
 		if (!rval) {
 			rsp_payload->ls_err_desc.link_fail_cnt =
-			    cpu_to_be32(stat->link_fail_cnt);
+			    cpu_to_be32(le32_to_cpu(stat->link_fail_cnt));
 			rsp_payload->ls_err_desc.loss_sync_cnt =
-			    cpu_to_be32(stat->loss_sync_cnt);
+			    cpu_to_be32(le32_to_cpu(stat->loss_sync_cnt));
 			rsp_payload->ls_err_desc.loss_sig_cnt =
-			    cpu_to_be32(stat->loss_sig_cnt);
+			    cpu_to_be32(le32_to_cpu(stat->loss_sig_cnt));
 			rsp_payload->ls_err_desc.prim_seq_err_cnt =
-			    cpu_to_be32(stat->prim_seq_err_cnt);
+			    cpu_to_be32(le32_to_cpu(stat->prim_seq_err_cnt));
 			rsp_payload->ls_err_desc.inval_xmit_word_cnt =
-			    cpu_to_be32(stat->inval_xmit_word_cnt);
+			    cpu_to_be32(le32_to_cpu(stat->inval_xmit_word_cnt));
 			rsp_payload->ls_err_desc.inval_crc_cnt =
-			    cpu_to_be32(stat->inval_crc_cnt);
+			    cpu_to_be32(le32_to_cpu(stat->inval_crc_cnt));
 			rsp_payload->ls_err_desc.pn_port_phy_type |= BIT_6;
 		}
 	}
@@ -6098,13 +6038,10 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 	rsp_payload->buffer_credit_desc.attached_fcport_b2b = cpu_to_be32(0);
 	rsp_payload->buffer_credit_desc.fcport_rtt = cpu_to_be32(0);
 
-	if (bbc) {
-		memset(bbc, 0, sizeof(*bbc));
-		rval = qla24xx_get_buffer_credits(vha, bbc, bbc_dma);
-		if (!rval) {
-			rsp_payload->buffer_credit_desc.fcport_b2b =
-			    cpu_to_be32(LSW(bbc->parameter[0]));
-		}
+	if (ha->flags.plogi_template_valid) {
+		uint32_t tmp =
+		be16_to_cpu(ha->plogi_els_payld.fl_csp.sp_bb_cred);
+		rsp_payload->buffer_credit_desc.fcport_b2b = cpu_to_be32(tmp);
 	}
 
 	if (rsp_payload_length < sizeof(*rsp_payload))
@@ -6135,7 +6072,7 @@ void qla24xx_process_purex_rdp(struct scsi_qla_host *vha, void *pkt)
 		memset(sfp, 0, SFP_RTDI_LEN);
 		rval = qla2x00_read_sfp(vha, sfp_dma, sfp, 0xa2, 0, 64, 0);
 		if (!rval) {
-			uint16_t *trx = (void *)sfp; /* already be16 */
+			__be16 *trx = (__force __be16 *)sfp; /* already be16 */
 
 			/* Optical Element Descriptor, Temperature */
 			rsp_payload->optical_elmt_desc[0].high_alarm = trx[0];
@@ -6261,11 +6198,11 @@ send:
 	ql_dbg(ql_dbg_init + ql_dbg_verbose, vha, 0x0184,
 	    "-------- ELS RSP -------\n");
 	ql_dump_buffer(ql_dbg_init + ql_dbg_verbose, vha, 0x0185,
-	    (void *)rsp_els, sizeof(*rsp_els));
+	    rsp_els, sizeof(*rsp_els));
 	ql_dbg(ql_dbg_init + ql_dbg_verbose, vha, 0x0186,
 	    "-------- ELS RSP PAYLOAD -------\n");
 	ql_dump_buffer(ql_dbg_init + ql_dbg_verbose, vha, 0x0187,
-	    (void *)rsp_payload, rsp_payload_length);
+	    rsp_payload, rsp_payload_length);
 
 	rval = qla2x00_issue_iocb(vha, rsp_els, rsp_els_dma, 0);
 
@@ -6282,9 +6219,6 @@ send:
 	}
 
 dealloc:
-	if (bbc)
-		dma_free_coherent(&ha->pdev->dev, sizeof(*bbc),
-		    bbc, bbc_dma);
 	if (stat)
 		dma_free_coherent(&ha->pdev->dev, sizeof(*stat),
 		    stat, stat_dma);
@@ -6299,6 +6233,15 @@ dealloc:
 		    rsp_els, rsp_els_dma);
 }
 
+void
+qla24xx_free_purex_item(struct purex_item *item)
+{
+	if (item == &item->vha->default_item)
+		memset(&item->vha->default_item, 0, sizeof(struct purex_item));
+	else
+		kfree(item);
+}
+
 void qla24xx_process_purex_list(struct purex_list *list)
 {
 	struct list_head head = LIST_HEAD_INIT(head);
@@ -6311,8 +6254,8 @@ void qla24xx_process_purex_list(struct purex_list *list)
 
 	list_for_each_entry_safe(item, next, &head, list) {
 		list_del(&item->list);
-		item->process_item(item->vha, &item->iocb);
-		kfree(item);
+		item->process_item(item->vha, item);
+		qla24xx_free_purex_item(item);
 	}
 }
 
@@ -7252,8 +7195,10 @@ qla2x00_timer(struct timer_list *t)
 	 * FC-NVME
 	 * see if the active AEN count has changed from what was last reported.
 	 */
+	index = atomic_read(&ha->nvme_active_aen_cnt);
 	if (!vha->vp_idx &&
-	    (atomic_read(&ha->nvme_active_aen_cnt) != ha->nvme_last_rptd_aen) &&
+	    (index != ha->nvme_last_rptd_aen) &&
+	    (index >= DEFAULT_ZIO_THRESHOLD) &&
 	    ha->zio_mode == QLA_ZIO_MODE_6 &&
 	    !ha->flags.host_shutting_down) {
 		ql_log(ql_log_info, vha, 0x3002,
@@ -7265,9 +7210,8 @@ qla2x00_timer(struct timer_list *t)
 	}
 
 	if (!vha->vp_idx &&
-	    (atomic_read(&ha->zio_threshold) != ha->last_zio_threshold) &&
-	    (ha->zio_mode == QLA_ZIO_MODE_6) &&
-	    (IS_QLA83XX(ha) || IS_QLA27XX(ha) || IS_QLA28XX(ha))) {
+	    atomic_read(&ha->zio_threshold) != ha->last_zio_threshold &&
+	    IS_ZIO_THRESHOLD_CAPABLE(ha)) {
 		ql_log(ql_log_info, vha, 0x3002,
 		    "Sched: Set ZIO exchange threshold to %d.\n",
 		    ha->last_zio_threshold);
@@ -7551,15 +7495,15 @@ qla2xxx_pci_mmio_enabled(struct pci_dev *pdev)
 
 	spin_lock_irqsave(&ha->hardware_lock, flags);
 	if (IS_QLA2100(ha) || IS_QLA2200(ha)){
-		stat = RD_REG_DWORD(&reg->hccr);
+		stat = rd_reg_word(&reg->hccr);
 		if (stat & HCCR_RISC_PAUSE)
 			risc_paused = 1;
 	} else if (IS_QLA23XX(ha)) {
-		stat = RD_REG_DWORD(&reg->u.isp2300.host_status);
+		stat = rd_reg_dword(&reg->u.isp2300.host_status);
 		if (stat & HSR_RISC_PAUSED)
 			risc_paused = 1;
 	} else if (IS_FWI2_CAPABLE(ha)) {
-		stat = RD_REG_DWORD(&reg24->host_status);
+		stat = rd_reg_dword(&reg24->host_status);
 		if (stat & HSRX_RISC_PAUSED)
 			risc_paused = 1;
 	}
@@ -7568,7 +7512,7 @@ qla2xxx_pci_mmio_enabled(struct pci_dev *pdev)
 	if (risc_paused) {
 		ql_log(ql_log_info, base_vha, 0x9003,
 		    "RISC paused -- mmio_enabled, Dumping firmware.\n");
-		ha->isp_ops->fw_dump(base_vha, 0);
+		qla2xxx_dump_fw(base_vha);
 
 		return PCI_ERS_RESULT_NEED_RESET;
 	} else
@@ -7815,13 +7759,19 @@ qla2x00_module_init(void)
 {
 	int ret = 0;
 
+	BUILD_BUG_ON(sizeof(cmd_a64_entry_t) != 64);
 	BUILD_BUG_ON(sizeof(cmd_entry_t) != 64);
 	BUILD_BUG_ON(sizeof(cont_a64_entry_t) != 64);
 	BUILD_BUG_ON(sizeof(cont_entry_t) != 64);
 	BUILD_BUG_ON(sizeof(init_cb_t) != 96);
+	BUILD_BUG_ON(sizeof(mrk_entry_t) != 64);
 	BUILD_BUG_ON(sizeof(ms_iocb_entry_t) != 64);
 	BUILD_BUG_ON(sizeof(request_t) != 64);
+	BUILD_BUG_ON(sizeof(struct abort_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct abort_iocb_entry_fx00) != 64);
+	BUILD_BUG_ON(sizeof(struct abts_entry_24xx) != 64);
 	BUILD_BUG_ON(sizeof(struct access_chip_84xx) != 64);
+	BUILD_BUG_ON(sizeof(struct access_chip_rsp_84xx) != 64);
 	BUILD_BUG_ON(sizeof(struct cmd_bidir) != 64);
 	BUILD_BUG_ON(sizeof(struct cmd_nvme) != 64);
 	BUILD_BUG_ON(sizeof(struct cmd_type_6) != 64);
@@ -7829,17 +7779,70 @@ qla2x00_module_init(void)
 	BUILD_BUG_ON(sizeof(struct cmd_type_7_fx00) != 64);
 	BUILD_BUG_ON(sizeof(struct cmd_type_crc_2) != 64);
 	BUILD_BUG_ON(sizeof(struct ct_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct ct_fdmi1_hba_attributes) != 2344);
+	BUILD_BUG_ON(sizeof(struct ct_fdmi2_hba_attributes) != 4424);
+	BUILD_BUG_ON(sizeof(struct ct_fdmi2_port_attributes) != 4164);
+	BUILD_BUG_ON(sizeof(struct ct_fdmi_hba_attr) != 260);
+	BUILD_BUG_ON(sizeof(struct ct_fdmi_port_attr) != 260);
+	BUILD_BUG_ON(sizeof(struct ct_rsp_hdr) != 16);
 	BUILD_BUG_ON(sizeof(struct ctio_crc2_to_fw) != 64);
+	BUILD_BUG_ON(sizeof(struct device_reg_24xx) != 256);
+	BUILD_BUG_ON(sizeof(struct device_reg_25xxmq) != 24);
+	BUILD_BUG_ON(sizeof(struct device_reg_2xxx) != 256);
+	BUILD_BUG_ON(sizeof(struct device_reg_82xx) != 1288);
+	BUILD_BUG_ON(sizeof(struct device_reg_fx00) != 216);
 	BUILD_BUG_ON(sizeof(struct els_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct els_sts_entry_24xx) != 64);
 	BUILD_BUG_ON(sizeof(struct fxdisc_entry_fx00) != 64);
+	BUILD_BUG_ON(sizeof(struct imm_ntfy_from_isp) != 64);
 	BUILD_BUG_ON(sizeof(struct init_cb_24xx) != 128);
 	BUILD_BUG_ON(sizeof(struct init_cb_81xx) != 128);
+	BUILD_BUG_ON(sizeof(struct logio_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct mbx_entry) != 64);
+	BUILD_BUG_ON(sizeof(struct mid_init_cb_24xx) != 5252);
+	BUILD_BUG_ON(sizeof(struct mrk_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct nvram_24xx) != 512);
+	BUILD_BUG_ON(sizeof(struct nvram_81xx) != 512);
 	BUILD_BUG_ON(sizeof(struct pt_ls4_request) != 64);
-	BUILD_BUG_ON(sizeof(struct sns_cmd_pkt) != 2064);
-	BUILD_BUG_ON(sizeof(struct verify_chip_entry_84xx) != 64);
-	BUILD_BUG_ON(sizeof(struct vf_evfp_entry_24xx) != 56);
-	BUILD_BUG_ON(sizeof(struct qla_flt_region) != 16);
+	BUILD_BUG_ON(sizeof(struct pt_ls4_rx_unsol) != 64);
+	BUILD_BUG_ON(sizeof(struct purex_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct qla2100_fw_dump) != 123634);
+	BUILD_BUG_ON(sizeof(struct qla2300_fw_dump) != 136100);
+	BUILD_BUG_ON(sizeof(struct qla24xx_fw_dump) != 37976);
+	BUILD_BUG_ON(sizeof(struct qla25xx_fw_dump) != 39228);
+	BUILD_BUG_ON(sizeof(struct qla2xxx_fce_chain) != 52);
+	BUILD_BUG_ON(sizeof(struct qla2xxx_fw_dump) != 136172);
+	BUILD_BUG_ON(sizeof(struct qla2xxx_mq_chain) != 524);
+	BUILD_BUG_ON(sizeof(struct qla2xxx_mqueue_chain) != 8);
+	BUILD_BUG_ON(sizeof(struct qla2xxx_mqueue_header) != 12);
+	BUILD_BUG_ON(sizeof(struct qla2xxx_offld_chain) != 24);
+	BUILD_BUG_ON(sizeof(struct qla81xx_fw_dump) != 39420);
+	BUILD_BUG_ON(sizeof(struct qla82xx_uri_data_desc) != 28);
+	BUILD_BUG_ON(sizeof(struct qla82xx_uri_table_desc) != 32);
+	BUILD_BUG_ON(sizeof(struct qla83xx_fw_dump) != 51196);
+	BUILD_BUG_ON(sizeof(struct qla_fcp_prio_cfg) != FCP_PRIO_CFG_SIZE);
+	BUILD_BUG_ON(sizeof(struct qla_fdt_layout) != 128);
 	BUILD_BUG_ON(sizeof(struct qla_flt_header) != 8);
+	BUILD_BUG_ON(sizeof(struct qla_flt_region) != 16);
+	BUILD_BUG_ON(sizeof(struct qla_npiv_entry) != 24);
+	BUILD_BUG_ON(sizeof(struct qla_npiv_header) != 16);
+	BUILD_BUG_ON(sizeof(struct rdp_rsp_payload) != 336);
+	BUILD_BUG_ON(sizeof(struct sns_cmd_pkt) != 2064);
+	BUILD_BUG_ON(sizeof(struct sts_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct tsk_mgmt_entry) != 64);
+	BUILD_BUG_ON(sizeof(struct tsk_mgmt_entry_fx00) != 64);
+	BUILD_BUG_ON(sizeof(struct verify_chip_entry_84xx) != 64);
+	BUILD_BUG_ON(sizeof(struct verify_chip_rsp_84xx) != 52);
+	BUILD_BUG_ON(sizeof(struct vf_evfp_entry_24xx) != 56);
+	BUILD_BUG_ON(sizeof(struct vp_config_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct vp_ctrl_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(struct vp_rpt_id_entry_24xx) != 64);
+	BUILD_BUG_ON(sizeof(sts21_entry_t) != 64);
+	BUILD_BUG_ON(sizeof(sts22_entry_t) != 64);
+	BUILD_BUG_ON(sizeof(sts_cont_entry_t) != 64);
+	BUILD_BUG_ON(sizeof(sts_entry_t) != 64);
+	BUILD_BUG_ON(sizeof(sw_info_t) != 32);
+	BUILD_BUG_ON(sizeof(target_id_t) != 2);
 
 	/* Allocate cache for SRBs. */
 	srb_cachep = kmem_cache_create("qla2xxx_srbs", sizeof(srb_t), 0,
@@ -7948,7 +7951,6 @@ module_exit(qla2x00_module_exit);
 MODULE_AUTHOR("QLogic Corporation");
 MODULE_DESCRIPTION("QLogic Fibre Channel HBA Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION(QLA2XXX_VERSION);
 MODULE_FIRMWARE(FW_FILE_ISP21XX);
 MODULE_FIRMWARE(FW_FILE_ISP22XX);
 MODULE_FIRMWARE(FW_FILE_ISP2300);

@@ -54,7 +54,7 @@ struct imx8mm_tmu {
 	void __iomem *base;
 	struct clk *clk;
 	const struct thermal_soc_data *socdata;
-	struct tmu_sensor sensors[0];
+	struct tmu_sensor sensors[];
 };
 
 static int imx8mm_tmu_get_temp(void *data, int *temp)
@@ -146,13 +146,9 @@ static int imx8mm_tmu_probe(struct platform_device *pdev)
 		return PTR_ERR(tmu->base);
 
 	tmu->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(tmu->clk)) {
-		ret = PTR_ERR(tmu->clk);
-		if (ret != -EPROBE_DEFER)
-			dev_err(&pdev->dev,
-				"failed to get tmu clock: %d\n", ret);
-		return ret;
-	}
+	if (IS_ERR(tmu->clk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(tmu->clk),
+				     "failed to get tmu clock\n");
 
 	ret = clk_prepare_enable(tmu->clk);
 	if (ret) {
@@ -220,6 +216,7 @@ static const struct of_device_id imx8mm_tmu_table[] = {
 	{ .compatible = "fsl,imx8mp-tmu", .data = &imx8mp_tmu_data, },
 	{ },
 };
+MODULE_DEVICE_TABLE(of, imx8mm_tmu_table);
 
 static struct platform_driver imx8mm_tmu = {
 	.driver = {

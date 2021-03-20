@@ -6,6 +6,7 @@
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+#define dev_fmt pr_fmt
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -626,11 +627,11 @@ static void pcistub_remove(struct pci_dev *dev)
 		if (found_psdev->pdev) {
 			int domid = xen_find_device_domain_owner(dev);
 
-			pr_warn("****** removing device %s while still in-use by domain %d! ******\n",
+			dev_warn(&dev->dev, "****** removing device %s while still in-use by domain %d! ******\n",
 			       pci_name(found_psdev->dev), domid);
-			pr_warn("****** driver domain may still access this device's i/o resources!\n");
-			pr_warn("****** shutdown driver domain before binding device\n");
-			pr_warn("****** to other drivers or domains\n");
+			dev_warn(&dev->dev, "****** driver domain may still access this device's i/o resources!\n");
+			dev_warn(&dev->dev, "****** shutdown driver domain before binding device\n");
+			dev_warn(&dev->dev, "****** to other drivers or domains\n");
 
 			/* N.B. This ends up calling pcistub_put_pci_dev which ends up
 			 * doing the FLR. */
@@ -711,14 +712,12 @@ static pci_ers_result_t common_process(struct pcistub_device *psdev,
 	ret = xen_pcibk_get_pcifront_dev(psdev->dev, psdev->pdev,
 		&aer_op->domain, &aer_op->bus, &aer_op->devfn);
 	if (!ret) {
-		dev_err(&psdev->dev->dev,
-			DRV_NAME ": failed to get pcifront device\n");
+		dev_err(&psdev->dev->dev, "failed to get pcifront device\n");
 		return PCI_ERS_RESULT_NONE;
 	}
 	wmb();
 
-	dev_dbg(&psdev->dev->dev,
-			DRV_NAME ": aer_op %x dom %x bus %x devfn %x\n",
+	dev_dbg(&psdev->dev->dev, "aer_op %x dom %x bus %x devfn %x\n",
 			aer_cmd, aer_op->domain, aer_op->bus, aer_op->devfn);
 	/*local flag to mark there's aer request, xen_pcibk callback will use
 	* this flag to judge whether we need to check pci-front give aer
@@ -735,9 +734,16 @@ static pci_ers_result_t common_process(struct pcistub_device *psdev,
 	wmb();
 	notify_remote_via_irq(pdev->evtchn_irq);
 
+	/* Enable IRQ to signal "request done". */
+	xen_pcibk_lateeoi(pdev, 0);
+
 	ret = wait_event_timeout(xen_pcibk_aer_wait_queue,
 				 !(test_bit(_XEN_PCIB_active, (unsigned long *)
 				 &sh_info->flags)), 300*HZ);
+
+	/* Enable IRQ for pcifront request if not already active. */
+	if (!test_bit(_PDEVF_op_active, &pdev->flags))
+		xen_pcibk_lateeoi(pdev, 0);
 
 	if (!ret) {
 		if (test_bit(_XEN_PCIB_active,
@@ -751,13 +757,6 @@ static pci_ers_result_t common_process(struct pcistub_device *psdev,
 		}
 	}
 	clear_bit(_PCIB_op_pending, (unsigned long *)&pdev->flags);
-
-	if (test_bit(_XEN_PCIF_active,
-		(unsigned long *)&sh_info->flags)) {
-		dev_dbg(&psdev->dev->dev,
-			"schedule pci_conf service in " DRV_NAME "\n");
-		xen_pcibk_test_and_schedule_op(psdev->pdev);
-	}
 
 	res = (pci_ers_result_t)aer_op->err;
 	return res;
@@ -786,13 +785,12 @@ static pci_ers_result_t xen_pcibk_slot_reset(struct pci_dev *dev)
 				PCI_FUNC(dev->devfn));
 
 	if (!psdev || !psdev->pdev) {
-		dev_err(&dev->dev,
-			DRV_NAME " device is not found/assigned\n");
+		dev_err(&dev->dev, "device is not found/assigned\n");
 		goto end;
 	}
 
 	if (!psdev->pdev->sh_info) {
-		dev_err(&dev->dev, DRV_NAME " device is not connected or owned"
+		dev_err(&dev->dev, "device is not connected or owned"
 			" by HVM, kill it\n");
 		kill_domain_by_device(psdev);
 		goto end;
@@ -844,13 +842,12 @@ static pci_ers_result_t xen_pcibk_mmio_enabled(struct pci_dev *dev)
 				PCI_FUNC(dev->devfn));
 
 	if (!psdev || !psdev->pdev) {
-		dev_err(&dev->dev,
-			DRV_NAME " device is not found/assigned\n");
+		dev_err(&dev->dev, "device is not found/assigned\n");
 		goto end;
 	}
 
 	if (!psdev->pdev->sh_info) {
-		dev_err(&dev->dev, DRV_NAME " device is not connected or owned"
+		dev_err(&dev->dev, "device is not connected or owned"
 			" by HVM, kill it\n");
 		kill_domain_by_device(psdev);
 		goto end;
@@ -902,13 +899,12 @@ static pci_ers_result_t xen_pcibk_error_detected(struct pci_dev *dev,
 				PCI_FUNC(dev->devfn));
 
 	if (!psdev || !psdev->pdev) {
-		dev_err(&dev->dev,
-			DRV_NAME " device is not found/assigned\n");
+		dev_err(&dev->dev, "device is not found/assigned\n");
 		goto end;
 	}
 
 	if (!psdev->pdev->sh_info) {
-		dev_err(&dev->dev, DRV_NAME " device is not connected or owned"
+		dev_err(&dev->dev, "device is not connected or owned"
 			" by HVM, kill it\n");
 		kill_domain_by_device(psdev);
 		goto end;
@@ -956,13 +952,12 @@ static void xen_pcibk_error_resume(struct pci_dev *dev)
 				PCI_FUNC(dev->devfn));
 
 	if (!psdev || !psdev->pdev) {
-		dev_err(&dev->dev,
-			DRV_NAME " device is not found/assigned\n");
+		dev_err(&dev->dev, "device is not found/assigned\n");
 		goto end;
 	}
 
 	if (!psdev->pdev->sh_info) {
-		dev_err(&dev->dev, DRV_NAME " device is not connected or owned"
+		dev_err(&dev->dev, "device is not connected or owned"
 			" by HVM, kill it\n");
 		kill_domain_by_device(psdev);
 		goto end;

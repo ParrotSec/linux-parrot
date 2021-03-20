@@ -1101,7 +1101,7 @@ static int coda_start_encoding(struct coda_ctx *ctx)
 		break;
 	case CODA_960:
 		coda_write(dev, 0, CODA9_GDI_WPROT_RGN_EN);
-		/* fallthrough */
+		fallthrough;
 	case CODA_HX4:
 	case CODA_7541:
 		coda_write(dev, CODA7_STREAM_BUF_DYNALLOC_EN |
@@ -1141,7 +1141,7 @@ static int coda_start_encoding(struct coda_ctx *ctx)
 				 CODA7_PICHEIGHT_MASK) << CODA_PICHEIGHT_OFFSET;
 			break;
 		}
-		/* fallthrough */
+		fallthrough;
 	case CODA_960:
 		value = (q_data_src->rect.width & CODA7_PICWIDTH_MASK)
 			<< CODA7_PICWIDTH_OFFSET;
@@ -1215,7 +1215,8 @@ static int coda_start_encoding(struct coda_ctx *ctx)
 		coda_write(dev, value, CODA_CMD_ENC_SEQ_GOP_SIZE);
 	}
 
-	if (ctx->params.bitrate) {
+	if (ctx->params.bitrate && (ctx->params.frame_rc_enable ||
+				    ctx->params.mb_rc_enable)) {
 		ctx->params.bitrate_changed = false;
 		ctx->params.h264_intra_qp_changed = false;
 
@@ -1276,7 +1277,11 @@ static int coda_start_encoding(struct coda_ctx *ctx)
 	}
 	coda_write(dev, value, CODA_CMD_ENC_SEQ_OPTION);
 
-	coda_write(dev, 0, CODA_CMD_ENC_SEQ_RC_INTERVAL_MODE);
+	if (ctx->params.frame_rc_enable && !ctx->params.mb_rc_enable)
+		value = 1;
+	else
+		value = 0;
+	coda_write(dev, value, CODA_CMD_ENC_SEQ_RC_INTERVAL_MODE);
 
 	coda_setup_iram(ctx);
 

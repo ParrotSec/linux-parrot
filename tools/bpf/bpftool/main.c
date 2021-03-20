@@ -30,6 +30,8 @@ bool verifier_logs;
 bool relaxed_maps;
 struct pinned_obj_table prog_table;
 struct pinned_obj_table map_table;
+struct pinned_obj_table link_table;
+struct obj_refs_table refs_table;
 
 static void __noreturn clean_and_exit(int i)
 {
@@ -58,7 +60,7 @@ static int do_help(int argc, char **argv)
 		"       %s batch file FILE\n"
 		"       %s version\n"
 		"\n"
-		"       OBJECT := { prog | map | cgroup | perf | net | feature | btf | gen | struct_ops }\n"
+		"       OBJECT := { prog | map | link | cgroup | perf | net | feature | btf | gen | struct_ops | iter }\n"
 		"       " HELP_SPEC_OPTIONS "\n"
 		"",
 		bin_name, bin_name, bin_name);
@@ -68,13 +70,42 @@ static int do_help(int argc, char **argv)
 
 static int do_version(int argc, char **argv)
 {
+#ifdef HAVE_LIBBFD_SUPPORT
+	const bool has_libbfd = true;
+#else
+	const bool has_libbfd = false;
+#endif
+#ifdef BPFTOOL_WITHOUT_SKELETONS
+	const bool has_skeletons = false;
+#else
+	const bool has_skeletons = true;
+#endif
+
 	if (json_output) {
-		jsonw_start_object(json_wtr);
+		jsonw_start_object(json_wtr);	/* root object */
+
 		jsonw_name(json_wtr, "version");
 		jsonw_printf(json_wtr, "\"%s\"", BPFTOOL_VERSION);
-		jsonw_end_object(json_wtr);
+
+		jsonw_name(json_wtr, "features");
+		jsonw_start_object(json_wtr);	/* features */
+		jsonw_bool_field(json_wtr, "libbfd", has_libbfd);
+		jsonw_bool_field(json_wtr, "skeletons", has_skeletons);
+		jsonw_end_object(json_wtr);	/* features */
+
+		jsonw_end_object(json_wtr);	/* root object */
 	} else {
+		unsigned int nb_features = 0;
+
 		printf("%s v%s\n", bin_name, BPFTOOL_VERSION);
+		printf("features:");
+		if (has_libbfd) {
+			printf(" libbfd");
+			nb_features++;
+		}
+		if (has_skeletons)
+			printf("%s skeletons", nb_features++ ? "," : "");
+		printf("\n");
 	}
 	return 0;
 }
@@ -91,9 +122,16 @@ int cmd_select(const struct cmd *cmds, int argc, char **argv,
 	if (argc < 1 && cmds[0].func)
 		return cmds[0].func(argc, argv);
 
-	for (i = 0; cmds[i].func; i++)
-		if (is_prefix(*argv, cmds[i].cmd))
+	for (i = 0; cmds[i].cmd; i++) {
+		if (is_prefix(*argv, cmds[i].cmd)) {
+			if (!cmds[i].func) {
+				p_err("command '%s' is not supported in bootstrap mode",
+				      cmds[i].cmd);
+				return -1;
+			}
 			return cmds[i].func(argc - 1, argv + 1);
+		}
+	}
 
 	help(argc - 1, argv + 1);
 
@@ -215,6 +253,7 @@ static const struct cmd cmds[] = {
 	{ "batch",	do_batch },
 	{ "prog",	do_prog },
 	{ "map",	do_map },
+	{ "link",	do_link },
 	{ "cgroup",	do_cgroup },
 	{ "perf",	do_perf },
 	{ "net",	do_net },
@@ -222,6 +261,7 @@ static const struct cmd cmds[] = {
 	{ "btf",	do_btf },
 	{ "gen",	do_gen },
 	{ "struct_ops",	do_struct_ops },
+	{ "iter",	do_iter },
 	{ "version",	do_version },
 	{ 0 }
 };
@@ -364,6 +404,7 @@ int main(int argc, char **argv)
 
 	hash_init(prog_table.table);
 	hash_init(map_table.table);
+	hash_init(link_table.table);
 
 	opterr = 0;
 	while ((opt = getopt_long(argc, argv, "Vhpjfmnd",
@@ -422,6 +463,7 @@ int main(int argc, char **argv)
 	if (show_pinned) {
 		delete_pinned_obj_table(&prog_table);
 		delete_pinned_obj_table(&map_table);
+		delete_pinned_obj_table(&link_table);
 	}
 
 	return ret;

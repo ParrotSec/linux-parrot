@@ -8,7 +8,7 @@
  * Copyright(c) 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2014 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright (C) 2018 - 2019 Intel Corporation
+ * Copyright (C) 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -31,7 +31,7 @@
  * Copyright(c) 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2014 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright (C) 2018 - 2019 Intel Corporation
+ * Copyright (C) 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -394,6 +394,15 @@ struct iwl_fw_ini_dump_cfg_name {
 	u8 cfg_name[IWL_FW_INI_MAX_CFG_NAME];
 } __packed;
 
+/* AX210's HW type */
+#define IWL_AX210_HW_TYPE 0x42
+/* How many bits to roll when adding to the HW type of AX210 HW */
+#define IWL_AX210_HW_TYPE_ADDITION_SHIFT 12
+/* This prph is used to tell apart HW_TYPE == 0x42 NICs */
+#define WFPM_OTP_CFG1_ADDR 0xd03098
+#define WFPM_OTP_CFG1_IS_JACKET_BIT BIT(4)
+#define WFPM_OTP_CFG1_IS_CDB_BIT BIT(5)
+
 /* struct iwl_fw_ini_dump_info - ini dump information
  * @version: dump version
  * @time_point: time point that caused the dump collection
@@ -482,6 +491,20 @@ struct iwl_fw_ini_monitor_dump {
 	__le32 write_ptr;
 	__le32 cycle_cnt;
 	__le32 cur_frag;
+	struct iwl_fw_ini_error_dump_range ranges[];
+} __packed;
+
+/**
+ * struct iwl_fw_ini_special_device_memory - special device memory
+ * @header: header of the region
+ * @type: type of special memory
+ * @version: struct special memory version
+ * @ranges: the memory ranges of this this region
+ */
+struct iwl_fw_ini_special_device_memory {
+	struct iwl_fw_ini_error_dump_header header;
+	__le16 type;
+	__le16 version;
 	struct iwl_fw_ini_error_dump_range ranges[];
 } __packed;
 

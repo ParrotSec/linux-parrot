@@ -138,12 +138,12 @@ static int setup_dtb(struct kimage *image,
 
 	/* add rng-seed */
 	if (rng_is_initialized()) {
-		u8 rng_seed[RNG_SEED_SIZE];
-		get_random_bytes(rng_seed, RNG_SEED_SIZE);
-		ret = fdt_setprop(dtb, off, FDT_PROP_RNG_SEED, rng_seed,
-				RNG_SEED_SIZE);
+		void *rng_seed;
+		ret = fdt_setprop_placeholder(dtb, off, FDT_PROP_RNG_SEED,
+				RNG_SEED_SIZE, &rng_seed);
 		if (ret)
 			goto out;
+		get_random_bytes(rng_seed, RNG_SEED_SIZE);
 	} else {
 		pr_notice("RNG is not initialised: omitting \"%s\" property\n",
 				FDT_PROP_RNG_SEED);
@@ -182,8 +182,10 @@ static int create_dtb(struct kimage *image,
 
 		/* duplicate a device tree blob */
 		ret = fdt_open_into(initial_boot_params, buf, buf_size);
-		if (ret)
+		if (ret) {
+			vfree(buf);
 			return -EINVAL;
+		}
 
 		ret = setup_dtb(image, initrd_load_addr, initrd_len,
 				cmdline, buf);
@@ -215,19 +217,16 @@ static int prepare_elf_headers(void **addr, unsigned long *sz)
 	phys_addr_t start, end;
 
 	nr_ranges = 1; /* for exclusion of crashkernel region */
-	for_each_mem_range(i, &memblock.memory, NULL, NUMA_NO_NODE,
-					MEMBLOCK_NONE, &start, &end, NULL)
+	for_each_mem_range(i, &start, &end)
 		nr_ranges++;
 
-	cmem = kmalloc(sizeof(struct crash_mem) +
-			sizeof(struct crash_mem_range) * nr_ranges, GFP_KERNEL);
+	cmem = kmalloc(struct_size(cmem, ranges, nr_ranges), GFP_KERNEL);
 	if (!cmem)
 		return -ENOMEM;
 
 	cmem->max_nr_ranges = nr_ranges;
 	cmem->nr_ranges = 0;
-	for_each_mem_range(i, &memblock.memory, NULL, NUMA_NO_NODE,
-					MEMBLOCK_NONE, &start, &end, NULL) {
+	for_each_mem_range(i, &start, &end) {
 		cmem->ranges[cmem->nr_ranges].start = start;
 		cmem->ranges[cmem->nr_ranges].end = end - 1;
 		cmem->nr_ranges++;
@@ -243,6 +242,11 @@ static int prepare_elf_headers(void **addr, unsigned long *sz)
 	return ret;
 }
 
+/*
+ * Tries to add the initrd and DTB to the image. If it is not possible to find
+ * valid locations, this function will undo changes to the image and return non
+ * zero.
+ */
 int load_other_segments(struct kimage *image,
 			unsigned long kernel_load_addr,
 			unsigned long kernel_size,
@@ -251,7 +255,8 @@ int load_other_segments(struct kimage *image,
 {
 	struct kexec_buf kbuf;
 	void *headers, *dtb = NULL;
-	unsigned long headers_sz, initrd_load_addr = 0, dtb_len;
+	unsigned long headers_sz, initrd_load_addr = 0, dtb_len,
+		      orig_segments = image->nr_segments;
 	int ret = 0;
 
 	kbuf.image = image;
@@ -337,6 +342,7 @@ int load_other_segments(struct kimage *image,
 	return 0;
 
 out_err:
+	image->nr_segments = orig_segments;
 	vfree(dtb);
 	return ret;
 }

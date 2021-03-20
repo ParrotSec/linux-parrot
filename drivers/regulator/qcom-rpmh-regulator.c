@@ -22,9 +22,9 @@
 
 /**
  * enum rpmh_regulator_type - supported RPMh accelerator types
- * %VRM:	RPMh VRM accelerator which supports voting on enable, voltage,
+ * @VRM:	RPMh VRM accelerator which supports voting on enable, voltage,
  *		and mode of LDO, SMPS, and BOB type PMIC regulators.
- * %XOB:	RPMh XOB accelerator which supports voting on the enable state
+ * @XOB:	RPMh XOB accelerator which supports voting on the enable state
  *		of PMIC regulators.
  */
 enum rpmh_regulator_type {
@@ -86,7 +86,7 @@ enum rpmh_regulator_type {
 struct rpmh_vreg_hw_data {
 	enum rpmh_regulator_type		regulator_type;
 	const struct regulator_ops		*ops;
-	const struct regulator_linear_range	voltage_range;
+	const struct linear_range	voltage_range;
 	int					n_voltages;
 	int					hpm_min_load_uA;
 	const int				*pmic_mode_map;
@@ -399,13 +399,13 @@ static const struct regulator_ops rpmh_regulator_xob_ops = {
 
 /**
  * rpmh_regulator_init_vreg() - initialize all attributes of an rpmh-regulator
- * vreg:		Pointer to the individual rpmh-regulator resource
- * dev:			Pointer to the top level rpmh-regulator PMIC device
- * node:		Pointer to the individual rpmh-regulator resource
+ * @vreg:		Pointer to the individual rpmh-regulator resource
+ * @dev:			Pointer to the top level rpmh-regulator PMIC device
+ * @node:		Pointer to the individual rpmh-regulator resource
  *			device node
- * pmic_id:		String used to identify the top level rpmh-regulator
+ * @pmic_id:		String used to identify the top level rpmh-regulator
  *			PMIC device on the board
- * pmic_rpmh_data:	Pointer to a null-terminated array of rpmh-regulator
+ * @pmic_rpmh_data:	Pointer to a null-terminated array of rpmh-regulator
  *			resources defined for the top level PMIC device
  *
  * Return: 0 on success, errno on failure
@@ -726,7 +726,16 @@ static const struct rpmh_vreg_hw_data pmic5_ftsmps510 = {
 static const struct rpmh_vreg_hw_data pmic5_hfsmps515 = {
 	.regulator_type = VRM,
 	.ops = &rpmh_regulator_vrm_ops,
-	.voltage_range = REGULATOR_LINEAR_RANGE(2800000, 0, 4, 1600),
+	.voltage_range = REGULATOR_LINEAR_RANGE(2800000, 0, 4, 16000),
+	.n_voltages = 5,
+	.pmic_mode_map = pmic_mode_map_pmic5_smps,
+	.of_map_mode = rpmh_regulator_pmic4_smps_of_map_mode,
+};
+
+static const struct rpmh_vreg_hw_data pmic5_hfsmps515_1 = {
+	.regulator_type = VRM,
+	.ops = &rpmh_regulator_vrm_ops,
+	.voltage_range = REGULATOR_LINEAR_RANGE(900000, 0, 4, 16000),
 	.n_voltages = 5,
 	.pmic_mode_map = pmic_mode_map_pmic5_smps,
 	.of_map_mode = rpmh_regulator_pmic4_smps_of_map_mode,
@@ -874,6 +883,19 @@ static const struct rpmh_vreg_init_data pm8009_vreg_data[] = {
 	RPMH_VREG("ldo4",   "ldo%s4",  &pmic5_nldo,      "vdd-l4"),
 	RPMH_VREG("ldo5",   "ldo%s5",  &pmic5_pldo,      "vdd-l5-l6"),
 	RPMH_VREG("ldo6",   "ldo%s6",  &pmic5_pldo,      "vdd-l5-l6"),
+	RPMH_VREG("ldo7",   "ldo%s7",  &pmic5_pldo_lv,   "vdd-l7"),
+	{},
+};
+
+static const struct rpmh_vreg_init_data pm8009_1_vreg_data[] = {
+	RPMH_VREG("smps1",  "smp%s1",  &pmic5_hfsmps510, "vdd-s1"),
+	RPMH_VREG("smps2",  "smp%s2",  &pmic5_hfsmps515_1, "vdd-s2"),
+	RPMH_VREG("ldo1",   "ldo%s1",  &pmic5_nldo,      "vdd-l1"),
+	RPMH_VREG("ldo2",   "ldo%s2",  &pmic5_nldo,      "vdd-l2"),
+	RPMH_VREG("ldo3",   "ldo%s3",  &pmic5_nldo,      "vdd-l3"),
+	RPMH_VREG("ldo4",   "ldo%s4",  &pmic5_nldo,      "vdd-l4"),
+	RPMH_VREG("ldo5",   "ldo%s5",  &pmic5_pldo,      "vdd-l5-l6"),
+	RPMH_VREG("ldo6",   "ldo%s6",  &pmic5_pldo,      "vdd-l5-l6"),
 	RPMH_VREG("ldo7",   "ldo%s6",  &pmic5_pldo_lv,   "vdd-l7"),
 	{},
 };
@@ -967,7 +989,7 @@ static int rpmh_regulator_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id rpmh_regulator_match_table[] = {
+static const struct of_device_id __maybe_unused rpmh_regulator_match_table[] = {
 	{
 		.compatible = "qcom,pm8005-rpmh-regulators",
 		.data = pm8005_vreg_data,
@@ -975,6 +997,10 @@ static const struct of_device_id rpmh_regulator_match_table[] = {
 	{
 		.compatible = "qcom,pm8009-rpmh-regulators",
 		.data = pm8009_vreg_data,
+	},
+	{
+		.compatible = "qcom,pm8009-1-rpmh-regulators",
+		.data = pm8009_1_vreg_data,
 	},
 	{
 		.compatible = "qcom,pm8150-rpmh-regulators",

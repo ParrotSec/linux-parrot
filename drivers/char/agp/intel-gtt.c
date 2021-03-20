@@ -304,8 +304,10 @@ static int intel_gtt_setup_scratch_page(void)
 	if (intel_private.needs_dmar) {
 		dma_addr = pci_map_page(intel_private.pcidev, page, 0,
 				    PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
-		if (pci_dma_mapping_error(intel_private.pcidev, dma_addr))
+		if (pci_dma_mapping_error(intel_private.pcidev, dma_addr)) {
+			__free_page(page);
 			return -EINVAL;
+		}
 
 		intel_private.scratch_page_dma = dma_addr;
 	} else
@@ -1407,13 +1409,16 @@ int intel_gmch_probe(struct pci_dev *bridge_pdev, struct pci_dev *gpu_pdev,
 
 	dev_info(&bridge_pdev->dev, "Intel %s Chipset\n", intel_gtt_chipsets[i].name);
 
-	mask = intel_private.driver->dma_mask_size;
-	if (pci_set_dma_mask(intel_private.pcidev, DMA_BIT_MASK(mask)))
-		dev_err(&intel_private.pcidev->dev,
-			"set gfx device dma mask %d-bit failed!\n", mask);
-	else
-		pci_set_consistent_dma_mask(intel_private.pcidev,
-					    DMA_BIT_MASK(mask));
+	if (bridge) {
+		mask = intel_private.driver->dma_mask_size;
+		if (pci_set_dma_mask(intel_private.pcidev, DMA_BIT_MASK(mask)))
+			dev_err(&intel_private.pcidev->dev,
+				"set gfx device dma mask %d-bit failed!\n",
+				mask);
+		else
+			pci_set_consistent_dma_mask(intel_private.pcidev,
+						    DMA_BIT_MASK(mask));
+	}
 
 	if (intel_gtt_init() != 0) {
 		intel_gmch_remove();

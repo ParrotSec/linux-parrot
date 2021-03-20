@@ -471,7 +471,7 @@ void *initial_boot_params __ro_after_init;
 static u32 of_fdt_crc32;
 
 /**
- * res_mem_reserve_reg() - reserve all memory described in 'reg' property
+ * __reserved_mem_reserve_reg() - reserve all memory described in 'reg' property
  */
 static int __init __reserved_mem_reserve_reg(unsigned long node,
 					     const char *uname)
@@ -643,8 +643,6 @@ int __init of_scan_flat_dt(int (*it)(unsigned long node,
 	     offset = fdt_next_node(blob, offset, &depth)) {
 
 		pathp = fdt_get_name(blob, offset, NULL);
-		if (*pathp == '/')
-			pathp = kbasename(pathp);
 		rc = it(offset, pathp, depth, data);
 	}
 	return rc;
@@ -671,8 +669,6 @@ int __init of_scan_flat_dt_subnodes(unsigned long parent,
 		int rc;
 
 		pathp = fdt_get_name(blob, node, NULL);
-		if (*pathp == '/')
-			pathp = kbasename(pathp);
 		rc = it(node, pathp, data);
 		if (rc)
 			return rc;
@@ -1078,7 +1074,7 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 #endif
 #endif /* CONFIG_CMDLINE */
 
-	pr_debug("Command line is: %s\n", (char*)data);
+	pr_debug("Command line is: %s\n", (char *)data);
 
 	rng_seed = of_get_flat_dt_prop(node, "rng-seed", &l);
 	if (rng_seed && l > 0) {
@@ -1153,8 +1149,16 @@ int __init __weak early_init_dt_mark_hotplug_memory_arch(u64 base, u64 size)
 int __init __weak early_init_dt_reserve_memory_arch(phys_addr_t base,
 					phys_addr_t size, bool nomap)
 {
-	if (nomap)
-		return memblock_remove(base, size);
+	if (nomap) {
+		/*
+		 * If the memory is already reserved (by another region), we
+		 * should not allow it to be marked nomap.
+		 */
+		if (memblock_is_region_reserved(base, size))
+			return -EBUSY;
+
+		return memblock_mark_nomap(base, size);
+	}
 	return memblock_reserve(base, size);
 }
 

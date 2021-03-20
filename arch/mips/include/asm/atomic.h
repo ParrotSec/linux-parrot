@@ -45,7 +45,6 @@ static __always_inline type pfx##_xchg(pfx##_t *v, type n)		\
 	return xchg(&v->counter, n);					\
 }
 
-#define ATOMIC_INIT(i)		{ (i) }
 ATOMIC_OPS(atomic, int)
 
 #ifdef CONFIG_64BIT
@@ -249,7 +248,7 @@ static __inline__ int pfx##_sub_if_positive(type i, pfx##_t * v)	\
 	 * bltz that can branch	to code outside of the LL/SC loop. As	\
 	 * such, we don't need to emit another barrier here.		\
 	 */								\
-	if (!__SYNC_loongson3_war)					\
+	if (__SYNC_loongson3_war == 0)					\
 		smp_mb__after_atomic();					\
 									\
 	return result;							\

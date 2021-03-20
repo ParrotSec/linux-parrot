@@ -24,6 +24,7 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/mount.h>
+#include <linux/bug.h>
 
 #include <linux/uaccess.h>
 
@@ -165,15 +166,28 @@ void proc_invalidate_siblings_dcache(struct hlist_head *inodes, spinlock_t *lock
 		deactivate_super(old_sb);
 }
 
+static inline const char *hidepid2str(enum proc_hidepid v)
+{
+	switch (v) {
+		case HIDEPID_OFF: return "off";
+		case HIDEPID_NO_ACCESS: return "noaccess";
+		case HIDEPID_INVISIBLE: return "invisible";
+		case HIDEPID_NOT_PTRACEABLE: return "ptraceable";
+	}
+	WARN_ONCE(1, "bad hide_pid value: %d\n", v);
+	return "unknown";
+}
+
 static int proc_show_options(struct seq_file *seq, struct dentry *root)
 {
-	struct super_block *sb = root->d_sb;
-	struct pid_namespace *pid = sb->s_fs_info;
+	struct proc_fs_info *fs_info = proc_sb_info(root->d_sb);
 
-	if (!gid_eq(pid->pid_gid, GLOBAL_ROOT_GID))
-		seq_printf(seq, ",gid=%u", from_kgid_munged(&init_user_ns, pid->pid_gid));
-	if (pid->hide_pid != HIDEPID_OFF)
-		seq_printf(seq, ",hidepid=%u", pid->hide_pid);
+	if (!gid_eq(fs_info->pid_gid, GLOBAL_ROOT_GID))
+		seq_printf(seq, ",gid=%u", from_kgid_munged(&init_user_ns, fs_info->pid_gid));
+	if (fs_info->hide_pid != HIDEPID_OFF)
+		seq_printf(seq, ",hidepid=%s", hidepid2str(fs_info->hide_pid));
+	if (fs_info->pidonly != PROC_PIDONLY_OFF)
+		seq_printf(seq, ",subset=pid");
 
 	return 0;
 }
@@ -281,6 +295,21 @@ static loff_t proc_reg_llseek(struct file *file, loff_t offset, int whence)
 		unuse_pde(pde);
 	}
 	return rv;
+}
+
+static ssize_t proc_reg_read_iter(struct kiocb *iocb, struct iov_iter *iter)
+{
+	struct proc_dir_entry *pde = PDE(file_inode(iocb->ki_filp));
+	ssize_t ret;
+
+	if (pde_is_permanent(pde))
+		return pde->proc_ops->proc_read_iter(iocb, iter);
+
+	if (!use_pde(pde))
+		return -EIO;
+	ret = pde->proc_ops->proc_read_iter(iocb, iter);
+	unuse_pde(pde);
+	return ret;
 }
 
 static ssize_t pde_read(struct proc_dir_entry *pde, struct file *file, char __user *buf, size_t count, loff_t *ppos)
@@ -464,6 +493,7 @@ proc_reg_get_unmapped_area(struct file *file, unsigned long orig_addr,
 
 static int proc_reg_open(struct inode *inode, struct file *file)
 {
+	struct proc_fs_info *fs_info = proc_sb_info(inode->i_sb);
 	struct proc_dir_entry *pde = PDE(inode);
 	int rv = 0;
 	typeof_member(struct proc_ops, proc_open) open;
@@ -476,6 +506,9 @@ static int proc_reg_open(struct inode *inode, struct file *file)
 			rv = open(inode, file);
 		return rv;
 	}
+
+	if (fs_info->pidonly == PROC_PIDONLY_ON)
+		return -ENOENT;
 
 	/*
 	 * Ensure that
@@ -554,9 +587,19 @@ static const struct file_operations proc_reg_file_ops = {
 	.write		= proc_reg_write,
 	.poll		= proc_reg_poll,
 	.unlocked_ioctl	= proc_reg_unlocked_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl	= proc_reg_compat_ioctl,
-#endif
+	.mmap		= proc_reg_mmap,
+	.get_unmapped_area = proc_reg_get_unmapped_area,
+	.open		= proc_reg_open,
+	.release	= proc_reg_release,
+};
+
+static const struct file_operations proc_iter_file_ops = {
+	.llseek		= proc_reg_llseek,
+	.read_iter	= proc_reg_read_iter,
+	.write		= proc_reg_write,
+	.splice_read	= generic_file_splice_read,
+	.poll		= proc_reg_poll,
+	.unlocked_ioctl	= proc_reg_unlocked_ioctl,
 	.mmap		= proc_reg_mmap,
 	.get_unmapped_area = proc_reg_get_unmapped_area,
 	.open		= proc_reg_open,
@@ -564,12 +607,27 @@ static const struct file_operations proc_reg_file_ops = {
 };
 
 #ifdef CONFIG_COMPAT
-static const struct file_operations proc_reg_file_ops_no_compat = {
+static const struct file_operations proc_reg_file_ops_compat = {
 	.llseek		= proc_reg_llseek,
 	.read		= proc_reg_read,
 	.write		= proc_reg_write,
 	.poll		= proc_reg_poll,
 	.unlocked_ioctl	= proc_reg_unlocked_ioctl,
+	.compat_ioctl	= proc_reg_compat_ioctl,
+	.mmap		= proc_reg_mmap,
+	.get_unmapped_area = proc_reg_get_unmapped_area,
+	.open		= proc_reg_open,
+	.release	= proc_reg_release,
+};
+
+static const struct file_operations proc_iter_file_ops_compat = {
+	.llseek		= proc_reg_llseek,
+	.read_iter	= proc_reg_read_iter,
+	.splice_read	= generic_file_splice_read,
+	.write		= proc_reg_write,
+	.poll		= proc_reg_poll,
+	.unlocked_ioctl	= proc_reg_unlocked_ioctl,
+	.compat_ioctl	= proc_reg_compat_ioctl,
 	.mmap		= proc_reg_mmap,
 	.get_unmapped_area = proc_reg_get_unmapped_area,
 	.open		= proc_reg_open,
@@ -601,42 +659,51 @@ struct inode *proc_get_inode(struct super_block *sb, struct proc_dir_entry *de)
 {
 	struct inode *inode = new_inode(sb);
 
-	if (inode) {
-		inode->i_ino = de->low_ino;
-		inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
-		PROC_I(inode)->pde = de;
+	if (!inode) {
+		pde_put(de);
+		return NULL;
+	}
 
-		if (is_empty_pde(de)) {
-			make_empty_dir_inode(inode);
-			return inode;
-		}
-		if (de->mode) {
-			inode->i_mode = de->mode;
-			inode->i_uid = de->uid;
-			inode->i_gid = de->gid;
-		}
-		if (de->size)
-			inode->i_size = de->size;
-		if (de->nlink)
-			set_nlink(inode, de->nlink);
+	inode->i_ino = de->low_ino;
+	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
+	PROC_I(inode)->pde = de;
+	if (is_empty_pde(de)) {
+		make_empty_dir_inode(inode);
+		return inode;
+	}
 
-		if (S_ISREG(inode->i_mode)) {
-			inode->i_op = de->proc_iops;
+	if (de->mode) {
+		inode->i_mode = de->mode;
+		inode->i_uid = de->uid;
+		inode->i_gid = de->gid;
+	}
+	if (de->size)
+		inode->i_size = de->size;
+	if (de->nlink)
+		set_nlink(inode, de->nlink);
+
+	if (S_ISREG(inode->i_mode)) {
+		inode->i_op = de->proc_iops;
+		if (de->proc_ops->proc_read_iter)
+			inode->i_fop = &proc_iter_file_ops;
+		else
 			inode->i_fop = &proc_reg_file_ops;
 #ifdef CONFIG_COMPAT
-			if (!de->proc_ops->proc_compat_ioctl) {
-				inode->i_fop = &proc_reg_file_ops_no_compat;
-			}
+		if (de->proc_ops->proc_compat_ioctl) {
+			if (de->proc_ops->proc_read_iter)
+				inode->i_fop = &proc_iter_file_ops_compat;
+			else
+				inode->i_fop = &proc_reg_file_ops_compat;
+		}
 #endif
-		} else if (S_ISDIR(inode->i_mode)) {
-			inode->i_op = de->proc_iops;
-			inode->i_fop = de->proc_dir_ops;
-		} else if (S_ISLNK(inode->i_mode)) {
-			inode->i_op = de->proc_iops;
-			inode->i_fop = NULL;
-		} else
-			BUG();
-	} else
-	       pde_put(de);
+	} else if (S_ISDIR(inode->i_mode)) {
+		inode->i_op = de->proc_iops;
+		inode->i_fop = de->proc_dir_ops;
+	} else if (S_ISLNK(inode->i_mode)) {
+		inode->i_op = de->proc_iops;
+		inode->i_fop = NULL;
+	} else {
+		BUG();
+	}
 	return inode;
 }

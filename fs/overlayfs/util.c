@@ -18,13 +18,13 @@
 int ovl_want_write(struct dentry *dentry)
 {
 	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
-	return mnt_want_write(ofs->upper_mnt);
+	return mnt_want_write(ovl_upper_mnt(ofs));
 }
 
 void ovl_drop_write(struct dentry *dentry)
 {
 	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
-	mnt_drop_write(ofs->upper_mnt);
+	mnt_drop_write(ovl_upper_mnt(ofs));
 }
 
 struct dentry *ovl_workdir(struct dentry *dentry)
@@ -150,7 +150,7 @@ void ovl_path_upper(struct dentry *dentry, struct path *path)
 {
 	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
 
-	path->mnt = ofs->upper_mnt;
+	path->mnt = ovl_upper_mnt(ofs);
 	path->dentry = ovl_dentry_upper(dentry);
 }
 
@@ -459,7 +459,32 @@ bool ovl_is_whiteout(struct dentry *dentry)
 
 struct file *ovl_path_open(struct path *path, int flags)
 {
-	return dentry_open(path, flags | O_NOATIME, current_cred());
+	struct inode *inode = d_inode(path->dentry);
+	int err, acc_mode;
+
+	if (flags & ~(O_ACCMODE | O_LARGEFILE))
+		BUG();
+
+	switch (flags & O_ACCMODE) {
+	case O_RDONLY:
+		acc_mode = MAY_READ;
+		break;
+	case O_WRONLY:
+		acc_mode = MAY_WRITE;
+		break;
+	default:
+		BUG();
+	}
+
+	err = inode_permission(inode, acc_mode | MAY_OPEN);
+	if (err)
+		return ERR_PTR(err);
+
+	/* O_NOATIME is an optimization, don't fail if not permitted */
+	if (inode_owner_or_capable(inode))
+		flags |= O_NOATIME;
+
+	return dentry_open(path, flags, current_cred());
 }
 
 /* Caller should hold ovl_inode->lock */
@@ -519,11 +544,11 @@ void ovl_copy_up_end(struct dentry *dentry)
 	ovl_inode_unlock(d_inode(dentry));
 }
 
-bool ovl_check_origin_xattr(struct dentry *dentry)
+bool ovl_check_origin_xattr(struct ovl_fs *ofs, struct dentry *dentry)
 {
 	int res;
 
-	res = vfs_getxattr(dentry, OVL_XATTR_ORIGIN, NULL, 0);
+	res = ovl_do_getxattr(ofs, dentry, OVL_XATTR_ORIGIN, NULL, 0);
 
 	/* Zero size value means "copied up but origin unknown" */
 	if (res >= 0)
@@ -532,7 +557,8 @@ bool ovl_check_origin_xattr(struct dentry *dentry)
 	return false;
 }
 
-bool ovl_check_dir_xattr(struct dentry *dentry, const char *name)
+bool ovl_check_dir_xattr(struct super_block *sb, struct dentry *dentry,
+			 enum ovl_xattr ox)
 {
 	int res;
 	char val;
@@ -540,15 +566,36 @@ bool ovl_check_dir_xattr(struct dentry *dentry, const char *name)
 	if (!d_is_dir(dentry))
 		return false;
 
-	res = vfs_getxattr(dentry, name, &val, 1);
+	res = ovl_do_getxattr(OVL_FS(sb), dentry, ox, &val, 1);
 	if (res == 1 && val == 'y')
 		return true;
 
 	return false;
 }
 
+#define OVL_XATTR_OPAQUE_POSTFIX	"opaque"
+#define OVL_XATTR_REDIRECT_POSTFIX	"redirect"
+#define OVL_XATTR_ORIGIN_POSTFIX	"origin"
+#define OVL_XATTR_IMPURE_POSTFIX	"impure"
+#define OVL_XATTR_NLINK_POSTFIX		"nlink"
+#define OVL_XATTR_UPPER_POSTFIX		"upper"
+#define OVL_XATTR_METACOPY_POSTFIX	"metacopy"
+
+#define OVL_XATTR_TAB_ENTRY(x) \
+	[x] = OVL_XATTR_PREFIX x ## _POSTFIX
+
+const char *ovl_xattr_table[] = {
+	OVL_XATTR_TAB_ENTRY(OVL_XATTR_OPAQUE),
+	OVL_XATTR_TAB_ENTRY(OVL_XATTR_REDIRECT),
+	OVL_XATTR_TAB_ENTRY(OVL_XATTR_ORIGIN),
+	OVL_XATTR_TAB_ENTRY(OVL_XATTR_IMPURE),
+	OVL_XATTR_TAB_ENTRY(OVL_XATTR_NLINK),
+	OVL_XATTR_TAB_ENTRY(OVL_XATTR_UPPER),
+	OVL_XATTR_TAB_ENTRY(OVL_XATTR_METACOPY),
+};
+
 int ovl_check_setxattr(struct dentry *dentry, struct dentry *upperdentry,
-		       const char *name, const void *value, size_t size,
+		       enum ovl_xattr ox, const void *value, size_t size,
 		       int xerr)
 {
 	int err;
@@ -557,10 +604,10 @@ int ovl_check_setxattr(struct dentry *dentry, struct dentry *upperdentry,
 	if (ofs->noxattr)
 		return xerr;
 
-	err = ovl_do_setxattr(upperdentry, name, value, size, 0);
+	err = ovl_do_setxattr(ofs, upperdentry, ox, value, size);
 
 	if (err == -EOPNOTSUPP) {
-		pr_warn("cannot set %s xattr on upper\n", name);
+		pr_warn("cannot set %s xattr on upper\n", ovl_xattr(ofs, ox));
 		ofs->noxattr = true;
 		return xerr;
 	}
@@ -707,7 +754,8 @@ static void ovl_cleanup_index(struct dentry *dentry)
 		index = NULL;
 	} else if (ovl_index_all(dentry->d_sb)) {
 		/* Whiteout orphan index to block future open by handle */
-		err = ovl_cleanup_and_whiteout(indexdir, dir, index);
+		err = ovl_cleanup_and_whiteout(OVL_FS(dentry->d_sb),
+					       dir, index);
 	} else {
 		/* Cleanup orphan index entries */
 		err = ovl_cleanup(dir, index);
@@ -819,7 +867,7 @@ err:
 }
 
 /* err < 0, 0 if no metacopy xattr, 1 if metacopy xattr found */
-int ovl_check_metacopy_xattr(struct dentry *dentry)
+int ovl_check_metacopy_xattr(struct ovl_fs *ofs, struct dentry *dentry)
 {
 	int res;
 
@@ -827,7 +875,7 @@ int ovl_check_metacopy_xattr(struct dentry *dentry)
 	if (!S_ISREG(d_inode(dentry)->i_mode))
 		return 0;
 
-	res = vfs_getxattr(dentry, OVL_XATTR_METACOPY, NULL, 0);
+	res = ovl_do_getxattr(ofs, dentry, OVL_XATTR_METACOPY, NULL, 0);
 	if (res < 0) {
 		if (res == -ENODATA || res == -EOPNOTSUPP)
 			return 0;
@@ -856,49 +904,27 @@ bool ovl_is_metacopy_dentry(struct dentry *dentry)
 	return (oe->numlower > 1);
 }
 
-ssize_t ovl_getxattr(struct dentry *dentry, char *name, char **value,
-		     size_t padding)
-{
-	ssize_t res;
-	char *buf = NULL;
-
-	res = vfs_getxattr(dentry, name, NULL, 0);
-	if (res < 0) {
-		if (res == -ENODATA || res == -EOPNOTSUPP)
-			return -ENODATA;
-		goto fail;
-	}
-
-	if (res != 0) {
-		buf = kzalloc(res + padding, GFP_KERNEL);
-		if (!buf)
-			return -ENOMEM;
-
-		res = vfs_getxattr(dentry, name, buf, res);
-		if (res < 0)
-			goto fail;
-	}
-	*value = buf;
-
-	return res;
-
-fail:
-	pr_warn_ratelimited("failed to get xattr %s: err=%zi)\n",
-			    name, res);
-	kfree(buf);
-	return res;
-}
-
-char *ovl_get_redirect_xattr(struct dentry *dentry, int padding)
+char *ovl_get_redirect_xattr(struct ovl_fs *ofs, struct dentry *dentry,
+			     int padding)
 {
 	int res;
 	char *s, *next, *buf = NULL;
 
-	res = ovl_getxattr(dentry, OVL_XATTR_REDIRECT, &buf, padding + 1);
-	if (res == -ENODATA)
+	res = ovl_do_getxattr(ofs, dentry, OVL_XATTR_REDIRECT, NULL, 0);
+	if (res == -ENODATA || res == -EOPNOTSUPP)
 		return NULL;
 	if (res < 0)
-		return ERR_PTR(res);
+		goto fail;
+	if (res == 0)
+		goto invalid;
+
+	buf = kzalloc(res + padding + 1, GFP_KERNEL);
+	if (!buf)
+		return ERR_PTR(-ENOMEM);
+
+	res = ovl_do_getxattr(ofs, dentry, OVL_XATTR_REDIRECT, buf, res);
+	if (res < 0)
+		goto fail;
 	if (res == 0)
 		goto invalid;
 
@@ -917,6 +943,37 @@ char *ovl_get_redirect_xattr(struct dentry *dentry, int padding)
 invalid:
 	pr_warn_ratelimited("invalid redirect (%s)\n", buf);
 	res = -EINVAL;
+	goto err_free;
+fail:
+	pr_warn_ratelimited("failed to get redirect (%i)\n", res);
+err_free:
 	kfree(buf);
 	return ERR_PTR(res);
+}
+
+/*
+ * ovl_sync_status() - Check fs sync status for volatile mounts
+ *
+ * Returns 1 if this is not a volatile mount and a real sync is required.
+ *
+ * Returns 0 if syncing can be skipped because mount is volatile, and no errors
+ * have occurred on the upperdir since the mount.
+ *
+ * Returns -errno if it is a volatile mount, and the error that occurred since
+ * the last mount. If the error code changes, it'll return the latest error
+ * code.
+ */
+
+int ovl_sync_status(struct ovl_fs *ofs)
+{
+	struct vfsmount *mnt;
+
+	if (ovl_should_sync(ofs))
+		return 1;
+
+	mnt = ovl_upper_mnt(ofs);
+	if (!mnt)
+		return 0;
+
+	return errseq_check(&mnt->mnt_sb->s_wb_err, ofs->errseq);
 }

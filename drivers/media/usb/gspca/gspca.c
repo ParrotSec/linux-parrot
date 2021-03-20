@@ -925,7 +925,7 @@ static int wxh_to_nearest_mode(struct gspca_dev *gspca_dev,
 {
 	int i;
 
-	for (i = gspca_dev->cam.nmodes; --i > 0; ) {
+	for (i = gspca_dev->cam.nmodes; --i >= 0; ) {
 		if (width >= gspca_dev->cam.cam_mode[i].width
 		    && height >= gspca_dev->cam.cam_mode[i].height
 		    && pixelformat == gspca_dev->cam.cam_mode[i].pixelformat)
@@ -1575,6 +1575,7 @@ out:
 		input_unregister_device(gspca_dev->input_dev);
 #endif
 	v4l2_ctrl_handler_free(gspca_dev->vdev.ctrl_handler);
+	v4l2_device_unregister(&gspca_dev->v4l2_dev);
 	kfree(gspca_dev->usb_buf);
 	kfree(gspca_dev);
 	return ret;

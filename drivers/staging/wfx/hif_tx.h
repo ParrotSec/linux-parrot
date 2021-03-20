@@ -3,28 +3,25 @@
  * Implementation of host-to-chip commands (aka request/confirmation) of WFxxx
  * Split Mac (WSM) API.
  *
- * Copyright (c) 2017-2019, Silicon Laboratories, Inc.
+ * Copyright (c) 2017-2020, Silicon Laboratories, Inc.
  * Copyright (c) 2010, ST-Ericsson
  * Copyright (C) 2010, ST-Ericsson SA
  */
 #ifndef WFX_HIF_TX_H
 #define WFX_HIF_TX_H
 
-#include "hif_api_cmd.h"
-
 struct ieee80211_channel;
 struct ieee80211_bss_conf;
 struct ieee80211_tx_queue_params;
 struct cfg80211_scan_request;
+struct hif_req_add_key;
 struct wfx_dev;
 struct wfx_vif;
 
 struct wfx_hif_cmd {
 	struct mutex      lock;
-	struct mutex      key_renew_lock;
 	struct completion ready;
 	struct completion done;
-	bool              async;
 	struct hif_msg    *buf_send;
 	void              *buf_recv;
 	size_t            len_recv;
@@ -43,13 +40,12 @@ int hif_read_mib(struct wfx_dev *wdev, int vif_id, u16 mib_id,
 int hif_write_mib(struct wfx_dev *wdev, int vif_id, u16 mib_id,
 		  void *buf, size_t buf_size);
 int hif_scan(struct wfx_vif *wvif, struct cfg80211_scan_request *req80211,
-	     int chan_start, int chan_num);
+	     int chan_start, int chan_num, int *timeout);
 int hif_stop_scan(struct wfx_vif *wvif);
 int hif_join(struct wfx_vif *wvif, const struct ieee80211_bss_conf *conf,
 	     struct ieee80211_channel *channel, const u8 *ssid, int ssidlen);
 int hif_set_pm(struct wfx_vif *wvif, bool ps, int dynamic_ps_timeout);
-int hif_set_bss_params(struct wfx_vif *wvif,
-		       const struct hif_req_set_bss_params *arg);
+int hif_set_bss_params(struct wfx_vif *wvif, int aid, int beacon_lost_count);
 int hif_add_key(struct wfx_dev *wdev, const struct hif_req_add_key *arg);
 int hif_remove_key(struct wfx_dev *wdev, int idx);
 int hif_set_edca_queue_params(struct wfx_vif *wvif, u16 queue,
@@ -57,12 +53,8 @@ int hif_set_edca_queue_params(struct wfx_vif *wvif, u16 queue,
 int hif_start(struct wfx_vif *wvif, const struct ieee80211_bss_conf *conf,
 	      const struct ieee80211_channel *channel);
 int hif_beacon_transmit(struct wfx_vif *wvif, bool enable);
-int hif_map_link(struct wfx_vif *wvif, u8 *mac_addr, int flags, int sta_id);
+int hif_map_link(struct wfx_vif *wvif,
+		 bool unmap, u8 *mac_addr, int sta_id, bool mfp);
 int hif_update_ie_beacon(struct wfx_vif *wvif, const u8 *ies, size_t ies_len);
-int hif_sl_set_mac_key(struct wfx_dev *wdev, const u8 *slk_key,
-		       int destination);
-int hif_sl_config(struct wfx_dev *wdev, const unsigned long *bitmap);
-int hif_sl_send_pub_keys(struct wfx_dev *wdev,
-			 const u8 *pubkey, const u8 *pubkey_hmac);
 
 #endif

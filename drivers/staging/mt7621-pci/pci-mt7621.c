@@ -55,7 +55,7 @@
 #define RALINK_PCI_IOBASE		0x002C
 
 /* PCICFG virtual bridges */
-#define PCIE_P2P_MAX			3
+#define PCIE_P2P_CNT			3
 #define PCIE_P2P_BR_DEVNUM_SHIFT(p)	(16 + (p) * 4)
 #define PCIE_P2P_BR_DEVNUM0_SHIFT	PCIE_P2P_BR_DEVNUM_SHIFT(0)
 #define PCIE_P2P_BR_DEVNUM1_SHIFT	PCIE_P2P_BR_DEVNUM_SHIFT(1)
@@ -138,7 +138,7 @@ struct mt7621_pcie {
 	} offset;
 	unsigned long io_map_base;
 	struct list_head ports;
-	int irq_map[PCIE_P2P_MAX];
+	int irq_map[PCIE_P2P_CNT];
 	bool resets_inverted;
 };
 
@@ -605,10 +605,10 @@ static void mt7621_pcie_enable_ports(struct mt7621_pcie *pcie)
 static int mt7621_pcie_init_virtual_bridges(struct mt7621_pcie *pcie)
 {
 	u32 pcie_link_status = 0;
-	u32 n;
+	u32 n = 0;
 	int i = 0;
-	u32 p2p_br_devnum[PCIE_P2P_MAX];
-	int irqs[PCIE_P2P_MAX];
+	u32 p2p_br_devnum[PCIE_P2P_CNT];
+	int irqs[PCIE_P2P_CNT];
 	struct mt7621_pcie_port *port;
 
 	list_for_each_entry(port, &pcie->ports, list) {
@@ -622,12 +622,16 @@ static int mt7621_pcie_init_virtual_bridges(struct mt7621_pcie *pcie)
 	if (pcie_link_status == 0)
 		return -1;
 
-	n = 0;
-	for (i = 0; i < PCIE_P2P_MAX; i++)
+	/*
+	 * Assign device numbers from zero to the enabled ports,
+	 * then assigning remaining device numbers to any disabled
+	 * ports.
+	 */
+	for (i = 0; i < PCIE_P2P_CNT; i++)
 		if (pcie_link_status & BIT(i))
 			p2p_br_devnum[i] = n++;
 
-	for (i = 0; i < PCIE_P2P_MAX; i++)
+	for (i = 0; i < PCIE_P2P_CNT; i++)
 		if ((pcie_link_status & BIT(i)) == 0)
 			p2p_br_devnum[i] = n++;
 
@@ -639,26 +643,21 @@ static int mt7621_pcie_init_virtual_bridges(struct mt7621_pcie *pcie)
 
 	/* Assign IRQs */
 	n = 0;
-	for (i = 0; i < PCIE_P2P_MAX; i++)
+	for (i = 0; i < PCIE_P2P_CNT; i++)
 		if (pcie_link_status & BIT(i))
 			pcie->irq_map[n++] = irqs[i];
 
-	for (i = n; i < PCIE_P2P_MAX; i++)
+	for (i = n; i < PCIE_P2P_CNT; i++)
 		pcie->irq_map[i] = -1;
 
 	return 0;
 }
 
-static int mt7621_pcie_request_resources(struct mt7621_pcie *pcie,
-					 struct list_head *res)
+static void mt7621_pcie_add_resources(struct mt7621_pcie *pcie,
+				      struct list_head *res)
 {
-	struct device *dev = pcie->dev;
-
 	pci_add_resource_offset(res, &pcie->io, pcie->offset.io);
 	pci_add_resource_offset(res, &pcie->mem, pcie->offset.mem);
-	pci_add_resource(res, &pcie->busn);
-
-	return devm_request_pci_bus_resources(dev, res);
 }
 
 static int mt7621_pcie_register_host(struct pci_host_bridge *host,
@@ -734,11 +733,7 @@ static int mt7621_pci_probe(struct platform_device *pdev)
 
 	setup_cm_memory_region(pcie);
 
-	err = mt7621_pcie_request_resources(pcie, &res);
-	if (err) {
-		dev_err(dev, "Error requesting resources\n");
-		return err;
-	}
+	mt7621_pcie_add_resources(pcie, &res);
 
 	err = mt7621_pcie_register_host(bridge, &res);
 	if (err) {

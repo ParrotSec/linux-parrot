@@ -4,12 +4,18 @@
 #include <linux/etherdevice.h>
 #include <linux/string.h>
 #include <linux/phy.h>
+#include <linux/sfp.h>
 
 #include "hns3_enet.h"
 
 struct hns3_stats {
 	char stats_string[ETH_GSTRING_LEN];
 	int stats_offset;
+};
+
+struct hns3_sfp_type {
+	u8 type;
+	u8 ext_type;
 };
 
 /* tqp related stats */
@@ -21,12 +27,11 @@ struct hns3_stats {
 
 static const struct hns3_stats hns3_txq_stats[] = {
 	/* Tx per-queue statistics */
-	HNS3_TQP_STAT("io_err_cnt", io_err_cnt),
 	HNS3_TQP_STAT("dropped", sw_err_cnt),
 	HNS3_TQP_STAT("seg_pkt_cnt", seg_pkt_cnt),
 	HNS3_TQP_STAT("packets", tx_pkts),
 	HNS3_TQP_STAT("bytes", tx_bytes),
-	HNS3_TQP_STAT("errors", tx_err_cnt),
+	HNS3_TQP_STAT("more", tx_more),
 	HNS3_TQP_STAT("wake", restart_queue),
 	HNS3_TQP_STAT("busy", tx_busy),
 	HNS3_TQP_STAT("copy", tx_copy),
@@ -40,7 +45,6 @@ static const struct hns3_stats hns3_txq_stats[] = {
 
 static const struct hns3_stats hns3_rxq_stats[] = {
 	/* Rx per-queue statistics */
-	HNS3_TQP_STAT("io_err_cnt", io_err_cnt),
 	HNS3_TQP_STAT("dropped", sw_err_cnt),
 	HNS3_TQP_STAT("seg_pkt_cnt", seg_pkt_cnt),
 	HNS3_TQP_STAT("packets", rx_pkts),
@@ -73,6 +77,7 @@ static const struct hns3_stats hns3_rxq_stats[] = {
 static int hns3_lp_setup(struct net_device *ndev, enum hnae3_loop loop, bool en)
 {
 	struct hnae3_handle *h = hns3_get_handle(ndev);
+	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(h->pdev);
 	bool vlan_filter_enable;
 	int ret;
 
@@ -92,14 +97,14 @@ static int hns3_lp_setup(struct net_device *ndev, enum hnae3_loop loop, bool en)
 		break;
 	}
 
-	if (ret || h->pdev->revision >= 0x21)
+	if (ret || ae_dev->dev_version >= HNAE3_DEVICE_VERSION_V2)
 		return ret;
 
 	if (en) {
 		h->ae_algo->ops->set_promisc_mode(h, true, true);
 	} else {
 		/* recover promisc mode before loopback test */
-		hns3_update_promisc_mode(ndev, h->netdev_flags);
+		hns3_request_update_promisc_mode(h);
 		vlan_filter_enable = ndev->flags & IFF_PROMISC ? false : true;
 		hns3_enable_vlan_filter(ndev, vlan_filter_enable);
 	}
@@ -143,6 +148,7 @@ static void hns3_lp_setup_skb(struct sk_buff *skb)
 
 	struct net_device *ndev = skb->dev;
 	struct hnae3_handle *handle;
+	struct hnae3_ae_dev *ae_dev;
 	unsigned char *packet;
 	struct ethhdr *ethh;
 	unsigned int i;
@@ -159,7 +165,8 @@ static void hns3_lp_setup_skb(struct sk_buff *skb)
 	 * the purpose of mac or serdes selftest.
 	 */
 	handle = hns3_get_handle(ndev);
-	if (handle->pdev->revision == 0x20)
+	ae_dev = pci_get_drvdata(handle->pdev);
+	if (ae_dev->dev_version < HNAE3_DEVICE_VERSION_V2)
 		ethh->h_dest[5] += HNS3_NIC_LB_DST_MAC_ADDR;
 	eth_zero_addr(ethh->h_source);
 	ethh->h_proto = htons(ETH_P_ARP);
@@ -174,18 +181,21 @@ static void hns3_lb_check_skb_data(struct hns3_enet_ring *ring,
 {
 	struct hns3_enet_tqp_vector *tqp_vector = ring->tqp_vector;
 	unsigned char *packet = skb->data;
+	u32 len = skb_headlen(skb);
 	u32 i;
 
-	for (i = 0; i < skb->len; i++)
+	len = min_t(u32, len, HNS3_NIC_LB_TEST_PACKET_SIZE);
+
+	for (i = 0; i < len; i++)
 		if (packet[i] != (unsigned char)(i & 0xff))
 			break;
 
 	/* The packet is correctly received */
-	if (i == skb->len)
+	if (i == HNS3_NIC_LB_TEST_PACKET_SIZE)
 		tqp_vector->rx_group.total_packets++;
 	else
 		print_hex_dump(KERN_ERR, "selftest:", DUMP_PREFIX_OFFSET, 16, 1,
-			       skb->data, skb->len, true);
+			       skb->data, len, true);
 
 	dev_kfree_skb_any(skb);
 }
@@ -223,7 +233,7 @@ static void hns3_lb_clear_tx_ring(struct hns3_nic_priv *priv, u32 start_ringid,
 	for (i = start_ringid; i <= end_ringid; i++) {
 		struct hns3_enet_ring *ring = &priv->ring[i];
 
-		hns3_clean_tx_ring(ring);
+		hns3_clean_tx_ring(ring, 0);
 	}
 }
 
@@ -301,9 +311,6 @@ static void hns3_self_test(struct net_device *ndev,
 	struct hnae3_handle *h = priv->ae_handle;
 	int st_param[HNS3_SELF_TEST_TYPE_NUM][2];
 	bool if_running = netif_running(ndev);
-#if IS_ENABLED(CONFIG_VLAN_8021Q)
-	bool dis_vlan_filter;
-#endif
 	int test_index = 0;
 	u32 i;
 
@@ -340,9 +347,7 @@ static void hns3_self_test(struct net_device *ndev,
 
 #if IS_ENABLED(CONFIG_VLAN_8021Q)
 	/* Disable the vlan filter for selftest does not support it */
-	dis_vlan_filter = (ndev->features & NETIF_F_HW_VLAN_CTAG_FILTER) &&
-				h->ae_algo->ops->enable_vlan_filter;
-	if (dis_vlan_filter)
+	if (h->ae_algo->ops->enable_vlan_filter)
 		h->ae_algo->ops->enable_vlan_filter(h, false);
 #endif
 
@@ -379,7 +384,7 @@ static void hns3_self_test(struct net_device *ndev,
 		h->ae_algo->ops->halt_autoneg(h, false);
 
 #if IS_ENABLED(CONFIG_VLAN_8021Q)
-	if (dis_vlan_filter)
+	if (h->ae_algo->ops->enable_vlan_filter)
 		h->ae_algo->ops->enable_vlan_filter(h, true);
 #endif
 
@@ -545,10 +550,6 @@ static void hns3_get_drvinfo(struct net_device *netdev,
 		netdev_err(netdev, "could not get fw version!\n");
 		return;
 	}
-
-	strncpy(drvinfo->version, hns3_driver_version,
-		sizeof(drvinfo->version));
-	drvinfo->version[sizeof(drvinfo->version) - 1] = '\0';
 
 	strncpy(drvinfo->driver, h->pdev->driver->name,
 		sizeof(drvinfo->driver));
@@ -758,6 +759,7 @@ static int hns3_set_link_ksettings(struct net_device *netdev,
 				   const struct ethtool_link_ksettings *cmd)
 {
 	struct hnae3_handle *handle = hns3_get_handle(netdev);
+	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(handle->pdev);
 	const struct hnae3_ae_ops *ops = handle->ae_algo->ops;
 	int ret;
 
@@ -771,10 +773,15 @@ static int hns3_set_link_ksettings(struct net_device *netdev,
 		  cmd->base.autoneg, cmd->base.speed, cmd->base.duplex);
 
 	/* Only support ksettings_set for netdev with phy attached for now */
-	if (netdev->phydev)
-		return phy_ethtool_ksettings_set(netdev->phydev, cmd);
+	if (netdev->phydev) {
+		if (cmd->base.speed == SPEED_1000 &&
+		    cmd->base.autoneg == AUTONEG_DISABLE)
+			return -EINVAL;
 
-	if (handle->pdev->revision == 0x20)
+		return phy_ethtool_ksettings_set(netdev->phydev, cmd);
+	}
+
+	if (ae_dev->dev_version < HNAE3_DEVICE_VERSION_V2)
 		return -EOPNOTSUPP;
 
 	ret = hns3_check_ksettings_param(netdev, cmd);
@@ -838,11 +845,12 @@ static int hns3_set_rss(struct net_device *netdev, const u32 *indir,
 			const u8 *key, const u8 hfunc)
 {
 	struct hnae3_handle *h = hns3_get_handle(netdev);
+	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(h->pdev);
 
 	if (!h->ae_algo->ops->set_rss)
 		return -EOPNOTSUPP;
 
-	if ((h->pdev->revision == 0x20 &&
+	if ((ae_dev->dev_version < HNAE3_DEVICE_VERSION_V2 &&
 	     hfunc != ETH_RSS_HASH_TOP) || (hfunc != ETH_RSS_HASH_NO_CHANGE &&
 	     hfunc != ETH_RSS_HASH_TOP && hfunc != ETH_RSS_HASH_XOR)) {
 		netdev_err(netdev, "hash func not supported\n");
@@ -1062,9 +1070,6 @@ static int hns3_nway_reset(struct net_device *netdev)
 
 	if (phy)
 		return genphy_restart_aneg(phy);
-
-	if (handle->pdev->revision == 0x20)
-		return -EOPNOTSUPP;
 
 	return ops->restart_autoneg(handle);
 }
@@ -1353,11 +1358,12 @@ static int hns3_get_fecparam(struct net_device *netdev,
 			     struct ethtool_fecparam *fec)
 {
 	struct hnae3_handle *handle = hns3_get_handle(netdev);
+	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(handle->pdev);
 	const struct hnae3_ae_ops *ops = handle->ae_algo->ops;
 	u8 fec_ability;
 	u8 fec_mode;
 
-	if (handle->pdev->revision == 0x20)
+	if (!test_bit(HNAE3_DEV_SUPPORT_FEC_B, ae_dev->caps))
 		return -EOPNOTSUPP;
 
 	if (!ops->get_fec)
@@ -1375,10 +1381,11 @@ static int hns3_set_fecparam(struct net_device *netdev,
 			     struct ethtool_fecparam *fec)
 {
 	struct hnae3_handle *handle = hns3_get_handle(netdev);
+	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(handle->pdev);
 	const struct hnae3_ae_ops *ops = handle->ae_algo->ops;
 	u32 fec_mode;
 
-	if (handle->pdev->revision == 0x20)
+	if (!test_bit(HNAE3_DEV_SUPPORT_FEC_B, ae_dev->caps))
 		return -EOPNOTSUPP;
 
 	if (!ops->set_fec)
@@ -1388,6 +1395,77 @@ static int hns3_set_fecparam(struct net_device *netdev,
 	netif_dbg(handle, drv, netdev, "set fecparam: mode=%u\n", fec_mode);
 
 	return ops->set_fec(handle, fec_mode);
+}
+
+static int hns3_get_module_info(struct net_device *netdev,
+				struct ethtool_modinfo *modinfo)
+{
+#define HNS3_SFF_8636_V1_3 0x03
+
+	struct hnae3_handle *handle = hns3_get_handle(netdev);
+	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(handle->pdev);
+	const struct hnae3_ae_ops *ops = handle->ae_algo->ops;
+	struct hns3_sfp_type sfp_type;
+	int ret;
+
+	if (ae_dev->dev_version < HNAE3_DEVICE_VERSION_V2 ||
+	    !ops->get_module_eeprom)
+		return -EOPNOTSUPP;
+
+	memset(&sfp_type, 0, sizeof(sfp_type));
+	ret = ops->get_module_eeprom(handle, 0, sizeof(sfp_type) / sizeof(u8),
+				     (u8 *)&sfp_type);
+	if (ret)
+		return ret;
+
+	switch (sfp_type.type) {
+	case SFF8024_ID_SFP:
+		modinfo->type = ETH_MODULE_SFF_8472;
+		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
+		break;
+	case SFF8024_ID_QSFP_8438:
+		modinfo->type = ETH_MODULE_SFF_8436;
+		modinfo->eeprom_len = ETH_MODULE_SFF_8436_MAX_LEN;
+		break;
+	case SFF8024_ID_QSFP_8436_8636:
+		if (sfp_type.ext_type < HNS3_SFF_8636_V1_3) {
+			modinfo->type = ETH_MODULE_SFF_8436;
+			modinfo->eeprom_len = ETH_MODULE_SFF_8436_MAX_LEN;
+		} else {
+			modinfo->type = ETH_MODULE_SFF_8636;
+			modinfo->eeprom_len = ETH_MODULE_SFF_8636_MAX_LEN;
+		}
+		break;
+	case SFF8024_ID_QSFP28_8636:
+		modinfo->type = ETH_MODULE_SFF_8636;
+		modinfo->eeprom_len = ETH_MODULE_SFF_8636_MAX_LEN;
+		break;
+	default:
+		netdev_err(netdev, "Optical module unknown: %#x\n",
+			   sfp_type.type);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int hns3_get_module_eeprom(struct net_device *netdev,
+				  struct ethtool_eeprom *ee, u8 *data)
+{
+	struct hnae3_handle *handle = hns3_get_handle(netdev);
+	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(handle->pdev);
+	const struct hnae3_ae_ops *ops = handle->ae_algo->ops;
+
+	if (ae_dev->dev_version < HNAE3_DEVICE_VERSION_V2 ||
+	    !ops->get_module_eeprom)
+		return -EOPNOTSUPP;
+
+	if (!ee->len)
+		return -EINVAL;
+
+	memset(data, 0, ee->len);
+
+	return ops->get_module_eeprom(handle, ee->offset, ee->len, data);
 }
 
 #define HNS3_ETHTOOL_COALESCE	(ETHTOOL_COALESCE_USECS |		\
@@ -1453,6 +1531,8 @@ static const struct ethtool_ops hns3_ethtool_ops = {
 	.set_msglevel = hns3_set_msglevel,
 	.get_fecparam = hns3_get_fecparam,
 	.set_fecparam = hns3_set_fecparam,
+	.get_module_info = hns3_get_module_info,
+	.get_module_eeprom = hns3_get_module_eeprom,
 };
 
 void hns3_ethtool_set_ops(struct net_device *netdev)

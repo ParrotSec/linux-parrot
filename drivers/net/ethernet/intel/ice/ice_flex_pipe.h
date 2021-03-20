@@ -18,6 +18,13 @@
 
 #define ICE_PKG_CNT 4
 
+bool
+ice_get_open_tunnel_port(struct ice_hw *hw, u16 *port);
+int ice_udp_tunnel_set_port(struct net_device *netdev, unsigned int table,
+			    unsigned int idx, struct udp_tunnel_info *ti);
+int ice_udp_tunnel_unset_port(struct net_device *netdev, unsigned int table,
+			      unsigned int idx, struct udp_tunnel_info *ti);
+
 enum ice_status
 ice_add_prof(struct ice_hw *hw, enum ice_block blk, u64 id, u8 ptypes[],
 	     struct ice_fv_word *es);

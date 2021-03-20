@@ -12,7 +12,6 @@
 struct firmware {
 	size_t size;
 	const u8 *data;
-	struct page **pages;
 
 	/* firmware loader private fields */
 	void *priv;
@@ -37,7 +36,7 @@ struct builtin_fw {
 
 #define DECLARE_BUILTIN_FIRMWARE_SIZE(name, blob, size)			     \
 	static const struct builtin_fw __fw_concat(__builtin_fw,__COUNTER__) \
-	__used __section(.builtin_fw) = { name, blob, size }
+	__used __section(".builtin_fw") = { name, blob, size }
 
 #if defined(CONFIG_FW_LOADER) || (defined(CONFIG_FW_LOADER_MODULE) && defined(MODULE))
 int request_firmware(const struct firmware **fw, const char *name,
@@ -54,6 +53,9 @@ int request_firmware_direct(const struct firmware **fw, const char *name,
 			    struct device *device);
 int request_firmware_into_buf(const struct firmware **firmware_p,
 	const char *name, struct device *device, void *buf, size_t size);
+int request_partial_firmware_into_buf(const struct firmware **firmware_p,
+				      const char *name, struct device *device,
+				      void *buf, size_t size, size_t offset);
 
 void release_firmware(const struct firmware *fw);
 #else
@@ -99,6 +101,15 @@ static inline int request_firmware_direct(const struct firmware **fw,
 
 static inline int request_firmware_into_buf(const struct firmware **firmware_p,
 	const char *name, struct device *device, void *buf, size_t size)
+{
+	return -EINVAL;
+}
+
+static inline int request_partial_firmware_into_buf
+					(const struct firmware **firmware_p,
+					 const char *name,
+					 struct device *device,
+					 void *buf, size_t size, size_t offset)
 {
 	return -EINVAL;
 }

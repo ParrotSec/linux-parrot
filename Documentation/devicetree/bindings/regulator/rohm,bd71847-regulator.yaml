@@ -29,8 +29,7 @@ description: |
 patternProperties:
   "^LDO[1-6]$":
     type: object
-    allOf:
-      - $ref: regulator.yaml#
+    $ref: regulator.yaml#
     description:
       Properties for single LDO regulator.
 
@@ -44,8 +43,7 @@ patternProperties:
 
   "^BUCK[1-6]$":
     type: object
-    allOf:
-      - $ref: regulator.yaml#
+    $ref: regulator.yaml#
     description:
       Properties for single BUCK regulator.
 
@@ -56,28 +54,25 @@ patternProperties:
           should be "buck1", ..., "buck6"
 
       rohm,dvs-run-voltage:
-        allOf:
-          - $ref: "/schemas/types.yaml#/definitions/uint32"
-          - minimum: 0
-            maximum: 1300000
+        $ref: "/schemas/types.yaml#/definitions/uint32"
+        minimum: 0
+        maximum: 1300000
         description:
           PMIC default "RUN" state voltage in uV. See below table for
           bucks which support this. 0 means disabled.
 
       rohm,dvs-idle-voltage:
-        allOf:
-          - $ref: "/schemas/types.yaml#/definitions/uint32"
-          - minimum: 0
-            maximum: 1300000
+        $ref: "/schemas/types.yaml#/definitions/uint32"
+        minimum: 0
+        maximum: 1300000
         description:
           PMIC default "IDLE" state voltage in uV. See below table for
           bucks which support this. 0 means disabled.
 
       rohm,dvs-suspend-voltage:
-        allOf:
-          - $ref: "/schemas/types.yaml#/definitions/uint32"
-          - minimum: 0
-            maximum: 1300000
+        $ref: "/schemas/types.yaml#/definitions/uint32"
+        minimum: 0
+        maximum: 1300000
         description:
           PMIC default "SUSPEND" state voltage in uV. See below table for
           bucks which support this. 0 means disabled.
@@ -93,6 +88,17 @@ patternProperties:
         # ----------------------------------------------------------------
         # rest | not supported   | not supported    | not supported
 
+      # BD718(47/50) power outputs can either be controlled by the PMIC internal
+      # hardware state machine or by software. If you need regulators to be
+      # turned ON/OFF for example based on PMIC_STBY_REQ line (which toggles
+      # PMIC HW state machine) - then you should set this property.
+      # Tradeoff is that then SW can't control the ON/OFF state for this
+      # regulator (other than invoking a PMIC state change).
+      rohm,no-regulator-enable-control:
+        description: |
+          Enable/Disable control of this regulator must be left to the
+          PMIC hardware state machine.
+        type: boolean
     required:
       - regulator-name
 

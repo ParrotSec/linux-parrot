@@ -85,6 +85,8 @@ static enum power_supply_property max17042_battery_props[] = {
 	POWER_SUPPLY_PROP_TEMP_MAX,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_SCOPE,
+	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
+	// these two have to be at the end on the list
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
 };
@@ -410,6 +412,13 @@ static int max17042_get_property(struct power_supply *psy,
 		} else {
 			return -EINVAL;
 		}
+		break;
+	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW:
+		ret = regmap_read(map, MAX17042_TTE, &data);
+		if (ret < 0)
+			return ret;
+
+		val->intval = data * 5625 / 1000;
 		break;
 	default:
 		return -EINVAL;

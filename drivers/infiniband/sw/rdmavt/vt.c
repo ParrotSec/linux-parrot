@@ -95,9 +95,7 @@ struct rvt_dev_info *rvt_alloc_device(size_t size, int nports)
 	if (!rdi)
 		return rdi;
 
-	rdi->ports = kcalloc(nports,
-			     sizeof(struct rvt_ibport **),
-			     GFP_KERNEL);
+	rdi->ports = kcalloc(nports, sizeof(*rdi->ports), GFP_KERNEL);
 	if (!rdi->ports)
 		ib_dealloc_device(&rdi->ibdev);
 
@@ -378,7 +376,6 @@ enum {
 static const struct ib_device_ops rvt_dev_ops = {
 	.uverbs_abi_ver = RVT_UVERBS_ABI_VERSION,
 
-	.alloc_fmr = rvt_alloc_fmr,
 	.alloc_mr = rvt_alloc_mr,
 	.alloc_pd = rvt_alloc_pd,
 	.alloc_ucontext = rvt_alloc_ucontext,
@@ -387,7 +384,6 @@ static const struct ib_device_ops rvt_dev_ops = {
 	.create_cq = rvt_create_cq,
 	.create_qp = rvt_create_qp,
 	.create_srq = rvt_create_srq,
-	.dealloc_fmr = rvt_dealloc_fmr,
 	.dealloc_pd = rvt_dealloc_pd,
 	.dealloc_ucontext = rvt_dealloc_ucontext,
 	.dereg_mr = rvt_dereg_mr,
@@ -399,7 +395,6 @@ static const struct ib_device_ops rvt_dev_ops = {
 	.get_dma_mr = rvt_get_dma_mr,
 	.get_port_immutable = rvt_get_port_immutable,
 	.map_mr_sg = rvt_map_mr_sg,
-	.map_phys_fmr = rvt_map_phys_fmr,
 	.mmap = rvt_mmap,
 	.modify_ah = rvt_modify_ah,
 	.modify_device = rvt_modify_device,
@@ -420,7 +415,6 @@ static const struct ib_device_ops rvt_dev_ops = {
 	.reg_user_mr = rvt_reg_user_mr,
 	.req_notify_cq = rvt_req_notify_cq,
 	.resize_cq = rvt_resize_cq,
-	.unmap_fmr = rvt_unmap_fmr,
 
 	INIT_RDMA_OBJ_SIZE(ib_ah, rvt_ah, ibah),
 	INIT_RDMA_OBJ_SIZE(ib_cq, rvt_cq, ibcq),
@@ -584,9 +578,6 @@ int rvt_register_device(struct rvt_dev_info *rdi)
 	/* Completion queues */
 	spin_lock_init(&rdi->n_cqs_lock);
 
-	/* DMA Operations */
-	rdi->ibdev.dev.dma_ops = rdi->ibdev.dev.dma_ops ? : &dma_virt_ops;
-
 	/* Protection Domain */
 	spin_lock_init(&rdi->n_pds_lock);
 	rdi->n_pds_allocated = 0;
@@ -633,7 +624,7 @@ int rvt_register_device(struct rvt_dev_info *rdi)
 		rdi->ibdev.num_comp_vectors = 1;
 
 	/* We are now good to announce we exist */
-	ret = ib_register_device(&rdi->ibdev, dev_name(&rdi->ibdev.dev));
+	ret = ib_register_device(&rdi->ibdev, dev_name(&rdi->ibdev.dev), NULL);
 	if (ret) {
 		rvt_pr_err(rdi, "Failed to register driver with ib core.\n");
 		goto bail_wss;

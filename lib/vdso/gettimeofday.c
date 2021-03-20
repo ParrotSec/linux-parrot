@@ -68,7 +68,7 @@ static int do_hres_timens(const struct vdso_data *vdns, clockid_t clk,
 		if (unlikely(!vdso_clocksource_ok(vd)))
 			return -1;
 
-		cycles = __arch_get_hw_counter(vd->clock_mode);
+		cycles = __arch_get_hw_counter(vd->clock_mode, vd);
 		if (unlikely(!vdso_cycles_ok(cycles)))
 			return -1;
 		ns = vdso_ts->nsec;
@@ -138,7 +138,7 @@ static __always_inline int do_hres(const struct vdso_data *vd, clockid_t clk,
 		if (unlikely(!vdso_clocksource_ok(vd)))
 			return -1;
 
-		cycles = __arch_get_hw_counter(vd->clock_mode);
+		cycles = __arch_get_hw_counter(vd->clock_mode, vd);
 		if (unlikely(!vdso_cycles_ok(cycles)))
 			return -1;
 		ns = vdso_ts->nsec;
@@ -221,7 +221,7 @@ static __always_inline int do_coarse(const struct vdso_data *vd, clockid_t clk,
 	return 0;
 }
 
-static __maybe_unused int
+static __always_inline int
 __cvdso_clock_gettime_common(const struct vdso_data *vd, clockid_t clock,
 			     struct __kernel_timespec *ts)
 {

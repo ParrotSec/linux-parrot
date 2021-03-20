@@ -16,7 +16,10 @@ struct seq_file;
 
 /* MPTCP sk_buff extension data */
 struct mptcp_ext {
-	u64		data_ack;
+	union {
+		u64	data_ack;
+		u32	data_ack32;
+	};
 	u64		data_seq;
 	u32		subflow_seq;
 	u16		data_len;
@@ -55,6 +58,7 @@ struct mptcp_out_options {
 };
 
 #ifdef CONFIG_MPTCP
+extern struct request_sock_ops mptcp_subflow_request_sock_ops;
 
 void mptcp_init(void);
 
@@ -68,6 +72,12 @@ static inline bool rsk_is_mptcp(const struct request_sock *req)
 	return tcp_rsk(req)->is_mptcp;
 }
 
+static inline bool rsk_drop_req(const struct request_sock *req)
+{
+	return tcp_rsk(req)->is_mptcp && tcp_rsk(req)->drop_req;
+}
+
+void mptcp_space(const struct sock *ssk, int *space, int *full_space);
 bool mptcp_syn_options(struct sock *sk, const struct sk_buff *skb,
 		       unsigned int *size, struct mptcp_out_options *opts);
 bool mptcp_synack_options(const struct request_sock *req, unsigned int *size,
@@ -75,8 +85,7 @@ bool mptcp_synack_options(const struct request_sock *req, unsigned int *size,
 bool mptcp_established_options(struct sock *sk, struct sk_buff *skb,
 			       unsigned int *size, unsigned int remaining,
 			       struct mptcp_out_options *opts);
-void mptcp_incoming_options(struct sock *sk, struct sk_buff *skb,
-			    struct tcp_options_received *opt_rx);
+void mptcp_incoming_options(struct sock *sk, struct sk_buff *skb);
 
 void mptcp_write_options(__be32 *ptr, struct mptcp_out_options *opts);
 
@@ -120,9 +129,10 @@ static inline bool mptcp_skb_can_collapse(const struct sk_buff *to,
 				 skb_ext_find(from, SKB_EXT_MPTCP));
 }
 
-bool mptcp_sk_is_subflow(const struct sock *sk);
-
 void mptcp_seq_show(struct seq_file *seq);
+int mptcp_subflow_init_cookie_req(struct request_sock *req,
+				  const struct sock *sk_listener,
+				  struct sk_buff *skb);
 #else
 
 static inline void mptcp_init(void)
@@ -139,6 +149,11 @@ static inline bool rsk_is_mptcp(const struct request_sock *req)
 	return false;
 }
 
+static inline bool rsk_drop_req(const struct request_sock *req)
+{
+	return false;
+}
+
 static inline void mptcp_parse_option(const struct sk_buff *skb,
 				      const unsigned char *ptr, int opsize,
 				      struct tcp_options_received *opt_rx)
@@ -150,10 +165,6 @@ static inline bool mptcp_syn_options(struct sock *sk, const struct sk_buff *skb,
 				     struct mptcp_out_options *opts)
 {
 	return false;
-}
-
-static inline void mptcp_rcv_synsent(struct sock *sk)
-{
 }
 
 static inline bool mptcp_synack_options(const struct request_sock *req,
@@ -173,8 +184,7 @@ static inline bool mptcp_established_options(struct sock *sk,
 }
 
 static inline void mptcp_incoming_options(struct sock *sk,
-					  struct sk_buff *skb,
-					  struct tcp_options_received *opt_rx)
+					  struct sk_buff *skb)
 {
 }
 
@@ -189,12 +199,15 @@ static inline bool mptcp_skb_can_collapse(const struct sk_buff *to,
 	return true;
 }
 
-static inline bool mptcp_sk_is_subflow(const struct sock *sk)
-{
-	return false;
-}
-
+static inline void mptcp_space(const struct sock *ssk, int *s, int *fs) { }
 static inline void mptcp_seq_show(struct seq_file *seq) { }
+
+static inline int mptcp_subflow_init_cookie_req(struct request_sock *req,
+						const struct sock *sk_listener,
+						struct sk_buff *skb)
+{
+	return 0; /* TCP fallback */
+}
 #endif /* CONFIG_MPTCP */
 
 #if IS_ENABLED(CONFIG_MPTCP_IPV6)

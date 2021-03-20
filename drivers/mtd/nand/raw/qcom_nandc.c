@@ -459,11 +459,13 @@ struct qcom_nand_host {
  * among different NAND controllers.
  * @ecc_modes - ecc mode for NAND
  * @is_bam - whether NAND controller is using BAM
+ * @is_qpic - whether NAND CTRL is part of qpic IP
  * @dev_cmd_reg_start - NAND_DEV_CMD_* registers starting offset
  */
 struct qcom_nandc_props {
 	u32 ecc_modes;
 	bool is_bam;
+	bool is_qpic;
 	u32 dev_cmd_reg_start;
 };
 
@@ -1568,6 +1570,8 @@ static int check_flash_errors(struct qcom_nand_host *host, int cw_cnt)
 	struct qcom_nand_controller *nandc = get_qcom_nand_controller(chip);
 	int i;
 
+	nandc_read_buffer_sync(nandc, true);
+
 	for (i = 0; i < cw_cnt; i++) {
 		u32 flash = le32_to_cpu(nandc->reg_read_buf[i]);
 
@@ -2548,7 +2552,7 @@ static int qcom_nand_attach_chip(struct nand_chip *chip)
 	ecc->write_page_raw	= qcom_nandc_write_page_raw;
 	ecc->write_oob		= qcom_nandc_write_oob;
 
-	ecc->mode = NAND_ECC_HW;
+	ecc->engine_type = NAND_ECC_ENGINE_TYPE_ON_HOST;
 
 	mtd_set_ooblayout(mtd, &qcom_nand_ooblayout_ops);
 
@@ -2700,10 +2704,8 @@ static int qcom_nandc_alloc(struct qcom_nand_controller *nandc)
 		if (IS_ERR(nandc->tx_chan)) {
 			ret = PTR_ERR(nandc->tx_chan);
 			nandc->tx_chan = NULL;
-			if (ret != -EPROBE_DEFER)
-				dev_err(nandc->dev,
-					"tx DMA channel request failed: %d\n",
-					ret);
+			dev_err_probe(nandc->dev, ret,
+				      "tx DMA channel request failed\n");
 			goto unalloc;
 		}
 
@@ -2711,10 +2713,8 @@ static int qcom_nandc_alloc(struct qcom_nand_controller *nandc)
 		if (IS_ERR(nandc->rx_chan)) {
 			ret = PTR_ERR(nandc->rx_chan);
 			nandc->rx_chan = NULL;
-			if (ret != -EPROBE_DEFER)
-				dev_err(nandc->dev,
-					"rx DMA channel request failed: %d\n",
-					ret);
+			dev_err_probe(nandc->dev, ret,
+				      "rx DMA channel request failed\n");
 			goto unalloc;
 		}
 
@@ -2722,10 +2722,8 @@ static int qcom_nandc_alloc(struct qcom_nand_controller *nandc)
 		if (IS_ERR(nandc->cmd_chan)) {
 			ret = PTR_ERR(nandc->cmd_chan);
 			nandc->cmd_chan = NULL;
-			if (ret != -EPROBE_DEFER)
-				dev_err(nandc->dev,
-					"cmd DMA channel request failed: %d\n",
-					ret);
+			dev_err_probe(nandc->dev, ret,
+				      "cmd DMA channel request failed\n");
 			goto unalloc;
 		}
 
@@ -2748,10 +2746,8 @@ static int qcom_nandc_alloc(struct qcom_nand_controller *nandc)
 		if (IS_ERR(nandc->chan)) {
 			ret = PTR_ERR(nandc->chan);
 			nandc->chan = NULL;
-			if (ret != -EPROBE_DEFER)
-				dev_err(nandc->dev,
-					"rxtx DMA channel request failed: %d\n",
-					ret);
+			dev_err_probe(nandc->dev, ret,
+				      "rxtx DMA channel request failed\n");
 			return ret;
 		}
 	}
@@ -2774,14 +2770,24 @@ static int qcom_nandc_setup(struct qcom_nand_controller *nandc)
 	u32 nand_ctrl;
 
 	/* kill onenand */
-	nandc_write(nandc, SFLASHC_BURST_CFG, 0);
+	if (!nandc->props->is_qpic)
+		nandc_write(nandc, SFLASHC_BURST_CFG, 0);
 	nandc_write(nandc, dev_cmd_reg_addr(nandc, NAND_DEV_CMD_VLD),
 		    NAND_DEV_CMD_VLD_VAL);
 
 	/* enable ADM or BAM DMA */
 	if (nandc->props->is_bam) {
 		nand_ctrl = nandc_read(nandc, NAND_CTRL);
-		nandc_write(nandc, NAND_CTRL, nand_ctrl | BAM_MODE_EN);
+
+		/*
+		 *NAND_CTRL is an operational registers, and CPU
+		 * access to operational registers are read only
+		 * in BAM mode. So update the NAND_CTRL register
+		 * only if it is not in BAM mode. In most cases BAM
+		 * mode will be enabled in bootloader
+		 */
+		if (!(nand_ctrl & BAM_MODE_EN))
+			nandc_write(nandc, NAND_CTRL, nand_ctrl | BAM_MODE_EN);
 	} else {
 		nandc_write(nandc, NAND_FLASH_CHIP_SELECT, DM_EN);
 	}
@@ -2836,7 +2842,7 @@ static int qcom_nand_host_init_and_register(struct qcom_nand_controller *nandc,
 	chip->legacy.block_markbad	= qcom_nandc_block_markbad;
 
 	chip->controller = &nandc->controller;
-	chip->options |= NAND_NO_SUBPAGE_WRITE | NAND_USE_BOUNCE_BUFFER |
+	chip->options |= NAND_NO_SUBPAGE_WRITE | NAND_USES_DMA |
 			 NAND_SKIP_BBTSCAN;
 
 	/* set up initial status value */
@@ -3005,10 +3011,15 @@ static int qcom_nandc_remove(struct platform_device *pdev)
 	struct qcom_nand_controller *nandc = platform_get_drvdata(pdev);
 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	struct qcom_nand_host *host;
+	struct nand_chip *chip;
+	int ret;
 
-	list_for_each_entry(host, &nandc->host_list, node)
-		nand_release(&host->chip);
-
+	list_for_each_entry(host, &nandc->host_list, node) {
+		chip = &host->chip;
+		ret = mtd_device_unregister(nand_to_mtd(chip));
+		WARN_ON(ret);
+		nand_cleanup(chip);
+	}
 
 	qcom_nandc_unalloc(nandc);
 
@@ -3030,12 +3041,14 @@ static const struct qcom_nandc_props ipq806x_nandc_props = {
 static const struct qcom_nandc_props ipq4019_nandc_props = {
 	.ecc_modes = (ECC_BCH_4BIT | ECC_BCH_8BIT),
 	.is_bam = true,
+	.is_qpic = true,
 	.dev_cmd_reg_start = 0x0,
 };
 
 static const struct qcom_nandc_props ipq8074_nandc_props = {
 	.ecc_modes = (ECC_BCH_4BIT | ECC_BCH_8BIT),
 	.is_bam = true,
+	.is_qpic = true,
 	.dev_cmd_reg_start = 0x7000,
 };
 

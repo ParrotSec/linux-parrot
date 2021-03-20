@@ -2,7 +2,7 @@
 /* Copyright (c) 2019, Intel Corporation. */
 
 #include <linux/bpf_trace.h>
-#include <net/xdp_sock.h>
+#include <net/xdp_sock_drv.h>
 #include <net/xdp.h>
 #include "ice.h"
 #include "ice_base.h"
@@ -206,12 +206,14 @@ static int ice_qp_ena(struct ice_vsi *vsi, u16 q_idx)
 	struct ice_aqc_add_tx_qgrp *qg_buf;
 	struct ice_ring *tx_ring, *rx_ring;
 	struct ice_q_vector *q_vector;
+	u16 size;
 	int err;
 
 	if (q_idx >= vsi->num_rxq || q_idx >= vsi->num_txq)
 		return -EINVAL;
 
-	qg_buf = kzalloc(sizeof(*qg_buf), GFP_KERNEL);
+	size = struct_size(qg_buf, txqs, 1);
+	qg_buf = kzalloc(size, GFP_KERNEL);
 	if (!qg_buf)
 		return -ENOMEM;
 
@@ -228,13 +230,13 @@ static int ice_qp_ena(struct ice_vsi *vsi, u16 q_idx)
 	if (ice_is_xdp_ena_vsi(vsi)) {
 		struct ice_ring *xdp_ring = vsi->xdp_rings[q_idx];
 
-		memset(qg_buf, 0, sizeof(*qg_buf));
+		memset(qg_buf, 0, size);
 		qg_buf->num_txqs = 1;
 		err = ice_vsi_cfg_txq(vsi, xdp_ring, qg_buf);
 		if (err)
 			goto free_buf;
 		ice_set_ring_xdp(xdp_ring);
-		xdp_ring->xsk_umem = ice_xsk_umem(xdp_ring);
+		xdp_ring->xsk_pool = ice_xsk_pool(xdp_ring);
 	}
 
 	err = ice_setup_rx_ctx(rx_ring);
@@ -258,21 +260,21 @@ free_buf:
 }
 
 /**
- * ice_xsk_alloc_umems - allocate a UMEM region for an XDP socket
- * @vsi: VSI to allocate the UMEM on
+ * ice_xsk_alloc_pools - allocate a buffer pool for an XDP socket
+ * @vsi: VSI to allocate the buffer pool on
  *
  * Returns 0 on success, negative on error
  */
-static int ice_xsk_alloc_umems(struct ice_vsi *vsi)
+static int ice_xsk_alloc_pools(struct ice_vsi *vsi)
 {
-	if (vsi->xsk_umems)
+	if (vsi->xsk_pools)
 		return 0;
 
-	vsi->xsk_umems = kcalloc(vsi->num_xsk_umems, sizeof(*vsi->xsk_umems),
+	vsi->xsk_pools = kcalloc(vsi->num_xsk_pools, sizeof(*vsi->xsk_pools),
 				 GFP_KERNEL);
 
-	if (!vsi->xsk_umems) {
-		vsi->num_xsk_umems = 0;
+	if (!vsi->xsk_pools) {
+		vsi->num_xsk_pools = 0;
 		return -ENOMEM;
 	}
 
@@ -280,159 +282,74 @@ static int ice_xsk_alloc_umems(struct ice_vsi *vsi)
 }
 
 /**
- * ice_xsk_add_umem - add a UMEM region for XDP sockets
- * @vsi: VSI to which the UMEM will be added
- * @umem: pointer to a requested UMEM region
- * @qid: queue ID
- *
- * Returns 0 on success, negative on error
- */
-static int ice_xsk_add_umem(struct ice_vsi *vsi, struct xdp_umem *umem, u16 qid)
-{
-	int err;
-
-	err = ice_xsk_alloc_umems(vsi);
-	if (err)
-		return err;
-
-	vsi->xsk_umems[qid] = umem;
-	vsi->num_xsk_umems_used++;
-
-	return 0;
-}
-
-/**
- * ice_xsk_remove_umem - Remove an UMEM for a certain ring/qid
+ * ice_xsk_remove_pool - Remove an buffer pool for a certain ring/qid
  * @vsi: VSI from which the VSI will be removed
- * @qid: Ring/qid associated with the UMEM
+ * @qid: Ring/qid associated with the buffer pool
  */
-static void ice_xsk_remove_umem(struct ice_vsi *vsi, u16 qid)
+static void ice_xsk_remove_pool(struct ice_vsi *vsi, u16 qid)
 {
-	vsi->xsk_umems[qid] = NULL;
-	vsi->num_xsk_umems_used--;
+	vsi->xsk_pools[qid] = NULL;
+	vsi->num_xsk_pools_used--;
 
-	if (vsi->num_xsk_umems_used == 0) {
-		kfree(vsi->xsk_umems);
-		vsi->xsk_umems = NULL;
-		vsi->num_xsk_umems = 0;
+	if (vsi->num_xsk_pools_used == 0) {
+		kfree(vsi->xsk_pools);
+		vsi->xsk_pools = NULL;
+		vsi->num_xsk_pools = 0;
 	}
 }
 
 /**
- * ice_xsk_umem_dma_map - DMA map UMEM region for XDP sockets
- * @vsi: VSI to map the UMEM region
- * @umem: UMEM to map
- *
- * Returns 0 on success, negative on error
- */
-static int ice_xsk_umem_dma_map(struct ice_vsi *vsi, struct xdp_umem *umem)
-{
-	struct ice_pf *pf = vsi->back;
-	struct device *dev;
-	unsigned int i;
-
-	dev = ice_pf_to_dev(pf);
-	for (i = 0; i < umem->npgs; i++) {
-		dma_addr_t dma = dma_map_page_attrs(dev, umem->pgs[i], 0,
-						    PAGE_SIZE,
-						    DMA_BIDIRECTIONAL,
-						    ICE_RX_DMA_ATTR);
-		if (dma_mapping_error(dev, dma)) {
-			dev_dbg(dev, "XSK UMEM DMA mapping error on page num %d\n",
-				i);
-			goto out_unmap;
-		}
-
-		umem->pages[i].dma = dma;
-	}
-
-	return 0;
-
-out_unmap:
-	for (; i > 0; i--) {
-		dma_unmap_page_attrs(dev, umem->pages[i].dma, PAGE_SIZE,
-				     DMA_BIDIRECTIONAL, ICE_RX_DMA_ATTR);
-		umem->pages[i].dma = 0;
-	}
-
-	return -EFAULT;
-}
-
-/**
- * ice_xsk_umem_dma_unmap - DMA unmap UMEM region for XDP sockets
- * @vsi: VSI from which the UMEM will be unmapped
- * @umem: UMEM to unmap
- */
-static void ice_xsk_umem_dma_unmap(struct ice_vsi *vsi, struct xdp_umem *umem)
-{
-	struct ice_pf *pf = vsi->back;
-	struct device *dev;
-	unsigned int i;
-
-	dev = ice_pf_to_dev(pf);
-	for (i = 0; i < umem->npgs; i++) {
-		dma_unmap_page_attrs(dev, umem->pages[i].dma, PAGE_SIZE,
-				     DMA_BIDIRECTIONAL, ICE_RX_DMA_ATTR);
-
-		umem->pages[i].dma = 0;
-	}
-}
-
-/**
- * ice_xsk_umem_disable - disable a UMEM region
+ * ice_xsk_pool_disable - disable a buffer pool region
  * @vsi: Current VSI
  * @qid: queue ID
  *
  * Returns 0 on success, negative on failure
  */
-static int ice_xsk_umem_disable(struct ice_vsi *vsi, u16 qid)
+static int ice_xsk_pool_disable(struct ice_vsi *vsi, u16 qid)
 {
-	if (!vsi->xsk_umems || qid >= vsi->num_xsk_umems ||
-	    !vsi->xsk_umems[qid])
+	if (!vsi->xsk_pools || qid >= vsi->num_xsk_pools ||
+	    !vsi->xsk_pools[qid])
 		return -EINVAL;
 
-	ice_xsk_umem_dma_unmap(vsi, vsi->xsk_umems[qid]);
-	ice_xsk_remove_umem(vsi, qid);
+	xsk_pool_dma_unmap(vsi->xsk_pools[qid], ICE_RX_DMA_ATTR);
+	ice_xsk_remove_pool(vsi, qid);
 
 	return 0;
 }
 
 /**
- * ice_xsk_umem_enable - enable a UMEM region
+ * ice_xsk_pool_enable - enable a buffer pool region
  * @vsi: Current VSI
- * @umem: pointer to a requested UMEM region
+ * @pool: pointer to a requested buffer pool region
  * @qid: queue ID
  *
  * Returns 0 on success, negative on failure
  */
 static int
-ice_xsk_umem_enable(struct ice_vsi *vsi, struct xdp_umem *umem, u16 qid)
+ice_xsk_pool_enable(struct ice_vsi *vsi, struct xsk_buff_pool *pool, u16 qid)
 {
-	struct xdp_umem_fq_reuse *reuseq;
 	int err;
 
 	if (vsi->type != ICE_VSI_PF)
 		return -EINVAL;
 
-	if (!vsi->num_xsk_umems)
-		vsi->num_xsk_umems = min_t(u16, vsi->num_rxq, vsi->num_txq);
-	if (qid >= vsi->num_xsk_umems)
+	if (!vsi->num_xsk_pools)
+		vsi->num_xsk_pools = min_t(u16, vsi->num_rxq, vsi->num_txq);
+	if (qid >= vsi->num_xsk_pools)
 		return -EINVAL;
 
-	if (vsi->xsk_umems && vsi->xsk_umems[qid])
-		return -EBUSY;
-
-	reuseq = xsk_reuseq_prepare(vsi->rx_rings[0]->count);
-	if (!reuseq)
-		return -ENOMEM;
-
-	xsk_reuseq_free(xsk_reuseq_swap(umem, reuseq));
-
-	err = ice_xsk_umem_dma_map(vsi, umem);
+	err = ice_xsk_alloc_pools(vsi);
 	if (err)
 		return err;
 
-	err = ice_xsk_add_umem(vsi, umem, qid);
+	if (vsi->xsk_pools && vsi->xsk_pools[qid])
+		return -EBUSY;
+
+	vsi->xsk_pools[qid] = pool;
+	vsi->num_xsk_pools_used++;
+
+	err = xsk_pool_dma_map(vsi->xsk_pools[qid], ice_pf_to_dev(vsi->back),
+			       ICE_RX_DMA_ATTR);
 	if (err)
 		return err;
 
@@ -440,17 +357,17 @@ ice_xsk_umem_enable(struct ice_vsi *vsi, struct xdp_umem *umem, u16 qid)
 }
 
 /**
- * ice_xsk_umem_setup - enable/disable a UMEM region depending on its state
+ * ice_xsk_pool_setup - enable/disable a buffer pool region depending on its state
  * @vsi: Current VSI
- * @umem: UMEM to enable/associate to a ring, NULL to disable
+ * @pool: buffer pool to enable/associate to a ring, NULL to disable
  * @qid: queue ID
  *
  * Returns 0 on success, negative on failure
  */
-int ice_xsk_umem_setup(struct ice_vsi *vsi, struct xdp_umem *umem, u16 qid)
+int ice_xsk_pool_setup(struct ice_vsi *vsi, struct xsk_buff_pool *pool, u16 qid)
 {
-	bool if_running, umem_present = !!umem;
-	int ret = 0, umem_failure = 0;
+	bool if_running, pool_present = !!pool;
+	int ret = 0, pool_failure = 0;
 
 	if_running = netif_running(vsi->netdev) && ice_is_xdp_ena_vsi(vsi);
 
@@ -458,163 +375,48 @@ int ice_xsk_umem_setup(struct ice_vsi *vsi, struct xdp_umem *umem, u16 qid)
 		ret = ice_qp_dis(vsi, qid);
 		if (ret) {
 			netdev_err(vsi->netdev, "ice_qp_dis error = %d\n", ret);
-			goto xsk_umem_if_up;
+			goto xsk_pool_if_up;
 		}
 	}
 
-	umem_failure = umem_present ? ice_xsk_umem_enable(vsi, umem, qid) :
-				      ice_xsk_umem_disable(vsi, qid);
+	pool_failure = pool_present ? ice_xsk_pool_enable(vsi, pool, qid) :
+				      ice_xsk_pool_disable(vsi, qid);
 
-xsk_umem_if_up:
+xsk_pool_if_up:
 	if (if_running) {
 		ret = ice_qp_ena(vsi, qid);
-		if (!ret && umem_present)
+		if (!ret && pool_present)
 			napi_schedule(&vsi->xdp_rings[qid]->q_vector->napi);
 		else if (ret)
 			netdev_err(vsi->netdev, "ice_qp_ena error = %d\n", ret);
 	}
 
-	if (umem_failure) {
-		netdev_err(vsi->netdev, "Could not %sable UMEM, error = %d\n",
-			   umem_present ? "en" : "dis", umem_failure);
-		return umem_failure;
+	if (pool_failure) {
+		netdev_err(vsi->netdev, "Could not %sable buffer pool, error = %d\n",
+			   pool_present ? "en" : "dis", pool_failure);
+		return pool_failure;
 	}
 
 	return ret;
 }
 
 /**
- * ice_zca_free - Callback for MEM_TYPE_ZERO_COPY allocations
- * @zca: zero-cpoy allocator
- * @handle: Buffer handle
- */
-void ice_zca_free(struct zero_copy_allocator *zca, unsigned long handle)
-{
-	struct ice_rx_buf *rx_buf;
-	struct ice_ring *rx_ring;
-	struct xdp_umem *umem;
-	u64 hr, mask;
-	u16 nta;
-
-	rx_ring = container_of(zca, struct ice_ring, zca);
-	umem = rx_ring->xsk_umem;
-	hr = umem->headroom + XDP_PACKET_HEADROOM;
-
-	mask = umem->chunk_mask;
-
-	nta = rx_ring->next_to_alloc;
-	rx_buf = &rx_ring->rx_buf[nta];
-
-	nta++;
-	rx_ring->next_to_alloc = (nta < rx_ring->count) ? nta : 0;
-
-	handle &= mask;
-
-	rx_buf->dma = xdp_umem_get_dma(umem, handle);
-	rx_buf->dma += hr;
-
-	rx_buf->addr = xdp_umem_get_data(umem, handle);
-	rx_buf->addr += hr;
-
-	rx_buf->handle = (u64)handle + umem->headroom;
-}
-
-/**
- * ice_alloc_buf_fast_zc - Retrieve buffer address from XDP umem
- * @rx_ring: ring with an xdp_umem bound to it
- * @rx_buf: buffer to which xsk page address will be assigned
- *
- * This function allocates an Rx buffer in the hot path.
- * The buffer can come from fill queue or recycle queue.
- *
- * Returns true if an assignment was successful, false if not.
- */
-static __always_inline bool
-ice_alloc_buf_fast_zc(struct ice_ring *rx_ring, struct ice_rx_buf *rx_buf)
-{
-	struct xdp_umem *umem = rx_ring->xsk_umem;
-	void *addr = rx_buf->addr;
-	u64 handle, hr;
-
-	if (addr) {
-		rx_ring->rx_stats.page_reuse_count++;
-		return true;
-	}
-
-	if (!xsk_umem_peek_addr(umem, &handle)) {
-		rx_ring->rx_stats.alloc_page_failed++;
-		return false;
-	}
-
-	hr = umem->headroom + XDP_PACKET_HEADROOM;
-
-	rx_buf->dma = xdp_umem_get_dma(umem, handle);
-	rx_buf->dma += hr;
-
-	rx_buf->addr = xdp_umem_get_data(umem, handle);
-	rx_buf->addr += hr;
-
-	rx_buf->handle = handle + umem->headroom;
-
-	xsk_umem_release_addr(umem);
-	return true;
-}
-
-/**
- * ice_alloc_buf_slow_zc - Retrieve buffer address from XDP umem
- * @rx_ring: ring with an xdp_umem bound to it
- * @rx_buf: buffer to which xsk page address will be assigned
- *
- * This function allocates an Rx buffer in the slow path.
- * The buffer can come from fill queue or recycle queue.
- *
- * Returns true if an assignment was successful, false if not.
- */
-static __always_inline bool
-ice_alloc_buf_slow_zc(struct ice_ring *rx_ring, struct ice_rx_buf *rx_buf)
-{
-	struct xdp_umem *umem = rx_ring->xsk_umem;
-	u64 handle, headroom;
-
-	if (!xsk_umem_peek_addr_rq(umem, &handle)) {
-		rx_ring->rx_stats.alloc_page_failed++;
-		return false;
-	}
-
-	handle &= umem->chunk_mask;
-	headroom = umem->headroom + XDP_PACKET_HEADROOM;
-
-	rx_buf->dma = xdp_umem_get_dma(umem, handle);
-	rx_buf->dma += headroom;
-
-	rx_buf->addr = xdp_umem_get_data(umem, handle);
-	rx_buf->addr += headroom;
-
-	rx_buf->handle = handle + umem->headroom;
-
-	xsk_umem_release_addr_rq(umem);
-	return true;
-}
-
-/**
  * ice_alloc_rx_bufs_zc - allocate a number of Rx buffers
  * @rx_ring: Rx ring
  * @count: The number of buffers to allocate
- * @alloc: the function pointer to call for allocation
  *
  * This function allocates a number of Rx buffers from the fill ring
  * or the internal recycle mechanism and places them on the Rx ring.
  *
  * Returns false if all allocations were successful, true if any fail.
  */
-static bool
-ice_alloc_rx_bufs_zc(struct ice_ring *rx_ring, int count,
-		     bool (*alloc)(struct ice_ring *, struct ice_rx_buf *))
+bool ice_alloc_rx_bufs_zc(struct ice_ring *rx_ring, u16 count)
 {
 	union ice_32b_rx_flex_desc *rx_desc;
 	u16 ntu = rx_ring->next_to_use;
 	struct ice_rx_buf *rx_buf;
 	bool ret = false;
+	dma_addr_t dma;
 
 	if (!count)
 		return false;
@@ -623,16 +425,14 @@ ice_alloc_rx_bufs_zc(struct ice_ring *rx_ring, int count,
 	rx_buf = &rx_ring->rx_buf[ntu];
 
 	do {
-		if (!alloc(rx_ring, rx_buf)) {
+		rx_buf->xdp = xsk_buff_alloc(rx_ring->xsk_pool);
+		if (!rx_buf->xdp) {
 			ret = true;
 			break;
 		}
 
-		dma_sync_single_range_for_device(rx_ring->dev, rx_buf->dma, 0,
-						 rx_ring->rx_buf_len,
-						 DMA_BIDIRECTIONAL);
-
-		rx_desc->read.pkt_addr = cpu_to_le64(rx_buf->dma);
+		dma = xsk_buff_xdp_get_dma(rx_buf->xdp);
+		rx_desc->read.pkt_addr = cpu_to_le64(dma);
 		rx_desc->wb.status_error0 = 0;
 
 		rx_desc++;
@@ -646,36 +446,13 @@ ice_alloc_rx_bufs_zc(struct ice_ring *rx_ring, int count,
 		}
 	} while (--count);
 
-	if (rx_ring->next_to_use != ntu)
+	if (rx_ring->next_to_use != ntu) {
+		/* clear the status bits for the next_to_use descriptor */
+		rx_desc->wb.status_error0 = 0;
 		ice_release_rx_desc(rx_ring, ntu);
+	}
 
 	return ret;
-}
-
-/**
- * ice_alloc_rx_bufs_fast_zc - allocate zero copy bufs in the hot path
- * @rx_ring: Rx ring
- * @count: number of bufs to allocate
- *
- * Returns false on success, true on failure.
- */
-static bool ice_alloc_rx_bufs_fast_zc(struct ice_ring *rx_ring, u16 count)
-{
-	return ice_alloc_rx_bufs_zc(rx_ring, count,
-				    ice_alloc_buf_fast_zc);
-}
-
-/**
- * ice_alloc_rx_bufs_slow_zc - allocate zero copy bufs in the slow path
- * @rx_ring: Rx ring
- * @count: number of bufs to allocate
- *
- * Returns false on success, true on failure.
- */
-bool ice_alloc_rx_bufs_slow_zc(struct ice_ring *rx_ring, u16 count)
-{
-	return ice_alloc_rx_bufs_zc(rx_ring, count,
-				    ice_alloc_buf_slow_zc);
 }
 
 /**
@@ -692,76 +469,21 @@ static void ice_bump_ntc(struct ice_ring *rx_ring)
 }
 
 /**
- * ice_get_rx_buf_zc - Fetch the current Rx buffer
- * @rx_ring: Rx ring
- * @size: size of a buffer
- *
- * This function returns the current, received Rx buffer and does
- * DMA synchronization.
- *
- * Returns a pointer to the received Rx buffer.
- */
-static struct ice_rx_buf *ice_get_rx_buf_zc(struct ice_ring *rx_ring, int size)
-{
-	struct ice_rx_buf *rx_buf;
-
-	rx_buf = &rx_ring->rx_buf[rx_ring->next_to_clean];
-
-	dma_sync_single_range_for_cpu(rx_ring->dev, rx_buf->dma, 0,
-				      size, DMA_BIDIRECTIONAL);
-
-	return rx_buf;
-}
-
-/**
- * ice_reuse_rx_buf_zc - reuse an Rx buffer
- * @rx_ring: Rx ring
- * @old_buf: The buffer to recycle
- *
- * This function recycles a finished Rx buffer, and places it on the recycle
- * queue (next_to_alloc).
- */
-static void
-ice_reuse_rx_buf_zc(struct ice_ring *rx_ring, struct ice_rx_buf *old_buf)
-{
-	unsigned long mask = (unsigned long)rx_ring->xsk_umem->chunk_mask;
-	u64 hr = rx_ring->xsk_umem->headroom + XDP_PACKET_HEADROOM;
-	u16 nta = rx_ring->next_to_alloc;
-	struct ice_rx_buf *new_buf;
-
-	new_buf = &rx_ring->rx_buf[nta++];
-	rx_ring->next_to_alloc = (nta < rx_ring->count) ? nta : 0;
-
-	new_buf->dma = old_buf->dma & mask;
-	new_buf->dma += hr;
-
-	new_buf->addr = (void *)((unsigned long)old_buf->addr & mask);
-	new_buf->addr += hr;
-
-	new_buf->handle = old_buf->handle & mask;
-	new_buf->handle += rx_ring->xsk_umem->headroom;
-
-	old_buf->addr = NULL;
-}
-
-/**
  * ice_construct_skb_zc - Create an sk_buff from zero-copy buffer
  * @rx_ring: Rx ring
  * @rx_buf: zero-copy Rx buffer
- * @xdp: XDP buffer
  *
  * This function allocates a new skb from a zero-copy Rx buffer.
  *
  * Returns the skb on success, NULL on failure.
  */
 static struct sk_buff *
-ice_construct_skb_zc(struct ice_ring *rx_ring, struct ice_rx_buf *rx_buf,
-		     struct xdp_buff *xdp)
+ice_construct_skb_zc(struct ice_ring *rx_ring, struct ice_rx_buf *rx_buf)
 {
-	unsigned int metasize = xdp->data - xdp->data_meta;
-	unsigned int datasize = xdp->data_end - xdp->data;
-	unsigned int datasize_hard = xdp->data_end -
-				     xdp->data_hard_start;
+	unsigned int metasize = rx_buf->xdp->data - rx_buf->xdp->data_meta;
+	unsigned int datasize = rx_buf->xdp->data_end - rx_buf->xdp->data;
+	unsigned int datasize_hard = rx_buf->xdp->data_end -
+				     rx_buf->xdp->data_hard_start;
 	struct sk_buff *skb;
 
 	skb = __napi_alloc_skb(&rx_ring->q_vector->napi, datasize_hard,
@@ -769,13 +491,13 @@ ice_construct_skb_zc(struct ice_ring *rx_ring, struct ice_rx_buf *rx_buf,
 	if (unlikely(!skb))
 		return NULL;
 
-	skb_reserve(skb, xdp->data - xdp->data_hard_start);
-	memcpy(__skb_put(skb, datasize), xdp->data, datasize);
+	skb_reserve(skb, rx_buf->xdp->data - rx_buf->xdp->data_hard_start);
+	memcpy(__skb_put(skb, datasize), rx_buf->xdp->data, datasize);
 	if (metasize)
 		skb_metadata_set(skb, metasize);
 
-	ice_reuse_rx_buf_zc(rx_ring, rx_buf);
-
+	xsk_buff_free(rx_buf->xdp);
+	rx_buf->xdp = NULL;
 	return skb;
 }
 
@@ -802,7 +524,6 @@ ice_run_xdp_zc(struct ice_ring *rx_ring, struct xdp_buff *xdp)
 	}
 
 	act = bpf_prog_run_xdp(xdp_prog, xdp);
-	xdp->handle += xdp->data - xdp->data_hard_start;
 	switch (act) {
 	case XDP_PASS:
 		break;
@@ -842,9 +563,6 @@ int ice_clean_rx_irq_zc(struct ice_ring *rx_ring, int budget)
 	u16 cleaned_count = ICE_DESC_UNUSED(rx_ring);
 	unsigned int xdp_xmit = 0;
 	bool failure = false;
-	struct xdp_buff xdp;
-
-	xdp.rxq = &rx_ring->xdp_rxq;
 
 	while (likely(total_rx_packets < (unsigned int)budget)) {
 		union ice_32b_rx_flex_desc *rx_desc;
@@ -856,8 +574,8 @@ int ice_clean_rx_irq_zc(struct ice_ring *rx_ring, int budget)
 		u8 rx_ptype;
 
 		if (cleaned_count >= ICE_RX_BUF_WRITE) {
-			failure |= ice_alloc_rx_bufs_fast_zc(rx_ring,
-							     cleaned_count);
+			failure |= ice_alloc_rx_bufs_zc(rx_ring,
+							cleaned_count);
 			cleaned_count = 0;
 		}
 
@@ -878,25 +596,18 @@ int ice_clean_rx_irq_zc(struct ice_ring *rx_ring, int budget)
 		if (!size)
 			break;
 
-		rx_buf = ice_get_rx_buf_zc(rx_ring, size);
-		if (!rx_buf->addr)
-			break;
+		rx_buf = &rx_ring->rx_buf[rx_ring->next_to_clean];
+		rx_buf->xdp->data_end = rx_buf->xdp->data + size;
+		xsk_buff_dma_sync_for_cpu(rx_buf->xdp, rx_ring->xsk_pool);
 
-		xdp.data = rx_buf->addr;
-		xdp.data_meta = xdp.data;
-		xdp.data_hard_start = xdp.data - XDP_PACKET_HEADROOM;
-		xdp.data_end = xdp.data + size;
-		xdp.handle = rx_buf->handle;
-
-		xdp_res = ice_run_xdp_zc(rx_ring, &xdp);
+		xdp_res = ice_run_xdp_zc(rx_ring, rx_buf->xdp);
 		if (xdp_res) {
-			if (xdp_res & (ICE_XDP_TX | ICE_XDP_REDIR)) {
+			if (xdp_res & (ICE_XDP_TX | ICE_XDP_REDIR))
 				xdp_xmit |= xdp_res;
-				rx_buf->addr = NULL;
-			} else {
-				ice_reuse_rx_buf_zc(rx_ring, rx_buf);
-			}
+			else
+				xsk_buff_free(rx_buf->xdp);
 
+			rx_buf->xdp = NULL;
 			total_rx_bytes += size;
 			total_rx_packets++;
 			cleaned_count++;
@@ -906,7 +617,7 @@ int ice_clean_rx_irq_zc(struct ice_ring *rx_ring, int budget)
 		}
 
 		/* XDP_PASS path */
-		skb = ice_construct_skb_zc(rx_ring, rx_buf, &xdp);
+		skb = ice_construct_skb_zc(rx_ring, rx_buf);
 		if (!skb) {
 			rx_ring->rx_stats.alloc_buf_failed++;
 			break;
@@ -937,11 +648,11 @@ int ice_clean_rx_irq_zc(struct ice_ring *rx_ring, int budget)
 	ice_finalize_xdp_rx(rx_ring, xdp_xmit);
 	ice_update_rx_ring_stats(rx_ring, total_rx_packets, total_rx_bytes);
 
-	if (xsk_umem_uses_need_wakeup(rx_ring->xsk_umem)) {
+	if (xsk_uses_need_wakeup(rx_ring->xsk_pool)) {
 		if (failure || rx_ring->next_to_clean == rx_ring->next_to_use)
-			xsk_set_rx_need_wakeup(rx_ring->xsk_umem);
+			xsk_set_rx_need_wakeup(rx_ring->xsk_pool);
 		else
-			xsk_clear_rx_need_wakeup(rx_ring->xsk_umem);
+			xsk_clear_rx_need_wakeup(rx_ring->xsk_pool);
 
 		return (int)total_rx_packets;
 	}
@@ -974,20 +685,19 @@ static bool ice_xmit_zc(struct ice_ring *xdp_ring, int budget)
 
 		tx_buf = &xdp_ring->tx_buf[xdp_ring->next_to_use];
 
-		if (!xsk_umem_consume_tx(xdp_ring->xsk_umem, &desc))
+		if (!xsk_tx_peek_desc(xdp_ring->xsk_pool, &desc))
 			break;
 
-		dma = xdp_umem_get_dma(xdp_ring->xsk_umem, desc.addr);
-
-		dma_sync_single_for_device(xdp_ring->dev, dma, desc.len,
-					   DMA_BIDIRECTIONAL);
+		dma = xsk_buff_raw_get_dma(xdp_ring->xsk_pool, desc.addr);
+		xsk_buff_raw_dma_sync_for_device(xdp_ring->xsk_pool, dma,
+						 desc.len);
 
 		tx_buf->bytecount = desc.len;
 
 		tx_desc = ICE_TX_DESC(xdp_ring, xdp_ring->next_to_use);
 		tx_desc->buf_addr = cpu_to_le64(dma);
-		tx_desc->cmd_type_offset_bsz = build_ctob(ICE_TXD_LAST_DESC_CMD,
-							  0, desc.len, 0);
+		tx_desc->cmd_type_offset_bsz =
+			ice_build_ctob(ICE_TXD_LAST_DESC_CMD, 0, desc.len, 0);
 
 		xdp_ring->next_to_use++;
 		if (xdp_ring->next_to_use == xdp_ring->count)
@@ -996,9 +706,7 @@ static bool ice_xmit_zc(struct ice_ring *xdp_ring, int budget)
 
 	if (tx_desc) {
 		ice_xdp_ring_update_tail(xdp_ring);
-		xsk_umem_consume_tx_done(xdp_ring->xsk_umem);
-		if (xsk_umem_uses_need_wakeup(xdp_ring->xsk_umem))
-			xsk_clear_tx_need_wakeup(xdp_ring->xsk_umem);
+		xsk_tx_release(xdp_ring->xsk_pool);
 	}
 
 	return budget > 0 && work_done;
@@ -1072,14 +780,10 @@ bool ice_clean_tx_irq_zc(struct ice_ring *xdp_ring, int budget)
 	xdp_ring->next_to_clean = ntc;
 
 	if (xsk_frames)
-		xsk_umem_complete_tx(xdp_ring->xsk_umem, xsk_frames);
+		xsk_tx_completed(xdp_ring->xsk_pool, xsk_frames);
 
-	if (xsk_umem_uses_need_wakeup(xdp_ring->xsk_umem)) {
-		if (xdp_ring->next_to_clean == xdp_ring->next_to_use)
-			xsk_set_tx_need_wakeup(xdp_ring->xsk_umem);
-		else
-			xsk_clear_tx_need_wakeup(xdp_ring->xsk_umem);
-	}
+	if (xsk_uses_need_wakeup(xdp_ring->xsk_pool))
+		xsk_set_tx_need_wakeup(xdp_ring->xsk_pool);
 
 	ice_update_tx_ring_stats(xdp_ring, total_packets, total_bytes);
 	xmit_done = ice_xmit_zc(xdp_ring, ICE_DFLT_IRQ_WORK);
@@ -1113,7 +817,7 @@ ice_xsk_wakeup(struct net_device *netdev, u32 queue_id,
 	if (queue_id >= vsi->num_txq)
 		return -ENXIO;
 
-	if (!vsi->xdp_rings[queue_id]->xsk_umem)
+	if (!vsi->xdp_rings[queue_id]->xsk_pool)
 		return -ENXIO;
 
 	ring = vsi->xdp_rings[queue_id];
@@ -1132,20 +836,20 @@ ice_xsk_wakeup(struct net_device *netdev, u32 queue_id,
 }
 
 /**
- * ice_xsk_any_rx_ring_ena - Checks if Rx rings have AF_XDP UMEM attached
+ * ice_xsk_any_rx_ring_ena - Checks if Rx rings have AF_XDP buff pool attached
  * @vsi: VSI to be checked
  *
- * Returns true if any of the Rx rings has an AF_XDP UMEM attached
+ * Returns true if any of the Rx rings has an AF_XDP buff pool attached
  */
 bool ice_xsk_any_rx_ring_ena(struct ice_vsi *vsi)
 {
 	int i;
 
-	if (!vsi->xsk_umems)
+	if (!vsi->xsk_pools)
 		return false;
 
-	for (i = 0; i < vsi->num_xsk_umems; i++) {
-		if (vsi->xsk_umems[i])
+	for (i = 0; i < vsi->num_xsk_pools; i++) {
+		if (vsi->xsk_pools[i])
 			return true;
 	}
 
@@ -1153,7 +857,7 @@ bool ice_xsk_any_rx_ring_ena(struct ice_vsi *vsi)
 }
 
 /**
- * ice_xsk_clean_rx_ring - clean UMEM queues connected to a given Rx ring
+ * ice_xsk_clean_rx_ring - clean buffer pool queues connected to a given Rx ring
  * @rx_ring: ring to be cleaned
  */
 void ice_xsk_clean_rx_ring(struct ice_ring *rx_ring)
@@ -1163,16 +867,15 @@ void ice_xsk_clean_rx_ring(struct ice_ring *rx_ring)
 	for (i = 0; i < rx_ring->count; i++) {
 		struct ice_rx_buf *rx_buf = &rx_ring->rx_buf[i];
 
-		if (!rx_buf->addr)
+		if (!rx_buf->xdp)
 			continue;
 
-		xsk_umem_fq_reuse(rx_ring->xsk_umem, rx_buf->handle);
-		rx_buf->addr = NULL;
+		rx_buf->xdp = NULL;
 	}
 }
 
 /**
- * ice_xsk_clean_xdp_ring - Clean the XDP Tx ring and its UMEM queues
+ * ice_xsk_clean_xdp_ring - Clean the XDP Tx ring and its buffer pool queues
  * @xdp_ring: XDP_Tx ring
  */
 void ice_xsk_clean_xdp_ring(struct ice_ring *xdp_ring)
@@ -1196,5 +899,5 @@ void ice_xsk_clean_xdp_ring(struct ice_ring *xdp_ring)
 	}
 
 	if (xsk_frames)
-		xsk_umem_complete_tx(xdp_ring->xsk_umem, xsk_frames);
+		xsk_tx_completed(xdp_ring->xsk_pool, xsk_frames);
 }

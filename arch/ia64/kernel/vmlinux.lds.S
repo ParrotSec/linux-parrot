@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
+#include <linux/pgtable.h>
 #include <asm/cache.h>
 #include <asm/ptrace.h>
-#include <asm/pgtable.h>
 #include <asm/thread_info.h>
 
 #define EMITS_PT_NOTE
@@ -218,6 +218,7 @@ SECTIONS {
 
 	STABS_DEBUG
 	DWARF_DEBUG
+	ELF_DETAILS
 
 	/* Default discards */
 	DISCARDS

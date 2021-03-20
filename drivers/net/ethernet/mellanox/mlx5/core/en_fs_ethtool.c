@@ -33,7 +33,7 @@
 #include <linux/mlx5/fs.h>
 #include "en.h"
 #include "en/params.h"
-#include "en/xsk/umem.h"
+#include "en/xsk/pool.h"
 
 struct mlx5e_ethtool_rule {
 	struct list_head             list;
@@ -858,7 +858,7 @@ static int mlx5e_set_rss_hash_opt(struct mlx5e_priv *priv,
 		goto out;
 
 	priv->rss_params.rx_hash_fields[tt] = rx_hash_field;
-	mlx5e_modify_tirs_hash(priv, in, inlen);
+	mlx5e_modify_tirs_hash(priv, in);
 
 out:
 	mutex_unlock(&priv->state_lock);

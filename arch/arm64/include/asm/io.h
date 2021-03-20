@@ -9,11 +9,11 @@
 #define __ASM_IO_H
 
 #include <linux/types.h>
+#include <linux/pgtable.h>
 
 #include <asm/byteorder.h>
 #include <asm/barrier.h>
 #include <asm/memory.h>
-#include <asm/pgtable.h>
 #include <asm/early_ioremap.h>
 #include <asm/alternative.h>
 #include <asm/cpufeature.h>
@@ -110,6 +110,7 @@ static inline u64 __raw_readq(const volatile void __iomem *addr)
 
 #define __io_par(v)		__iormb(v)
 #define __iowmb()		dma_wmb()
+#define __iomb()		dma_mb()
 
 /*
  * Relaxed I/O memory access primitives. These follow the Device memory

@@ -44,6 +44,7 @@ acpi_status acpi_execute_simple_method(acpi_handle handle, char *method,
 				       u64 arg);
 acpi_status acpi_evaluate_ej0(acpi_handle handle);
 acpi_status acpi_evaluate_lck(acpi_handle handle, int lock);
+acpi_status acpi_evaluate_reg(acpi_handle handle, u8 space_id, u32 function);
 bool acpi_ata_match(acpi_handle handle);
 bool acpi_bay_match(acpi_handle handle);
 bool acpi_dock_match(acpi_handle handle);
@@ -587,8 +588,13 @@ bool acpi_dma_supported(struct acpi_device *adev);
 enum dev_dma_attr acpi_get_dma_attr(struct acpi_device *adev);
 int acpi_dma_get_range(struct device *dev, u64 *dma_addr, u64 *offset,
 		       u64 *size);
-int acpi_dma_configure(struct device *dev, enum dev_dma_attr attr);
-
+int acpi_dma_configure_id(struct device *dev, enum dev_dma_attr attr,
+			   const u32 *input_id);
+static inline int acpi_dma_configure(struct device *dev,
+				     enum dev_dma_attr attr)
+{
+	return acpi_dma_configure_id(dev, attr, NULL);
+}
 struct acpi_device *acpi_find_child_device(struct acpi_device *parent,
 					   u64 address, bool check_children);
 int acpi_is_root_bridge(acpi_handle);
@@ -614,7 +620,6 @@ acpi_status acpi_remove_pm_notifier(struct acpi_device *adev);
 bool acpi_pm_device_can_wakeup(struct device *dev);
 int acpi_pm_device_sleep_state(struct device *, int *, int);
 int acpi_pm_set_device_wakeup(struct device *dev, bool enable);
-int acpi_pm_set_bridge_wakeup(struct device *dev, bool enable);
 #else
 static inline void acpi_pm_wakeup_event(struct device *dev)
 {
@@ -642,10 +647,6 @@ static inline int acpi_pm_device_sleep_state(struct device *d, int *p, int m)
 		m : ACPI_STATE_D0;
 }
 static inline int acpi_pm_set_device_wakeup(struct device *dev, bool enable)
-{
-	return -ENODEV;
-}
-static inline int acpi_pm_set_bridge_wakeup(struct device *dev, bool enable)
 {
 	return -ENODEV;
 }

@@ -4,9 +4,9 @@
 #include <linux/percpu.h>
 #include <linux/kallsyms.h>
 #include <linux/kcore.h>
+#include <linux/pgtable.h>
 
 #include <asm/cpu_entry_area.h>
-#include <asm/pgtable.h>
 #include <asm/fixmap.h>
 #include <asm/desc.h>
 
@@ -17,11 +17,12 @@ static DEFINE_PER_CPU_PAGE_ALIGNED(struct exception_stacks, exception_stacks);
 DEFINE_PER_CPU(struct cea_exception_stacks*, cea_exception_stacks);
 #endif
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_DOUBLEFAULT)
+#ifdef CONFIG_X86_32
 DECLARE_PER_CPU_PAGE_ALIGNED(struct doublefault_stack, doublefault_stack);
 #endif
 
-struct cpu_entry_area *get_cpu_entry_area(int cpu)
+/* Is called from entry code, so must be noinstr */
+noinstr struct cpu_entry_area *get_cpu_entry_area(int cpu)
 {
 	unsigned long va = CPU_ENTRY_AREA_PER_CPU + cpu * CPU_ENTRY_AREA_SIZE;
 	BUILD_BUG_ON(sizeof(struct cpu_entry_area) % PAGE_SIZE != 0);
@@ -107,19 +108,16 @@ static void __init percpu_setup_exception_stacks(unsigned int cpu)
 	 */
 	cea_map_stack(DF);
 	cea_map_stack(NMI);
-	cea_map_stack(DB1);
 	cea_map_stack(DB);
 	cea_map_stack(MCE);
 }
 #else
 static inline void percpu_setup_exception_stacks(unsigned int cpu)
 {
-#ifdef CONFIG_DOUBLEFAULT
 	struct cpu_entry_area *cea = get_cpu_entry_area(cpu);
 
 	cea_map_percpu_pages(&cea->doublefault_stack,
 			     &per_cpu(doublefault_stack, cpu), 1, PAGE_KERNEL);
-#endif
 }
 #endif
 

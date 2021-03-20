@@ -65,7 +65,7 @@ efi_status_t __efi_rt_asm_wrapper(void *, const char *, ...);
 	(SEGMENT_ALIGN > THREAD_ALIGN ? SEGMENT_ALIGN : THREAD_ALIGN)
 
 /* on arm64, the FDT may be located anywhere in system RAM */
-static inline unsigned long efi_get_max_fdt_addr(unsigned long dram_base)
+static inline unsigned long efi_get_max_fdt_addr(unsigned long image_addr)
 {
 	return ULONG_MAX;
 }
@@ -80,19 +80,10 @@ static inline unsigned long efi_get_max_fdt_addr(unsigned long dram_base)
  * apply to other bootloaders, and are required for some kernel
  * configurations.
  */
-static inline unsigned long efi_get_max_initrd_addr(unsigned long dram_base,
-						    unsigned long image_addr)
+static inline unsigned long efi_get_max_initrd_addr(unsigned long image_addr)
 {
 	return (image_addr & ~(SZ_1G - 1UL)) + (1UL << (VA_BITS_MIN - 1));
 }
-
-#define efi_bs_call(func, ...)	efi_system_table()->boottime->func(__VA_ARGS__)
-#define efi_rt_call(func, ...)	efi_system_table()->runtime->func(__VA_ARGS__)
-#define efi_is_native()		(true)
-
-#define efi_table_attr(inst, attr)	(inst->attr)
-
-#define efi_call_proto(inst, func, ...) inst->func(inst, ##__VA_ARGS__)
 
 #define alloc_screen_info(x...)		&screen_info
 

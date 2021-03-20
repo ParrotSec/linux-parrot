@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2018 Texas Instruments Incorporated - https://www.ti.com/
  * Author: Tomi Valkeinen <tomi.valkeinen@ti.com>
  */
 
@@ -83,8 +83,6 @@ struct dispc_features {
 	const char *vid_name[TIDSS_MAX_PLANES]; /* Should match dt reg names */
 	bool vid_lite[TIDSS_MAX_PLANES];
 	u32 vid_order[TIDSS_MAX_PLANES];
-
-	struct dispc_errata errata;
 };
 
 extern const struct dispc_features dispc_k2g_feats;

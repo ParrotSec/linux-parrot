@@ -25,13 +25,17 @@ properties:
     maxItems: 1
 
   power-domains:
-    maxItems: 3
+    minItems: 3
+    maxItems: 4
 
   power-domain-names:
+    minItems: 3
+    maxItems: 4
     items:
       - const: venus
       - const: vcodec0
       - const: vcodec1
+      - const: cx
 
   clocks:
     maxItems: 7
@@ -103,6 +107,8 @@ required:
   - video-core0
   - video-core1
 
+additionalProperties: false
+
 examples:
   - |
         #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -110,7 +116,7 @@ examples:
 
         video-codec@aa00000 {
                 compatible = "qcom,sdm845-venus-v2";
-                reg = <0 0x0aa00000 0 0xff000>;
+                reg = <0x0aa00000 0xff000>;
                 interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
                 clocks = <&videocc VIDEO_CC_VENUS_CTL_CORE_CLK>,
                          <&videocc VIDEO_CC_VENUS_AHB_CLK>,

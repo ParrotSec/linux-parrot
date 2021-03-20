@@ -22,6 +22,7 @@ properties:
 
       - items:
           - enum:
+              - renesas,usbhs-r8a7742  # RZ/G1H
               - renesas,usbhs-r8a7743  # RZ/G1M
               - renesas,usbhs-r8a7744  # RZ/G1N
               - renesas,usbhs-r8a7745  # RZ/G1E
@@ -38,6 +39,7 @@ properties:
               - renesas,usbhs-r8a774a1 # RZ/G2M
               - renesas,usbhs-r8a774b1 # RZ/G2N
               - renesas,usbhs-r8a774c0 # RZ/G2E
+              - renesas,usbhs-r8a774e1 # RZ/G2H
               - renesas,usbhs-r8a7795  # R-Car H3
               - renesas,usbhs-r8a7796  # R-Car M3-W
               - renesas,usbhs-r8a77961 # R-Car M3-W+
@@ -121,7 +123,7 @@ examples:
 
     usbhs: usb@e6590000 {
         compatible = "renesas,usbhs-r8a7790", "renesas,rcar-gen2-usbhs";
-        reg = <0 0xe6590000 0 0x100>;
+        reg = <0xe6590000 0x100>;
         interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>;
         clocks = <&cpg CPG_MOD 704>;
     };

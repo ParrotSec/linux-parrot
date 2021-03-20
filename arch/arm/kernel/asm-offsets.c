@@ -12,6 +12,7 @@
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <asm/cacheflush.h>
+#include <asm/kexec-internal.h>
 #include <asm/glue-df.h>
 #include <asm/glue-pf.h>
 #include <asm/mach/arch.h>
@@ -30,15 +31,6 @@
  */
 #if defined(__APCS_26__)
 #error Sorry, your compiler targets APCS-26 but this kernel requires APCS-32
-#endif
-/*
- * GCC 4.8.0-4.8.2: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58854
- *	      miscompiles find_get_entry(), and can result in EXT3 and EXT4
- *	      filesystem corruption (possibly other FS too).
- */
-#if defined(GCC_VERSION) && GCC_VERSION >= 40800 && GCC_VERSION < 40803
-#error Your compiler is too buggy; it is known to miscompile kernels
-#error and result in filesystem corruption and oopses.
 #endif
 
 int main(void)
@@ -179,5 +171,9 @@ int main(void)
   DEFINE(MPU_RGN_PRBAR,	offsetof(struct mpu_rgn, prbar));
   DEFINE(MPU_RGN_PRLAR,	offsetof(struct mpu_rgn, prlar));
 #endif
+  DEFINE(KEXEC_START_ADDR,	offsetof(struct kexec_relocate_data, kexec_start_address));
+  DEFINE(KEXEC_INDIR_PAGE,	offsetof(struct kexec_relocate_data, kexec_indirection_page));
+  DEFINE(KEXEC_MACH_TYPE,	offsetof(struct kexec_relocate_data, kexec_mach_type));
+  DEFINE(KEXEC_R2,		offsetof(struct kexec_relocate_data, kexec_r2));
   return 0; 
 }

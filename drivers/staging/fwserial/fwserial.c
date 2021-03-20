@@ -466,7 +466,7 @@ static void fwtty_throttle_port(struct fwtty_port *port)
  * fwtty_do_hangup - wait for ldisc to deliver all pending rx; only then hangup
  *
  * When the remote has finished tx, and all in-flight rx has been received and
- * and pushed to the flip buffer, the remote may close its device. This will
+ * pushed to the flip buffer, the remote may close its device. This will
  * drop DTR on the remote which will drop carrier here. Typically, the tty is
  * hung up when carrier is dropped or lost.
  *
@@ -2189,6 +2189,7 @@ static int fwserial_create(struct fw_unit *unit)
 		err = fw_core_add_address_handler(&port->rx_handler,
 						  &fw_high_memory_region);
 		if (err) {
+			tty_port_destroy(&port->port);
 			kfree(port);
 			goto free_ports;
 		}
@@ -2271,6 +2272,7 @@ unregister_ttys:
 
 free_ports:
 	for (--i; i >= 0; --i) {
+		fw_core_remove_address_handler(&serial->ports[i]->rx_handler);
 		tty_port_destroy(&serial->ports[i]->port);
 		kfree(serial->ports[i]);
 	}

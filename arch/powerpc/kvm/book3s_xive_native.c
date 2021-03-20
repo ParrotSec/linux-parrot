@@ -31,6 +31,12 @@ static u8 xive_vm_esb_load(struct xive_irq_data *xd, u32 offset)
 {
 	u64 val;
 
+	/*
+	 * The KVM XIVE native device does not use the XIVE_ESB_SET_PQ_10
+	 * load operation, so there is no need to enforce load-after-store
+	 * ordering.
+	 */
+
 	if (xd->flags & XIVE_IRQ_FLAG_SHIFT_BUG)
 		offset |= offset << 4;
 
@@ -245,6 +251,13 @@ static vm_fault_t xive_native_esb_fault(struct vm_fault *vmf)
 	}
 
 	state = &sb->irq_state[src];
+
+	/* Some sanity checking */
+	if (!state->valid) {
+		pr_devel("%s: source %lx invalid !\n", __func__, irq);
+		return VM_FAULT_SIGBUS;
+	}
+
 	kvmppc_xive_select_irq(state, &hw_num, &xd);
 
 	arch_spin_lock(&sb->lock);
@@ -1221,17 +1234,7 @@ static int xive_native_debug_show(struct seq_file *m, void *private)
 	return 0;
 }
 
-static int xive_native_debug_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, xive_native_debug_show, inode->i_private);
-}
-
-static const struct file_operations xive_native_debug_fops = {
-	.open = xive_native_debug_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
+DEFINE_SHOW_ATTRIBUTE(xive_native_debug);
 
 static void xive_native_debugfs_init(struct kvmppc_xive *xive)
 {

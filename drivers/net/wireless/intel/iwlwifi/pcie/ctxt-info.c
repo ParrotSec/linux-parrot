@@ -6,7 +6,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -20,7 +20,7 @@
  * BSD LICENSE
  *
  * Copyright(c) 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,7 +73,7 @@ static void *_iwl_pcie_ctxt_info_dma_alloc_coherent(struct iwl_trans *trans,
 	if (!result)
 		return NULL;
 
-	if (unlikely(iwl_pcie_crosses_4g_boundary(*phys, size))) {
+	if (unlikely(iwl_txq_crosses_4g_boundary(*phys, size))) {
 		void *old = result;
 		dma_addr_t oldphys = *phys;
 
@@ -91,6 +91,21 @@ static void *iwl_pcie_ctxt_info_dma_alloc_coherent(struct iwl_trans *trans,
 						   dma_addr_t *phys)
 {
 	return _iwl_pcie_ctxt_info_dma_alloc_coherent(trans, size, phys, 0);
+}
+
+int iwl_pcie_ctxt_info_alloc_dma(struct iwl_trans *trans,
+				 const void *data, u32 len,
+				 struct iwl_dram_data *dram)
+{
+	dram->block = iwl_pcie_ctxt_info_dma_alloc_coherent(trans, len,
+							    &dram->physical);
+	if (!dram->block)
+		return -ENOMEM;
+
+	dram->size = len;
+	memcpy(dram->block, data, len);
+
+	return 0;
 }
 
 void iwl_pcie_ctxt_info_free_paging(struct iwl_trans *trans)
@@ -141,7 +156,8 @@ int iwl_pcie_init_fw_sec(struct iwl_trans *trans,
 
 	/* initialize lmac sections */
 	for (i = 0; i < lmac_cnt; i++) {
-		ret = iwl_pcie_ctxt_info_alloc_dma(trans, &fw->sec[i],
+		ret = iwl_pcie_ctxt_info_alloc_dma(trans, fw->sec[i].data,
+						   fw->sec[i].len,
 						   &dram->fw[dram->fw_cnt]);
 		if (ret)
 			return ret;
@@ -154,7 +170,8 @@ int iwl_pcie_init_fw_sec(struct iwl_trans *trans,
 	for (i = 0; i < umac_cnt; i++) {
 		/* access FW with +1 to make up for lmac separator */
 		ret = iwl_pcie_ctxt_info_alloc_dma(trans,
-						   &fw->sec[dram->fw_cnt + 1],
+						   fw->sec[dram->fw_cnt + 1].data,
+						   fw->sec[dram->fw_cnt + 1].len,
 						   &dram->fw[dram->fw_cnt]);
 		if (ret)
 			return ret;
@@ -177,7 +194,8 @@ int iwl_pcie_init_fw_sec(struct iwl_trans *trans,
 		/* access FW with +2 to make up for lmac & umac separators */
 		int fw_idx = dram->fw_cnt + i + 2;
 
-		ret = iwl_pcie_ctxt_info_alloc_dma(trans, &fw->sec[fw_idx],
+		ret = iwl_pcie_ctxt_info_alloc_dma(trans, fw->sec[fw_idx].data,
+						   fw->sec[fw_idx].len,
 						   &dram->paging[i]);
 		if (ret)
 			return ret;
@@ -248,7 +266,7 @@ int iwl_pcie_ctxt_info_init(struct iwl_trans *trans,
 
 	/* initialize TX command queue */
 	ctxt_info->hcmd_cfg.cmd_queue_addr =
-		cpu_to_le64(trans_pcie->txq[trans_pcie->cmd_queue]->dma_addr);
+		cpu_to_le64(trans->txqs.txq[trans->txqs.cmd.q_id]->dma_addr);
 	ctxt_info->hcmd_cfg.cmd_queue_size =
 		TFD_QUEUE_CB_SIZE(IWL_CMD_QUEUE_SIZE);
 

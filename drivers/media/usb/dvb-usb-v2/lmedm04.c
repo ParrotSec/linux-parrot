@@ -22,7 +22,7 @@
  *
  * LME2510C + M88RS2000
  *
- * For firmware see Documentation/media/dvb-drivers/lmedm04.rst
+ * For firmware see Documentation/admin-guide/media/lmedm04.rst
  *
  * I2C addresses:
  * 0xd0 - STV0288	- Demodulator
@@ -39,7 +39,7 @@
  * Copyright (C) 2010 Malcolm Priestley (tvboxspy@gmail.com)
  * LME2510(C)(C) Leaguerme (Shenzhen) MicroElectronics Co., Ltd.
  *
- * see Documentation/media/dvb-drivers/dvb-usb.rst for more information
+ * see Documentation/driver-api/media/drivers/dvb-usb.rst for more information
  *
  * Known Issues :
  *	LME2510: Non Intel USB chipsets fail to maintain High Speed on
@@ -391,7 +391,7 @@ static int lme2510_int_read(struct dvb_usb_adapter *adap)
 	ep = usb_pipe_endpoint(d->udev, lme_int->lme_urb->pipe);
 
 	if (usb_endpoint_type(&ep->desc) == USB_ENDPOINT_XFER_BULK)
-		lme_int->lme_urb->pipe = usb_rcvbulkpipe(d->udev, 0xa),
+		lme_int->lme_urb->pipe = usb_rcvbulkpipe(d->udev, 0xa);
 
 	usb_submit_urb(lme_int->lme_urb, GFP_ATOMIC);
 	info("INT Interrupt Service Started");
@@ -687,7 +687,7 @@ static const char *lme_firmware_switch(struct dvb_usb_device *d, int cold)
 				cold = 0;
 				break;
 			}
-			/* fall through */
+			fallthrough;
 		case TUNER_LG:
 			fw_lme = fw_lg;
 			ret = request_firmware(&fw, fw_lme, &udev->dev);
@@ -710,7 +710,7 @@ static const char *lme_firmware_switch(struct dvb_usb_device *d, int cold)
 				cold = 0;
 				break;
 			}
-			/* fall through */
+			fallthrough;
 		case TUNER_LG:
 			fw_lme = fw_c_lg;
 			ret = request_firmware(&fw, fw_lme, &udev->dev);
@@ -718,7 +718,7 @@ static const char *lme_firmware_switch(struct dvb_usb_device *d, int cold)
 				st->dvb_usb_lme2510_firmware = TUNER_LG;
 				break;
 			}
-			/* fall through */
+			fallthrough;
 		case TUNER_S0194:
 			fw_lme = fw_c_s0194;
 			ret = request_firmware(&fw, fw_lme, &udev->dev);
@@ -1018,7 +1018,7 @@ static int dm04_lme2510_frontend_attach(struct dvb_usb_adapter *adap)
 			}
 			break;
 		}
-		/* fall through */
+		fallthrough;
 	case 0x22f0:
 		st->i2c_gate = 5;
 		adap->fe[0] = dvb_attach(m88rs2000_attach,

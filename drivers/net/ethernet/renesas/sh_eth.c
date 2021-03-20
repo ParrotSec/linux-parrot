@@ -45,6 +45,15 @@
 #define SH_ETH_OFFSET_DEFAULTS			\
 	[0 ... SH_ETH_MAX_REGISTER_OFFSET - 1] = SH_ETH_OFFSET_INVALID
 
+/* use some intentionally tricky logic here to initialize the whole struct to
+ * 0xffff, but then override certain fields, requiring us to indicate that we
+ * "know" that there are overrides in this structure, and we'll need to disable
+ * that warning from W=1 builds. GCC has supported this option since 4.2.X, but
+ * the macros available to do this only define GCC 8.
+ */
+__diag_push();
+__diag_ignore(GCC, 8, "-Woverride-init",
+	      "logic to initialize all and then override some is OK");
 static const u16 sh_eth_offset_gigabit[SH_ETH_MAX_REGISTER_OFFSET] = {
 	SH_ETH_OFFSET_DEFAULTS,
 
@@ -332,6 +341,7 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
 
 	[TSU_ADRH0]	= 0x0100,
 };
+__diag_pop();
 
 static void sh_eth_rcv_snd_disable(struct net_device *ndev);
 static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev);
@@ -549,6 +559,8 @@ static struct sh_eth_cpu_data r7s72100_data = {
 			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
 			  EESR_TDE,
 	.fdr_value	= 0x0000070f,
+
+	.trscer_err_mask = DESC_I_RINT8 | DESC_I_RINT5,
 
 	.no_psr		= 1,
 	.apr		= 1,
@@ -769,6 +781,8 @@ static struct sh_eth_cpu_data r7s9210_data = {
 			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE,
 
 	.fdr_value	= 0x0000070f,
+
+	.trscer_err_mask = DESC_I_RINT8 | DESC_I_RINT5,
 
 	.apr		= 1,
 	.mpr		= 1,
@@ -1079,6 +1093,9 @@ static struct sh_eth_cpu_data sh771x_data = {
 			  EESIPR_CEEFIP | EESIPR_CELFIP |
 			  EESIPR_RRFIP | EESIPR_RTLFIP | EESIPR_RTSFIP |
 			  EESIPR_PREIP | EESIPR_CERFIP,
+
+	.trscer_err_mask = DESC_I_RINT8,
+
 	.tsu		= 1,
 	.dual_port	= 1,
 };
@@ -1202,7 +1219,7 @@ static void sh_mdc_ctrl(struct mdiobb_ctrl *ctrl, int bit)
 }
 
 /* mdio bus control struct */
-static struct mdiobb_ops bb_ops = {
+static const struct mdiobb_ops bb_ops = {
 	.owner = THIS_MODULE,
 	.set_mdc = sh_mdc_ctrl,
 	.set_mdio_dir = sh_mmd_ctrl,
@@ -2472,7 +2489,8 @@ static void sh_eth_tx_timeout(struct net_device *ndev, unsigned int txqueue)
 }
 
 /* Packet transmit function */
-static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+static netdev_tx_t sh_eth_start_xmit(struct sk_buff *skb,
+				     struct net_device *ndev)
 {
 	struct sh_eth_private *mdp = netdev_priv(ndev);
 	struct sh_eth_txdesc *txdesc;
@@ -2595,9 +2613,9 @@ static int sh_eth_close(struct net_device *ndev)
 	/* Free all the skbuffs in the Rx queue and the DMA buffer. */
 	sh_eth_ring_free(ndev);
 
-	pm_runtime_put_sync(&mdp->pdev->dev);
-
 	mdp->is_opened = 0;
+
+	pm_runtime_put(&mdp->pdev->dev);
 
 	return 0;
 }

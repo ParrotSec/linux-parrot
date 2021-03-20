@@ -316,7 +316,7 @@ static int brcmstb_send_i2c_cmd(struct brcmstb_i2c_dev *dev,
 		goto cmd_out;
 	}
 
-	if ((CMD_RD || CMD_WR) &&
+	if ((cmd == CMD_RD || cmd == CMD_WR) &&
 	    bsc_readl(dev, iic_enable) & BSC_IIC_EN_NOACK_MASK) {
 		rc = -EREMOTEIO;
 		dev_dbg(dev->device, "controller received NOACK intr for %s\n",
@@ -647,20 +647,22 @@ static int brcmstb_i2c_probe(struct platform_device *pdev)
 		int_name = NULL;
 
 	/* Get the interrupt number */
-	dev->irq = platform_get_irq(pdev, 0);
+	dev->irq = platform_get_irq_optional(pdev, 0);
 
 	/* disable the bsc interrupt line */
 	brcmstb_i2c_enable_disable_irq(dev, INT_DISABLE);
 
 	/* register the ISR handler */
-	rc = devm_request_irq(&pdev->dev, dev->irq, brcmstb_i2c_isr,
-			      IRQF_SHARED,
-			      int_name ? int_name : pdev->name,
-			      dev);
+	if (dev->irq >= 0) {
+		rc = devm_request_irq(&pdev->dev, dev->irq, brcmstb_i2c_isr,
+				      IRQF_SHARED,
+				      int_name ? int_name : pdev->name,
+				      dev);
 
-	if (rc) {
-		dev_dbg(dev->device, "falling back to polling mode");
-		dev->irq = -1;
+		if (rc) {
+			dev_dbg(dev->device, "falling back to polling mode");
+			dev->irq = -1;
+		}
 	}
 
 	if (of_property_read_u32(dev->device->of_node,

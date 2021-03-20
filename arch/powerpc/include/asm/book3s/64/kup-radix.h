@@ -12,17 +12,22 @@
 
 #ifdef __ASSEMBLY__
 
-.macro kuap_restore_amr	gpr
+.macro kuap_restore_amr	gpr1, gpr2
 #ifdef CONFIG_PPC_KUAP
 	BEGIN_MMU_FTR_SECTION_NESTED(67)
-	ld	\gpr, STACK_REGS_KUAP(r1)
+	mfspr	\gpr1, SPRN_AMR
+	ld	\gpr2, STACK_REGS_KUAP(r1)
+	cmpd	\gpr1, \gpr2
+	beq	998f
 	isync
-	mtspr	SPRN_AMR, \gpr
+	mtspr	SPRN_AMR, \gpr2
 	/* No isync required, see kuap_restore_amr() */
+998:
 	END_MMU_FTR_SECTION_NESTED_IFSET(MMU_FTR_RADIX_KUAP, 67)
 #endif
 .endm
 
+#ifdef CONFIG_PPC_KUAP
 .macro kuap_check_amr gpr1, gpr2
 #ifdef CONFIG_PPC_KUAP_DEBUG
 	BEGIN_MMU_FTR_SECTION_NESTED(67)
@@ -34,6 +39,7 @@
 	END_MMU_FTR_SECTION_NESTED_IFSET(MMU_FTR_RADIX_KUAP, 67)
 #endif
 .endm
+#endif
 
 .macro kuap_save_amr_and_lock gpr1, gpr2, use_cr, msr_pr_cr
 #ifdef CONFIG_PPC_KUAP
@@ -57,14 +63,18 @@
 
 #else /* !__ASSEMBLY__ */
 
+#include <linux/jump_label.h>
+
+DECLARE_STATIC_KEY_FALSE(uaccess_flush_key);
+
 #ifdef CONFIG_PPC_KUAP
 
 #include <asm/mmu.h>
 #include <asm/ptrace.h>
 
-static inline void kuap_restore_amr(struct pt_regs *regs)
+static inline void kuap_restore_amr(struct pt_regs *regs, unsigned long amr)
 {
-	if (mmu_has_feature(MMU_FTR_RADIX_KUAP)) {
+	if (mmu_has_feature(MMU_FTR_RADIX_KUAP) && unlikely(regs->kuap != amr)) {
 		isync();
 		mtspr(SPRN_AMR, regs->kuap);
 		/*
@@ -73,6 +83,17 @@ static inline void kuap_restore_amr(struct pt_regs *regs)
 		 * which is a CSI.
 		 */
 	}
+}
+
+static inline unsigned long kuap_get_and_check_amr(void)
+{
+	if (mmu_has_feature(MMU_FTR_RADIX_KUAP)) {
+		unsigned long amr = mfspr(SPRN_AMR);
+		if (IS_ENABLED(CONFIG_PPC_KUAP_DEBUG)) /* kuap_check_amr() */
+			WARN_ON_ONCE(amr != AMR_KUAP_BLOCKED);
+		return amr;
+	}
+	return 0;
 }
 
 static inline void kuap_check_amr(void)
@@ -88,8 +109,16 @@ static inline void kuap_check_amr(void)
 
 static inline unsigned long get_kuap(void)
 {
+	/*
+	 * We return AMR_KUAP_BLOCKED when we don't support KUAP because
+	 * prevent_user_access_return needs to return AMR_KUAP_BLOCKED to
+	 * cause restore_user_access to do a flush.
+	 *
+	 * This has no effect in terms of actually blocking things on hash,
+	 * so it doesn't break anything.
+	 */
 	if (!early_mmu_has_feature(MMU_FTR_RADIX_KUAP))
-		return 0;
+		return AMR_KUAP_BLOCKED;
 
 	return mfspr(SPRN_AMR);
 }
@@ -107,6 +136,29 @@ static inline void set_kuap(unsigned long value)
 	mtspr(SPRN_AMR, value);
 	isync();
 }
+
+static inline bool
+bad_kuap_fault(struct pt_regs *regs, unsigned long address, bool is_write)
+{
+	return WARN(mmu_has_feature(MMU_FTR_RADIX_KUAP) &&
+		    (regs->kuap & (is_write ? AMR_KUAP_BLOCK_WRITE : AMR_KUAP_BLOCK_READ)),
+		    "Bug: %s fault blocked by AMR!", is_write ? "Write" : "Read");
+}
+#else /* CONFIG_PPC_KUAP */
+static inline void kuap_restore_amr(struct pt_regs *regs, unsigned long amr) { }
+
+static inline unsigned long kuap_get_and_check_amr(void)
+{
+	return 0UL;
+}
+
+static inline unsigned long get_kuap(void)
+{
+	return AMR_KUAP_BLOCKED;
+}
+
+static inline void set_kuap(unsigned long value) { }
+#endif /* !CONFIG_PPC_KUAP */
 
 static __always_inline void allow_user_access(void __user *to, const void __user *from,
 					      unsigned long size, unsigned long dir)
@@ -127,6 +179,8 @@ static inline void prevent_user_access(void __user *to, const void __user *from,
 				       unsigned long size, unsigned long dir)
 {
 	set_kuap(AMR_KUAP_BLOCKED);
+	if (static_branch_unlikely(&uaccess_flush_key))
+		do_uaccess_flush();
 }
 
 static inline unsigned long prevent_user_access_return(void)
@@ -134,6 +188,8 @@ static inline unsigned long prevent_user_access_return(void)
 	unsigned long flags = get_kuap();
 
 	set_kuap(AMR_KUAP_BLOCKED);
+	if (static_branch_unlikely(&uaccess_flush_key))
+		do_uaccess_flush();
 
 	return flags;
 }
@@ -141,25 +197,9 @@ static inline unsigned long prevent_user_access_return(void)
 static inline void restore_user_access(unsigned long flags)
 {
 	set_kuap(flags);
+	if (static_branch_unlikely(&uaccess_flush_key) && flags == AMR_KUAP_BLOCKED)
+		do_uaccess_flush();
 }
-
-static inline bool
-bad_kuap_fault(struct pt_regs *regs, unsigned long address, bool is_write)
-{
-	return WARN(mmu_has_feature(MMU_FTR_RADIX_KUAP) &&
-		    (regs->kuap & (is_write ? AMR_KUAP_BLOCK_WRITE : AMR_KUAP_BLOCK_READ)),
-		    "Bug: %s fault blocked by AMR!", is_write ? "Write" : "Read");
-}
-#else /* CONFIG_PPC_KUAP */
-static inline void kuap_restore_amr(struct pt_regs *regs)
-{
-}
-
-static inline void kuap_check_amr(void)
-{
-}
-#endif /* CONFIG_PPC_KUAP */
-
 #endif /* __ASSEMBLY__ */
 
 #endif /* _ASM_POWERPC_BOOK3S_64_KUP_RADIX_H */

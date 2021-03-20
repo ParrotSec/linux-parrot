@@ -67,7 +67,7 @@ patternProperties:
     required:
       - reg
 
-    additionalProperties: false
+additionalProperties: true
 
 examples:
   - |

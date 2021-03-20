@@ -2046,7 +2046,7 @@ nv120_chipset = {
 	.mmu = gm200_mmu_new,
 	.mxm = nv50_mxm_new,
 	.pci = gk104_pci_new,
-	.pmu = gm107_pmu_new,
+	.pmu = gm200_pmu_new,
 	.therm = gm200_therm_new,
 	.timer = gk20a_timer_new,
 	.top = gk104_top_new,
@@ -2084,7 +2084,7 @@ nv124_chipset = {
 	.mmu = gm200_mmu_new,
 	.mxm = nv50_mxm_new,
 	.pci = gk104_pci_new,
-	.pmu = gm107_pmu_new,
+	.pmu = gm200_pmu_new,
 	.therm = gm200_therm_new,
 	.timer = gk20a_timer_new,
 	.top = gk104_top_new,
@@ -2122,7 +2122,7 @@ nv126_chipset = {
 	.mmu = gm200_mmu_new,
 	.mxm = nv50_mxm_new,
 	.pci = gk104_pci_new,
-	.pmu = gm107_pmu_new,
+	.pmu = gm200_pmu_new,
 	.therm = gm200_therm_new,
 	.timer = gk20a_timer_new,
 	.top = gk104_top_new,
@@ -2184,7 +2184,7 @@ nv130_chipset = {
 	.mmu = gp100_mmu_new,
 	.therm = gp100_therm_new,
 	.pci = gp100_pci_new,
-	.pmu = gp100_pmu_new,
+	.pmu = gm200_pmu_new,
 	.timer = gk20a_timer_new,
 	.top = gk104_top_new,
 	.ce[0] = gp100_ce_new,
@@ -2924,6 +2924,37 @@ nvkm_device_del(struct nvkm_device **pdevice)
 	}
 }
 
+/* returns true if the GPU is in the CPU native byte order */
+static inline bool
+nvkm_device_endianness(struct nvkm_device *device)
+{
+#ifdef __BIG_ENDIAN
+	const bool big_endian = true;
+#else
+	const bool big_endian = false;
+#endif
+
+	/* Read NV_PMC_BOOT_1, and assume non-functional endian switch if it
+	 * doesn't contain the expected values.
+	 */
+	u32 pmc_boot_1 = nvkm_rd32(device, 0x000004);
+	if (pmc_boot_1 && pmc_boot_1 != 0x01000001)
+		return !big_endian; /* Assume GPU is LE in this case. */
+
+	/* 0 means LE and 0x01000001 means BE GPU. Condition is true when
+	 * GPU/CPU endianness don't match.
+	 */
+	if (big_endian == !pmc_boot_1) {
+		nvkm_wr32(device, 0x000004, 0x01000001);
+		nvkm_rd32(device, 0x000000);
+		if (nvkm_rd32(device, 0x000004) != (big_endian ? 0x01000001 : 0x00000000))
+			return !big_endian; /* Assume GPU is LE on any unexpected read-back. */
+	}
+
+	/* CPU/GPU endianness should (hopefully) match. */
+	return true;
+}
+
 int
 nvkm_device_ctor(const struct nvkm_device_func *func,
 		 const struct nvkm_device_quirk *quirk,
@@ -2934,8 +2965,7 @@ nvkm_device_ctor(const struct nvkm_device_func *func,
 {
 	struct nvkm_subdev *subdev;
 	u64 mmio_base, mmio_size;
-	u32 boot0, strap;
-	void __iomem *map;
+	u32 boot0, boot1, strap;
 	int ret = -EEXIST, i;
 	unsigned chipset;
 
@@ -2961,26 +2991,26 @@ nvkm_device_ctor(const struct nvkm_device_func *func,
 	mmio_base = device->func->resource_addr(device, 0);
 	mmio_size = device->func->resource_size(device, 0);
 
+	if (detect || mmio) {
+		device->pri = ioremap(mmio_base, mmio_size);
+		if (device->pri == NULL) {
+			nvdev_error(device, "unable to map PRI\n");
+			ret = -ENOMEM;
+			goto done;
+		}
+	}
+
 	/* identify the chipset, and determine classes of subdev/engines */
 	if (detect) {
-		map = ioremap(mmio_base, 0x102000);
-		if (ret = -ENOMEM, map == NULL)
-			goto done;
-
 		/* switch mmio to cpu's native endianness */
-#ifndef __BIG_ENDIAN
-		if (ioread32_native(map + 0x000004) != 0x00000000) {
-#else
-		if (ioread32_native(map + 0x000004) == 0x00000000) {
-#endif
-			iowrite32_native(0x01000001, map + 0x000004);
-			ioread32_native(map);
+		if (!nvkm_device_endianness(device)) {
+			nvdev_error(device,
+				    "Couldn't switch GPU to CPUs endianess\n");
+			ret = -ENOSYS;
+			goto done;
 		}
 
-		/* read boot0 and strapping information */
-		boot0 = ioread32_native(map + 0x000000);
-		strap = ioread32_native(map + 0x101000);
-		iounmap(map);
+		boot0 = nvkm_rd32(device, 0x000000);
 
 		/* chipset can be overridden for devel/testing purposes */
 		chipset = nvkm_longopt(device->cfgopt, "NvChipset", 0);
@@ -3132,11 +3162,23 @@ nvkm_device_ctor(const struct nvkm_device_func *func,
 		case 0x168: device->chip = &nv168_chipset; break;
 		default:
 			nvdev_error(device, "unknown chipset (%08x)\n", boot0);
+			ret = -ENODEV;
 			goto done;
 		}
 
 		nvdev_info(device, "NVIDIA %s (%08x)\n",
 			   device->chip->name, boot0);
+
+		/* vGPU detection */
+		boot1 = nvkm_rd32(device, 0x0000004);
+		if (device->card_type >= TU100 && (boot1 & 0x00030000)) {
+			nvdev_info(device, "vGPUs are not supported\n");
+			ret = -ENODEV;
+			goto done;
+		}
+
+		/* read strapping information */
+		strap = nvkm_rd32(device, 0x101000);
 
 		/* determine frequency of timing crystal */
 		if ( device->card_type <= NV_10 || device->chipset < 0x17 ||
@@ -3157,15 +3199,6 @@ nvkm_device_ctor(const struct nvkm_device_func *func,
 
 	if (!device->name)
 		device->name = device->chip->name;
-
-	if (mmio) {
-		device->pri = ioremap(mmio_base, mmio_size);
-		if (!device->pri) {
-			nvdev_error(device, "unable to map PRI\n");
-			ret = -ENOMEM;
-			goto done;
-		}
-	}
 
 	mutex_init(&device->mutex);
 
@@ -3254,6 +3287,10 @@ nvkm_device_ctor(const struct nvkm_device_func *func,
 
 	ret = 0;
 done:
+	if (device->pri && (!mmio || ret)) {
+		iounmap(device->pri);
+		device->pri = NULL;
+	}
 	mutex_unlock(&nv_devices_mutex);
 	return ret;
 }

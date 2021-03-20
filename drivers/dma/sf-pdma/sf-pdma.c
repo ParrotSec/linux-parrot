@@ -20,6 +20,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
+#include <linux/slab.h>
 
 #include "sf-pdma.h"
 
@@ -280,10 +281,9 @@ static void sf_pdma_free_desc(struct virt_dma_desc *vdesc)
 	desc->in_use = false;
 }
 
-static void sf_pdma_donebh_tasklet(unsigned long arg)
+static void sf_pdma_donebh_tasklet(struct tasklet_struct *t)
 {
-	struct sf_pdma_chan *chan = (struct sf_pdma_chan *)arg;
-	struct sf_pdma_desc *desc = chan->desc;
+	struct sf_pdma_chan *chan = from_tasklet(chan, t, done_tasklet);
 	unsigned long flags;
 
 	spin_lock_irqsave(&chan->lock, flags);
@@ -294,12 +294,15 @@ static void sf_pdma_donebh_tasklet(unsigned long arg)
 	}
 	spin_unlock_irqrestore(&chan->lock, flags);
 
-	dmaengine_desc_get_callback_invoke(desc->async_tx, NULL);
+	spin_lock_irqsave(&chan->vchan.lock, flags);
+	list_del(&chan->desc->vdesc.node);
+	vchan_cookie_complete(&chan->desc->vdesc);
+	spin_unlock_irqrestore(&chan->vchan.lock, flags);
 }
 
-static void sf_pdma_errbh_tasklet(unsigned long arg)
+static void sf_pdma_errbh_tasklet(struct tasklet_struct *t)
 {
-	struct sf_pdma_chan *chan = (struct sf_pdma_chan *)arg;
+	struct sf_pdma_chan *chan = from_tasklet(chan, t, err_tasklet);
 	struct sf_pdma_desc *desc = chan->desc;
 	unsigned long flags;
 
@@ -331,8 +334,7 @@ static irqreturn_t sf_pdma_done_isr(int irq, void *dev_id)
 	residue = readq(regs->residue);
 
 	if (!residue) {
-		list_del(&chan->desc->vdesc.node);
-		vchan_cookie_complete(&chan->desc->vdesc);
+		tasklet_hi_schedule(&chan->done_tasklet);
 	} else {
 		/* submit next trascatioin if possible */
 		struct sf_pdma_desc *desc = chan->desc;
@@ -345,8 +347,6 @@ static irqreturn_t sf_pdma_done_isr(int irq, void *dev_id)
 	}
 
 	spin_unlock_irqrestore(&chan->vchan.lock, flags);
-
-	tasklet_hi_schedule(&chan->done_tasklet);
 
 	return IRQ_HANDLED;
 }
@@ -475,10 +475,8 @@ static void sf_pdma_setup_chans(struct sf_pdma *pdma)
 
 		writel(PDMA_CLEAR_CTRL, chan->regs.ctrl);
 
-		tasklet_init(&chan->done_tasklet,
-			     sf_pdma_donebh_tasklet, (unsigned long)chan);
-		tasklet_init(&chan->err_tasklet,
-			     sf_pdma_errbh_tasklet, (unsigned long)chan);
+		tasklet_setup(&chan->done_tasklet, sf_pdma_donebh_tasklet);
+		tasklet_setup(&chan->err_tasklet, sf_pdma_errbh_tasklet);
 	}
 }
 
@@ -506,11 +504,11 @@ static int sf_pdma_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	pdma->membase = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(pdma->membase))
-		goto ERR_MEMBASE;
+		return PTR_ERR(pdma->membase);
 
 	ret = sf_pdma_irq_init(pdev, pdma);
 	if (ret)
-		goto ERR_INITIRQ;
+		return ret;
 
 	sf_pdma_setup_chans(pdma);
 
@@ -544,24 +542,13 @@ static int sf_pdma_probe(struct platform_device *pdev)
 			 "Failed to set DMA mask. Fall back to default.\n");
 
 	ret = dma_async_device_register(&pdma->dma_dev);
-	if (ret)
-		goto ERR_REG_DMADEVICE;
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Can't register SiFive Platform DMA. (%d)\n", ret);
+		return ret;
+	}
 
 	return 0;
-
-ERR_MEMBASE:
-	devm_kfree(&pdev->dev, pdma);
-	return PTR_ERR(pdma->membase);
-
-ERR_INITIRQ:
-	devm_kfree(&pdev->dev, pdma);
-	return ret;
-
-ERR_REG_DMADEVICE:
-	devm_kfree(&pdev->dev, pdma);
-	dev_err(&pdev->dev,
-		"Can't register SiFive Platform DMA. (%d)\n", ret);
-	return ret;
 }
 
 static int sf_pdma_remove(struct platform_device *pdev)

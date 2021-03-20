@@ -23,7 +23,7 @@ struct hal_rx_wbm_rel_info {
 
 struct hal_rx_mon_status_tlv_hdr {
 	u32 hdr;
-	u8 value[0];
+	u8 value[];
 };
 
 enum hal_rx_su_mu_coding {
@@ -321,7 +321,7 @@ void ath11k_hal_rx_reo_ent_paddr_get(struct ath11k_base *ab, void *desc,
 				     dma_addr_t *paddr, u32 *desc_bank);
 void ath11k_hal_rx_reo_ent_buf_paddr_get(void *rx_desc,
 					 dma_addr_t *paddr, u32 *sw_cookie,
-					 void **pp_buf_addr_info,
+					 void **pp_buf_addr_info, u8 *rbm,
 					 u32 *msdu_cnt);
 enum hal_rx_mon_status
 ath11k_hal_rx_parse_mon_status(struct ath11k_base *ab,

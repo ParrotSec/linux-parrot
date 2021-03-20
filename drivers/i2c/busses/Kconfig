@@ -146,6 +146,8 @@ config I2C_I801
 	    Elkhart Lake (PCH)
 	    Tiger Lake (PCH)
 	    Jasper Lake (SOC)
+	    Emmitsburg (PCH)
+	    Alder Lake (PCH)
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-i801.
@@ -475,8 +477,8 @@ config I2C_BCM_KONA
 
 config I2C_BRCMSTB
 	tristate "BRCM Settop/DSL I2C controller"
-	depends on ARCH_BRCMSTB || BMIPS_GENERIC || ARCH_BCM_63XX || \
-		   COMPILE_TEST
+	depends on ARCH_BCM2835 || ARCH_BRCMSTB || BMIPS_GENERIC || \
+		   ARCH_BCM_63XX || COMPILE_TEST
 	default y
 	help
 	  If you say yes to this option, support will be included for the
@@ -526,11 +528,24 @@ config I2C_DAVINCI
 
 config I2C_DESIGNWARE_CORE
 	tristate
+	select REGMAP
+
+config I2C_DESIGNWARE_SLAVE
+	bool "Synopsys DesignWare Slave"
+	depends on I2C_DESIGNWARE_CORE
+	select I2C_SLAVE
+	help
+	  If you say yes to this option, support will be included for the
+	  Synopsys DesignWare I2C slave adapter.
+
+	  This is not a standalone module, this module compiles together with
+	  i2c-designware-core.
 
 config I2C_DESIGNWARE_PLATFORM
 	tristate "Synopsys DesignWare Platform"
-	select I2C_DESIGNWARE_CORE
 	depends on (ACPI && COMMON_CLK) || !ACPI
+	select I2C_DESIGNWARE_CORE
+	select MFD_SYSCON if MIPS_BAIKAL_T1
 	help
 	  If you say yes to this option, support will be included for the
 	  Synopsys DesignWare I2C adapter.
@@ -538,16 +553,18 @@ config I2C_DESIGNWARE_PLATFORM
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-designware-platform.
 
-config I2C_DESIGNWARE_SLAVE
-	bool "Synopsys DesignWare Slave"
-	select I2C_SLAVE
+config I2C_DESIGNWARE_BAYTRAIL
+	bool "Intel Baytrail I2C semaphore support"
+	depends on ACPI
 	depends on I2C_DESIGNWARE_PLATFORM
+	depends on (I2C_DESIGNWARE_PLATFORM=m && IOSF_MBI) || \
+		   (I2C_DESIGNWARE_PLATFORM=y && IOSF_MBI=y)
 	help
-	  If you say yes to this option, support will be included for the
-	  Synopsys DesignWare I2C slave adapter.
-
-	  This is not a standalone module, this module compiles together with
-	  i2c-designware-core.
+	  This driver enables managed host access to the PMIC I2C bus on select
+	  Intel BayTrail platforms using the X-Powers AXP288 PMIC. It allows
+	  the host to request uninterrupted access to the PMIC's I2C bus from
+	  the platform firmware controlling it. You should say Y if running on
+	  a BayTrail system using the AXP288.
 
 config I2C_DESIGNWARE_PCI
 	tristate "Synopsys DesignWare PCI"
@@ -559,18 +576,6 @@ config I2C_DESIGNWARE_PCI
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-designware-pci.
-
-config I2C_DESIGNWARE_BAYTRAIL
-	bool "Intel Baytrail I2C semaphore support"
-	depends on ACPI
-	depends on (I2C_DESIGNWARE_PLATFORM=m && IOSF_MBI) || \
-		   (I2C_DESIGNWARE_PLATFORM=y && IOSF_MBI=y)
-	help
-	  This driver enables managed host access to the PMIC I2C bus on select
-	  Intel BayTrail platforms using the X-Powers AXP288 PMIC. It allows
-	  the host to request uninterrupted access to the PMIC's I2C bus from
-	  the platform firmware controlling it. You should say Y if running on
-	  a BayTrail system using the AXP288.
 
 config I2C_DIGICOLOR
 	tristate "Conexant Digicolor I2C driver"
@@ -726,6 +731,20 @@ config I2C_LPC2K
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-lpc2k.
 
+config I2C_MLXBF
+        tristate "Mellanox BlueField I2C controller"
+        depends on MELLANOX_PLATFORM && ARM64
+	select I2C_SLAVE
+        help
+          Enabling this option will add I2C SMBus support for Mellanox BlueField
+          system.
+
+          This driver can also be built as a module. If so, the module will be
+          called i2c-mlxbf.
+
+          This driver implements an I2C SMBus host controller and enables both
+          master and slave functions.
+
 config I2C_MESON
 	tristate "Amlogic Meson I2C controller"
 	depends on ARCH_MESON || COMPILE_TEST
@@ -791,6 +810,15 @@ config I2C_NOMADIK
 	  I2C interface from ST-Ericsson's Nomadik and Ux500 architectures,
 	  as well as the STA2X11 PCIe I/O HUB.
 
+config I2C_NPCM7XX
+	tristate "Nuvoton I2C Controller"
+	depends on ARCH_NPCM7XX || COMPILE_TEST
+	help
+	  If you say yes to this option, support will be included for the
+	  Nuvoton I2C controller, which is available on the NPCM7xx BMC
+	  controller.
+	  Driver can also support slave mode (select I2C_SLAVE).
+
 config I2C_OCORES
 	tristate "OpenCores I2C Controller"
 	help
@@ -827,7 +855,6 @@ config I2C_PASEMI
 config I2C_PCA_PLATFORM
 	tristate "PCA9564/PCA9665 as platform device"
 	select I2C_ALGOPCA
-	default n
 	help
 	  This driver supports a memory mapped Philips PCA9564/PCA9665
 	  parallel bus to I2C bus controller.
@@ -854,17 +881,6 @@ config I2C_PNX
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-pnx.
 
-config I2C_PUV3
-	tristate "PKUnity v3 I2C bus support"
-	depends on UNICORE32 && ARCH_PUV3
-	select I2C_ALGOBIT
-	help
-	  This driver supports the I2C IP inside the PKUnity-v3 SoC.
-	  This I2C bus controller is under AMBA/AXI bus.
-
-	  This driver can also be built as a module.  If so, the module
-	  will be called i2c-puv3.
-
 config I2C_PXA
 	tristate "Intel PXA2XX I2C adapter"
 	depends on ARCH_PXA || ARCH_MMP || ARCH_MVEBU || (X86_32 && PCI && OF) || COMPILE_TEST
@@ -884,6 +900,16 @@ config I2C_PXA_SLAVE
 	  Support I2C slave mode communications on the PXA I2C bus.  This
 	  is necessary for systems where the PXA may be a target on the
 	  I2C bus.
+
+config I2C_QCOM_CCI
+	tristate "Qualcomm Camera Control Interface"
+	depends on ARCH_QCOM || COMPILE_TEST
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in camera control interface on the Qualcomm SoCs.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called i2c-qcom-cci.
 
 config I2C_QCOM_GENI
 	tristate "Qualcomm Technologies Inc.'s GENI based I2C controller"
@@ -986,6 +1012,7 @@ config I2C_SIRF
 config I2C_SPRD
 	tristate "Spreadtrum I2C interface"
 	depends on I2C=y && (ARCH_SPRD || COMPILE_TEST)
+	depends on COMMON_CLK
 	help
 	  If you say yes to this option, support will be included for the
 	  Spreadtrum I2C interface.
@@ -1014,6 +1041,7 @@ config I2C_STM32F7
 	tristate "STMicroelectronics STM32F7 I2C support"
 	depends on ARCH_STM32 || COMPILE_TEST
 	select I2C_SLAVE
+	select I2C_SMBUS
 	help
 	  Enable this option to add support for STM32 I2C controller embedded
 	  in STM32F7 SoCs.
@@ -1169,6 +1197,8 @@ config I2C_RCAR
 	tristate "Renesas R-Car I2C Controller"
 	depends on ARCH_RENESAS || COMPILE_TEST
 	select I2C_SLAVE
+	select I2C_SMBUS
+	select RESET_CONTROLLER if ARCH_RCAR_GEN3
 	help
 	  If you say yes to this option, support will be included for the
 	  R-Car I2C controller.
@@ -1228,7 +1258,6 @@ config I2C_TAOS_EVM
 	depends on TTY
 	select SERIO
 	select SERIO_SERPORT
-	default n
 	help
 	  This supports TAOS evaluation modules on serial port. In order to
 	  use this driver, you will need the inputattach tool, which is part
@@ -1312,7 +1341,6 @@ config I2C_PCA_ISA
 	tristate "PCA9564/PCA9665 on an ISA bus"
 	depends on ISA
 	select I2C_ALGOPCA
-	default n
 	help
 	  This driver supports ISA boards using the Philips PCA9564/PCA9665
 	  parallel bus to I2C bus controller.

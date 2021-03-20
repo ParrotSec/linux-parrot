@@ -64,13 +64,6 @@ typedef struct {
 	refcount_t		sc_count;
 } copy_stateid_t;
 
-#define STATEID_FMT	"(%08x/%08x/%08x/%08x)"
-#define STATEID_VAL(s) \
-	(s)->si_opaque.so_clid.cl_boot, \
-	(s)->si_opaque.so_clid.cl_id, \
-	(s)->si_opaque.so_id, \
-	(s)->si_generation
-
 struct nfsd4_callback {
 	struct nfs4_client *cb_clp;
 	struct rpc_message cb_msg;
@@ -699,32 +692,5 @@ extern void nfsd4_client_record_create(struct nfs4_client *clp);
 extern void nfsd4_client_record_remove(struct nfs4_client *clp);
 extern int nfsd4_client_record_check(struct nfs4_client *clp);
 extern void nfsd4_record_grace_done(struct nfsd_net *nn);
-
-/* nfs fault injection functions */
-#ifdef CONFIG_NFSD_FAULT_INJECTION
-void nfsd_fault_inject_init(void);
-void nfsd_fault_inject_cleanup(void);
-
-u64 nfsd_inject_print_clients(void);
-u64 nfsd_inject_forget_client(struct sockaddr_storage *, size_t);
-u64 nfsd_inject_forget_clients(u64);
-
-u64 nfsd_inject_print_locks(void);
-u64 nfsd_inject_forget_client_locks(struct sockaddr_storage *, size_t);
-u64 nfsd_inject_forget_locks(u64);
-
-u64 nfsd_inject_print_openowners(void);
-u64 nfsd_inject_forget_client_openowners(struct sockaddr_storage *, size_t);
-u64 nfsd_inject_forget_openowners(u64);
-
-u64 nfsd_inject_print_delegations(void);
-u64 nfsd_inject_forget_client_delegations(struct sockaddr_storage *, size_t);
-u64 nfsd_inject_forget_delegations(u64);
-u64 nfsd_inject_recall_client_delegations(struct sockaddr_storage *, size_t);
-u64 nfsd_inject_recall_delegations(u64);
-#else /* CONFIG_NFSD_FAULT_INJECTION */
-static inline void nfsd_fault_inject_init(void) {}
-static inline void nfsd_fault_inject_cleanup(void) {}
-#endif /* CONFIG_NFSD_FAULT_INJECTION */
 
 #endif   /* NFSD4_STATE_H */

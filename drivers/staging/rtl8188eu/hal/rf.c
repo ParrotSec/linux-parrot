@@ -79,7 +79,7 @@ void rtl88eu_phy_rf6052_set_cck_txpower(struct adapter *adapt, u8 *powerlevel)
 		}
 	}
 	for (idx1 = RF_PATH_A; idx1 <= RF_PATH_B; idx1++) {
-		ptr = (u8 *)(&(tx_agc[idx1]));
+		ptr = (u8 *)(&tx_agc[idx1]);
 		for (idx2 = 0; idx2 < 4; idx2++) {
 			if (*ptr > RF6052_MAX_TX_PWR)
 				*ptr = RF6052_MAX_TX_PWR;
@@ -138,6 +138,7 @@ static void getpowerbase88e(struct adapter *adapt, u8 *pwr_level_ofdm,
 		     (powerbase1 << 8) | powerbase1;
 	*mcs_base = powerbase1;
 }
+
 static void get_rx_power_val_by_reg(struct adapter *adapt, u8 channel,
 				    u8 index, u32 *powerbase0, u32 *powerbase1,
 				    u32 *out_val)

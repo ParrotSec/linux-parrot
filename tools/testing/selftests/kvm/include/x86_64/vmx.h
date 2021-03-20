@@ -48,7 +48,7 @@
 #define SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES 0x00000001
 #define SECONDARY_EXEC_ENABLE_EPT		0x00000002
 #define SECONDARY_EXEC_DESC			0x00000004
-#define SECONDARY_EXEC_RDTSCP			0x00000008
+#define SECONDARY_EXEC_ENABLE_RDTSCP		0x00000008
 #define SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE	0x00000010
 #define SECONDARY_EXEC_ENABLE_VPID		0x00000020
 #define SECONDARY_EXEC_WBINVD_EXITING		0x00000040
@@ -573,6 +573,33 @@ struct vmx_pages {
 	void *eptp_hva;
 	uint64_t eptp_gpa;
 	void *eptp;
+
+	void *apic_access_hva;
+	uint64_t apic_access_gpa;
+	void *apic_access;
+};
+
+union vmx_basic {
+	u64 val;
+	struct {
+		u32 revision;
+		u32	size:13,
+			reserved1:3,
+			width:1,
+			dual:1,
+			type:4,
+			insouts:1,
+			ctrl:1,
+			vm_entry_exception_ctrl:1,
+			reserved2:7;
+	};
+};
+
+union vmx_ctrl_msr {
+	u64 val;
+	struct {
+		u32 set, clr;
+	};
 };
 
 struct vmx_pages *vcpu_alloc_vmx(struct kvm_vm *vm, vm_vaddr_t *p_vmx_gva);
@@ -580,6 +607,7 @@ bool prepare_for_vmx_operation(struct vmx_pages *vmx);
 void prepare_vmcs(struct vmx_pages *vmx, void *guest_rip, void *guest_rsp);
 bool load_vmcs(struct vmx_pages *vmx);
 
+bool nested_vmx_supported(void);
 void nested_vmx_check_supported(void);
 
 void nested_pg_map(struct vmx_pages *vmx, struct kvm_vm *vm,
@@ -591,5 +619,7 @@ void nested_map_memslot(struct vmx_pages *vmx, struct kvm_vm *vm,
 			uint32_t memslot, uint32_t eptp_memslot);
 void prepare_eptp(struct vmx_pages *vmx, struct kvm_vm *vm,
 		  uint32_t eptp_memslot);
+void prepare_virtualize_apic_accesses(struct vmx_pages *vmx, struct kvm_vm *vm,
+				      uint32_t eptp_memslot);
 
 #endif /* SELFTEST_KVM_VMX_H */

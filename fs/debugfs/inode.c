@@ -35,6 +35,7 @@
 static struct vfsmount *debugfs_mount;
 static int debugfs_mount_count;
 static bool debugfs_registered;
+static unsigned int debugfs_allow = DEFAULT_DEBUGFS_ALLOW_BITS;
 
 /*
  * Don't allow access attributes to be changed whilst the kernel is locked down
@@ -266,6 +267,9 @@ static struct dentry *debug_mount(struct file_system_type *fs_type,
 			int flags, const char *dev_name,
 			void *data)
 {
+	if (!(debugfs_allow & DEBUGFS_ALLOW_API))
+		return ERR_PTR(-EPERM);
+
 	return mount_single(fs_type, flags, data, debug_fill_super);
 }
 
@@ -293,7 +297,7 @@ struct dentry *debugfs_lookup(const char *name, struct dentry *parent)
 {
 	struct dentry *dentry;
 
-	if (IS_ERR(parent))
+	if (!debugfs_initialized() || IS_ERR_OR_NULL(name) || IS_ERR(parent))
 		return NULL;
 
 	if (!parent)
@@ -310,6 +314,12 @@ static struct dentry *start_creating(const char *name, struct dentry *parent)
 {
 	struct dentry *dentry;
 	int error;
+
+	if (!(debugfs_allow & DEBUGFS_ALLOW_API))
+		return ERR_PTR(-EPERM);
+
+	if (!debugfs_initialized())
+		return ERR_PTR(-ENOENT);
 
 	pr_debug("creating file '%s'\n", name);
 
@@ -384,6 +394,11 @@ static struct dentry *__debugfs_create_file(const char *name, umode_t mode,
 
 	if (IS_ERR(dentry))
 		return dentry;
+
+	if (!(debugfs_allow & DEBUGFS_ALLOW_API)) {
+		failed_creating(dentry);
+		return ERR_PTR(-EPERM);
+	}
 
 	inode = debugfs_get_inode(dentry->d_sb);
 	if (unlikely(!inode)) {
@@ -541,6 +556,11 @@ struct dentry *debugfs_create_dir(const char *name, struct dentry *parent)
 	if (IS_ERR(dentry))
 		return dentry;
 
+	if (!(debugfs_allow & DEBUGFS_ALLOW_API)) {
+		failed_creating(dentry);
+		return ERR_PTR(-EPERM);
+	}
+
 	inode = debugfs_get_inode(dentry->d_sb);
 	if (unlikely(!inode)) {
 		pr_err("out of free dentries, can not create directory '%s'\n",
@@ -582,6 +602,11 @@ struct dentry *debugfs_create_automount(const char *name,
 
 	if (IS_ERR(dentry))
 		return dentry;
+
+	if (!(debugfs_allow & DEBUGFS_ALLOW_API)) {
+		failed_creating(dentry);
+		return ERR_PTR(-EPERM);
+	}
 
 	inode = debugfs_get_inode(dentry->d_sb);
 	if (unlikely(!inode)) {
@@ -786,9 +811,26 @@ bool debugfs_initialized(void)
 }
 EXPORT_SYMBOL_GPL(debugfs_initialized);
 
+static int __init debugfs_kernel(char *str)
+{
+	if (str) {
+		if (!strcmp(str, "on"))
+			debugfs_allow = DEBUGFS_ALLOW_API | DEBUGFS_ALLOW_MOUNT;
+		else if (!strcmp(str, "no-mount"))
+			debugfs_allow = DEBUGFS_ALLOW_API;
+		else if (!strcmp(str, "off"))
+			debugfs_allow = 0;
+	}
+
+	return 0;
+}
+early_param("debugfs", debugfs_kernel);
 static int __init debugfs_init(void)
 {
 	int retval;
+
+	if (!(debugfs_allow & DEBUGFS_ALLOW_MOUNT))
+		return -EPERM;
 
 	retval = sysfs_create_mount_point(kernel_kobj, "debug");
 	if (retval)

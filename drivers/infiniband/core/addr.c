@@ -371,6 +371,8 @@ static int fetch_ha(const struct dst_entry *dst, struct rdma_dev_addr *dev_addr,
 		(const void *)&dst_in6->sin6_addr;
 	sa_family_t family = dst_in->sa_family;
 
+	might_sleep();
+
 	/* If we have a gateway in IB mode then it must be an IB network */
 	if (has_gateway(dst, family) && dev_addr->network == RDMA_NETWORK_IB)
 		return ib_nl_fetch_ha(dev_addr, daddr, seq, family);
@@ -645,13 +647,12 @@ static void process_one_req(struct work_struct *_work)
 	req->callback = NULL;
 
 	spin_lock_bh(&lock);
+	/*
+	 * Although the work will normally have been canceled by the workqueue,
+	 * it can still be requeued as long as it is on the req_list.
+	 */
+	cancel_delayed_work(&req->work);
 	if (!list_empty(&req->list)) {
-		/*
-		 * Although the work will normally have been canceled by the
-		 * workqueue, it can still be requeued as long as it is on the
-		 * req_list.
-		 */
-		cancel_delayed_work(&req->work);
 		list_del_init(&req->list);
 		kfree(req);
 	}
@@ -726,6 +727,8 @@ int roce_resolve_route_from_path(struct sa_path_rec *rec,
 	} sgid, dgid;
 	struct rdma_dev_addr dev_addr = {};
 	int ret;
+
+	might_sleep();
 
 	if (rec->roce.route_resolved)
 		return 0;

@@ -458,7 +458,7 @@ static struct btrfs_block_rsv *get_block_rsv(
 	struct btrfs_fs_info *fs_info = root->fs_info;
 	struct btrfs_block_rsv *block_rsv = NULL;
 
-	if (test_bit(BTRFS_ROOT_REF_COWS, &root->state) ||
+	if (test_bit(BTRFS_ROOT_SHAREABLE, &root->state) ||
 	    (root == fs_info->csum_root && trans->adding_csums) ||
 	    (root == fs_info->uuid_root))
 		block_rsv = trans->block_rsv;
@@ -511,7 +511,8 @@ again:
 				/*DEFAULT_RATELIMIT_BURST*/ 1);
 		if (__ratelimit(&_rs))
 			WARN(1, KERN_DEBUG
-				"BTRFS: block rsv returned %d\n", ret);
+				"BTRFS: block rsv %d returned %d\n",
+				block_rsv->type, ret);
 	}
 try_reserve:
 	ret = btrfs_reserve_metadata_bytes(root, block_rsv, blocksize,

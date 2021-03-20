@@ -30,13 +30,13 @@
 #include <linux/hardirq.h>
 #include <linux/cpu.h>
 #include <linux/compiler.h>
+#include <linux/pgtable.h>
 
 #include <asm/ptrace.h>
 #include <linux/atomic.h>
 #include <asm/code-patching.h>
 #include <asm/irq.h>
 #include <asm/page.h>
-#include <asm/pgtable.h>
 #include <asm/sections.h>
 #include <asm/io.h>
 #include <asm/prom.h>
@@ -49,6 +49,7 @@
 #include <asm/keylargo.h>
 #include <asm/pmac_low_i2c.h>
 #include <asm/pmac_pfunc.h>
+#include <asm/inst.h>
 
 #include "pmac.h"
 
@@ -268,10 +269,6 @@ static void __init smp_psurge_probe(void)
 {
 	int i, ncpus;
 	struct device_node *dn;
-
-	/* We don't do SMP on the PPC601 -- paulus */
-	if (PVR_VER(mfspr(SPRN_PVR)) == 1)
-		return;
 
 	/*
 	 * The powersurge cpu board can be used in the generation
@@ -813,7 +810,7 @@ static int smp_core99_kick_cpu(int nr)
 	 *   b __secondary_start_pmac_0 + nr*8
 	 */
 	target = (unsigned long) __secondary_start_pmac_0 + nr * 8;
-	patch_branch(vector, target, BRANCH_SET_LINK);
+	patch_branch((struct ppc_inst *)vector, target, BRANCH_SET_LINK);
 
 	/* Put some life in our friend */
 	pmac_call_feature(PMAC_FTR_RESET_CPU, NULL, nr, 0);
@@ -826,7 +823,7 @@ static int smp_core99_kick_cpu(int nr)
 	mdelay(1);
 
 	/* Restore our exception vector */
-	patch_instruction(vector, save_vector);
+	patch_instruction((struct ppc_inst *)vector, ppc_inst(save_vector));
 
 	local_irq_restore(flags);
 	if (ppc_md.progress) ppc_md.progress("smp_core99_kick_cpu done", 0x347);
@@ -914,12 +911,14 @@ static int smp_core99_cpu_disable(void)
 
 	mpic_cpu_set_priority(0xf);
 
+	cleanup_cpu_mmu_context();
+
 	return 0;
 }
 
 #ifdef CONFIG_PPC32
 
-static void pmac_cpu_die(void)
+static void pmac_cpu_offline_self(void)
 {
 	int cpu = smp_processor_id();
 
@@ -929,12 +928,12 @@ static void pmac_cpu_die(void)
 	generic_set_cpu_dead(cpu);
 	smp_wmb();
 	mb();
-	low_cpu_die();
+	low_cpu_offline_self();
 }
 
 #else /* CONFIG_PPC32 */
 
-static void pmac_cpu_die(void)
+static void pmac_cpu_offline_self(void)
 {
 	int cpu = smp_processor_id();
 
@@ -1019,7 +1018,7 @@ void __init pmac_setup_smp(void)
 #endif /* CONFIG_PPC_PMAC32_PSURGE */
 
 #ifdef CONFIG_HOTPLUG_CPU
-	ppc_md.cpu_die = pmac_cpu_die;
+	smp_ops->cpu_offline_self = pmac_cpu_offline_self;
 #endif
 }
 

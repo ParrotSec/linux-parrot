@@ -264,6 +264,7 @@ static acpi_status i2c_acpi_add_device(acpi_handle handle, u32 level,
 void i2c_acpi_register_devices(struct i2c_adapter *adap)
 {
 	acpi_status status;
+	acpi_handle handle;
 
 	if (!has_acpi_companion(&adap->dev))
 		return;
@@ -274,16 +275,15 @@ void i2c_acpi_register_devices(struct i2c_adapter *adap)
 				     adap, NULL);
 	if (ACPI_FAILURE(status))
 		dev_warn(&adap->dev, "failed to enumerate I2C slaves\n");
-}
 
-const struct acpi_device_id *
-i2c_acpi_match_device(const struct acpi_device_id *matches,
-		      struct i2c_client *client)
-{
-	if (!(client && matches))
-		return NULL;
+	if (!adap->dev.parent)
+		return;
 
-	return acpi_match_device(matches, &client->dev);
+	handle = ACPI_HANDLE(adap->dev.parent);
+	if (!handle)
+		return;
+
+	acpi_walk_dep_device_list(handle);
 }
 
 static const struct acpi_device_id i2c_acpi_force_400khz_device_ids[] = {
@@ -468,15 +468,11 @@ struct notifier_block i2c_acpi_notifier = {
 struct i2c_client *i2c_acpi_new_device(struct device *dev, int index,
 				       struct i2c_board_info *info)
 {
+	struct acpi_device *adev = ACPI_COMPANION(dev);
 	struct i2c_acpi_lookup lookup;
 	struct i2c_adapter *adapter;
-	struct acpi_device *adev;
 	LIST_HEAD(resource_list);
 	int ret;
-
-	adev = ACPI_COMPANION(dev);
-	if (!adev)
-		return ERR_PTR(-EINVAL);
 
 	memset(&lookup, 0, sizeof(lookup));
 	lookup.info = info;
@@ -733,7 +729,6 @@ int i2c_acpi_install_space_handler(struct i2c_adapter *adapter)
 		return -ENOMEM;
 	}
 
-	acpi_walk_dep_device_list(handle);
 	return 0;
 }
 

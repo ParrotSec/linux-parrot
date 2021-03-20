@@ -74,7 +74,7 @@ struct milbeaut_xdmac_chan {
 struct milbeaut_xdmac_device {
 	struct dma_device ddev;
 	void __iomem *reg_base;
-	struct milbeaut_xdmac_chan channels[0];
+	struct milbeaut_xdmac_chan channels[];
 };
 
 static struct milbeaut_xdmac_chan *
@@ -351,7 +351,7 @@ static int milbeaut_xdmac_probe(struct platform_device *pdev)
 
 	ret = dma_async_device_register(ddev);
 	if (ret)
-		return ret;
+		goto disable_xdmac;
 
 	ret = of_dma_controller_register(dev->of_node,
 					 of_dma_simple_xlate, mdev);
@@ -364,6 +364,8 @@ static int milbeaut_xdmac_probe(struct platform_device *pdev)
 
 unregister_dmac:
 	dma_async_device_unregister(ddev);
+disable_xdmac:
+	disable_xdmac(mdev);
 	return ret;
 }
 

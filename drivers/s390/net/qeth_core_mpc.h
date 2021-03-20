@@ -13,13 +13,13 @@
 #include <uapi/linux/if_ether.h>
 #include <uapi/linux/in6.h>
 
+extern const unsigned char IPA_PDU_HEADER[];
 #define IPA_PDU_HEADER_SIZE	0x40
 #define QETH_IPA_PDU_LEN_TOTAL(buffer) (buffer + 0x0e)
 #define QETH_IPA_PDU_LEN_PDU1(buffer) (buffer + 0x26)
 #define QETH_IPA_PDU_LEN_PDU2(buffer) (buffer + 0x29)
 #define QETH_IPA_PDU_LEN_PDU3(buffer) (buffer + 0x3a)
 
-extern unsigned char IPA_PDU_HEADER[];
 #define QETH_IPA_CMD_DEST_ADDR(buffer) (buffer + 0x2c)
 
 #define QETH_SEQ_NO_LENGTH	4
@@ -719,15 +719,8 @@ struct qeth_sbp_port_entry {
 		struct net_if_token token;
 } __packed;
 
-struct qeth_sbp_query_ports {
-	__u8 primary_bp_supported;
-	__u8 secondary_bp_supported;
-	__u8 num_entries;
-	__u8 entry_length;
-	struct qeth_sbp_port_entry entry[];
-} __packed;
-
-struct qeth_sbp_state_change {
+/* For IPA_SBP_QUERY_BRIDGE_PORTS, IPA_SBP_BRIDGE_PORT_STATE_CHANGE */
+struct qeth_sbp_port_data {
 	__u8 primary_bp_supported;
 	__u8 secondary_bp_supported;
 	__u8 num_entries;
@@ -741,8 +734,7 @@ struct qeth_ipacmd_setbridgeport {
 	union {
 		struct qeth_sbp_query_cmds_supp query_cmds_supp;
 		struct qeth_sbp_set_primary set_primary;
-		struct qeth_sbp_query_ports query_ports;
-		struct qeth_sbp_state_change state_change;
+		struct qeth_sbp_port_data port_data;
 	} data;
 } __packed;
 
@@ -771,6 +763,29 @@ struct qeth_ipacmd_addr_change {
 	__u16 num_entries;
 	struct qeth_ipacmd_addr_change_entry entry[];
 } __packed;
+
+/* [UN]REGISTER_LOCAL_ADDRESS notifications */
+struct qeth_ipacmd_local_addr4 {
+	__be32 addr;
+	u32 flags;
+};
+
+struct qeth_ipacmd_local_addrs4 {
+	u32 count;
+	u32 addr_length;
+	struct qeth_ipacmd_local_addr4 addrs[];
+};
+
+struct qeth_ipacmd_local_addr6 {
+	struct in6_addr addr;
+	u32 flags;
+};
+
+struct qeth_ipacmd_local_addrs6 {
+	u32 count;
+	u32 addr_length;
+	struct qeth_ipacmd_local_addr6 addrs[];
+};
 
 /* Header for each IPA command */
 struct qeth_ipacmd_hdr {
@@ -803,6 +818,8 @@ struct qeth_ipa_cmd {
 		struct qeth_ipacmd_setbridgeport	sbp;
 		struct qeth_ipacmd_addr_change		addrchange;
 		struct qeth_ipacmd_vnicc		vnicc;
+		struct qeth_ipacmd_local_addrs4		local_addrs4;
+		struct qeth_ipacmd_local_addrs6		local_addrs6;
 	} data;
 } __attribute__ ((packed));
 
@@ -833,7 +850,7 @@ extern const char *qeth_get_ipa_cmd_name(enum qeth_ipa_cmds cmd);
 /* END OF   IP Assist related definitions                                    */
 /*****************************************************************************/
 
-extern unsigned char CM_ENABLE[];
+extern const unsigned char CM_ENABLE[];
 #define CM_ENABLE_SIZE 0x63
 #define QETH_CM_ENABLE_ISSUER_RM_TOKEN(buffer) (buffer + 0x2c)
 #define QETH_CM_ENABLE_FILTER_TOKEN(buffer) (buffer + 0x53)
@@ -843,7 +860,7 @@ extern unsigned char CM_ENABLE[];
 		(PDU_ENCAPSULATION(buffer) + 0x13)
 
 
-extern unsigned char CM_SETUP[];
+extern const unsigned char CM_SETUP[];
 #define CM_SETUP_SIZE 0x64
 #define QETH_CM_SETUP_DEST_ADDR(buffer) (buffer + 0x2c)
 #define QETH_CM_SETUP_CONNECTION_TOKEN(buffer) (buffer + 0x51)
@@ -852,7 +869,7 @@ extern unsigned char CM_SETUP[];
 #define QETH_CM_SETUP_RESP_DEST_ADDR(buffer) \
 		(PDU_ENCAPSULATION(buffer) + 0x1a)
 
-extern unsigned char ULP_ENABLE[];
+extern const unsigned char ULP_ENABLE[];
 #define ULP_ENABLE_SIZE 0x6b
 #define QETH_ULP_ENABLE_LINKNUM(buffer) (buffer + 0x61)
 #define QETH_ULP_ENABLE_DEST_ADDR(buffer) (buffer + 0x2c)
@@ -873,7 +890,7 @@ extern unsigned char ULP_ENABLE[];
 #define QETH_ULP_ENABLE_PROT_TYPE(buffer) (buffer + 0x50)
 #define QETH_IPA_CMD_PROT_TYPE(buffer) (buffer + 0x19)
 
-extern unsigned char ULP_SETUP[];
+extern const unsigned char ULP_SETUP[];
 #define ULP_SETUP_SIZE 0x6c
 #define QETH_ULP_SETUP_DEST_ADDR(buffer) (buffer + 0x2c)
 #define QETH_ULP_SETUP_CONNECTION_TOKEN(buffer) (buffer + 0x51)
@@ -885,7 +902,7 @@ extern unsigned char ULP_SETUP[];
 		(PDU_ENCAPSULATION(buffer) + 0x1a)
 
 
-extern unsigned char DM_ACT[];
+extern const unsigned char DM_ACT[];
 #define DM_ACT_SIZE 0x55
 #define QETH_DM_ACT_DEST_ADDR(buffer) (buffer + 0x2c)
 #define QETH_DM_ACT_CONNECTION_TOKEN(buffer) (buffer + 0x51)
@@ -896,9 +913,8 @@ extern unsigned char DM_ACT[];
 #define QETH_PDU_HEADER_SEQ_NO(buffer) (buffer + 0x1c)
 #define QETH_PDU_HEADER_ACK_SEQ_NO(buffer) (buffer + 0x20)
 
-extern unsigned char IDX_ACTIVATE_READ[];
-extern unsigned char IDX_ACTIVATE_WRITE[];
-
+extern const unsigned char IDX_ACTIVATE_READ[];
+extern const unsigned char IDX_ACTIVATE_WRITE[];
 #define IDX_ACTIVATE_SIZE	0x22
 #define QETH_IDX_ACT_PNO(buffer) (buffer+0x0b)
 #define QETH_IDX_ACT_ISSUER_RM_TOKEN(buffer) (buffer + 0x0c)

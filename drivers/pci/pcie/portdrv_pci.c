@@ -115,7 +115,7 @@ static int pcie_portdrv_probe(struct pci_dev *dev,
 
 	pci_save_state(dev);
 
-	dev_pm_set_driver_flags(&dev->dev, DPM_FLAG_NEVER_SKIP |
+	dev_pm_set_driver_flags(&dev->dev, DPM_FLAG_NO_DIRECT_COMPLETE |
 					   DPM_FLAG_SMART_SUSPEND);
 
 	if (pci_bridge_d3_possible(dev)) {
@@ -146,7 +146,7 @@ static void pcie_portdrv_remove(struct pci_dev *dev)
 }
 
 static pci_ers_result_t pcie_portdrv_error_detected(struct pci_dev *dev,
-					enum pci_channel_state error)
+					pci_channel_state_t error)
 {
 	/* Root Port has no impact. Always recovers. */
 	return PCI_ERS_RESULT_CAN_RECOVER;
@@ -248,7 +248,6 @@ static void __init pcie_init_services(void)
 	pcie_pme_init();
 	pcie_dpc_init();
 	pcie_hp_init();
-	pcie_bandwidth_notification_init();
 }
 
 static int __init pcie_portdrv_init(void)

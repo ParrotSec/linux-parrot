@@ -26,7 +26,7 @@
  *
  * The firmware required by these boards is available in the
  * comedi_nonfree_firmware tarball available from
- * http://www.comedi.org.
+ * https://www.comedi.org.
  */
 
 #include <linux/module.h>
@@ -924,7 +924,7 @@ static irqreturn_t me4000_ai_isr(int irq, void *dev_id)
 	struct comedi_subdevice *s = dev->read_subdev;
 	int i;
 	int c = 0;
-	unsigned int lval;
+	unsigned short lval;
 
 	if (!dev->attached)
 		return IRQ_NONE;
@@ -1272,7 +1272,7 @@ static struct pci_driver me4000_pci_driver = {
 };
 module_comedi_pci_driver(me4000_driver, me4000_pci_driver);
 
-MODULE_AUTHOR("Comedi http://www.comedi.org");
+MODULE_AUTHOR("Comedi https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi driver for Meilhaus ME-4000 series boards");
 MODULE_LICENSE("GPL");
 MODULE_FIRMWARE(ME4000_FIRMWARE);

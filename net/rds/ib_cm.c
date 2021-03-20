@@ -37,6 +37,7 @@
 #include <linux/vmalloc.h>
 #include <linux/ratelimit.h>
 #include <net/addrconf.h>
+#include <rdma/ib_cm.h>
 
 #include "rds_single_path.h"
 #include "rds.h"
@@ -526,10 +527,10 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
 		return -EOPNOTSUPP;
 
 	/* The fr_queue_space is currently set to 512, to add extra space on
-	 * completion queue and send queue. This extra space is used for FRMR
+	 * completion queue and send queue. This extra space is used for FRWR
 	 * registration and invalidation work requests
 	 */
-	fr_queue_space = (rds_ibdev->use_fastreg ? RDS_IB_DEFAULT_FR_WR : 0);
+	fr_queue_space = RDS_IB_DEFAULT_FR_WR;
 
 	/* add the conn now so that connection establishment has the dev */
 	rds_ib_add_conn(rds_ibdev, conn);
@@ -710,7 +711,7 @@ static u32 rds_ib_protocol_compatible(struct rdma_cm_event *event, bool isv6)
 	 * original size. The only way to tell the difference is by looking at
 	 * the contents, which are initialized to zero.
 	 * If the protocol version fields aren't set, this is a connection attempt
-	 * from an older version. This could could be 3.0 or 2.0 - we can't tell.
+	 * from an older version. This could be 3.0 or 2.0 - we can't tell.
 	 * We really should have changed this for OFED 1.3 :-(
 	 */
 
@@ -927,7 +928,8 @@ out:
 	if (conn)
 		mutex_unlock(&conn->c_cm_lock);
 	if (err)
-		rdma_reject(cm_id, &err, sizeof(int));
+		rdma_reject(cm_id, &err, sizeof(int),
+			    IB_CM_REJ_CONSUMER_DEFINED);
 	return destroy;
 }
 
@@ -954,9 +956,10 @@ int rds_ib_cm_initiate_connect(struct rdma_cm_id *cm_id, bool isv6)
 	rds_ib_cm_fill_conn_param(conn, &conn_param, &dp,
 				  conn->c_proposed_version,
 				  UINT_MAX, UINT_MAX, isv6);
-	ret = rdma_connect(cm_id, &conn_param);
+	ret = rdma_connect_locked(cm_id, &conn_param);
 	if (ret)
-		rds_ib_conn_error(conn, "rdma_connect failed (%d)\n", ret);
+		rds_ib_conn_error(conn, "rdma_connect_locked failed (%d)\n",
+				  ret);
 
 out:
 	/* Beware - returning non-zero tells the rdma_cm to destroy

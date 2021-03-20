@@ -167,9 +167,6 @@ static u8 mtrr_type_lookup_variable(u64 start, u64 end, u64 *partial_end,
 	*repeat = 0;
 	*uniform = 1;
 
-	/* Make end inclusive instead of exclusive */
-	end--;
-
 	prev_match = MTRR_TYPE_INVALID;
 	for (i = 0; i < num_var_ranges; ++i) {
 		unsigned short start_state, end_state, inclusive;
@@ -260,6 +257,9 @@ u8 mtrr_type_lookup(u64 start, u64 end, u8 *uniform)
 	u8 type, prev_type, is_uniform = 1, dummy;
 	int repeat;
 	u64 partial_end;
+
+	/* Make end inclusive instead of exclusive */
+	end--;
 
 	if (!mtrr_state_set)
 		return MTRR_TYPE_INVALID;
@@ -761,7 +761,7 @@ static void prepare_set(void) __acquires(set_atomicity_lock)
 
 	/* Flush all TLBs via a mov %cr3, %reg; mov %reg, %cr3 */
 	count_vm_tlb_event(NR_TLB_LOCAL_FLUSH_ALL);
-	__flush_tlb();
+	flush_tlb_local();
 
 	/* Save MTRR state */
 	rdmsr(MSR_MTRRdefType, deftype_lo, deftype_hi);
@@ -778,7 +778,7 @@ static void post_set(void) __releases(set_atomicity_lock)
 {
 	/* Flush TLBs (no need to flush caches - they are disabled) */
 	count_vm_tlb_event(NR_TLB_LOCAL_FLUSH_ALL);
-	__flush_tlb();
+	flush_tlb_local();
 
 	/* Intel (P6) standard MTRRs */
 	mtrr_wrmsr(MSR_MTRRdefType, deftype_lo, deftype_hi);

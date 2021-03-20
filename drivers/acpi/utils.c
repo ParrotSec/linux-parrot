@@ -104,7 +104,6 @@ acpi_extract_package(union acpi_object *package,
 					      " [%c]\n",
 					      i, format_string[i]);
 				return AE_BAD_DATA;
-				break;
 			}
 			break;
 
@@ -129,7 +128,6 @@ acpi_extract_package(union acpi_object *package,
 					      " expecting [%c]\n",
 					      i, format_string[i]);
 				return AE_BAD_DATA;
-				break;
 			}
 			break;
 		case ACPI_TYPE_LOCAL_REFERENCE:
@@ -144,7 +142,6 @@ acpi_extract_package(union acpi_object *package,
 					      " expecting [%c]\n",
 					      i, format_string[i]);
 				return AE_BAD_DATA;
-				break;
 			}
 			break;
 
@@ -155,7 +152,6 @@ acpi_extract_package(union acpi_object *package,
 					  i));
 			/* TBD: handle nested packages... */
 			return AE_SUPPORT;
-			break;
 		}
 	}
 
@@ -604,6 +600,31 @@ acpi_status acpi_evaluate_lck(acpi_handle handle, int lock)
 
 	return status;
 }
+
+/**
+ * acpi_evaluate_reg: Evaluate _REG method to register OpRegion presence
+ * @handle: ACPI device handle
+ * @space_id: ACPI address space id to register OpRegion presence for
+ * @function: Parameter to pass to _REG one of ACPI_REG_CONNECT or
+ *            ACPI_REG_DISCONNECT
+ *
+ * Evaluate device's _REG method to register OpRegion presence.
+ */
+acpi_status acpi_evaluate_reg(acpi_handle handle, u8 space_id, u32 function)
+{
+	struct acpi_object_list arg_list;
+	union acpi_object params[2];
+
+	params[0].type = ACPI_TYPE_INTEGER;
+	params[0].integer.value = space_id;
+	params[1].type = ACPI_TYPE_INTEGER;
+	params[1].integer.value = function;
+	arg_list.count = 2;
+	arg_list.pointer = params;
+
+	return acpi_evaluate_object(handle, "_REG", &arg_list, NULL);
+}
+EXPORT_SYMBOL(acpi_evaluate_reg);
 
 /**
  * acpi_evaluate_dsm - evaluate device's _DSM method

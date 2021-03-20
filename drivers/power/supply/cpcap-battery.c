@@ -274,7 +274,7 @@ static int cpcap_battery_cc_to_ua(struct cpcap_battery_ddata *ddata,
 /**
  * cpcap_battery_read_accumulated - reads cpcap coulomb counter
  * @ddata: device driver data
- * @regs: coulomb counter values
+ * @ccd: coulomb counter values
  *
  * Based on Motorola mapphone kernel function data_read_regs().
  * Looking at the registers, the coulomb counter seems similar to
@@ -561,17 +561,21 @@ static int cpcap_battery_update_charger(struct cpcap_battery_ddata *ddata,
 				POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 				&prop);
 	if (error)
-		return error;
+		goto out_put;
 
 	/* Allow charger const voltage lower than battery const voltage */
 	if (const_charge_voltage > prop.intval)
-		return 0;
+		goto out_put;
 
 	val.intval = const_charge_voltage;
 
-	return power_supply_set_property(charger,
+	error = power_supply_set_property(charger,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 			&val);
+out_put:
+	power_supply_put(charger);
+
+	return error;
 }
 
 static int cpcap_battery_set_property(struct power_supply *psy,
@@ -666,7 +670,7 @@ static int cpcap_battery_init_irq(struct platform_device *pdev,
 
 	error = devm_request_threaded_irq(ddata->dev, irq, NULL,
 					  cpcap_battery_irq_thread,
-					  IRQF_SHARED,
+					  IRQF_SHARED | IRQF_ONESHOT,
 					  name, ddata);
 	if (error) {
 		dev_err(ddata->dev, "could not get irq %s: %i\n",
@@ -747,11 +751,8 @@ static int cpcap_battery_init_iio(struct cpcap_battery_ddata *ddata)
 	return 0;
 
 out_err:
-	if (error != -EPROBE_DEFER)
-		dev_err(ddata->dev, "could not initialize VBUS or ID IIO: %i\n",
-			error);
-
-	return error;
+	return dev_err_probe(ddata->dev, error,
+			     "could not initialize VBUS or ID IIO\n");
 }
 
 /* Calibrate coulomb counter */

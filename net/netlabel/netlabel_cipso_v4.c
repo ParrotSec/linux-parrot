@@ -575,6 +575,7 @@ list_start:
 
 		break;
 	}
+	cipso_v4_doi_putdef(doi_def);
 	rcu_read_unlock();
 
 	genlmsg_end(ans_skb, data);
@@ -583,12 +584,14 @@ list_start:
 list_retry:
 	/* XXX - this limit is a guesstimate */
 	if (nlsze_mult < 4) {
+		cipso_v4_doi_putdef(doi_def);
 		rcu_read_unlock();
 		kfree_skb(ans_skb);
 		nlsze_mult *= 2;
 		goto list_start;
 	}
 list_failure_lock:
+	cipso_v4_doi_putdef(doi_def);
 	rcu_read_unlock();
 list_failure:
 	kfree_skb(ans_skb);
@@ -724,7 +727,7 @@ static int netlbl_cipsov4_remove(struct sk_buff *skb, struct genl_info *info)
  * NetLabel Generic NETLINK Command Definitions
  */
 
-static const struct genl_ops netlbl_cipsov4_ops[] = {
+static const struct genl_small_ops netlbl_cipsov4_ops[] = {
 	{
 	.cmd = NLBL_CIPSOV4_C_ADD,
 	.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
@@ -762,8 +765,8 @@ static struct genl_family netlbl_cipsov4_gnl_family __ro_after_init = {
 	.maxattr = NLBL_CIPSOV4_A_MAX,
 	.policy = netlbl_cipsov4_genl_policy,
 	.module = THIS_MODULE,
-	.ops = netlbl_cipsov4_ops,
-	.n_ops = ARRAY_SIZE(netlbl_cipsov4_ops),
+	.small_ops = netlbl_cipsov4_ops,
+	.n_small_ops = ARRAY_SIZE(netlbl_cipsov4_ops),
 };
 
 /*

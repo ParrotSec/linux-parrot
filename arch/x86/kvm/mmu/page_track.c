@@ -16,7 +16,7 @@
 
 #include <asm/kvm_page_track.h>
 
-#include "mmu.h"
+#include "mmu_internal.h"
 
 void kvm_page_track_free_memslot(struct kvm_memory_slot *slot)
 {
@@ -61,7 +61,7 @@ static void update_gfn_track(struct kvm_memory_slot *slot, gfn_t gfn,
 {
 	int index, val;
 
-	index = gfn_to_index(gfn, slot->base_gfn, PT_PAGE_TABLE_LEVEL);
+	index = gfn_to_index(gfn, slot->base_gfn, PG_LEVEL_4K);
 
 	val = slot->arch.gfn_track[mode][index];
 
@@ -151,7 +151,7 @@ bool kvm_page_track_is_active(struct kvm_vcpu *vcpu, gfn_t gfn,
 	if (!slot)
 		return false;
 
-	index = gfn_to_index(gfn, slot->base_gfn, PT_PAGE_TABLE_LEVEL);
+	index = gfn_to_index(gfn, slot->base_gfn, PG_LEVEL_4K);
 	return !!READ_ONCE(slot->arch.gfn_track[mode][index]);
 }
 
@@ -229,7 +229,8 @@ void kvm_page_track_write(struct kvm_vcpu *vcpu, gpa_t gpa, const u8 *new,
 		return;
 
 	idx = srcu_read_lock(&head->track_srcu);
-	hlist_for_each_entry_rcu(n, &head->track_notifier_list, node)
+	hlist_for_each_entry_srcu(n, &head->track_notifier_list, node,
+				srcu_read_lock_held(&head->track_srcu))
 		if (n->track_write)
 			n->track_write(vcpu, gpa, new, bytes, n);
 	srcu_read_unlock(&head->track_srcu, idx);
@@ -254,7 +255,8 @@ void kvm_page_track_flush_slot(struct kvm *kvm, struct kvm_memory_slot *slot)
 		return;
 
 	idx = srcu_read_lock(&head->track_srcu);
-	hlist_for_each_entry_rcu(n, &head->track_notifier_list, node)
+	hlist_for_each_entry_srcu(n, &head->track_notifier_list, node,
+				srcu_read_lock_held(&head->track_srcu))
 		if (n->track_flush_slot)
 			n->track_flush_slot(kvm, slot, n);
 	srcu_read_unlock(&head->track_srcu, idx);

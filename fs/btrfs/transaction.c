@@ -142,7 +142,7 @@ void btrfs_put_transaction(struct btrfs_transaction *transaction)
 						 struct btrfs_block_group,
 						 bg_list);
 			list_del_init(&cache->bg_list);
-			btrfs_put_block_group_trimming(cache);
+			btrfs_unfreeze_block_group(cache);
 			btrfs_put_block_group(cache);
 		}
 		WARN_ON(!list_empty(&transaction->dev_update_list));
@@ -155,6 +155,7 @@ static noinline void switch_commit_roots(struct btrfs_trans_handle *trans)
 	struct btrfs_transaction *cur_trans = trans->transaction;
 	struct btrfs_fs_info *fs_info = trans->fs_info;
 	struct btrfs_root *root, *tmp;
+	struct btrfs_caching_control *caching_ctl, *next;
 
 	down_write(&fs_info->commit_root_sem);
 	list_for_each_entry_safe(root, tmp, &cur_trans->switch_commits,
@@ -180,6 +181,45 @@ static noinline void switch_commit_roots(struct btrfs_trans_handle *trans)
 		spin_lock(&cur_trans->dropped_roots_lock);
 	}
 	spin_unlock(&cur_trans->dropped_roots_lock);
+
+	/*
+	 * We have to update the last_byte_to_unpin under the commit_root_sem,
+	 * at the same time we swap out the commit roots.
+	 *
+	 * This is because we must have a real view of the last spot the caching
+	 * kthreads were while caching.  Consider the following views of the
+	 * extent tree for a block group
+	 *
+	 * commit root
+	 * +----+----+----+----+----+----+----+
+	 * |\\\\|    |\\\\|\\\\|    |\\\\|\\\\|
+	 * +----+----+----+----+----+----+----+
+	 * 0    1    2    3    4    5    6    7
+	 *
+	 * new commit root
+	 * +----+----+----+----+----+----+----+
+	 * |    |    |    |\\\\|    |    |\\\\|
+	 * +----+----+----+----+----+----+----+
+	 * 0    1    2    3    4    5    6    7
+	 *
+	 * If the cache_ctl->progress was at 3, then we are only allowed to
+	 * unpin [0,1) and [2,3], because the caching thread has already
+	 * processed those extents.  We are not allowed to unpin [5,6), because
+	 * the caching thread will re-start it's search from 3, and thus find
+	 * the hole from [4,6) to add to the free space cache.
+	 */
+	list_for_each_entry_safe(caching_ctl, next,
+				 &fs_info->caching_block_groups, list) {
+		struct btrfs_block_group *cache = caching_ctl->block_group;
+
+		if (btrfs_block_group_done(cache)) {
+			cache->last_byte_to_unpin = (u64)-1;
+			list_del_init(&caching_ctl->list);
+			btrfs_put_caching_control(caching_ctl);
+		} else {
+			cache->last_byte_to_unpin = caching_ctl->progress;
+		}
+	}
 	up_write(&fs_info->commit_root_sem);
 }
 
@@ -292,6 +332,8 @@ loop:
 	}
 
 	cur_trans->fs_info = fs_info;
+	atomic_set(&cur_trans->pending_ordered, 0);
+	init_waitqueue_head(&cur_trans->pending_wait);
 	atomic_set(&cur_trans->num_writers, 1);
 	extwriter_counter_init(cur_trans, type);
 	init_waitqueue_head(&cur_trans->writer_wait);
@@ -349,10 +391,10 @@ loop:
 }
 
 /*
- * this does all the record keeping required to make sure that a reference
- * counted root is properly recorded in a given transaction.  This is required
- * to make sure the old root from before we joined the transaction is deleted
- * when the transaction commits
+ * This does all the record keeping required to make sure that a shareable root
+ * is properly recorded in a given transaction.  This is required to make sure
+ * the old root from before we joined the transaction is deleted when the
+ * transaction commits.
  */
 static int record_root_in_trans(struct btrfs_trans_handle *trans,
 			       struct btrfs_root *root,
@@ -360,7 +402,7 @@ static int record_root_in_trans(struct btrfs_trans_handle *trans,
 {
 	struct btrfs_fs_info *fs_info = root->fs_info;
 
-	if ((test_bit(BTRFS_ROOT_REF_COWS, &root->state) &&
+	if ((test_bit(BTRFS_ROOT_SHAREABLE, &root->state) &&
 	    root->last_trans < trans->transid) || force) {
 		WARN_ON(root == fs_info->extent_root);
 		WARN_ON(!force && root->commit_root != root->node);
@@ -439,7 +481,7 @@ int btrfs_record_root_in_trans(struct btrfs_trans_handle *trans,
 {
 	struct btrfs_fs_info *fs_info = root->fs_info;
 
-	if (!test_bit(BTRFS_ROOT_REF_COWS, &root->state))
+	if (!test_bit(BTRFS_ROOT_SHAREABLE, &root->state))
 		return 0;
 
 	/*
@@ -504,7 +546,7 @@ static inline bool need_reserve_reloc_root(struct btrfs_root *root)
 	struct btrfs_fs_info *fs_info = root->fs_info;
 
 	if (!fs_info->reloc_ctl ||
-	    !test_bit(BTRFS_ROOT_REF_COWS, &root->state) ||
+	    !test_bit(BTRFS_ROOT_SHAREABLE, &root->state) ||
 	    root->root_key.objectid == BTRFS_TREE_RELOC_OBJECTID ||
 	    root->reloc_root)
 		return false;
@@ -937,7 +979,10 @@ static int __btrfs_end_transaction(struct btrfs_trans_handle *trans,
 	if (TRANS_ABORTED(trans) ||
 	    test_bit(BTRFS_FS_STATE_ERROR, &info->fs_state)) {
 		wake_up_process(info->transaction_kthread);
-		err = -EIO;
+		if (TRANS_ABORTED(trans))
+			err = trans->aborted;
+		else
+			err = -EROFS;
 	}
 
 	kmem_cache_free(btrfs_trans_handle_cachep, trans);
@@ -1179,7 +1224,7 @@ static noinline int commit_cowonly_roots(struct btrfs_trans_handle *trans)
 
 	eb = btrfs_lock_root_node(fs_info->tree_root);
 	ret = btrfs_cow_block(trans, fs_info->tree_root, eb, NULL,
-			      0, &eb);
+			      0, &eb, BTRFS_NESTING_COW);
 	btrfs_tree_unlock(eb);
 	free_extent_buffer(eb);
 
@@ -1275,7 +1320,6 @@ static noinline int commit_fs_roots(struct btrfs_trans_handle *trans)
 	struct btrfs_root *gang[8];
 	int i;
 	int ret;
-	int err = 0;
 
 	spin_lock(&fs_info->fs_roots_radix_lock);
 	while (1) {
@@ -1287,6 +1331,8 @@ static noinline int commit_fs_roots(struct btrfs_trans_handle *trans)
 			break;
 		for (i = 0; i < ret; i++) {
 			struct btrfs_root *root = gang[i];
+			int ret2;
+
 			radix_tree_tag_clear(&fs_info->fs_roots_radix,
 					(unsigned long)root->root_key.objectid,
 					BTRFS_ROOT_TRANS_TAG);
@@ -1308,17 +1354,17 @@ static noinline int commit_fs_roots(struct btrfs_trans_handle *trans)
 						    root->node);
 			}
 
-			err = btrfs_update_root(trans, fs_info->tree_root,
+			ret2 = btrfs_update_root(trans, fs_info->tree_root,
 						&root->root_key,
 						&root->root_item);
+			if (ret2)
+				return ret2;
 			spin_lock(&fs_info->fs_roots_radix_lock);
-			if (err)
-				break;
 			btrfs_qgroup_free_meta_all_pertrans(root);
 		}
 	}
 	spin_unlock(&fs_info->fs_roots_radix_lock);
-	return err;
+	return 0;
 }
 
 /*
@@ -1584,7 +1630,8 @@ static noinline int create_pending_snapshot(struct btrfs_trans_handle *trans,
 	btrfs_set_root_otransid(new_root_item, trans->transid);
 
 	old = btrfs_lock_root_node(root);
-	ret = btrfs_cow_block(trans, root, old, NULL, 0, &old);
+	ret = btrfs_cow_block(trans, root, old, NULL, 0, &old,
+			      BTRFS_NESTING_COW);
 	if (ret) {
 		btrfs_tree_unlock(old);
 		free_extent_buffer(old);
@@ -1630,9 +1677,10 @@ static noinline int create_pending_snapshot(struct btrfs_trans_handle *trans,
 	}
 
 	key.offset = (u64)-1;
-	pending->snap = btrfs_get_fs_root(fs_info, &key, true);
+	pending->snap = btrfs_get_new_fs_root(fs_info, objectid, pending->anon_dev);
 	if (IS_ERR(pending->snap)) {
 		ret = PTR_ERR(pending->snap);
+		pending->snap = NULL;
 		btrfs_abort_transaction(trans, ret);
 		goto fail;
 	}
@@ -2161,6 +2209,14 @@ int btrfs_commit_transaction(struct btrfs_trans_handle *trans)
 
 	btrfs_wait_delalloc_flush(trans);
 
+	/*
+	 * Wait for all ordered extents started by a fast fsync that joined this
+	 * transaction. Otherwise if this transaction commits before the ordered
+	 * extents complete we lose logged data after a power failure.
+	 */
+	wait_event(cur_trans->pending_wait,
+		   atomic_read(&cur_trans->pending_ordered) == 0);
+
 	btrfs_scrub_pause(fs_info);
 	/*
 	 * Ok now we need to make sure to block out any other joins while we
@@ -2278,8 +2334,6 @@ int btrfs_commit_transaction(struct btrfs_trans_handle *trans)
 		goto unlock_tree_log;
 	}
 
-	btrfs_prepare_extent_commit(fs_info);
-
 	cur_trans = fs_info->running_transaction;
 
 	btrfs_set_root_node(&fs_info->tree_root->root_item,
@@ -2351,7 +2405,6 @@ int btrfs_commit_transaction(struct btrfs_trans_handle *trans)
 	 */
 	cur_trans->state = TRANS_STATE_COMPLETED;
 	wake_up(&cur_trans->commit_wait);
-	clear_bit(BTRFS_FS_NEED_ASYNC_COMMIT, &fs_info->flags);
 
 	spin_lock(&fs_info->trans_lock);
 	list_del_init(&cur_trans->list);

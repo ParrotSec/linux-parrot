@@ -21,16 +21,6 @@ char iavf_driver_name[] = "iavf";
 static const char iavf_driver_string[] =
 	"Intel(R) Ethernet Adaptive Virtual Function Network Driver";
 
-#define DRV_KERN "-k"
-
-#define DRV_VERSION_MAJOR 3
-#define DRV_VERSION_MINOR 2
-#define DRV_VERSION_BUILD 3
-#define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
-	     __stringify(DRV_VERSION_MINOR) "." \
-	     __stringify(DRV_VERSION_BUILD) \
-	     DRV_KERN
-const char iavf_driver_version[] = DRV_VERSION;
 static const char iavf_copyright[] =
 	"Copyright (c) 2013 - 2018 Intel Corporation.";
 
@@ -57,7 +47,6 @@ MODULE_ALIAS("i40evf");
 MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
 MODULE_DESCRIPTION("Intel(R) Ethernet Adaptive Virtual Function Network Driver");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION(DRV_VERSION);
 
 static const struct net_device_ops iavf_netdev_ops;
 struct workqueue_struct *iavf_wq;
@@ -158,6 +147,7 @@ void iavf_schedule_reset(struct iavf_adapter *adapter)
 /**
  * iavf_tx_timeout - Respond to a Tx Hang
  * @netdev: network interface device structure
+ * @txqueue: queue number that is timing out
  **/
 static void iavf_tx_timeout(struct net_device *netdev, unsigned int txqueue)
 {
@@ -1844,11 +1834,9 @@ static int iavf_init_get_resources(struct iavf_adapter *adapter)
 	netif_tx_stop_all_queues(netdev);
 	if (CLIENT_ALLOWED(adapter)) {
 		err = iavf_lan_add_device(adapter);
-		if (err) {
-			rtnl_unlock();
+		if (err)
 			dev_info(&pdev->dev, "Failed to add VF to client API service list: %d\n",
 				 err);
-		}
 	}
 	dev_info(&pdev->dev, "MAC address: %pM\n", adapter->hw.mac.addr);
 	if (netdev->features & NETIF_F_GRO)
@@ -1863,8 +1851,10 @@ static int iavf_init_get_resources(struct iavf_adapter *adapter)
 
 	adapter->rss_key = kzalloc(adapter->rss_key_size, GFP_KERNEL);
 	adapter->rss_lut = kzalloc(adapter->rss_lut_size, GFP_KERNEL);
-	if (!adapter->rss_key || !adapter->rss_lut)
+	if (!adapter->rss_key || !adapter->rss_lut) {
+		err = -ENOMEM;
 		goto err_mem;
+	}
 	if (RSS_AQ(adapter))
 		adapter->aq_required |= IAVF_FLAG_AQ_CONFIGURE_RSS;
 	else
@@ -1946,7 +1936,10 @@ static void iavf_watchdog_task(struct work_struct *work)
 				iavf_send_api_ver(adapter);
 			}
 		} else {
-			if (!iavf_process_aq_command(adapter) &&
+			/* An error will be returned if no commands were
+			 * processed; use this opportunity to update stats
+			 */
+			if (iavf_process_aq_command(adapter) &&
 			    adapter->state == __IAVF_RUNNING)
 				iavf_request_stats(adapter);
 		}
@@ -2046,8 +2039,6 @@ static void iavf_disable_vf(struct iavf_adapter *adapter)
 	dev_info(&adapter->pdev->dev, "Reset task did not complete, VF disabled\n");
 }
 
-#define IAVF_RESET_WAIT_MS 10
-#define IAVF_RESET_WAIT_COUNT 500
 /**
  * iavf_reset_task - Call-back task to handle hardware reset
  * @work: pointer to work_struct
@@ -2101,20 +2092,20 @@ static void iavf_reset_task(struct work_struct *work)
 	adapter->flags |= IAVF_FLAG_RESET_PENDING;
 
 	/* poll until we see the reset actually happen */
-	for (i = 0; i < IAVF_RESET_WAIT_COUNT; i++) {
+	for (i = 0; i < IAVF_RESET_WAIT_DETECTED_COUNT; i++) {
 		reg_val = rd32(hw, IAVF_VF_ARQLEN1) &
 			  IAVF_VF_ARQLEN1_ARQENABLE_MASK;
 		if (!reg_val)
 			break;
 		usleep_range(5000, 10000);
 	}
-	if (i == IAVF_RESET_WAIT_COUNT) {
+	if (i == IAVF_RESET_WAIT_DETECTED_COUNT) {
 		dev_info(&adapter->pdev->dev, "Never saw reset\n");
 		goto continue_reset; /* act like the reset happened */
 	}
 
 	/* wait until the reset is complete and the PF is responding to us */
-	for (i = 0; i < IAVF_RESET_WAIT_COUNT; i++) {
+	for (i = 0; i < IAVF_RESET_WAIT_COMPLETE_COUNT; i++) {
 		/* sleep first to make sure a minimum wait time is met */
 		msleep(IAVF_RESET_WAIT_MS);
 
@@ -2126,7 +2117,7 @@ static void iavf_reset_task(struct work_struct *work)
 
 	pci_set_master(adapter->pdev);
 
-	if (i == IAVF_RESET_WAIT_COUNT) {
+	if (i == IAVF_RESET_WAIT_COMPLETE_COUNT) {
 		dev_err(&adapter->pdev->dev, "Reset never finished (%x)\n",
 			reg_val);
 		iavf_disable_vf(adapter);
@@ -2498,23 +2489,29 @@ static int iavf_validate_tx_bandwidth(struct iavf_adapter *adapter,
 	}
 
 	switch (adapter->link_speed) {
-	case IAVF_LINK_SPEED_40GB:
-		speed = 40000;
+	case VIRTCHNL_LINK_SPEED_40GB:
+		speed = SPEED_40000;
 		break;
-	case IAVF_LINK_SPEED_25GB:
-		speed = 25000;
+	case VIRTCHNL_LINK_SPEED_25GB:
+		speed = SPEED_25000;
 		break;
-	case IAVF_LINK_SPEED_20GB:
-		speed = 20000;
+	case VIRTCHNL_LINK_SPEED_20GB:
+		speed = SPEED_20000;
 		break;
-	case IAVF_LINK_SPEED_10GB:
-		speed = 10000;
+	case VIRTCHNL_LINK_SPEED_10GB:
+		speed = SPEED_10000;
 		break;
-	case IAVF_LINK_SPEED_1GB:
-		speed = 1000;
+	case VIRTCHNL_LINK_SPEED_5GB:
+		speed = SPEED_5000;
 		break;
-	case IAVF_LINK_SPEED_100MB:
-		speed = 100;
+	case VIRTCHNL_LINK_SPEED_2_5GB:
+		speed = SPEED_2500;
+		break;
+	case VIRTCHNL_LINK_SPEED_1GB:
+		speed = SPEED_1000;
+		break;
+	case VIRTCHNL_LINK_SPEED_100MB:
+		speed = SPEED_100;
 		break;
 	default:
 		break;
@@ -2574,8 +2571,8 @@ static int iavf_validate_ch_config(struct iavf_adapter *adapter,
 }
 
 /**
- * iavf_del_all_cloud_filters - delete all cloud filters
- * on the traffic classes
+ * iavf_del_all_cloud_filters - delete all cloud filters on the traffic classes
+ * @adapter: board private structure
  **/
 static void iavf_del_all_cloud_filters(struct iavf_adapter *adapter)
 {
@@ -2594,7 +2591,7 @@ static void iavf_del_all_cloud_filters(struct iavf_adapter *adapter)
 /**
  * __iavf_setup_tc - configure multiple traffic classes
  * @netdev: network interface device structure
- * @type_date: tc offload data
+ * @type_data: tc offload data
  *
  * This function processes the config information provided by the
  * user to configure traffic classes/queue channels and packages the
@@ -2692,7 +2689,7 @@ exit:
 /**
  * iavf_parse_cls_flower - Parse tc flower filters provided by kernel
  * @adapter: board private structure
- * @cls_flower: pointer to struct flow_cls_offload
+ * @f: pointer to struct flow_cls_offload
  * @filter: pointer to cloud filter structure
  */
 static int iavf_parse_cls_flower(struct iavf_adapter *adapter,
@@ -3066,8 +3063,8 @@ static int iavf_delete_clsflower(struct iavf_adapter *adapter,
 
 /**
  * iavf_setup_tc_cls_flower - flower classifier offloads
- * @netdev: net device to configure
- * @type_data: offload data
+ * @adapter: board private structure
+ * @cls_flower: pointer to flow_cls_offload struct with flow info
  */
 static int iavf_setup_tc_cls_flower(struct iavf_adapter *adapter,
 				    struct flow_cls_offload *cls_flower)
@@ -3114,7 +3111,7 @@ static LIST_HEAD(iavf_block_cb_list);
  * iavf_setup_tc - configure multiple traffic classes
  * @netdev: network interface device structure
  * @type: type of offload
- * @type_date: tc offload data
+ * @type_data: tc offload data
  *
  * This function is the callback to ndo_setup_tc in the
  * netdev_ops.
@@ -3423,7 +3420,7 @@ static int iavf_check_reset_complete(struct iavf_hw *hw)
 	u32 rstat;
 	int i;
 
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < IAVF_RESET_WAIT_COMPLETE_COUNT; i++) {
 		rstat = rd32(hw, IAVF_VFGEN_RSTAT) &
 			     IAVF_VFGEN_RSTAT_VFR_STATE_MASK;
 		if ((rstat == VIRTCHNL_VFR_VFACTIVE) ||
@@ -3768,19 +3765,16 @@ err_dma:
 	return err;
 }
 
-#ifdef CONFIG_PM
 /**
  * iavf_suspend - Power management suspend routine
- * @pdev: PCI device information struct
- * @state: unused
+ * @dev_d: device info pointer
  *
  * Called when the system (VM) is entering sleep/suspend.
  **/
-static int iavf_suspend(struct pci_dev *pdev, pm_message_t state)
+static int __maybe_unused iavf_suspend(struct device *dev_d)
 {
-	struct net_device *netdev = pci_get_drvdata(pdev);
+	struct net_device *netdev = dev_get_drvdata(dev_d);
 	struct iavf_adapter *adapter = netdev_priv(netdev);
-	int retval = 0;
 
 	netif_device_detach(netdev);
 
@@ -3798,39 +3792,22 @@ static int iavf_suspend(struct pci_dev *pdev, pm_message_t state)
 
 	clear_bit(__IAVF_IN_CRITICAL_TASK, &adapter->crit_section);
 
-	retval = pci_save_state(pdev);
-	if (retval)
-		return retval;
-
-	pci_disable_device(pdev);
-
 	return 0;
 }
 
 /**
  * iavf_resume - Power management resume routine
- * @pdev: PCI device information struct
+ * @dev_d: device info pointer
  *
  * Called when the system (VM) is resumed from sleep/suspend.
  **/
-static int iavf_resume(struct pci_dev *pdev)
+static int __maybe_unused iavf_resume(struct device *dev_d)
 {
-	struct iavf_adapter *adapter = pci_get_drvdata(pdev);
-	struct net_device *netdev = adapter->netdev;
+	struct pci_dev *pdev = to_pci_dev(dev_d);
+	struct net_device *netdev = pci_get_drvdata(pdev);
+	struct iavf_adapter *adapter = netdev_priv(netdev);
 	u32 err;
 
-	pci_set_power_state(pdev, PCI_D0);
-	pci_restore_state(pdev);
-	/* pci_restore_state clears dev->state_saved so call
-	 * pci_save_state to restore it.
-	 */
-	pci_save_state(pdev);
-
-	err = pci_enable_device_mem(pdev);
-	if (err) {
-		dev_err(&pdev->dev, "Cannot enable PCI device from suspend.\n");
-		return err;
-	}
 	pci_set_master(pdev);
 
 	rtnl_lock();
@@ -3854,7 +3831,6 @@ static int iavf_resume(struct pci_dev *pdev)
 	return err;
 }
 
-#endif /* CONFIG_PM */
 /**
  * iavf_remove - Device Removal Routine
  * @pdev: PCI device information struct
@@ -3956,16 +3932,15 @@ static void iavf_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 }
 
+static SIMPLE_DEV_PM_OPS(iavf_pm_ops, iavf_suspend, iavf_resume);
+
 static struct pci_driver iavf_driver = {
-	.name     = iavf_driver_name,
-	.id_table = iavf_pci_tbl,
-	.probe    = iavf_probe,
-	.remove   = iavf_remove,
-#ifdef CONFIG_PM
-	.suspend  = iavf_suspend,
-	.resume   = iavf_resume,
-#endif
-	.shutdown = iavf_shutdown,
+	.name      = iavf_driver_name,
+	.id_table  = iavf_pci_tbl,
+	.probe     = iavf_probe,
+	.remove    = iavf_remove,
+	.driver.pm = &iavf_pm_ops,
+	.shutdown  = iavf_shutdown,
 };
 
 /**
@@ -3978,8 +3953,7 @@ static int __init iavf_init_module(void)
 {
 	int ret;
 
-	pr_info("iavf: %s - version %s\n", iavf_driver_string,
-		iavf_driver_version);
+	pr_info("iavf: %s\n", iavf_driver_string);
 
 	pr_info("%s\n", iavf_copyright);
 

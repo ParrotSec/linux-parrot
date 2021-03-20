@@ -184,7 +184,7 @@ static irqreturn_t pcl711_interrupt(int irq, void *d)
 	struct comedi_device *dev = d;
 	struct comedi_subdevice *s = dev->read_subdev;
 	struct comedi_cmd *cmd = &s->async->cmd;
-	unsigned int data;
+	unsigned short data;
 
 	if (!dev->attached) {
 		dev_err(dev->class_dev, "spurious interrupt\n");
@@ -508,6 +508,6 @@ static struct comedi_driver pcl711_driver = {
 };
 module_comedi_driver(pcl711_driver);
 
-MODULE_AUTHOR("Comedi http://www.comedi.org");
+MODULE_AUTHOR("Comedi https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi driver for PCL-711 compatible boards");
 MODULE_LICENSE("GPL");

@@ -3,6 +3,7 @@
  * Copyright 2002-2005, Devicescape Software, Inc.
  * Copyright 2013-2014  Intel Mobile Communications GmbH
  * Copyright(c) 2015-2017 Intel Deutschland GmbH
+ * Copyright(c) 2020 Intel Corporation
  */
 
 #ifndef STA_INFO_H
@@ -68,6 +69,8 @@
  * @WLAN_STA_MPSP_RECIPIENT: local STA is recipient of a MPSP.
  * @WLAN_STA_PS_DELIVER: station woke up, but we're still blocking TX
  *	until pending frames are delivered
+ * @WLAN_STA_USES_ENCRYPTION: This station was configured for encryption,
+ *	so drop all packets without a key later.
  *
  * @NUM_WLAN_STA_FLAGS: number of defined flags
  */
@@ -116,6 +119,7 @@ enum ieee80211_sta_info_flags {
 #define HT_AGG_STATE_WANT_STOP		5
 #define HT_AGG_STATE_START_CB		6
 #define HT_AGG_STATE_STOP_CB		7
+#define HT_AGG_STATE_SENT_ADDBA		8
 
 DECLARE_EWMA(avg_signal, 10, 8)
 enum ieee80211_agg_stop_reason {
@@ -332,7 +336,6 @@ struct ieee80211_fast_tx {
  * @expected_ds_bits: from/to DS bits expected
  * @icv_len: length of the MIC if present
  * @key: bool indicating encryption is expected (key is set)
- * @sta_notify: notify the MLME code (once)
  * @internal_forward: forward froms internally on AP/VLAN type interfaces
  * @uses_rss: copy of USES_RSS hw flag
  * @da_offs: offset of the DA in the header (for header conversion)
@@ -348,7 +351,6 @@ struct ieee80211_fast_rx {
 	__le16 expected_ds_bits;
 	u8 icv_len;
 	u8 key:1,
-	   sta_notify:1,
 	   internal_forward:1,
 	   uses_rss:1;
 	u8 da_offs, sa_offs;
@@ -381,6 +383,7 @@ DECLARE_EWMA(mesh_tx_rate_avg, 8, 16)
  * @processed_beacon: set to true after peer rates and capabilities are
  *	processed
  * @connected_to_gate: true if mesh STA has a path to a mesh gate
+ * @connected_to_as: true if mesh STA has a path to a authentication server
  * @fail_avg: moving percentage of failed MSDUs
  * @tx_rate_avg: moving average of tx bitrate
  */
@@ -400,6 +403,7 @@ struct mesh_sta {
 
 	bool processed_beacon;
 	bool connected_to_gate;
+	bool connected_to_as;
 
 	enum nl80211_plink_state plink_state;
 	u32 plink_timeout;
@@ -518,7 +522,7 @@ struct ieee80211_sta_rx_stats {
  * @status_stats.retry_failed: # of frames that failed after retry
  * @status_stats.retry_count: # of retries attempted
  * @status_stats.lost_packets: # of lost packets
- * @status_stats.last_tdls_pkt_time: timestamp of last TDLS packet
+ * @status_stats.last_pkt_time: timestamp of last ACKed packet
  * @status_stats.msdu_retries: # of MSDU retries
  * @status_stats.msdu_failed: # of failed MSDUs
  * @status_stats.last_ack: last ack timestamp (jiffies)
@@ -591,7 +595,7 @@ struct sta_info {
 		unsigned long filtered;
 		unsigned long retry_failed, retry_count;
 		unsigned int lost_packets;
-		unsigned long last_tdls_pkt_time;
+		unsigned long last_pkt_time;
 		u64 msdu_retries[IEEE80211_NUM_TIDS + 1];
 		u64 msdu_failed[IEEE80211_NUM_TIDS + 1];
 		unsigned long last_ack;
@@ -605,6 +609,7 @@ struct sta_info {
 		u64 packets[IEEE80211_NUM_ACS];
 		u64 bytes[IEEE80211_NUM_ACS];
 		struct ieee80211_tx_rate last_rate;
+		struct rate_info last_rate_info;
 		u64 msdu[IEEE80211_NUM_TIDS + 1];
 	} tx_stats;
 	u16 tid_seq[IEEE80211_QOS_CTL_TID_MASK + 1];
@@ -780,7 +785,7 @@ int sta_info_init(struct ieee80211_local *local);
 void sta_info_stop(struct ieee80211_local *local);
 
 /**
- * sta_info_flush - flush matching STA entries from the STA table
+ * __sta_info_flush - flush matching STA entries from the STA table
  *
  * Returns the number of removed STA entries.
  *
@@ -789,6 +794,13 @@ void sta_info_stop(struct ieee80211_local *local);
  */
 int __sta_info_flush(struct ieee80211_sub_if_data *sdata, bool vlans);
 
+/**
+ * sta_info_flush - flush matching STA entries from the STA table
+ *
+ * Returns the number of removed STA entries.
+ *
+ * @sdata: sdata to remove all stations from
+ */
 static inline int sta_info_flush(struct ieee80211_sub_if_data *sdata)
 {
 	return __sta_info_flush(sdata, false);
@@ -818,6 +830,7 @@ enum sta_stats_type {
 	STA_STATS_RATE_TYPE_HT,
 	STA_STATS_RATE_TYPE_VHT,
 	STA_STATS_RATE_TYPE_HE,
+	STA_STATS_RATE_TYPE_S1G,
 };
 
 #define STA_STATS_FIELD_HT_MCS		GENMASK( 7,  0)

@@ -752,6 +752,7 @@ static const struct ingenic_i2c_config x1000_i2c_config = {
 };
 
 static const struct of_device_id jz4780_i2c_of_matches[] = {
+	{ .compatible = "ingenic,jz4770-i2c", .data = &jz4780_i2c_config },
 	{ .compatible = "ingenic,jz4780-i2c", .data = &jz4780_i2c_config },
 	{ .compatible = "ingenic,x1000-i2c", .data = &x1000_i2c_config },
 	{ /* sentinel */ }
@@ -763,7 +764,6 @@ static int jz4780_i2c_probe(struct platform_device *pdev)
 	int ret = 0;
 	unsigned int clk_freq = 0;
 	unsigned short tmp;
-	struct resource *r;
 	struct jz4780_i2c *i2c;
 
 	i2c = devm_kzalloc(&pdev->dev, sizeof(struct jz4780_i2c), GFP_KERNEL);
@@ -787,8 +787,7 @@ static int jz4780_i2c_probe(struct platform_device *pdev)
 	init_completion(&i2c->trans_waitq);
 	spin_lock_init(&i2c->lock);
 
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	i2c->iomem = devm_ioremap_resource(&pdev->dev, r);
+	i2c->iomem = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(i2c->iomem))
 		return PTR_ERR(i2c->iomem);
 
@@ -858,7 +857,7 @@ static struct platform_driver jz4780_i2c_driver = {
 	.remove		= jz4780_i2c_remove,
 	.driver		= {
 		.name	= "jz4780-i2c",
-		.of_match_table = of_match_ptr(jz4780_i2c_of_matches),
+		.of_match_table = jz4780_i2c_of_matches,
 	},
 };
 

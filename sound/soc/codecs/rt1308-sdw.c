@@ -118,10 +118,13 @@ static int rt1308_clock_config(struct device *dev)
 static int rt1308_read_prop(struct sdw_slave *slave)
 {
 	struct sdw_slave_prop *prop = &slave->prop;
-	int nval, i, num_of_ports = 1;
+	int nval, i;
 	u32 bit;
 	unsigned long addr;
 	struct sdw_dpn_prop *dpn;
+
+	prop->scp_int1_mask = SDW_SCP_INT1_BUS_CLASH | SDW_SCP_INT1_PARITY;
+	prop->quirks = SDW_SLAVE_QUIRKS_INVALID_INITIAL_PARITY;
 
 	prop->paging_support = true;
 
@@ -131,7 +134,6 @@ static int rt1308_read_prop(struct sdw_slave *slave)
 
 	/* for sink */
 	nval = hweight32(prop->sink_ports);
-	num_of_ports += nval;
 	prop->sink_dpn_prop = devm_kcalloc(&slave->dev, nval,
 						sizeof(*prop->sink_dpn_prop),
 						GFP_KERNEL);
@@ -148,17 +150,6 @@ static int rt1308_read_prop(struct sdw_slave *slave)
 		dpn[i].ch_prep_timeout = 10;
 		i++;
 	}
-
-	/* Allocate port_ready based on num_of_ports */
-	slave->port_ready = devm_kcalloc(&slave->dev, num_of_ports,
-					sizeof(*slave->port_ready),
-					GFP_KERNEL);
-	if (!slave->port_ready)
-		return -ENOMEM;
-
-	/* Initialize completion */
-	for (i = 0; i < num_of_ports; i++)
-		init_completion(&slave->port_ready[i]);
 
 	/* set the timeout values */
 	prop->clk_stop_timeout = 20;
@@ -177,10 +168,6 @@ static int rt1308_io_init(struct device *dev, struct sdw_slave *slave)
 
 	if (rt1308->hw_init)
 		return 0;
-
-	ret = rt1308_read_prop(slave);
-	if (ret < 0)
-		goto _io_init_err_;
 
 	if (rt1308->first_hw_init) {
 		regcache_cache_only(rt1308->regmap, false);
@@ -235,9 +222,9 @@ static int rt1308_io_init(struct device *dev, struct sdw_slave *slave)
 	efuse_c_btl_r = tmp;
 	regmap_read(rt1308->regmap, 0xc872, &tmp);
 	efuse_c_btl_r = efuse_c_btl_r | (tmp << 8);
-	dev_info(&slave->dev, "%s m_btl_l=0x%x, m_btl_r=0x%x\n", __func__,
+	dev_dbg(&slave->dev, "%s m_btl_l=0x%x, m_btl_r=0x%x\n", __func__,
 		efuse_m_btl_l, efuse_m_btl_r);
-	dev_info(&slave->dev, "%s c_btl_l=0x%x, c_btl_r=0x%x\n", __func__,
+	dev_dbg(&slave->dev, "%s c_btl_l=0x%x, c_btl_r=0x%x\n", __func__,
 		efuse_c_btl_l, efuse_c_btl_r);
 
 	/* initial settings */
@@ -282,7 +269,6 @@ static int rt1308_io_init(struct device *dev, struct sdw_slave *slave)
 
 	dev_dbg(&slave->dev, "%s hw_init complete\n", __func__);
 
-_io_init_err_:
 	return ret;
 }
 
@@ -687,13 +673,10 @@ static int rt1308_sdw_probe(struct sdw_slave *slave,
 {
 	struct regmap *regmap;
 
-	/* Assign ops */
-	slave->ops = &rt1308_slave_ops;
-
 	/* Regmap Initialization */
 	regmap = devm_regmap_init_sdw(slave, &rt1308_sdw_regmap);
-	if (!regmap)
-		return -EINVAL;
+	if (IS_ERR(regmap))
+		return PTR_ERR(regmap);
 
 	rt1308_sdw_init(&slave->dev, regmap, slave);
 
@@ -701,7 +684,7 @@ static int rt1308_sdw_probe(struct sdw_slave *slave,
 }
 
 static const struct sdw_device_id rt1308_id[] = {
-	SDW_SLAVE_ENTRY(0x025d, 0x1308, 0),
+	SDW_SLAVE_ENTRY_EXT(0x025d, 0x1308, 0x2, 0, 0),
 	{},
 };
 MODULE_DEVICE_TABLE(sdw, rt1308_id);

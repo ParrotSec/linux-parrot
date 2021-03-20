@@ -46,7 +46,6 @@
 #include <asm/processor.h>
 #include <asm/tlbflush.h>
 #include <asm/x86_init.h>
-#include <asm/pgtable.h>
 #include <asm/fcntl.h>
 #include <asm/e820/api.h>
 #include <asm/mtrr.h>
@@ -1165,12 +1164,14 @@ static void *memtype_seq_start(struct seq_file *seq, loff_t *pos)
 
 static void *memtype_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 {
+	kfree(v);
 	++*pos;
 	return memtype_get_idx(*pos);
 }
 
 static void memtype_seq_stop(struct seq_file *seq, void *v)
 {
+	kfree(v);
 }
 
 static int memtype_seq_show(struct seq_file *seq, void *v)
@@ -1181,8 +1182,6 @@ static int memtype_seq_show(struct seq_file *seq, void *v)
 			entry_print->start,
 			entry_print->end,
 			cattr_name(entry_print->type));
-
-	kfree(entry_print);
 
 	return 0;
 }

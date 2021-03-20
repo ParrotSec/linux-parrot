@@ -741,7 +741,7 @@ static PyObject *get_perf_sample_dict(struct perf_sample *sample,
 	if (!dict_sample)
 		Py_FatalError("couldn't create Python dictionary");
 
-	pydict_set_item_string_decref(dict, "ev_name", _PyUnicode_FromString(perf_evsel__name(evsel)));
+	pydict_set_item_string_decref(dict, "ev_name", _PyUnicode_FromString(evsel__name(evsel)));
 	pydict_set_item_string_decref(dict, "attr", _PyBytes_FromStringAndSize((const char *)&evsel->core.attr, sizeof(evsel->core.attr)));
 
 	pydict_set_item_string_decref(dict_sample, "pid",
@@ -968,7 +968,7 @@ static int python_export_evsel(struct db_export *dbe, struct evsel *evsel)
 	t = tuple_new(2);
 
 	tuple_set_u64(t, 0, evsel->db_id);
-	tuple_set_string(t, 1, perf_evsel__name(evsel));
+	tuple_set_string(t, 1, evsel__name(evsel));
 
 	call_object(tables->evsel_handler, t, "evsel_table");
 
@@ -1064,7 +1064,7 @@ static int python_export_dso(struct db_export *dbe, struct dso *dso,
 	char sbuild_id[SBUILD_ID_SIZE];
 	PyObject *t;
 
-	build_id__sprintf(dso->build_id, sizeof(dso->build_id), sbuild_id);
+	build_id__sprintf(&dso->bid, sbuild_id);
 
 	t = tuple_new(5);
 
@@ -1349,7 +1349,7 @@ static void get_handler_name(char *str, size_t size,
 {
 	char *p = str;
 
-	scnprintf(str, size, "stat__%s", perf_evsel__name(evsel));
+	scnprintf(str, size, "stat__%s", evsel__name(evsel));
 
 	while ((p = strchr(p, ':'))) {
 		*p = '_';
@@ -1592,7 +1592,6 @@ static void _free_command_line(wchar_t **command_line, int num)
 static int python_start_script(const char *script, int argc, const char **argv)
 {
 	struct tables *tables = &tables_global;
-	PyMODINIT_FUNC (*initfunc)(void);
 #if PY_MAJOR_VERSION < 3
 	const char **command_line;
 #else
@@ -1607,20 +1606,18 @@ static int python_start_script(const char *script, int argc, const char **argv)
 	FILE *fp;
 
 #if PY_MAJOR_VERSION < 3
-	initfunc = initperf_trace_context;
 	command_line = malloc((argc + 1) * sizeof(const char *));
 	command_line[0] = script;
 	for (i = 1; i < argc + 1; i++)
 		command_line[i] = argv[i - 1];
+	PyImport_AppendInittab(name, initperf_trace_context);
 #else
-	initfunc = PyInit_perf_trace_context;
 	command_line = malloc((argc + 1) * sizeof(wchar_t *));
 	command_line[0] = Py_DecodeLocale(script, NULL);
 	for (i = 1; i < argc + 1; i++)
 		command_line[i] = Py_DecodeLocale(argv[i - 1], NULL);
+	PyImport_AppendInittab(name, PyInit_perf_trace_context);
 #endif
-
-	PyImport_AppendInittab(name, initfunc);
 	Py_Initialize();
 
 #if PY_MAJOR_VERSION < 3

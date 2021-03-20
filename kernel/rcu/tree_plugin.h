@@ -36,6 +36,8 @@ static void __init rcu_bootup_announce_oddness(void)
 		pr_info("\tRCU dyntick-idle grace-period acceleration is enabled.\n");
 	if (IS_ENABLED(CONFIG_PROVE_RCU))
 		pr_info("\tRCU lockdep checking is enabled.\n");
+	if (IS_ENABLED(CONFIG_RCU_STRICT_GRACE_PERIOD))
+		pr_info("\tRCU strict (and thus non-scalable) grace periods enabled.\n");
 	if (RCU_NUM_LVLS >= 4)
 		pr_info("\tFour(or more)-level hierarchy is enabled.\n");
 	if (RCU_FANOUT_LEAF != 16)
@@ -226,7 +228,7 @@ static void rcu_preempt_ctxt_queue(struct rcu_node *rnp, struct rcu_data *rdp)
 		WARN_ON_ONCE(rnp->completedqs == rnp->gp_seq);
 	}
 	if (!rnp->exp_tasks && (blkd_state & RCU_EXP_BLKD))
-		rnp->exp_tasks = &t->rcu_node_entry;
+		WRITE_ONCE(rnp->exp_tasks, &t->rcu_node_entry);
 	WARN_ON_ONCE(!(blkd_state & RCU_GP_BLKD) !=
 		     !(rnp->qsmask & rdp->grpmask));
 	WARN_ON_ONCE(!(blkd_state & RCU_EXP_BLKD) !=
@@ -331,6 +333,7 @@ void rcu_note_context_switch(bool preempt)
 	rcu_qs();
 	if (rdp->exp_deferred_qs)
 		rcu_report_exp_rdp(rdp);
+	rcu_tasks_qs(current, preempt);
 	trace_rcu_utilization(TPS("End context switch"));
 }
 EXPORT_SYMBOL_GPL(rcu_note_context_switch);
@@ -345,9 +348,7 @@ static int rcu_preempt_blocked_readers_cgp(struct rcu_node *rnp)
 	return READ_ONCE(rnp->gp_tasks) != NULL;
 }
 
-/* Bias and limit values for ->rcu_read_lock_nesting. */
-#define RCU_NEST_BIAS INT_MAX
-#define RCU_NEST_NMAX (-INT_MAX / 2)
+/* limit value for ->rcu_read_lock_nesting. */
 #define RCU_NEST_PMAX (INT_MAX / 2)
 
 static void rcu_preempt_read_enter(void)
@@ -355,9 +356,9 @@ static void rcu_preempt_read_enter(void)
 	current->rcu_read_lock_nesting++;
 }
 
-static void rcu_preempt_read_exit(void)
+static int rcu_preempt_read_exit(void)
 {
-	current->rcu_read_lock_nesting--;
+	return --current->rcu_read_lock_nesting;
 }
 
 static void rcu_preempt_depth_set(int val)
@@ -375,6 +376,8 @@ void __rcu_read_lock(void)
 	rcu_preempt_read_enter();
 	if (IS_ENABLED(CONFIG_PROVE_LOCKING))
 		WARN_ON_ONCE(rcu_preempt_depth() > RCU_NEST_PMAX);
+	if (IS_ENABLED(CONFIG_RCU_STRICT_GRACE_PERIOD) && rcu_state.gp_kthread)
+		WRITE_ONCE(current->rcu_read_unlock_special.b.need_qs, true);
 	barrier();  /* critical section after entry code. */
 }
 EXPORT_SYMBOL_GPL(__rcu_read_lock);
@@ -390,21 +393,15 @@ void __rcu_read_unlock(void)
 {
 	struct task_struct *t = current;
 
-	if (rcu_preempt_depth() != 1) {
-		rcu_preempt_read_exit();
-	} else {
+	if (rcu_preempt_read_exit() == 0) {
 		barrier();  /* critical section before exit code. */
-		rcu_preempt_depth_set(-RCU_NEST_BIAS);
-		barrier();  /* assign before ->rcu_read_unlock_special load */
 		if (unlikely(READ_ONCE(t->rcu_read_unlock_special.s)))
 			rcu_read_unlock_special(t);
-		barrier();  /* ->rcu_read_unlock_special load before assign */
-		rcu_preempt_depth_set(0);
 	}
 	if (IS_ENABLED(CONFIG_PROVE_LOCKING)) {
 		int rrln = rcu_preempt_depth();
 
-		WARN_ON_ONCE(rrln < 0 && rrln > RCU_NEST_NMAX);
+		WARN_ON_ONCE(rrln < 0 || rrln > RCU_NEST_PMAX);
 	}
 }
 EXPORT_SYMBOL_GPL(__rcu_read_unlock);
@@ -462,8 +459,14 @@ rcu_preempt_deferred_qs_irqrestore(struct task_struct *t, unsigned long flags)
 		return;
 	}
 	t->rcu_read_unlock_special.s = 0;
-	if (special.b.need_qs)
-		rcu_qs();
+	if (special.b.need_qs) {
+		if (IS_ENABLED(CONFIG_RCU_STRICT_GRACE_PERIOD)) {
+			rcu_report_qs_rdp(rdp);
+			udelay(rcu_unlock_delay);
+		} else {
+			rcu_qs();
+		}
+	}
 
 	/*
 	 * Respond to a request by an expedited grace period for a
@@ -500,12 +503,12 @@ rcu_preempt_deferred_qs_irqrestore(struct task_struct *t, unsigned long flags)
 		if (&t->rcu_node_entry == rnp->gp_tasks)
 			WRITE_ONCE(rnp->gp_tasks, np);
 		if (&t->rcu_node_entry == rnp->exp_tasks)
-			rnp->exp_tasks = np;
+			WRITE_ONCE(rnp->exp_tasks, np);
 		if (IS_ENABLED(CONFIG_RCU_BOOST)) {
 			/* Snapshot ->boost_mtx ownership w/rnp->lock held. */
 			drop_boost_mutex = rt_mutex_owner(&rnp->boost_mtx) == t;
 			if (&t->rcu_node_entry == rnp->boost_tasks)
-				rnp->boost_tasks = np;
+				WRITE_ONCE(rnp->boost_tasks, np);
 		}
 
 		/*
@@ -556,7 +559,7 @@ static bool rcu_preempt_need_deferred_qs(struct task_struct *t)
 {
 	return (__this_cpu_read(rcu_data.exp_deferred_qs) ||
 		READ_ONCE(t->rcu_read_unlock_special.s)) &&
-	       rcu_preempt_depth() <= 0;
+	       rcu_preempt_depth() == 0;
 }
 
 /*
@@ -569,16 +572,11 @@ static bool rcu_preempt_need_deferred_qs(struct task_struct *t)
 static void rcu_preempt_deferred_qs(struct task_struct *t)
 {
 	unsigned long flags;
-	bool couldrecurse = rcu_preempt_depth() >= 0;
 
 	if (!rcu_preempt_need_deferred_qs(t))
 		return;
-	if (couldrecurse)
-		rcu_preempt_depth_set(rcu_preempt_depth() - RCU_NEST_BIAS);
 	local_irq_save(flags);
 	rcu_preempt_deferred_qs_irqrestore(t, flags);
-	if (couldrecurse)
-		rcu_preempt_depth_set(rcu_preempt_depth() + RCU_NEST_BIAS);
 }
 
 /*
@@ -615,19 +613,18 @@ static void rcu_read_unlock_special(struct task_struct *t)
 		struct rcu_data *rdp = this_cpu_ptr(&rcu_data);
 		struct rcu_node *rnp = rdp->mynode;
 
-		exp = (t->rcu_blocked_node && t->rcu_blocked_node->exp_tasks) ||
-		      (rdp->grpmask & READ_ONCE(rnp->expmask)) ||
-		      tick_nohz_full_cpu(rdp->cpu);
+		exp = (t->rcu_blocked_node &&
+		       READ_ONCE(t->rcu_blocked_node->exp_tasks)) ||
+		      (rdp->grpmask & READ_ONCE(rnp->expmask));
 		// Need to defer quiescent state until everything is enabled.
-		if (irqs_were_disabled && use_softirq &&
-		    (in_interrupt() ||
-		     (exp && !t->rcu_read_unlock_special.b.deferred_qs))) {
-			// Using softirq, safe to awaken, and we get
-			// no help from enabling irqs, unlike bh/preempt.
+		if (use_softirq && (in_irq() || (exp && !irqs_were_disabled))) {
+			// Using softirq, safe to awaken, and either the
+			// wakeup is free or there is an expedited GP.
 			raise_softirq_irqoff(RCU_SOFTIRQ);
 		} else {
 			// Enabling BH or preempt does reschedule, so...
-			// Also if no expediting or NO_HZ_FULL, slow is OK.
+			// Also if no expediting, slow is OK.
+			// Plus nohz_full CPUs eventually get tick enabled.
 			set_tsk_need_resched(current);
 			set_preempt_need_resched();
 			if (IS_ENABLED(CONFIG_IRQ_WORK) && irqs_were_disabled &&
@@ -640,7 +637,6 @@ static void rcu_read_unlock_special(struct task_struct *t)
 				irq_work_queue_on(&rdp->defer_qs_iw, rdp->cpu);
 			}
 		}
-		t->rcu_read_unlock_special.b.deferred_qs = true;
 		local_irq_restore(flags);
 		return;
 	}
@@ -699,7 +695,7 @@ static void rcu_flavor_sched_clock_irq(int user)
 	} else if (rcu_preempt_need_deferred_qs(t)) {
 		rcu_preempt_deferred_qs(t); /* Report deferred QS. */
 		return;
-	} else if (!rcu_preempt_depth()) {
+	} else if (!WARN_ON_ONCE(rcu_preempt_depth())) {
 		rcu_qs(); /* Report immediate QS. */
 		return;
 	}
@@ -760,8 +756,8 @@ dump_blkd_tasks(struct rcu_node *rnp, int ncheck)
 		pr_info("%s: %d:%d ->qsmask %#lx ->qsmaskinit %#lx ->qsmaskinitnext %#lx\n",
 			__func__, rnp1->grplo, rnp1->grphi, rnp1->qsmask, rnp1->qsmaskinit, rnp1->qsmaskinitnext);
 	pr_info("%s: ->gp_tasks %p ->boost_tasks %p ->exp_tasks %p\n",
-		__func__, READ_ONCE(rnp->gp_tasks), rnp->boost_tasks,
-		rnp->exp_tasks);
+		__func__, READ_ONCE(rnp->gp_tasks), data_race(rnp->boost_tasks),
+		READ_ONCE(rnp->exp_tasks));
 	pr_info("%s: ->blkd_tasks", __func__);
 	i = 0;
 	list_for_each(lhp, &rnp->blkd_tasks) {
@@ -781,6 +777,24 @@ dump_blkd_tasks(struct rcu_node *rnp, int ncheck)
 }
 
 #else /* #ifdef CONFIG_PREEMPT_RCU */
+
+/*
+ * If strict grace periods are enabled, and if the calling
+ * __rcu_read_unlock() marks the beginning of a quiescent state, immediately
+ * report that quiescent state and, if requested, spin for a bit.
+ */
+void rcu_read_unlock_strict(void)
+{
+	struct rcu_data *rdp;
+
+	if (!IS_ENABLED(CONFIG_RCU_STRICT_GRACE_PERIOD) ||
+	   irqs_disabled() || preempt_count() || !rcu_state.gp_kthread)
+		return;
+	rdp = this_cpu_ptr(&rcu_data);
+	rcu_report_qs_rdp(rdp);
+	udelay(rcu_unlock_delay);
+}
+EXPORT_SYMBOL_GPL(rcu_read_unlock_strict);
 
 /*
  * Tell them what RCU they are running.
@@ -854,8 +868,7 @@ void rcu_note_context_switch(bool preempt)
 	this_cpu_write(rcu_data.rcu_urgent_qs, false);
 	if (unlikely(raw_cpu_read(rcu_data.rcu_need_heavy_qs)))
 		rcu_momentary_dyntick_idle();
-	if (!preempt)
-		rcu_tasks_qs(current);
+	rcu_tasks_qs(current, preempt);
 out:
 	trace_rcu_utilization(TPS("End context switch"));
 }
@@ -1036,7 +1049,8 @@ static int rcu_boost_kthread(void *arg)
 	for (;;) {
 		WRITE_ONCE(rnp->boost_kthread_status, RCU_KTHREAD_WAITING);
 		trace_rcu_utilization(TPS("End boost kthread@rcu_wait"));
-		rcu_wait(rnp->boost_tasks || rnp->exp_tasks);
+		rcu_wait(READ_ONCE(rnp->boost_tasks) ||
+			 READ_ONCE(rnp->exp_tasks));
 		trace_rcu_utilization(TPS("Start boost kthread@rcu_wait"));
 		WRITE_ONCE(rnp->boost_kthread_status, RCU_KTHREAD_RUNNING);
 		more2boost = rcu_boost(rnp);
@@ -1047,7 +1061,7 @@ static int rcu_boost_kthread(void *arg)
 		if (spincnt > 10) {
 			WRITE_ONCE(rnp->boost_kthread_status, RCU_KTHREAD_YIELDING);
 			trace_rcu_utilization(TPS("End boost kthread@rcu_yield"));
-			schedule_timeout_interruptible(2);
+			schedule_timeout_idle(2);
 			trace_rcu_utilization(TPS("Start boost kthread@rcu_yield"));
 			spincnt = 0;
 		}
@@ -1079,9 +1093,9 @@ static void rcu_initiate_boost(struct rcu_node *rnp, unsigned long flags)
 	    (rnp->gp_tasks != NULL &&
 	     rnp->boost_tasks == NULL &&
 	     rnp->qsmask == 0 &&
-	     (ULONG_CMP_GE(jiffies, rnp->boost_time) || rcu_state.cbovld))) {
+	     (!time_after(rnp->boost_time, jiffies) || rcu_state.cbovld))) {
 		if (rnp->exp_tasks == NULL)
-			rnp->boost_tasks = rnp->gp_tasks;
+			WRITE_ONCE(rnp->boost_tasks, rnp->gp_tasks);
 		raw_spin_unlock_irqrestore_rcu_node(rnp, flags);
 		rcu_wake_cond(rnp->boost_kthread_task,
 			      READ_ONCE(rnp->boost_kthread_status));
@@ -1940,6 +1954,7 @@ static void nocb_gp_wait(struct rcu_data *my_rdp)
 	 * nearest grace period (if any) to wait for next.  The CB kthreads
 	 * and the global grace-period kthread are awakened if needed.
 	 */
+	WARN_ON_ONCE(my_rdp->nocb_gp_rdp != my_rdp);
 	for (rdp = my_rdp; rdp; rdp = rdp->nocb_next_cb_rdp) {
 		trace_rcu_nocb_wake(rcu_state.name, rdp->cpu, TPS("Check"));
 		rcu_nocb_lock_irqsave(rdp, flags);
@@ -2019,7 +2034,7 @@ static void nocb_gp_wait(struct rcu_data *my_rdp)
 		/* Polling, so trace if first poll in the series. */
 		if (gotcbs)
 			trace_rcu_nocb_wake(rcu_state.name, cpu, TPS("Poll"));
-		schedule_timeout_interruptible(1);
+		schedule_timeout_idle(1);
 	} else if (!needwait_gp) {
 		/* Wait for callbacks to appear. */
 		trace_rcu_nocb_wake(rcu_state.name, cpu, TPS("Sleep"));
@@ -2170,6 +2185,11 @@ static void do_nocb_deferred_wakeup(struct rcu_data *rdp)
 {
 	if (rcu_nocb_need_deferred_wakeup(rdp))
 		do_nocb_deferred_wakeup_common(rdp);
+}
+
+void rcu_nocb_flush_deferred_wakeup(void)
+{
+	do_nocb_deferred_wakeup(this_cpu_ptr(&rcu_data));
 }
 
 void __init rcu_init_nohz(void)
@@ -2425,13 +2445,12 @@ static void show_rcu_nocb_state(struct rcu_data *rdp)
 		return;
 
 	waslocked = raw_spin_is_locked(&rdp->nocb_gp_lock);
-	wastimer = timer_pending(&rdp->nocb_timer);
+	wastimer = timer_pending(&rdp->nocb_bypass_timer);
 	wassleep = swait_active(&rdp->nocb_gp_wq);
-	if (!rdp->nocb_defer_wakeup && !rdp->nocb_gp_sleep &&
-	    !waslocked && !wastimer && !wassleep)
+	if (!rdp->nocb_gp_sleep && !waslocked && !wastimer && !wassleep)
 		return;  /* Nothing untowards. */
 
-	pr_info("   !!! %c%c%c%c %c\n",
+	pr_info("   nocb GP activity on CB-only CPU!!! %c%c%c%c %c\n",
 		"lL"[waslocked],
 		"dD"[!!rdp->nocb_defer_wakeup],
 		"tT"[wastimer],
@@ -2536,7 +2555,7 @@ static bool rcu_nohz_full_cpu(void)
 #ifdef CONFIG_NO_HZ_FULL
 	if (tick_nohz_full_cpu(smp_processor_id()) &&
 	    (!rcu_gp_in_progress() ||
-	     ULONG_CMP_LT(jiffies, READ_ONCE(rcu_state.gp_start) + HZ)))
+	     time_before(jiffies, READ_ONCE(rcu_state.gp_start) + HZ)))
 		return true;
 #endif /* #ifdef CONFIG_NO_HZ_FULL */
 	return false;
@@ -2553,7 +2572,7 @@ static void rcu_bind_gp_kthread(void)
 }
 
 /* Record the current task on dyntick-idle entry. */
-static void rcu_dynticks_task_enter(void)
+static void noinstr rcu_dynticks_task_enter(void)
 {
 #if defined(CONFIG_TASKS_RCU) && defined(CONFIG_NO_HZ_FULL)
 	WRITE_ONCE(current->rcu_tasks_idle_cpu, smp_processor_id());
@@ -2561,9 +2580,27 @@ static void rcu_dynticks_task_enter(void)
 }
 
 /* Record no current task on dyntick-idle exit. */
-static void rcu_dynticks_task_exit(void)
+static void noinstr rcu_dynticks_task_exit(void)
 {
 #if defined(CONFIG_TASKS_RCU) && defined(CONFIG_NO_HZ_FULL)
 	WRITE_ONCE(current->rcu_tasks_idle_cpu, -1);
 #endif /* #if defined(CONFIG_TASKS_RCU) && defined(CONFIG_NO_HZ_FULL) */
+}
+
+/* Turn on heavyweight RCU tasks trace readers on idle/user entry. */
+static void rcu_dynticks_task_trace_enter(void)
+{
+#ifdef CONFIG_TASKS_RCU_TRACE
+	if (IS_ENABLED(CONFIG_TASKS_TRACE_RCU_READ_MB))
+		current->trc_reader_special.b.need_mb = true;
+#endif /* #ifdef CONFIG_TASKS_RCU_TRACE */
+}
+
+/* Turn off heavyweight RCU tasks trace readers on idle/user exit. */
+static void rcu_dynticks_task_trace_exit(void)
+{
+#ifdef CONFIG_TASKS_RCU_TRACE
+	if (IS_ENABLED(CONFIG_TASKS_TRACE_RCU_READ_MB))
+		current->trc_reader_special.b.need_mb = false;
+#endif /* #ifdef CONFIG_TASKS_RCU_TRACE */
 }

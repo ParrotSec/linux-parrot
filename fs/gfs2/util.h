@@ -172,6 +172,7 @@ extern struct kmem_cache *gfs2_bufdata_cachep;
 extern struct kmem_cache *gfs2_rgrpd_cachep;
 extern struct kmem_cache *gfs2_quotad_cachep;
 extern struct kmem_cache *gfs2_qadata_cachep;
+extern struct kmem_cache *gfs2_trans_cachep;
 extern mempool_t *gfs2_page_pool;
 extern struct workqueue_struct *gfs2_control_wq;
 
@@ -202,6 +203,16 @@ static inline bool gfs2_withdrawn(struct gfs2_sbd *sdp)
 {
 	return test_bit(SDF_WITHDRAWN, &sdp->sd_flags) ||
 		test_bit(SDF_WITHDRAWING, &sdp->sd_flags);
+}
+
+/**
+ * gfs2_withdrawing - check if a withdraw is pending
+ * @sdp: the superblock
+ */
+static inline bool gfs2_withdrawing(struct gfs2_sbd *sdp)
+{
+	return test_bit(SDF_WITHDRAWING, &sdp->sd_flags) &&
+	       !test_bit(SDF_WITHDRAWN, &sdp->sd_flags);
 }
 
 #define gfs2_tune_get(sdp, field) \

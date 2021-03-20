@@ -37,7 +37,7 @@ enum efa_admin_aq_feature_id {
 	EFA_ADMIN_NETWORK_ATTR                      = 3,
 	EFA_ADMIN_QUEUE_ATTR                        = 4,
 	EFA_ADMIN_HW_HINTS                          = 5,
-	EFA_ADMIN_FEATURES_OPCODE_NUM               = 8,
+	EFA_ADMIN_HOST_INFO                         = 6,
 };
 
 /* QP transport type */
@@ -61,19 +61,13 @@ enum efa_admin_qp_state {
 
 enum efa_admin_get_stats_type {
 	EFA_ADMIN_GET_STATS_TYPE_BASIC              = 0,
+	EFA_ADMIN_GET_STATS_TYPE_MESSAGES           = 1,
+	EFA_ADMIN_GET_STATS_TYPE_RDMA_READ          = 2,
 };
 
 enum efa_admin_get_stats_scope {
 	EFA_ADMIN_GET_STATS_SCOPE_ALL               = 0,
 	EFA_ADMIN_GET_STATS_SCOPE_QUEUE             = 1,
-};
-
-enum efa_admin_modify_qp_mask_bits {
-	EFA_ADMIN_QP_STATE_BIT                      = 0,
-	EFA_ADMIN_CUR_QP_STATE_BIT                  = 1,
-	EFA_ADMIN_QKEY_BIT                          = 2,
-	EFA_ADMIN_SQ_PSN_BIT                        = 3,
-	EFA_ADMIN_SQ_DRAINED_ASYNC_NOTIFY_BIT       = 4,
 };
 
 /*
@@ -199,8 +193,14 @@ struct efa_admin_modify_qp_cmd {
 	struct efa_admin_aq_common_desc aq_common_desc;
 
 	/*
-	 * Mask indicating which fields should be updated see enum
-	 * efa_admin_modify_qp_mask_bits
+	 * Mask indicating which fields should be updated
+	 * 0 : qp_state
+	 * 1 : cur_qp_state
+	 * 2 : qkey
+	 * 3 : sq_psn
+	 * 4 : sq_drained_async_notify
+	 * 5 : rnr_retry
+	 * 31:6 : reserved
 	 */
 	u32 modify_mask;
 
@@ -222,8 +222,8 @@ struct efa_admin_modify_qp_cmd {
 	/* Enable async notification when SQ is drained */
 	u8 sq_drained_async_notify;
 
-	/* MBZ */
-	u8 reserved1;
+	/* Number of RNR retries (valid only for SRD QPs) */
+	u8 rnr_retry;
 
 	/* MBZ */
 	u16 reserved2;
@@ -258,8 +258,8 @@ struct efa_admin_query_qp_resp {
 	/* Indicates that draining is in progress */
 	u8 sq_draining;
 
-	/* MBZ */
-	u8 reserved1;
+	/* Number of RNR retries (valid only for SRD QPs) */
+	u8 rnr_retry;
 
 	/* MBZ */
 	u16 reserved2;
@@ -530,10 +530,36 @@ struct efa_admin_basic_stats {
 	u64 rx_drops;
 };
 
+struct efa_admin_messages_stats {
+	u64 send_bytes;
+
+	u64 send_wrs;
+
+	u64 recv_bytes;
+
+	u64 recv_wrs;
+};
+
+struct efa_admin_rdma_read_stats {
+	u64 read_wrs;
+
+	u64 read_bytes;
+
+	u64 read_wr_err;
+
+	u64 read_resp_bytes;
+};
+
 struct efa_admin_acq_get_stats_resp {
 	struct efa_admin_acq_common_desc acq_common_desc;
 
-	struct efa_admin_basic_stats basic_stats;
+	union {
+		struct efa_admin_basic_stats basic_stats;
+
+		struct efa_admin_messages_stats messages_stats;
+
+		struct efa_admin_rdma_read_stats rdma_read_stats;
+	} u;
 };
 
 struct efa_admin_get_set_feature_common_desc {
@@ -576,7 +602,9 @@ struct efa_admin_feature_device_attr_desc {
 	/*
 	 * 0 : rdma_read - If set, RDMA Read is supported on
 	 *    TX queues
-	 * 31:1 : reserved - MBZ
+	 * 1 : rnr_retry - If set, RNR retry is supported on
+	 *    modify QP command
+	 * 31:2 : reserved - MBZ
 	 */
 	u32 device_caps;
 
@@ -606,8 +634,8 @@ struct efa_admin_feature_queue_attr_desc {
 	/* Number of sub-CQs to be created for each CQ */
 	u16 sub_cqs_per_cq;
 
-	/* MBZ */
-	u16 reserved;
+	/* Minimum number of WQEs per SQ */
+	u16 min_sq_depth;
 
 	/* Maximum number of SGEs (buffers) allowed for a single send WQE */
 	u16 max_wr_send_sges;
@@ -632,6 +660,17 @@ struct efa_admin_feature_queue_attr_desc {
 
 	/* Maximum number of SGEs for a single RDMA read WQE */
 	u16 max_wr_rdma_sges;
+
+	/*
+	 * Maximum number of bytes that can be written to SQ between two
+	 * consecutive doorbells (in units of 64B). Driver must ensure that only
+	 * complete WQEs are written to queue before issuing a doorbell.
+	 * Examples: max_tx_batch=16 and WQE size = 64B, means up to 16 WQEs can
+	 * be written to SQ between two consecutive doorbells. max_tx_batch=11
+	 * and WQE size = 128B, means up to 5 WQEs can be written to SQ between
+	 * two consecutive doorbells. Zero means unlimited.
+	 */
+	u16 max_tx_batch;
 };
 
 struct efa_admin_feature_aenq_desc {
@@ -799,9 +838,65 @@ struct efa_admin_mmio_req_read_less_resp {
 	u32 reg_val;
 };
 
+enum efa_admin_os_type {
+	EFA_ADMIN_OS_LINUX                          = 0,
+};
+
+struct efa_admin_host_info {
+	/* OS distribution string format */
+	u8 os_dist_str[128];
+
+	/* Defined in enum efa_admin_os_type */
+	u32 os_type;
+
+	/* Kernel version string format */
+	u8 kernel_ver_str[32];
+
+	/* Kernel version numeric format */
+	u32 kernel_ver;
+
+	/*
+	 * 7:0 : driver_module_type
+	 * 15:8 : driver_sub_minor
+	 * 23:16 : driver_minor
+	 * 31:24 : driver_major
+	 */
+	u32 driver_ver;
+
+	/*
+	 * Device's Bus, Device and Function
+	 * 2:0 : function
+	 * 7:3 : device
+	 * 15:8 : bus
+	 */
+	u16 bdf;
+
+	/*
+	 * Spec version
+	 * 7:0 : spec_minor
+	 * 15:8 : spec_major
+	 */
+	u16 spec_ver;
+
+	/*
+	 * 0 : intree - Intree driver
+	 * 1 : gdr - GPUDirect RDMA supported
+	 * 31:2 : reserved2
+	 */
+	u32 flags;
+};
+
 /* create_qp_cmd */
 #define EFA_ADMIN_CREATE_QP_CMD_SQ_VIRT_MASK                BIT(0)
 #define EFA_ADMIN_CREATE_QP_CMD_RQ_VIRT_MASK                BIT(1)
+
+/* modify_qp_cmd */
+#define EFA_ADMIN_MODIFY_QP_CMD_QP_STATE_MASK               BIT(0)
+#define EFA_ADMIN_MODIFY_QP_CMD_CUR_QP_STATE_MASK           BIT(1)
+#define EFA_ADMIN_MODIFY_QP_CMD_QKEY_MASK                   BIT(2)
+#define EFA_ADMIN_MODIFY_QP_CMD_SQ_PSN_MASK                 BIT(3)
+#define EFA_ADMIN_MODIFY_QP_CMD_SQ_DRAINED_ASYNC_NOTIFY_MASK BIT(4)
+#define EFA_ADMIN_MODIFY_QP_CMD_RNR_RETRY_MASK              BIT(5)
 
 /* reg_mr_cmd */
 #define EFA_ADMIN_REG_MR_CMD_PHYS_PAGE_SIZE_SHIFT_MASK      GENMASK(4, 0)
@@ -819,5 +914,19 @@ struct efa_admin_mmio_req_read_less_resp {
 
 /* feature_device_attr_desc */
 #define EFA_ADMIN_FEATURE_DEVICE_ATTR_DESC_RDMA_READ_MASK   BIT(0)
+#define EFA_ADMIN_FEATURE_DEVICE_ATTR_DESC_RNR_RETRY_MASK   BIT(1)
+
+/* host_info */
+#define EFA_ADMIN_HOST_INFO_DRIVER_MODULE_TYPE_MASK         GENMASK(7, 0)
+#define EFA_ADMIN_HOST_INFO_DRIVER_SUB_MINOR_MASK           GENMASK(15, 8)
+#define EFA_ADMIN_HOST_INFO_DRIVER_MINOR_MASK               GENMASK(23, 16)
+#define EFA_ADMIN_HOST_INFO_DRIVER_MAJOR_MASK               GENMASK(31, 24)
+#define EFA_ADMIN_HOST_INFO_FUNCTION_MASK                   GENMASK(2, 0)
+#define EFA_ADMIN_HOST_INFO_DEVICE_MASK                     GENMASK(7, 3)
+#define EFA_ADMIN_HOST_INFO_BUS_MASK                        GENMASK(15, 8)
+#define EFA_ADMIN_HOST_INFO_SPEC_MINOR_MASK                 GENMASK(7, 0)
+#define EFA_ADMIN_HOST_INFO_SPEC_MAJOR_MASK                 GENMASK(15, 8)
+#define EFA_ADMIN_HOST_INFO_INTREE_MASK                     BIT(0)
+#define EFA_ADMIN_HOST_INFO_GDR_MASK                        BIT(1)
 
 #endif /* _EFA_ADMIN_CMDS_H_ */

@@ -404,7 +404,7 @@ static irqreturn_t dmm32at_isr(int irq, void *d)
 {
 	struct comedi_device *dev = d;
 	unsigned char intstat;
-	unsigned int val;
+	unsigned short val;
 	int i;
 
 	if (!dev->attached) {
@@ -611,6 +611,6 @@ static struct comedi_driver dmm32at_driver = {
 };
 module_comedi_driver(dmm32at_driver);
 
-MODULE_AUTHOR("Comedi http://www.comedi.org");
+MODULE_AUTHOR("Comedi https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi: Diamond Systems Diamond-MM-32-AT");
 MODULE_LICENSE("GPL");

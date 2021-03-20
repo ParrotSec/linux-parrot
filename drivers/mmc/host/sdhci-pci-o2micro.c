@@ -33,6 +33,8 @@
 #define O2_SD_ADMA2		0xE7
 #define O2_SD_INF_MOD		0xF1
 #define O2_SD_MISC_CTRL4	0xFC
+#define O2_SD_MISC_CTRL		0x1C0
+#define O2_SD_PWR_FORCE_L0	0x0002
 #define O2_SD_TUNING_CTRL	0x300
 #define O2_SD_PLL_SETTING	0x304
 #define O2_SD_MISC_SETTING	0x308
@@ -196,7 +198,7 @@ static void __sdhci_o2_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	int i;
 
-	sdhci_send_tuning(host, MMC_SEND_TUNING_BLOCK_HS200);
+	sdhci_send_tuning(host, opcode);
 
 	for (i = 0; i < 150; i++) {
 		u16 ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
@@ -300,16 +302,31 @@ static int sdhci_o2_execute_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 	int current_bus_width = 0;
+	u32 scratch32 = 0;
+	u16 scratch = 0;
 
 	/*
 	 * This handler only implements the eMMC tuning that is specific to
 	 * this controller.  Fall back to the standard method for other TIMING.
 	 */
-	if (host->timing != MMC_TIMING_MMC_HS200)
+	if ((host->timing != MMC_TIMING_MMC_HS200) &&
+		(host->timing != MMC_TIMING_UHS_SDR104))
 		return sdhci_execute_tuning(mmc, opcode);
 
-	if (WARN_ON(opcode != MMC_SEND_TUNING_BLOCK_HS200))
+	if (WARN_ON((opcode != MMC_SEND_TUNING_BLOCK_HS200) &&
+			(opcode != MMC_SEND_TUNING_BLOCK)))
 		return -EINVAL;
+
+	/* Force power mode enter L0 */
+	scratch = sdhci_readw(host, O2_SD_MISC_CTRL);
+	scratch |= O2_SD_PWR_FORCE_L0;
+	sdhci_writew(host, scratch, O2_SD_MISC_CTRL);
+
+	/* wait DLL lock, timeout value 5ms */
+	if (readx_poll_timeout(sdhci_o2_pll_dll_wdt_control, host,
+		scratch32, (scratch32 & O2_DLL_LOCK_STATUS), 1, 5000))
+		pr_warn("%s: DLL can't lock in 5ms after force L0 during tuning.\n",
+				mmc_hostname(host->mmc));
 	/*
 	 * Judge the tuning reason, whether caused by dll shift
 	 * If cause by dll shift, should call sdhci_o2_dll_recovery
@@ -342,6 +359,14 @@ static int sdhci_o2_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		sdhci_set_bus_width(host, current_bus_width);
 	}
 
+	/* Cancel force power mode enter L0 */
+	scratch = sdhci_readw(host, O2_SD_MISC_CTRL);
+	scratch &= ~(O2_SD_PWR_FORCE_L0);
+	sdhci_writew(host, scratch, O2_SD_MISC_CTRL);
+
+	sdhci_reset(host, SDHCI_RESET_CMD);
+	sdhci_reset(host, SDHCI_RESET_DATA);
+
 	host->flags &= ~SDHCI_HS400_TUNING;
 	return 0;
 }
@@ -369,7 +394,6 @@ static void o2_pci_led_enable(struct sdhci_pci_chip *chip)
 	scratch_32 |= O2_SD_LED_ENABLE;
 	pci_write_config_dword(chip->pdev,
 			       O2_SD_TEST_REG, scratch_32);
-
 }
 
 static void sdhci_pci_o2_fujin2_pci_init(struct sdhci_pci_chip *chip)
@@ -494,9 +518,13 @@ static void sdhci_o2_enable_clk(struct sdhci_host *host, u16 clk)
 	}
 }
 
-void sdhci_pci_o2_set_clock(struct sdhci_host *host, unsigned int clock)
+static void sdhci_pci_o2_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	u16 clk;
+	u8 scratch;
+	u32 scratch_32;
+	struct sdhci_pci_slot *slot = sdhci_priv(host);
+	struct sdhci_pci_chip *chip = slot->chip;
 
 	host->mmc->actual_clock = 0;
 
@@ -505,11 +533,28 @@ void sdhci_pci_o2_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (clock == 0)
 		return;
 
+	if ((host->timing == MMC_TIMING_UHS_SDR104) && (clock == 200000000)) {
+		pci_read_config_byte(chip->pdev, O2_SD_LOCK_WP, &scratch);
+
+		scratch &= 0x7f;
+		pci_write_config_byte(chip->pdev, O2_SD_LOCK_WP, scratch);
+
+		pci_read_config_dword(chip->pdev, O2_SD_PLL_SETTING, &scratch_32);
+
+		if ((scratch_32 & 0xFFFF0000) != 0x2c280000)
+			o2_pci_set_baseclk(chip, 0x2c280000);
+
+		pci_read_config_byte(chip->pdev, O2_SD_LOCK_WP, &scratch);
+
+		scratch |= 0x80;
+		pci_write_config_byte(chip->pdev, O2_SD_LOCK_WP, scratch);
+	}
+
 	clk = sdhci_calc_clk(host, clock, &host->mmc->actual_clock);
 	sdhci_o2_enable_clk(host, clk);
 }
 
-int sdhci_pci_o2_probe_slot(struct sdhci_pci_slot *slot)
+static int sdhci_pci_o2_probe_slot(struct sdhci_pci_slot *slot)
 {
 	struct sdhci_pci_chip *chip;
 	struct sdhci_host *host;
@@ -561,6 +606,12 @@ int sdhci_pci_o2_probe_slot(struct sdhci_pci_slot *slot)
 			slot->host->mmc_host_ops.get_cd = sdhci_o2_get_cd;
 		}
 
+		if (chip->pdev->device == PCI_DEVICE_ID_O2_SEABIRD1) {
+			slot->host->mmc_host_ops.get_cd = sdhci_o2_get_cd;
+			host->mmc->caps2 |= MMC_CAP2_NO_SDIO;
+			host->quirks2 |= SDHCI_QUIRK2_PRESET_VALUE_BROKEN;
+		}
+
 		host->mmc_host_ops.execute_tuning = sdhci_o2_execute_tuning;
 
 		if (chip->pdev->device != PCI_DEVICE_ID_O2_FUJIN2)
@@ -578,7 +629,7 @@ int sdhci_pci_o2_probe_slot(struct sdhci_pci_slot *slot)
 	return 0;
 }
 
-int sdhci_pci_o2_probe(struct sdhci_pci_chip *chip)
+static int sdhci_pci_o2_probe(struct sdhci_pci_chip *chip)
 {
 	int ret;
 	u8 scratch;
@@ -783,7 +834,7 @@ int sdhci_pci_o2_probe(struct sdhci_pci_chip *chip)
 }
 
 #ifdef CONFIG_PM_SLEEP
-int sdhci_pci_o2_resume(struct sdhci_pci_chip *chip)
+static int sdhci_pci_o2_resume(struct sdhci_pci_chip *chip)
 {
 	sdhci_pci_o2_probe(chip);
 	return sdhci_pci_resume_host(chip);

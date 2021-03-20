@@ -499,7 +499,7 @@ struct l2cap_ecred_conn_req {
 	__le16 mtu;
 	__le16 mps;
 	__le16 credits;
-	__le16 scid[0];
+	__le16 scid[];
 } __packed;
 
 struct l2cap_ecred_conn_rsp {
@@ -507,13 +507,13 @@ struct l2cap_ecred_conn_rsp {
 	__le16 mps;
 	__le16 credits;
 	__le16 result;
-	__le16 dcid[0];
+	__le16 dcid[];
 };
 
 struct l2cap_ecred_reconf_req {
 	__le16 mtu;
 	__le16 mps;
-	__le16 scid[0];
+	__le16 scid[];
 } __packed;
 
 #define L2CAP_RECONF_SUCCESS		0x0000
@@ -665,6 +665,8 @@ struct l2cap_ops {
 	struct sk_buff		*(*alloc_skb) (struct l2cap_chan *chan,
 					       unsigned long hdr_len,
 					       unsigned long len, int nb);
+	int			(*filter) (struct l2cap_chan * chan,
+					   struct sk_buff *skb);
 };
 
 struct l2cap_conn {

@@ -5,10 +5,9 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2008 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016        Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2008 - 2014, 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -31,7 +30,7 @@
  * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016        Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2008 - 2014, 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,6 +106,7 @@ struct iwl_ucode_capabilities {
 	u32 flags;
 	u32 error_log_addr;
 	u32 error_log_size;
+	u32 num_stations;
 	unsigned long _api[BITS_TO_LONGS(NUM_IWL_UCODE_TLV_API)];
 	unsigned long _capa[BITS_TO_LONGS(NUM_IWL_UCODE_TLV_CAPA)];
 
@@ -313,22 +313,8 @@ iwl_get_ucode_image(const struct iwl_fw *fw, enum iwl_ucode_type ucode_type)
 	return &fw->img[ucode_type];
 }
 
-static inline u8 iwl_mvm_lookup_cmd_ver(const struct iwl_fw *fw, u8 grp, u8 cmd)
-{
-	const struct iwl_fw_cmd_version *entry;
-	unsigned int i;
+u8 iwl_fw_lookup_cmd_ver(const struct iwl_fw *fw, u8 grp, u8 cmd, u8 def);
 
-	if (!fw->ucode_capa.cmd_versions ||
-	    !fw->ucode_capa.n_cmd_versions)
-		return IWL_FW_CMD_VER_UNKNOWN;
-
-	entry = fw->ucode_capa.cmd_versions;
-	for (i = 0; i < fw->ucode_capa.n_cmd_versions; i++, entry++) {
-		if (entry->group == grp && entry->cmd == cmd)
-			return entry->cmd_ver;
-	}
-
-	return IWL_FW_CMD_VER_UNKNOWN;
-}
-
+u8 iwl_fw_lookup_notif_ver(const struct iwl_fw *fw, u8 grp, u8 cmd, u8 def);
+const char *iwl_fw_lookup_assert_desc(u32 num);
 #endif  /* __iwl_fw_img_h__ */

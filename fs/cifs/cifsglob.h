@@ -195,18 +195,6 @@ struct smb_rqst {
 	unsigned int	rq_tailsz;	/* length of last page */
 };
 
-enum smb_version {
-	Smb_1 = 1,
-	Smb_20,
-	Smb_21,
-	Smb_30,
-	Smb_302,
-	Smb_311,
-	Smb_3any,
-	Smb_default,
-	Smb_version_err
-};
-
 struct mid_q_entry;
 struct TCP_Server_Info;
 struct cifsFileInfo;
@@ -268,7 +256,7 @@ struct smb_version_operations {
 	/* verify the message */
 	int (*check_message)(char *, unsigned int, struct TCP_Server_Info *);
 	bool (*is_oplock_break)(char *, struct TCP_Server_Info *);
-	int (*handle_cancelled_mid)(char *, struct TCP_Server_Info *);
+	int (*handle_cancelled_mid)(struct mid_q_entry *, struct TCP_Server_Info *);
 	void (*downgrade_oplock)(struct TCP_Server_Info *server,
 				 struct cifsInodeInfo *cinode, __u32 oplock,
 				 unsigned int epoch, bool *purge_cache);
@@ -310,6 +298,10 @@ struct smb_version_operations {
 	/* query file data from the server */
 	int (*query_file_info)(const unsigned int, struct cifs_tcon *,
 			       struct cifs_fid *, FILE_ALL_INFO *);
+	/* query reparse tag from srv to determine which type of special file */
+	int (*query_reparse_tag)(const unsigned int xid, struct cifs_tcon *tcon,
+				struct cifs_sb_info *cifs_sb, const char *path,
+				__u32 *reparse_tag);
 	/* get server index number */
 	int (*get_srv_inum)(const unsigned int, struct cifs_tcon *,
 			    struct cifs_sb_info *, const char *,
@@ -510,6 +502,8 @@ struct smb_version_operations {
 		      struct fiemap_extent_info *, u64, u64);
 	/* version specific llseek implementation */
 	loff_t (*llseek)(struct file *, struct cifs_tcon *, loff_t, int);
+	/* Check for STATUS_IO_TIMEOUT */
+	bool (*is_status_io_timeout)(char *buf);
 };
 
 struct smb_version_values {
@@ -562,6 +556,7 @@ struct smb_vol {
 	bool override_gid:1;
 	bool dynperm:1;
 	bool noperm:1;
+	bool nodelete:1;
 	bool mode_ace:1;
 	bool no_psx_acl:1; /* set if posix acl support should be disabled */
 	bool cifs_acl:1;
@@ -927,7 +922,7 @@ compare_mid(__u16 mid, const struct smb_hdr *smb)
  *
  * Citation:
  *
- * http://blogs.msdn.com/b/openspecification/archive/2009/04/10/smb-maximum-transmit-buffer-size-and-performance-tuning.aspx
+ * https://blogs.msdn.com/b/openspecification/archive/2009/04/10/smb-maximum-transmit-buffer-size-and-performance-tuning.aspx
  */
 #define CIFS_DEFAULT_NON_POSIX_RSIZE (60 * 1024)
 #define CIFS_DEFAULT_NON_POSIX_WSIZE (65536)
@@ -1029,6 +1024,7 @@ struct cifs_ses {
 
 #define CIFS_MAX_CHANNELS 16
 	struct cifs_chan chans[CIFS_MAX_CHANNELS];
+	struct cifs_chan *binding_chan;
 	size_t chan_count;
 	size_t chan_max;
 	atomic_t chan_seq; /* round robin state */
@@ -1036,23 +1032,31 @@ struct cifs_ses {
 
 /*
  * When binding a new channel, we need to access the channel which isn't fully
- * established yet (one past the established count)
+ * established yet.
  */
 
 static inline
 struct cifs_chan *cifs_ses_binding_channel(struct cifs_ses *ses)
 {
 	if (ses->binding)
-		return &ses->chans[ses->chan_count];
+		return ses->binding_chan;
 	else
 		return NULL;
 }
 
+/*
+ * Returns the server pointer of the session. When binding a new
+ * channel this returns the last channel which isn't fully established
+ * yet.
+ *
+ * This function should be use for negprot/sess.setup codepaths. For
+ * the other requests see cifs_pick_channel().
+ */
 static inline
 struct TCP_Server_Info *cifs_ses_server(struct cifs_ses *ses)
 {
 	if (ses->binding)
-		return ses->chans[ses->chan_count].server;
+		return ses->binding_chan->server;
 	else
 		return ses->server;
 }
@@ -1136,6 +1140,7 @@ struct cifs_tcon {
 	bool retry:1;
 	bool nocase:1;
 	bool nohandlecache:1; /* if strange server resource prob can turn off */
+	bool nodelete:1;
 	bool seal:1;      /* transport encryption for this mounted share */
 	bool unix_ext:1;  /* if false disable Linux extensions to CIFS protocol
 				for this mount even if server would support */
@@ -1333,6 +1338,7 @@ struct cifs_io_parms {
 	__u64 offset;
 	unsigned int length;
 	struct cifs_tcon *tcon;
+	struct TCP_Server_Info *server;
 };
 
 struct cifs_aio_ctx {
@@ -1380,6 +1386,7 @@ struct cifs_readdata {
 				struct cifs_readdata *rdata,
 				struct iov_iter *iter);
 	struct kvec			iov[2];
+	struct TCP_Server_Info		*server;
 #ifdef CONFIG_CIFS_SMB_DIRECT
 	struct smbd_mr			*mr;
 #endif
@@ -1406,6 +1413,7 @@ struct cifs_writedata {
 	pid_t				pid;
 	unsigned int			bytes;
 	int				result;
+	struct TCP_Server_Info		*server;
 #ifdef CONFIG_CIFS_SMB_DIRECT
 	struct smbd_mr			*mr;
 #endif
@@ -1452,7 +1460,7 @@ struct cifsInodeInfo {
 	struct list_head llist;	/* locks helb by this inode */
 	/*
 	 * NOTE: Some code paths call down_read(lock_sem) twice, so
-	 * we must always use use cifs_down_write() instead of down_write()
+	 * we must always use cifs_down_write() instead of down_write()
 	 * for this semaphore to avoid deadlocks.
 	 */
 	struct rw_semaphore lock_sem;	/* protect the fields above */
@@ -1777,10 +1785,11 @@ static inline bool is_retryable_error(int error)
 #define   CIFS_NO_RSP_BUF   0x040    /* no response buffer required */
 
 /* Type of request operation */
-#define   CIFS_ECHO_OP      0x080    /* echo request */
-#define   CIFS_OBREAK_OP   0x0100    /* oplock break request */
-#define   CIFS_NEG_OP      0x0200    /* negotiate request */
-#define   CIFS_OP_MASK     0x0380    /* mask request type */
+#define   CIFS_ECHO_OP            0x080  /* echo request */
+#define   CIFS_OBREAK_OP          0x0100 /* oplock break request */
+#define   CIFS_NEG_OP             0x0200 /* negotiate request */
+#define   CIFS_CP_CREATE_CLOSE_OP 0x0400 /* compound create+close request */
+#define   CIFS_OP_MASK            0x0780 /* mask request type */
 
 #define   CIFS_HAS_CREDITS 0x0400    /* already has credits */
 #define   CIFS_TRANSFORM_REQ 0x0800    /* transform request before sending */
@@ -1940,6 +1949,8 @@ extern bool lookupCacheEnabled;
 extern unsigned int global_secflags;	/* if on, session setup sent
 				with more secure ntlmssp2 challenge/resp */
 extern unsigned int sign_CIFS_PDUs;  /* enable smb packet signing */
+extern bool enable_gcm_256; /* allow optional negotiate of strongest signing (aes-gcm-256) */
+extern bool require_gcm_256; /* require use of strongest signing (aes-gcm-256) */
 extern bool linuxExtEnabled;/*enable Linux/Unix CIFS extensions*/
 extern unsigned int CIFSMaxBufSize;  /* max size not including hdr */
 extern unsigned int cifs_min_rcv;    /* min size of big ntwrk buf pool */
@@ -1994,9 +2005,42 @@ extern struct smb_version_values smb302_values;
 extern struct smb_version_operations smb311_operations;
 extern struct smb_version_values smb311_values;
 
+static inline char *get_security_type_str(enum securityEnum sectype)
+{
+	switch (sectype) {
+	case RawNTLMSSP:
+		return "RawNTLMSSP";
+	case Kerberos:
+		return "Kerberos";
+	case NTLMv2:
+		return "NTLMv2";
+	case NTLM:
+		return "NTLM";
+	case LANMAN:
+		return "LANMAN";
+	default:
+		return "Unknown";
+	}
+}
+
 static inline bool is_smb1_server(struct TCP_Server_Info *server)
 {
 	return strcmp(server->vals->version_string, SMB1_VERSION_STRING) == 0;
+}
+
+static inline bool is_tcon_dfs(struct cifs_tcon *tcon)
+{
+	/*
+	 * For SMB1, see MS-CIFS 2.4.55 SMB_COM_TREE_CONNECT_ANDX (0x75) and MS-CIFS 3.3.4.4 DFS
+	 * Subsystem Notifies That a Share Is a DFS Share.
+	 *
+	 * For SMB2+, see MS-SMB2 2.2.10 SMB2 TREE_CONNECT Response and MS-SMB2 3.3.4.14 Server
+	 * Application Updates a Share.
+	 */
+	if (!tcon || !tcon->ses || !tcon->ses->server)
+		return false;
+	return is_smb1_server(tcon->ses->server) ? tcon->Flags & SMB_SHARE_IS_IN_DFS :
+		tcon->share_flags & (SHI1005_FLAGS_DFS | SHI1005_FLAGS_DFS_ROOT);
 }
 
 #endif	/* _CIFS_GLOB_H */

@@ -37,10 +37,6 @@ struct xfs_log_item {
 	unsigned long			li_flags;	/* misc flags */
 	struct xfs_buf			*li_buf;	/* real buffer pointer */
 	struct list_head		li_bio_list;	/* buffer item list */
-	void				(*li_cb)(struct xfs_buf *,
-						 struct xfs_log_item *);
-							/* buffer item iodone */
-							/* callback func */
 	const struct xfs_item_ops	*li_ops;	/* function list */
 
 	/* delayed logging */
@@ -76,8 +72,28 @@ struct xfs_item_ops {
 	void (*iop_committing)(struct xfs_log_item *, xfs_lsn_t commit_lsn);
 	void (*iop_release)(struct xfs_log_item *);
 	xfs_lsn_t (*iop_committed)(struct xfs_log_item *, xfs_lsn_t);
-	void (*iop_error)(struct xfs_log_item *, xfs_buf_t *);
+	int (*iop_recover)(struct xfs_log_item *lip,
+			   struct list_head *capture_list);
+	bool (*iop_match)(struct xfs_log_item *item, uint64_t id);
+	struct xfs_log_item *(*iop_relog)(struct xfs_log_item *intent,
+			struct xfs_trans *tp);
 };
+
+/* Is this log item a deferred action intent? */
+static inline bool
+xlog_item_is_intent(struct xfs_log_item *lip)
+{
+	return lip->li_ops->iop_recover != NULL &&
+	       lip->li_ops->iop_match != NULL;
+}
+
+/* Is this a log intent-done item? */
+static inline bool
+xlog_item_is_intent_done(struct xfs_log_item *lip)
+{
+	return lip->li_ops->iop_unpin == NULL &&
+	       lip->li_ops->iop_push == NULL;
+}
 
 /*
  * Release the log item as soon as committed.  This is for items just logging
@@ -210,7 +226,7 @@ xfs_trans_read_buf(
 				      flags, bpp, ops);
 }
 
-struct xfs_buf	*xfs_trans_getsb(xfs_trans_t *, struct xfs_mount *);
+struct xfs_buf	*xfs_trans_getsb(struct xfs_trans *);
 
 void		xfs_trans_brelse(xfs_trans_t *, struct xfs_buf *);
 void		xfs_trans_bjoin(xfs_trans_t *, struct xfs_buf *);
@@ -243,5 +259,13 @@ void		xfs_trans_buf_copy_type(struct xfs_buf *dst_bp,
 					struct xfs_buf *src_bp);
 
 extern kmem_zone_t	*xfs_trans_zone;
+
+static inline struct xfs_log_item *
+xfs_trans_item_relog(
+	struct xfs_log_item	*lip,
+	struct xfs_trans	*tp)
+{
+	return lip->li_ops->iop_relog(lip, tp);
+}
 
 #endif	/* __XFS_TRANS_H__ */

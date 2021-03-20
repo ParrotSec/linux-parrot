@@ -385,10 +385,8 @@ static int stm_register_irq(struct stm_thermal_sensor *sensor)
 	int ret;
 
 	sensor->irq = platform_get_irq(pdev, 0);
-	if (sensor->irq < 0) {
-		dev_err(dev, "%s: Unable to find IRQ\n", __func__);
+	if (sensor->irq < 0)
 		return sensor->irq;
-	}
 
 	ret = devm_request_threaded_irq(dev, sensor->irq,
 					NULL,
@@ -448,14 +446,9 @@ thermal_unprepare:
 #ifdef CONFIG_PM_SLEEP
 static int stm_thermal_suspend(struct device *dev)
 {
-	int ret;
 	struct stm_thermal_sensor *sensor = dev_get_drvdata(dev);
 
-	ret = stm_thermal_sensor_off(sensor);
-	if (ret)
-		return ret;
-
-	return 0;
+	return stm_thermal_sensor_off(sensor);
 }
 
 static int stm_thermal_resume(struct device *dev)

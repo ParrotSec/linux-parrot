@@ -143,6 +143,8 @@ char *tomoyo_read_token(struct tomoyo_acl_param *param)
 	return pos;
 }
 
+static bool tomoyo_correct_path2(const char *filename, const size_t len);
+
 /**
  * tomoyo_get_domainname - Read a domainname from a line.
  *
@@ -157,10 +159,10 @@ const struct tomoyo_path_info *tomoyo_get_domainname
 	char *pos = start;
 
 	while (*pos) {
-		if (*pos++ != ' ' || *pos++ == '/')
+		if (*pos++ != ' ' ||
+		    tomoyo_correct_path2(pos, strchrnul(pos, ' ') - pos))
 			continue;
-		pos -= 2;
-		*pos++ = '\0';
+		*(pos - 1) = '\0';
 		break;
 	}
 	param->data = pos;
@@ -514,6 +516,22 @@ bool tomoyo_correct_word(const char *string)
 }
 
 /**
+ * tomoyo_correct_path2 - Check whether the given pathname follows the naming rules.
+ *
+ * @filename: The pathname to check.
+ * @len:      Length of @filename.
+ *
+ * Returns true if @filename follows the naming rules, false otherwise.
+ */
+static bool tomoyo_correct_path2(const char *filename, const size_t len)
+{
+	const char *cp1 = memchr(filename, '/', len);
+	const char *cp2 = memchr(filename, '.', len);
+
+	return cp1 && (!cp2 || (cp1 < cp2)) && tomoyo_correct_word2(filename, len);
+}
+
+/**
  * tomoyo_correct_path - Validate a pathname.
  *
  * @filename: The pathname to check.
@@ -523,7 +541,7 @@ bool tomoyo_correct_word(const char *string)
  */
 bool tomoyo_correct_path(const char *filename)
 {
-	return *filename == '/' && tomoyo_correct_word(filename);
+	return tomoyo_correct_path2(filename, strlen(filename));
 }
 
 /**
@@ -545,8 +563,7 @@ bool tomoyo_correct_domain(const unsigned char *domainname)
 
 		if (!cp)
 			break;
-		if (*domainname != '/' ||
-		    !tomoyo_correct_word2(domainname, cp - domainname))
+		if (!tomoyo_correct_path2(domainname, cp - domainname))
 			return false;
 		domainname = cp + 1;
 	}
@@ -1036,30 +1053,30 @@ bool tomoyo_domain_quota_is_ok(struct tomoyo_request_info *r)
 
 		if (ptr->is_deleted)
 			continue;
+		/*
+		 * Reading perm bitmap might race with tomoyo_merge_*() because
+		 * caller does not hold tomoyo_policy_lock mutex. But exceeding
+		 * max_learning_entry parameter by a few entries does not harm.
+		 */
 		switch (ptr->type) {
 		case TOMOYO_TYPE_PATH_ACL:
-			perm = container_of(ptr, struct tomoyo_path_acl, head)
-				->perm;
+			data_race(perm = container_of(ptr, struct tomoyo_path_acl, head)->perm);
 			break;
 		case TOMOYO_TYPE_PATH2_ACL:
-			perm = container_of(ptr, struct tomoyo_path2_acl, head)
-				->perm;
+			data_race(perm = container_of(ptr, struct tomoyo_path2_acl, head)->perm);
 			break;
 		case TOMOYO_TYPE_PATH_NUMBER_ACL:
-			perm = container_of(ptr, struct tomoyo_path_number_acl,
-					    head)->perm;
+			data_race(perm = container_of(ptr, struct tomoyo_path_number_acl, head)
+				  ->perm);
 			break;
 		case TOMOYO_TYPE_MKDEV_ACL:
-			perm = container_of(ptr, struct tomoyo_mkdev_acl,
-					    head)->perm;
+			data_race(perm = container_of(ptr, struct tomoyo_mkdev_acl, head)->perm);
 			break;
 		case TOMOYO_TYPE_INET_ACL:
-			perm = container_of(ptr, struct tomoyo_inet_acl,
-					    head)->perm;
+			data_race(perm = container_of(ptr, struct tomoyo_inet_acl, head)->perm);
 			break;
 		case TOMOYO_TYPE_UNIX_ACL:
-			perm = container_of(ptr, struct tomoyo_unix_acl,
-					    head)->perm;
+			data_race(perm = container_of(ptr, struct tomoyo_unix_acl, head)->perm);
 			break;
 		case TOMOYO_TYPE_MANUAL_TASK_ACL:
 			perm = 0;

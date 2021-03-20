@@ -91,6 +91,7 @@ struct otx2_snd_queue {
 	struct qmem		*sqe;
 	struct qmem		*tso_hdrs;
 	struct sg_list		*sg;
+	struct qmem		*timestamps;
 	struct queue_stats	stats;
 	u16			sqb_count;
 	u64			*sqb_ptrs;
@@ -113,11 +114,7 @@ struct otx2_cq_poll {
 struct otx2_pool {
 	struct qmem		*stack;
 	struct qmem		*fc_addr;
-	u8			rbpage_order;
 	u16			rbsize;
-	u32			page_offset;
-	u16			pageref;
-	struct page		*page;
 };
 
 struct otx2_cq_queue {

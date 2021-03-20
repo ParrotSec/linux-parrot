@@ -14,8 +14,11 @@
 #include "debug.h"
 
 static bool rtw_disable_msi;
+static bool rtw_pci_disable_aspm;
 module_param_named(disable_msi, rtw_disable_msi, bool, 0644);
+module_param_named(disable_aspm, rtw_pci_disable_aspm, bool, 0644);
 MODULE_PARM_DESC(disable_msi, "Set Y to disable MSI interrupt support");
+MODULE_PARM_DESC(disable_aspm, "Set Y to disable PCI ASPM support");
 
 static u32 rtw_pci_tx_queue_idx_addr[] = {
 	[RTW_TX_QUEUE_BK]	= RTK_PCI_TXBD_IDX_BKQ,
@@ -106,7 +109,7 @@ static void rtw_pci_free_tx_ring_skbs(struct rtw_dev *rtwdev,
 		tx_data = rtw_pci_get_tx_data(skb);
 		dma = tx_data->dma;
 
-		pci_unmap_single(pdev, dma, skb->len, PCI_DMA_TODEVICE);
+		dma_unmap_single(&pdev->dev, dma, skb->len, DMA_TO_DEVICE);
 		dev_kfree_skb_any(skb);
 	}
 }
@@ -122,7 +125,7 @@ static void rtw_pci_free_tx_ring(struct rtw_dev *rtwdev,
 	rtw_pci_free_tx_ring_skbs(rtwdev, tx_ring);
 
 	/* free the ring itself */
-	pci_free_consistent(pdev, ring_sz, head, tx_ring->r.dma);
+	dma_free_coherent(&pdev->dev, ring_sz, head, tx_ring->r.dma);
 	tx_ring->r.head = NULL;
 }
 
@@ -141,7 +144,7 @@ static void rtw_pci_free_rx_ring_skbs(struct rtw_dev *rtwdev,
 			continue;
 
 		dma = *((dma_addr_t *)skb->cb);
-		pci_unmap_single(pdev, dma, buf_sz, PCI_DMA_FROMDEVICE);
+		dma_unmap_single(&pdev->dev, dma, buf_sz, DMA_FROM_DEVICE);
 		dev_kfree_skb(skb);
 		rx_ring->buf[i] = NULL;
 	}
@@ -156,7 +159,7 @@ static void rtw_pci_free_rx_ring(struct rtw_dev *rtwdev,
 
 	rtw_pci_free_rx_ring_skbs(rtwdev, rx_ring);
 
-	pci_free_consistent(pdev, ring_sz, head, rx_ring->r.dma);
+	dma_free_coherent(&pdev->dev, ring_sz, head, rx_ring->r.dma);
 }
 
 static void rtw_pci_free_trx_ring(struct rtw_dev *rtwdev)
@@ -191,7 +194,7 @@ static int rtw_pci_init_tx_ring(struct rtw_dev *rtwdev,
 		return -EINVAL;
 	}
 
-	head = pci_zalloc_consistent(pdev, ring_sz, &dma);
+	head = dma_alloc_coherent(&pdev->dev, ring_sz, &dma, GFP_KERNEL);
 	if (!head) {
 		rtw_err(rtwdev, "failed to allocate tx ring\n");
 		return -ENOMEM;
@@ -220,8 +223,8 @@ static int rtw_pci_reset_rx_desc(struct rtw_dev *rtwdev, struct sk_buff *skb,
 	if (!skb)
 		return -EINVAL;
 
-	dma = pci_map_single(pdev, skb->data, buf_sz, PCI_DMA_FROMDEVICE);
-	if (pci_dma_mapping_error(pdev, dma))
+	dma = dma_map_single(&pdev->dev, skb->data, buf_sz, DMA_FROM_DEVICE);
+	if (dma_mapping_error(&pdev->dev, dma))
 		return -EBUSY;
 
 	*((dma_addr_t *)skb->cb) = dma;
@@ -269,7 +272,7 @@ static int rtw_pci_init_rx_ring(struct rtw_dev *rtwdev,
 		return -EINVAL;
 	}
 
-	head = pci_zalloc_consistent(pdev, ring_sz, &dma);
+	head = dma_alloc_coherent(&pdev->dev, ring_sz, &dma, GFP_KERNEL);
 	if (!head) {
 		rtw_err(rtwdev, "failed to allocate rx ring\n");
 		return -ENOMEM;
@@ -308,11 +311,11 @@ err_out:
 		if (!skb)
 			continue;
 		dma = *((dma_addr_t *)skb->cb);
-		pci_unmap_single(pdev, dma, buf_sz, PCI_DMA_FROMDEVICE);
+		dma_unmap_single(&pdev->dev, dma, buf_sz, DMA_FROM_DEVICE);
 		dev_kfree_skb_any(skb);
 		rx_ring->buf[i] = NULL;
 	}
-	pci_free_consistent(pdev, ring_sz, head, dma);
+	dma_free_coherent(&pdev->dev, ring_sz, head, dma);
 
 	rtw_err(rtwdev, "failed to init rx buffer\n");
 
@@ -386,6 +389,7 @@ static int rtw_pci_init(struct rtw_dev *rtwdev)
 			      IMR_VODOK |
 			      IMR_ROK |
 			      IMR_BCNDMAINT_E |
+			      IMR_C2HCMD |
 			      0;
 	rtwpci->irq_mask[1] = IMR_TXFOVW |
 			      0;
@@ -411,12 +415,14 @@ static void rtw_pci_reset_buf_desc(struct rtw_dev *rtwdev)
 	dma = rtwpci->tx_rings[RTW_TX_QUEUE_BCN].r.dma;
 	rtw_write32(rtwdev, RTK_PCI_TXBD_DESA_BCNQ, dma);
 
-	len = rtwpci->tx_rings[RTW_TX_QUEUE_H2C].r.len;
-	dma = rtwpci->tx_rings[RTW_TX_QUEUE_H2C].r.dma;
-	rtwpci->tx_rings[RTW_TX_QUEUE_H2C].r.rp = 0;
-	rtwpci->tx_rings[RTW_TX_QUEUE_H2C].r.wp = 0;
-	rtw_write16(rtwdev, RTK_PCI_TXBD_NUM_H2CQ, len & TRX_BD_IDX_MASK);
-	rtw_write32(rtwdev, RTK_PCI_TXBD_DESA_H2CQ, dma);
+	if (!rtw_chip_wcpu_11n(rtwdev)) {
+		len = rtwpci->tx_rings[RTW_TX_QUEUE_H2C].r.len;
+		dma = rtwpci->tx_rings[RTW_TX_QUEUE_H2C].r.dma;
+		rtwpci->tx_rings[RTW_TX_QUEUE_H2C].r.rp = 0;
+		rtwpci->tx_rings[RTW_TX_QUEUE_H2C].r.wp = 0;
+		rtw_write16(rtwdev, RTK_PCI_TXBD_NUM_H2CQ, len & TRX_BD_IDX_MASK);
+		rtw_write32(rtwdev, RTK_PCI_TXBD_DESA_H2CQ, dma);
+	}
 
 	len = rtwpci->tx_rings[RTW_TX_QUEUE_BK].r.len;
 	dma = rtwpci->tx_rings[RTW_TX_QUEUE_BK].r.dma;
@@ -471,8 +477,9 @@ static void rtw_pci_reset_buf_desc(struct rtw_dev *rtwdev)
 	rtw_write32(rtwdev, RTK_PCI_TXBD_RWPTR_CLR, 0xffffffff);
 
 	/* reset H2C Queue index in a single write */
-	rtw_write32_set(rtwdev, RTK_PCI_TXBD_H2CQ_CSR,
-			BIT_CLR_H2CQ_HOST_IDX | BIT_CLR_H2CQ_HW_IDX);
+	if (rtw_chip_wcpu_11ac(rtwdev))
+		rtw_write32_set(rtwdev, RTK_PCI_TXBD_H2CQ_CSR,
+				BIT_CLR_H2CQ_HOST_IDX | BIT_CLR_H2CQ_HW_IDX);
 }
 
 static void rtw_pci_reset_trx_ring(struct rtw_dev *rtwdev)
@@ -489,7 +496,9 @@ static void rtw_pci_enable_interrupt(struct rtw_dev *rtwdev,
 
 	rtw_write32(rtwdev, RTK_PCI_HIMR0, rtwpci->irq_mask[0]);
 	rtw_write32(rtwdev, RTK_PCI_HIMR1, rtwpci->irq_mask[1]);
-	rtw_write32(rtwdev, RTK_PCI_HIMR3, rtwpci->irq_mask[3]);
+	if (rtw_chip_wcpu_11ac(rtwdev))
+		rtw_write32(rtwdev, RTK_PCI_HIMR3, rtwpci->irq_mask[3]);
+
 	rtwpci->irq_enabled = true;
 
 	spin_unlock_irqrestore(&rtwpci->hwirq_lock, flags);
@@ -507,7 +516,9 @@ static void rtw_pci_disable_interrupt(struct rtw_dev *rtwdev,
 
 	rtw_write32(rtwdev, RTK_PCI_HIMR0, 0);
 	rtw_write32(rtwdev, RTK_PCI_HIMR1, 0);
-	rtw_write32(rtwdev, RTK_PCI_HIMR3, 0);
+	if (rtw_chip_wcpu_11ac(rtwdev))
+		rtw_write32(rtwdev, RTK_PCI_HIMR3, 0);
+
 	rtwpci->irq_enabled = false;
 
 out:
@@ -665,8 +676,7 @@ static void rtw_pci_release_rsvd_page(struct rtw_pci *rtwpci,
 
 	tx_data = rtw_pci_get_tx_data(prev);
 	dma = tx_data->dma;
-	pci_unmap_single(rtwpci->pdev, dma, prev->len,
-			 PCI_DMA_TODEVICE);
+	dma_unmap_single(&rtwpci->pdev->dev, dma, prev->len, DMA_TO_DEVICE);
 	dev_kfree_skb_any(prev);
 }
 
@@ -745,9 +755,9 @@ static int rtw_pci_tx_write_data(struct rtw_dev *rtwdev,
 	memset(pkt_desc, 0, tx_pkt_desc_sz);
 	pkt_info->qsel = rtw_pci_get_tx_qsel(skb, queue);
 	rtw_tx_fill_tx_desc(pkt_info, skb);
-	dma = pci_map_single(rtwpci->pdev, skb->data, skb->len,
-			     PCI_DMA_TODEVICE);
-	if (pci_dma_mapping_error(rtwpci->pdev, dma))
+	dma = dma_map_single(&rtwpci->pdev->dev, skb->data, skb->len,
+			     DMA_TO_DEVICE);
+	if (dma_mapping_error(&rtwpci->pdev->dev, dma))
 		return -EBUSY;
 
 	/* after this we got dma mapped, there is no way back */
@@ -886,8 +896,8 @@ static void rtw_pci_tx_isr(struct rtw_dev *rtwdev, struct rtw_pci *rtwpci,
 			break;
 		}
 		tx_data = rtw_pci_get_tx_data(skb);
-		pci_unmap_single(rtwpci->pdev, tx_data->dma, skb->len,
-				 PCI_DMA_TODEVICE);
+		dma_unmap_single(&rtwpci->pdev->dev, tx_data->dma, skb->len,
+				 DMA_TO_DEVICE);
 
 		/* just free command packets from host to card */
 		if (hw_queue == RTW_TX_QUEUE_H2C) {
@@ -1012,13 +1022,17 @@ static void rtw_pci_irq_recognized(struct rtw_dev *rtwdev,
 
 	irq_status[0] = rtw_read32(rtwdev, RTK_PCI_HISR0);
 	irq_status[1] = rtw_read32(rtwdev, RTK_PCI_HISR1);
-	irq_status[3] = rtw_read32(rtwdev, RTK_PCI_HISR3);
+	if (rtw_chip_wcpu_11ac(rtwdev))
+		irq_status[3] = rtw_read32(rtwdev, RTK_PCI_HISR3);
+	else
+		irq_status[3] = 0;
 	irq_status[0] &= rtwpci->irq_mask[0];
 	irq_status[1] &= rtwpci->irq_mask[1];
 	irq_status[3] &= rtwpci->irq_mask[3];
 	rtw_write32(rtwdev, RTK_PCI_HISR0, irq_status[0]);
 	rtw_write32(rtwdev, RTK_PCI_HISR1, irq_status[1]);
-	rtw_write32(rtwdev, RTK_PCI_HISR3, irq_status[3]);
+	if (rtw_chip_wcpu_11ac(rtwdev))
+		rtw_write32(rtwdev, RTK_PCI_HISR3, irq_status[3]);
 
 	spin_unlock_irqrestore(&rtwpci->hwirq_lock, flags);
 }
@@ -1066,6 +1080,8 @@ static irqreturn_t rtw_pci_interrupt_threadfn(int irq, void *dev)
 		rtw_pci_tx_isr(rtwdev, rtwpci, RTW_TX_QUEUE_H2C);
 	if (irq_status[0] & IMR_ROK)
 		rtw_pci_rx_isr(rtwdev, rtwpci, RTW_RX_QUEUE_MPDU);
+	if (unlikely(irq_status[0] & IMR_C2HCMD))
+		rtw_fw_c2h_cmd_isr(rtwdev);
 
 	/* all of the jobs for this interrupt have been done */
 	rtw_pci_enable_interrupt(rtwdev, rtwpci);
@@ -1189,6 +1205,9 @@ static void rtw_pci_clkreq_set(struct rtw_dev *rtwdev, bool enable)
 	u8 value;
 	int ret;
 
+	if (rtw_pci_disable_aspm)
+		return;
+
 	ret = rtw_dbi_read8(rtwdev, RTK_PCIE_LINK_CFG, &value);
 	if (ret) {
 		rtw_err(rtwdev, "failed to read CLKREQ_L1, ret=%d", ret);
@@ -1207,6 +1226,9 @@ static void rtw_pci_aspm_set(struct rtw_dev *rtwdev, bool enable)
 {
 	u8 value;
 	int ret;
+
+	if (rtw_pci_disable_aspm)
+		return;
 
 	ret = rtw_dbi_read8(rtwdev, RTK_PCIE_LINK_CFG, &value);
 	if (ret) {
@@ -1349,7 +1371,8 @@ static int __maybe_unused rtw_pci_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(rtw_pm_ops, rtw_pci_suspend, rtw_pci_resume);
+SIMPLE_DEV_PM_OPS(rtw_pm_ops, rtw_pci_suspend, rtw_pci_resume);
+EXPORT_SYMBOL(rtw_pm_ops);
 
 static int rtw_pci_claim(struct rtw_dev *rtwdev, struct pci_dev *pdev)
 {
@@ -1462,8 +1485,8 @@ static void rtw_pci_free_irq(struct rtw_dev *rtwdev, struct pci_dev *pdev)
 	pci_free_irq_vectors(pdev);
 }
 
-static int rtw_pci_probe(struct pci_dev *pdev,
-			 const struct pci_device_id *id)
+int rtw_pci_probe(struct pci_dev *pdev,
+		  const struct pci_device_id *id)
 {
 	struct ieee80211_hw *hw;
 	struct rtw_dev *rtwdev;
@@ -1540,8 +1563,9 @@ err_release_hw:
 
 	return ret;
 }
+EXPORT_SYMBOL(rtw_pci_probe);
 
-static void rtw_pci_remove(struct pci_dev *pdev)
+void rtw_pci_remove(struct pci_dev *pdev)
 {
 	struct ieee80211_hw *hw = pci_get_drvdata(pdev);
 	struct rtw_dev *rtwdev;
@@ -1561,26 +1585,26 @@ static void rtw_pci_remove(struct pci_dev *pdev)
 	rtw_core_deinit(rtwdev);
 	ieee80211_free_hw(hw);
 }
+EXPORT_SYMBOL(rtw_pci_remove);
 
-static const struct pci_device_id rtw_pci_id_table[] = {
-#ifdef CONFIG_RTW88_8822BE
-	{ RTK_PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0xB822, rtw8822b_hw_spec) },
-#endif
-#ifdef CONFIG_RTW88_8822CE
-	{ RTK_PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0xC822, rtw8822c_hw_spec) },
-#endif
-	{},
-};
-MODULE_DEVICE_TABLE(pci, rtw_pci_id_table);
+void rtw_pci_shutdown(struct pci_dev *pdev)
+{
+	struct ieee80211_hw *hw = pci_get_drvdata(pdev);
+	struct rtw_dev *rtwdev;
+	struct rtw_chip_info *chip;
 
-static struct pci_driver rtw_pci_driver = {
-	.name = "rtw_pci",
-	.id_table = rtw_pci_id_table,
-	.probe = rtw_pci_probe,
-	.remove = rtw_pci_remove,
-	.driver.pm = &rtw_pm_ops,
-};
-module_pci_driver(rtw_pci_driver);
+	if (!hw)
+		return;
+
+	rtwdev = hw->priv;
+	chip = rtwdev->chip;
+
+	if (chip->ops->shutdown)
+		chip->ops->shutdown(rtwdev);
+
+	pci_set_power_state(pdev, PCI_D3hot);
+}
+EXPORT_SYMBOL(rtw_pci_shutdown);
 
 MODULE_AUTHOR("Realtek Corporation");
 MODULE_DESCRIPTION("Realtek 802.11ac wireless PCI driver");

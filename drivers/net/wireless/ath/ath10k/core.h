@@ -82,6 +82,8 @@
 /* Default Airtime weight multipler (Tuned for multiclient performance) */
 #define ATH10K_AIRTIME_WEIGHT_MULTIPLIER  4
 
+#define ATH10K_MAX_RETRY_COUNT 30
+
 struct ath10k;
 
 static inline const char *ath10k_bus_str(enum ath10k_bus bus)
@@ -109,6 +111,7 @@ enum ath10k_skb_flags {
 	ATH10K_SKB_F_MGMT = BIT(3),
 	ATH10K_SKB_F_QOS = BIT(4),
 	ATH10K_SKB_F_RAW_TX = BIT(5),
+	ATH10K_SKB_F_NOACK_TID = BIT(6),
 };
 
 struct ath10k_skb_cb {
@@ -148,6 +151,26 @@ static inline u32 host_interest_item_address(u32 item_offset)
 {
 	return QCA988X_HOST_INTEREST_ADDRESS + item_offset;
 }
+
+enum ath10k_phy_mode {
+	ATH10K_PHY_MODE_LEGACY = 0,
+	ATH10K_PHY_MODE_HT = 1,
+	ATH10K_PHY_MODE_VHT = 2,
+};
+
+/* Data rate 100KBPS based on IE Index */
+struct ath10k_index_ht_data_rate_type {
+	u8   beacon_rate_index;
+	u16  supported_rate[4];
+};
+
+/* Data rate 100KBPS based on IE Index */
+struct ath10k_index_vht_data_rate_type {
+	u8   beacon_rate_index;
+	u16  supported_VHT80_rate[2];
+	u16  supported_VHT40_rate[2];
+	u16  supported_VHT20_rate[2];
+};
 
 struct ath10k_bmi {
 	bool done_sent;
@@ -489,6 +512,8 @@ struct ath10k_htt_tx_stats {
 	u64 ack_fails;
 };
 
+#define ATH10K_TID_MAX	8
+
 struct ath10k_sta {
 	struct ath10k_vif *arvif;
 
@@ -500,8 +525,14 @@ struct ath10k_sta {
 	u16 peer_id;
 	struct rate_info txrate;
 	struct ieee80211_tx_info tx_info;
+	u32 tx_retries;
+	u32 tx_failed;
 	u32 last_tx_bitrate;
 
+	u32 rx_rate_code;
+	u32 rx_bitrate_kbps;
+	u32 tx_rate_code;
+	u32 tx_bitrate_kbps;
 	struct work_struct update_wk;
 	u64 rx_duration;
 	struct ath10k_htt_tx_stats *tx_stats;
@@ -516,6 +547,13 @@ struct ath10k_sta {
 #endif
 	/* Protected with ar->data_lock */
 	u32 peer_ps_state;
+	struct work_struct tid_config_wk;
+	int noack[ATH10K_TID_MAX];
+	int retry_long[ATH10K_TID_MAX];
+	int ampdu[ATH10K_TID_MAX];
+	u8 rate_ctrl[ATH10K_TID_MAX];
+	u32 rate_code[ATH10K_TID_MAX];
+	int rtscts[ATH10K_TID_MAX];
 };
 
 #define ATH10K_VDEV_SETUP_TIMEOUT_HZ	(5 * HZ)
@@ -588,6 +626,14 @@ struct ath10k_vif {
 	/* For setting VHT peer fixed rate, protected by conf_mutex */
 	int vht_num_rates;
 	u8 vht_pfr;
+	u32 tid_conf_changed[ATH10K_TID_MAX];
+	int noack[ATH10K_TID_MAX];
+	int retry_long[ATH10K_TID_MAX];
+	int ampdu[ATH10K_TID_MAX];
+	u8 rate_ctrl[ATH10K_TID_MAX];
+	u32 rate_code[ATH10K_TID_MAX];
+	int rtscts[ATH10K_TID_MAX];
+	u32 tids_rst;
 };
 
 struct ath10k_vif_iter {
@@ -949,6 +995,11 @@ struct ath10k {
 	struct ieee80211_hw *hw;
 	struct ieee80211_ops *ops;
 	struct device *dev;
+	struct msa_region {
+		dma_addr_t paddr;
+		u32 mem_size;
+		void *vaddr;
+	} msa;
 	u8 mac_addr[ETH_ALEN];
 
 	enum ath10k_hw_rev hw_rev;
@@ -1025,6 +1076,7 @@ struct ath10k {
 		bool bmi_ids_valid;
 		bool qmi_ids_valid;
 		u32 qmi_board_id;
+		u32 qmi_chip_id;
 		u8 bmi_board_id;
 		u8 bmi_eboard_id;
 		u8 bmi_chip_id;
@@ -1087,11 +1139,12 @@ struct ath10k {
 	int last_wmi_vdev_start_status;
 	struct completion vdev_setup_done;
 	struct completion vdev_delete_done;
+	struct completion peer_stats_info_complete;
 
 	struct workqueue_struct *workqueue;
 	/* Auxiliary workqueue */
 	struct workqueue_struct *workqueue_aux;
-
+	struct workqueue_struct *workqueue_tx_complete;
 	/* prevents concurrent FW reconfiguration */
 	struct mutex conf_mutex;
 
@@ -1132,6 +1185,8 @@ struct ath10k {
 
 	struct work_struct register_work;
 	struct work_struct restart_work;
+	struct work_struct bundle_tx_work;
+	struct work_struct tx_complete_work;
 
 	/* cycle count is reported twice for each visited channel during scan.
 	 * access protected by data_lock
@@ -1228,7 +1283,7 @@ struct ath10k {
 	int coex_gpio_pin;
 
 	/* must be last */
-	u8 drv_priv[0] __aligned(sizeof(void *));
+	u8 drv_priv[] __aligned(sizeof(void *));
 };
 
 static inline bool ath10k_peer_stats_enabled(struct ath10k *ar)
@@ -1261,6 +1316,7 @@ int ath10k_core_register(struct ath10k *ar,
 			 const struct ath10k_bus_params *bus_params);
 void ath10k_core_unregister(struct ath10k *ar);
 int ath10k_core_fetch_board_file(struct ath10k *ar, int bd_ie_type);
+int ath10k_core_check_dt(struct ath10k *ar);
 void ath10k_core_free_board_files(struct ath10k *ar);
 
 #endif /* _CORE_H_ */

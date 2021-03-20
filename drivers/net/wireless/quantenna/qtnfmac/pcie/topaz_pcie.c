@@ -247,7 +247,7 @@ topaz_skb2rbd_attach(struct qtnf_pcie_topaz_state *ts, u16 index, u32 wrap)
 	struct sk_buff *skb;
 	dma_addr_t paddr;
 
-	skb = __netdev_alloc_skb_ip_align(NULL, SKB_BUF_SIZE, GFP_ATOMIC);
+	skb = netdev_alloc_skb_ip_align(NULL, SKB_BUF_SIZE);
 	if (!skb) {
 		ts->base.rx_skb[index] = NULL;
 		return -ENOMEM;
@@ -1105,9 +1105,9 @@ fw_load_exit:
 	put_device(&pdev->dev);
 }
 
-static void qtnf_reclaim_tasklet_fn(unsigned long data)
+static void qtnf_reclaim_tasklet_fn(struct tasklet_struct *t)
 {
-	struct qtnf_pcie_topaz_state *ts = (void *)data;
+	struct qtnf_pcie_topaz_state *ts = from_tasklet(ts, t, base.reclaim_tq);
 
 	qtnf_topaz_data_tx_reclaim(ts);
 }
@@ -1158,8 +1158,7 @@ static int qtnf_pcie_topaz_probe(struct qtnf_bus *bus,
 		return ret;
 	}
 
-	tasklet_init(&ts->base.reclaim_tq, qtnf_reclaim_tasklet_fn,
-		     (unsigned long)ts);
+	tasklet_setup(&ts->base.reclaim_tq, qtnf_reclaim_tasklet_fn);
 	netif_napi_add(&bus->mux_dev, &bus->mux_napi,
 		       qtnf_topaz_rx_poll, 10);
 

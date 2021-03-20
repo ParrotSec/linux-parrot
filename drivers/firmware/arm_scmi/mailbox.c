@@ -110,7 +110,7 @@ static int mailbox_chan_free(int id, void *p, void *data)
 	struct scmi_chan_info *cinfo = p;
 	struct scmi_mailbox *smbox = cinfo->transport_info;
 
-	if (!IS_ERR(smbox->chan)) {
+	if (smbox && !IS_ERR(smbox->chan)) {
 		mbox_free_channel(smbox->chan);
 		cinfo->transport_info = NULL;
 		smbox->chan = NULL;
@@ -158,6 +158,21 @@ static void mailbox_fetch_response(struct scmi_chan_info *cinfo,
 	shmem_fetch_response(smbox->shmem, xfer);
 }
 
+static void mailbox_fetch_notification(struct scmi_chan_info *cinfo,
+				       size_t max_len, struct scmi_xfer *xfer)
+{
+	struct scmi_mailbox *smbox = cinfo->transport_info;
+
+	shmem_fetch_notification(smbox->shmem, max_len, xfer);
+}
+
+static void mailbox_clear_channel(struct scmi_chan_info *cinfo)
+{
+	struct scmi_mailbox *smbox = cinfo->transport_info;
+
+	shmem_clear_channel(smbox->shmem);
+}
+
 static bool
 mailbox_poll_done(struct scmi_chan_info *cinfo, struct scmi_xfer *xfer)
 {
@@ -166,13 +181,15 @@ mailbox_poll_done(struct scmi_chan_info *cinfo, struct scmi_xfer *xfer)
 	return shmem_poll_done(smbox->shmem, xfer);
 }
 
-static struct scmi_transport_ops scmi_mailbox_ops = {
+static const struct scmi_transport_ops scmi_mailbox_ops = {
 	.chan_available = mailbox_chan_available,
 	.chan_setup = mailbox_chan_setup,
 	.chan_free = mailbox_chan_free,
 	.send_message = mailbox_send_message,
 	.mark_txdone = mailbox_mark_txdone,
 	.fetch_response = mailbox_fetch_response,
+	.fetch_notification = mailbox_fetch_notification,
+	.clear_channel = mailbox_clear_channel,
 	.poll_done = mailbox_poll_done,
 };
 

@@ -17,7 +17,7 @@ description: |+
   any time. Be sure to use a device tree binary and a kernel image
   generated from the same source tree.
 
-  Please refer to Documentation/devicetree/bindings/ABI.txt for a definition of a
+  Please refer to Documentation/devicetree/bindings/ABI.rst for a definition of a
   stable binding/ABI.
 
 properties:
@@ -96,6 +96,7 @@ properties:
               - hwacom,amazetv
               - khadas,vim
               - libretech,aml-s905x-cc
+              - libretech,aml-s905x-cc-v2
               - nexbox,a95x
           - const: amlogic,s905x
           - const: amlogic,meson-gxl
@@ -107,6 +108,7 @@ properties:
               - amlogic,p231
               - libretech,aml-s905d-pc
               - phicomm,n1
+              - smartlabs,sml5442tw
           - const: amlogic,s905d
           - const: amlogic,meson-gxl
 
@@ -120,6 +122,7 @@ properties:
               - libretech,aml-s912-pc
               - nexbox,a1
               - tronsmart,vega-s96
+              - wetek,core2
           - const: amlogic,s912
           - const: amlogic,meson-gxm
 
@@ -148,7 +151,10 @@ properties:
       - description: Boards with the Amlogic Meson G12B S922X SoC
         items:
           - enum:
+              - azw,gtking
+              - azw,gtking-pro
               - hardkernel,odroid-n2
+              - hardkernel,odroid-n2-plus
               - khadas,vim3
               - ugoos,am6
           - const: amlogic,s922x
@@ -159,6 +165,7 @@ properties:
           - enum:
               - seirobotics,sei610
               - khadas,vim3l
+              - hardkernel,odroid-c4
           - const: amlogic,sm1
 
       - description: Boards with the Amlogic Meson A1 A113L SoC
@@ -166,4 +173,7 @@ properties:
           - enum:
               - amlogic,ad401
           - const: amlogic,a1
+
+additionalProperties: true
+
 ...

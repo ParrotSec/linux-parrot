@@ -32,9 +32,6 @@
 #include "libbpf.h"
 #include "libbpf_internal.h"
 
-/* make sure libbpf doesn't use kernel-only integer typedefs */
-#pragma GCC poison u8 u16 u32 u64 s8 s16 s32 s64
-
 /*
  * When building perf, unistd.h is overridden. __NR_bpf is
  * required to be defined explicitly.
@@ -589,17 +586,43 @@ int bpf_link_create(int prog_fd, int target_fd,
 		    enum bpf_attach_type attach_type,
 		    const struct bpf_link_create_opts *opts)
 {
+	__u32 target_btf_id, iter_info_len;
 	union bpf_attr attr;
 
 	if (!OPTS_VALID(opts, bpf_link_create_opts))
+		return -EINVAL;
+
+	iter_info_len = OPTS_GET(opts, iter_info_len, 0);
+	target_btf_id = OPTS_GET(opts, target_btf_id, 0);
+
+	if (iter_info_len && target_btf_id)
 		return -EINVAL;
 
 	memset(&attr, 0, sizeof(attr));
 	attr.link_create.prog_fd = prog_fd;
 	attr.link_create.target_fd = target_fd;
 	attr.link_create.attach_type = attach_type;
+	attr.link_create.flags = OPTS_GET(opts, flags, 0);
+
+	if (iter_info_len) {
+		attr.link_create.iter_info =
+			ptr_to_u64(OPTS_GET(opts, iter_info, (void *)0));
+		attr.link_create.iter_info_len = iter_info_len;
+	} else if (target_btf_id) {
+		attr.link_create.target_btf_id = target_btf_id;
+	}
 
 	return sys_bpf(BPF_LINK_CREATE, &attr, sizeof(attr));
+}
+
+int bpf_link_detach(int link_fd)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.link_detach.link_fd = link_fd;
+
+	return sys_bpf(BPF_LINK_DETACH, &attr, sizeof(attr));
 }
 
 int bpf_link_update(int link_fd, int new_prog_fd,
@@ -617,6 +640,16 @@ int bpf_link_update(int link_fd, int new_prog_fd,
 	attr.link_update.old_prog_fd = OPTS_GET(opts, old_prog_fd, 0);
 
 	return sys_bpf(BPF_LINK_UPDATE, &attr, sizeof(attr));
+}
+
+int bpf_iter_create(int link_fd)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.iter_create.link_fd = link_fd;
+
+	return sys_bpf(BPF_ITER_CREATE, &attr, sizeof(attr));
 }
 
 int bpf_prog_query(int target_fd, enum bpf_attach_type type, __u32 query_flags,
@@ -691,6 +724,37 @@ int bpf_prog_test_run_xattr(struct bpf_prog_test_run_attr *test_attr)
 	return ret;
 }
 
+int bpf_prog_test_run_opts(int prog_fd, struct bpf_test_run_opts *opts)
+{
+	union bpf_attr attr;
+	int ret;
+
+	if (!OPTS_VALID(opts, bpf_test_run_opts))
+		return -EINVAL;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.test.prog_fd = prog_fd;
+	attr.test.cpu = OPTS_GET(opts, cpu, 0);
+	attr.test.flags = OPTS_GET(opts, flags, 0);
+	attr.test.repeat = OPTS_GET(opts, repeat, 0);
+	attr.test.duration = OPTS_GET(opts, duration, 0);
+	attr.test.ctx_size_in = OPTS_GET(opts, ctx_size_in, 0);
+	attr.test.ctx_size_out = OPTS_GET(opts, ctx_size_out, 0);
+	attr.test.data_size_in = OPTS_GET(opts, data_size_in, 0);
+	attr.test.data_size_out = OPTS_GET(opts, data_size_out, 0);
+	attr.test.ctx_in = ptr_to_u64(OPTS_GET(opts, ctx_in, NULL));
+	attr.test.ctx_out = ptr_to_u64(OPTS_GET(opts, ctx_out, NULL));
+	attr.test.data_in = ptr_to_u64(OPTS_GET(opts, data_in, NULL));
+	attr.test.data_out = ptr_to_u64(OPTS_GET(opts, data_out, NULL));
+
+	ret = sys_bpf(BPF_PROG_TEST_RUN, &attr, sizeof(attr));
+	OPTS_SET(opts, data_size_out, attr.test.data_size_out);
+	OPTS_SET(opts, ctx_size_out, attr.test.ctx_size_out);
+	OPTS_SET(opts, duration, attr.test.duration);
+	OPTS_SET(opts, retval, attr.test.retval);
+	return ret;
+}
+
 static int bpf_obj_get_next_id(__u32 start_id, __u32 *next_id, int cmd)
 {
 	union bpf_attr attr;
@@ -719,6 +783,11 @@ int bpf_map_get_next_id(__u32 start_id, __u32 *next_id)
 int bpf_btf_get_next_id(__u32 start_id, __u32 *next_id)
 {
 	return bpf_obj_get_next_id(start_id, next_id, BPF_BTF_GET_NEXT_ID);
+}
+
+int bpf_link_get_next_id(__u32 start_id, __u32 *next_id)
+{
+	return bpf_obj_get_next_id(start_id, next_id, BPF_LINK_GET_NEXT_ID);
 }
 
 int bpf_prog_get_fd_by_id(__u32 id)
@@ -751,13 +820,23 @@ int bpf_btf_get_fd_by_id(__u32 id)
 	return sys_bpf(BPF_BTF_GET_FD_BY_ID, &attr, sizeof(attr));
 }
 
-int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
+int bpf_link_get_fd_by_id(__u32 id)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.link_id = id;
+
+	return sys_bpf(BPF_LINK_GET_FD_BY_ID, &attr, sizeof(attr));
+}
+
+int bpf_obj_get_info_by_fd(int bpf_fd, void *info, __u32 *info_len)
 {
 	union bpf_attr attr;
 	int err;
 
 	memset(&attr, 0, sizeof(attr));
-	attr.info.bpf_fd = prog_fd;
+	attr.info.bpf_fd = bpf_fd;
 	attr.info.info_len = *info_len;
 	attr.info.info = ptr_to_u64(info);
 
@@ -779,7 +858,7 @@ int bpf_raw_tracepoint_open(const char *name, int prog_fd)
 	return sys_bpf(BPF_RAW_TRACEPOINT_OPEN, &attr, sizeof(attr));
 }
 
-int bpf_load_btf(void *btf, __u32 btf_size, char *log_buf, __u32 log_buf_size,
+int bpf_load_btf(const void *btf, __u32 btf_size, char *log_buf, __u32 log_buf_size,
 		 bool do_log)
 {
 	union bpf_attr attr = {};
@@ -825,4 +904,30 @@ int bpf_task_fd_query(int pid, int fd, __u32 flags, char *buf, __u32 *buf_len,
 	*probe_addr = attr.task_fd_query.probe_addr;
 
 	return err;
+}
+
+int bpf_enable_stats(enum bpf_stats_type type)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.enable_stats.type = type;
+
+	return sys_bpf(BPF_ENABLE_STATS, &attr, sizeof(attr));
+}
+
+int bpf_prog_bind_map(int prog_fd, int map_fd,
+		      const struct bpf_prog_bind_opts *opts)
+{
+	union bpf_attr attr;
+
+	if (!OPTS_VALID(opts, bpf_prog_bind_opts))
+		return -EINVAL;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.prog_bind_map.prog_fd = prog_fd;
+	attr.prog_bind_map.map_fd = map_fd;
+	attr.prog_bind_map.flags = OPTS_GET(opts, flags, 0);
+
+	return sys_bpf(BPF_PROG_BIND_MAP, &attr, sizeof(attr));
 }

@@ -164,7 +164,7 @@ static int psbfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	return 0;
 }
 
-static struct fb_ops psbfb_ops = {
+static const struct fb_ops psbfb_ops = {
 	.owner = THIS_MODULE,
 	DRM_FB_HELPER_DEFAULT_OPS,
 	.fb_setcolreg = psbfb_setcolreg,
@@ -175,7 +175,7 @@ static struct fb_ops psbfb_ops = {
 	.fb_sync = psbfb_sync,
 };
 
-static struct fb_ops psbfb_roll_ops = {
+static const struct fb_ops psbfb_roll_ops = {
 	.owner = THIS_MODULE,
 	DRM_FB_HELPER_DEFAULT_OPS,
 	.fb_setcolreg = psbfb_setcolreg,
@@ -186,7 +186,7 @@ static struct fb_ops psbfb_roll_ops = {
 	.fb_mmap = psbfb_mmap,
 };
 
-static struct fb_ops psbfb_unaccel_ops = {
+static const struct fb_ops psbfb_unaccel_ops = {
 	.owner = THIS_MODULE,
 	DRM_FB_HELPER_DEFAULT_OPS,
 	.fb_setcolreg = psbfb_setcolreg,
@@ -491,7 +491,7 @@ static int psb_fbdev_destroy(struct drm_device *dev,
 	drm_framebuffer_cleanup(fb);
 
 	if (fb->obj[0])
-		drm_gem_object_put_unlocked(fb->obj[0]);
+		drm_gem_object_put(fb->obj[0]);
 	kfree(fb);
 
 	return 0;
@@ -577,31 +577,31 @@ static void psb_setup_outputs(struct drm_device *dev)
 			break;
 		case INTEL_OUTPUT_SDVO:
 			crtc_mask = dev_priv->ops->sdvo_mask;
-			clone_mask = (1 << INTEL_OUTPUT_SDVO);
+			clone_mask = 0;
 			break;
 		case INTEL_OUTPUT_LVDS:
-		        crtc_mask = dev_priv->ops->lvds_mask;
-			clone_mask = (1 << INTEL_OUTPUT_LVDS);
+			crtc_mask = dev_priv->ops->lvds_mask;
+			clone_mask = 0;
 			break;
 		case INTEL_OUTPUT_MIPI:
 			crtc_mask = (1 << 0);
-			clone_mask = (1 << INTEL_OUTPUT_MIPI);
+			clone_mask = 0;
 			break;
 		case INTEL_OUTPUT_MIPI2:
 			crtc_mask = (1 << 2);
-			clone_mask = (1 << INTEL_OUTPUT_MIPI2);
+			clone_mask = 0;
 			break;
 		case INTEL_OUTPUT_HDMI:
-		        crtc_mask = dev_priv->ops->hdmi_mask;
+			crtc_mask = dev_priv->ops->hdmi_mask;
 			clone_mask = (1 << INTEL_OUTPUT_HDMI);
 			break;
 		case INTEL_OUTPUT_DISPLAYPORT:
 			crtc_mask = (1 << 0) | (1 << 1);
-			clone_mask = (1 << INTEL_OUTPUT_DISPLAYPORT);
+			clone_mask = 0;
 			break;
 		case INTEL_OUTPUT_EDP:
 			crtc_mask = (1 << 1);
-			clone_mask = (1 << INTEL_OUTPUT_EDP);
+			clone_mask = 0;
 		}
 		encoder->possible_crtcs = crtc_mask;
 		encoder->possible_clones =

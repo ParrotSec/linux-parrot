@@ -142,9 +142,29 @@ struct nfs_fs_context {
 	} clone_data;
 };
 
-#define nfs_errorf(fc, fmt, ...) errorf(fc, fmt, ## __VA_ARGS__)
-#define nfs_invalf(fc, fmt, ...) invalf(fc, fmt, ## __VA_ARGS__)
-#define nfs_warnf(fc, fmt, ...) warnf(fc, fmt, ## __VA_ARGS__)
+#define nfs_errorf(fc, fmt, ...) ((fc)->log.log ?		\
+	errorf(fc, fmt, ## __VA_ARGS__) :			\
+	({ dprintk(fmt "\n", ## __VA_ARGS__); }))
+
+#define nfs_ferrorf(fc, fac, fmt, ...) ((fc)->log.log ?		\
+	errorf(fc, fmt, ## __VA_ARGS__) :			\
+	({ dfprintk(fac, fmt "\n", ## __VA_ARGS__); }))
+
+#define nfs_invalf(fc, fmt, ...) ((fc)->log.log ?		\
+	invalf(fc, fmt, ## __VA_ARGS__) :			\
+	({ dprintk(fmt "\n", ## __VA_ARGS__);  -EINVAL; }))
+
+#define nfs_finvalf(fc, fac, fmt, ...) ((fc)->log.log ?		\
+	invalf(fc, fmt, ## __VA_ARGS__) :			\
+	({ dfprintk(fac, fmt "\n", ## __VA_ARGS__);  -EINVAL; }))
+
+#define nfs_warnf(fc, fmt, ...) ((fc)->log.log ?		\
+	warnf(fc, fmt, ## __VA_ARGS__) :			\
+	({ dprintk(fmt "\n", ## __VA_ARGS__); }))
+
+#define nfs_fwarnf(fc, fac, fmt, ...) ((fc)->log.log ?		\
+	warnf(fc, fmt, ## __VA_ARGS__) :			\
+	({ dfprintk(fac, fmt "\n", ## __VA_ARGS__); }))
 
 static inline struct nfs_fs_context *nfs_fc2context(const struct fs_context *fc)
 {
@@ -585,12 +605,14 @@ extern void nfs4_test_session_trunk(struct rpc_clnt *clnt,
 
 static inline struct inode *nfs_igrab_and_active(struct inode *inode)
 {
-	inode = igrab(inode);
-	if (inode != NULL && !nfs_sb_active(inode->i_sb)) {
-		iput(inode);
-		inode = NULL;
+	struct super_block *sb = inode->i_sb;
+
+	if (sb && nfs_sb_active(sb)) {
+		if (igrab(inode))
+			return inode;
+		nfs_sb_deactive(sb);
 	}
-	return inode;
+	return NULL;
 }
 
 static inline void nfs_iput_and_deactive(struct inode *inode)
@@ -668,7 +690,8 @@ void nfs_super_set_maxbytes(struct super_block *sb, __u64 maxfilesize)
 }
 
 /*
- * Record the page as unstable and mark its inode as dirty.
+ * Record the page as unstable (an extra writeback period) and mark its
+ * inode as dirty.
  */
 static inline
 void nfs_mark_page_unstable(struct page *page, struct nfs_commit_info *cinfo)
@@ -676,8 +699,11 @@ void nfs_mark_page_unstable(struct page *page, struct nfs_commit_info *cinfo)
 	if (!cinfo->dreq) {
 		struct inode *inode = page_file_mapping(page)->host;
 
-		inc_node_page_state(page, NR_UNSTABLE_NFS);
-		inc_wb_stat(&inode_to_bdi(inode)->wb, WB_RECLAIMABLE);
+		/* This page is really still in write-back - just that the
+		 * writeback is happening on the server now.
+		 */
+		inc_node_page_state(page, NR_WRITEBACK);
+		inc_wb_stat(&inode_to_bdi(inode)->wb, WB_WRITEBACK);
 		__mark_inode_dirty(inode, I_DIRTY_DATASYNC);
 	}
 }

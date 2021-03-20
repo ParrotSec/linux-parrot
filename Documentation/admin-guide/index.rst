@@ -18,6 +18,8 @@ etc.
    devices
    sysctl/index
 
+   abi
+
 This section describes CPU vulnerabilities and their mitigations.
 
 .. toctree::
@@ -41,6 +43,7 @@ problems and bugs in particular.
    init
    kdump/index
    perf/index
+   pstore-blk
 
 This is the beginning of a section with information of interest to
 application developers.  Documents covering various aspects of the kernel
@@ -93,6 +96,7 @@ configure specific aspects of kernel behavior to your liking.
    lockup-watchdogs
    LSM/index
    md
+   media/index
    mm/index
    module-signing
    mono

@@ -210,7 +210,6 @@ int btrfs_find_orphan_roots(struct btrfs_fs_info *fs_info)
 	struct extent_buffer *leaf;
 	struct btrfs_path *path;
 	struct btrfs_key key;
-	struct btrfs_key root_key;
 	struct btrfs_root *root;
 	int err = 0;
 	int ret;
@@ -223,10 +222,9 @@ int btrfs_find_orphan_roots(struct btrfs_fs_info *fs_info)
 	key.type = BTRFS_ORPHAN_ITEM_KEY;
 	key.offset = 0;
 
-	root_key.type = BTRFS_ROOT_ITEM_KEY;
-	root_key.offset = (u64)-1;
-
 	while (1) {
+		u64 root_objectid;
+
 		ret = btrfs_search_slot(NULL, tree_root, &key, path, 0, 0);
 		if (ret < 0) {
 			err = ret;
@@ -250,10 +248,10 @@ int btrfs_find_orphan_roots(struct btrfs_fs_info *fs_info)
 		    key.type != BTRFS_ORPHAN_ITEM_KEY)
 			break;
 
-		root_key.objectid = key.offset;
+		root_objectid = key.offset;
 		key.offset++;
 
-		root = btrfs_get_fs_root(fs_info, &root_key, false);
+		root = btrfs_get_fs_root(fs_info, root_objectid, false);
 		err = PTR_ERR_OR_ZERO(root);
 		if (err && err != -ENOENT) {
 			break;
@@ -270,7 +268,7 @@ int btrfs_find_orphan_roots(struct btrfs_fs_info *fs_info)
 				break;
 			}
 			err = btrfs_del_orphan_item(trans, tree_root,
-						    root_key.objectid);
+						    root_objectid);
 			btrfs_end_transaction(trans);
 			if (err) {
 				btrfs_handle_fs_error(fs_info, err,
@@ -514,11 +512,20 @@ int btrfs_subvolume_reserve_metadata(struct btrfs_root *root,
 	if (ret && qgroup_num_bytes)
 		btrfs_qgroup_free_meta_prealloc(root, qgroup_num_bytes);
 
+	if (!ret) {
+		spin_lock(&rsv->lock);
+		rsv->qgroup_rsv_reserved += qgroup_num_bytes;
+		spin_unlock(&rsv->lock);
+	}
 	return ret;
 }
 
-void btrfs_subvolume_release_metadata(struct btrfs_fs_info *fs_info,
+void btrfs_subvolume_release_metadata(struct btrfs_root *root,
 				      struct btrfs_block_rsv *rsv)
 {
-	btrfs_block_rsv_release(fs_info, rsv, (u64)-1, NULL);
+	struct btrfs_fs_info *fs_info = root->fs_info;
+	u64 qgroup_to_release;
+
+	btrfs_block_rsv_release(fs_info, rsv, (u64)-1, &qgroup_to_release);
+	btrfs_qgroup_convert_reserved_meta(root, qgroup_to_release);
 }

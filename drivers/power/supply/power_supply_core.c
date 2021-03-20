@@ -579,6 +579,12 @@ int power_supply_get_battery_info(struct power_supply *psy,
 	info->charge_term_current_ua         = -EINVAL;
 	info->constant_charge_current_max_ua = -EINVAL;
 	info->constant_charge_voltage_max_uv = -EINVAL;
+	info->temp_ambient_alert_min         = INT_MIN;
+	info->temp_ambient_alert_max         = INT_MAX;
+	info->temp_alert_min                 = INT_MIN;
+	info->temp_alert_max                 = INT_MAX;
+	info->temp_min                       = INT_MIN;
+	info->temp_max                       = INT_MAX;
 	info->factory_internal_resistance_uohm  = -EINVAL;
 	info->resist_table = NULL;
 
@@ -620,16 +626,37 @@ int power_supply_get_battery_info(struct power_supply *psy,
 			     &info->voltage_min_design_uv);
 	of_property_read_u32(battery_np, "voltage-max-design-microvolt",
 			     &info->voltage_max_design_uv);
+	of_property_read_u32(battery_np, "trickle-charge-current-microamp",
+			     &info->tricklecharge_current_ua);
 	of_property_read_u32(battery_np, "precharge-current-microamp",
 			     &info->precharge_current_ua);
+	of_property_read_u32(battery_np, "precharge-upper-limit-microvolt",
+			     &info->precharge_voltage_max_uv);
 	of_property_read_u32(battery_np, "charge-term-current-microamp",
 			     &info->charge_term_current_ua);
+	of_property_read_u32(battery_np, "re-charge-voltage-microvolt",
+			     &info->charge_restart_voltage_uv);
+	of_property_read_u32(battery_np, "over-voltage-threshold-microvolt",
+			     &info->overvoltage_limit_uv);
 	of_property_read_u32(battery_np, "constant-charge-current-max-microamp",
 			     &info->constant_charge_current_max_ua);
 	of_property_read_u32(battery_np, "constant-charge-voltage-max-microvolt",
 			     &info->constant_charge_voltage_max_uv);
 	of_property_read_u32(battery_np, "factory-internal-resistance-micro-ohms",
 			     &info->factory_internal_resistance_uohm);
+
+	of_property_read_u32_index(battery_np, "ambient-celsius",
+				   0, &info->temp_ambient_alert_min);
+	of_property_read_u32_index(battery_np, "ambient-celsius",
+				   1, &info->temp_ambient_alert_max);
+	of_property_read_u32_index(battery_np, "alert-celsius",
+				   0, &info->temp_alert_min);
+	of_property_read_u32_index(battery_np, "alert-celsius",
+				   1, &info->temp_alert_max);
+	of_property_read_u32_index(battery_np, "operating-range-celsius",
+				   0, &info->temp_min);
+	of_property_read_u32_index(battery_np, "operating-range-celsius",
+				   1, &info->temp_max);
 
 	len = of_property_count_u32_elems(battery_np, "ocv-capacity-celsius");
 	if (len < 0 && len != -EINVAL) {
@@ -725,7 +752,7 @@ EXPORT_SYMBOL_GPL(power_supply_put_battery_info);
  * percent
  * @table: Pointer to battery resistance temperature table
  * @table_len: The table length
- * @ocv: Current temperature
+ * @temp: Current temperature
  *
  * This helper function is used to look up battery internal resistance percent
  * according to current temperature value from the resistance temperature table,
@@ -931,7 +958,7 @@ static struct thermal_zone_device_ops psy_tzd_ops = {
 
 static int psy_register_thermal(struct power_supply *psy)
 {
-	int i;
+	int i, ret;
 
 	if (psy->desc->no_thermal)
 		return 0;
@@ -941,7 +968,12 @@ static int psy_register_thermal(struct power_supply *psy)
 		if (psy->desc->properties[i] == POWER_SUPPLY_PROP_TEMP) {
 			psy->tzd = thermal_zone_device_register(psy->desc->name,
 					0, 0, psy, &psy_tzd_ops, NULL, 0, 0);
-			return PTR_ERR_OR_ZERO(psy->tzd);
+			if (IS_ERR(psy->tzd))
+				return PTR_ERR(psy->tzd);
+			ret = thermal_zone_device_enable(psy->tzd);
+			if (ret)
+				thermal_zone_device_unregister(psy->tzd);
+			return ret;
 		}
 	}
 	return 0;

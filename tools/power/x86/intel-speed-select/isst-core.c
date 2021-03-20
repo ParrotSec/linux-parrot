@@ -396,7 +396,7 @@ int isst_get_pbf_info(int cpu, int level, struct isst_pbf_info *pbf_info)
 {
 	struct isst_pkg_ctdp_level_info ctdp_level;
 	struct isst_pkg_ctdp pkg_dev;
-	int i, ret, core_cnt, max;
+	int i, ret, max_punit_core, max_mask_index;
 	unsigned int req, resp;
 
 	ret = isst_get_ctdp_levels(cpu, &pkg_dev);
@@ -421,10 +421,10 @@ int isst_get_pbf_info(int cpu, int level, struct isst_pbf_info *pbf_info)
 
 	pbf_info->core_cpumask_size = alloc_cpu_set(&pbf_info->core_cpumask);
 
-	core_cnt = get_core_count(get_physical_package_id(cpu), get_physical_die_id(cpu));
-	max = core_cnt > 32 ? 2 : 1;
+	max_punit_core = get_max_punit_core_id(get_physical_package_id(cpu), get_physical_die_id(cpu));
+	max_mask_index = max_punit_core > 32 ? 2 : 1;
 
-	for (i = 0; i < max; ++i) {
+	for (i = 0; i < max_mask_index; ++i) {
 		unsigned long long mask;
 		int count;
 
@@ -912,16 +912,16 @@ int isst_pm_qos_config(int cpu, int enable_clos, int priority_type)
 			return ret;
 
 		if (ctdp_level.fact_enabled) {
-			debug_printf("Turbo-freq feature must be disabled first\n");
+			isst_display_error_info_message(1, "Ignoring request, turbo-freq feature is still enabled", 0, 0);
 			return -EINVAL;
 		}
 		ret = isst_write_pm_config(cpu, 0);
 		if (ret)
-			isst_display_error_info_message(0, "WRITE_PM_CONFIG command failed, ignoring error\n", 0, 0);
+			isst_display_error_info_message(0, "WRITE_PM_CONFIG command failed, ignoring error", 0, 0);
 	} else {
 		ret = isst_write_pm_config(cpu, 1);
 		if (ret)
-			isst_display_error_info_message(0, "WRITE_PM_CONFIG command failed, ignoring error\n", 0, 0);
+			isst_display_error_info_message(0, "WRITE_PM_CONFIG command failed, ignoring error", 0, 0);
 	}
 
 	ret = isst_send_mbox_command(cpu, CONFIG_CLOS, CLOS_PM_QOS_CONFIG, 0, 0,

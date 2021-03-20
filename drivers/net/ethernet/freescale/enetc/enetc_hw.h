@@ -19,6 +19,7 @@
 #define ENETC_SICTR1	0x1c
 #define ENETC_SIPCAPR0	0x20
 #define ENETC_SIPCAPR0_QBV	BIT(4)
+#define ENETC_SIPCAPR0_PSFP	BIT(9)
 #define ENETC_SIPCAPR0_RSS	BIT(8)
 #define ENETC_SIPCAPR1	0x24
 #define ENETC_SITGTGR	0x30
@@ -120,8 +121,11 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_RBIER	0xa0
 #define ENETC_RBIER_RXTIE	BIT(0)
 #define ENETC_RBIDR	0xa4
-#define ENETC_RBICIR0	0xa8
-#define ENETC_RBICIR0_ICEN	BIT(31)
+#define ENETC_RBICR0	0xa8
+#define ENETC_RBICR0_ICEN		BIT(31)
+#define ENETC_RBICR0_ICPT_MASK		0x1ff
+#define ENETC_RBICR0_SET_ICPT(n)	((n) & ENETC_RBICR0_ICPT_MASK)
+#define ENETC_RBICR1	0xac
 
 /* TX BDR reg offsets */
 #define ENETC_TBMR	0
@@ -140,8 +144,11 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_TBIER	0xa0
 #define ENETC_TBIER_TXTIE	BIT(0)
 #define ENETC_TBIDR	0xa4
-#define ENETC_TBICIR0	0xa8
-#define ENETC_TBICIR0_ICEN	BIT(31)
+#define ENETC_TBICR0	0xa8
+#define ENETC_TBICR0_ICEN		BIT(31)
+#define ENETC_TBICR0_ICPT_MASK		0xf
+#define ENETC_TBICR0_SET_ICPT(n) ((ilog2(n) + 1) & ENETC_TBICR0_ICPT_MASK)
+#define ENETC_TBICR1	0xac
 
 #define ENETC_RTBLENR_LEN(n)	((n) & ~0x7)
 
@@ -165,6 +172,8 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_PSIPMAR0(n)	(0x0100 + (n) * 0x8) /* n = SI index */
 #define ENETC_PSIPMAR1(n)	(0x0104 + (n) * 0x8)
 #define ENETC_PVCLCTR		0x0208
+#define ENETC_PCVLANR1		0x0210
+#define ENETC_PCVLANR2		0x0214
 #define ENETC_VLAN_TYPE_C	BIT(0)
 #define ENETC_VLAN_TYPE_S	BIT(1)
 #define ENETC_PVCLCTR_OVTPIDL(bmp)	((bmp) & 0xff) /* VLAN_TYPE */
@@ -189,6 +198,8 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_CBS_BW_MASK	GENMASK(6, 0)
 #define ENETC_PTCCBSR1(n)	(0x1114 + (n) * 8) /* n = 0 to 7*/
 #define ENETC_RSSHASH_KEY_SIZE	40
+#define ENETC_PRSSCAPR		0x1404
+#define ENETC_PRSSCAPR_GET_NUM_RSS(val)	(BIT((val) & 0xf) * 32)
 #define ENETC_PRSSK(n)		(0x1410 + (n) * 4) /* n = [0..9] */
 #define ENETC_PSIVLANFMR	0x1700
 #define ENETC_PSIVLANFMR_VS	BIT(0)
@@ -223,11 +234,30 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_PM0_MAXFRM	0x8014
 #define ENETC_SET_TX_MTU(val)	((val) << 16)
 #define ENETC_SET_MAXFRM(val)	((val) & 0xffff)
+
+#define ENETC_PM_IMDIO_BASE	0x8030
+
 #define ENETC_PM0_IF_MODE	0x8300
-#define ENETC_PMO_IFM_RG	BIT(2)
+#define ENETC_PM0_IFM_RG	BIT(2)
 #define ENETC_PM0_IFM_RLP	(BIT(5) | BIT(11))
-#define ENETC_PM0_IFM_RGAUTO	(BIT(15) | ENETC_PMO_IFM_RG | BIT(1))
-#define ENETC_PM0_IFM_XGMII	BIT(12)
+#define ENETC_PM0_IFM_EN_AUTO	BIT(15)
+#define ENETC_PM0_IFM_SSP_MASK	GENMASK(14, 13)
+#define ENETC_PM0_IFM_SSP_1000	(2 << 13)
+#define ENETC_PM0_IFM_SSP_100	(0 << 13)
+#define ENETC_PM0_IFM_SSP_10	(1 << 13)
+#define ENETC_PM0_IFM_FULL_DPX	BIT(12)
+#define ENETC_PM0_IFM_IFMODE_MASK GENMASK(1, 0)
+#define ENETC_PM0_IFM_IFMODE_XGMII 0
+#define ENETC_PM0_IFM_IFMODE_GMII 2
+#define ENETC_PSIDCAPR		0x1b08
+#define ENETC_PSIDCAPR_MSK	GENMASK(15, 0)
+#define ENETC_PSFCAPR		0x1b18
+#define ENETC_PSFCAPR_MSK	GENMASK(15, 0)
+#define ENETC_PSGCAPR		0x1b28
+#define ENETC_PSGCAPR_GCL_MSK	GENMASK(18, 16)
+#define ENETC_PSGCAPR_SGIT_MSK	GENMASK(15, 0)
+#define ENETC_PFMCAPR		0x1b38
+#define ENETC_PFMCAPR_MSK	GENMASK(15, 0)
 
 /* MAC counters */
 #define ENETC_PM0_REOCT		0x8100
@@ -248,8 +278,8 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_PM0_R255		0x8180
 #define ENETC_PM0_R511		0x8188
 #define ENETC_PM0_R1023		0x8190
-#define ENETC_PM0_R1518		0x8198
-#define ENETC_PM0_R1519X	0x81A0
+#define ENETC_PM0_R1522		0x8198
+#define ENETC_PM0_R1523X	0x81A0
 #define ENETC_PM0_ROVR		0x81A8
 #define ENETC_PM0_RJBR		0x81B0
 #define ENETC_PM0_RFRG		0x81B8
@@ -268,9 +298,13 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_PM0_TBCA		0x8250
 #define ENETC_PM0_TPKT		0x8260
 #define ENETC_PM0_TUND		0x8268
+#define ENETC_PM0_T64		0x8270
 #define ENETC_PM0_T127		0x8278
+#define ENETC_PM0_T255		0x8280
+#define ENETC_PM0_T511		0x8288
 #define ENETC_PM0_T1023		0x8290
-#define ENETC_PM0_T1518		0x8298
+#define ENETC_PM0_T1522		0x8298
+#define ENETC_PM0_T1523X	0x82A0
 #define ENETC_PM0_TCNP		0x82C0
 #define ENETC_PM0_TDFR		0x82D0
 #define ENETC_PM0_TMCOL		0x82D8
@@ -305,14 +339,100 @@ struct enetc_hw {
 	void __iomem *global;
 };
 
-/* general register accessors */
-#define enetc_rd_reg(reg)	ioread32((reg))
-#define enetc_wr_reg(reg, val)	iowrite32((val), (reg))
+/* ENETC register accessors */
+
+/* MDIO issue workaround (on LS1028A) -
+ * Due to a hardware issue, an access to MDIO registers
+ * that is concurrent with other ENETC register accesses
+ * may lead to the MDIO access being dropped or corrupted.
+ * To protect the MDIO accesses a readers-writers locking
+ * scheme is used, where the MDIO register accesses are
+ * protected by write locks to insure exclusivity, while
+ * the remaining ENETC registers are accessed under read
+ * locks since they only compete with MDIO accesses.
+ */
+extern rwlock_t enetc_mdio_lock;
+
+/* use this locking primitive only on the fast datapath to
+ * group together multiple non-MDIO register accesses to
+ * minimize the overhead of the lock
+ */
+static inline void enetc_lock_mdio(void)
+{
+	read_lock(&enetc_mdio_lock);
+}
+
+static inline void enetc_unlock_mdio(void)
+{
+	read_unlock(&enetc_mdio_lock);
+}
+
+/* use these accessors only on the fast datapath under
+ * the enetc_lock_mdio() locking primitive to minimize
+ * the overhead of the lock
+ */
+static inline u32 enetc_rd_reg_hot(void __iomem *reg)
+{
+	lockdep_assert_held(&enetc_mdio_lock);
+
+	return ioread32(reg);
+}
+
+static inline void enetc_wr_reg_hot(void __iomem *reg, u32 val)
+{
+	lockdep_assert_held(&enetc_mdio_lock);
+
+	iowrite32(val, reg);
+}
+
+/* internal helpers for the MDIO w/a */
+static inline u32 _enetc_rd_reg_wa(void __iomem *reg)
+{
+	u32 val;
+
+	enetc_lock_mdio();
+	val = ioread32(reg);
+	enetc_unlock_mdio();
+
+	return val;
+}
+
+static inline void _enetc_wr_reg_wa(void __iomem *reg, u32 val)
+{
+	enetc_lock_mdio();
+	iowrite32(val, reg);
+	enetc_unlock_mdio();
+}
+
+static inline u32 _enetc_rd_mdio_reg_wa(void __iomem *reg)
+{
+	unsigned long flags;
+	u32 val;
+
+	write_lock_irqsave(&enetc_mdio_lock, flags);
+	val = ioread32(reg);
+	write_unlock_irqrestore(&enetc_mdio_lock, flags);
+
+	return val;
+}
+
+static inline void _enetc_wr_mdio_reg_wa(void __iomem *reg, u32 val)
+{
+	unsigned long flags;
+
+	write_lock_irqsave(&enetc_mdio_lock, flags);
+	iowrite32(val, reg);
+	write_unlock_irqrestore(&enetc_mdio_lock, flags);
+}
+
 #ifdef ioread64
-#define enetc_rd_reg64(reg)	ioread64((reg))
+static inline u64 _enetc_rd_reg64(void __iomem *reg)
+{
+	return ioread64(reg);
+}
 #else
 /* using this to read out stats on 32b systems */
-static inline u64 enetc_rd_reg64(void __iomem *reg)
+static inline u64 _enetc_rd_reg64(void __iomem *reg)
 {
 	u32 low, high, tmp;
 
@@ -326,12 +446,31 @@ static inline u64 enetc_rd_reg64(void __iomem *reg)
 }
 #endif
 
+static inline u64 _enetc_rd_reg64_wa(void __iomem *reg)
+{
+	u64 val;
+
+	enetc_lock_mdio();
+	val = _enetc_rd_reg64(reg);
+	enetc_unlock_mdio();
+
+	return val;
+}
+
+/* general register accessors */
+#define enetc_rd_reg(reg)		_enetc_rd_reg_wa((reg))
+#define enetc_wr_reg(reg, val)		_enetc_wr_reg_wa((reg), (val))
 #define enetc_rd(hw, off)		enetc_rd_reg((hw)->reg + (off))
 #define enetc_wr(hw, off, val)		enetc_wr_reg((hw)->reg + (off), val)
-#define enetc_rd64(hw, off)		enetc_rd_reg64((hw)->reg + (off))
+#define enetc_rd_hot(hw, off)		enetc_rd_reg_hot((hw)->reg + (off))
+#define enetc_wr_hot(hw, off, val)	enetc_wr_reg_hot((hw)->reg + (off), val)
+#define enetc_rd64(hw, off)		_enetc_rd_reg64_wa((hw)->reg + (off))
 /* port register accessors - PF only */
 #define enetc_port_rd(hw, off)		enetc_rd_reg((hw)->port + (off))
 #define enetc_port_wr(hw, off, val)	enetc_wr_reg((hw)->port + (off), val)
+#define enetc_port_rd_mdio(hw, off)	_enetc_rd_mdio_reg_wa((hw)->port + (off))
+#define enetc_port_wr_mdio(hw, off, val)	_enetc_wr_mdio_reg_wa(\
+							(hw)->port + (off), val)
 /* global register accessors - PF only */
 #define enetc_global_rd(hw, off)	enetc_rd_reg((hw)->global + (off))
 #define enetc_global_wr(hw, off, val)	enetc_wr_reg((hw)->global + (off), val)
@@ -445,6 +584,7 @@ union enetc_rx_bd {
 #define ENETC_RXBD_LSTATUS(flags)	((flags) << 16)
 #define ENETC_RXBD_FLAG_VLAN	BIT(9)
 #define ENETC_RXBD_FLAG_TSTMP	BIT(10)
+#define ENETC_RXBD_FLAG_TPID	GENMASK(1, 0)
 
 #define ENETC_MAC_ADDR_FILT_CNT	8 /* # of supported entries per port */
 #define EMETC_MAC_ADDR_FILT_RES	3 /* # of reserved entries at the beginning */
@@ -521,22 +661,22 @@ struct enetc_msg_cmd_header {
 
 /* Common H/W utility functions */
 
-static inline void enetc_enable_rxvlan(struct enetc_hw *hw, int si_idx,
-				       bool en)
+static inline void enetc_bdr_enable_rxvlan(struct enetc_hw *hw, int idx,
+					   bool en)
 {
-	u32 val = enetc_rxbdr_rd(hw, si_idx, ENETC_RBMR);
+	u32 val = enetc_rxbdr_rd(hw, idx, ENETC_RBMR);
 
 	val = (val & ~ENETC_RBMR_VTE) | (en ? ENETC_RBMR_VTE : 0);
-	enetc_rxbdr_wr(hw, si_idx, ENETC_RBMR, val);
+	enetc_rxbdr_wr(hw, idx, ENETC_RBMR, val);
 }
 
-static inline void enetc_enable_txvlan(struct enetc_hw *hw, int si_idx,
-				       bool en)
+static inline void enetc_bdr_enable_txvlan(struct enetc_hw *hw, int idx,
+					   bool en)
 {
-	u32 val = enetc_txbdr_rd(hw, si_idx, ENETC_TBMR);
+	u32 val = enetc_txbdr_rd(hw, idx, ENETC_TBMR);
 
 	val = (val & ~ENETC_TBMR_VIH) | (en ? ENETC_TBMR_VIH : 0);
-	enetc_txbdr_wr(hw, si_idx, ENETC_TBMR, val);
+	enetc_txbdr_wr(hw, idx, ENETC_TBMR, val);
 }
 
 static inline void enetc_set_bdr_prio(struct enetc_hw *hw, int bdr_idx,
@@ -557,6 +697,10 @@ enum bdcr_cmd_class {
 	BDCR_CMD_RFS,
 	BDCR_CMD_PORT_GCL,
 	BDCR_CMD_RECV_CLASSIFIER,
+	BDCR_CMD_STREAM_IDENTIFY,
+	BDCR_CMD_STREAM_FILTER,
+	BDCR_CMD_STREAM_GCL,
+	BDCR_CMD_FLOW_METER,
 	__BDCR_CMD_MAX_LEN,
 	BDCR_CMD_MAX_LEN = __BDCR_CMD_MAX_LEN - 1,
 };
@@ -588,13 +732,175 @@ struct tgs_gcl_data {
 	struct gce	entry[];
 };
 
+/* class 7, command 0, Stream Identity Entry Configuration */
+struct streamid_conf {
+	__le32	stream_handle;	/* init gate value */
+	__le32	iports;
+		u8	id_type;
+		u8	oui[3];
+		u8	res[3];
+		u8	en;
+};
+
+#define ENETC_CBDR_SID_VID_MASK 0xfff
+#define ENETC_CBDR_SID_VIDM BIT(12)
+#define ENETC_CBDR_SID_TG_MASK 0xc000
+/* streamid_conf address point to this data space */
+struct streamid_data {
+	union {
+		u8 dmac[6];
+		u8 smac[6];
+	};
+	u16     vid_vidm_tg;
+};
+
+#define ENETC_CBDR_SFI_PRI_MASK 0x7
+#define ENETC_CBDR_SFI_PRIM		BIT(3)
+#define ENETC_CBDR_SFI_BLOV		BIT(4)
+#define ENETC_CBDR_SFI_BLEN		BIT(5)
+#define ENETC_CBDR_SFI_MSDUEN	BIT(6)
+#define ENETC_CBDR_SFI_FMITEN	BIT(7)
+#define ENETC_CBDR_SFI_ENABLE	BIT(7)
+/* class 8, command 0, Stream Filter Instance, Short Format */
+struct sfi_conf {
+	__le32	stream_handle;
+		u8	multi;
+		u8	res[2];
+		u8	sthm;
+	/* Max Service Data Unit or Flow Meter Instance Table index.
+	 * Depending on the value of FLT this represents either Max
+	 * Service Data Unit (max frame size) allowed by the filter
+	 * entry or is an index into the Flow Meter Instance table
+	 * index identifying the policer which will be used to police
+	 * it.
+	 */
+	__le16	fm_inst_table_index;
+	__le16	msdu;
+	__le16	sg_inst_table_index;
+		u8	res1[2];
+	__le32	input_ports;
+		u8	res2[3];
+		u8	en;
+};
+
+/* class 8, command 2 stream Filter Instance status query short format
+ * command no need structure define
+ * Stream Filter Instance Query Statistics Response data
+ */
+struct sfi_counter_data {
+	u32 matchl;
+	u32 matchh;
+	u32 msdu_dropl;
+	u32 msdu_droph;
+	u32 stream_gate_dropl;
+	u32 stream_gate_droph;
+	u32 flow_meter_dropl;
+	u32 flow_meter_droph;
+};
+
+#define ENETC_CBDR_SGI_OIPV_MASK 0x7
+#define ENETC_CBDR_SGI_OIPV_EN	BIT(3)
+#define ENETC_CBDR_SGI_CGTST	BIT(6)
+#define ENETC_CBDR_SGI_OGTST	BIT(7)
+#define ENETC_CBDR_SGI_CFG_CHG  BIT(1)
+#define ENETC_CBDR_SGI_CFG_PND  BIT(2)
+#define ENETC_CBDR_SGI_OEX		BIT(4)
+#define ENETC_CBDR_SGI_OEXEN	BIT(5)
+#define ENETC_CBDR_SGI_IRX		BIT(6)
+#define ENETC_CBDR_SGI_IRXEN	BIT(7)
+#define ENETC_CBDR_SGI_ACLLEN_MASK 0x3
+#define ENETC_CBDR_SGI_OCLLEN_MASK 0xc
+#define	ENETC_CBDR_SGI_EN		BIT(7)
+/* class 9, command 0, Stream Gate Instance Table, Short Format
+ * class 9, command 2, Stream Gate Instance Table entry query write back
+ * Short Format
+ */
+struct sgi_table {
+	u8	res[8];
+	u8	oipv;
+	u8	res0[2];
+	u8	ocgtst;
+	u8	res1[7];
+	u8	gset;
+	u8	oacl_len;
+	u8	res2[2];
+	u8	en;
+};
+
+#define ENETC_CBDR_SGI_AIPV_MASK 0x7
+#define ENETC_CBDR_SGI_AIPV_EN	BIT(3)
+#define ENETC_CBDR_SGI_AGTST	BIT(7)
+
+/* class 9, command 1, Stream Gate Control List, Long Format */
+struct sgcl_conf {
+	u8	aipv;
+	u8	res[2];
+	u8	agtst;
+	u8	res1[4];
+	union {
+		struct {
+			u8 res2[4];
+			u8 acl_len;
+			u8 res3[3];
+		};
+		u8 cct[8]; /* Config change time */
+	};
+};
+
+#define ENETC_CBDR_SGL_IOMEN	BIT(0)
+#define ENETC_CBDR_SGL_IPVEN	BIT(3)
+#define ENETC_CBDR_SGL_GTST		BIT(4)
+#define ENETC_CBDR_SGL_IPV_MASK 0xe
+/* Stream Gate Control List Entry */
+struct sgce {
+	u32	interval;
+	u8	msdu[3];
+	u8	multi;
+};
+
+/* stream control list class 9 , cmd 1 data buffer */
+struct sgcl_data {
+	u32		btl;
+	u32		bth;
+	u32		ct;
+	u32		cte;
+	struct sgce	sgcl[0];
+};
+
+#define ENETC_CBDR_FMI_MR	BIT(0)
+#define ENETC_CBDR_FMI_MREN	BIT(1)
+#define ENETC_CBDR_FMI_DOY	BIT(2)
+#define	ENETC_CBDR_FMI_CM	BIT(3)
+#define ENETC_CBDR_FMI_CF	BIT(4)
+#define ENETC_CBDR_FMI_NDOR	BIT(5)
+#define ENETC_CBDR_FMI_OALEN	BIT(6)
+#define ENETC_CBDR_FMI_IRFPP_MASK GENMASK(4, 0)
+
+/* class 10: command 0/1, Flow Meter Instance Set, short Format */
+struct fmi_conf {
+	__le32	cir;
+	__le32	cbs;
+	__le32	eir;
+	__le32	ebs;
+		u8	conf;
+		u8	res1;
+		u8	ir_fpp;
+		u8	res2[4];
+		u8	en;
+};
+
 struct enetc_cbd {
 	union{
+		struct sfi_conf sfi_conf;
+		struct sgi_table sgi_table;
+		struct fmi_conf fmi_conf;
 		struct {
 			__le32	addr[2];
 			union {
 				__le32	opt[4];
 				struct tgs_gcl_conf	gcl_conf;
+				struct streamid_conf	sid_set;
+				struct sgcl_conf	sgcl_conf;
 			};
 		};	/* Long format */
 		__le32 data[6];
@@ -608,6 +914,15 @@ struct enetc_cbd {
 };
 
 #define ENETC_CLK  400000000ULL
+static inline u32 enetc_cycles_to_usecs(u32 cycles)
+{
+	return (u32)div_u64(cycles * 1000000ULL, ENETC_CLK);
+}
+
+static inline u32 enetc_usecs_to_cycles(u32 usecs)
+{
+	return (u32)div_u64(usecs * ENETC_CLK, 1000000ULL);
+}
 
 /* port time gating control register */
 #define ENETC_QBV_PTGCR_OFFSET		0x11a00
@@ -621,3 +936,10 @@ struct enetc_cbd {
 /* Port time specific departure */
 #define ENETC_PTCTSDR(n)	(0x1210 + 4 * (n))
 #define ENETC_TSDE		BIT(31)
+
+/* PSFP setting */
+#define ENETC_PPSFPMR 0x11b00
+#define ENETC_PPSFPMR_PSFPEN BIT(0)
+#define ENETC_PPSFPMR_VS BIT(1)
+#define ENETC_PPSFPMR_PVC BIT(2)
+#define ENETC_PPSFPMR_PVZC BIT(3)

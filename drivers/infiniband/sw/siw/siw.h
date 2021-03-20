@@ -30,7 +30,6 @@
 #define SIW_MAX_MR (SIW_MAX_QP * 10)
 #define SIW_MAX_PD SIW_MAX_QP
 #define SIW_MAX_MW 0 /* to be set if MW's are supported */
-#define SIW_MAX_FMR SIW_MAX_MR
 #define SIW_MAX_SRQ SIW_MAX_QP
 #define SIW_MAX_SRQ_WR (SIW_MAX_QP_WR * 10)
 #define SIW_MAX_CONTEXT SIW_MAX_PD
@@ -59,7 +58,6 @@ struct siw_dev_cap {
 	int max_mr;
 	int max_pd;
 	int max_mw;
-	int max_fmr;
 	int max_srq;
 	int max_srq_wr;
 	int max_srq_sge;
@@ -71,7 +69,6 @@ struct siw_pd {
 
 struct siw_device {
 	struct ib_device base_dev;
-	struct device_dma_parameters dma_parms;
 	struct net_device *netdev;
 	struct siw_dev_cap attrs;
 
@@ -139,7 +136,7 @@ struct siw_pble {
 struct siw_pbl {
 	unsigned int num_buf;
 	unsigned int max_buf;
-	struct siw_pble pbe[1];
+	struct siw_pble pbe[];
 };
 
 /*
@@ -656,7 +653,7 @@ static inline struct siw_sqe *orq_get_free(struct siw_qp *qp)
 {
 	struct siw_sqe *orq_e = orq_get_tail(qp);
 
-	if (orq_e && READ_ONCE(orq_e->flags) == 0)
+	if (READ_ONCE(orq_e->flags) == 0)
 		return orq_e;
 
 	return NULL;

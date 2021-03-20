@@ -71,6 +71,16 @@ static inline void disable_kernel_vsx(void)
 {
 	msr_check_and_clear(MSR_FP|MSR_VEC|MSR_VSX);
 }
+#else
+static inline void enable_kernel_vsx(void)
+{
+	BUILD_BUG();
+}
+
+static inline void disable_kernel_vsx(void)
+{
+	BUILD_BUG();
+}
 #endif
 
 #ifdef CONFIG_SPE
@@ -101,8 +111,6 @@ static inline void clear_task_ebb(struct task_struct *t)
     t->thread.used_ebb = 0;
 #endif
 }
-
-extern int set_thread_uses_vas(void);
 
 extern int set_thread_tidr(struct task_struct *t);
 

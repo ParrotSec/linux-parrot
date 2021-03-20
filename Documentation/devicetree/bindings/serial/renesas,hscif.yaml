@@ -24,6 +24,7 @@ properties:
 
       - items:
           - enum:
+              - renesas,hscif-r8a7742      # RZ/G1H
               - renesas,hscif-r8a7743      # RZ/G1M
               - renesas,hscif-r8a7744      # RZ/G1N
               - renesas,hscif-r8a7745      # RZ/G1E
@@ -41,6 +42,7 @@ properties:
               - renesas,hscif-r8a774a1     # RZ/G2M
               - renesas,hscif-r8a774b1     # RZ/G2N
               - renesas,hscif-r8a774c0     # RZ/G2E
+              - renesas,hscif-r8a774e1     # RZ/G2H
               - renesas,hscif-r8a7795      # R-Car H3
               - renesas,hscif-r8a7796      # R-Car M3-W
               - renesas,hscif-r8a77961     # R-Car M3-W+
@@ -98,6 +100,8 @@ required:
   - clocks
   - clock-names
   - power-domains
+
+unevaluatedProperties: false
 
 if:
   properties:

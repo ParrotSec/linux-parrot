@@ -46,23 +46,12 @@
  * require cooperation with a Trusted OS driver.
  */
 static int resident_cpu = -1;
+struct psci_operations psci_ops;
+static enum arm_smccc_conduit psci_conduit = SMCCC_CONDUIT_NONE;
 
 bool psci_tos_resident_on(int cpu)
 {
 	return cpu == resident_cpu;
-}
-
-struct psci_operations psci_ops = {
-	.conduit = SMCCC_CONDUIT_NONE,
-	.smccc_version = SMCCC_VERSION_1_0,
-};
-
-enum arm_smccc_conduit arm_smccc_1_1_get_conduit(void)
-{
-	if (psci_ops.smccc_version < SMCCC_VERSION_1_1)
-		return SMCCC_CONDUIT_NONE;
-
-	return psci_ops.conduit;
 }
 
 typedef unsigned long (psci_fn)(unsigned long, unsigned long,
@@ -162,12 +151,15 @@ static u32 psci_get_version(void)
 	return invoke_psci_fn(PSCI_0_2_FN_PSCI_VERSION, 0, 0, 0);
 }
 
-int psci_set_osi_mode(void)
+int psci_set_osi_mode(bool enable)
 {
+	unsigned long suspend_mode;
 	int err;
 
-	err = invoke_psci_fn(PSCI_1_0_FN_SET_SUSPEND_MODE,
-			     PSCI_1_0_SUSPEND_MODE_OSI, 0, 0);
+	suspend_mode = enable ? PSCI_1_0_SUSPEND_MODE_OSI :
+			PSCI_1_0_SUSPEND_MODE_PC;
+
+	err = invoke_psci_fn(PSCI_1_0_FN_SET_SUSPEND_MODE, suspend_mode, 0, 0);
 	return psci_to_linux_errno(err);
 }
 
@@ -242,7 +234,7 @@ static void set_conduit(enum arm_smccc_conduit conduit)
 		WARN(1, "Unexpected PSCI conduit %d\n", conduit);
 	}
 
-	psci_ops.conduit = conduit;
+	psci_conduit = conduit;
 }
 
 static int get_set_conduit_method(struct device_node *np)
@@ -411,8 +403,8 @@ static void __init psci_init_smccc(void)
 	if (feature != PSCI_RET_NOT_SUPPORTED) {
 		u32 ret;
 		ret = invoke_psci_fn(ARM_SMCCC_VERSION_FUNC_ID, 0, 0, 0);
-		if (ret == ARM_SMCCC_VERSION_1_1) {
-			psci_ops.smccc_version = SMCCC_VERSION_1_1;
+		if (ret >= ARM_SMCCC_VERSION_1_1) {
+			arm_smccc_version_init(ret, psci_conduit);
 			ver = ret;
 		}
 	}
@@ -557,8 +549,7 @@ static int __init psci_1_0_init(struct device_node *np)
 		pr_info("OSI mode supported.\n");
 
 		/* Default to PC mode. */
-		invoke_psci_fn(PSCI_1_0_FN_SET_SUSPEND_MODE,
-			       PSCI_1_0_SUSPEND_MODE_PC, 0, 0);
+		psci_set_osi_mode(false);
 	}
 
 	return 0;
