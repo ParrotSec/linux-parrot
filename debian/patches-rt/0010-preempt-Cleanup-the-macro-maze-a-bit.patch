@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:17 +0100
 Subject: [PATCH 10/12] preempt: Cleanup the macro maze a bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 Make the macro maze consistent and prepare it for adding the RT variant for
 BH accounting.

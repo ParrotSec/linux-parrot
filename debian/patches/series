@@ -79,7 +79,9 @@ bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
-bugfix/mips/mips-support-binutils-configured-with-enable-mips-fi.patch
+bugfix/x86/crypto-aesni-use-test-reg-reg-instead-of-cmp-0-reg.patch
+bugfix/x86/crypto-x86-aes-ni-xts-use-direct-calls-to-and-4-way-.patch
+bugfix/arm/net-dsa-b53-support-setting-learning-on-port.patch
 
 # Arch features
 features/arm64/arm64-dts-rockchip-Add-basic-support-for-Kobol-s-Hel.patch
@@ -92,6 +94,11 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 debian/makefile-do-not-check-for-libelf-when-building-oot-module.patch
 bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
+bugfix/all/rdma-srp-fix-support-for-unpopulated-and-unbalanced-numa-nodes.patch
+bugfix/all/fuse-fix-live-lock-in-fuse_iget.patch
+bugfix/all/revert-nfsd4-remove-check_conflicting_opens-warning.patch
+bugfix/all/revert-nfsd4-a-client-s-own-opens-needn-t-prevent-delegations.patch
+bugfix/all/alsa-usb-audio-don-t-avoid-stopping-the-stream-at-disconnection.patch
 
 # Miscellaneous features
 
@@ -112,6 +119,11 @@ features/all/db-mok-keyring/KEYS-Make-use-of-platform-keyring-for-module-signatu
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 debian/ntfs-mark-it-as-broken.patch
+bugfix/all/bpf-Prohibit-alu-ops-for-pointer-types-not-defining-.patch
+bugfix/all/bpf-Fix-off-by-one-for-area-size-in-creating-mask-to.patch
+bugfix/all/bpf-Simplify-alu_limit-masking-for-pointer-arithmeti.patch
+bugfix/all/bpf-Add-sanity-check-for-upper-ptr_limit.patch
+bugfix/all/bpf-selftests-Fix-up-some-test_verifier-cases-for-un.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch

@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:34 +0100
 Subject: [PATCH 22/37] highmem: High implementation details and document API
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 Move the gory details of kmap & al into a private header and only document
 the interfaces which are usable by drivers.

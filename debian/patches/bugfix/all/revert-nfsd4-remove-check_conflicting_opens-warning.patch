@@ -1,0 +1,31 @@
+From 4aa5e002034f0701c3335379fd6c22d7f3338cce Mon Sep 17 00:00:00 2001
+From: "J. Bruce Fields" <bfields@redhat.com>
+Date: Mon, 8 Mar 2021 10:51:51 -0500
+Subject: Revert "nfsd4: remove check_conflicting_opens warning"
+
+From: J. Bruce Fields <bfields@redhat.com>
+
+commit 4aa5e002034f0701c3335379fd6c22d7f3338cce upstream.
+
+This reverts commit 50747dd5e47b "nfsd4: remove check_conflicting_opens
+warning", as a prerequisite for reverting 94415b06eb8a, which has a
+serious bug.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: J. Bruce Fields <bfields@redhat.com>
+Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ fs/nfsd/nfs4state.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/fs/nfsd/nfs4state.c
++++ b/fs/nfsd/nfs4state.c
+@@ -4957,6 +4957,7 @@ static int nfsd4_check_conflicting_opens
+ 		writes--;
+ 	if (fp->fi_fds[O_RDWR])
+ 		writes--;
++	WARN_ON_ONCE(writes < 0);
+ 	if (writes > 0)
+ 		return -EAGAIN;
+ 	spin_lock(&fp->fi_lock);

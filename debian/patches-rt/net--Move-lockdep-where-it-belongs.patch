@@ -1,7 +1,7 @@
 Subject: net: Move lockdep where it belongs
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 08 Sep 2020 07:32:20 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---

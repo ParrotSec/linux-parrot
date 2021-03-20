@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 21:56:42 +0200
 Subject: trace: Add migrate-disabled counter to tracing output
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
@@ -44,10 +44,10 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +#endif
 +}
 +
- unsigned int _tracing_gen_ctx_flags(unsigned long irqflags)
+ unsigned int tracing_gen_ctx_irq_test(unsigned int irqs_status)
  {
- 	unsigned int trace_flags = 0;
-@@ -2603,7 +2612,8 @@ unsigned int _tracing_gen_ctx_flags(unsi
+ 	unsigned int trace_flags = irqs_status;
+@@ -2596,7 +2605,8 @@ unsigned int tracing_gen_ctx_irq_test(un
  		trace_flags |= TRACE_FLAG_NEED_RESCHED;
  	if (test_preempt_need_resched())
  		trace_flags |= TRACE_FLAG_PREEMPT_RESCHED;
@@ -56,8 +56,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +		(migration_disable_value() & 0xff) << 8;
  }
  
- unsigned int tracing_gen_ctx_flags(void)
-@@ -3836,9 +3846,10 @@ static void print_lat_help_header(struct
+ struct ring_buffer_event *
+@@ -3802,9 +3812,10 @@ static void print_lat_help_header(struct
  		    "#                  | / _----=> need-resched    \n"
  		    "#                  || / _---=> hardirq/softirq \n"
  		    "#                  ||| / _--=> preempt-depth   \n"
@@ -71,7 +71,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  }
  
  static void print_event_info(struct array_buffer *buf, struct seq_file *m)
-@@ -3876,9 +3887,10 @@ static void print_func_help_header_irq(s
+@@ -3842,9 +3853,10 @@ static void print_func_help_header_irq(s
  	seq_printf(m, "#                            %.*s / _----=> need-resched\n", prec, space);
  	seq_printf(m, "#                            %.*s| / _---=> hardirq/softirq\n", prec, space);
  	seq_printf(m, "#                            %.*s|| / _--=> preempt-depth\n", prec, space);

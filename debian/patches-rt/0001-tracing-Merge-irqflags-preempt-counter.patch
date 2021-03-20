@@ -1,10 +1,10 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Tue, 12 Jan 2021 15:58:53 +0100
-Subject: [PATCH 1/3] tracing: Merge irqflags + preempt counter.
+Date: Wed, 3 Feb 2021 11:05:23 -0500
+Subject: [PATCH 1/4] tracing: Merge irqflags + preempt counter.
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 The state of the interrupts (irqflags) and the preemption counter are
 both passed down to tracing_generic_entry_update(). Only one bit of
@@ -52,11 +52,15 @@ A build with all tracers enabled on x86-64 with and without the patch:
 
 text shrank by 379 bytes, data remained constant.
 
+Link: https://lkml.kernel.org/r/20210125194511.3924915-2-bigeasy@linutronix.de
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  include/linux/trace_events.h         |   25 +++-
  kernel/trace/blktrace.c              |   17 +-
- kernel/trace/trace.c                 |  208 ++++++++++++++++++-----------------
+ kernel/trace/trace.c                 |  206 ++++++++++++++++++-----------------
  kernel/trace/trace.h                 |   38 ++----
  kernel/trace/trace_branch.c          |    6 -
  kernel/trace/trace_event_perf.c      |    5 
@@ -68,10 +72,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  kernel/trace/trace_irqsoff.c         |   86 ++++++--------
  kernel/trace/trace_kprobe.c          |   10 -
  kernel/trace/trace_mmiotrace.c       |   14 +-
- kernel/trace/trace_sched_wakeup.c    |   71 +++++------
+ kernel/trace/trace_sched_wakeup.c    |   71 +++++-------
  kernel/trace/trace_syscalls.c        |   20 +--
  kernel/trace/trace_uprobe.c          |    4 
- 17 files changed, 287 insertions(+), 308 deletions(-)
+ 17 files changed, 286 insertions(+), 307 deletions(-)
 
 --- a/include/linux/trace_events.h
 +++ b/include/linux/trace_events.h
@@ -95,9 +99,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	entry->flags =			trace_ctx >> 16;
 +}
 +
-+unsigned int _tracing_gen_ctx_flags(unsigned long irqflags);
-+unsigned int tracing_gen_ctx_flags(void);
-+unsigned int tracing_gen_ctx_flags_dect(void);
++unsigned int tracing_gen_ctx_flags(unsigned long irqflags);
++unsigned int tracing_gen_ctx(void);
++unsigned int tracing_gen_ctx_dec(void);
 +
  struct trace_event_file;
  
@@ -135,7 +139,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (blk_tracer) {
  		buffer = blk_tr->array_buffer.buffer;
 -		pc = preempt_count();
-+		trace_ctx = _tracing_gen_ctx_flags(0);
++		trace_ctx = tracing_gen_ctx_flags(0);
  		event = trace_buffer_lock_reserve(buffer, TRACE_BLK,
  						  sizeof(*t) + len + cgid_len,
 -						  0, pc);
@@ -168,7 +172,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  		buffer = blk_tr->array_buffer.buffer;
 -		pc = preempt_count();
-+		trace_ctx = _tracing_gen_ctx_flags(0);
++		trace_ctx = tracing_gen_ctx_flags(0);
  		event = trace_buffer_lock_reserve(buffer, TRACE_BLK,
  						  sizeof(*t) + pdu_len + cgid_len,
 -						  0, pc);
@@ -277,7 +281,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	alloc = sizeof(*entry) + size + 2; /* possible \n added */
  
 -	local_save_flags(irq_flags);
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  	buffer = global_trace.array_buffer.buffer;
  	ring_buffer_nest_start(buffer);
 -	event = __trace_buffer_lock_reserve(buffer, TRACE_PRINT, alloc, 
@@ -315,7 +319,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return 0;
  
 -	local_save_flags(irq_flags);
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  	buffer = global_trace.array_buffer.buffer;
  
  	ring_buffer_nest_start(buffer);
@@ -341,7 +345,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -void
 -tracing_generic_entry_update(struct trace_entry *entry, unsigned short type,
 -			     unsigned long flags, int pc)
-+unsigned int _tracing_gen_ctx_flags(unsigned long irqflags)
++unsigned int tracing_gen_ctx_flags(unsigned long irqflags)
  {
 -	struct task_struct *tsk = current;
 +	unsigned int trace_flags = 0;
@@ -382,7 +386,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	return (trace_flags << 16) | (pc & 0xff);
 +}
 +
-+unsigned int tracing_gen_ctx_flags(void)
++unsigned int tracing_gen_ctx(void)
 +{
 +	unsigned long irqflags;
 +
@@ -391,14 +395,14 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +#else
 +	irqflags = 0;
 +#endif
-+	return _tracing_gen_ctx_flags(irqflags);
++	return tracing_gen_ctx_flags(irqflags);
 +}
 +
-+unsigned int tracing_gen_ctx_flags_dect(void)
++unsigned int tracing_gen_ctx_dec(void)
 +{
 +	unsigned int trace_ctx;
 +
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
 +
 +	/*
 +	 * Subtract one from the preeption counter if preemption is enabled,
@@ -431,22 +435,21 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct ring_buffer_event *entry;
  	int val;
-@@ -2746,15 +2773,15 @@ trace_event_buffer_lock_reserve(struct t
+@@ -2746,7 +2773,7 @@ trace_event_buffer_lock_reserve(struct t
  		/* Try to use the per cpu buffer first */
  		val = this_cpu_inc_return(trace_buffered_event_cnt);
- 		if (val == 1) {
+ 		if ((len < (PAGE_SIZE - sizeof(*entry))) && val == 1) {
 -			trace_event_setup(entry, type, flags, pc);
 +			trace_event_setup(entry, type, trace_ctx);
  			entry->array[0] = len;
  			return entry;
  		}
- 		this_cpu_dec(trace_buffered_event_cnt);
+@@ -2754,7 +2781,7 @@ trace_event_buffer_lock_reserve(struct t
  	}
  
--	entry = __trace_buffer_lock_reserve(*current_rb,
+ 	entry = __trace_buffer_lock_reserve(*current_rb,
 -					    type, len, flags, pc);
-+	entry = __trace_buffer_lock_reserve(*current_rb, type, len,
-+					    trace_ctx);
++					    type, len, trace_ctx);
  	/*
  	 * If tracing is off, but we have triggers enabled
  	 * we still need to look at the event data. Use the temp_buffer
@@ -586,7 +589,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif
  	__ftrace_trace_stack(global_trace.array_buffer.buffer,
 -			     flags, skip, preempt_count(), NULL);
-+			     tracing_gen_ctx_flags(), skip, NULL);
++			     tracing_gen_ctx(), skip, NULL);
  }
  EXPORT_SYMBOL_GPL(trace_dump_stack);
  
@@ -634,7 +637,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	pause_graph_tracing();
  
 -	pc = preempt_count();
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  	preempt_disable_notrace();
  
  	tbuffer = get_trace_buf();
@@ -678,7 +681,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	pause_graph_tracing();
  
 -	pc = preempt_count();
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  	preempt_disable_notrace();
  
  
@@ -725,7 +728,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	buffer = tr->array_buffer.buffer;
  	event = __trace_buffer_lock_reserve(buffer, TRACE_PRINT, size,
 -					    irq_flags, preempt_count());
-+					    tracing_gen_ctx_flags());
++					    tracing_gen_ctx());
  	if (unlikely(!event))
  		/* Ring buffer disabled, return as if not open for write */
  		return -EBADF;
@@ -749,7 +752,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	buffer = tr->array_buffer.buffer;
  	event = __trace_buffer_lock_reserve(buffer, TRACE_RAW_DATA, size,
 -					    irq_flags, preempt_count());
-+					    tracing_gen_ctx_flags());
++					    tracing_gen_ctx());
  	if (!event)
  		/* Ring buffer disabled, return as if not open for write */
  		return -EBADF;
@@ -894,7 +897,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		goto out;
  
 -	pc = preempt_count();
-+	trace_ctx = _tracing_gen_ctx_flags(flags);
++	trace_ctx = tracing_gen_ctx_flags(flags);
  	buffer = tr->array_buffer.buffer;
  	event = trace_buffer_lock_reserve(buffer, TRACE_BRANCH,
 -					  sizeof(*entry), flags, pc);
@@ -913,7 +916,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 -	local_save_flags(flags);
 -	tracing_generic_entry_update(entry, type, flags, pc);
-+	tracing_generic_entry_update(entry, type, tracing_gen_ctx_flags());
++	tracing_generic_entry_update(entry, type, tracing_gen_ctx());
  }
  NOKPROBE_SYMBOL(perf_trace_buf_update);
  
@@ -933,7 +936,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	 */
 -	if (IS_ENABLED(CONFIG_PREEMPTION))
 -		fbuffer->pc--;
-+	fbuffer->trace_ctx = tracing_gen_ctx_flags_dect();
++	fbuffer->trace_ctx = tracing_gen_ctx_dec();
  	fbuffer->trace_file = trace_file;
  
  	fbuffer->event =
@@ -944,7 +947,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!fbuffer->event)
  		return NULL;
  
-@@ -3678,12 +3675,11 @@ function_test_events_call(unsigned long
+@@ -3679,12 +3676,11 @@ function_test_events_call(unsigned long
  	struct trace_buffer *buffer;
  	struct ring_buffer_event *event;
  	struct ftrace_entry *entry;
@@ -955,11 +958,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	int pc;
  
 -	pc = preempt_count();
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  	preempt_disable_notrace();
  	cpu = raw_smp_processor_id();
  	disabled = atomic_inc_return(&per_cpu(ftrace_test_event_disable, cpu));
-@@ -3691,11 +3687,9 @@ function_test_events_call(unsigned long
+@@ -3692,11 +3688,9 @@ function_test_events_call(unsigned long
  	if (disabled != 1)
  		goto out;
  
@@ -972,7 +975,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!event)
  		goto out;
  	entry	= ring_buffer_event_data(event);
-@@ -3703,7 +3697,7 @@ function_test_events_call(unsigned long
+@@ -3704,7 +3698,7 @@ function_test_events_call(unsigned long
  	entry->parent_ip		= parent_ip;
  
  	event_trigger_unlock_commit(&event_trace_file, buffer, event,
@@ -999,7 +1002,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	tracing_generic_entry_update(entry, call->event.type, irq_flags,
 -				     preempt_count());
 +	tracing_generic_entry_update(entry, call->event.type,
-+				     tracing_gen_ctx_flags());
++				     tracing_gen_ctx());
  
  	while ((len = parse_field(str, call, &field, &val)) > 0) {
  		if (is_function_field(field))
@@ -1019,7 +1022,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return;
  
 -	pc = preempt_count();
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  	preempt_disable_notrace();
  
  	bit = trace_test_and_set_recursion(TRACE_FTRACE_START, TRACE_FTRACE_MAX);
@@ -1053,7 +1056,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -		pc = preempt_count();
 -		trace_function(tr, ip, parent_ip, flags, pc);
 -		__trace_stack(tr, flags, STACK_SKIP, pc);
-+		trace_ctx = _tracing_gen_ctx_flags(flags);
++		trace_ctx = tracing_gen_ctx_flags(flags);
 +		trace_function(tr, ip, parent_ip, trace_ctx);
 +		__trace_stack(tr, trace_ctx, STACK_SKIP);
  	}
@@ -1069,7 +1072,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 -	local_save_flags(flags);
 -	pc = preempt_count();
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  
 -	__trace_stack(tr, flags, FTRACE_STACK_SKIP, pc);
 +	__trace_stack(tr, trace_ctx, FTRACE_STACK_SKIP);
@@ -1115,7 +1118,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (likely(disabled == 1)) {
 -		pc = preempt_count();
 -		ret = __trace_graph_entry(tr, trace, flags, pc);
-+		trace_ctx = _tracing_gen_ctx_flags(flags);
++		trace_ctx = tracing_gen_ctx_flags(flags);
 +		ret = __trace_graph_entry(tr, trace, trace_ctx);
  	} else {
  		ret = 0;
@@ -1183,7 +1186,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (likely(disabled == 1)) {
 -		pc = preempt_count();
 -		__trace_graph_return(tr, trace, flags, pc);
-+		trace_ctx = _tracing_gen_ctx_flags(flags);
++		trace_ctx = tracing_gen_ctx_flags(flags);
 +		__trace_graph_return(tr, trace, trace_ctx);
  	}
  	atomic_dec(&data->disabled);
@@ -1202,7 +1205,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	event = trace_buffer_lock_reserve(buffer, TRACE_HWLAT, sizeof(*entry),
 -					  flags, pc);
-+					  tracing_gen_ctx_flags());
++					  tracing_gen_ctx());
  	if (!event)
  		return;
  	entry	= ring_buffer_event_data(event);
@@ -1218,7 +1221,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return;
  
 -	trace_function(tr, ip, parent_ip, flags, preempt_count());
-+	trace_ctx = _tracing_gen_ctx_flags(flags);
++	trace_ctx = tracing_gen_ctx_flags(flags);
 +
 +	trace_function(tr, ip, parent_ip, trace_ctx);
  
@@ -1240,7 +1243,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 -	pc = preempt_count();
 -	ret = __trace_graph_entry(tr, trace, flags, pc);
-+	trace_ctx = _tracing_gen_ctx_flags(flags);
++	trace_ctx = tracing_gen_ctx_flags(flags);
 +	ret = __trace_graph_entry(tr, trace, trace_ctx);
  	atomic_dec(&data->disabled);
  
@@ -1259,7 +1262,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 -	pc = preempt_count();
 -	__trace_graph_return(tr, trace, flags, pc);
-+	trace_ctx = _tracing_gen_ctx_flags(flags);
++	trace_ctx = tracing_gen_ctx_flags(flags);
 +	__trace_graph_return(tr, trace, trace_ctx);
  	atomic_dec(&data->disabled);
  }
@@ -1294,7 +1297,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	local_save_flags(flags);
 -
 -	pc = preempt_count();
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  
  	if (!report_latency(tr, delta))
  		goto out;
@@ -1336,7 +1339,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	local_save_flags(flags);
 -
 -	__trace_function(tr, ip, parent_ip, flags, pc);
-+	__trace_function(tr, ip, parent_ip, tracing_gen_ctx_flags());
++	__trace_function(tr, ip, parent_ip, tracing_gen_ctx());
  
  	per_cpu(tracing_cpu, cpu) = 1;
  
@@ -1361,7 +1364,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 -	local_save_flags(flags);
 -	__trace_function(tr, ip, parent_ip, flags, pc);
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
 +	__trace_function(tr, ip, parent_ip, trace_ctx);
  	check_critical_timing(tr, data, parent_ip ? : ip, cpu);
  	data->critical_start = 0;
@@ -1391,7 +1394,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  EXPORT_SYMBOL_GPL(stop_critical_timings);
  NOKPROBE_SYMBOL(stop_critical_timings);
-@@ -609,19 +603,15 @@ static void irqsoff_tracer_stop(struct t
+@@ -613,19 +607,15 @@ static void irqsoff_tracer_stop(struct t
   */
  void tracer_hardirqs_on(unsigned long a0, unsigned long a1)
  {
@@ -1415,7 +1418,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  NOKPROBE_SYMBOL(tracer_hardirqs_off);
  
-@@ -661,18 +651,14 @@ static struct tracer irqsoff_tracer __re
+@@ -665,18 +655,14 @@ static struct tracer irqsoff_tracer __re
  #ifdef CONFIG_PREEMPT_TRACER
  void tracer_preempt_on(unsigned long a0, unsigned long a1)
  {
@@ -1440,17 +1443,17 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static int preemptoff_tracer_init(struct trace_array *tr)
 --- a/kernel/trace/trace_kprobe.c
 +++ b/kernel/trace/trace_kprobe.c
-@@ -1384,8 +1384,7 @@ static nokprobe_inline void
+@@ -1386,8 +1386,7 @@ static nokprobe_inline void
  	if (trace_trigger_soft_disabled(trace_file))
  		return;
  
 -	local_save_flags(fbuffer.flags);
 -	fbuffer.pc = preempt_count();
-+	fbuffer.trace_ctx = tracing_gen_ctx_flags();
++	fbuffer.trace_ctx = tracing_gen_ctx();
  	fbuffer.trace_file = trace_file;
  
  	dsize = __get_data_size(&tk->tp, regs);
-@@ -1394,7 +1393,7 @@ static nokprobe_inline void
+@@ -1396,7 +1395,7 @@ static nokprobe_inline void
  		trace_event_buffer_lock_reserve(&fbuffer.buffer, trace_file,
  					call->event.type,
  					sizeof(*entry) + tk->tp.size + dsize,
@@ -1459,17 +1462,17 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!fbuffer.event)
  		return;
  
-@@ -1432,8 +1431,7 @@ static nokprobe_inline void
+@@ -1434,8 +1433,7 @@ static nokprobe_inline void
  	if (trace_trigger_soft_disabled(trace_file))
  		return;
  
 -	local_save_flags(fbuffer.flags);
 -	fbuffer.pc = preempt_count();
-+	fbuffer.trace_ctx = tracing_gen_ctx_flags();
++	fbuffer.trace_ctx = tracing_gen_ctx();
  	fbuffer.trace_file = trace_file;
  
  	dsize = __get_data_size(&tk->tp, regs);
-@@ -1441,7 +1439,7 @@ static nokprobe_inline void
+@@ -1443,7 +1441,7 @@ static nokprobe_inline void
  		trace_event_buffer_lock_reserve(&fbuffer.buffer, trace_file,
  					call->event.type,
  					sizeof(*entry) + tk->tp.size + dsize,
@@ -1487,7 +1490,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	int pc = preempt_count();
 +	unsigned int trace_ctx;
  
-+	trace_ctx = _tracing_gen_ctx_flags(0);
++	trace_ctx = tracing_gen_ctx_flags(0);
  	event = trace_buffer_lock_reserve(buffer, TRACE_MMIO_RW,
 -					  sizeof(*entry), 0, pc);
 +					  sizeof(*entry), trace_ctx);
@@ -1510,7 +1513,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 -	int pc = preempt_count();
 +	unsigned int trace_ctx;
  
-+	trace_ctx = _tracing_gen_ctx_flags(0);
++	trace_ctx = tracing_gen_ctx_flags(0);
  	event = trace_buffer_lock_reserve(buffer, TRACE_MMIO_MAP,
 -					  sizeof(*entry), 0, pc);
 +					  sizeof(*entry), trace_ctx);
@@ -1542,7 +1545,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return 0;
  
 -	*pc = preempt_count();
-+	*trace_ctx = tracing_gen_ctx_flags();
++	*trace_ctx = tracing_gen_ctx();
  	preempt_disable_notrace();
  
  	cpu = raw_smp_processor_id();
@@ -1699,7 +1702,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		goto out;
  
  	local_irq_save(flags);
-+	trace_ctx = _tracing_gen_ctx_flags(flags);
++	trace_ctx = tracing_gen_ctx_flags(flags);
 +
  	arch_spin_lock(&wakeup_lock);
  
@@ -1737,7 +1740,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (unlikely(disabled != 1))
  		goto out;
  
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
 +
  	/* interrupts should be off from try_to_wake_up */
  	arch_spin_lock(&wakeup_lock);
@@ -1784,7 +1787,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 -	local_save_flags(irq_flags);
 -	pc = preempt_count();
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  
  	buffer = tr->array_buffer.buffer;
  	event = trace_buffer_lock_reserve(buffer,
@@ -1818,7 +1821,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 -	local_save_flags(irq_flags);
 -	pc = preempt_count();
-+	trace_ctx = tracing_gen_ctx_flags();
++	trace_ctx = tracing_gen_ctx();
  
  	buffer = tr->array_buffer.buffer;
  	event = trace_buffer_lock_reserve(buffer,

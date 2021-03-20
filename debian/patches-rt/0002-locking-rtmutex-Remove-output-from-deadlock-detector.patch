@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 29 Sep 2020 16:05:11 +0200
 Subject: [PATCH 02/22] locking/rtmutex: Remove output from deadlock detector.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 In commit
   f5694788ad8da ("rt_mutex: Add lockdep annotations")
@@ -253,7 +253,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	while (1) {
  		set_current_state(TASK_INTERRUPTIBLE);
  		schedule();
-@@ -1764,8 +1757,6 @@ int __rt_mutex_start_proxy_lock(struct r
+@@ -1763,8 +1756,6 @@ int __rt_mutex_start_proxy_lock(struct r
  		ret = 0;
  	}
  

@@ -1,7 +1,7 @@
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:10 +0200
 Subject: [PATCH 12/19] sched,rt: Use cpumask_any*_distribute()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 Replace a bunch of cpumask_any*() instances with
 cpumask_any*_distribute(), by injecting this little bit of random in
@@ -85,7 +85,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
 --- a/lib/cpumask.c
 +++ b/lib/cpumask.c
-@@ -267,3 +267,21 @@ int cpumask_any_and_distribute(const str
+@@ -261,3 +261,21 @@ int cpumask_any_and_distribute(const str
  	return next;
  }
  EXPORT_SYMBOL(cpumask_any_and_distribute);

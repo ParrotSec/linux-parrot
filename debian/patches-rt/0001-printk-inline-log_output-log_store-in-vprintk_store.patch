@@ -2,7 +2,7 @@ From: John Ogness <john.ogness@linutronix.de>
 Date: Wed, 9 Dec 2020 01:50:52 +0106
 Subject: [PATCH 01/21] printk: inline log_output(),log_store() in
  vprintk_store()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 In preparation for removing logbuf_lock, inline log_output()
 and log_store() into vprintk_store(). This will simplify dealing
@@ -73,7 +73,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  int dmesg_restrict = IS_ENABLED(CONFIG_SECURITY_DMESG_RESTRICT);
  
  static int syslog_action_restricted(int type)
-@@ -1907,44 +1861,28 @@ static inline u32 printk_caller_id(void)
+@@ -1931,44 +1885,28 @@ static inline u32 printk_caller_id(void)
  		0x80000000 + raw_smp_processor_id();
  }
  
@@ -133,7 +133,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	/*
  	 * The printf needs to come first; we need the syslog
-@@ -1983,7 +1921,58 @@ int vprintk_store(int facility, int leve
+@@ -2007,7 +1945,58 @@ int vprintk_store(int facility, int leve
  	if (dev_info)
  		lflags |= LOG_NEWLINE;
  

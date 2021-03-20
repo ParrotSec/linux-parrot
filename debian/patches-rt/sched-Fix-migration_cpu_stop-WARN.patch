@@ -1,7 +1,7 @@
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 17 Nov 2020 12:14:51 +0100
 Subject: [PATCH] sched: Fix migration_cpu_stop() WARN
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 Oleksandr reported hitting the WARN in the 'task_rq(p) != rq' branch
 of migration_cpu_stop(). Valentin noted that using cpu_of(rq) in that
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1915,7 +1915,7 @@ static int migration_cpu_stop(void *data
+@@ -1913,7 +1913,7 @@ static int migration_cpu_stop(void *data
  			 * and we should be valid again. Nothing to do.
  			 */
  			if (!pending) {
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				goto out;
  			}
  
-@@ -1943,7 +1943,7 @@ static int migration_cpu_stop(void *data
+@@ -1941,7 +1941,7 @@ static int migration_cpu_stop(void *data
  		 * valid again. Nothing to do.
  		 */
  		if (!pending) {

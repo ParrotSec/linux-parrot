@@ -1,7 +1,8 @@
 [abi]
-abiname: 3parrot1
+abiname: 5parrot1
 ignore-changes:
  __cpuhp_*
+ __udp_gso_segment
  bpf_analyzer
  cxl_*
  dax_flush
@@ -99,6 +100,8 @@ ignore-changes:
  module:arch/x86/kvm/*
 # used only within arch/s390
  uv_info
+# Not used in OOT
+ xhci_init_driver
 
 [base]
 arches:

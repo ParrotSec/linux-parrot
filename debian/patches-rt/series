@@ -89,11 +89,12 @@ timers-Move-clearing-of-base-timer_running-under-bas.patch
 ############################################################
 # POSTED
 ############################################################
-# 20201028141251.3608598-1-bigeasy@linutronix.de
-0001-blk-mq-Don-t-complete-on-a-remote-CPU-in-force-threa.patch
-0002-blk-mq-Always-complete-remote-completions-requests-i.patch
-0003-blk-mq-Use-llist_head-for-blk_cpu_done.patch
-block-mq-Disable-preemption-in-blk_mq_complete_reque.patch
+# blk-mq
+# 71425189b2b75336d869cfdedea45c9d319fc9c9
+blk-mq-Don-t-complete-on-a-remote-CPU-in-force-threa.patch
+# linux-block 0a2efafbb1c752a7041652445bc1232114409633+
+blk-mq-Always-complete-remote-completions-requests-i.patch
+blk-mq-Use-llist_head-for-blk_cpu_done.patch
 
 # 20201028181041.xyeothhkouc3p4md@linutronix.de
 lib-test_lockup-Minimum-fix-to-get-it-compiled-on-PR.patch
@@ -117,10 +118,11 @@ notifier-Make-atomic_notifiers-use-raw_spinlock.patch
 0004-doc-Update-RCU-s-requirements-page-about-the-PREEMPT.patch
 0005-doc-Use-CONFIG_PREEMPTION.patch
 
-# 20210112230057.2374308-1-bigeasy@linutronix.de
+# 20210203160549.480454190@goodmis.org
 0001-tracing-Merge-irqflags-preempt-counter.patch
-0002-tracing-Use-in_serving_softirq-to-deduct-softirq-sta.patch
-0003-tracing-Remove-NULL-check-from-current-in-tracing_ge.patch
+0002-tracing-Inline-tracing_gen_ctx_flags.patch
+0003-tracing-Use-in_serving_softirq-to-deduct-softirq-sta.patch
+0004-tracing-Remove-NULL-check-from-current-in-tracing_ge.patch
 
 ############################################################
 # Ready for posting
@@ -129,25 +131,33 @@ notifier-Make-atomic_notifiers-use-raw_spinlock.patch
 # John's printk series.
 0001-printk-inline-log_output-log_store-in-vprintk_store.patch
 0002-printk-remove-logbuf_lock-writer-protection-of-ringb.patch
-0003-printk-use-seqcount_latch-for-clear_seq.patch
-0004-printk-use-atomic64_t-for-devkmsg_user.seq.patch
-0005-printk-add-syslog_lock.patch
-0006-define-CONSOLE_LOG_MAX-in-printk.h.patch
-0007-printk-track-limit-recursion.patch
-0008-printk-invoke-dumper-using-a-copy-of-the-iterator.patch
-0009-printk-remove-logbuf_lock.patch
-0010-printk-remove-safe-buffers.patch
-0011-printk-refactor-kmsg_dump_get_buffer.patch
-0012-console-add-write_atomic-interface.patch
-0013-serial-8250-implement-write_atomic.patch
-0014-printk-relocate-printk_delay-and-vprintk_default.patch
-0015-printk-combine-boot_delay_msec-into-printk_delay.patch
-0016-printk-change-console_seq-to-atomic64_t.patch
-0017-printk-introduce-kernel-sync-mode.patch
-0018-printk-move-console-printing-to-kthreads.patch
-0019-printk-remove-deferred-printing.patch
-0020-printk-add-console-handover.patch
-0021-printk-add-pr_flush.patch
+0002-printk-limit-second-loop-of-syslog_print_all.patch
+0003-printk-kmsg_dump-remove-unused-fields.patch
+0004-printk-refactor-kmsg_dump_get_buffer.patch
+0005-printk-consolidate-kmsg_dump_get_buffer-syslog_print.patch
+0006-printk-introduce-CONSOLE_LOG_MAX-for-improved-multi-.patch
+0007-printk-use-seqcount_latch-for-clear_seq.patch
+0008-printk-use-atomic64_t-for-devkmsg_user.seq.patch
+0009-printk-add-syslog_lock.patch
+0010-printk-introduce-a-kmsg_dump-iterator.patch
+0011-um-synchronize-kmsg_dumper.patch
+0012-printk-remove-logbuf_lock.patch
+0013-printk-kmsg_dump-remove-_nolock-variants.patch
+0014-printk-kmsg_dump-use-kmsg_dump_rewind.patch
+0015-printk-console-remove-unnecessary-safe-buffer-usage.patch
+0016-printk-track-limit-recursion.patch
+0017-printk-remove-safe-buffers.patch
+0018-printk-convert-syslog_lock-to-spin_lock.patch
+0019-console-add-write_atomic-interface.patch
+0020-serial-8250-implement-write_atomic.patch
+0021-printk-relocate-printk_delay-and-vprintk_default.patch
+0022-printk-combine-boot_delay_msec-into-printk_delay.patch
+0023-printk-change-console_seq-to-atomic64_t.patch
+0024-printk-introduce-kernel-sync-mode.patch
+0025-printk-move-console-printing-to-kthreads.patch
+0026-printk-remove-deferred-printing.patch
+0027-printk-add-console-handover.patch
+0028-printk-add-pr_flush.patch
 
 ############################################################
 # Needs to address review feedback
@@ -198,17 +208,40 @@ tcp-Remove-superfluous-BH-disable-around-listening_h.patch
 0004-irqtime-Move-irqtime-entry-accounting-after-irq-offs.patch
 0005-irq-Call-tick_irq_enter-inside-HARDIRQ_OFFSET.patch
 
-# WIP
-softirq_Add_RT_specific_softirq_accounting.patch
-softirq_Move_various_protections_into_inline_helpers.patch
-softirq_Make_softirq_control_and_processing_RT_aware.patch
-tick_sched_Prevent_false_positive_softirq_pending_warnings_on_RT.patch
-rcu_Prevent_false_positive_softirq_warning_on_RT.patch
-softirq_Replace_barrier_with_cpu_relax_in_tasklet_unlock_wait_.patch
-tasklets_Use_static_inlines_for_stub_implementations.patch
-tasklets_Prevent_kill_unlock_wait_deadlock_on_RT.patch
-#
-irqtime-Use-irq_count-instead-of-preempt_count.patch
+# 20210215181027.mxkzolp3fibfiwvv@linutronix.de
+smp-Wake-ksoftirqd-on-PREEMPT_RT-instead-do_softirq.patch
+
+# Softirq + tasklet rework
+# 01365633bd1c836240f9bbf86bbeee749795480a
+net-arcnet-Fix-RESET-flag-handling.patch
+# 2021-03-09 09:42 Thomas Gleixner [patch 00/14] tasklets: Replace the spin wait loops and make it RT safe
+# 20210309084203.995862150@linutronix.de
+0001-tasklets-Replace-barrier-with-cpu_relax-in-tasklet_u.patch
+0002-tasklets-Use-static-inlines-for-stub-implementations.patch
+0003-tasklets-Provide-tasklet_disable_in_atomic.patch
+0004-tasklets-Use-spin-wait-in-tasklet_disable-temporaril.patch
+0005-tasklets-Replace-spin-wait-in-tasklet_unlock_wait.patch
+0006-tasklets-Replace-spin-wait-in-tasklet_kill.patch
+0007-tasklets-Prevent-tasklet_unlock_spin_wait-deadlock-o.patch
+0008-net-jme-Replace-link-change-tasklet-with-work.patch
+0009-net-sundance-Use-tasklet_disable_in_atomic.patch
+0010-ath9k-Use-tasklet_disable_in_atomic.patch
+0011-atm-eni-Use-tasklet_disable_in_atomic-in-the-send-ca.patch
+0012-PCI-hv-Use-tasklet_disable_in_atomic.patch
+0013-firewire-ohci-Use-tasklet_disable_in_atomic-where-re.patch
+0014-tasklets-Switch-tasklet_disable-to-the-sleep-wait-va.patch
+# 2021-03-09 09:55 Thomas Gleixner [patch V3 0/6] softirq: Add RT specific softirq accounting
+# 20210309085552.815026890@linutronix.de
+0015-softirq-Add-RT-specific-softirq-accounting.patch
+0016-irqtime-Make-accounting-correct-on-RT.patch
+0017-softirq-Move-various-protections-into-inline-helpers.patch
+0018-softirq-Make-softirq-control-and-processing-RT-aware.patch
+0019-tick-sched-Prevent-false-positive-softirq-pending-wa.patch
+0020-rcu-Prevent-false-positive-softirq-warning-on-RT.patch
+
+# 20210202170104.1909200-1-bigeasy@linutronix.de
+0001-chelsio-cxgb-Replace-the-workqueue-with-threaded-int.patch
+0002-chelsio-cxgb-Disable-the-card-on-error-in-threaded-i.patch
 
 # TIP 5f0c71278d6848b4809f83af90f28196e1505ab1
 x86-fpu-Simplify-fpregs_-un-lock.patch
@@ -300,6 +333,7 @@ oleg-signal-rt-fix.patch
 0003-mm-SLxB-change-list_lock-to-raw_spinlock_t.patch
 0004-mm-SLUB-delay-giving-back-empty-slubs-to-IRQ-enabled.patch
 mm-slub-Always-flush-the-delayed-empty-slubs-in-flus.patch
+mm-slub-Don-t-resize-the-location-tracking-cache-on-.patch
 mm-page_alloc-Use-migrate_disable-in-drain_local_pag.patch
 mm-page_alloc-rt-friendly-per-cpu-pages.patch
 

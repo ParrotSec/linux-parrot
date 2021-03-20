@@ -1,0 +1,53 @@
+From foo@baz Fri Mar 19 11:06:44 AM CET 2021
+From: Takashi Iwai <tiwai@suse.de>
+Date: Sat, 6 Feb 2021 21:30:52 +0100
+Subject: ALSA: usb-audio: Don't avoid stopping the stream at disconnection
+
+From: Takashi Iwai <tiwai@suse.de>
+
+commit 257d2d7e9e798305d65825cb82b0a7d1c0511e89 upstream
+
+In the later patch, we're going to issue the PCM sync_stop calls at
+disconnection.  But currently the USB-audio driver can't handle it
+because it has a check of shutdown flag for stopping the URBs.  This
+is basically superfluous (the stopping URBs are safe at disconnection
+state), so let's drop the check.
+
+Fixes: dc5eafe7787c ("ALSA: usb-audio: Support PCM sync_stop")
+Cc: <stable@vger.kernel.org>
+Link: https://lore.kernel.org/r/20210206203052.15606-4-tiwai@suse.de
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+[sudip: adjust context]
+Signed-off-by: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ sound/usb/endpoint.c |    3 ---
+ sound/usb/pcm.c      |    5 +----
+ 2 files changed, 1 insertion(+), 7 deletions(-)
+
+--- a/sound/usb/endpoint.c
++++ b/sound/usb/endpoint.c
+@@ -576,9 +576,6 @@ static int deactivate_urbs(struct snd_us
+ {
+ 	unsigned int i;
+ 
+-	if (!force && atomic_read(&ep->chip->shutdown)) /* to be sure... */
+-		return -EBADFD;
+-
+ 	clear_bit(EP_FLAG_RUNNING, &ep->flags);
+ 
+ 	INIT_LIST_HEAD(&ep->ready_playback_urbs);
+--- a/sound/usb/pcm.c
++++ b/sound/usb/pcm.c
+@@ -280,10 +280,7 @@ static int snd_usb_pcm_sync_stop(struct
+ {
+ 	struct snd_usb_substream *subs = substream->runtime->private_data;
+ 
+-	if (!snd_usb_lock_shutdown(subs->stream->chip)) {
+-		sync_pending_stops(subs);
+-		snd_usb_unlock_shutdown(subs->stream->chip);
+-	}
++	sync_pending_stops(subs);
+ 	return 0;
+ }
+ 

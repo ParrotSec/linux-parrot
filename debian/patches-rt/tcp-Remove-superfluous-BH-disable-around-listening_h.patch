@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 12 Oct 2020 17:33:54 +0200
 Subject: [PATCH] tcp: Remove superfluous BH-disable around listening_hash
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.8-rt24.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.21-rt34.tar.xz
 
 Commit
    9652dc2eb9e40 ("tcp: relax listening_hash operations")
