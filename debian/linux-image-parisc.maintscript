@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-parisc linux-image-5.10.0-5parrot1-parisc 5.7~rc5-1~exp1 linux-image-parisc
+dir_to_symlink /usr/share/doc/linux-image-parisc linux-image-5.10.0-6parrot1-parisc 5.7~rc5-1~exp1 linux-image-parisc

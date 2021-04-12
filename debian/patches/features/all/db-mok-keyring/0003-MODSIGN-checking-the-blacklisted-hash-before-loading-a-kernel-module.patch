@@ -24,8 +24,6 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  kernel/module_signing.c | 59 +++++++++++++++++++++++++++++++++++++++--
  1 file changed, 57 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/module_signing.c b/kernel/module_signing.c
-index 9d9fc678c91d..0f041a21f418 100644
 --- a/kernel/module_signing.c
 +++ b/kernel/module_signing.c
 @@ -12,15 +12,62 @@
@@ -92,15 +90,15 @@ index 9d9fc678c91d..0f041a21f418 100644
  	int ret;
  
  	pr_devel("==>%s(,%zu)\n", __func__, modlen);
-@@ -28,6 +75,7 @@ int mod_verify_sig(const void *mod, struct load_info *info)
+@@ -28,6 +75,7 @@ int mod_verify_sig(const void *mod, stru
  	if (modlen <= sizeof(ms))
  		return -EBADMSG;
  
 +	wholelen = modlen + sizeof(MODULE_SIG_STRING) - 1;
  	memcpy(&ms, mod + (modlen - sizeof(ms)), sizeof(ms));
  
- 	ret = mod_check_sig(&ms, modlen, info->name);
-@@ -38,8 +86,15 @@ int mod_verify_sig(const void *mod, struct load_info *info)
+ 	ret = mod_check_sig(&ms, modlen, "module");
+@@ -38,8 +86,15 @@ int mod_verify_sig(const void *mod, stru
  	modlen -= sig_len + sizeof(ms);
  	info->len = modlen;
  
@@ -117,6 +115,3 @@ index 9d9fc678c91d..0f041a21f418 100644
 +
 +	return ret;
  }
--- 
-2.23.0
-

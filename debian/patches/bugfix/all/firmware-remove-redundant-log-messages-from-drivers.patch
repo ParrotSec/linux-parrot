@@ -1920,14 +1920,13 @@ upstream submission.
  
 --- a/drivers/scsi/pm8001/pm8001_ctl.c
 +++ b/drivers/scsi/pm8001/pm8001_ctl.c
-@@ -841,10 +841,6 @@ static ssize_t pm8001_store_update_fw(st
+@@ -841,9 +841,6 @@ static ssize_t pm8001_store_update_fw(st
  			       pm8001_ha->dev);
  
  	if (ret) {
--		PM8001_FAIL_DBG(pm8001_ha,
--			pm8001_printk(
--			"Failed to load firmware image file %s,	error %d\n",
--			filename_ptr, ret));
+-		pm8001_dbg(pm8001_ha, FAIL,
+-			   "Failed to load firmware image file %s, error %d\n",
+-			   filename_ptr, ret);
  		pm8001_ha->fw_status = FAIL_OPEN_BIOS_FILE;
  		goto out;
  	}
@@ -2457,7 +2456,7 @@ upstream submission.
  	snd_emu1010_fpga_read(emu, EMU_HANA_ID, &reg);
 --- a/sound/pci/hda/hda_intel.c
 +++ b/sound/pci/hda/hda_intel.c
-@@ -2055,8 +2055,6 @@ static void azx_firmware_cb(const struct
+@@ -2057,8 +2057,6 @@ static void azx_firmware_cb(const struct
  
  	if (fw)
  		chip->fw = fw;

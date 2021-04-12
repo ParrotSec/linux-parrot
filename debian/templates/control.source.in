@@ -1,6 +1,6 @@
 Section: kernel
 Priority: optional
-XSBC-Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+XSBC-Original-Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
 Maintainer: Parrot Dev Team <team@parrotsec.org>
 Uploaders: Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>
 Standards-Version: 4.2.0
