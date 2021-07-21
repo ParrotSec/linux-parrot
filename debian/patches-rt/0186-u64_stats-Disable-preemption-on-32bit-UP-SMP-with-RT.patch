@@ -1,9 +1,9 @@
-From e246a16e5201c7fc25c2f3a673da03d2152d99b8 Mon Sep 17 00:00:00 2001
+From efde4e7128917ee2dada55ff0a9733e81f4dbc7e Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 17 Aug 2020 12:28:10 +0200
-Subject: [PATCH 186/295] u64_stats: Disable preemption on 32bit-UP/SMP with RT
+Subject: [PATCH 186/296] u64_stats: Disable preemption on 32bit-UP/SMP with RT
  during updates
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 On RT the seqcount_t is required even on UP because the softirq can be
 preempted. The IRQ handler is threaded so it is also preemptible.
@@ -18,6 +18,8 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  include/linux/u64_stats_sync.h | 42 ++++++++++++++++++++++------------
  1 file changed, 28 insertions(+), 14 deletions(-)
 
+diff --git a/include/linux/u64_stats_sync.h b/include/linux/u64_stats_sync.h
+index e81856c0ba13..66eb968a09d4 100644
 --- a/include/linux/u64_stats_sync.h
 +++ b/include/linux/u64_stats_sync.h
 @@ -66,7 +66,7 @@
@@ -29,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	seqcount_t	seq;
  #endif
  };
-@@ -115,7 +115,7 @@
+@@ -115,7 +115,7 @@ static inline void u64_stats_inc(u64_stats_t *p)
  }
  #endif
  
@@ -38,7 +40,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #define u64_stats_init(syncp)	seqcount_init(&(syncp)->seq)
  #else
  static inline void u64_stats_init(struct u64_stats_sync *syncp)
-@@ -125,15 +125,19 @@
+@@ -125,15 +125,19 @@ static inline void u64_stats_init(struct u64_stats_sync *syncp)
  
  static inline void u64_stats_update_begin(struct u64_stats_sync *syncp)
  {
@@ -60,7 +62,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #endif
  }
  
-@@ -142,8 +146,11 @@
+@@ -142,8 +146,11 @@ u64_stats_update_begin_irqsave(struct u64_stats_sync *syncp)
  {
  	unsigned long flags = 0;
  
@@ -74,7 +76,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	write_seqcount_begin(&syncp->seq);
  #endif
  	return flags;
-@@ -153,15 +160,18 @@
+@@ -153,15 +160,18 @@ static inline void
  u64_stats_update_end_irqrestore(struct u64_stats_sync *syncp,
  				unsigned long flags)
  {
@@ -96,7 +98,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return read_seqcount_begin(&syncp->seq);
  #else
  	return 0;
-@@ -170,7 +180,7 @@
+@@ -170,7 +180,7 @@ static inline unsigned int __u64_stats_fetch_begin(const struct u64_stats_sync *
  
  static inline unsigned int u64_stats_fetch_begin(const struct u64_stats_sync *syncp)
  {
@@ -105,7 +107,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	preempt_disable();
  #endif
  	return __u64_stats_fetch_begin(syncp);
-@@ -179,7 +189,7 @@
+@@ -179,7 +189,7 @@ static inline unsigned int u64_stats_fetch_begin(const struct u64_stats_sync *sy
  static inline bool __u64_stats_fetch_retry(const struct u64_stats_sync *syncp,
  					 unsigned int start)
  {
@@ -114,7 +116,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	return read_seqcount_retry(&syncp->seq, start);
  #else
  	return false;
-@@ -189,7 +199,7 @@
+@@ -189,7 +199,7 @@ static inline bool __u64_stats_fetch_retry(const struct u64_stats_sync *syncp,
  static inline bool u64_stats_fetch_retry(const struct u64_stats_sync *syncp,
  					 unsigned int start)
  {
@@ -123,7 +125,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	preempt_enable();
  #endif
  	return __u64_stats_fetch_retry(syncp, start);
-@@ -203,7 +213,9 @@
+@@ -203,7 +213,9 @@ static inline bool u64_stats_fetch_retry(const struct u64_stats_sync *syncp,
   */
  static inline unsigned int u64_stats_fetch_begin_irq(const struct u64_stats_sync *syncp)
  {
@@ -134,7 +136,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	local_irq_disable();
  #endif
  	return __u64_stats_fetch_begin(syncp);
-@@ -212,7 +224,9 @@
+@@ -212,7 +224,9 @@ static inline unsigned int u64_stats_fetch_begin_irq(const struct u64_stats_sync
  static inline bool u64_stats_fetch_retry_irq(const struct u64_stats_sync *syncp,
  					     unsigned int start)
  {
@@ -145,3 +147,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	local_irq_enable();
  #endif
  	return __u64_stats_fetch_retry(syncp, start);
+-- 
+2.30.2
+

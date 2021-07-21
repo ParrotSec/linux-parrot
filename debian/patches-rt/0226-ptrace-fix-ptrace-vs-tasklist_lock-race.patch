@@ -1,8 +1,8 @@
-From ff97d057761f4273e449ce3d20f9588f5b0c4931 Mon Sep 17 00:00:00 2001
+From 200a4b494c5dfcbb2713ad9a0c32a7d82951097f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Aug 2013 18:21:04 +0200
-Subject: [PATCH 226/295] ptrace: fix ptrace vs tasklist_lock race
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 226/296] ptrace: fix ptrace vs tasklist_lock race
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 As explained by Alexander Fyodorov <halcy@yandex.ru>:
 
@@ -30,11 +30,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  kernel/sched/core.c   | 17 +++++++++++++--
  3 files changed, 68 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 5e21035c7c1e..05d0d463f30b 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -112,12 +112,8 @@ struct io_uring_task;
+@@ -112,12 +112,8 @@
  					 __TASK_TRACED | EXIT_DEAD | EXIT_ZOMBIE | \
  					 TASK_PARKED)
  
@@ -47,7 +45,7 @@ index 5e21035c7c1e..05d0d463f30b 100644
  #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
  
  /*
-@@ -1876,6 +1872,51 @@ static inline int test_tsk_need_resched(struct task_struct *tsk)
+@@ -1876,6 +1872,51 @@
  	return unlikely(test_tsk_thread_flag(tsk,TIF_NEED_RESCHED));
  }
  
@@ -99,14 +97,12 @@ index 5e21035c7c1e..05d0d463f30b 100644
  /*
   * cond_resched() and cond_resched_lock(): latency reduction via
   * explicit rescheduling in places that are safe. The return
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 79de1294f8eb..0b81543c4050 100644
 --- a/kernel/ptrace.c
 +++ b/kernel/ptrace.c
-@@ -180,7 +180,14 @@ static bool ptrace_freeze_traced(struct task_struct *task)
- 
+@@ -196,7 +196,14 @@
  	spin_lock_irq(&task->sighand->siglock);
- 	if (task_is_traced(task) && !__fatal_signal_pending(task)) {
+ 	if (task_is_traced(task) && !looks_like_a_spurious_pid(task) &&
+ 	    !__fatal_signal_pending(task)) {
 -		task->state = __TASK_TRACED;
 +		unsigned long flags;
 +
@@ -119,11 +115,9 @@ index 79de1294f8eb..0b81543c4050 100644
  		ret = true;
  	}
  	spin_unlock_irq(&task->sighand->siglock);
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 3e6aaf6161f7..7fc1b5eefd3e 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -2571,6 +2571,18 @@ int migrate_swap(struct task_struct *cur, struct task_struct *p,
+@@ -2571,6 +2571,18 @@
  }
  #endif /* CONFIG_NUMA_BALANCING */
  
@@ -142,7 +136,7 @@ index 3e6aaf6161f7..7fc1b5eefd3e 100644
  /*
   * wait_task_inactive - wait for a thread to unschedule.
   *
-@@ -2615,7 +2627,7 @@ unsigned long wait_task_inactive(struct task_struct *p, long match_state)
+@@ -2615,7 +2627,7 @@
  		 * is actually now running somewhere else!
  		 */
  		while (task_running(rq, p)) {
@@ -151,7 +145,7 @@ index 3e6aaf6161f7..7fc1b5eefd3e 100644
  				return 0;
  			cpu_relax();
  		}
-@@ -2630,7 +2642,8 @@ unsigned long wait_task_inactive(struct task_struct *p, long match_state)
+@@ -2630,7 +2642,8 @@
  		running = task_running(rq, p);
  		queued = task_on_rq_queued(p);
  		ncsw = 0;
@@ -161,6 +155,3 @@ index 3e6aaf6161f7..7fc1b5eefd3e 100644
  			ncsw = p->nvcsw | LONG_MIN; /* sets MSB */
  		task_rq_unlock(rq, p, &rf);
  
--- 
-2.30.1
-

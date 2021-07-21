@@ -292,4 +292,5 @@
 0292-genirq-Disable-irqpoll-on-rt.patch
 0293-sysfs-Add-sys-kernel-realtime-entry.patch
 0294-Add-localversion-for-RT-release.patch
-0295-Linux-5.10.25-rt35-REBASE.patch
+0295-net-xfrm-Use-sequence-counter-with-associated-spinlo.patch
+0296-Linux-5.10.35-rt39-REBASE.patch

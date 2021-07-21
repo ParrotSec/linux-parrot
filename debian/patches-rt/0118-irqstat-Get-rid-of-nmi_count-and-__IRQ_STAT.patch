@@ -1,8 +1,8 @@
-From 52b6c0bcaacd5ee55f564fab3e726c8c8173c4aa Mon Sep 17 00:00:00 2001
+From 832fce0cc00ddd40c724f3721dd7a9e954c44432 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:10 +0100
-Subject: [PATCH 118/295] irqstat: Get rid of nmi_count() and __IRQ_STAT()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 118/296] irqstat: Get rid of nmi_count() and __IRQ_STAT()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Nothing uses this anymore.
 
@@ -30,5 +30,5 @@ index 6e8895cd4d92..78fb2de3ea4d 100644
 -
  #endif	/* __irq_cpustat_h */
 -- 
-2.30.1
+2.30.2
 

@@ -1,8 +1,8 @@
-From 73dff4f3c54e10e26a6a1101b6eb0f0ad5c02a14 Mon Sep 17 00:00:00 2001
+From b5aba70f6958a2dba76bf013bb8816cf8083468f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 14:35:49 +0200
-Subject: [PATCH 187/295] fs/dcache: use swait_queue instead of waitqueue
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 187/296] fs/dcache: use swait_queue instead of waitqueue
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 __d_lookup_done() invokes wake_up_all() while holding a hlist_bl_lock()
 which disables preemption. As a workaround convert it to swait.
@@ -112,7 +112,7 @@ index 3441ffa740f3..2fcae5cfd272 100644
  	if (!o->nodeid) {
  		/*
 diff --git a/fs/namei.c b/fs/namei.c
-index 7af66d5a0c1b..b3f51efa5066 100644
+index 4c9d0c36545d..5a6e15a7eed7 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -1520,7 +1520,7 @@ static struct dentry *__lookup_slow(const struct qstr *name,
@@ -259,5 +259,5 @@ index e1c655f928c7..f230b1ac7f91 100644
  	list_splice_init(&q->task_list, &tmp);
  	while (!list_empty(&tmp)) {
 -- 
-2.30.1
+2.30.2
 

@@ -1,8 +1,8 @@
-From c09a290194b2a7b58174b461f63c0f4ff0d4e5e0 Mon Sep 17 00:00:00 2001
+From cdf54e6506245563bd90c9ecd00c9c1c8c7a1799 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:09 +0100
-Subject: [PATCH 117/295] sh: Get rid of nmi_count()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 117/296] sh: Get rid of nmi_count()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 nmi_count() is a historical leftover and SH is the only user. Replace it
 with regular per cpu accessors.
@@ -43,5 +43,5 @@ index 9c3d32b80038..f5beecdac693 100644
  	switch (notify_die(DIE_NMI, "NMI", regs, 0, vec & 0xff, SIGINT)) {
  	case NOTIFY_OK:
 -- 
-2.30.1
+2.30.2
 

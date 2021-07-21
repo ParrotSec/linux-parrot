@@ -1,0 +1,128 @@
+From: Bumyong Lee <bumyong.lee@samsung.com>
+Date: Mon, 10 May 2021 18:10:04 +0900
+Subject: swiotlb: manipulate orig_addr when tlb_addr has offset
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/commit?id=e6108147dd91b94d1979b110f265710c254c99d5
+Bug-Debian: https://bugs.debian.org/989778
+
+commit 5f89468e2f060031cd89fd4287298e0eaf246bf6 upstream.
+
+in case of driver wants to sync part of ranges with offset,
+swiotlb_tbl_sync_single() copies from orig_addr base to tlb_addr with
+offset and ends up with data mismatch.
+
+It was removed from
+"swiotlb: don't modify orig_addr in swiotlb_tbl_sync_single",
+but said logic has to be added back in.
+
+From Linus's email:
+"That commit which the removed the offset calculation entirely, because the old
+
+        (unsigned long)tlb_addr & (IO_TLB_SIZE - 1)
+
+was wrong, but instead of removing it, I think it should have just
+fixed it to be
+
+        (tlb_addr - mem->start) & (IO_TLB_SIZE - 1);
+
+instead. That way the slot offset always matches the slot index calculation."
+
+(Unfortunatly that broke NVMe).
+
+The use-case that drivers are hitting is as follow:
+
+1. Get dma_addr_t from dma_map_single()
+
+dma_addr_t tlb_addr = dma_map_single(dev, vaddr, vsize, DMA_TO_DEVICE);
+
+    |<---------------vsize------------->|
+    +-----------------------------------+
+    |                                   | original buffer
+    +-----------------------------------+
+  vaddr
+
+ swiotlb_align_offset
+     |<----->|<---------------vsize------------->|
+     +-------+-----------------------------------+
+     |       |                                   | swiotlb buffer
+     +-------+-----------------------------------+
+          tlb_addr
+
+2. Do something
+3. Sync dma_addr_t through dma_sync_single_for_device(..)
+
+dma_sync_single_for_device(dev, tlb_addr + offset, size, DMA_TO_DEVICE);
+
+  Error case.
+    Copy data to original buffer but it is from base addr (instead of
+  base addr + offset) in original buffer:
+
+ swiotlb_align_offset
+     |<----->|<- offset ->|<- size ->|
+     +-------+-----------------------------------+
+     |       |            |##########|           | swiotlb buffer
+     +-------+-----------------------------------+
+          tlb_addr
+
+    |<- size ->|
+    +-----------------------------------+
+    |##########|                        | original buffer
+    +-----------------------------------+
+  vaddr
+
+The fix is to copy the data to the original buffer and take into
+account the offset, like so:
+
+ swiotlb_align_offset
+     |<----->|<- offset ->|<- size ->|
+     +-------+-----------------------------------+
+     |       |            |##########|           | swiotlb buffer
+     +-------+-----------------------------------+
+          tlb_addr
+
+    |<- offset ->|<- size ->|
+    +-----------------------------------+
+    |            |##########|           | original buffer
+    +-----------------------------------+
+  vaddr
+
+[One fix which was Linus's that made more sense to as it created a
+symmetry would break NVMe. The reason for that is the:
+ unsigned int offset = (tlb_addr - mem->start) & (IO_TLB_SIZE - 1);
+
+would come up with the proper offset, but it would lose the
+alignment (which this patch contains).]
+
+Fixes: 16fc3cef33a0 ("swiotlb: don't modify orig_addr in swiotlb_tbl_sync_single")
+Signed-off-by: Bumyong Lee <bumyong.lee@samsung.com>
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Reported-by: Dominique MARTINET <dominique.martinet@atmark-techno.com>
+Reported-by: Horia Geantă <horia.geanta@nxp.com>
+Tested-by: Horia Geantă <horia.geanta@nxp.com>
+CC: stable@vger.kernel.org
+Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ kernel/dma/swiotlb.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index 0f61b14b0099..0ed0e1f215c7 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -667,6 +667,9 @@ void swiotlb_tbl_sync_single(struct device *hwdev, phys_addr_t tlb_addr,
+ 	if (orig_addr == INVALID_PHYS_ADDR)
+ 		return;
+ 
++	orig_addr += (tlb_addr & (IO_TLB_SIZE - 1)) -
++		swiotlb_align_offset(hwdev, orig_addr);
++
+ 	switch (target) {
+ 	case SYNC_FOR_CPU:
+ 		if (likely(dir == DMA_FROM_DEVICE || dir == DMA_BIDIRECTIONAL))
+-- 
+2.32.0
+

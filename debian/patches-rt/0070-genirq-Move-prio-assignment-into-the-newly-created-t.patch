@@ -1,9 +1,9 @@
-From 2f20189f98111b13784438486883a6d5dff2f253 Mon Sep 17 00:00:00 2001
+From 340d27d3eefc25d4e4d43159879ef65334d3d9ec Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 9 Nov 2020 23:32:39 +0100
-Subject: [PATCH 070/295] genirq: Move prio assignment into the newly created
+Subject: [PATCH 070/296] genirq: Move prio assignment into the newly created
  thread
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 With enabled threaded interrupts the nouveau driver reported the
 following:
@@ -36,10 +36,10 @@ Link: https://lkml.kernel.org/r/a23a826af7c108ea5651e73b8fbae5e653f16e86.camel@g
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index c460e0496006..079688d122a7 100644
+index 79dc02b956dc..0558f75c0b85 100644
 --- a/kernel/irq/manage.c
 +++ b/kernel/irq/manage.c
-@@ -1155,6 +1155,8 @@ static int irq_thread(void *data)
+@@ -1159,6 +1159,8 @@ static int irq_thread(void *data)
  	irqreturn_t (*handler_fn)(struct irq_desc *desc,
  			struct irqaction *action);
  
@@ -48,7 +48,7 @@ index c460e0496006..079688d122a7 100644
  	if (force_irqthreads && test_bit(IRQTF_FORCED_THREAD,
  					&action->thread_flags))
  		handler_fn = irq_forced_thread_fn;
-@@ -1320,8 +1322,6 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
+@@ -1324,8 +1326,6 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
  	if (IS_ERR(t))
  		return PTR_ERR(t);
  
@@ -58,5 +58,5 @@ index c460e0496006..079688d122a7 100644
  	 * We keep the reference to the task struct even if
  	 * the thread dies to avoid that the interrupt code
 -- 
-2.30.1
+2.30.2
 

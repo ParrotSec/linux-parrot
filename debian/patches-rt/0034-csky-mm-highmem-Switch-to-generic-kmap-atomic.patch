@@ -1,8 +1,8 @@
-From b8d9c6a3a5e05e1be7f2c6a6ab1817f53455615c Mon Sep 17 00:00:00 2001
+From 1d66c3f3510f323e10a087befba3587b8eae85fa Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:23 +0100
-Subject: [PATCH 034/295] csky/mm/highmem: Switch to generic kmap atomic
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 034/296] csky/mm/highmem: Switch to generic kmap atomic
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 No reason having the same code in every architecture.
 
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 8 insertions(+), 78 deletions(-)
 
 diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
-index 268fad5f51cf..7a86481a22ff 100644
+index 7bf0a617e94c..c9f2533cc53d 100644
 --- a/arch/csky/Kconfig
 +++ b/arch/csky/Kconfig
 @@ -286,6 +286,7 @@ config NR_CPUS
@@ -175,5 +175,5 @@ index 89c10800a002..4161df3c6c15 100644
 -	kmap_pte = pte_offset_kernel((pmd_t *)pgd_offset_k(vaddr), vaddr);
 -}
 -- 
-2.30.1
+2.30.2
 

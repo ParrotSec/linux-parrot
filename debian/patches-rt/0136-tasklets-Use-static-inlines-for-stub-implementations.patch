@@ -1,8 +1,8 @@
-From 91fa7df2f5a021f8706acce36909c0bd1cb2aaff Mon Sep 17 00:00:00 2001
+From 0d4ead281ddc5c1f9ddbf2431eaacfb4f52bf587 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:05 +0100
-Subject: [PATCH 136/295] tasklets: Use static inlines for stub implementations
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 136/296] tasklets: Use static inlines for stub implementations
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Inlines exist for a reason.
 
@@ -31,5 +31,5 @@ index 10248a726373..0c319b7e929a 100644
  
  extern void __tasklet_schedule(struct tasklet_struct *t);
 -- 
-2.30.1
+2.30.2
 

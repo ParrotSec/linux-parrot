@@ -1,9 +1,9 @@
-From 413f073ef5b36673335098b445aa738d9d3c5649 Mon Sep 17 00:00:00 2001
+From 3388d6ff514eea2010dc0e5176c2c0f2ea88d1d3 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 24 Jul 2011 12:11:43 +0200
-Subject: [PATCH 191/295] kconfig: Disable config options which are not RT
+Subject: [PATCH 191/296] kconfig: Disable config options which are not RT
  compatible
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Disable stuff which is known to have issues on RT
 
@@ -39,5 +39,5 @@ index 8c49d09da214..c8cbcb5118b0 100644
  	select XARRAY_MULTI
  	help
 -- 
-2.30.1
+2.30.2
 

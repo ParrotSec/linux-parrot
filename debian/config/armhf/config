@@ -192,6 +192,11 @@ CONFIG_PATA_OF_PLATFORM=m
 CONFIG_ARM_CHARLCD=y
 
 ##
+## file: drivers/bluetooth/Kconfig
+##
+CONFIG_BT_HCIUART=m
+
+##
 ## file: drivers/bus/Kconfig
 ##
 CONFIG_OMAP_INTERCONNECT=m
@@ -336,6 +341,7 @@ CONFIG_FSI_OCC=m
 CONFIG_GPIOLIB=y
 CONFIG_GPIO_ASPEED=m
 CONFIG_GPIO_GENERIC_PLATFORM=m
+CONFIG_GPIO_MXC=m
 CONFIG_GPIO_PCA953X=m
 CONFIG_GPIO_PCA953X_IRQ=y
 CONFIG_GPIO_PCF857X=m
@@ -655,6 +661,7 @@ CONFIG_MEDIA_CONTROLLER=y
 ## file: drivers/media/platform/Kconfig
 ##
 CONFIG_VIDEO_ASPEED=m
+CONFIG_VIDEO_MUX=m
 CONFIG_VIDEO_OMAP3=m
 CONFIG_VIDEO_CODA=m
 CONFIG_VIDEO_IMX_PXP=m
@@ -800,6 +807,11 @@ CONFIG_MTD_NAND_STM32_FMC2=m
 ## file: drivers/mtd/spi-nor/controllers/Kconfig
 ##
 CONFIG_SPI_ASPEED_SMC=m
+
+##
+## file: drivers/mux/Kconfig
+##
+CONFIG_MUX_MMIO=m
 
 ##
 ## file: drivers/net/can/Kconfig
@@ -1278,6 +1290,12 @@ CONFIG_SPI_SLAVE=y
 ## file: drivers/staging/media/Kconfig
 ##
 CONFIG_STAGING_MEDIA=y
+
+##
+## file: drivers/staging/media/imx/Kconfig
+##
+CONFIG_VIDEO_IMX_MEDIA=m
+CONFIG_VIDEO_IMX_CSI=m
 
 ##
 ## file: drivers/staging/media/sunxi/Kconfig

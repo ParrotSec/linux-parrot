@@ -1,8 +1,8 @@
-From 57f82fd66e3314959f064eabff6fb62ba9981ded Mon Sep 17 00:00:00 2001
+From eeb1c212d82ca200f85df5e71e2ae766be7c8464 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 24 Jul 2009 12:38:56 +0200
-Subject: [PATCH 182/295] preempt: Provide preempt_*_(no)rt variants
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 182/296] preempt: Provide preempt_*_(no)rt variants
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 RT needs a few preempt_disable/enable points which are not necessary
 otherwise. Implement variants to avoid #ifdeffery.
@@ -49,5 +49,5 @@ index 4d244e295e85..5ceac863e729 100644
  
  struct preempt_notifier;
 -- 
-2.30.1
+2.30.2
 

@@ -1,9 +1,9 @@
-From 6b3545c00b635915917d8602feb2c6b524ef07bd Mon Sep 17 00:00:00 2001
+From 921cbc00825ced6ea9a1b029a41a8926480d9ab6 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 23 Oct 2020 12:12:02 +0200
-Subject: [PATCH 005/295] sched/core: Wait for tasks being pushed away on
+Subject: [PATCH 005/296] sched/core: Wait for tasks being pushed away on
  hotplug
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 RT kernels need to ensure that all tasks which are not per CPU kthreads
 have left the outgoing CPU to guarantee that no tasks are force migrated
@@ -120,5 +120,5 @@ index ca3106f66351..7dcd5ac722ec 100644
  
  #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 -- 
-2.30.1
+2.30.2
 

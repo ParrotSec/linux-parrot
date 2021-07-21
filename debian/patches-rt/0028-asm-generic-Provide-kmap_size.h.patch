@@ -1,8 +1,8 @@
-From 21c9fe6ffffc84624ed15c5c402f4560a5bb2c4b Mon Sep 17 00:00:00 2001
+From 84e921b31ca33d0b6e962e12113a4888aafce89b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:17 +0100
-Subject: [PATCH 028/295] asm-generic: Provide kmap_size.h
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 028/296] asm-generic: Provide kmap_size.h
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 kmap_types.h is a misnomer because the old atomic MAP based array does not
 exist anymore and the whole indirection of architectures including
@@ -66,5 +66,5 @@ index 000000000000..9d6c7786a645
 +
 +#endif
 -- 
-2.30.1
+2.30.2
 

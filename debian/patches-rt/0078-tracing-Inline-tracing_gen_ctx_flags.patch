@@ -1,8 +1,8 @@
-From 7182c7757a76599d9087d622627f4904a51220cf Mon Sep 17 00:00:00 2001
+From 5785fbee2a347916d831f480bad77ea18b1345c2 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 3 Feb 2021 11:05:24 -0500
-Subject: [PATCH 078/295] tracing: Inline tracing_gen_ctx_flags()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 078/296] tracing: Inline tracing_gen_ctx_flags()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Inline tracing_gen_ctx_flags(). This allows to have one ifdef
 CONFIG_TRACE_IRQFLAGS_SUPPORT.
@@ -89,7 +89,7 @@ index 091250b0895a..67ae708de40d 100644
  struct trace_event_file;
  
 diff --git a/kernel/trace/trace.c b/kernel/trace/trace.c
-index f223504e8de5..a391780afd69 100644
+index bb1ffaaede17..992bebf4edf0 100644
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
 @@ -2578,20 +2578,13 @@ enum print_line_t trace_handle_return(struct trace_seq *s)
@@ -180,5 +180,5 @@ index b37601bee8b5..2ad9faef718a 100644
  
  struct trace_array;
 -- 
-2.30.1
+2.30.2
 

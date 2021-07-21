@@ -1,9 +1,9 @@
-From ec8b886c9d83d733188ec8b55f263d657af13e4c Mon Sep 17 00:00:00 2001
+From 9d60eed599690549839bed0630b16c7ce8fe467d Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 29 Sep 2020 16:05:11 +0200
-Subject: [PATCH 160/295] locking/rtmutex: Remove output from deadlock
+Subject: [PATCH 160/296] locking/rtmutex: Remove output from deadlock
  detector.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 In commit
   f5694788ad8da ("rt_mutex: Add lockdep annotations")
@@ -308,5 +308,5 @@ index e6913103d7ff..b1455dc2366f 100644
  	u64 deadline;
  };
 -- 
-2.30.1
+2.30.2
 

@@ -1,9 +1,9 @@
-From c2a6f4bc60afbe7d4d47dea9c02b05bbfcb7a9f1 Mon Sep 17 00:00:00 2001
+From 225cf76c227b6ff72c7568163a70338a1a4844bc Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:35 +0100
-Subject: [PATCH 046/295] sched: Make migrate_disable/enable() independent of
+Subject: [PATCH 046/296] sched: Make migrate_disable/enable() independent of
  RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Now that the scheduler can deal with migrate disable properly, there is no
 real compelling reason to make it only available for RT.
@@ -289,5 +289,5 @@ index faaa927ac2c8..1c1dbd300325 100644
  		goto out;
  #endif
 -- 
-2.30.1
+2.30.2
 

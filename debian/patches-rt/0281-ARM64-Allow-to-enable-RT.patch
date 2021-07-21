@@ -1,8 +1,8 @@
-From 64b286befe43cefc7e8dce17e964c1a8b6fd0ac3 Mon Sep 17 00:00:00 2001
+From d331f8c79fe6faacb5fc673c9839c2f1cf8a97e0 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 11 Oct 2019 13:14:35 +0200
-Subject: [PATCH 281/295] ARM64: Allow to enable RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 281/296] ARM64: Allow to enable RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Allow to select RT.
 
@@ -12,7 +12,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+)
 
 diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index 474fc1682c22..87ea8de59f00 100644
+index 048f50fbcf89..a2514d685485 100644
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
 @@ -76,6 +76,7 @@ config ARM64
@@ -32,5 +32,5 @@ index 474fc1682c22..87ea8de59f00 100644
  	select POWER_SUPPLY
  	select SET_FS
 -- 
-2.30.1
+2.30.2
 

@@ -1,9 +1,9 @@
-From b55730a2078b3bdaf5c525627944ffdef76f119a Mon Sep 17 00:00:00 2001
+From 3d4a1e4225aa44f989d3d7f63dad274c9cc8a598 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:21 +0100
-Subject: [PATCH 032/295] arc/mm/highmem: Use generic kmap atomic
+Subject: [PATCH 032/296] arc/mm/highmem: Use generic kmap atomic
  implementation
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Adopt the map ordering to match the other architectures and the generic
 code. Also make the maximum entries limited and not dependend on the number
@@ -208,5 +208,5 @@ index 1b9f473c6369..c79912a6b196 100644
 +	alloc_kmap_pgtable(FIXMAP_BASE);
  }
 -- 
-2.30.1
+2.30.2
 

@@ -1,9 +1,9 @@
-From cff27c5d2dd1fce44c6d3f5cf550e80822fa8914 Mon Sep 17 00:00:00 2001
+From 467565a3950497d85595e22d3292bb029eaf76e2 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 29 Sep 2020 16:32:49 +0200
-Subject: [PATCH 161/295] locking/rtmutex: Move rt_mutex_init() outside of
+Subject: [PATCH 161/296] locking/rtmutex: Move rt_mutex_init() outside of
  CONFIG_DEBUG_RT_MUTEXES
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 rt_mutex_init() only initializes lockdep if CONFIG_DEBUG_RT_MUTEXES is
 enabled. The static initializer (DEFINE_RT_MUTEX) does not have such a
@@ -56,5 +56,5 @@ index 88a0ba806066..2dc10b582d4a 100644
  #define __DEP_MAP_RT_MUTEX_INITIALIZER(mutexname) \
  	, .dep_map = { .name = #mutexname }
 -- 
-2.30.1
+2.30.2
 

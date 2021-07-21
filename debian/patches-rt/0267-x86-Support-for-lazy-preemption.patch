@@ -1,8 +1,8 @@
-From 002f8251e56991520314ec5f0bf6edffca5dca4e Mon Sep 17 00:00:00 2001
+From 4cef1917310065d68231c36c8ae7af585c99d1da Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 1 Nov 2012 11:03:47 +0100
-Subject: [PATCH 267/295] x86: Support for lazy preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 267/296] x86: Support for lazy preemption
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Implement the x86 pieces for lazy preempt.
 
@@ -82,7 +82,7 @@ index 5ef93c81b274..471dec2d78e1 100644
  
  #ifdef CONFIG_PREEMPTION
 diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
-index 44733a4bfc42..f16f2ea58be4 100644
+index e701f29b4881..596a46c4a05d 100644
 --- a/arch/x86/include/asm/thread_info.h
 +++ b/arch/x86/include/asm/thread_info.h
 @@ -56,17 +56,24 @@ struct task_struct;
@@ -162,5 +162,5 @@ index e579b2ff4f94..e73fcc57e367 100644
  
  #ifdef ARCH_RT_DELAYS_SIGNAL_SEND
 -- 
-2.30.1
+2.30.2
 

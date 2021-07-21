@@ -1,9 +1,9 @@
-From 6d9f05677c0e9c2f0c193eca349043bae0f58234 Mon Sep 17 00:00:00 2001
+From 8be4fed27ebe9a9bf02c344f099d3efd325e2688 Mon Sep 17 00:00:00 2001
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Fri, 23 Oct 2020 12:12:16 +0200
-Subject: [PATCH 019/295] sched: Deny self-issued __set_cpus_allowed_ptr() when
+Subject: [PATCH 019/296] sched: Deny self-issued __set_cpus_allowed_ptr() when
  migrate_disable()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
   migrate_disable();
   set_cpus_allowed_ptr(current, {something excluding task_cpu(current)});
@@ -42,5 +42,5 @@ index 5cad6f589ffd..860c083ddc4b 100644
  	/*
  	 * Picking a ~random cpu helps in cases where we are changing affinity
 -- 
-2.30.1
+2.30.2
 

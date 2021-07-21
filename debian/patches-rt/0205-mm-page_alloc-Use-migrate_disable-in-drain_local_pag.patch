@@ -1,9 +1,9 @@
-From c3b9f4c5a90180bada9888cf5cf56dffde50aa62 Mon Sep 17 00:00:00 2001
+From 64b1879c3821837c907fb42366731b7d7aad78b5 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 2 Jul 2020 14:27:23 +0200
-Subject: [PATCH 205/295] mm/page_alloc: Use migrate_disable() in
+Subject: [PATCH 205/296] mm/page_alloc: Use migrate_disable() in
  drain_local_pages_wq()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 drain_local_pages_wq() disables preemption to avoid CPU migration during
 CPU hotplug.
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index f0891d608c0e..0ebb398a15ef 100644
+index 84ee66afc232..b8350cbe66f9 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -3048,9 +3048,9 @@ static void drain_local_pages_wq(struct work_struct *work)
@@ -35,5 +35,5 @@ index f0891d608c0e..0ebb398a15ef 100644
  
  /*
 -- 
-2.30.1
+2.30.2
 

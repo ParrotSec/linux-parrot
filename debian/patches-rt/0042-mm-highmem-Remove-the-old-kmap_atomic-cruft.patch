@@ -1,8 +1,8 @@
-From 0426b33f333af78abf10f11760d9975ceeafaefc Mon Sep 17 00:00:00 2001
+From 9b38edca6f12619cbe82984ba295ed568aa1d1f3 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:31 +0100
-Subject: [PATCH 042/295] mm/highmem: Remove the old kmap_atomic cruft
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 042/296] mm/highmem: Remove the old kmap_atomic cruft
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 All users gone.
 
@@ -135,5 +135,5 @@ index 77677c6844f7..499dfafd36b7 100644
  # define arch_kmap_local_pre_unmap(vaddr)		do { } while (0)
  #endif
 -- 
-2.30.1
+2.30.2
 

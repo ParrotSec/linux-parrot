@@ -1,8 +1,8 @@
-From 6844e3c21b25ec80e690709f066538aa2c96c698 Mon Sep 17 00:00:00 2001
+From 659afe991b1acffeacff51f2cbbf979fc06e9465 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:10 +0200
-Subject: [PATCH 013/295] sched,rt: Use cpumask_any*_distribute()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 013/296] sched,rt: Use cpumask_any*_distribute()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Replace a bunch of cpumask_any*() instances with
 cpumask_any*_distribute(), by injecting this little bit of random in
@@ -117,5 +117,5 @@ index fb22fb266f93..c3c76b833384 100644
 +}
 +EXPORT_SYMBOL(cpumask_any_distribute);
 -- 
-2.30.1
+2.30.2
 

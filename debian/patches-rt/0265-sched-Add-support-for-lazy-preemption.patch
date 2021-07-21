@@ -1,8 +1,8 @@
-From d5263b6ca9b55eb93f003637cb36102d4d602812 Mon Sep 17 00:00:00 2001
+From 6e6ff767ad18415853867e07959bd151601ac9a8 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 26 Oct 2012 18:50:54 +0100
-Subject: [PATCH 265/295] sched: Add support for lazy preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 265/296] sched: Add support for lazy preemption
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 It has become an obsession to mitigate the determinism vs. throughput
 loss of RT. Looking at the mainline semantics of preemption points
@@ -225,10 +225,10 @@ index 05d0d463f30b..28509a37eb71 100644
  {
  	if (task->state & (__TASK_STOPPED | __TASK_TRACED))
 diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
-index e93e249a4e9b..c88b9cecc78a 100644
+index f3040b0b4b23..3cb02ced141b 100644
 --- a/include/linux/thread_info.h
 +++ b/include/linux/thread_info.h
-@@ -97,7 +97,17 @@ static inline int test_ti_thread_flag(struct thread_info *ti, int flag)
+@@ -110,7 +110,17 @@ static inline int test_ti_thread_flag(struct thread_info *ti, int flag)
  #define test_thread_flag(flag) \
  	test_ti_thread_flag(current_thread_info(), flag)
  
@@ -555,7 +555,7 @@ index 32ac4fc0ce76..a6dc180ae5ef 100644
  extern void init_rt_bandwidth(struct rt_bandwidth *rt_b, u64 period, u64 runtime);
  
 diff --git a/kernel/trace/trace.c b/kernel/trace/trace.c
-index 1d8d537157ae..24166ab83304 100644
+index 255b3f027dfd..b3cc666223ce 100644
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
 @@ -2605,8 +2605,16 @@ unsigned int tracing_gen_ctx_irq_test(unsigned int irqs_status)
@@ -577,7 +577,7 @@ index 1d8d537157ae..24166ab83304 100644
  }
  
  struct ring_buffer_event *
-@@ -3807,15 +3815,17 @@ unsigned long trace_total_entries(struct trace_array *tr)
+@@ -3808,15 +3816,17 @@ unsigned long trace_total_entries(struct trace_array *tr)
  
  static void print_lat_help_header(struct seq_file *m)
  {
@@ -604,7 +604,7 @@ index 1d8d537157ae..24166ab83304 100644
  }
  
  static void print_event_info(struct array_buffer *buf, struct seq_file *m)
-@@ -3849,14 +3859,16 @@ static void print_func_help_header_irq(struct array_buffer *buf, struct seq_file
+@@ -3850,14 +3860,16 @@ static void print_func_help_header_irq(struct array_buffer *buf, struct seq_file
  
  	print_event_info(buf, m);
  
@@ -687,5 +687,5 @@ index ad738192647b..bc24ae8e3613 100644
  		trace_seq_printf(s, "%x", entry->migrate_disable);
  	else
 -- 
-2.30.1
+2.30.2
 

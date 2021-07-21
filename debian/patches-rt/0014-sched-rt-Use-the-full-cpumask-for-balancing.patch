@@ -1,8 +1,8 @@
-From dc500f3cc0f0f2258c0442feb49ff7924231aae4 Mon Sep 17 00:00:00 2001
+From 1576f24789dac95172fede096e07843221fef58c Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:11 +0200
-Subject: [PATCH 014/295] sched,rt: Use the full cpumask for balancing
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 014/296] sched,rt: Use the full cpumask for balancing
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 We want migrate_disable() tasks to get PULLs in order for them to PUSH
 away the higher priority task.
@@ -101,5 +101,5 @@ index 2525a1beed26..cf63346a07e4 100644
  				     !rt_task(task) ||
  				     !task_on_rq_queued(task))) {
 -- 
-2.30.1
+2.30.2
 

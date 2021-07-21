@@ -1,8 +1,8 @@
-From d8bd985120365647420369111fc5e5ef87829b3f Mon Sep 17 00:00:00 2001
+From a11fafd5ea9661b8ed2054c505c2c8623baa15bf Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 12 Oct 2017 17:34:38 +0200
-Subject: [PATCH 179/295] locking/rtmutex: add ww_mutex addon for mutex-rt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 179/296] locking/rtmutex: add ww_mutex addon for mutex-rt
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  5 files changed, 262 insertions(+), 20 deletions(-)
 
 diff --git a/include/linux/mutex.h b/include/linux/mutex.h
-index a0e973561d7c..90f090efcb58 100644
+index e45774a337d2..90923d3008fc 100644
 --- a/include/linux/mutex.h
 +++ b/include/linux/mutex.h
 @@ -82,14 +82,6 @@ struct mutex {
@@ -33,7 +33,7 @@ index a0e973561d7c..90f090efcb58 100644
   * This is the control structure for tasks blocked on mutex,
   * which resides on the blocked task's kernel stack:
 diff --git a/include/linux/ww_mutex.h b/include/linux/ww_mutex.h
-index 850424e5d030..8ef2feb0d8fe 100644
+index 6ecf2a0220db..3145de598645 100644
 --- a/include/linux/ww_mutex.h
 +++ b/include/linux/ww_mutex.h
 @@ -28,6 +28,14 @@ struct ww_class {
@@ -452,5 +452,5 @@ index a0771c150041..274172d5bb3a 100644
  	 * The slowlock() above is guaranteed to return with the rtmutex (for
  	 * ret = 0) is now held, so there can't be a writer active. Increment
 -- 
-2.30.1
+2.30.2
 

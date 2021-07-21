@@ -1,8 +1,8 @@
-From 23db1770b56bcb0d7901ceadd68ca6f7e913db8b Mon Sep 17 00:00:00 2001
+From a569d0cea61d373336d17263b9654d564cc3cc0e Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:49 +0100
-Subject: [PATCH 060/295] io-mapping: Remove io_mapping_map_atomic_wc()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 060/296] io-mapping: Remove io_mapping_map_atomic_wc()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 No more users. Get rid of it and remove the traces in documentation.
 
@@ -136,5 +136,5 @@ index c093e81310a9..4bb8223f2f82 100644
  io_mapping_map_local_wc(struct io_mapping *mapping, unsigned long offset)
  {
 -- 
-2.30.1
+2.30.2
 

@@ -1,9 +1,9 @@
-From dc98dff92392d064a30b30915c673f971c5d8399 Mon Sep 17 00:00:00 2001
+From fed9ec55a9c8af6f19df5927def3625955a40b06 Mon Sep 17 00:00:00 2001
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:30:13 -0500
-Subject: [PATCH 183/295] mm/vmstat: Protect per cpu variables with preempt
+Subject: [PATCH 183/296] mm/vmstat: Protect per cpu variables with preempt
  disable on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Disable preemption on -RT for the vmstat code. On vanila the code runs in
 IRQ-off regions while on -RT it is not. "preempt_disable" ensures that the
@@ -141,5 +141,5 @@ index 698bc0bc18d1..1e7688a43887 100644
  
  void __dec_zone_page_state(struct page *page, enum zone_stat_item item)
 -- 
-2.30.1
+2.30.2
 

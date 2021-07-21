@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-cloud-arm64 linux-image-5.10.0-6parrot1-cloud-arm64 5.7~rc5-1~exp1 linux-image-cloud-arm64
+dir_to_symlink /usr/share/doc/linux-image-cloud-arm64 linux-image-5.10.0-8parrot1-cloud-arm64 5.7~rc5-1~exp1 linux-image-cloud-arm64

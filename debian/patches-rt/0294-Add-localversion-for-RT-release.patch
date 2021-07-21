@@ -1,8 +1,8 @@
-From 7671d8d6bccd3338486900e5ba74c7ea55596818 Mon Sep 17 00:00:00 2001
+From d2e8ab7f33a3994e5ea24554f933ca1bbfdb9b89 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 8 Jul 2011 20:25:16 +0200
-Subject: [PATCH 294/295] Add localversion for -RT release
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 294/296] Add localversion for -RT release
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
@@ -18,5 +18,5 @@ index 000000000000..21988f9ad53f
 @@ -0,0 +1 @@
 +-rt34
 -- 
-2.30.1
+2.30.2
 

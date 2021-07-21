@@ -1,8 +1,8 @@
-From 70368e03aff4c5a125afba9cf2fc279a25eba5db Mon Sep 17 00:00:00 2001
+From 8e53351952808efa0b17c850a8710b6cfbb9273b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:55:56 +0100
-Subject: [PATCH 152/295] softirq: Make softirq control and processing RT aware
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 152/296] softirq: Make softirq control and processing RT aware
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Provide a local lock based serialization for soft interrupts on RT which
 allows the local_bh_disabled() sections and servicing soft interrupts to be
@@ -263,5 +263,5 @@ index 87fac6ac0c32..ed13f6097de8 100644
  
  	pending = local_softirq_pending();
 -- 
-2.30.1
+2.30.2
 

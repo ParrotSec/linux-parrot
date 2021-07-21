@@ -1,9 +1,9 @@
-From c6d3fc75c24b066f9764f39ef97eaf5e35fee19a Mon Sep 17 00:00:00 2001
+From 80953e63313bfe698c24fa8a8a90a9f34c0e1f21 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 12 Jul 2011 11:39:36 +0200
-Subject: [PATCH 233/295] mm/vmalloc: Another preempt disable region which
+Subject: [PATCH 233/296] mm/vmalloc: Another preempt disable region which
  sucks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Avoid the preempt disable version of get_cpu_var(). The inner-lock should
 provide enough serialisation.
@@ -69,5 +69,5 @@ index fff03a331314..2cbbbdb69ec4 100644
  
  	/* Allocate new block if nothing was found */
 -- 
-2.30.1
+2.30.2
 

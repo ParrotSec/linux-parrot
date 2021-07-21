@@ -1,8 +1,8 @@
-From 2942b56a284695b0410342457219b360a622b960 Mon Sep 17 00:00:00 2001
+From b6327019d18848a97ba04ec8c43ce0a446a6fe1f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:38 +0100
-Subject: [PATCH 049/295] io-mapping: Provide iomap_local variant
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 049/296] io-mapping: Provide iomap_local variant
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Similar to kmap local provide a iomap local variant which only disables
 migration, but neither disables pagefaults nor preemption.
@@ -175,5 +175,5 @@ index 60e7c83e4904..c093e81310a9 100644
  static inline struct io_mapping *
  io_mapping_create_wc(resource_size_t base,
 -- 
-2.30.1
+2.30.2
 

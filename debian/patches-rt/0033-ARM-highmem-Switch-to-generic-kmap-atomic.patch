@@ -1,8 +1,8 @@
-From e60e208d43a41d419a8e7116d59ad6eaa7a9dc69 Mon Sep 17 00:00:00 2001
+From 2702087141e730ec0bd12b16ccf55c9f766d682f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:22 +0100
-Subject: [PATCH 033/295] ARM: highmem: Switch to generic kmap atomic
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 033/296] ARM: highmem: Switch to generic kmap atomic
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 No reason having the same code in every architecture.
 
@@ -267,5 +267,5 @@ index 187fab227b50..000000000000
 -	return (void *)vaddr;
 -}
 -- 
-2.30.1
+2.30.2
 

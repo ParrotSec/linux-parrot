@@ -1,9 +1,9 @@
-From 7190614d47e9759cba6d3931d15304a4525542ec Mon Sep 17 00:00:00 2001
+From fc6569de970c50344e99ed1175ff563278bf65e1 Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:31 +0100
-Subject: [PATCH 131/295] irqtime: Move irqtime entry accounting after irq
+Subject: [PATCH 131/296] irqtime: Move irqtime entry accounting after irq
  offset incrementation
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 IRQ time entry is currently accounted before HARDIRQ_OFFSET or
 SOFTIRQ_OFFSET are incremented. This is convenient to decide to which
@@ -209,5 +209,5 @@ index 617009ccd82c..b8f42b3ba8ca 100644
  	if (!in_interrupt() && local_softirq_pending())
  		invoke_softirq();
 -- 
-2.30.1
+2.30.2
 

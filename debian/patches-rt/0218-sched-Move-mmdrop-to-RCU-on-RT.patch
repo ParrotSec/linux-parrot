@@ -1,8 +1,8 @@
-From 392ad96fb80cb81c1263f74be662946f9aa2cc3e Mon Sep 17 00:00:00 2001
+From 0978887259d2a9433d9a5b08f28886aa9cf4d94f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 6 Jun 2011 12:20:33 +0200
-Subject: [PATCH 218/295] sched: Move mmdrop to RCU on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 218/296] sched: Move mmdrop to RCU on RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Takes sleeping locks and calls into the memory allocator, so nothing
 we want to do in task switch and oder atomic contexts.
@@ -16,7 +16,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  4 files changed, 34 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-index 915f4f100383..f27c4b98c7f2 100644
+index 3433ecc9c1f7..02649396954b 100644
 --- a/include/linux/mm_types.h
 +++ b/include/linux/mm_types.h
 @@ -12,6 +12,7 @@
@@ -27,7 +27,7 @@ index 915f4f100383..f27c4b98c7f2 100644
  #include <linux/page-flags-layout.h>
  #include <linux/workqueue.h>
  #include <linux/seqlock.h>
-@@ -556,6 +557,9 @@ struct mm_struct {
+@@ -557,6 +558,9 @@ struct mm_struct {
  		bool tlb_flush_batched;
  #endif
  		struct uprobes_state uprobes_state;
@@ -60,7 +60,7 @@ index dc1f4dcd9a82..9796cc213b74 100644
   * mmget() - Pin the address space associated with a &struct mm_struct.
   * @mm: The address space to pin.
 diff --git a/kernel/fork.c b/kernel/fork.c
-index 4773286b6a6b..c1d119046a25 100644
+index e903347d1bc1..8624090a7440 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -688,6 +688,19 @@ void __mmdrop(struct mm_struct *mm)
@@ -111,5 +111,5 @@ index 67514da5df20..bb7948ad463d 100644
   * Ensure that the idle task is using init_mm right before its CPU goes
   * offline.
 -- 
-2.30.1
+2.30.2
 

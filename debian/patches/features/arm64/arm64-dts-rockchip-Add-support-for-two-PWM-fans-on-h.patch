@@ -1,0 +1,61 @@
+From: Uwe Kleine-König <uwe@kleine-koenig.org>
+Date: Mon, 10 May 2021 11:06:07 +0200
+Subject: arm64: dts: rockchip: Add support for two PWM fans on
+ helios64
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip.git/patch/?id=271b66414df0b172c936b3cfd1894b7939f84165
+
+On the helios64 board the two connectors P6 and P7 are supposed to
+power two fans. Add the corresponding pwm-fan devices.
+
+Signed-off-by: Uwe Kleine-König <uwe@kleine-koenig.org>
+Link: https://lore.kernel.org/r/20210510090607.970145-1-uwe@kleine-koenig.org
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+---
+ .../dts/rockchip/rk3399-kobol-helios64.dts    | 24 +++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts b/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
+index 19485b552bc4..9d4a0885fd12 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
+@@ -40,6 +40,20 @@ clkin_gmac: external-gmac-clock {
+ 		#clock-cells = <0>;
+ 	};
+ 
++	fan1 {
++		/* fan connected to P7 */
++		compatible = "pwm-fan";
++		pwms = <&pwm0 0 40000 0>;
++		cooling-levels = <0 80 170 255>;
++	};
++
++	fan2 {
++		/* fan connected to P6 */
++		compatible = "pwm-fan";
++		pwms = <&pwm1 0 40000 0>;
++		cooling-levels = <0 80 170 255>;
++	};
++
+ 	leds {
+ 		compatible = "gpio-leds";
+ 		pinctrl-names = "default";
+@@ -352,6 +366,16 @@ &pmu_io_domains {
+ 	status = "okay";
+ };
+ 
++&pwm0 {
++	/* pwm-fan on P7 */
++	status = "okay";
++};
++
++&pwm1 {
++	/* pwm-fan on P6 */
++	status = "okay";
++};
++
+ &sdhci {
+ 	bus-width = <8>;
+ 	mmc-hs200-1_8v;
+-- 
+2.30.2
+

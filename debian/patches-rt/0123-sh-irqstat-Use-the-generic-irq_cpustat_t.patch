@@ -1,8 +1,8 @@
-From 06197ad53d9d19a449a491a59729e2c805b5f87e Mon Sep 17 00:00:00 2001
+From a29eee1b3a56f674706ec295b5dbfc4079e2ad90 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:15 +0100
-Subject: [PATCH 123/295] sh: irqstat: Use the generic irq_cpustat_t
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 123/296] sh: irqstat: Use the generic irq_cpustat_t
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 SH can now use the generic irq_cpustat_t. Define ack_bad_irq so the generic
 header does not emit the generic version of it.
@@ -41,5 +41,5 @@ index edaea3559a23..9fe4495a8e90 100644
  
  #endif /* __ASM_SH_HARDIRQ_H */
 -- 
-2.30.1
+2.30.2
 

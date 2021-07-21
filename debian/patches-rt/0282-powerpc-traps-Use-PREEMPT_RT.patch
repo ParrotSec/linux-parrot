@@ -1,8 +1,8 @@
-From 47fbf1da51fb83a09891646d864b95c296670905 Mon Sep 17 00:00:00 2001
+From 6a65cebb2e708e5b2ac01a027eb501db810b3582 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 26 Jul 2019 11:30:49 +0200
-Subject: [PATCH 282/295] powerpc: traps: Use PREEMPT_RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 282/296] powerpc: traps: Use PREEMPT_RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Add PREEMPT_RT to the backtrace if enabled.
 
@@ -35,5 +35,5 @@ index fc82a7670d37..34861e39d03a 100644
  	       IS_ENABLED(CONFIG_SMP) ? (" NR_CPUS=" __stringify(NR_CPUS)) : "",
  	       debug_pagealloc_enabled() ? " DEBUG_PAGEALLOC" : "",
 -- 
-2.30.1
+2.30.2
 

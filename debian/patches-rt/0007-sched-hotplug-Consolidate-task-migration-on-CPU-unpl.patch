@@ -1,9 +1,9 @@
-From f017ee3ff60360dfc1420b4cc8762b676364cb02 Mon Sep 17 00:00:00 2001
+From 38d3ecf0781a070be9fe6cf45ab58f513e9f4138 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 23 Oct 2020 12:12:04 +0200
-Subject: [PATCH 007/295] sched/hotplug: Consolidate task migration on CPU
+Subject: [PATCH 007/296] sched/hotplug: Consolidate task migration on CPU
  unplug
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 With the new mechanism which kicks tasks off the outgoing CPU at the end of
 schedule() the situation on an outgoing CPU right before the stopper thread
@@ -279,5 +279,5 @@ index 116f9797a6d0..9ad43e648a78 100644
  	rq_unlock_irqrestore(rq, &rf);
  
 -- 
-2.30.1
+2.30.2
 

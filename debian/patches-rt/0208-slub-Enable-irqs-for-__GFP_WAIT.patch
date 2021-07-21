@@ -1,8 +1,8 @@
-From e352d30f0b57351b6c7b9d4c6489a9b8ccaa2ce3 Mon Sep 17 00:00:00 2001
+From 228117cf30801053bf5cb31324a93dfff662fa51 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 9 Jan 2013 12:08:15 +0100
-Subject: [PATCH 208/295] slub: Enable irqs for __GFP_WAIT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 208/296] slub: Enable irqs for __GFP_WAIT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 SYSTEM_RUNNING might be too late for enabling interrupts. Allocations
 with GFP_WAIT can happen before that. So use this as an indicator.
@@ -72,5 +72,5 @@ index 65502b516d34..b6f4b45f3849 100644
  	s = slab_pre_alloc_hook(s, &objcg, size, flags);
  	if (unlikely(!s))
 -- 
-2.30.1
+2.30.2
 

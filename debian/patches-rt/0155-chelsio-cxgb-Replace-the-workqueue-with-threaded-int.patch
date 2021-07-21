@@ -1,9 +1,9 @@
-From ff710671eb8b75c2371fe5caa429cdfde56a02a0 Mon Sep 17 00:00:00 2001
+From 7740cb6404f4997bd1188a2f9872ff4bfd056443 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 2 Feb 2021 18:01:03 +0100
-Subject: [PATCH 155/295] chelsio: cxgb: Replace the workqueue with threaded
+Subject: [PATCH 155/296] chelsio: cxgb: Replace the workqueue with threaded
  interrupt
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 The external interrupt (F_PL_INTR_EXT) needs to be handled in a process
 context and this is accomplished by utilizing a workqueue.
@@ -267,5 +267,5 @@ index ea0f8741d7cf..d90ad07ff1a4 100644
  #ifdef CONFIG_CHELSIO_T1_1G
  	if (!t1_is_asic(adapter))
 -- 
-2.30.1
+2.30.2
 

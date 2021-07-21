@@ -1,9 +1,9 @@
-From dc1be7ccf54451e62f6bcf208b802c9b88dfc9aa Mon Sep 17 00:00:00 2001
+From 164a1ec3cc41d0f88addd03571295cb277d05829 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 3 Feb 2021 11:05:25 -0500
-Subject: [PATCH 079/295] tracing: Use in_serving_softirq() to deduct softirq
+Subject: [PATCH 079/296] tracing: Use in_serving_softirq() to deduct softirq
  status.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 PREEMPT_RT does not report "serving softirq" because the tracing core
 looks at the preemption counter while PREEMPT_RT does not update it
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/kernel/trace/trace.c b/kernel/trace/trace.c
-index a391780afd69..0cb5a41d3d23 100644
+index 992bebf4edf0..57fb77628df1 100644
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
 @@ -2589,8 +2589,7 @@ unsigned int tracing_gen_ctx_irq_test(unsigned int irqs_status)
@@ -44,5 +44,5 @@ index a391780afd69..0cb5a41d3d23 100644
  
  	if (tif_need_resched())
 -- 
-2.30.1
+2.30.2
 

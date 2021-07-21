@@ -1,9 +1,9 @@
-From 8d197d5b6f96ab1a27f4e552c5163b7caa52cd0a Mon Sep 17 00:00:00 2001
+From 9cd3e6a8b48eaad5ed8393c3cccf4e9645c95fc8 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 23 Oct 2020 12:12:09 +0200
-Subject: [PATCH 012/295] sched/core: Make migrate disable and CPU hotplug
+Subject: [PATCH 012/296] sched/core: Make migrate disable and CPU hotplug
  cooperative
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 On CPU unplug tasks which are in a migrate disabled region cannot be pushed
 to a different CPU until they returned to migrateable state.
@@ -133,5 +133,5 @@ index d2fc1db9d3c7..3be3a1e9179f 100644
  
  #ifdef CONFIG_FAIR_GROUP_SCHED
 -- 
-2.30.1
+2.30.2
 

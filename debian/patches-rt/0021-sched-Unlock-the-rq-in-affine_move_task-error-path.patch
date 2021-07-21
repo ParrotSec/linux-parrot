@@ -1,8 +1,8 @@
-From 8da860fad2a6da8534b261f8131664395a314251 Mon Sep 17 00:00:00 2001
+From f78ee74dadf7dd5a7457462540654c0dad15fc21 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 9 Nov 2020 15:54:03 +0100
-Subject: [PATCH 021/295] sched: Unlock the rq in affine_move_task() error path
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 021/296] sched: Unlock the rq in affine_move_task() error path
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Unlock the rq if returned early in the error path.
 
@@ -30,5 +30,5 @@ index 3a1db2775fa4..fd8dfadba894 100644
  	if (flags & SCA_MIGRATE_ENABLE) {
  
 -- 
-2.30.1
+2.30.2
 

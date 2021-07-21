@@ -1,8 +1,8 @@
-From 88d227f3be2b17efd871fc19ad5134e115235acc Mon Sep 17 00:00:00 2001
+From d215f795cb0996af5ce481483516543e323c0efd Mon Sep 17 00:00:00 2001
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Fri, 23 Oct 2020 12:12:17 +0200
-Subject: [PATCH 020/295] sched: Comment affine_move_task()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 020/296] sched: Comment affine_move_task()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Signed-off-by: Valentin Schneider <valentin.schneider@arm.com>
 Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
@@ -126,5 +126,5 @@ index 860c083ddc4b..3a1db2775fa4 100644
  
  	return 0;
 -- 
-2.30.1
+2.30.2
 

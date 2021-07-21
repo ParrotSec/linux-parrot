@@ -1,8 +1,8 @@
-From 2298fa9c55a189648eabf2cc595fb42dcca12341 Mon Sep 17 00:00:00 2001
+From 24d84605b39e5e0a2f08012879714e8d62a45bec Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 11 Feb 2019 11:33:11 +0100
-Subject: [PATCH 112/295] tpm: remove tpm_dev_wq_lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 112/296] tpm: remove tpm_dev_wq_lock
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Added in commit
 
@@ -31,5 +31,5 @@ index 1784530b8387..c08cbb306636 100644
  static ssize_t tpm_dev_transmit(struct tpm_chip *chip, struct tpm_space *space,
  				u8 *buf, size_t bufsiz)
 -- 
-2.30.1
+2.30.2
 

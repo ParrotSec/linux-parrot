@@ -1,8 +1,8 @@
-From 96ba3ef3a086a8ea827e0b3dfee76e02f2f2eb0b Mon Sep 17 00:00:00 2001
+From c60fec2c6788e8ad69c67a4bf44018028d80b5f6 Mon Sep 17 00:00:00 2001
 From: Clark Williams <williams@redhat.com>
 Date: Sat, 30 Jul 2011 21:55:53 -0500
-Subject: [PATCH 293/295] sysfs: Add /sys/kernel/realtime entry
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 293/296] sysfs: Add /sys/kernel/realtime entry
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Add a /sys/kernel entry to indicate that the kernel is a
 realtime kernel.
@@ -50,5 +50,5 @@ index 35859da8bd4f..dfff31ed644a 100644
  	NULL
  };
 -- 
-2.30.1
+2.30.2
 

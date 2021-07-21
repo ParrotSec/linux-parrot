@@ -1,8 +1,8 @@
-From 44013f32bfc12e64b02f3fb59ff2a004f51454f6 Mon Sep 17 00:00:00 2001
+From 0d544cc765b0ebf25038748d52d2e76f256a1e56 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:00 +0200
-Subject: [PATCH 003/295] sched: Fix balance_callback()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 003/296] sched: Fix balance_callback()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 The intent of balance_callback() has always been to delay executing
 balancing operations until the end of the current rq->lock section.
@@ -231,5 +231,5 @@ index fac1b121d113..5e03f3210318 100644
  
  static inline void rq_unpin_lock(struct rq *rq, struct rq_flags *rf)
 -- 
-2.30.1
+2.30.2
 

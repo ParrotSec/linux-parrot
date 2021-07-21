@@ -1,9 +1,9 @@
-From dfa5377c81f11adc0db0a0038d71284265b8e97f Mon Sep 17 00:00:00 2001
+From b37d7fcf02f6efc49ecd7b96aed1342d578d4fc5 Mon Sep 17 00:00:00 2001
 From: Julia Cartwright <julia@ni.com>
 Date: Tue, 15 Dec 2020 15:16:47 +0100
-Subject: [PATCH 074/295] rcu: Enable rcu_normal_after_boot unconditionally for
+Subject: [PATCH 074/296] rcu: Enable rcu_normal_after_boot unconditionally for
  RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Expedited RCU grace periods send IPIs to all non-idle CPUs, and thus can
 disrupt time-critical code in real-time applications.  However, there
@@ -68,5 +68,5 @@ index 39334d2d2b37..b95ae86c40a7 100644
  
  #ifdef CONFIG_DEBUG_LOCK_ALLOC
 -- 
-2.30.1
+2.30.2
 

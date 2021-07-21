@@ -1,8 +1,8 @@
-From c42af81d3782da4181688294bec8c9fec4ee4f73 Mon Sep 17 00:00:00 2001
+From 596e27c7622eca1181eaef97c5de007d85e6a99e Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 14 Aug 2020 18:53:34 +0200
-Subject: [PATCH 113/295] shmem: Use raw_spinlock_t for ->stat_lock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 113/296] shmem: Use raw_spinlock_t for ->stat_lock
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Each CPU has SHMEM_INO_BATCH inodes available in `->ino_batch' which is
 per-CPU. Access here is serialized by disabling preemption. If the pool is
@@ -143,5 +143,5 @@ index 537c137698f8..1c473d6123bc 100644
  		goto failed;
  	spin_lock_init(&sbinfo->shrinklist_lock);
 -- 
-2.30.1
+2.30.2
 

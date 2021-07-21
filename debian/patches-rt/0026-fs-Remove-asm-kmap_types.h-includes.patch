@@ -1,8 +1,8 @@
-From 1d56d9390a4c67405357b7d1dd9774813de2a248 Mon Sep 17 00:00:00 2001
+From 7a0301497eca9332ed06a129d8808a28a278db00 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:15 +0100
-Subject: [PATCH 026/295] fs: Remove asm/kmap_types.h includes
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 026/296] fs: Remove asm/kmap_types.h includes
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Historical leftovers from the time where kmap() had fixed slots.
 
@@ -46,5 +46,5 @@ index bcc6848bb6d6..fabbf6cc45bf 100644
  #include <linux/pagemap.h>
  #include <linux/btrfs.h>
 -- 
-2.30.1
+2.30.2
 

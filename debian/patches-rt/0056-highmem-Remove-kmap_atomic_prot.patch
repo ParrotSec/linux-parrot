@@ -1,8 +1,8 @@
-From 5248eb8e516c2f0115ab7f6a1a4c98861145ff74 Mon Sep 17 00:00:00 2001
+From 3fa5b7afb1f3604a040a3ac7f85020c20571d1f7 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:45 +0100
-Subject: [PATCH 056/295] highmem: Remove kmap_atomic_prot()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 056/296] highmem: Remove kmap_atomic_prot()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 No more users.
 
@@ -48,5 +48,5 @@ index 3590af5aad96..bd15bf9164c2 100644
  {
  #ifdef ARCH_HAS_FLUSH_ON_KUNMAP
 -- 
-2.30.1
+2.30.2
 

@@ -1,8 +1,8 @@
-From 69f75f1946a02e06a913d2c0566981a9a9c6cb63 Mon Sep 17 00:00:00 2001
+From 416b6bcc44aa455377894c326d5d0e6fa967494a Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:17 +0100
-Subject: [PATCH 125/295] preempt: Cleanup the macro maze a bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 125/296] preempt: Cleanup the macro maze a bit
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Make the macro maze consistent and prepare it for adding the RT variant for
 BH accounting.
@@ -74,5 +74,5 @@ index 6df63cbe8bb0..69cc8b64aa3a 100644
  /*
   * The preempt_count offset after preempt_disable();
 -- 
-2.30.1
+2.30.2
 

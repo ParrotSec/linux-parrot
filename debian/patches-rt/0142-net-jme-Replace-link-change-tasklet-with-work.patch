@@ -1,8 +1,8 @@
-From 9974d7442419c163a7b23944c84557c1ce3f996a Mon Sep 17 00:00:00 2001
+From f7eb13c31d8d3e6a849b2aea91bee8b0ecd0b94e Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:11 +0100
-Subject: [PATCH 142/295] net: jme: Replace link-change tasklet with work
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 142/296] net: jme: Replace link-change tasklet with work
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 The link change tasklet disables the tasklets for tx/rx processing while
 upating hw parameters and then enables the tasklets again.
@@ -84,5 +84,5 @@ index a2c3b00d939d..2af76329b4a2 100644
  	unsigned long		flags;
  	u32			reg_txcs;
 -- 
-2.30.1
+2.30.2
 

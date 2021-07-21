@@ -1,8 +1,8 @@
-From 0b75f873888efd23c04af5f0553a117b4c3c3a11 Mon Sep 17 00:00:00 2001
+From 2c3deb4bdaf70ba1cb1f37e046f6f07983ed2f31 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 27 May 2017 19:02:06 +0200
-Subject: [PATCH 228/295] kernel/sched: add {put|get}_cpu_light()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 228/296] kernel/sched: add {put|get}_cpu_light()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
@@ -24,5 +24,5 @@ index 9f13966d3d92..c1f6aaade44a 100644
   * Callback to arch code if there's nosmp or maxcpus=0 on the
   * boot command line:
 -- 
-2.30.1
+2.30.2
 

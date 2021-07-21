@@ -1,8 +1,8 @@
-From 6f9966d23afec88150d9d26ea815ac4079154244 Mon Sep 17 00:00:00 2001
+From b5c15e8a9b4b9a6923dac9e886f827a7630a8852 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 3 Jul 2009 08:44:56 -0500
-Subject: [PATCH 290/295] signals: Allow rt tasks to cache one sigqueue struct
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 290/296] signals: Allow rt tasks to cache one sigqueue struct
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 To avoid allocation allow rt tasks to cache one sigqueue struct in
 task struct.
@@ -54,10 +54,10 @@ index d13d67fc5f4e..f5933bd07932 100644
  	spin_unlock(&sighand->siglock);
  
 diff --git a/kernel/fork.c b/kernel/fork.c
-index 7d0389bb071c..12661e346e23 100644
+index eaa47c928f96..1e97f271ac59 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -2017,6 +2017,7 @@ static __latent_entropy struct task_struct *copy_process(
+@@ -2025,6 +2025,7 @@ static __latent_entropy struct task_struct *copy_process(
  	spin_lock_init(&p->alloc_lock);
  
  	init_sigpending(&p->pending);
@@ -208,5 +208,5 @@ index fde69283d03f..bad7873f8949 100644
  	if (q)
  		q->flags |= SIGQUEUE_PREALLOC;
 -- 
-2.30.1
+2.30.2
 

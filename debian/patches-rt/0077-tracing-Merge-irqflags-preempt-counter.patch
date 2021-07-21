@@ -1,11 +1,11 @@
-From fea624dc735e50494c6a339b1f023d3c44d1335d Mon Sep 17 00:00:00 2001
+From 4015a7e2437d1484c7774c178c77ba6f788446a0 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 3 Feb 2021 11:05:23 -0500
-Subject: [PATCH 077/295] tracing: Merge irqflags + preempt counter.
+Subject: [PATCH 077/296] tracing: Merge irqflags + preempt counter.
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 The state of the interrupts (irqflags) and the preemption counter are
 both passed down to tracing_generic_entry_update(). Only one bit of
@@ -339,7 +339,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	ret = 1;
   out:
-@@ -2584,36 +2578,69 @@
+@@ -2573,36 +2567,69 @@
  }
  EXPORT_SYMBOL_GPL(trace_handle_return);
  
@@ -427,7 +427,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  DEFINE_PER_CPU(struct ring_buffer_event *, trace_buffered_event);
-@@ -2733,7 +2760,7 @@
+@@ -2722,7 +2749,7 @@
  trace_event_buffer_lock_reserve(struct trace_buffer **current_rb,
  			  struct trace_event_file *trace_file,
  			  int type, unsigned long len,
@@ -436,16 +436,16 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct ring_buffer_event *entry;
  	int val;
-@@ -2746,7 +2773,7 @@
+@@ -2735,7 +2762,7 @@
  		/* Try to use the per cpu buffer first */
  		val = this_cpu_inc_return(trace_buffered_event_cnt);
- 		if ((len < (PAGE_SIZE - sizeof(*entry))) && val == 1) {
+ 		if ((len < (PAGE_SIZE - sizeof(*entry) - sizeof(entry->array[0]))) && val == 1) {
 -			trace_event_setup(entry, type, flags, pc);
 +			trace_event_setup(entry, type, trace_ctx);
  			entry->array[0] = len;
  			return entry;
  		}
-@@ -2754,7 +2781,7 @@
+@@ -2743,7 +2770,7 @@
  	}
  
  	entry = __trace_buffer_lock_reserve(*current_rb,
@@ -454,7 +454,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * If tracing is off, but we have triggers enabled
  	 * we still need to look at the event data. Use the temp_buffer
-@@ -2763,8 +2790,8 @@
+@@ -2752,8 +2779,8 @@
  	 */
  	if (!entry && trace_file->flags & EVENT_FILE_FL_TRIGGER_COND) {
  		*current_rb = temp_buffer;
@@ -465,7 +465,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  	return entry;
  }
-@@ -2850,7 +2877,7 @@
+@@ -2839,7 +2866,7 @@
  		ftrace_exports(fbuffer->event, TRACE_EXPORT_EVENT);
  	event_trigger_unlock_commit_regs(fbuffer->trace_file, fbuffer->buffer,
  				    fbuffer->event, fbuffer->entry,
@@ -474,7 +474,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  EXPORT_SYMBOL_GPL(trace_event_buffer_commit);
  
-@@ -2866,7 +2893,7 @@
+@@ -2855,7 +2882,7 @@
  void trace_buffer_unlock_commit_regs(struct trace_array *tr,
  				     struct trace_buffer *buffer,
  				     struct ring_buffer_event *event,
@@ -483,7 +483,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				     struct pt_regs *regs)
  {
  	__buffer_unlock_commit(buffer, event);
-@@ -2877,8 +2904,8 @@
+@@ -2866,8 +2893,8 @@
  	 * and mmiotrace, but that's ok if they lose a function or
  	 * two. They are not that meaningful.
  	 */
@@ -494,7 +494,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  /*
-@@ -2892,9 +2919,8 @@
+@@ -2881,9 +2908,8 @@
  }
  
  void
@@ -506,7 +506,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct trace_event_call *call = &event_function;
  	struct trace_buffer *buffer = tr->array_buffer.buffer;
-@@ -2902,7 +2928,7 @@
+@@ -2891,7 +2917,7 @@
  	struct ftrace_entry *entry;
  
  	event = __trace_buffer_lock_reserve(buffer, TRACE_FN, sizeof(*entry),
@@ -515,7 +515,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!event)
  		return;
  	entry	= ring_buffer_event_data(event);
-@@ -2936,8 +2962,8 @@
+@@ -2925,8 +2951,8 @@
  static DEFINE_PER_CPU(int, ftrace_stack_reserve);
  
  static void __ftrace_trace_stack(struct trace_buffer *buffer,
@@ -526,7 +526,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct trace_event_call *call = &event_kernel_stack;
  	struct ring_buffer_event *event;
-@@ -2985,7 +3011,7 @@
+@@ -2974,7 +3000,7 @@
  	size = nr_entries * sizeof(unsigned long);
  	event = __trace_buffer_lock_reserve(buffer, TRACE_STACK,
  				    (sizeof(*entry) - sizeof(entry->caller)) + size,
@@ -535,7 +535,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!event)
  		goto out;
  	entry = ring_buffer_event_data(event);
-@@ -3006,22 +3032,22 @@
+@@ -2995,22 +3021,22 @@
  
  static inline void ftrace_trace_stack(struct trace_array *tr,
  				      struct trace_buffer *buffer,
@@ -564,7 +564,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		return;
  	}
  
-@@ -3035,7 +3061,7 @@
+@@ -3024,7 +3050,7 @@
  		return;
  
  	rcu_irq_enter_irqson();
@@ -573,7 +573,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	rcu_irq_exit_irqson();
  }
  
-@@ -3045,19 +3071,15 @@
+@@ -3034,19 +3060,15 @@
   */
  void trace_dump_stack(int skip)
  {
@@ -594,7 +594,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  EXPORT_SYMBOL_GPL(trace_dump_stack);
  
-@@ -3066,7 +3088,7 @@
+@@ -3055,7 +3077,7 @@
  
  static void
  ftrace_trace_userstack(struct trace_array *tr,
@@ -603,7 +603,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  	struct trace_event_call *call = &event_user_stack;
  	struct ring_buffer_event *event;
-@@ -3093,7 +3115,7 @@
+@@ -3082,7 +3104,7 @@
  	__this_cpu_inc(user_stack_count);
  
  	event = __trace_buffer_lock_reserve(buffer, TRACE_USER_STACK,
@@ -612,7 +612,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!event)
  		goto out_drop_count;
  	entry	= ring_buffer_event_data(event);
-@@ -3113,7 +3135,7 @@
+@@ -3102,7 +3124,7 @@
  #else /* CONFIG_USER_STACKTRACE_SUPPORT */
  static void ftrace_trace_userstack(struct trace_array *tr,
  				   struct trace_buffer *buffer,
@@ -621,7 +621,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  {
  }
  #endif /* !CONFIG_USER_STACKTRACE_SUPPORT */
-@@ -3243,9 +3265,9 @@
+@@ -3232,9 +3254,9 @@
  	struct trace_buffer *buffer;
  	struct trace_array *tr = &global_trace;
  	struct bprint_entry *entry;
@@ -633,7 +633,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	if (unlikely(tracing_selftest_running || tracing_disabled))
  		return 0;
-@@ -3253,7 +3275,7 @@
+@@ -3242,7 +3264,7 @@
  	/* Don't pollute graph traces with trace_vprintk internals */
  	pause_graph_tracing();
  
@@ -642,7 +642,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	preempt_disable_notrace();
  
  	tbuffer = get_trace_buf();
-@@ -3267,12 +3289,11 @@
+@@ -3256,12 +3278,11 @@
  	if (len > TRACE_BUF_SIZE/sizeof(int) || len < 0)
  		goto out_put;
  
@@ -656,7 +656,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!event)
  		goto out;
  	entry = ring_buffer_event_data(event);
-@@ -3282,7 +3303,7 @@
+@@ -3271,7 +3292,7 @@
  	memcpy(entry->buf, tbuffer, sizeof(u32) * len);
  	if (!call_filter_check_discard(call, entry, buffer, event)) {
  		__buffer_unlock_commit(buffer, event);
@@ -665,7 +665,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  out:
-@@ -3305,9 +3326,9 @@
+@@ -3294,9 +3315,9 @@
  {
  	struct trace_event_call *call = &event_print;
  	struct ring_buffer_event *event;
@@ -677,7 +677,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	char *tbuffer;
  
  	if (tracing_disabled || tracing_selftest_running)
-@@ -3316,7 +3337,7 @@
+@@ -3305,7 +3326,7 @@
  	/* Don't pollute graph traces with trace_vprintk internals */
  	pause_graph_tracing();
  
@@ -686,7 +686,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	preempt_disable_notrace();
  
  
-@@ -3328,11 +3349,10 @@
+@@ -3317,11 +3338,10 @@
  
  	len = vscnprintf(tbuffer, TRACE_BUF_SIZE, fmt, args);
  
@@ -699,7 +699,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (!event)
  		goto out;
  	entry = ring_buffer_event_data(event);
-@@ -3341,7 +3361,7 @@
+@@ -3330,7 +3350,7 @@
  	memcpy(&entry->buf, tbuffer, len + 1);
  	if (!call_filter_check_discard(call, entry, buffer, event)) {
  		__buffer_unlock_commit(buffer, event);
@@ -708,7 +708,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  out:
-@@ -6654,7 +6674,6 @@
+@@ -6643,7 +6663,6 @@
  	enum event_trigger_type tt = ETT_NONE;
  	struct trace_buffer *buffer;
  	struct print_entry *entry;
@@ -716,7 +716,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	ssize_t written;
  	int size;
  	int len;
-@@ -6674,7 +6693,6 @@
+@@ -6663,7 +6682,6 @@
  
  	BUILD_BUG_ON(TRACE_BUF_SIZE >= PAGE_SIZE);
  
@@ -724,7 +724,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	size = sizeof(*entry) + cnt + 2; /* add '\0' and possible '\n' */
  
  	/* If less than "<faulted>", then make sure we can still add that */
-@@ -6683,7 +6701,7 @@
+@@ -6672,7 +6690,7 @@
  
  	buffer = tr->array_buffer.buffer;
  	event = __trace_buffer_lock_reserve(buffer, TRACE_PRINT, size,
@@ -733,7 +733,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (unlikely(!event))
  		/* Ring buffer disabled, return as if not open for write */
  		return -EBADF;
-@@ -6735,7 +6753,6 @@
+@@ -6724,7 +6742,6 @@
  	struct ring_buffer_event *event;
  	struct trace_buffer *buffer;
  	struct raw_data_entry *entry;
@@ -741,7 +741,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	ssize_t written;
  	int size;
  	int len;
-@@ -6757,14 +6774,13 @@
+@@ -6746,14 +6763,13 @@
  
  	BUILD_BUG_ON(TRACE_BUF_SIZE >= PAGE_SIZE);
  

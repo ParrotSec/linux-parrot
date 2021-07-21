@@ -1,9 +1,9 @@
-From 25dffe47415013679d5efb139cdebc191dfcf6ca Mon Sep 17 00:00:00 2001
+From be7c2411d9aa80d55f1a6a3cc2dd1e49bb28d7ef Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 12 Oct 2020 17:33:54 +0200
-Subject: [PATCH 115/295] tcp: Remove superfluous BH-disable around
+Subject: [PATCH 115/296] tcp: Remove superfluous BH-disable around
  listening_hash
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Commit
    9652dc2eb9e40 ("tcp: relax listening_hash operations")
@@ -105,5 +105,5 @@ index 55c290d55605..9bad345cba9a 100644
  	return err;
  }
 -- 
-2.30.1
+2.30.2
 

@@ -1,12 +1,12 @@
-From 838f818a273d0fd3f2db64f0ac639859975de14c Mon Sep 17 00:00:00 2001
+From 65ca25560962f560dca2ec51f29a3d3585a6ebe1 Mon Sep 17 00:00:00 2001
 From: Geert Uytterhoeven <geert+renesas@glider.be>
 Date: Tue, 24 Nov 2020 14:06:56 +0100
-Subject: [PATCH 127/295] sh/irq: Add missing closing parentheses in
+Subject: [PATCH 127/296] sh/irq: Add missing closing parentheses in
  arch_show_interrupts()
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
     arch/sh/kernel/irq.c: In function ‘arch_show_interrupts’:
     arch/sh/kernel/irq.c:47:58: error: expected ‘)’ before ‘;’ token
@@ -36,5 +36,5 @@ index 5addcb2c2da0..ab5f790b0cd2 100644
  
  	seq_printf(p, "%*s: %10u\n", prec, "ERR", atomic_read(&irq_err_count));
 -- 
-2.30.1
+2.30.2
 

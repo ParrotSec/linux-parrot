@@ -8,6 +8,7 @@ clk-twl6040 ?
 # GPIO
 gpio-da9052 ?
 gpio-pca953x ?
+gpio-mxc ?
 
 # PCIe PHYs
 phy-omap-control ?

@@ -1,8 +1,8 @@
-From 723baa6d5ce808599642f67d4d4f0e55f52baf11 Mon Sep 17 00:00:00 2001
+From d1e22580f18e64a05d1a9255f5601c4fb005e21f Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:00 +0106
-Subject: [PATCH 098/295] printk: remove safe buffers
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 098/296] printk: remove safe buffers
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 With @logbuf_lock removed, the high level printk functions for
 storing messages are lockless. Messages can be stored from any
@@ -873,5 +873,5 @@ index 8abe1870dba4..b09a490f5f70 100644
  	put_cpu();
  }
 -- 
-2.30.1
+2.30.2
 

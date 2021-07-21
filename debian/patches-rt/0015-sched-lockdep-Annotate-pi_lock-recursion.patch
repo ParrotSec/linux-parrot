@@ -1,8 +1,8 @@
-From 2b5a36f7a2abad4a2a90bb90028019cd55dbff2a Mon Sep 17 00:00:00 2001
+From 3dbc2728c03b2fa44549480e280a02acdc006bc7 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:12 +0200
-Subject: [PATCH 015/295] sched, lockdep: Annotate ->pi_lock recursion
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 015/296] sched, lockdep: Annotate ->pi_lock recursion
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 There's a valid ->pi_lock recursion issue where the actual PI code
 tries to wake up the stop task. Make lockdep aware so it doesn't
@@ -48,5 +48,5 @@ index 91f2985ee447..90e87c34d5dd 100644
  
  	cpu_rq(cpu)->stop = stop;
 -- 
-2.30.1
+2.30.2
 

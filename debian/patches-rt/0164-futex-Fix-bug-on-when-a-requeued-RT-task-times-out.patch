@@ -1,8 +1,8 @@
-From 0f5c4c2b220188792a3c01e490f01e001c6c281a Mon Sep 17 00:00:00 2001
+From 4ff24e66c2a9d3d0341c58c3af2983a9e18379dd Mon Sep 17 00:00:00 2001
 From: Steven Rostedt <rostedt@goodmis.org>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 164/295] futex: Fix bug on when a requeued RT task times out
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 164/296] futex: Fix bug on when a requeued RT task times out
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Requeue with timeout causes a bug with PREEMPT_RT.
 
@@ -114,5 +114,5 @@ index 096b16cfb096..37cd6b3bf6f4 100644
  extern struct task_struct *rt_mutex_next_owner(struct rt_mutex *lock);
  extern void rt_mutex_init_proxy_locked(struct rt_mutex *lock,
 -- 
-2.30.1
+2.30.2
 

@@ -1,9 +1,9 @@
-From ee21dde82bc50acd42bf3a17b14f86b0f80394d4 Mon Sep 17 00:00:00 2001
+From 8a90f4a5c97101242b45ec3b689761d336e1346a Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 28 Oct 2020 18:15:32 +0100
-Subject: [PATCH 184/295] mm/memcontrol: Disable preemption in
+Subject: [PATCH 184/296] mm/memcontrol: Disable preemption in
  __mod_memcg_lruvec_state()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 The callers expect disabled preemption/interrupts while invoking
 __mod_memcg_lruvec_state(). This works mainline because a lock of
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+)
 
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index d6966f1ebc7a..cc1d21a5a445 100644
+index d72d2b90474a..bc99242d3415 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
 @@ -816,6 +816,7 @@ void __mod_memcg_lruvec_state(struct lruvec *lruvec, enum node_stat_item idx,
@@ -40,5 +40,5 @@ index d6966f1ebc7a..cc1d21a5a445 100644
  
  /**
 -- 
-2.30.1
+2.30.2
 

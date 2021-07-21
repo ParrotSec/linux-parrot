@@ -1,8 +1,8 @@
-From ef3cccf2d2aca0ea933d7099a8945fb1d433377a Mon Sep 17 00:00:00 2001
+From 80726815fd0962cb9eafb7c75a30356562ff9809 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 7 Mar 2012 21:00:34 +0100
-Subject: [PATCH 239/295] fs: namespace: Use cpu_chill() in trylock loops
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 239/296] fs: namespace: Use cpu_chill() in trylock loops
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Retry loops on RT might loop forever when the modifying side was
 preempted. Use cpu_chill() instead of cpu_relax() to let the system
@@ -40,5 +40,5 @@ index c7fbb50a5aaa..5e261e50625a 100644
  	 * After the slowpath clears MNT_WRITE_HOLD, mnt_is_readonly will
  	 * be set to match its requirements. So we must not load that until
 -- 
-2.30.1
+2.30.2
 

@@ -1,9 +1,9 @@
-From 811c98ce24c605e56b339022e216e879882b3e14 Mon Sep 17 00:00:00 2001
+From a4c7100f6d2ef4a46dd828a673e51761474d10b3 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 7 Jun 2011 09:19:06 +0200
-Subject: [PATCH 220/295] sched: Do not account rcu_preempt_depth on RT in
+Subject: [PATCH 220/296] sched: Do not account rcu_preempt_depth on RT in
  might_sleep()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 RT changes the rcu_preempt_depth semantics, so we cannot check for it
 in might_sleep().
@@ -53,5 +53,5 @@ index 449343e31e72..3e6aaf6161f7 100644
  	return (nested == preempt_offset);
  }
 -- 
-2.30.1
+2.30.2
 

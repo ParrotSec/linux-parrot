@@ -1,8 +1,8 @@
-From 696b2de26b62e3b263b7b7beb9d3226476620235 Mon Sep 17 00:00:00 2001
+From 8b0e42a94653d4061f0dcd88e6df9346814bd3a0 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:09 +0106
-Subject: [PATCH 108/295] printk: add console handover
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 108/296] printk: add console handover
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 If earlyprintk is used, a boot console will print directly to the
 console immediately. The boot console will unregister itself as soon
@@ -72,5 +72,5 @@ index f5fd3e1671fe..18e3aabb2c5b 100644
  	/*
  	 *	Put this console in the list - keep the
 -- 
-2.30.1
+2.30.2
 

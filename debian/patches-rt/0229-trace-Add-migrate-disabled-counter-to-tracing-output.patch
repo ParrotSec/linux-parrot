@@ -1,8 +1,8 @@
-From 0c9e59abc4a7d38a2fa43055ca71d8da23c17044 Mon Sep 17 00:00:00 2001
+From 7e74c5c3df5fb9bcb3ff9e8e3b34bdc0409b4f36 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 21:56:42 +0200
-Subject: [PATCH 229/295] trace: Add migrate-disabled counter to tracing output
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 229/296] trace: Add migrate-disabled counter to tracing output
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
@@ -33,7 +33,7 @@ index 5d1eeac4bfbe..29c24ec33ffd 100644
  	entry->type			= type;
  	entry->flags =			trace_ctx >> 16;
 diff --git a/kernel/trace/trace.c b/kernel/trace/trace.c
-index 4ce8c53aedbe..1d8d537157ae 100644
+index ea5ed64017ec..255b3f027dfd 100644
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
 @@ -2578,6 +2578,15 @@ enum print_line_t trace_handle_return(struct trace_seq *s)
@@ -62,7 +62,7 @@ index 4ce8c53aedbe..1d8d537157ae 100644
  }
  
  struct ring_buffer_event *
-@@ -3802,9 +3812,10 @@ static void print_lat_help_header(struct seq_file *m)
+@@ -3803,9 +3813,10 @@ static void print_lat_help_header(struct seq_file *m)
  		    "#                  | / _----=> need-resched    \n"
  		    "#                  || / _---=> hardirq/softirq \n"
  		    "#                  ||| / _--=> preempt-depth   \n"
@@ -76,7 +76,7 @@ index 4ce8c53aedbe..1d8d537157ae 100644
  }
  
  static void print_event_info(struct array_buffer *buf, struct seq_file *m)
-@@ -3842,9 +3853,10 @@ static void print_func_help_header_irq(struct array_buffer *buf, struct seq_file
+@@ -3843,9 +3854,10 @@ static void print_func_help_header_irq(struct array_buffer *buf, struct seq_file
  	seq_printf(m, "#                            %.*s / _----=> need-resched\n", prec, space);
  	seq_printf(m, "#                            %.*s| / _---=> hardirq/softirq\n", prec, space);
  	seq_printf(m, "#                            %.*s|| / _--=> preempt-depth\n", prec, space);
@@ -119,5 +119,5 @@ index 000e9dc224c6..ad738192647b 100644
  }
  
 -- 
-2.30.1
+2.30.2
 

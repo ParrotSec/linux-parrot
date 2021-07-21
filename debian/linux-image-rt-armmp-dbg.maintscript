@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-rt-armmp-dbg linux-image-5.10.0-6parrot1-rt-armmp-dbg 5.7~rc5-1~exp1 linux-image-rt-armmp-dbg
+dir_to_symlink /usr/share/doc/linux-image-rt-armmp-dbg linux-image-5.10.0-8parrot1-rt-armmp-dbg 5.7~rc5-1~exp1 linux-image-rt-armmp-dbg

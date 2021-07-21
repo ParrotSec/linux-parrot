@@ -1,9 +1,9 @@
-From 9f083eef2c1f8dbe5423cfb08acb3febc1872f73 Mon Sep 17 00:00:00 2001
+From e3babe886508ceb48a600aced5418369dd4d9390 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 249/295] panic: skip get_random_bytes for RT_FULL in
+Subject: [PATCH 249/296] panic: skip get_random_bytes for RT_FULL in
  init_oops_id
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Disable on -RT. If this is invoked from irq-context we will have problems
 to acquire the sleeping lock.
@@ -30,5 +30,5 @@ index 0efdac3cf94e..a14e2f5a9f55 100644
  
  	return 0;
 -- 
-2.30.1
+2.30.2
 

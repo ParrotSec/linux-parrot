@@ -1,9 +1,9 @@
-From 5fbb10d66ef0405afb29734405e83316b1f9ce96 Mon Sep 17 00:00:00 2001
+From 10290ae3a50261a3acc577d3c4000d490a7fb03b Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 23 Jan 2021 21:10:26 +0100
-Subject: [PATCH 065/295] blk-mq: Always complete remote completions requests
+Subject: [PATCH 065/296] blk-mq: Always complete remote completions requests
  in softirq
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Controllers with multiple queues have their IRQ-handelers pinned to a
 CPU. The core shouldn't need to complete the request on a remote CPU.
@@ -45,5 +45,5 @@ index 3e3d015feaec..510323b8c15e 100644
  
  static inline bool blk_mq_complete_need_ipi(struct request *rq)
 -- 
-2.30.1
+2.30.2
 

@@ -1,8 +1,8 @@
-From c3ccb48977cb0f65a8373170f00619b62717fd01 Mon Sep 17 00:00:00 2001
+From c3c28ab579cc831b8ca595f0e134bb613491bc95 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 14 Aug 2020 17:08:41 +0200
-Subject: [PATCH 169/295] locking: split out the rbtree definition
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 169/296] locking: split out the rbtree definition
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 rtmutex.h needs the definition for rb_root_cached. By including kernel.h
 we will get to spinlock.h which requires rtmutex.h again.
@@ -116,5 +116,5 @@ index add1dab27df5..b828b938c876 100644
  
  extern int max_lock_depth; /* for sysctl */
 -- 
-2.30.1
+2.30.2
 

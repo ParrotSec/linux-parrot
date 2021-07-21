@@ -1,8 +1,8 @@
-From e90b3475e15e82f023bc974aab55da10bf145250 Mon Sep 17 00:00:00 2001
+From c1bedae54f7b7cfd8fe3f2d26a85badfafb15b87 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:55:58 +0100
-Subject: [PATCH 154/295] rcu: Prevent false positive softirq warning on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 154/296] rcu: Prevent false positive softirq warning on RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Soft interrupt disabled sections can legitimately be preempted or schedule
 out when blocking on a lock on RT enabled kernels so the RCU preempt check
@@ -31,5 +31,5 @@ index c5adba5e79e7..fc5ba83fc818 100644
  		RCU_LOCKDEP_WARN(lock_is_held(&rcu_sched_lock_map),	\
  				 "Illegal context switch in RCU-sched read-side critical section"); \
 -- 
-2.30.1
+2.30.2
 

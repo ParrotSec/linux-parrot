@@ -1,5 +1,5 @@
 [abi]
-abiname: 6parrot1
+abiname: 8parrot1
 ignore-changes:
  __cpuhp_*
  __udp_gso_segment
@@ -22,6 +22,7 @@ ignore-changes:
  module:drivers/gpu/drm/sun4i/*
  module:drivers/iio/**
  module:drivers/misc/cxl/*
+ module:drivers/misc/lis3lv02d/*
  module:drivers/mtd/nand/*
  module:drivers/net/ethernet/**
  module:drivers/net/wireless/**
@@ -40,6 +41,7 @@ ignore-changes:
  module:fs/nfs/**
  module:net/ceph/libceph
  module:net/l2tp/**
+ module:net/openvswitch/**
  module:net/rxrpc/rxrpc
  module:net/sctp/**
  module:sound/core/seq/**

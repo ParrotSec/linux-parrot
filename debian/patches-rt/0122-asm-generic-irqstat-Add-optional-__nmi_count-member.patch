@@ -1,8 +1,8 @@
-From eb138dd2c21cfbc99085335cf286802b063d1fad Mon Sep 17 00:00:00 2001
+From 43e7dc9203020a94a208be644e979265eb2c0398 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:14 +0100
-Subject: [PATCH 122/295] asm-generic/irqstat: Add optional __nmi_count member
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 122/296] asm-generic/irqstat: Add optional __nmi_count member
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Add an optional __nmi_count member to irq_cpustat_t so more architectures
 can use the generic version.
@@ -30,5 +30,5 @@ index d14214dfc10b..f5dd99781e3c 100644
  
  #include <linux/irq_cpustat.h>	/* Standard mappings for irq_cpustat_t above */
 -- 
-2.30.1
+2.30.2
 

@@ -1,8 +1,8 @@
-From 43cb57d1fb6592ff4ec2a0f3344637de5863f7ad Mon Sep 17 00:00:00 2001
+From 14e18fb408cc534ce4a0c99c177e02d4a4c8907f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 31 Oct 2012 12:04:11 +0100
-Subject: [PATCH 268/295] arm: Add support for lazy preemption
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 268/296] arm: Add support for lazy preemption
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Implement the arm pieces for lazy preempt.
 
@@ -164,5 +164,5 @@ index 2f81d3af5f9a..6e69f7b3d581 100644
  		} else {
  			if (unlikely(!user_mode(regs)))
 -- 
-2.30.1
+2.30.2
 

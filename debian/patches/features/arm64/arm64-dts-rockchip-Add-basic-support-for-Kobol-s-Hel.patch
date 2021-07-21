@@ -1,7 +1,7 @@
 From: Uwe Kleine-König <uwe@kleine-koenig.org>
 Date: Wed, 14 Oct 2020 22:00:30 +0200
 Subject: arm64: dts: rockchip: Add basic support for Kobol's Helios64
-Origin: https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip.git/patch/?id=09e006cfb43e8ec38afe28278b210dab72e6cac8
+Origin: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/patch/?id=09e006cfb43e8ec38afe28278b210dab72e6cac8
 
 The hardware is described in detail on Kobol's wiki at
 https://wiki.kobol.io/helios64/intro/.

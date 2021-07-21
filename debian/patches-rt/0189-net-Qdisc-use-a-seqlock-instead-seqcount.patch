@@ -1,8 +1,8 @@
-From b2129aa5219a81c302b4dec0c68582d3e8fd90d2 Mon Sep 17 00:00:00 2001
+From a3d4fb66e368e931b012a8971cde9c7cfdcc3993 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 17:36:35 +0200
-Subject: [PATCH 189/295] net/Qdisc: use a seqlock instead seqcount
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 189/296] net/Qdisc: use a seqlock instead seqcount
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 The seqcount disables preemption on -RT while it is held which can't
 remove. Also we don't want the reader to spin for ages if the writer is
@@ -21,8 +21,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  7 files changed, 67 insertions(+), 17 deletions(-)
  create mode 100644 include/net/net_seq_lock.h
 
-diff --git a/include/net/gen_stats.h b/include/net/gen_stats.h
-index 1424e02cef90..163f8415e5db 100644
 --- a/include/net/gen_stats.h
 +++ b/include/net/gen_stats.h
 @@ -6,6 +6,7 @@
@@ -33,7 +31,7 @@ index 1424e02cef90..163f8415e5db 100644
  
  /* Note: this used to be in include/uapi/linux/gen_stats.h */
  struct gnet_stats_basic_packed {
-@@ -42,15 +43,15 @@ int gnet_stats_start_copy_compat(struct sk_buff *skb, int type,
+@@ -42,15 +43,15 @@
  				 spinlock_t *lock, struct gnet_dump *d,
  				 int padattr);
  
@@ -52,7 +50,7 @@ index 1424e02cef90..163f8415e5db 100644
  			     struct gnet_dump *d,
  			     struct gnet_stats_basic_cpu __percpu *cpu,
  			     struct gnet_stats_basic_packed *b);
-@@ -70,13 +71,13 @@ int gen_new_estimator(struct gnet_stats_basic_packed *bstats,
+@@ -70,13 +71,13 @@
  		      struct gnet_stats_basic_cpu __percpu *cpu_bstats,
  		      struct net_rate_estimator __rcu **rate_est,
  		      spinlock_t *lock,
@@ -68,9 +66,6 @@ index 1424e02cef90..163f8415e5db 100644
  bool gen_estimator_active(struct net_rate_estimator __rcu **ptr);
  bool gen_estimator_read(struct net_rate_estimator __rcu **ptr,
  			struct gnet_stats_rate_est64 *sample);
-diff --git a/include/net/net_seq_lock.h b/include/net/net_seq_lock.h
-new file mode 100644
-index 000000000000..95a497a72e51
 --- /dev/null
 +++ b/include/net/net_seq_lock.h
 @@ -0,0 +1,24 @@
@@ -98,8 +93,6 @@ index 000000000000..95a497a72e51
 +#endif
 +
 +#endif
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 3648164faa06..317fcb0a659c 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
 @@ -10,6 +10,7 @@
@@ -110,7 +103,7 @@ index 3648164faa06..317fcb0a659c 100644
  #include <linux/refcount.h>
  #include <linux/workqueue.h>
  #include <linux/mutex.h>
-@@ -100,7 +101,7 @@ struct Qdisc {
+@@ -101,7 +102,7 @@
  	struct sk_buff_head	gso_skb ____cacheline_aligned_in_smp;
  	struct qdisc_skb_head	q;
  	struct gnet_stats_basic_packed bstats;
@@ -119,7 +112,7 @@ index 3648164faa06..317fcb0a659c 100644
  	struct gnet_stats_queue	qstats;
  	unsigned long		state;
  	struct Qdisc            *next_sched;
-@@ -141,7 +142,11 @@ static inline bool qdisc_is_running(struct Qdisc *qdisc)
+@@ -142,7 +143,11 @@
  {
  	if (qdisc->flags & TCQ_F_NOLOCK)
  		return spin_is_locked(&qdisc->seqlock);
@@ -131,7 +124,7 @@ index 3648164faa06..317fcb0a659c 100644
  }
  
  static inline bool qdisc_is_percpu_stats(const struct Qdisc *q)
-@@ -165,17 +170,27 @@ static inline bool qdisc_run_begin(struct Qdisc *qdisc)
+@@ -191,17 +196,27 @@
  	} else if (qdisc_is_running(qdisc)) {
  		return false;
  	}
@@ -156,10 +149,10 @@ index 3648164faa06..317fcb0a659c 100644
 +#else
  	write_seqcount_end(&qdisc->running);
 +#endif
- 	if (qdisc->flags & TCQ_F_NOLOCK)
+ 	if (qdisc->flags & TCQ_F_NOLOCK) {
  		spin_unlock(&qdisc->seqlock);
- }
-@@ -550,7 +565,7 @@ static inline spinlock_t *qdisc_root_sleeping_lock(const struct Qdisc *qdisc)
+ 
+@@ -583,7 +598,7 @@
  	return qdisc_lock(root);
  }
  
@@ -168,8 +161,6 @@ index 3648164faa06..317fcb0a659c 100644
  {
  	struct Qdisc *root = qdisc_root_sleeping(qdisc);
  
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 8e582e29a41e..e51f4854d8b2 100644
 --- a/net/core/gen_estimator.c
 +++ b/net/core/gen_estimator.c
 @@ -42,7 +42,7 @@
@@ -181,7 +172,7 @@ index 8e582e29a41e..e51f4854d8b2 100644
  	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
  	u8			ewma_log;
  	u8			intvl_log; /* period : (250ms << intvl_log) */
-@@ -125,7 +125,7 @@ int gen_new_estimator(struct gnet_stats_basic_packed *bstats,
+@@ -125,7 +125,7 @@
  		      struct gnet_stats_basic_cpu __percpu *cpu_bstats,
  		      struct net_rate_estimator __rcu **rate_est,
  		      spinlock_t *lock,
@@ -190,7 +181,7 @@ index 8e582e29a41e..e51f4854d8b2 100644
  		      struct nlattr *opt)
  {
  	struct gnet_estimator *parm = nla_data(opt);
-@@ -226,7 +226,7 @@ int gen_replace_estimator(struct gnet_stats_basic_packed *bstats,
+@@ -226,7 +226,7 @@
  			  struct gnet_stats_basic_cpu __percpu *cpu_bstats,
  			  struct net_rate_estimator __rcu **rate_est,
  			  spinlock_t *lock,
@@ -199,11 +190,9 @@ index 8e582e29a41e..e51f4854d8b2 100644
  {
  	return gen_new_estimator(bstats, cpu_bstats, rate_est,
  				 lock, running, opt);
-diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
-index e491b083b348..ef432cea2e10 100644
 --- a/net/core/gen_stats.c
 +++ b/net/core/gen_stats.c
-@@ -137,7 +137,7 @@ __gnet_stats_copy_basic_cpu(struct gnet_stats_basic_packed *bstats,
+@@ -137,7 +137,7 @@
  }
  
  void
@@ -212,7 +201,7 @@ index e491b083b348..ef432cea2e10 100644
  			struct gnet_stats_basic_packed *bstats,
  			struct gnet_stats_basic_cpu __percpu *cpu,
  			struct gnet_stats_basic_packed *b)
-@@ -150,15 +150,15 @@ __gnet_stats_copy_basic(const seqcount_t *running,
+@@ -150,15 +150,15 @@
  	}
  	do {
  		if (running)
@@ -231,7 +220,7 @@ index e491b083b348..ef432cea2e10 100644
  			 struct gnet_dump *d,
  			 struct gnet_stats_basic_cpu __percpu *cpu,
  			 struct gnet_stats_basic_packed *b,
-@@ -204,7 +204,7 @@ ___gnet_stats_copy_basic(const seqcount_t *running,
+@@ -204,7 +204,7 @@
   * if the room in the socket buffer was not sufficient.
   */
  int
@@ -240,7 +229,7 @@ index e491b083b348..ef432cea2e10 100644
  		      struct gnet_dump *d,
  		      struct gnet_stats_basic_cpu __percpu *cpu,
  		      struct gnet_stats_basic_packed *b)
-@@ -228,7 +228,7 @@ EXPORT_SYMBOL(gnet_stats_copy_basic);
+@@ -228,7 +228,7 @@
   * if the room in the socket buffer was not sufficient.
   */
  int
@@ -249,11 +238,9 @@ index e491b083b348..ef432cea2e10 100644
  			 struct gnet_dump *d,
  			 struct gnet_stats_basic_cpu __percpu *cpu,
  			 struct gnet_stats_basic_packed *b)
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 54a8c363bcdd..e6e00f8a7f8f 100644
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -1258,7 +1258,7 @@ static struct Qdisc *qdisc_create(struct net_device *dev,
+@@ -1258,7 +1258,7 @@
  		rcu_assign_pointer(sch->stab, stab);
  	}
  	if (tca[TCA_RATE]) {
@@ -262,11 +249,9 @@ index 54a8c363bcdd..e6e00f8a7f8f 100644
  
  		err = -EOPNOTSUPP;
  		if (sch->flags & TCQ_F_MQROOT) {
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 49eae93d1489..512a39d6edec 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -553,7 +553,11 @@ struct Qdisc noop_qdisc = {
+@@ -578,7 +578,11 @@
  	.ops		=	&noop_qdisc_ops,
  	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
  	.dev_queue	=	&noop_netdev_queue,
@@ -278,7 +263,7 @@ index 49eae93d1489..512a39d6edec 100644
  	.busylock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.busylock),
  	.gso_skb = {
  		.next = (struct sk_buff *)&noop_qdisc.gso_skb,
-@@ -845,9 +849,15 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+@@ -889,9 +893,15 @@
  	lockdep_set_class(&sch->busylock,
  			  dev->qdisc_tx_busylock ?: &qdisc_tx_busylock);
  
@@ -294,6 +279,3 @@ index 49eae93d1489..512a39d6edec 100644
  
  	sch->ops = ops;
  	sch->flags = ops->static_flags;
--- 
-2.30.1
-

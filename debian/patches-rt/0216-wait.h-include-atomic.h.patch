@@ -1,11 +1,11 @@
-From 531cce8931894de361888edeb82573ab4719de97 Mon Sep 17 00:00:00 2001
+From 5e394b3bdbd79a62a1d1470fe383d2e1090fba7f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 28 Oct 2013 12:19:57 +0100
-Subject: [PATCH 216/295] wait.h: include atomic.h
+Subject: [PATCH 216/296] wait.h: include atomic.h
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 |  CC      init/main.o
 |In file included from include/linux/mmzone.h:9:0,
@@ -38,5 +38,5 @@ index 27fb99cfeb02..93b42387b4c6 100644
  typedef struct wait_queue_entry wait_queue_entry_t;
  
 -- 
-2.30.1
+2.30.2
 

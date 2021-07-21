@@ -1,8 +1,8 @@
-From a904fbf4da5023b265a180fcfa86d1e0f6a82bb0 Mon Sep 17 00:00:00 2001
+From 3e154f65955f6e6664afe437446c1cf8c1409f5d Mon Sep 17 00:00:00 2001
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:29:37 -0500
-Subject: [PATCH 206/295] mm: page_alloc: rt-friendly per-cpu pages
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 206/296] mm: page_alloc: rt-friendly per-cpu pages
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 rt-friendly per-cpu pages: convert the irqs-off per-cpu locking
 method into a preemptible, explicit-per-cpu-locks method.
@@ -18,7 +18,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 28 insertions(+), 19 deletions(-)
 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 0ebb398a15ef..0a99425979a9 100644
+index b8350cbe66f9..287f3afc3cf1 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -61,6 +61,7 @@
@@ -128,7 +128,7 @@ index 0ebb398a15ef..0a99425979a9 100644
  
  	for (i = 0; i < __MAX_NR_ZONES; ) {
  		struct page *page;
-@@ -3467,7 +3475,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
+@@ -3468,7 +3476,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
  	struct page *page;
  	unsigned long flags;
  
@@ -137,7 +137,7 @@ index 0ebb398a15ef..0a99425979a9 100644
  	pcp = &this_cpu_ptr(zone->pageset)->pcp;
  	list = &pcp->lists[migratetype];
  	page = __rmqueue_pcplist(zone,  migratetype, alloc_flags, pcp, list);
-@@ -3475,7 +3483,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
+@@ -3476,7 +3484,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
  		__count_zid_vm_events(PGALLOC, page_zonenum(page), 1);
  		zone_statistics(preferred_zone, zone);
  	}
@@ -146,7 +146,7 @@ index 0ebb398a15ef..0a99425979a9 100644
  	return page;
  }
  
-@@ -3509,7 +3517,8 @@ struct page *rmqueue(struct zone *preferred_zone,
+@@ -3510,7 +3518,8 @@ struct page *rmqueue(struct zone *preferred_zone,
  	 * allocate greater than order-1 page units with __GFP_NOFAIL.
  	 */
  	WARN_ON_ONCE((gfp_flags & __GFP_NOFAIL) && (order > 1));
@@ -156,7 +156,7 @@ index 0ebb398a15ef..0a99425979a9 100644
  
  	do {
  		page = NULL;
-@@ -3535,7 +3544,7 @@ struct page *rmqueue(struct zone *preferred_zone,
+@@ -3536,7 +3545,7 @@ struct page *rmqueue(struct zone *preferred_zone,
  
  	__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
  	zone_statistics(preferred_zone, zone);
@@ -165,7 +165,7 @@ index 0ebb398a15ef..0a99425979a9 100644
  
  out:
  	/* Separate test+clear to avoid unnecessary atomics */
-@@ -3548,7 +3557,7 @@ struct page *rmqueue(struct zone *preferred_zone,
+@@ -3549,7 +3558,7 @@ struct page *rmqueue(struct zone *preferred_zone,
  	return page;
  
  failed:
@@ -174,7 +174,7 @@ index 0ebb398a15ef..0a99425979a9 100644
  	return NULL;
  }
  
-@@ -8793,7 +8802,7 @@ void zone_pcp_reset(struct zone *zone)
+@@ -8794,7 +8803,7 @@ void zone_pcp_reset(struct zone *zone)
  	struct per_cpu_pageset *pset;
  
  	/* avoid races with drain_pages()  */
@@ -183,7 +183,7 @@ index 0ebb398a15ef..0a99425979a9 100644
  	if (zone->pageset != &boot_pageset) {
  		for_each_online_cpu(cpu) {
  			pset = per_cpu_ptr(zone->pageset, cpu);
-@@ -8802,7 +8811,7 @@ void zone_pcp_reset(struct zone *zone)
+@@ -8803,7 +8812,7 @@ void zone_pcp_reset(struct zone *zone)
  		free_percpu(zone->pageset);
  		zone->pageset = &boot_pageset;
  	}
@@ -193,5 +193,5 @@ index 0ebb398a15ef..0a99425979a9 100644
  
  #ifdef CONFIG_MEMORY_HOTREMOVE
 -- 
-2.30.1
+2.30.2
 

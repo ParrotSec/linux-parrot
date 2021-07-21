@@ -1,11 +1,11 @@
-From 2a0cf486182b17d4744a0fe92dd528bddacb0e1d Mon Sep 17 00:00:00 2001
+From 6c092aff3973bf928980ae1c582b91b9050311cb Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 30 Nov 2017 13:40:10 +0100
-Subject: [PATCH 247/295] crypto: limit more FPU-enabled sections
+Subject: [PATCH 247/296] crypto: limit more FPU-enabled sections
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Those crypto drivers use SSE/AVX/… for their crypto work and in order to
 do so in kernel they need to enable the "FPU" in kernel mode which
@@ -70,5 +70,5 @@ index 571220ac8bea..d315d45b64fa 100644
   * Save the FPU state (mark it for reload if necessary):
   *
 -- 
-2.30.1
+2.30.2
 

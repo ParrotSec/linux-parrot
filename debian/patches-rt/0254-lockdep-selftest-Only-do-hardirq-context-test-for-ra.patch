@@ -1,9 +1,9 @@
-From 01a4e30542d22d2d1cb246f65d6a7f5ca08a3e72 Mon Sep 17 00:00:00 2001
+From add0d393b892644c3be3775b1d117855b4b22fe7 Mon Sep 17 00:00:00 2001
 From: Yong Zhang <yong.zhang@windriver.com>
 Date: Mon, 16 Apr 2012 15:01:56 +0800
-Subject: [PATCH 254/295] lockdep: selftest: Only do hardirq context test for
+Subject: [PATCH 254/296] lockdep: selftest: Only do hardirq context test for
  raw spinlock
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 On -rt there is no softirq context any more and rwlock is sleepable,
 disable softirq context test and rwlock+irq test.
@@ -58,5 +58,5 @@ index a899b3f0e2e5..07539643403e 100644
  
  	force_read_lock_recursive = 0;
 -- 
-2.30.1
+2.30.2
 

@@ -1,8 +1,8 @@
-From 28a10302264d9d70d5a6ee36c63a83802e60ec3b Mon Sep 17 00:00:00 2001
+From 58b8f6fde8e7b10ca845b81e29bdb241da26ef7d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:42 +0100
-Subject: [PATCH 053/295] highmem: Remove kmap_atomic_pfn()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 053/296] highmem: Remove kmap_atomic_pfn()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 No more users.
 
@@ -43,5 +43,5 @@ index 1bbe96dc8be6..3590af5aad96 100644
  {
  #ifdef ARCH_HAS_FLUSH_ON_KUNMAP
 -- 
-2.30.1
+2.30.2
 

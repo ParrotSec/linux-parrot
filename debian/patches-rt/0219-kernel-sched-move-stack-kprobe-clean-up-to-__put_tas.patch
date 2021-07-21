@@ -1,9 +1,9 @@
-From 58bd781afe42f36e1965c883962b7c69a0518a24 Mon Sep 17 00:00:00 2001
+From 85525b7cda178540de49b14962103a67b42944e4 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 21 Nov 2016 19:31:08 +0100
-Subject: [PATCH 219/295] kernel/sched: move stack + kprobe clean up to
+Subject: [PATCH 219/296] kernel/sched: move stack + kprobe clean up to
  __put_task_struct()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 There is no need to free the stack before the task struct (except for reasons
 mentioned in commit 68f24b08ee89 ("sched/core: Free the stack early if
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 11 insertions(+), 10 deletions(-)
 
 diff --git a/kernel/fork.c b/kernel/fork.c
-index c1d119046a25..7d0389bb071c 100644
+index 8624090a7440..eaa47c928f96 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -42,6 +42,7 @@
@@ -77,5 +77,5 @@ index bb7948ad463d..449343e31e72 100644
  	}
  
 -- 
-2.30.1
+2.30.2
 

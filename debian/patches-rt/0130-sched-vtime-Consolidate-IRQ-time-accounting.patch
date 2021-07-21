@@ -1,8 +1,8 @@
-From a3b534c982c17b54749116447ff5462c7a9204dd Mon Sep 17 00:00:00 2001
+From 4775fe014a0280ec7eee444e5144b01769076d35 Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:30 +0100
-Subject: [PATCH 130/295] sched/vtime: Consolidate IRQ time accounting
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 130/296] sched/vtime: Consolidate IRQ time accounting
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 The 3 architectures implementing CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
 all have their own version of irq time accounting that dispatch the
@@ -163,7 +163,7 @@ index 1d20f0f77a92..7e0a497a36ee 100644
  			       struct cpu_accounting_data *acct)
  {
 diff --git a/arch/s390/kernel/vtime.c b/arch/s390/kernel/vtime.c
-index e6e661ace8cd..978a35ea6081 100644
+index 18a97631af43..9b3c5978b668 100644
 --- a/arch/s390/kernel/vtime.c
 +++ b/arch/s390/kernel/vtime.c
 @@ -223,31 +223,50 @@ void vtime_flush(struct task_struct *tsk)
@@ -299,5 +299,5 @@ index 2783162542b1..02163d4260d7 100644
  
  void cputime_adjust(struct task_cputime *curr, struct prev_cputime *prev,
 -- 
-2.30.1
+2.30.2
 

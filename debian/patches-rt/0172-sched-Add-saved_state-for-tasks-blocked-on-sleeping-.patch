@@ -1,9 +1,9 @@
-From 4a5acb892a46bdc69af68d94bab40737b61939dc Mon Sep 17 00:00:00 2001
+From b5dad6705d942c5cecc690b89cb988847928f953 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sat, 25 Jun 2011 09:21:04 +0200
-Subject: [PATCH 172/295] sched: Add saved_state for tasks blocked on sleeping
+Subject: [PATCH 172/296] sched: Add saved_state for tasks blocked on sleeping
  locks
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Spinlocks are state preserving in !RT. RT changes the state when a
 task gets blocked on a lock. So we need to remember the state before
@@ -112,5 +112,5 @@ index 605f803937f0..32ac4fc0ce76 100644
  /*
   * To aid in avoiding the subversion of "niceness" due to uneven distribution
 -- 
-2.30.1
+2.30.2
 

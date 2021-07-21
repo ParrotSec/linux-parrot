@@ -1,9 +1,9 @@
-From 4769d119d00949f6633f9ddae35c38e8f14a6afd Mon Sep 17 00:00:00 2001
+From 8d9fd475e1b06390773957dc77b27ea66adde354 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:55:57 +0100
-Subject: [PATCH 153/295] tick/sched: Prevent false positive softirq pending
+Subject: [PATCH 153/296] tick/sched: Prevent false positive softirq pending
  warnings on RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 On RT a task which has soft interrupts disabled can block on a lock and
 schedule out to idle while soft interrupts are pending. This triggers the
@@ -80,5 +80,5 @@ index e8d351b7f9b0..3e3130a7d44e 100644
  			pr_warn("NOHZ tick-stop error: Non-RCU local softirq work is pending, handler #%02x!!!\n",
  				(unsigned int) local_softirq_pending());
 -- 
-2.30.1
+2.30.2
 

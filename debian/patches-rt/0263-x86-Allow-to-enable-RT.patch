@@ -1,8 +1,8 @@
-From 6d82893268a290662b5d24aaf624742d8ed78dd8 Mon Sep 17 00:00:00 2001
+From ded1f7f8d2dd0142319e9ed4620867a26f192d8b Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 7 Aug 2019 18:15:38 +0200
-Subject: [PATCH 263/295] x86: Allow to enable RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 263/296] x86: Allow to enable RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 Allow to select RT.
 
@@ -24,5 +24,5 @@ index 7e1fd20234db..7b001f7ec3e8 100644
  	select HAVE_ARCH_SOFT_DIRTY
  	select MODULES_USE_ELF_RELA
 -- 
-2.30.1
+2.30.2
 

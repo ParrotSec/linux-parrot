@@ -1,9 +1,9 @@
-From e88dde9c4e3a066d3cd8bfa437a2c723c06707eb Mon Sep 17 00:00:00 2001
+From 948671068371df28129b8c03ac75047b0f420fde Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 2 Nov 2020 14:14:24 +0100
-Subject: [PATCH 068/295] timers: Don't block on ->expiry_lock for
+Subject: [PATCH 068/296] timers: Don't block on ->expiry_lock for
  TIMER_IRQSAFE
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 PREEMPT_RT does not spin and wait until a running timer completes its
 callback but instead it blocks on a sleeping lock to prevent a deadlock.
@@ -56,5 +56,5 @@ index 02a5812dfc45..14d9eb790b31 100644
  		ret = try_to_del_timer_sync(timer);
  
 -- 
-2.30.1
+2.30.2
 

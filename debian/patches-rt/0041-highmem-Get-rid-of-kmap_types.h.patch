@@ -1,8 +1,8 @@
-From 871dc43b649d37b8aa38d82b24e3d26eb33adda7 Mon Sep 17 00:00:00 2001
+From 04e284e4d65e19d2450fed877188f86c02a235c0 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:30 +0100
-Subject: [PATCH 041/295] highmem: Get rid of kmap_types.h
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.25-rt35.tar.xz
+Subject: [PATCH 041/296] highmem: Get rid of kmap_types.h
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.10/older/patches-5.10.35-rt39.tar.xz
 
 The header is not longer used and on alpha, ia64, openrisc, parisc and um
 it was completely unused anyway as these architectures have no highmem
@@ -185,5 +185,5 @@ index 1222a31be842..de78869454b1 100644
   * Outside of CONFIG_HIGHMEM to support X86 32bit iomap_atomic() cruft.
   */
 -- 
-2.30.1
+2.30.2
 

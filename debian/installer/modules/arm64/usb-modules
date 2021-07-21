@@ -4,3 +4,8 @@ dwc3
 usb3503
 phy-rockchip-typec
 extcon-usbc-cros-ec
+
+# For USB-C on Pinebook Pro
+fusb302
+tcpm
+typec
