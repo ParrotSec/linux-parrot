@@ -733,6 +733,12 @@ CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 # CONFIG_MODULE_SIG is not set
 
 ##
+## file: kernel/bpf/Kconfig
+##
+#. Saves about 3K
+# CONFIG_BPF_JIT is not set
+
+##
 ## file: kernel/power/Kconfig
 ##
 # CONFIG_SUSPEND is not set
@@ -757,7 +763,6 @@ CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 ##
 ## choice: Memory model
 CONFIG_FLATMEM_MANUAL=y
-# CONFIG_DISCONTIGMEM_MANUAL is not set
 # CONFIG_SPARSEMEM_MANUAL is not set
 ## end choice
 # CONFIG_KSM is not set
@@ -772,8 +777,6 @@ CONFIG_FLATMEM_MANUAL=y
 ##
 ## file: net/Kconfig
 ##
-#. Saves about 3K
-# CONFIG_BPF_JIT is not set
 # CONFIG_BPF_STREAM_PARSER is not set
 # CONFIG_LWTUNNEL is not set
 

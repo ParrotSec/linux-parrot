@@ -16,7 +16,7 @@ correctness.
 
 --- a/drivers/net/phy/marvell.c
 +++ b/drivers/net/phy/marvell.c
-@@ -1006,6 +1006,7 @@ static int m88e1118_config_init(struct p
+@@ -1262,6 +1262,7 @@
  	return genphy_soft_reset(phydev);
  }
  
@@ -24,7 +24,7 @@ correctness.
  static int m88e1149_config_init(struct phy_device *phydev)
  {
  	int err;
-@@ -1031,7 +1032,9 @@ static int m88e1149_config_init(struct p
+@@ -1287,7 +1288,9 @@
  
  	return genphy_soft_reset(phydev);
  }
@@ -34,7 +34,7 @@ correctness.
  static int m88e1145_config_init_rgmii(struct phy_device *phydev)
  {
  	int err;
-@@ -1106,6 +1109,7 @@ static int m88e1145_config_init(struct p
+@@ -1365,6 +1368,7 @@
  
  	return 0;
  }
@@ -42,7 +42,7 @@ correctness.
  
  static int m88e1540_get_fld(struct phy_device *phydev, u8 *msecs)
  {
-@@ -2272,6 +2276,7 @@ static struct phy_driver marvell_drivers
+@@ -2853,6 +2857,7 @@
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -50,7 +50,7 @@ correctness.
  	{
  		.phy_id = MARVELL_PHY_ID_88E1145,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2293,6 +2298,8 @@ static struct phy_driver marvell_drivers
+@@ -2873,6 +2878,8 @@
  		.get_tunable = m88e1111_get_tunable,
  		.set_tunable = m88e1111_set_tunable,
  	},
@@ -59,7 +59,7 @@ correctness.
  	{
  		.phy_id = MARVELL_PHY_ID_88E1149R,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2311,6 +2318,8 @@ static struct phy_driver marvell_drivers
+@@ -2891,6 +2898,8 @@
  		.get_strings = marvell_get_strings,
  		.get_stats = marvell_get_stats,
  	},
@@ -68,16 +68,16 @@ correctness.
  	{
  		.phy_id = MARVELL_PHY_ID_88E1240,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2329,6 +2338,7 @@ static struct phy_driver marvell_drivers
- 		.get_strings = marvell_get_strings,
- 		.get_stats = marvell_get_stats,
+@@ -2911,6 +2920,7 @@
+ 		.get_tunable = m88e1011_get_tunable,
+ 		.set_tunable = m88e1011_set_tunable,
  	},
 +#endif
  	{
  		.phy_id = MARVELL_PHY_ID_88E1116R,
  		.phy_id_mask = MARVELL_PHY_ID_MASK,
-@@ -2469,9 +2479,9 @@ static struct mdio_device_id __maybe_unu
- 	{ MARVELL_PHY_ID_88E1111, MARVELL_PHY_ID_MASK },
+@@ -3163,9 +3173,9 @@
+ 	{ MARVELL_PHY_ID_88E1111_FINISAR, MARVELL_PHY_ID_MASK },
  	{ MARVELL_PHY_ID_88E1118, MARVELL_PHY_ID_MASK },
  	{ MARVELL_PHY_ID_88E1121R, MARVELL_PHY_ID_MASK },
 -	{ MARVELL_PHY_ID_88E1145, MARVELL_PHY_ID_MASK },

@@ -20,7 +20,7 @@ Signed-off-by: Ben Hutchings <benh@debian.org>
 
 --- a/security/integrity/platform_certs/load_uefi.c
 +++ b/security/integrity/platform_certs/load_uefi.c
-@@ -76,49 +76,59 @@ static __init void *get_cert_list(efi_ch
+@@ -76,49 +76,59 @@
   *
   * Return:	Status
   */
@@ -94,17 +94,36 @@ Signed-off-by: Ben Hutchings <benh@debian.org>
  	return 0;
  }
  
-@@ -175,12 +185,17 @@ static int __init load_uefi_certs(void)
+@@ -176,27 +186,17 @@
  		kfree(dbx);
  	}
  
+-	mokx = get_cert_list(L"MokListXRT", &mok_var, &mokxsize, &status);
+-	if (!mokx) {
+-		if (status == EFI_NOT_FOUND)
+-			pr_debug("mokx variable wasn't found\n");
+-		else
+-			pr_info("Couldn't get mokx list\n");
+-	} else {
+-		rc = parse_efi_signature_list("UEFI:MokListXRT",
+-					      mokx, mokxsize,
+-					      get_handler_for_dbx);
+-		if (rc)
+-			pr_err("Couldn't parse mokx signatures %d\n", rc);
+-		kfree(mokx);
+-	}
+-
 -	/* the MOK can not be trusted when secure boot is disabled */
-+	/* the MOK and MOKx can not be trusted when secure boot is disabled */
- 	if (!efi_enabled(EFI_SECURE_BOOT))
- 		return 0;
- 
- 	/* Load the MokListRT certs */
+-	if (!efi_enabled(EFI_SECURE_BOOT))
+-		return 0;
+-
+-	/* Load the MokListRT certs */
 -	rc = load_moklist_certs();
++	/* the MOK and MOKx can not be trusted when secure boot is disabled */
++ 	if (!efi_enabled(EFI_SECURE_BOOT))
++ 		return 0;
++ 
++ 	/* Load the MokListRT certs */
 +	rc = load_moklist_certs("MokListRT", L"MokListRT",
 +				get_handler_for_db);
 +	if (rc)

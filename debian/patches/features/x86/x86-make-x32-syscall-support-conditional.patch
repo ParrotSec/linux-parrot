@@ -27,11 +27,11 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  arch/x86/include/asm/syscall.h                | 13 ++++++
  6 files changed, 78 insertions(+), 2 deletions(-)
 
-Index: debian-kernel/Documentation/admin-guide/kernel-parameters.txt
+Index: linux/Documentation/admin-guide/kernel-parameters.txt
 ===================================================================
---- debian-kernel.orig/Documentation/admin-guide/kernel-parameters.txt
-+++ debian-kernel/Documentation/admin-guide/kernel-parameters.txt
-@@ -5000,6 +5000,10 @@
+--- linux.orig/Documentation/admin-guide/kernel-parameters.txt
++++ linux/Documentation/admin-guide/kernel-parameters.txt
+@@ -5539,6 +5539,10 @@
  			later by a loaded module cannot be set this way.
  			Example: sysctl.vm.swappiness=40
  
@@ -42,11 +42,11 @@ Index: debian-kernel/Documentation/admin-guide/kernel-parameters.txt
  	sysfs.deprecated=0|1 [KNL]
  			Enable/disable old style sysfs layout for old udev
  			on older distributions. When this option is enabled
-Index: debian-kernel/arch/x86/Kconfig
+Index: linux/arch/x86/Kconfig
 ===================================================================
---- debian-kernel.orig/arch/x86/Kconfig
-+++ debian-kernel/arch/x86/Kconfig
-@@ -2888,6 +2888,14 @@ config COMPAT_32
+--- linux.orig/arch/x86/Kconfig
++++ linux/arch/x86/Kconfig
+@@ -2834,6 +2834,14 @@ config COMPAT_32
  	select HAVE_UID16
  	select OLD_SIGSUSPEND3
  
@@ -61,24 +61,23 @@ Index: debian-kernel/arch/x86/Kconfig
  config COMPAT
  	def_bool y
  	depends on IA32_EMULATION || X86_X32
-Index: debian-kernel/arch/x86/entry/common.c
+Index: linux/arch/x86/entry/common.c
 ===================================================================
---- debian-kernel.orig/arch/x86/entry/common.c
-+++ debian-kernel/arch/x86/entry/common.c
-@@ -383,7 +383,8 @@ __visible noinstr void do_syscall_64(uns
- 		nr = array_index_nospec(nr, NR_syscalls);
- 		regs->ax = sys_call_table[nr](regs);
- #ifdef CONFIG_X86_X32_ABI
--	} else if (likely((nr & __X32_SYSCALL_BIT) &&
-+	} else if (x32_enabled &&
-+		   likely((nr & __X32_SYSCALL_BIT) &&
- 			  (nr & ~__X32_SYSCALL_BIT) < X32_NR_syscalls)) {
- 		nr = array_index_nospec(nr & ~__X32_SYSCALL_BIT,
- 					X32_NR_syscalls);
-Index: debian-kernel/arch/x86/entry/syscall_x32.c
+--- linux.orig/arch/x86/entry/common.c
++++ linux/arch/x86/entry/common.c
+@@ -62,7 +62,7 @@ static __always_inline bool do_syscall_x
+ 	 */
+ 	unsigned int xnr = nr - __X32_SYSCALL_BIT;
+ 
+-	if (IS_ENABLED(CONFIG_X86_X32_ABI) && likely(xnr < X32_NR_syscalls)) {
++	if (IS_ENABLED(CONFIG_X86_X32_ABI) && unlikely(x32_enabled) && likely(xnr < X32_NR_syscalls)) {
+ 		xnr = array_index_nospec(xnr, X32_NR_syscalls);
+ 		regs->ax = x32_sys_call_table[xnr](regs);
+ 		return true;
+Index: linux/arch/x86/entry/syscall_x32.c
 ===================================================================
---- debian-kernel.orig/arch/x86/entry/syscall_x32.c
-+++ debian-kernel/arch/x86/entry/syscall_x32.c
+--- linux.orig/arch/x86/entry/syscall_x32.c
++++ linux/arch/x86/entry/syscall_x32.c
 @@ -4,6 +4,9 @@
  #include <linux/linkage.h>
  #include <linux/sys.h>
@@ -87,11 +86,11 @@ Index: debian-kernel/arch/x86/entry/syscall_x32.c
 +#undef MODULE_PARAM_PREFIX
 +#define MODULE_PARAM_PREFIX "syscall."
  #include <linux/syscalls.h>
- #include <asm/unistd.h>
  #include <asm/syscall.h>
-@@ -27,3 +30,46 @@ asmlinkage const sys_call_ptr_t x32_sys_
- 	[0 ... __NR_x32_syscall_max] = &__x64_sys_ni_syscall,
- #include <asm/syscalls_64.h>
+ 
+@@ -16,3 +19,46 @@
+ asmlinkage const sys_call_ptr_t x32_sys_call_table[] = {
+ #include <asm/syscalls_x32.h>
  };
 +
 +/* Maybe enable x32 syscalls */
@@ -136,10 +135,10 @@ Index: debian-kernel/arch/x86/entry/syscall_x32.c
 +};
 +
 +arch_param_cb(x32, &x32_param_ops, NULL, 0444);
-Index: debian-kernel/arch/x86/include/asm/elf.h
+Index: linux/arch/x86/include/asm/elf.h
 ===================================================================
---- debian-kernel.orig/arch/x86/include/asm/elf.h
-+++ debian-kernel/arch/x86/include/asm/elf.h
+--- linux.orig/arch/x86/include/asm/elf.h
++++ linux/arch/x86/include/asm/elf.h
 @@ -11,6 +11,9 @@
  #include <asm/user.h>
  #include <asm/auxvec.h>
@@ -150,7 +149,7 @@ Index: debian-kernel/arch/x86/include/asm/elf.h
  
  typedef unsigned long elf_greg_t;
  
-@@ -163,7 +166,8 @@ do {						\
+@@ -161,7 +164,8 @@ do {						\
  
  #define compat_elf_check_arch(x)					\
  	(elf_check_arch_ia32(x) ||					\
@@ -160,10 +159,10 @@ Index: debian-kernel/arch/x86/include/asm/elf.h
  
  #if __USER32_DS != __USER_DS
  # error "The following code assumes __USER32_DS == __USER_DS"
-Index: debian-kernel/arch/x86/include/asm/syscall.h
+Index: linux/arch/x86/include/asm/syscall.h
 ===================================================================
---- debian-kernel.orig/arch/x86/include/asm/syscall.h
-+++ debian-kernel/arch/x86/include/asm/syscall.h
+--- linux.orig/arch/x86/include/asm/syscall.h
++++ linux/arch/x86/include/asm/syscall.h
 @@ -13,6 +13,7 @@
  #include <uapi/linux/audit.h>
  #include <linux/sched.h>
@@ -172,7 +171,7 @@ Index: debian-kernel/arch/x86/include/asm/syscall.h
  #include <asm/thread_info.h>	/* for TS_COMPAT */
  #include <asm/unistd.h>
  
-@@ -31,6 +32,18 @@ extern const sys_call_ptr_t ia32_sys_cal
+@@ -30,6 +31,18 @@ extern const sys_call_ptr_t ia32_sys_cal
  extern const sys_call_ptr_t x32_sys_call_table[];
  #endif
  

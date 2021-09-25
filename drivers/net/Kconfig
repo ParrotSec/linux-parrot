@@ -42,6 +42,7 @@ config BONDING
 	tristate "Bonding driver support"
 	depends on INET
 	depends on IPV6 || IPV6=n
+	depends on TLS || TLS_DEVICE=n
 	help
 	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
 	  Channels together. This is called 'Etherchannel' by Cisco,
@@ -90,6 +91,7 @@ config WIREGUARD
 	select CRYPTO_CHACHA20_NEON if ARM || (ARM64 && KERNEL_MODE_NEON)
 	select CRYPTO_POLY1305_NEON if ARM64 && KERNEL_MODE_NEON
 	select CRYPTO_POLY1305_ARM if ARM
+	select CRYPTO_BLAKE2S_ARM if ARM
 	select CRYPTO_CURVE25519_NEON if ARM && KERNEL_MODE_NEON
 	select CRYPTO_CHACHA_MIPS if CPU_MIPS32_R2
 	select CRYPTO_POLY1305_MIPS if MIPS
@@ -260,17 +262,17 @@ config GENEVE
 	  will be called geneve.
 
 config BAREUDP
-       tristate "Bare UDP Encapsulation"
-       depends on INET
-       depends on IPV6 || !IPV6
-       select NET_UDP_TUNNEL
-       select GRO_CELLS
-       help
-          This adds a bare UDP tunnel module for tunnelling different
-          kinds of traffic like MPLS, IP, etc. inside a UDP tunnel.
+	tristate "Bare UDP Encapsulation"
+	depends on INET
+	depends on IPV6 || !IPV6
+	select NET_UDP_TUNNEL
+	select GRO_CELLS
+	help
+	  This adds a bare UDP tunnel module for tunnelling different
+	  kinds of traffic like MPLS, IP, etc. inside a UDP tunnel.
 
-          To compile this driver as a module, choose M here: the module
-          will be called bareudp.
+	  To compile this driver as a module, choose M here: the module
+	  will be called bareudp.
 
 config GTP
 	tristate "GPRS Tunneling Protocol datapath (GTP-U)"
@@ -287,7 +289,7 @@ config GTP
 	  3GPP TS 29.060 standards.
 
 	  To compile this drivers as a module, choose M here: the module
-	  wil be called gtp.
+	  will be called gtp.
 
 config MACSEC
 	tristate "IEEE 802.1AE MAC-level encryption (MACsec)"
@@ -426,6 +428,14 @@ config VSOCKMON
 	  mostly intended for developers or support to debug vsock issues. If
 	  unsure, say N.
 
+config MHI_NET
+	tristate "MHI network driver"
+	depends on MHI_BUS
+	select WWAN
+	help
+	  This is the network driver for MHI bus.  It can be used with
+	  QCOM based WWAN modems (like SDX55).  Say Y or M.
+
 endif # NET_CORE
 
 config SUNGEM_PHY
@@ -489,11 +499,11 @@ source "drivers/net/usb/Kconfig"
 
 source "drivers/net/wireless/Kconfig"
 
-source "drivers/net/wimax/Kconfig"
-
 source "drivers/net/wan/Kconfig"
 
 source "drivers/net/ieee802154/Kconfig"
+
+source "drivers/net/wwan/Kconfig"
 
 config XEN_NETDEV_FRONTEND
 	tristate "Xen network device frontend driver"
@@ -572,6 +582,7 @@ config NETDEVSIM
 	depends on DEBUG_FS
 	depends on INET
 	depends on IPV6 || IPV6=n
+	depends on PSAMPLE || PSAMPLE=n
 	select NET_DEVLINK
 	help
 	  This driver is a developer testing tool and software model that can

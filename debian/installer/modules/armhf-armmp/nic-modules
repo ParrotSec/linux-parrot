@@ -11,3 +11,4 @@ sun4i-emac
 xgmac
 ti_cpsw
 davinci_mdio
+mdio-aspeed

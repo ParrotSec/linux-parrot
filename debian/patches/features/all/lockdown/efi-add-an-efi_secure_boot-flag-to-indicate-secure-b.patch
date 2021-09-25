@@ -31,7 +31,7 @@ cc: linux-efi@vger.kernel.org
 
 --- a/arch/x86/kernel/setup.c
 +++ b/arch/x86/kernel/setup.c
-@@ -1124,19 +1124,7 @@ void __init setup_arch(char **cmdline_p)
+@@ -1126,19 +1126,7 @@
  	/* Allocate bigger log buffer */
  	setup_log_buf(1);
  
@@ -54,7 +54,7 @@ cc: linux-efi@vger.kernel.org
  
 --- a/drivers/firmware/efi/Makefile
 +++ b/drivers/firmware/efi/Makefile
-@@ -25,6 +25,7 @@ obj-$(CONFIG_EFI_FAKE_MEMMAP)		+= fake_m
+@@ -28,6 +28,7 @@
  obj-$(CONFIG_EFI_BOOTLOADER_CONTROL)	+= efibc.o
  obj-$(CONFIG_EFI_TEST)			+= test/
  obj-$(CONFIG_EFI_DEV_PATH_PARSER)	+= dev-path-parser.o
@@ -106,7 +106,7 @@ cc: linux-efi@vger.kernel.org
 +}
 --- a/include/linux/efi.h
 +++ b/include/linux/efi.h
-@@ -776,6 +776,14 @@ extern int __init efi_setup_pcdp_console
+@@ -782,6 +782,14 @@
  #define EFI_MEM_ATTR		10	/* Did firmware publish an EFI_MEMORY_ATTRIBUTES table? */
  #define EFI_MEM_NO_SOFT_RESERVE	11	/* Is the kernel configured to ignore soft reservations? */
  #define EFI_PRESERVE_BS_REGIONS	12	/* Are EFI boot-services memory segments available? */
@@ -121,7 +121,7 @@ cc: linux-efi@vger.kernel.org
  
  #ifdef CONFIG_EFI
  /*
-@@ -799,6 +807,7 @@ static inline bool efi_rt_services_suppo
+@@ -805,6 +813,7 @@
  {
  	return (efi.runtime_supported_mask & mask) == mask;
  }
@@ -129,7 +129,7 @@ cc: linux-efi@vger.kernel.org
  #else
  static inline bool efi_enabled(int feature)
  {
-@@ -822,6 +831,7 @@ static inline bool efi_rt_services_suppo
+@@ -822,6 +831,7 @@
  {
  	return false;
  }
@@ -137,7 +137,7 @@ cc: linux-efi@vger.kernel.org
  #endif
  
  extern int efi_status_to_err(efi_status_t status);
-@@ -1083,12 +1093,6 @@ static inline bool efi_runtime_disabled(
+@@ -1077,13 +1087,6 @@
  extern void efi_call_virt_check_flags(unsigned long flags, const char *call);
  extern unsigned long efi_call_virt_save_flags(void);
  
@@ -147,6 +147,7 @@ cc: linux-efi@vger.kernel.org
 -	efi_secureboot_mode_disabled,
 -	efi_secureboot_mode_enabled,
 -};
- enum efi_secureboot_mode efi_get_secureboot(void);
- 
- #ifdef CONFIG_RESET_ATTACK_MITIGATION
+-
+ static inline
+ enum efi_secureboot_mode efi_get_secureboot_mode(efi_get_variable_t *get_var)
+ {

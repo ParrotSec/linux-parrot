@@ -14,12 +14,12 @@ Signed-off-by: Heiko Stuebner <heiko@sntech.de>
  .../dts/rockchip/rk3399-kobol-helios64.dts    | 24 +++++++++++++++++++
  1 file changed, 24 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts b/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
-index 19485b552bc4..9d4a0885fd12 100644
---- a/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
-+++ b/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
-@@ -40,6 +40,20 @@ clkin_gmac: external-gmac-clock {
- 		#clock-cells = <0>;
+Index: linux/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
+===================================================================
+--- linux.orig/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
++++ linux/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
+@@ -64,6 +64,20 @@
+ 		cooling-levels = <0 80 170 255>;
  	};
  
 +	fan1 {
@@ -39,7 +39,7 @@ index 19485b552bc4..9d4a0885fd12 100644
  	leds {
  		compatible = "gpio-leds";
  		pinctrl-names = "default";
-@@ -352,6 +366,16 @@ &pmu_io_domains {
+@@ -439,6 +453,16 @@
  	status = "okay";
  };
  
@@ -53,9 +53,6 @@ index 19485b552bc4..9d4a0885fd12 100644
 +	status = "okay";
 +};
 +
- &sdhci {
- 	bus-width = <8>;
- 	mmc-hs200-1_8v;
--- 
-2.30.2
-
+ &pwm0 {
+ 	/* pwm-fan on P7 */
+ 	status = "okay";

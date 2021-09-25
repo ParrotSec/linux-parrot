@@ -52,7 +52,6 @@ Contents:
    eql
    fib_trie
    filter
-   framerelay
    generic-hdlc
    generic_netlink
    gen_stats
@@ -70,12 +69,14 @@ Contents:
    lapb-module
    mac80211-injection
    mpls-sysctl
+   mptcp-sysctl
    multiqueue
    netconsole
    netdev-features
    netdevices
    netfilter-sysctl
    netif-msg
+   nexthop-group-resilient
    nf_conntrack-sysctl
    nf_flowtable
    openvswitch
@@ -101,6 +102,7 @@ Contents:
    tcp-thin
    team
    timestamping
+   tipc
    tproxy
    tuntap
    udplite

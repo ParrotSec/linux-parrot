@@ -31,22 +31,25 @@ struct vchiq_arm_state {
 
 	struct vchiq_state *state;
 
-	/* Global use count for videocore.
-	** This is equal to the sum of the use counts for all services.  When
-	** this hits zero the videocore suspend procedure will be initiated.
-	*/
+	/*
+	 * Global use count for videocore.
+	 * This is equal to the sum of the use counts for all services.  When
+	 * this hits zero the videocore suspend procedure will be initiated.
+	 */
 	int videocore_use_count;
 
-	/* Use count to track requests from videocore peer.
-	** This use count is not associated with a service, so needs to be
-	** tracked separately with the state.
-	*/
+	/*
+	 * Use count to track requests from videocore peer.
+	 * This use count is not associated with a service, so needs to be
+	 * tracked separately with the state.
+	 */
 	int peer_use_count;
 
-	/* Flag to indicate that the first vchiq connect has made it through.
-	** This means that both sides should be fully ready, and we should
-	** be able to suspend after this point.
-	*/
+	/*
+	 * Flag to indicate that the first vchiq connect has made it through.
+	 * This means that both sides should be fully ready, and we should
+	 * be able to suspend after this point.
+	 */
 	int first_connect;
 };
 
@@ -64,7 +67,7 @@ int vchiq_platform_init(struct platform_device *pdev,
 extern struct vchiq_state *
 vchiq_get_state(void);
 
-extern enum vchiq_status
+extern void
 vchiq_arm_init_state(struct vchiq_state *state,
 		     struct vchiq_arm_state *arm_state);
 

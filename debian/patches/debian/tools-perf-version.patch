@@ -13,10 +13,10 @@ version-dependent name.  And do the same for trace.]
  tools/perf/util/vdso.c            |  4 ++--
  4 files changed, 19 insertions(+), 16 deletions(-)
 
-diff --git a/tools/perf/Documentation/Makefile b/tools/perf/Documentation/Makefile
-index 6e54979c2124..db2cb7669da1 100644
---- a/tools/perf/Documentation/Makefile
-+++ b/tools/perf/Documentation/Makefile
+Index: linux/tools/perf/Documentation/Makefile
+===================================================================
+--- linux.orig/tools/perf/Documentation/Makefile
++++ linux/tools/perf/Documentation/Makefile
 @@ -195,14 +195,16 @@ ifdef missing_tools
  	$(error "You need to install $(missing_tools) for man pages")
  endif
@@ -40,18 +40,22 @@ index 6e54979c2124..db2cb7669da1 100644
  
  install-man: check-man-tools man do-install-man
  
-diff --git a/tools/perf/Makefile.perf b/tools/perf/Makefile.perf
-index 86dbb51bb272..ed69643c3249 100644
---- a/tools/perf/Makefile.perf
-+++ b/tools/perf/Makefile.perf
-@@ -888,23 +888,23 @@ endif
+Index: linux/tools/perf/Makefile.perf
+===================================================================
+--- linux.orig/tools/perf/Makefile.perf
++++ linux/tools/perf/Makefile.perf
+@@ -922,25 +922,25 @@ endif
  install-tools: all install-gtk
  	$(call QUIET_INSTALL, binaries) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(bindir_SQ)'; \
 -		$(INSTALL) $(OUTPUT)perf '$(DESTDIR_SQ)$(bindir_SQ)'; \
--		$(LN) '$(DESTDIR_SQ)$(bindir_SQ)/perf' '$(DESTDIR_SQ)$(bindir_SQ)/trace'
+-		$(LN) '$(DESTDIR_SQ)$(bindir_SQ)/perf' '$(DESTDIR_SQ)$(bindir_SQ)/trace'; \
+-		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(includedir_SQ)/perf'; \
+-		$(INSTALL) util/perf_dlfilter.h -t '$(DESTDIR_SQ)$(includedir_SQ)/perf'
 +		$(INSTALL) $(OUTPUT)perf '$(DESTDIR_SQ)$(bindir_SQ)/perf_$(VERSION)'; \
-+		$(LN) '$(DESTDIR_SQ)$(bindir_SQ)/perf_$(VERSION)' '$(DESTDIR_SQ)$(bindir_SQ)/trace_$(VERSION)'
++		$(LN) '$(DESTDIR_SQ)$(bindir_SQ)/perf' '$(DESTDIR_SQ)$(bindir_SQ)/trace_$(VERSION)'; \
++		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perf_include_instdir_SQ)'; \
++		$(INSTALL) util/perf_dlfilter.h -t '$(DESTDIR_SQ)$(perf_include_instdir_SQ)'
 +	$(call QUIET_INSTALL, libexec) \
 +		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)'
  ifndef NO_PERF_READ_VDSO32
@@ -74,7 +78,7 @@ index 86dbb51bb272..ed69643c3249 100644
  ifndef NO_LIBBPF
  	$(call QUIET_INSTALL, bpf-headers) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perf_include_instdir_SQ)/bpf'; \
-@@ -942,7 +942,7 @@ ifndef NO_LIBPYTHON
+@@ -980,7 +980,7 @@ ifndef NO_LIBPYTHON
  endif
  	$(call QUIET_INSTALL, perf_completion-script) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(sysconfdir_SQ)/bash_completion.d'; \
@@ -83,7 +87,7 @@ index 86dbb51bb272..ed69643c3249 100644
  	$(call QUIET_INSTALL, perf-tip) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(tip_instdir_SQ)'; \
  		$(INSTALL) Documentation/tips.txt -t '$(DESTDIR_SQ)$(tip_instdir_SQ)'
-@@ -967,7 +967,7 @@ install-python_ext:
+@@ -1006,7 +1006,7 @@ install-python_ext:
  
  # 'make install-doc' should call 'make -C Documentation install'
  $(INSTALL_DOC_TARGETS):
@@ -92,11 +96,11 @@ index 86dbb51bb272..ed69643c3249 100644
  
  ### Cleaning rules
  
-diff --git a/tools/perf/util/Build b/tools/perf/util/Build
-index 8d18380ecd10..5dd0f6c387b3 100644
---- a/tools/perf/util/Build
-+++ b/tools/perf/util/Build
-@@ -234,6 +234,7 @@ CFLAGS_hweight.o       += -Wno-unused-parameter -DETC_PERFCONFIG="BUILD_STR($(ET
+Index: linux/tools/perf/util/Build
+===================================================================
+--- linux.orig/tools/perf/util/Build
++++ linux/tools/perf/util/Build
+@@ -278,6 +278,7 @@ CFLAGS_hweight.o       += -Wno-unused-pa
  CFLAGS_parse-events.o  += -Wno-redundant-decls
  CFLAGS_expr.o          += -Wno-redundant-decls
  CFLAGS_header.o        += -include $(OUTPUT)PERF-VERSION-FILE
@@ -104,11 +108,11 @@ index 8d18380ecd10..5dd0f6c387b3 100644
  
  $(OUTPUT)util/kallsyms.o: ../lib/symbol/kallsyms.c FORCE
  	$(call rule_mkdir)
-diff --git a/tools/perf/util/vdso.c b/tools/perf/util/vdso.c
-index 3cc91ad048ea..e7483388bb5d 100644
---- a/tools/perf/util/vdso.c
-+++ b/tools/perf/util/vdso.c
-@@ -55,12 +55,12 @@ static struct vdso_info *vdso_info__new(void)
+Index: linux/tools/perf/util/vdso.c
+===================================================================
+--- linux.orig/tools/perf/util/vdso.c
++++ linux/tools/perf/util/vdso.c
+@@ -55,12 +55,12 @@ static struct vdso_info *vdso_info__new(
  		.vdso32  = {
  			.temp_file_name = VDSO__TEMP_FILE_NAME,
  			.dso_name = DSO__NAME_VDSO32,
@@ -123,6 +127,3 @@ index 3cc91ad048ea..e7483388bb5d 100644
  		},
  #endif
  	};
--- 
-2.27.0
-

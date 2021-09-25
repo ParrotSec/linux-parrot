@@ -156,9 +156,11 @@ static irqreturn_t adf_isr(int irq, void *privdata)
 {
 	struct adf_accel_dev *accel_dev = privdata;
 	struct adf_hw_device_data *hw_data = accel_dev->hw_device;
+	struct adf_hw_csr_ops *csr_ops = &hw_data->csr_ops;
 	struct adf_bar *pmisc =
 			&GET_BARS(accel_dev)[hw_data->get_misc_bar_id(hw_data)];
 	void __iomem *pmisc_bar_addr = pmisc->virt_addr;
+	bool handled = false;
 	u32 v_int;
 
 	/* Read VF INT source CSR to determine the source of VF interrupt */
@@ -171,7 +173,7 @@ static irqreturn_t adf_isr(int irq, void *privdata)
 
 		/* Schedule tasklet to handle interrupt BH */
 		tasklet_hi_schedule(&accel_dev->vf.pf2vf_bh_tasklet);
-		return IRQ_HANDLED;
+		handled = true;
 	}
 
 	/* Check bundle interrupt */
@@ -180,13 +182,13 @@ static irqreturn_t adf_isr(int irq, void *privdata)
 		struct adf_etr_bank_data *bank = &etr_data->banks[0];
 
 		/* Disable Flag and Coalesce Ring Interrupts */
-		WRITE_CSR_INT_FLAG_AND_COL(bank->csr_addr, bank->bank_number,
-					   0);
+		csr_ops->write_csr_int_flag_and_col(bank->csr_addr,
+						    bank->bank_number, 0);
 		tasklet_hi_schedule(&bank->resp_handler);
-		return IRQ_HANDLED;
+		handled = true;
 	}
 
-	return IRQ_NONE;
+	return handled ? IRQ_HANDLED : IRQ_NONE;
 }
 
 static int adf_request_msi_irq(struct adf_accel_dev *accel_dev)

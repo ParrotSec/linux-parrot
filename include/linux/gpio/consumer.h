@@ -158,7 +158,7 @@ int gpiod_set_raw_array_value_cansleep(unsigned int array_size,
 				       unsigned long *value_bitmap);
 
 int gpiod_set_config(struct gpio_desc *desc, unsigned long config);
-int gpiod_set_debounce(struct gpio_desc *desc, unsigned debounce);
+int gpiod_set_debounce(struct gpio_desc *desc, unsigned int debounce);
 int gpiod_set_transitory(struct gpio_desc *desc, bool transitory);
 void gpiod_toggle_active_low(struct gpio_desc *desc);
 
@@ -481,7 +481,7 @@ static inline int gpiod_set_config(struct gpio_desc *desc, unsigned long config)
 	return -ENOSYS;
 }
 
-static inline int gpiod_set_debounce(struct gpio_desc *desc, unsigned debounce)
+static inline int gpiod_set_debounce(struct gpio_desc *desc, unsigned int debounce)
 {
 	/* GPIO can never have been requested */
 	WARN_ON(desc);
@@ -691,6 +691,8 @@ void acpi_dev_remove_driver_gpios(struct acpi_device *adev);
 int devm_acpi_dev_add_driver_gpios(struct device *dev,
 				   const struct acpi_gpio_mapping *gpios);
 void devm_acpi_dev_remove_driver_gpios(struct device *dev);
+
+struct gpio_desc *acpi_get_and_request_gpiod(char *path, int pin, char *label);
 
 #else  /* CONFIG_GPIOLIB && CONFIG_ACPI */
 

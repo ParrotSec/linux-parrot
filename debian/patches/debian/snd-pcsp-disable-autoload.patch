@@ -19,10 +19,10 @@ remove the alias, to ensure it's not loaded where it's not wanted.
 
 --- a/sound/drivers/pcsp/pcsp.c
 +++ b/sound/drivers/pcsp/pcsp.c
-@@ -21,7 +21,7 @@ MODULE_AUTHOR("Stas Sergeev <stsp@users.
+@@ -22,7 +22,7 @@
+ MODULE_AUTHOR("Stas Sergeev <stsp@users.sourceforge.net>");
  MODULE_DESCRIPTION("PC-Speaker driver");
  MODULE_LICENSE("GPL");
- MODULE_SUPPORTED_DEVICE("{{PC-Speaker, pcsp}}");
 -MODULE_ALIAS("platform:pcspkr");
 +/*MODULE_ALIAS("platform:pcspkr");*/
  

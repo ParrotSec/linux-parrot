@@ -87,7 +87,7 @@ static int squashfs_bio_read(struct super_block *sb, u64 index, int length,
 	int error, i;
 	struct bio *bio;
 
-	if (page_count <= BIO_MAX_PAGES)
+	if (page_count <= BIO_MAX_VECS)
 		bio = bio_alloc(GFP_NOIO, page_count);
 	else
 		bio = bio_kmalloc(GFP_NOIO, page_count);
@@ -226,8 +226,11 @@ out_free_bio:
 	bio_free_pages(bio);
 	bio_put(bio);
 out:
-	if (res < 0)
+	if (res < 0) {
 		ERROR("Failed to read block 0x%llx: %d\n", index, res);
+		if (msblk->panic_on_errors)
+			panic("squashfs read failed");
+	}
 
 	return res;
 }

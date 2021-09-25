@@ -24,8 +24,4 @@ install:
 	$(MAKE_BPFTOOL) install
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	$(MAKE_BPFTOOL) doc-install
-# doc-install installs a bpf-helpers.7 that conflicts
-# with the one distributed by the manpages package.
-	rm $(DESTDIR)/usr/share/man/man7/bpf-helpers.7
-	rmdir $(DESTDIR)/usr/share/man/man7/
 endif

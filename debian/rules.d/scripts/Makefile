@@ -27,6 +27,7 @@ SCRIPTS =  \
 	makelst \
 	mksysmap \
 	mkuboot.sh \
+	modules-check.sh \
 	namespace.pl \
 	patch-kernel \
 	recordmcount.pl \

@@ -52,6 +52,7 @@
  *	Based upon Swansea University Computer Society NET3.039
  */
 
+#include <linux/ethtool.h>
 #include <linux/mm.h>
 #include <linux/socket.h>
 #include <linux/file.h>
@@ -64,7 +65,6 @@
 #include <linux/seq_file.h>
 #include <linux/mutex.h>
 #include <linux/if_bridge.h>
-#include <linux/if_frad.h>
 #include <linux/if_vlan.h>
 #include <linux/ptp_classify.h>
 #include <linux/init.h>
@@ -104,6 +104,7 @@
 #include <linux/sockios.h>
 #include <net/busy_poll.h>
 #include <linux/errqueue.h>
+#include <linux/ptp_clock_kernel.h>
 
 #ifdef CONFIG_NET_RX_BUSY_POLL
 unsigned int sysctl_net_busy_read __read_mostly;
@@ -163,6 +164,54 @@ static const struct file_operations socket_file_ops = {
 	.splice_write = generic_splice_sendpage,
 	.splice_read =	sock_splice_read,
 	.show_fdinfo =	sock_show_fdinfo,
+};
+
+static const char * const pf_family_names[] = {
+	[PF_UNSPEC]	= "PF_UNSPEC",
+	[PF_UNIX]	= "PF_UNIX/PF_LOCAL",
+	[PF_INET]	= "PF_INET",
+	[PF_AX25]	= "PF_AX25",
+	[PF_IPX]	= "PF_IPX",
+	[PF_APPLETALK]	= "PF_APPLETALK",
+	[PF_NETROM]	= "PF_NETROM",
+	[PF_BRIDGE]	= "PF_BRIDGE",
+	[PF_ATMPVC]	= "PF_ATMPVC",
+	[PF_X25]	= "PF_X25",
+	[PF_INET6]	= "PF_INET6",
+	[PF_ROSE]	= "PF_ROSE",
+	[PF_DECnet]	= "PF_DECnet",
+	[PF_NETBEUI]	= "PF_NETBEUI",
+	[PF_SECURITY]	= "PF_SECURITY",
+	[PF_KEY]	= "PF_KEY",
+	[PF_NETLINK]	= "PF_NETLINK/PF_ROUTE",
+	[PF_PACKET]	= "PF_PACKET",
+	[PF_ASH]	= "PF_ASH",
+	[PF_ECONET]	= "PF_ECONET",
+	[PF_ATMSVC]	= "PF_ATMSVC",
+	[PF_RDS]	= "PF_RDS",
+	[PF_SNA]	= "PF_SNA",
+	[PF_IRDA]	= "PF_IRDA",
+	[PF_PPPOX]	= "PF_PPPOX",
+	[PF_WANPIPE]	= "PF_WANPIPE",
+	[PF_LLC]	= "PF_LLC",
+	[PF_IB]		= "PF_IB",
+	[PF_MPLS]	= "PF_MPLS",
+	[PF_CAN]	= "PF_CAN",
+	[PF_TIPC]	= "PF_TIPC",
+	[PF_BLUETOOTH]	= "PF_BLUETOOTH",
+	[PF_IUCV]	= "PF_IUCV",
+	[PF_RXRPC]	= "PF_RXRPC",
+	[PF_ISDN]	= "PF_ISDN",
+	[PF_PHONET]	= "PF_PHONET",
+	[PF_IEEE802154]	= "PF_IEEE802154",
+	[PF_CAIF]	= "PF_CAIF",
+	[PF_ALG]	= "PF_ALG",
+	[PF_NFC]	= "PF_NFC",
+	[PF_VSOCK]	= "PF_VSOCK",
+	[PF_KCM]	= "PF_KCM",
+	[PF_QIPCRTR]	= "PF_QIPCRTR",
+	[PF_SMC]	= "PF_SMC",
+	[PF_XDP]	= "PF_XDP",
 };
 
 /*
@@ -334,6 +383,7 @@ static const struct xattr_handler sockfs_xattr_handler = {
 };
 
 static int sockfs_security_xattr_set(const struct xattr_handler *handler,
+				     struct user_namespace *mnt_userns,
 				     struct dentry *dentry, struct inode *inode,
 				     const char *suffix, const void *value,
 				     size_t size, int flags)
@@ -445,17 +495,15 @@ static int sock_map_fd(struct socket *sock, int flags)
 /**
  *	sock_from_file - Return the &socket bounded to @file.
  *	@file: file
- *	@err: pointer to an error code return
  *
- *	On failure returns %NULL and assigns -ENOTSOCK to @err.
+ *	On failure returns %NULL.
  */
 
-struct socket *sock_from_file(struct file *file, int *err)
+struct socket *sock_from_file(struct file *file)
 {
 	if (file->f_op == &socket_file_ops)
 		return file->private_data;	/* set in sock_map_fd */
 
-	*err = -ENOTSOCK;
 	return NULL;
 }
 EXPORT_SYMBOL(sock_from_file);
@@ -484,9 +532,11 @@ struct socket *sockfd_lookup(int fd, int *err)
 		return NULL;
 	}
 
-	sock = sock_from_file(file, err);
-	if (!sock)
+	sock = sock_from_file(file);
+	if (!sock) {
+		*err = -ENOTSOCK;
 		fput(file);
+	}
 	return sock;
 }
 EXPORT_SYMBOL(sockfd_lookup);
@@ -498,11 +548,12 @@ static struct socket *sockfd_lookup_light(int fd, int *err, int *fput_needed)
 
 	*err = -EBADF;
 	if (f.file) {
-		sock = sock_from_file(f.file, err);
+		sock = sock_from_file(f.file);
 		if (likely(sock)) {
 			*fput_needed = f.flags & FDPUT_FPUT;
 			return sock;
 		}
+		*err = -ENOTSOCK;
 		fdput(f);
 	}
 	return NULL;
@@ -536,9 +587,10 @@ static ssize_t sockfs_listxattr(struct dentry *dentry, char *buffer,
 	return used;
 }
 
-static int sockfs_setattr(struct dentry *dentry, struct iattr *iattr)
+static int sockfs_setattr(struct user_namespace *mnt_userns,
+			  struct dentry *dentry, struct iattr *iattr)
 {
-	int err = simple_setattr(dentry, iattr);
+	int err = simple_setattr(&init_user_ns, dentry, iattr);
 
 	if (!err && (iattr->ia_valid & ATTR_UID)) {
 		struct socket *sock = SOCKET_I(d_inode(dentry));
@@ -822,12 +874,18 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
 		empty = 0;
 	if (shhwtstamps &&
 	    (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
-	    !skb_is_swtx_tstamp(skb, false_tstamp) &&
-	    ktime_to_timespec64_cond(shhwtstamps->hwtstamp, tss.ts + 2)) {
-		empty = 0;
-		if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_PKTINFO) &&
-		    !skb_is_err_queue(skb))
-			put_ts_pktinfo(msg, skb);
+	    !skb_is_swtx_tstamp(skb, false_tstamp)) {
+		if (sk->sk_tsflags & SOF_TIMESTAMPING_BIND_PHC)
+			ptp_convert_timestamp(shhwtstamps, sk->sk_bind_phc);
+
+		if (ktime_to_timespec64_cond(shhwtstamps->hwtstamp,
+					     tss.ts + 2)) {
+			empty = 0;
+
+			if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_PKTINFO) &&
+			    !skb_is_err_queue(skb))
+				put_ts_pktinfo(msg, skb);
+		}
 	}
 	if (!empty) {
 		if (sock_flag(sk, SOCK_TSTAMP_NEW))
@@ -1027,17 +1085,6 @@ void vlan_ioctl_set(int (*hook) (struct net *, void __user *))
 }
 EXPORT_SYMBOL(vlan_ioctl_set);
 
-static DEFINE_MUTEX(dlci_ioctl_mutex);
-static int (*dlci_ioctl_hook) (unsigned int, void __user *);
-
-void dlci_ioctl_set(int (*hook) (unsigned int, void __user *))
-{
-	mutex_lock(&dlci_ioctl_mutex);
-	dlci_ioctl_hook = hook;
-	mutex_unlock(&dlci_ioctl_mutex);
-}
-EXPORT_SYMBOL(dlci_ioctl_set);
-
 static long sock_do_ioctl(struct net *net, struct socket *sock,
 			  unsigned int cmd, unsigned long arg)
 {
@@ -1062,7 +1109,7 @@ static long sock_do_ioctl(struct net *net, struct socket *sock,
 		rtnl_unlock();
 		if (!err && copy_to_user(argp, &ifc, sizeof(struct ifconf)))
 			err = -EFAULT;
-	} else {
+	} else if (is_socket_ioctl_cmd(cmd)) {
 		struct ifreq ifr;
 		bool need_copyout;
 		if (copy_from_user(&ifr, argp, sizeof(struct ifreq)))
@@ -1071,6 +1118,8 @@ static long sock_do_ioctl(struct net *net, struct socket *sock,
 		if (!err && need_copyout)
 			if (copy_to_user(argp, &ifr, sizeof(struct ifreq)))
 				return -EFAULT;
+	} else {
+		err = -ENOTTY;
 	}
 	return err;
 }
@@ -1142,17 +1191,6 @@ static long sock_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			if (vlan_ioctl_hook)
 				err = vlan_ioctl_hook(net, argp);
 			mutex_unlock(&vlan_ioctl_mutex);
-			break;
-		case SIOCADDDLCI:
-		case SIOCDELDLCI:
-			err = -ENOPKG;
-			if (!dlci_ioctl_hook)
-				request_module("dlci");
-
-			mutex_lock(&dlci_ioctl_mutex);
-			if (dlci_ioctl_hook)
-				err = dlci_ioctl_hook(cmd, argp);
-			mutex_unlock(&dlci_ioctl_mutex);
 			break;
 		case SIOCGSKNS:
 			err = -EPERM;
@@ -1702,9 +1740,11 @@ int __sys_accept4_file(struct file *file, unsigned file_flags,
 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
 		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
 
-	sock = sock_from_file(file, &err);
-	if (!sock)
+	sock = sock_from_file(file);
+	if (!sock) {
+		err = -ENOTSOCK;
 		goto out;
+	}
 
 	err = -ENFILE;
 	newsock = sock_alloc();
@@ -1827,9 +1867,11 @@ int __sys_connect_file(struct file *file, struct sockaddr_storage *address,
 	struct socket *sock;
 	int err;
 
-	sock = sock_from_file(file, &err);
-	if (!sock)
+	sock = sock_from_file(file);
+	if (!sock) {
+		err = -ENOTSOCK;
 		goto out;
+	}
 
 	err =
 	    security_socket_connect(sock, (struct sockaddr *)address, addrlen);
@@ -2130,6 +2172,9 @@ SYSCALL_DEFINE5(setsockopt, int, fd, int, level, int, optname,
 	return __sys_setsockopt(fd, level, optname, optval, optlen);
 }
 
+INDIRECT_CALLABLE_DECLARE(bool tcp_bpf_bypass_getsockopt(int level,
+							 int optname));
+
 /*
  *	Get a socket option. Because we don't know the option lengths we have
  *	to pass a user mode parameter for the protocols to sort out.
@@ -2179,6 +2224,17 @@ SYSCALL_DEFINE5(getsockopt, int, fd, int, level, int, optname,
  *	Shutdown a socket.
  */
 
+int __sys_shutdown_sock(struct socket *sock, int how)
+{
+	int err;
+
+	err = security_socket_shutdown(sock, how);
+	if (!err)
+		err = sock->ops->shutdown(sock, how);
+
+	return err;
+}
+
 int __sys_shutdown(int fd, int how)
 {
 	int err, fput_needed;
@@ -2186,9 +2242,7 @@ int __sys_shutdown(int fd, int how)
 
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (sock != NULL) {
-		err = security_socket_shutdown(sock, how);
-		if (!err)
-			err = sock->ops->shutdown(sock, how);
+		err = __sys_shutdown_sock(sock, how);
 		fput_light(sock->file, fput_needed);
 	}
 	return err;
@@ -2403,10 +2457,6 @@ static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
 long __sys_sendmsg_sock(struct socket *sock, struct msghdr *msg,
 			unsigned int flags)
 {
-	/* disallow ancillary data requests from this path */
-	if (msg->msg_control || msg->msg_controllen)
-		return -EINVAL;
-
 	return ____sys_sendmsg(sock, msg, flags, NULL, 0);
 }
 
@@ -2615,12 +2665,6 @@ long __sys_recvmsg_sock(struct socket *sock, struct msghdr *msg,
 			struct user_msghdr __user *umsg,
 			struct sockaddr __user *uaddr, unsigned int flags)
 {
-	if (msg->msg_control || msg->msg_controllen) {
-		/* disallow ancillary data reqs unless cmsg is plain data */
-		if (!(sock->ops->flags & PROTO_CMSG_DATA_ONLY))
-			return -EINVAL;
-	}
-
 	return ____sys_recvmsg(sock, msg, umsg, uaddr, flags, 0);
 }
 
@@ -2988,7 +3032,7 @@ int sock_register(const struct net_proto_family *ops)
 	}
 	spin_unlock(&net_family_lock);
 
-	pr_info("NET: Registered protocol family %d\n", ops->family);
+	pr_info("NET: Registered %s protocol family\n", pf_family_names[ops->family]);
 	return err;
 }
 EXPORT_SYMBOL(sock_register);
@@ -3016,7 +3060,7 @@ void sock_unregister(int family)
 
 	synchronize_rcu();
 
-	pr_info("NET: Unregistered protocol family %d\n", family);
+	pr_info("NET: Unregistered %s protocol family\n", pf_family_names[family]);
 }
 EXPORT_SYMBOL(sock_unregister);
 
@@ -3110,128 +3154,6 @@ static int compat_dev_ifconf(struct net *net, struct compat_ifconf __user *uifc3
 	return 0;
 }
 
-static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
-{
-	struct compat_ethtool_rxnfc __user *compat_rxnfc;
-	bool convert_in = false, convert_out = false;
-	size_t buf_size = 0;
-	struct ethtool_rxnfc __user *rxnfc = NULL;
-	struct ifreq ifr;
-	u32 rule_cnt = 0, actual_rule_cnt;
-	u32 ethcmd;
-	u32 data;
-	int ret;
-
-	if (get_user(data, &ifr32->ifr_ifru.ifru_data))
-		return -EFAULT;
-
-	compat_rxnfc = compat_ptr(data);
-
-	if (get_user(ethcmd, &compat_rxnfc->cmd))
-		return -EFAULT;
-
-	/* Most ethtool structures are defined without padding.
-	 * Unfortunately struct ethtool_rxnfc is an exception.
-	 */
-	switch (ethcmd) {
-	default:
-		break;
-	case ETHTOOL_GRXCLSRLALL:
-		/* Buffer size is variable */
-		if (get_user(rule_cnt, &compat_rxnfc->rule_cnt))
-			return -EFAULT;
-		if (rule_cnt > KMALLOC_MAX_SIZE / sizeof(u32))
-			return -ENOMEM;
-		buf_size += rule_cnt * sizeof(u32);
-		fallthrough;
-	case ETHTOOL_GRXRINGS:
-	case ETHTOOL_GRXCLSRLCNT:
-	case ETHTOOL_GRXCLSRULE:
-	case ETHTOOL_SRXCLSRLINS:
-		convert_out = true;
-		fallthrough;
-	case ETHTOOL_SRXCLSRLDEL:
-		buf_size += sizeof(struct ethtool_rxnfc);
-		convert_in = true;
-		rxnfc = compat_alloc_user_space(buf_size);
-		break;
-	}
-
-	if (copy_from_user(&ifr.ifr_name, &ifr32->ifr_name, IFNAMSIZ))
-		return -EFAULT;
-
-	ifr.ifr_data = convert_in ? rxnfc : (void __user *)compat_rxnfc;
-
-	if (convert_in) {
-		/* We expect there to be holes between fs.m_ext and
-		 * fs.ring_cookie and at the end of fs, but nowhere else.
-		 */
-		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_ext) +
-			     sizeof(compat_rxnfc->fs.m_ext) !=
-			     offsetof(struct ethtool_rxnfc, fs.m_ext) +
-			     sizeof(rxnfc->fs.m_ext));
-		BUILD_BUG_ON(
-			offsetof(struct compat_ethtool_rxnfc, fs.location) -
-			offsetof(struct compat_ethtool_rxnfc, fs.ring_cookie) !=
-			offsetof(struct ethtool_rxnfc, fs.location) -
-			offsetof(struct ethtool_rxnfc, fs.ring_cookie));
-
-		if (copy_in_user(rxnfc, compat_rxnfc,
-				 (void __user *)(&rxnfc->fs.m_ext + 1) -
-				 (void __user *)rxnfc) ||
-		    copy_in_user(&rxnfc->fs.ring_cookie,
-				 &compat_rxnfc->fs.ring_cookie,
-				 (void __user *)(&rxnfc->fs.location + 1) -
-				 (void __user *)&rxnfc->fs.ring_cookie))
-			return -EFAULT;
-		if (ethcmd == ETHTOOL_GRXCLSRLALL) {
-			if (put_user(rule_cnt, &rxnfc->rule_cnt))
-				return -EFAULT;
-		} else if (copy_in_user(&rxnfc->rule_cnt,
-					&compat_rxnfc->rule_cnt,
-					sizeof(rxnfc->rule_cnt)))
-			return -EFAULT;
-	}
-
-	ret = dev_ioctl(net, SIOCETHTOOL, &ifr, NULL);
-	if (ret)
-		return ret;
-
-	if (convert_out) {
-		if (copy_in_user(compat_rxnfc, rxnfc,
-				 (const void __user *)(&rxnfc->fs.m_ext + 1) -
-				 (const void __user *)rxnfc) ||
-		    copy_in_user(&compat_rxnfc->fs.ring_cookie,
-				 &rxnfc->fs.ring_cookie,
-				 (const void __user *)(&rxnfc->fs.location + 1) -
-				 (const void __user *)&rxnfc->fs.ring_cookie) ||
-		    copy_in_user(&compat_rxnfc->rule_cnt, &rxnfc->rule_cnt,
-				 sizeof(rxnfc->rule_cnt)))
-			return -EFAULT;
-
-		if (ethcmd == ETHTOOL_GRXCLSRLALL) {
-			/* As an optimisation, we only copy the actual
-			 * number of rules that the underlying
-			 * function returned.  Since Mallory might
-			 * change the rule count in user memory, we
-			 * check that it is less than the rule count
-			 * originally given (as the user buffer size),
-			 * which has been range-checked.
-			 */
-			if (get_user(actual_rule_cnt, &rxnfc->rule_cnt))
-				return -EFAULT;
-			if (actual_rule_cnt < rule_cnt)
-				rule_cnt = actual_rule_cnt;
-			if (copy_in_user(&compat_rxnfc->rule_locs[0],
-					 &rxnfc->rule_locs[0],
-					 rule_cnt * sizeof(u32)))
-				return -EFAULT;
-		}
-	}
-
-	return 0;
-}
-
 static int compat_siocwandev(struct net *net, struct compat_ifreq __user *uifr32)
 {
 	compat_uptr_t uptr32;
@@ -3264,6 +3186,8 @@ static int compat_ifr_data_ioctl(struct net *net, unsigned int cmd,
 	struct ifreq ifreq;
 	u32 data32;
 
+	if (!is_socket_ioctl_cmd(cmd))
+		return -ENOTTY;
 	if (copy_from_user(ifreq.ifr_name, u_ifreq32->ifr_name, IFNAMSIZ))
 		return -EFAULT;
 	if (get_user(data32, &u_ifreq32->ifr_data))
@@ -3386,8 +3310,6 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
 		return old_bridge_ioctl(argp);
 	case SIOCGIFCONF:
 		return compat_dev_ifconf(net, argp);
-	case SIOCETHTOOL:
-		return ethtool_ioctl(net, argp);
 	case SIOCWANDEV:
 		return compat_siocwandev(net, argp);
 	case SIOCGIFMAP:
@@ -3400,6 +3322,7 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
 		return sock->ops->gettstamp(sock, argp, cmd == SIOCGSTAMP_OLD,
 					    !COMPAT_USE_64BIT_TIME);
 
+	case SIOCETHTOOL:
 	case SIOCBONDSLAVEINFOQUERY:
 	case SIOCBONDINFOQUERY:
 	case SIOCSHWTSTAMP:
@@ -3414,8 +3337,6 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
 	case SIOCBRDELBR:
 	case SIOCGIFVLAN:
 	case SIOCSIFVLAN:
-	case SIOCADDDLCI:
-	case SIOCDELDLCI:
 	case SIOCGSKNS:
 	case SIOCGSTAMP_NEW:
 	case SIOCGSTAMPNS_NEW:
@@ -3570,7 +3491,7 @@ EXPORT_SYMBOL(kernel_accept);
  *	@addrlen: address length
  *	@flags: flags (O_NONBLOCK, ...)
  *
- *	For datagram sockets, @addr is the addres to which datagrams are sent
+ *	For datagram sockets, @addr is the address to which datagrams are sent
  *	by default, and the only address from which datagrams are received.
  *	For stream sockets, attempts to connect to @addr.
  *	Returns 0 or an error code.

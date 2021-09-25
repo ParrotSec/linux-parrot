@@ -168,7 +168,7 @@ void __trace_probe_log_err(int offset, int err_type)
 	if (!trace_probe_log.argv)
 		return;
 
-	/* Recalcurate the length and allocate buffer */
+	/* Recalculate the length and allocate buffer */
 	for (i = 0; i < trace_probe_log.argc; i++) {
 		if (i == trace_probe_log.index)
 			pos = len;
@@ -182,7 +182,7 @@ void __trace_probe_log_err(int offset, int err_type)
 		/**
 		 * Set the error position is next to the last arg + space.
 		 * Note that len includes the terminal null and the cursor
-		 * appaers at pos + 1.
+		 * appears at pos + 1.
 		 */
 		pos = len;
 		offset = 0;
@@ -592,7 +592,7 @@ static int traceprobe_parse_probe_arg_body(char *arg, ssize_t *size,
 	}
 
 	/*
-	 * Since $comm and immediate string can not be dereferred,
+	 * Since $comm and immediate string can not be dereferenced,
 	 * we can find those by strcmp.
 	 */
 	if (strcmp(arg, "$comm") == 0 || strncmp(arg, "\\\"", 2) == 0) {
@@ -1133,4 +1133,21 @@ bool trace_probe_match_command_args(struct trace_probe *tp,
 			return false;
 	}
 	return true;
+}
+
+int trace_probe_create(const char *raw_command, int (*createfn)(int, const char **))
+{
+	int argc = 0, ret = 0;
+	char **argv;
+
+	argv = argv_split(GFP_KERNEL, raw_command, &argc);
+	if (!argv)
+		return -ENOMEM;
+
+	if (argc)
+		ret = createfn(argc, (const char **)argv);
+
+	argv_free(argv);
+
+	return ret;
 }

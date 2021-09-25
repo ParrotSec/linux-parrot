@@ -111,7 +111,7 @@ int kvm_coalesced_mmio_init(struct kvm *kvm)
 {
 	struct page *page;
 
-	page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+	page = alloc_page(GFP_KERNEL_ACCOUNT | __GFP_ZERO);
 	if (!page)
 		return -ENOMEM;
 
@@ -186,7 +186,6 @@ int kvm_vm_ioctl_unregister_coalesced_mmio(struct kvm *kvm,
 		    coalesced_mmio_in_range(dev, zone->addr, zone->size)) {
 			r = kvm_io_bus_unregister_dev(kvm,
 				zone->pio ? KVM_PIO_BUS : KVM_MMIO_BUS, &dev->dev);
-			kvm_iodevice_destructor(&dev->dev);
 
 			/*
 			 * On failure, unregister destroys all devices on the
@@ -196,6 +195,7 @@ int kvm_vm_ioctl_unregister_coalesced_mmio(struct kvm *kvm,
 			 */
 			if (r)
 				break;
+			kvm_iodevice_destructor(&dev->dev);
 		}
 	}
 

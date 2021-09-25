@@ -20,23 +20,9 @@ Export the currently un-exported symbols they depend on.
  security/security.c | 4 ++++
  7 files changed, 10 insertions(+)
 
-Index: debian-kernel/fs/file.c
-===================================================================
---- debian-kernel.orig/fs/file.c
-+++ debian-kernel/fs/file.c
-@@ -676,6 +680,7 @@ out_unlock:
- 	*res = NULL;
- 	return -ENOENT;
- }
-+EXPORT_SYMBOL(__close_fd_get_file);
- 
- void do_close_on_exec(struct files_struct *files)
- {
-Index: debian-kernel/kernel/fork.c
-===================================================================
---- debian-kernel.orig/kernel/fork.c
-+++ debian-kernel/kernel/fork.c
-@@ -1131,6 +1131,7 @@ void mmput_async(struct mm_struct *mm)
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1134,6 +1134,7 @@
  		schedule_work(&mm->async_put_work);
  	}
  }
@@ -44,11 +30,9 @@ Index: debian-kernel/kernel/fork.c
  #endif
  
  /**
-Index: debian-kernel/kernel/sched/core.c
-===================================================================
---- debian-kernel.orig/kernel/sched/core.c
-+++ debian-kernel/kernel/sched/core.c
-@@ -4667,6 +4667,7 @@ int can_nice(const struct task_struct *p
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -5774,6 +5774,7 @@
  	return (nice_rlim <= task_rlimit(p, RLIMIT_NICE) ||
  		capable(CAP_SYS_NICE));
  }
@@ -56,35 +40,29 @@ Index: debian-kernel/kernel/sched/core.c
  
  #ifdef __ARCH_WANT_SYS_NICE
  
-Index: debian-kernel/kernel/task_work.c
-===================================================================
---- debian-kernel.orig/kernel/task_work.c
-+++ debian-kernel/kernel/task_work.c
-@@ -52,6 +52,7 @@ task_work_add(struct task_struct *task,
+--- a/kernel/task_work.c
++++ b/kernel/task_work.c
+@@ -60,6 +60,7 @@
  
  	return 0;
  }
-+EXPORT_SYMBOL(task_work_add);
++EXPORT_SYMBOL_GPL(task_work_add);
  
  /**
-  * task_work_cancel - cancel a pending work added by task_work_add()
-Index: debian-kernel/mm/memory.c
-===================================================================
---- debian-kernel.orig/mm/memory.c
-+++ debian-kernel/mm/memory.c
-@@ -1367,6 +1367,7 @@ void zap_page_range(struct vm_area_struc
+  * task_work_cancel_match - cancel a pending work added by task_work_add()
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -1560,6 +1560,7 @@
  	mmu_notifier_invalidate_range_end(&range);
- 	tlb_finish_mmu(&tlb, start, range.end);
+ 	tlb_finish_mmu(&tlb);
  }
 +EXPORT_SYMBOL_GPL(zap_page_range);
  
  /**
   * zap_page_range_single - remove user pages in a given range
-Index: debian-kernel/mm/shmem.c
-===================================================================
---- debian-kernel.orig/mm/shmem.c
-+++ debian-kernel/mm/shmem.c
-@@ -4158,6 +4158,7 @@ int shmem_zero_setup(struct vm_area_stru
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -4231,6 +4231,7 @@
  
  	return 0;
  }
@@ -92,11 +70,9 @@ Index: debian-kernel/mm/shmem.c
  
  /**
   * shmem_read_mapping_page_gfp - read into page cache, using specified page allocation flags.
-Index: debian-kernel/security/security.c
-===================================================================
---- debian-kernel.orig/security/security.c
-+++ debian-kernel/security/security.c
-@@ -725,24 +725,28 @@ int security_binder_set_context_mgr(stru
+--- a/security/security.c
++++ b/security/security.c
+@@ -750,24 +750,28 @@
  {
  	return call_int_hook(binder_set_context_mgr, 0, mgr);
  }
@@ -124,4 +100,14 @@ Index: debian-kernel/security/security.c
 +EXPORT_SYMBOL_GPL(security_binder_transfer_file);
  
  int security_ptrace_access_check(struct task_struct *child, unsigned int mode)
+ {
+--- a/fs/file.c
++++ b/fs/file.c
+@@ -788,6 +788,7 @@
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(close_fd_get_file);
+ 
+ void do_close_on_exec(struct files_struct *files)
  {

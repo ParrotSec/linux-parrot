@@ -8,7 +8,7 @@
 #include <linux/vhost_iotlb.h>
 
 /**
- * vDPA callback definition.
+ * struct vdpa_calllback - vDPA callback definition.
  * @callback: interrupt callback function
  * @private: the data passed to the callback function
  */
@@ -18,7 +18,7 @@ struct vdpa_callback {
 };
 
 /**
- * vDPA notification area
+ * struct vdpa_notification_area - vDPA notification area
  * @addr: base address of the notification area
  * @size: size of the notification area
  */
@@ -28,20 +28,46 @@ struct vdpa_notification_area {
 };
 
 /**
- * vDPA vq_state definition
+ * struct vdpa_vq_state_split - vDPA split virtqueue state
  * @avail_index: available index
  */
-struct vdpa_vq_state {
+struct vdpa_vq_state_split {
 	u16	avail_index;
 };
 
 /**
- * vDPA device - representation of a vDPA device
+ * struct vdpa_vq_state_packed - vDPA packed virtqueue state
+ * @last_avail_counter: last driver ring wrap counter observed by device
+ * @last_avail_idx: device available index
+ * @last_used_counter: device ring wrap counter
+ * @last_used_idx: used index
+ */
+struct vdpa_vq_state_packed {
+        u16	last_avail_counter:1;
+        u16	last_avail_idx:15;
+        u16	last_used_counter:1;
+        u16	last_used_idx:15;
+};
+
+struct vdpa_vq_state {
+     union {
+          struct vdpa_vq_state_split split;
+          struct vdpa_vq_state_packed packed;
+     };
+};
+
+struct vdpa_mgmt_dev;
+
+/**
+ * struct vdpa_device - representation of a vDPA device
  * @dev: underlying device
  * @dma_dev: the actual device that is performing DMA
  * @config: the configuration ops for this device.
  * @index: device index
  * @features_valid: were features initialized? for legacy guests
+ * @nvqs: maximum number of supported virtqueues
+ * @mdev: management device pointer; caller must setup when registering device as part
+ *	  of dev_add() mgmtdev ops callback before invoking _vdpa_register_device().
  */
 struct vdpa_device {
 	struct device dev;
@@ -50,10 +76,11 @@ struct vdpa_device {
 	unsigned int index;
 	bool features_valid;
 	int nvqs;
+	struct vdpa_mgmt_dev *mdev;
 };
 
 /**
- * vDPA IOVA range - the IOVA range support by the device
+ * struct vdpa_iova_range - the IOVA range support by the device
  * @first: start of the IOVA range
  * @last: end of the IOVA range
  */
@@ -63,7 +90,7 @@ struct vdpa_iova_range {
 };
 
 /**
- * vDPA_config_ops - operations for configuring a vDPA device.
+ * struct vdpa_config_ops - operations for configuring a vDPA device.
  * Note: vDPA device drivers are required to implement all of the
  * operations unless it is mentioned to be optional in the following
  * list.
@@ -144,6 +171,9 @@ struct vdpa_iova_range {
  * @set_status:			Set the device status
  *				@vdev: vdpa device
  *				@status: virtio device status
+ * @get_config_size:		Get the size of the configuration space
+ *				@vdev: vdpa device
+ *				Returns size_t: configuration size
  * @get_config:			Read from device specific configuration space
  *				@vdev: vdpa device
  *				@offset: offset from the beginning of
@@ -225,6 +255,7 @@ struct vdpa_config_ops {
 	u32 (*get_vendor_id)(struct vdpa_device *vdev);
 	u8 (*get_status)(struct vdpa_device *vdev);
 	void (*set_status)(struct vdpa_device *vdev, u8 status);
+	size_t (*get_config_size)(struct vdpa_device *vdev);
 	void (*get_config)(struct vdpa_device *vdev, unsigned int offset,
 			   void *buf, unsigned int len);
 	void (*set_config)(struct vdpa_device *vdev, unsigned int offset,
@@ -244,22 +275,35 @@ struct vdpa_config_ops {
 
 struct vdpa_device *__vdpa_alloc_device(struct device *parent,
 					const struct vdpa_config_ops *config,
-					int nvqs,
-					size_t size);
-
-#define vdpa_alloc_device(dev_struct, member, parent, config, nvqs)   \
-			  container_of(__vdpa_alloc_device( \
-				       parent, config, nvqs, \
-				       sizeof(dev_struct) + \
-				       BUILD_BUG_ON_ZERO(offsetof( \
-				       dev_struct, member))), \
-				       dev_struct, member)
-
-int vdpa_register_device(struct vdpa_device *vdev);
-void vdpa_unregister_device(struct vdpa_device *vdev);
+					size_t size, const char *name);
 
 /**
- * vdpa_driver - operations for a vDPA driver
+ * vdpa_alloc_device - allocate and initilaize a vDPA device
+ *
+ * @dev_struct: the type of the parent structure
+ * @member: the name of struct vdpa_device within the @dev_struct
+ * @parent: the parent device
+ * @config: the bus operations that is supported by this device
+ * @name: name of the vdpa device
+ *
+ * Return allocated data structure or ERR_PTR upon error
+ */
+#define vdpa_alloc_device(dev_struct, member, parent, config, name)   \
+			  container_of(__vdpa_alloc_device( \
+				       parent, config, \
+				       sizeof(dev_struct) + \
+				       BUILD_BUG_ON_ZERO(offsetof( \
+				       dev_struct, member)), name), \
+				       dev_struct, member)
+
+int vdpa_register_device(struct vdpa_device *vdev, int nvqs);
+void vdpa_unregister_device(struct vdpa_device *vdev);
+
+int _vdpa_register_device(struct vdpa_device *vdev, int nvqs);
+void _vdpa_unregister_device(struct vdpa_device *vdev);
+
+/**
+ * struct vdpa_driver - operations for a vDPA driver
  * @driver: underlying device driver
  * @probe: the function to call when a device is found.  Returns 0 or -errno.
  * @remove: the function to call when a device is removed.
@@ -334,5 +378,34 @@ static inline void vdpa_get_config(struct vdpa_device *vdev, unsigned offset,
 		vdpa_set_features(vdev, 0);
 	ops->get_config(vdev, offset, buf, len);
 }
+
+/**
+ * struct vdpa_mgmtdev_ops - vdpa device ops
+ * @dev_add: Add a vdpa device using alloc and register
+ *	     @mdev: parent device to use for device addition
+ *	     @name: name of the new vdpa device
+ *	     Driver need to add a new device using _vdpa_register_device()
+ *	     after fully initializing the vdpa device. Driver must return 0
+ *	     on success or appropriate error code.
+ * @dev_del: Remove a vdpa device using unregister
+ *	     @mdev: parent device to use for device removal
+ *	     @dev: vdpa device to remove
+ *	     Driver need to remove the specified device by calling
+ *	     _vdpa_unregister_device().
+ */
+struct vdpa_mgmtdev_ops {
+	int (*dev_add)(struct vdpa_mgmt_dev *mdev, const char *name);
+	void (*dev_del)(struct vdpa_mgmt_dev *mdev, struct vdpa_device *dev);
+};
+
+struct vdpa_mgmt_dev {
+	struct device *device;
+	const struct vdpa_mgmtdev_ops *ops;
+	const struct virtio_device_id *id_table; /* supported ids */
+	struct list_head list;
+};
+
+int vdpa_mgmtdev_register(struct vdpa_mgmt_dev *mdev);
+void vdpa_mgmtdev_unregister(struct vdpa_mgmt_dev *mdev);
 
 #endif /* _LINUX_VDPA_H */

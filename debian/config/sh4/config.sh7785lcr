@@ -7,11 +7,6 @@ CONFIG_CPU_SUBTYPE_SH7785=y
 CONFIG_SH_PCLK_FREQ=50000000
 
 ##
-## file: arch/sh/boards/Kconfig
-##
-CONFIG_SH_SH7785LCR=y
-
-##
 ## file: arch/sh/Kconfig.cpu
 ##
 ## choice: Endianness selection
@@ -19,6 +14,11 @@ CONFIG_CPU_LITTLE_ENDIAN=y
 ## end choice
 CONFIG_SH_FPU=y
 CONFIG_SH_STORE_QUEUES=y
+
+##
+## file: arch/sh/boards/Kconfig
+##
+CONFIG_SH_SH7785LCR=y
 
 ##
 ## file: arch/sh/mm/Kconfig

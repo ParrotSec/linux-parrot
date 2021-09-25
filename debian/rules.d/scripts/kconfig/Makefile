@@ -2,7 +2,7 @@ PROGS = conf
 
 include $(top_rulesdir)/Makefile.inc
 
-conf: conf.o confdata.o expr.o lexer.lex.o parser.tab.o preprocess.o symbol.o util.o
+conf: conf.o confdata.o expr.o lexer.lex.o menu.o parser.tab.o preprocess.o symbol.o util.o
 
 lexer.lex.o: parser.tab.h
 

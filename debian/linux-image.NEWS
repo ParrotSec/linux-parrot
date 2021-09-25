@@ -1,3 +1,19 @@
+linux (5.10.46-4) unstable; urgency=medium
+
+  * From Linux 5.10.46-4, unprivileged calls to bpf() are disabled by
+    default, mitigating several security issues. However, an admin can
+    still change this setting later on, if needed, by writing 0 or 1 to
+    the kernel.unprivileged_bpf_disabled sysctl.
+
+    If you prefer to keep unprivileged calls to bpf() enabled, set the
+    sysctl:
+
+    kernel.unprivileged_bpf_disabled = 0
+
+    which is the upstream default.
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Mon, 02 Aug 2021 22:59:24 +0200
+
 linux (5.10~rc7-1~exp2) unstable; urgency=medium
 
   * From Linux 5.10, all users are allowed to create user namespaces by

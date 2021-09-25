@@ -11,6 +11,7 @@
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
+#include <linux/iommu.h>
 #include <uapi/linux/idxd.h>
 #include "registers.h"
 #include "idxd.h"
@@ -27,12 +28,15 @@ struct idxd_cdev_context {
  */
 static struct idxd_cdev_context ictx[IDXD_TYPE_MAX] = {
 	{ .name = "dsa" },
+	{ .name = "iax" }
 };
 
 struct idxd_user_context {
 	struct idxd_wq *wq;
 	struct task_struct *task;
+	unsigned int pasid;
 	unsigned int flags;
+	struct iommu_sva *sva;
 };
 
 static void idxd_cdev_dev_release(struct device *dev)
@@ -41,7 +45,7 @@ static void idxd_cdev_dev_release(struct device *dev)
 	struct idxd_cdev_context *cdev_ctx;
 	struct idxd_wq *wq = idxd_cdev->wq;
 
-	cdev_ctx = &ictx[wq->idxd->type];
+	cdev_ctx = &ictx[wq->idxd->data->type];
 	ida_simple_remove(&cdev_ctx->minor_ida, idxd_cdev->minor);
 	kfree(idxd_cdev);
 }
@@ -72,6 +76,8 @@ static int idxd_cdev_open(struct inode *inode, struct file *filp)
 	struct idxd_wq *wq;
 	struct device *dev;
 	int rc = 0;
+	struct iommu_sva *sva;
+	unsigned int pasid;
 
 	wq = inode_wq(inode);
 	idxd = wq->idxd;
@@ -92,6 +98,35 @@ static int idxd_cdev_open(struct inode *inode, struct file *filp)
 
 	ctx->wq = wq;
 	filp->private_data = ctx;
+
+	if (device_pasid_enabled(idxd)) {
+		sva = iommu_sva_bind_device(dev, current->mm, NULL);
+		if (IS_ERR(sva)) {
+			rc = PTR_ERR(sva);
+			dev_err(dev, "pasid allocation failed: %d\n", rc);
+			goto failed;
+		}
+
+		pasid = iommu_sva_get_pasid(sva);
+		if (pasid == IOMMU_PASID_INVALID) {
+			iommu_sva_unbind_device(sva);
+			rc = -EINVAL;
+			goto failed;
+		}
+
+		ctx->sva = sva;
+		ctx->pasid = pasid;
+
+		if (wq_dedicated(wq)) {
+			rc = idxd_wq_set_pasid(wq, pasid);
+			if (rc < 0) {
+				iommu_sva_unbind_device(sva);
+				dev_err(dev, "wq set pasid failed: %d\n", rc);
+				goto failed;
+			}
+		}
+	}
+
 	idxd_wq_get(wq);
 	mutex_unlock(&wq->wq_lock);
 	return 0;
@@ -108,13 +143,27 @@ static int idxd_cdev_release(struct inode *node, struct file *filep)
 	struct idxd_wq *wq = ctx->wq;
 	struct idxd_device *idxd = wq->idxd;
 	struct device *dev = &idxd->pdev->dev;
+	int rc;
 
 	dev_dbg(dev, "%s called\n", __func__);
 	filep->private_data = NULL;
 
 	/* Wait for in-flight operations to complete. */
-	idxd_wq_drain(wq);
+	if (wq_shared(wq)) {
+		idxd_device_drain_pasid(idxd, ctx->pasid);
+	} else {
+		if (device_pasid_enabled(idxd)) {
+			/* The wq disable in the disable pasid function will drain the wq */
+			rc = idxd_wq_disable_pasid(wq);
+			if (rc < 0)
+				dev_err(dev, "wq disable pasid failed.\n");
+		} else {
+			idxd_wq_drain(wq);
+		}
+	}
 
+	if (ctx->sva)
+		iommu_sva_unbind_device(ctx->sva);
 	kfree(ctx);
 	mutex_lock(&wq->wq_lock);
 	idxd_wq_put(wq);
@@ -191,7 +240,7 @@ static const struct file_operations idxd_cdev_fops = {
 
 int idxd_cdev_get_major(struct idxd_device *idxd)
 {
-	return MAJOR(ictx[idxd->type].devt);
+	return MAJOR(ictx[idxd->data->type].devt);
 }
 
 int idxd_wq_add_cdev(struct idxd_wq *wq)
@@ -210,7 +259,7 @@ int idxd_wq_add_cdev(struct idxd_wq *wq)
 	idxd_cdev->wq = wq;
 	cdev = &idxd_cdev->cdev;
 	dev = &idxd_cdev->dev;
-	cdev_ctx = &ictx[wq->idxd->type];
+	cdev_ctx = &ictx[wq->idxd->data->type];
 	minor = ida_simple_get(&cdev_ctx->minor_ida, 0, MINORMASK, GFP_KERNEL);
 	if (minor < 0) {
 		kfree(idxd_cdev);
@@ -220,12 +269,11 @@ int idxd_wq_add_cdev(struct idxd_wq *wq)
 
 	device_initialize(dev);
 	dev->parent = &wq->conf_dev;
-	dev->bus = idxd_get_bus_type(idxd);
+	dev->bus = &dsa_bus_type;
 	dev->type = &idxd_cdev_device_type;
 	dev->devt = MKDEV(MAJOR(cdev_ctx->devt), minor);
 
-	rc = dev_set_name(dev, "%s/wq%u.%u", idxd_get_dev_name(idxd),
-			  idxd->id, wq->id);
+	rc = dev_set_name(dev, "%s/wq%u.%u", idxd->data->name_prefix, idxd->id, wq->id);
 	if (rc < 0)
 		goto err;
 
@@ -248,9 +296,7 @@ int idxd_wq_add_cdev(struct idxd_wq *wq)
 void idxd_wq_del_cdev(struct idxd_wq *wq)
 {
 	struct idxd_cdev *idxd_cdev;
-	struct idxd_cdev_context *cdev_ctx;
 
-	cdev_ctx = &ictx[wq->idxd->type];
 	idxd_cdev = wq->idxd_cdev;
 	wq->idxd_cdev = NULL;
 	cdev_device_del(&idxd_cdev->cdev, &idxd_cdev->dev);

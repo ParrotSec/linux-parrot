@@ -19,12 +19,12 @@ Signed-off-by: Ben Hutchings <benh@debian.org>
 ---
 --- a/tools/bpf/bpftool/Makefile
 +++ b/tools/bpf/bpftool/Makefile
-@@ -25,7 +25,7 @@ endif
+@@ -31,7 +31,7 @@
+ LIBBPF_BOOTSTRAP = $(LIBBPF_BOOTSTRAP_OUTPUT)libbpf.a
  
- LIBBPF = $(LIBBPF_PATH)libbpf.a
+ ifeq ($(BPFTOOL_VERSION),)
+-BPFTOOL_VERSION := $(shell make -rR --no-print-directory -sC ../../.. kernelversion)
++BPFTOOL_VERSION := $(shell MAKEFLAGS= make -rR --no-print-directory -sC ../../.. kernelversion)
+ endif
  
--BPFTOOL_VERSION ?= $(shell make -rR --no-print-directory -sC ../../.. kernelversion)
-+BPFTOOL_VERSION ?= $(shell MAKEFLAGS= make -rR --no-print-directory -sC ../../.. kernelversion)
- 
- $(LIBBPF): FORCE
- 	$(if $(LIBBPF_OUTPUT),@mkdir -p $(LIBBPF_OUTPUT))
+ $(LIBBPF_OUTPUT) $(BOOTSTRAP_OUTPUT) $(LIBBPF_BOOTSTRAP_OUTPUT):

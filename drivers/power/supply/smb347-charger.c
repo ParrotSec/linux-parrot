@@ -10,7 +10,6 @@
 
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/gpio.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -56,6 +55,7 @@
 #define CFG_PIN_EN_CTRL_ACTIVE_LOW		0x60
 #define CFG_PIN_EN_APSD_IRQ			BIT(1)
 #define CFG_PIN_EN_CHARGER_ERROR		BIT(2)
+#define CFG_PIN_EN_CTRL				BIT(4)
 #define CFG_THERM				0x07
 #define CFG_THERM_SOFT_HOT_COMPENSATION_MASK	0x03
 #define CFG_THERM_SOFT_HOT_COMPENSATION_SHIFT	0
@@ -725,6 +725,15 @@ static int smb347_hw_init(struct smb347_charger *smb)
 	if (ret < 0)
 		goto fail;
 
+	/* Activate pin control, making it writable. */
+	switch (smb->enable_control) {
+	case SMB3XX_CHG_ENABLE_PIN_ACTIVE_LOW:
+	case SMB3XX_CHG_ENABLE_PIN_ACTIVE_HIGH:
+		ret = regmap_set_bits(smb->regmap, CFG_PIN, CFG_PIN_EN_CTRL);
+		if (ret < 0)
+			goto fail;
+	}
+
 	/*
 	 * Make the charging functionality controllable by a write to the
 	 * command register unless pin control is specified in the platform
@@ -911,11 +920,14 @@ static int smb347_irq_init(struct smb347_charger *smb,
 {
 	int ret;
 
-	ret = devm_request_threaded_irq(smb->dev, client->irq, NULL,
-					smb347_interrupt, IRQF_ONESHOT,
-					client->name, smb);
-	if (ret < 0)
-		return ret;
+	smb->irq_unsupported = true;
+
+	/*
+	 * Interrupt pin is optional. If it is connected, we setup the
+	 * interrupt support here.
+	 */
+	if (!client->irq)
+		return 0;
 
 	ret = smb347_set_writable(smb, true);
 	if (ret < 0)
@@ -931,7 +943,25 @@ static int smb347_irq_init(struct smb347_charger *smb,
 
 	smb347_set_writable(smb, false);
 
-	return ret;
+	if (ret < 0) {
+		dev_warn(smb->dev, "failed to initialize IRQ: %d\n", ret);
+		dev_warn(smb->dev, "disabling IRQ support\n");
+		return 0;
+	}
+
+	ret = devm_request_threaded_irq(smb->dev, client->irq, NULL,
+					smb347_interrupt, IRQF_ONESHOT,
+					client->name, smb);
+	if (ret)
+		return ret;
+
+	smb->irq_unsupported = false;
+
+	ret = smb347_irq_enable(smb);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
 /*
@@ -1120,9 +1150,13 @@ static int smb347_get_property(struct power_supply *psy,
 	struct i2c_client *client = to_i2c_client(smb->dev);
 	int ret;
 
-	disable_irq(client->irq);
+	if (!smb->irq_unsupported)
+		disable_irq(client->irq);
+
 	ret = smb347_get_property_locked(psy, prop, val);
-	enable_irq(client->irq);
+
+	if (!smb->irq_unsupported)
+		enable_irq(client->irq);
 
 	return ret;
 }
@@ -1339,20 +1373,9 @@ static int smb347_probe(struct i2c_client *client,
 	if (ret < 0)
 		return ret;
 
-	/*
-	 * Interrupt pin is optional. If it is connected, we setup the
-	 * interrupt support here.
-	 */
-	if (client->irq) {
-		ret = smb347_irq_init(smb, client);
-		if (ret < 0) {
-			dev_warn(dev, "failed to initialize IRQ: %d\n", ret);
-			dev_warn(dev, "disabling IRQ support\n");
-			smb->irq_unsupported = true;
-		} else {
-			smb347_irq_enable(smb);
-		}
-	}
+	ret = smb347_irq_init(smb, client);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -1387,11 +1410,10 @@ static struct i2c_driver smb347_driver = {
 		.name = "smb347",
 		.of_match_table = smb3xx_of_match,
 	},
-	.probe        = smb347_probe,
-	.remove       = smb347_remove,
-	.id_table     = smb347_id,
+	.probe = smb347_probe,
+	.remove = smb347_remove,
+	.id_table = smb347_id,
 };
-
 module_i2c_driver(smb347_driver);
 
 MODULE_AUTHOR("Bruce E. Robertson <bruce.e.robertson@intel.com>");

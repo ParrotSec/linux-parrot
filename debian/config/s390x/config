@@ -193,7 +193,6 @@ CONFIG_VIRT_CPU_ACCOUNTING_NATIVE=y
 ##
 ## choice: Memory model
 # CONFIG_FLATMEM_MANUAL is not set
-# CONFIG_DISCONTIGMEM_MANUAL is not set
 CONFIG_SPARSEMEM_MANUAL=y
 ## end choice
 

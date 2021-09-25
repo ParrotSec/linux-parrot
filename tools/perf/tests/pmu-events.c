@@ -12,10 +12,13 @@
 #include "util/evlist.h"
 #include "util/expr.h"
 #include "util/parse-events.h"
+#include "metricgroup.h"
 
 struct perf_pmu_test_event {
+	/* used for matching against events from generated pmu-events.c */
 	struct pmu_event event;
 
+	/* used for matching against event aliases */
 	/* extra events for aliases */
 	const char *alias_str;
 
@@ -77,6 +80,17 @@ static struct perf_pmu_test_event test_cpu_events[] = {
 		},
 		.alias_str = "umask=0,(null)=0x30d40,event=0x3a",
 		.alias_long_desc = "Number of Enhanced Intel SpeedStep(R) Technology (EIST) transitions",
+	},
+	{
+		.event = {
+			.name = "l3_cache_rd",
+			.event = "event=0x40",
+			.desc = "L3 cache access, read",
+			.long_desc = "Attributable Level 3 cache access, read",
+			.topic = "cache",
+		},
+		.alias_str = "event=0x40",
+		.alias_long_desc = "Attributable Level 3 cache access, read",
 	},
 	{ /* sentinel */
 		.event = {
@@ -357,6 +371,7 @@ static int __test__pmu_event_aliases(char *pmu_name, int *count)
 }
 
 
+/* Test that aliases generated are as expected */
 static int test_aliases(void)
 {
 	struct perf_pmu *pmu = NULL;
@@ -457,9 +472,74 @@ static void expr_failure(const char *msg,
 	pr_debug("On expression %s\n", pe->metric_expr);
 }
 
+struct metric {
+	struct list_head list;
+	struct metric_ref metric_ref;
+};
+
+static int resolve_metric_simple(struct expr_parse_ctx *pctx,
+				 struct list_head *compound_list,
+				 struct pmu_events_map *map,
+				 const char *metric_name)
+{
+	struct hashmap_entry *cur, *cur_tmp;
+	struct metric *metric, *tmp;
+	size_t bkt;
+	bool all;
+	int rc;
+
+	do {
+		all = true;
+		hashmap__for_each_entry_safe((&pctx->ids), cur, cur_tmp, bkt) {
+			struct metric_ref *ref;
+			struct pmu_event *pe;
+
+			pe = metricgroup__find_metric(cur->key, map);
+			if (!pe)
+				continue;
+
+			if (!strcmp(metric_name, (char *)cur->key)) {
+				pr_warning("Recursion detected for metric %s\n", metric_name);
+				rc = -1;
+				goto out_err;
+			}
+
+			all = false;
+
+			/* The metric key itself needs to go out.. */
+			expr__del_id(pctx, cur->key);
+
+			metric = malloc(sizeof(*metric));
+			if (!metric) {
+				rc = -ENOMEM;
+				goto out_err;
+			}
+
+			ref = &metric->metric_ref;
+			ref->metric_name = pe->metric_name;
+			ref->metric_expr = pe->metric_expr;
+			list_add_tail(&metric->list, compound_list);
+
+			rc = expr__find_other(pe->metric_expr, NULL, pctx, 0);
+			if (rc)
+				goto out_err;
+			break; /* The hashmap has been modified, so restart */
+		}
+	} while (!all);
+
+	return 0;
+
+out_err:
+	list_for_each_entry_safe(metric, tmp, compound_list, list)
+		free(metric);
+
+	return rc;
+
+}
+
 static int test_parsing(void)
 {
-	struct pmu_events_map *cpus_map = perf_pmu__find_map(NULL);
+	struct pmu_events_map *cpus_map = pmu_events_map__find();
 	struct pmu_events_map *map;
 	struct pmu_event *pe;
 	int i, j, k;
@@ -474,7 +554,9 @@ static int test_parsing(void)
 			break;
 		j = 0;
 		for (;;) {
+			struct metric *metric, *tmp;
 			struct hashmap_entry *cur;
+			LIST_HEAD(compound_list);
 			size_t bkt;
 
 			pe = &map->table[j++];
@@ -488,6 +570,13 @@ static int test_parsing(void)
 				expr_failure("Parse other failed", map, pe);
 				ret++;
 				continue;
+			}
+
+			if (resolve_metric_simple(&ctx, &compound_list, map,
+						  pe->metric_name)) {
+				expr_failure("Could not resolve metrics", map, pe);
+				ret++;
+				goto exit; /* Don't tolerate errors due to severity */
 			}
 
 			/*
@@ -505,6 +594,11 @@ static int test_parsing(void)
 					ret++;
 			}
 
+			list_for_each_entry_safe(metric, tmp, &compound_list, list) {
+				expr__add_ref(&ctx, &metric->metric_ref);
+				free(metric);
+			}
+
 			if (expr__parse(&result, &ctx, pe->metric_expr, 0)) {
 				expr_failure("Parse failed", map, pe);
 				ret++;
@@ -513,6 +607,7 @@ static int test_parsing(void)
 		}
 	}
 	/* TODO: fail when not ok */
+exit:
 	return ret == 0 ? TEST_OK : TEST_SKIP;
 }
 

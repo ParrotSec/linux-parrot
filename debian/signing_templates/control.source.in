@@ -1,4 +1,4 @@
-Source: linux-signed-@arch@
+Source: linux-signed@source_suffix@-@arch@
 Section: kernel
 Priority: optional
 Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>

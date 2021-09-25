@@ -27,16 +27,10 @@ int efi_set_mapping_permissions(struct mm_struct *mm, efi_memory_desc_t *md);
 
 #define ARCH_EFI_IRQ_FLAGS_MASK (SR_IE | SR_SPIE)
 
-/* on RISC-V, the FDT may be located anywhere in system RAM */
-static inline unsigned long efi_get_max_fdt_addr(unsigned long image_addr)
-{
-	return ULONG_MAX;
-}
-
-/* Load initrd at enough distance from DRAM start */
+/* Load initrd anywhere in system RAM */
 static inline unsigned long efi_get_max_initrd_addr(unsigned long image_addr)
 {
-	return image_addr + SZ_256M;
+	return ULONG_MAX;
 }
 
 #define alloc_screen_info(x...)		(&screen_info)

@@ -1,7 +1,8 @@
 .. raw:: latex
 
-        \renewcommand\thesection*
-        \renewcommand\thesubsection*
+	\renewcommand\thesection*
+	\renewcommand\thesubsection*
+	\kerneldocCJKon
 
 한국어 번역
 ===========
@@ -10,3 +11,18 @@
    :maxdepth: 1
 
    howto
+
+
+리눅스 커널 메모리 배리어
+-------------------------
+
+.. raw:: latex
+
+    \footnotesize
+
+.. include:: ./memory-barriers.txt
+    :literal:
+
+.. raw:: latex
+
+    \normalsize

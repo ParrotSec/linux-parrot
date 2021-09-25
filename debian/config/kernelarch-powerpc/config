@@ -39,6 +39,12 @@ CONFIG_TAU=y
 # CONFIG_TAU_AVERAGE is not set
 
 ##
+## file: arch/powerpc/platforms/Kconfig.cputype
+##
+CONFIG_PPC_KUEP=y
+CONFIG_PPC_KUAP=y
+
+##
 ## file: arch/powerpc/platforms/52xx/Kconfig
 ##
 # CONFIG_PPC_LITE5200 is not set
@@ -57,12 +63,6 @@ CONFIG_TAU=y
 ## file: arch/powerpc/platforms/86xx/Kconfig
 ##
 # CONFIG_PPC_86xx is not set
-
-##
-## file: arch/powerpc/platforms/Kconfig.cputype
-##
-CONFIG_PPC_KUEP=y
-CONFIG_PPC_KUAP=y
 
 ##
 ## file: arch/powerpc/platforms/powermac/Kconfig
@@ -132,7 +132,6 @@ CONFIG_ATM_HE=m
 ## file: drivers/block/Kconfig
 ##
 CONFIG_BLK_DEV_FD=m
-CONFIG_BLK_DEV_UMEM=m
 CONFIG_BLK_DEV_SX8=m
 CONFIG_CDROM_PKTCDVD=m
 CONFIG_CDROM_PKTCDVD_BUFFERS=8
@@ -560,8 +559,6 @@ CONFIG_LANMEDIA=m
 CONFIG_PCI200SYN=m
 CONFIG_WANXL=m
 CONFIG_FARSYNC=m
-CONFIG_DLCI=m
-CONFIG_DLCI_MAX=8
 
 ##
 ## file: drivers/net/wireless/Kconfig
@@ -654,7 +651,6 @@ CONFIG_SCSI_BUSLOGIC=m
 CONFIG_SCSI_MYRB=m
 CONFIG_SCSI_MYRS=m
 CONFIG_SCSI_DMX3191D=m
-# CONFIG_SCSI_GDTH is not set
 CONFIG_SCSI_IPS=m
 # CONFIG_SCSI_INITIO is not set
 CONFIG_SCSI_INIA100=m

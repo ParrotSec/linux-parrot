@@ -154,8 +154,8 @@ TRACE_EVENT(rpc_clnt_new,
 		__entry->client_id = clnt->cl_clid;
 		__assign_str(addr, xprt->address_strings[RPC_DISPLAY_ADDR]);
 		__assign_str(port, xprt->address_strings[RPC_DISPLAY_PORT]);
-		__assign_str(program, program)
-		__assign_str(server, server)
+		__assign_str(program, program);
+		__assign_str(server, server);
 	),
 
 	TP_printk("client=%u peer=[%s]:%s program=%s server=%s",
@@ -180,8 +180,8 @@ TRACE_EVENT(rpc_clnt_new_err,
 
 	TP_fast_assign(
 		__entry->error = error;
-		__assign_str(program, program)
-		__assign_str(server, server)
+		__assign_str(program, program);
+		__assign_str(server, server);
 	),
 
 	TP_printk("program=%s server=%s error=%d",
@@ -284,8 +284,8 @@ TRACE_EVENT(rpc_request,
 		__entry->client_id = task->tk_client->cl_clid;
 		__entry->version = task->tk_client->cl_vers;
 		__entry->async = RPC_IS_ASYNC(task);
-		__assign_str(progname, task->tk_client->cl_program->name)
-		__assign_str(procname, rpc_proc_name(task))
+		__assign_str(progname, task->tk_client->cl_program->name);
+		__assign_str(procname, rpc_proc_name(task));
 	),
 
 	TP_printk("task:%u@%u %sv%d %s (%ssync)",
@@ -494,10 +494,10 @@ DECLARE_EVENT_CLASS(rpc_reply_event,
 		__entry->task_id = task->tk_pid;
 		__entry->client_id = task->tk_client->cl_clid;
 		__entry->xid = be32_to_cpu(task->tk_rqstp->rq_xid);
-		__assign_str(progname, task->tk_client->cl_program->name)
+		__assign_str(progname, task->tk_client->cl_program->name);
 		__entry->version = task->tk_client->cl_vers;
-		__assign_str(procname, rpc_proc_name(task))
-		__assign_str(servername, task->tk_xprt->servername)
+		__assign_str(procname, rpc_proc_name(task));
+		__assign_str(servername, task->tk_xprt->servername);
 	),
 
 	TP_printk("task:%u@%d server=%s xid=0x%08x %sv%d %s",
@@ -622,8 +622,8 @@ TRACE_EVENT(rpc_stats_latency,
 		__entry->task_id = task->tk_pid;
 		__entry->xid = be32_to_cpu(task->tk_rqstp->rq_xid);
 		__entry->version = task->tk_client->cl_vers;
-		__assign_str(progname, task->tk_client->cl_program->name)
-		__assign_str(procname, rpc_proc_name(task))
+		__assign_str(progname, task->tk_client->cl_program->name);
+		__assign_str(procname, rpc_proc_name(task));
 		__entry->backlog = ktime_to_us(backlog);
 		__entry->rtt = ktime_to_us(rtt);
 		__entry->execute = ktime_to_us(execute);
@@ -669,15 +669,15 @@ TRACE_EVENT(rpc_xdr_overflow,
 			__entry->task_id = task->tk_pid;
 			__entry->client_id = task->tk_client->cl_clid;
 			__assign_str(progname,
-				     task->tk_client->cl_program->name)
+				     task->tk_client->cl_program->name);
 			__entry->version = task->tk_client->cl_vers;
-			__assign_str(procedure, task->tk_msg.rpc_proc->p_name)
+			__assign_str(procedure, task->tk_msg.rpc_proc->p_name);
 		} else {
 			__entry->task_id = 0;
 			__entry->client_id = 0;
-			__assign_str(progname, "unknown")
+			__assign_str(progname, "unknown");
 			__entry->version = 0;
-			__assign_str(procedure, "unknown")
+			__assign_str(procedure, "unknown");
 		}
 		__entry->requested = requested;
 		__entry->end = xdr->end;
@@ -735,9 +735,9 @@ TRACE_EVENT(rpc_xdr_alignment,
 		__entry->task_id = task->tk_pid;
 		__entry->client_id = task->tk_client->cl_clid;
 		__assign_str(progname,
-			     task->tk_client->cl_program->name)
+			     task->tk_client->cl_program->name);
 		__entry->version = task->tk_client->cl_vers;
-		__assign_str(procedure, task->tk_msg.rpc_proc->p_name)
+		__assign_str(procedure, task->tk_msg.rpc_proc->p_name);
 
 		__entry->offset = offset;
 		__entry->copied = copied;
@@ -1077,6 +1077,46 @@ TRACE_EVENT(xprt_transmit,
 		"task:%u@%u xid=0x%08x seqno=%u status=%d",
 		__entry->task_id, __entry->client_id, __entry->xid,
 		__entry->seqno, __entry->status)
+);
+
+TRACE_EVENT(xprt_retransmit,
+	TP_PROTO(
+		const struct rpc_rqst *rqst
+	),
+
+	TP_ARGS(rqst),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, task_id)
+		__field(unsigned int, client_id)
+		__field(u32, xid)
+		__field(int, ntrans)
+		__field(int, version)
+		__string(progname,
+			 rqst->rq_task->tk_client->cl_program->name)
+		__string(procedure,
+			 rqst->rq_task->tk_msg.rpc_proc->p_name)
+	),
+
+	TP_fast_assign(
+		struct rpc_task *task = rqst->rq_task;
+
+		__entry->task_id = task->tk_pid;
+		__entry->client_id = task->tk_client ?
+			task->tk_client->cl_clid : -1;
+		__entry->xid = be32_to_cpu(rqst->rq_xid);
+		__entry->ntrans = rqst->rq_ntrans;
+		__assign_str(progname,
+			     task->tk_client->cl_program->name);
+		__entry->version = task->tk_client->cl_vers;
+		__assign_str(procedure, task->tk_msg.rpc_proc->p_name);
+	),
+
+	TP_printk(
+		"task:%u@%u xid=0x%08x %sv%d %s ntrans=%d",
+		__entry->task_id, __entry->client_id, __entry->xid,
+		__get_str(progname), __entry->version, __get_str(procedure),
+		__entry->ntrans)
 );
 
 TRACE_EVENT(xprt_ping,
@@ -1423,13 +1463,13 @@ TRACE_EVENT(rpcb_unregister,
 	)
 );
 
-DECLARE_EVENT_CLASS(svc_xdr_buf_class,
+/* Record an xdr_buf containing a fully-formed RPC message */
+DECLARE_EVENT_CLASS(svc_xdr_msg_class,
 	TP_PROTO(
-		const struct svc_rqst *rqst,
 		const struct xdr_buf *xdr
 	),
 
-	TP_ARGS(rqst, xdr),
+	TP_ARGS(xdr),
 
 	TP_STRUCT__entry(
 		__field(u32, xid)
@@ -1442,7 +1482,55 @@ DECLARE_EVENT_CLASS(svc_xdr_buf_class,
 	),
 
 	TP_fast_assign(
-		__entry->xid = be32_to_cpu(rqst->rq_xid);
+		__be32 *p = (__be32 *)xdr->head[0].iov_base;
+
+		__entry->xid = be32_to_cpu(*p);
+		__entry->head_base = p;
+		__entry->head_len = xdr->head[0].iov_len;
+		__entry->tail_base = xdr->tail[0].iov_base;
+		__entry->tail_len = xdr->tail[0].iov_len;
+		__entry->page_len = xdr->page_len;
+		__entry->msg_len = xdr->len;
+	),
+
+	TP_printk("xid=0x%08x head=[%p,%zu] page=%u tail=[%p,%zu] len=%u",
+		__entry->xid,
+		__entry->head_base, __entry->head_len, __entry->page_len,
+		__entry->tail_base, __entry->tail_len, __entry->msg_len
+	)
+);
+
+#define DEFINE_SVCXDRMSG_EVENT(name)					\
+		DEFINE_EVENT(svc_xdr_msg_class,				\
+				svc_xdr_##name,				\
+				TP_PROTO(				\
+					const struct xdr_buf *xdr	\
+				),					\
+				TP_ARGS(xdr))
+
+DEFINE_SVCXDRMSG_EVENT(recvfrom);
+
+/* Record an xdr_buf containing arbitrary data, tagged with an XID */
+DECLARE_EVENT_CLASS(svc_xdr_buf_class,
+	TP_PROTO(
+		__be32 xid,
+		const struct xdr_buf *xdr
+	),
+
+	TP_ARGS(xid, xdr),
+
+	TP_STRUCT__entry(
+		__field(u32, xid)
+		__field(const void *, head_base)
+		__field(size_t, head_len)
+		__field(const void *, tail_base)
+		__field(size_t, tail_len)
+		__field(unsigned int, page_len)
+		__field(unsigned int, msg_len)
+	),
+
+	TP_fast_assign(
+		__entry->xid = be32_to_cpu(xid);
 		__entry->head_base = xdr->head[0].iov_base;
 		__entry->head_len = xdr->head[0].iov_len;
 		__entry->tail_base = xdr->tail[0].iov_base;
@@ -1462,12 +1550,11 @@ DECLARE_EVENT_CLASS(svc_xdr_buf_class,
 		DEFINE_EVENT(svc_xdr_buf_class,				\
 				svc_xdr_##name,				\
 				TP_PROTO(				\
-					const struct svc_rqst *rqst,	\
+					__be32 xid,			\
 					const struct xdr_buf *xdr	\
 				),					\
-				TP_ARGS(rqst, xdr))
+				TP_ARGS(xid, xdr))
 
-DEFINE_SVCXDRBUF_EVENT(recvfrom);
 DEFINE_SVCXDRBUF_EVENT(sendto);
 
 /*
@@ -1498,30 +1585,6 @@ SVC_RQST_FLAG_LIST
 
 #define show_rqstp_flags(flags)						\
 		__print_flags(flags, "|", SVC_RQST_FLAG_LIST)
-
-TRACE_EVENT(svc_recv,
-	TP_PROTO(struct svc_rqst *rqst, int len),
-
-	TP_ARGS(rqst, len),
-
-	TP_STRUCT__entry(
-		__field(u32, xid)
-		__field(int, len)
-		__field(unsigned long, flags)
-		__string(addr, rqst->rq_xprt->xpt_remotebuf)
-	),
-
-	TP_fast_assign(
-		__entry->xid = be32_to_cpu(rqst->rq_xid);
-		__entry->len = len;
-		__entry->flags = rqst->rq_flags;
-		__assign_str(addr, rqst->rq_xprt->xpt_remotebuf);
-	),
-
-	TP_printk("addr=%s xid=0x%08x len=%d flags=%s",
-			__get_str(addr), __entry->xid, __entry->len,
-			show_rqstp_flags(__entry->flags))
-);
 
 TRACE_DEFINE_ENUM(SVC_GARBAGE);
 TRACE_DEFINE_ENUM(SVC_SYSERR);
@@ -1579,6 +1642,7 @@ TRACE_EVENT(svc_process,
 		__field(u32, vers)
 		__field(u32, proc)
 		__string(service, name)
+		__string(procedure, svc_proc_name(rqst))
 		__string(addr, rqst->rq_xprt ?
 			 rqst->rq_xprt->xpt_remotebuf : "(null)")
 	),
@@ -1588,13 +1652,16 @@ TRACE_EVENT(svc_process,
 		__entry->vers = rqst->rq_vers;
 		__entry->proc = rqst->rq_proc;
 		__assign_str(service, name);
+		__assign_str(procedure, svc_proc_name(rqst));
 		__assign_str(addr, rqst->rq_xprt ?
 			     rqst->rq_xprt->xpt_remotebuf : "(null)");
 	),
 
-	TP_printk("addr=%s xid=0x%08x service=%s vers=%u proc=%u",
+	TP_printk("addr=%s xid=0x%08x service=%s vers=%u proc=%s",
 			__get_str(addr), __entry->xid,
-			__get_str(service), __entry->vers, __entry->proc)
+			__get_str(service), __entry->vers,
+			__get_str(procedure)
+	)
 );
 
 DECLARE_EVENT_CLASS(svc_rqst_event,
@@ -1753,6 +1820,7 @@ DECLARE_EVENT_CLASS(svc_xprt_event,
 			), \
 			TP_ARGS(xprt))
 
+DEFINE_SVC_XPRT_EVENT(received);
 DEFINE_SVC_XPRT_EVENT(no_write_space);
 DEFINE_SVC_XPRT_EVENT(close);
 DEFINE_SVC_XPRT_EVENT(detach);
@@ -1774,7 +1842,7 @@ TRACE_EVENT(svc_xprt_accept,
 
 	TP_fast_assign(
 		__assign_str(addr, xprt->xpt_remotebuf);
-		__assign_str(protocol, xprt->xpt_class->xcl_name)
+		__assign_str(protocol, xprt->xpt_class->xcl_name);
 		__assign_str(service, service);
 	),
 
@@ -1850,6 +1918,7 @@ TRACE_EVENT(svc_stats_latency,
 	TP_STRUCT__entry(
 		__field(u32, xid)
 		__field(unsigned long, execute)
+		__string(procedure, svc_proc_name(rqst))
 		__string(addr, rqst->rq_xprt->xpt_remotebuf)
 	),
 
@@ -1857,11 +1926,13 @@ TRACE_EVENT(svc_stats_latency,
 		__entry->xid = be32_to_cpu(rqst->rq_xid);
 		__entry->execute = ktime_to_us(ktime_sub(ktime_get(),
 							 rqst->rq_stime));
+		__assign_str(procedure, svc_proc_name(rqst));
 		__assign_str(addr, rqst->rq_xprt->xpt_remotebuf);
 	),
 
-	TP_printk("addr=%s xid=0x%08x execute-us=%lu",
-		__get_str(addr), __entry->xid, __entry->execute)
+	TP_printk("addr=%s xid=0x%08x proc=%s execute-us=%lu",
+		__get_str(addr), __entry->xid, __get_str(procedure),
+		__entry->execute)
 );
 
 DECLARE_EVENT_CLASS(svc_deferred_event,

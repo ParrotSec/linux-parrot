@@ -765,7 +765,6 @@ static int load_cpumap_prog(char *file_name, char *prog_name,
 
 int main(int argc, char **argv)
 {
-	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
 	char *prog_name = "xdp_cpu_map5_lb_hash_ip_pairs";
 	char *mprog_filename = "xdp_redirect_kern.o";
 	char *redir_interface = NULL, *redir_map = NULL;
@@ -804,11 +803,6 @@ int main(int argc, char **argv)
 	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
 	prog_load_attr.file = filename;
 
-	if (setrlimit(RLIMIT_MEMLOCK, &r)) {
-		perror("setrlimit(RLIMIT_MEMLOCK)");
-		return 1;
-	}
-
 	if (bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd))
 		return err;
 
@@ -837,7 +831,7 @@ int main(int argc, char **argv)
 	memset(cpu, 0, n_cpus * sizeof(int));
 
 	/* Parse commands line args */
-	while ((opt = getopt_long(argc, argv, "hSd:s:p:q:c:xzFf:e:r:m:",
+	while ((opt = getopt_long(argc, argv, "hSd:s:p:q:c:xzFf:e:r:m:n",
 				  long_options, &longindex)) != -1) {
 		switch (opt) {
 		case 'd':

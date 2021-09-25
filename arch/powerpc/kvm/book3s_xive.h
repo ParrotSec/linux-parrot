@@ -218,6 +218,17 @@ static inline struct kvmppc_xive_src_block *kvmppc_xive_find_source(struct kvmpp
 	return xive->src_blocks[bid];
 }
 
+/*
+ * When the XIVE resources are allocated at the HW level, the VP
+ * structures describing the vCPUs of a guest are distributed among
+ * the chips to optimize the PowerBUS usage. For best performance, the
+ * guest vCPUs can be pinned to match the VP structure distribution.
+ *
+ * Currently, the VP identifiers are deduced from the vCPU id using
+ * the kvmppc_pack_vcpu_id() routine which is not incorrect but not
+ * optimal either. It VSMT is used, the result is not continuous and
+ * the constraints on HW resources described above can not be met.
+ */
 static inline u32 kvmppc_xive_vp(struct kvmppc_xive *xive, u32 server)
 {
 	return xive->vp_base + kvmppc_pack_vcpu_id(xive->kvm, server);
@@ -278,18 +289,13 @@ extern int xive_rm_h_ipi(struct kvm_vcpu *vcpu, unsigned long server,
 extern int xive_rm_h_cppr(struct kvm_vcpu *vcpu, unsigned long cppr);
 extern int xive_rm_h_eoi(struct kvm_vcpu *vcpu, unsigned long xirr);
 
-extern unsigned long (*__xive_vm_h_xirr)(struct kvm_vcpu *vcpu);
-extern unsigned long (*__xive_vm_h_ipoll)(struct kvm_vcpu *vcpu, unsigned long server);
-extern int (*__xive_vm_h_ipi)(struct kvm_vcpu *vcpu, unsigned long server,
-			      unsigned long mfrr);
-extern int (*__xive_vm_h_cppr)(struct kvm_vcpu *vcpu, unsigned long cppr);
-extern int (*__xive_vm_h_eoi)(struct kvm_vcpu *vcpu, unsigned long xirr);
-
 /*
  * Common Xive routines for XICS-over-XIVE and XIVE native
  */
 void kvmppc_xive_disable_vcpu_interrupts(struct kvm_vcpu *vcpu);
 int kvmppc_xive_debug_show_queues(struct seq_file *m, struct kvm_vcpu *vcpu);
+void kvmppc_xive_debug_show_sources(struct seq_file *m,
+				    struct kvmppc_xive_src_block *sb);
 struct kvmppc_xive_src_block *kvmppc_xive_create_src_block(
 	struct kvmppc_xive *xive, int irq);
 void kvmppc_xive_free_sources(struct kvmppc_xive_src_block *sb);

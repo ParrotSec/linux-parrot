@@ -1897,7 +1897,7 @@ static void velocity_error(struct velocity_info *vptr, int status)
 }
 
 /**
- *	tx_srv		-	transmit interrupt service
+ *	velocity_tx_srv		-	transmit interrupt service
  *	@vptr: Velocity
  *
  *	Scan the queues looking for transmitted packets that
@@ -2453,7 +2453,7 @@ static int velocity_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 }
 
 /**
- *	velocity_get_status	-	statistics callback
+ *	velocity_get_stats	-	statistics callback
  *	@dev: network device
  *
  *	Callback from the network layer to allow driver statistics
@@ -2525,7 +2525,7 @@ static int velocity_close(struct net_device *dev)
  *	@skb: buffer to transmit
  *	@dev: network device
  *
- *	Called by the networ layer to request a packet is queued to
+ *	Called by the network layer to request a packet is queued to
  *	the velocity. Returns zero on success.
  */
 static netdev_tx_t velocity_xmit(struct sk_buff *skb,
@@ -3723,7 +3723,7 @@ static int __init velocity_init_module(void)
 }
 
 /**
- *	velocity_cleanup	-	module unload
+ *	velocity_cleanup_module		-	module unload
  *
  *	When the velocity hardware is unloaded this function is called.
  *	It will clean up the notifiers and the unregister the PCI

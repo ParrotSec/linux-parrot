@@ -11,6 +11,7 @@
 #include <linux/pci.h>
 #include <linux/vmalloc.h>
 
+#include <drm/drm_aperture.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_file.h>
 #include <drm/drm_ioctl.h>
@@ -28,7 +29,7 @@ module_param_named(modeset, mgag200_modeset, int, 0400);
 
 DEFINE_DRM_GEM_FOPS(mgag200_driver_fops);
 
-static struct drm_driver mgag200_driver = {
+static const struct drm_driver mgag200_driver = {
 	.driver_features = DRIVER_ATOMIC | DRIVER_GEM | DRIVER_MODESET,
 	.fops = &mgag200_driver_fops,
 	.name = DRIVER_NAME,
@@ -37,7 +38,6 @@ static struct drm_driver mgag200_driver = {
 	.major = DRIVER_MAJOR,
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
-	.gem_create_object = drm_gem_shmem_create_object_cached,
 	DRM_GEM_SHMEM_DRIVER_OPS,
 };
 
@@ -48,10 +48,11 @@ static struct drm_driver mgag200_driver = {
 static bool mgag200_has_sgram(struct mga_device *mdev)
 {
 	struct drm_device *dev = &mdev->base;
+	struct pci_dev *pdev = to_pci_dev(dev->dev);
 	u32 option;
 	int ret;
 
-	ret = pci_read_config_dword(dev->pdev, PCI_MGA_OPTION, &option);
+	ret = pci_read_config_dword(pdev, PCI_MGA_OPTION, &option);
 	if (drm_WARN(dev, ret, "failed to read PCI config dword: %d\n", ret))
 		return false;
 
@@ -61,6 +62,7 @@ static bool mgag200_has_sgram(struct mga_device *mdev)
 static int mgag200_regs_init(struct mga_device *mdev)
 {
 	struct drm_device *dev = &mdev->base;
+	struct pci_dev *pdev = to_pci_dev(dev->dev);
 	u32 option, option2;
 	u8 crtcext3;
 
@@ -100,13 +102,13 @@ static int mgag200_regs_init(struct mga_device *mdev)
 	}
 
 	if (option)
-		pci_write_config_dword(dev->pdev, PCI_MGA_OPTION, option);
+		pci_write_config_dword(pdev, PCI_MGA_OPTION, option);
 	if (option2)
-		pci_write_config_dword(dev->pdev, PCI_MGA_OPTION2, option2);
+		pci_write_config_dword(pdev, PCI_MGA_OPTION2, option2);
 
 	/* BAR 1 contains registers */
-	mdev->rmmio_base = pci_resource_start(dev->pdev, 1);
-	mdev->rmmio_size = pci_resource_len(dev->pdev, 1);
+	mdev->rmmio_base = pci_resource_start(pdev, 1);
+	mdev->rmmio_size = pci_resource_len(pdev, 1);
 
 	if (!devm_request_mem_region(dev->dev, mdev->rmmio_base,
 				     mdev->rmmio_size, "mgadrmfb_mmio")) {
@@ -114,7 +116,7 @@ static int mgag200_regs_init(struct mga_device *mdev)
 		return -ENOMEM;
 	}
 
-	mdev->rmmio = pcim_iomap(dev->pdev, 1, 0);
+	mdev->rmmio = pcim_iomap(pdev, 1, 0);
 	if (mdev->rmmio == NULL)
 		return -ENOMEM;
 
@@ -219,6 +221,7 @@ static void mgag200_g200_interpret_bios(struct mga_device *mdev,
 static void mgag200_g200_init_refclk(struct mga_device *mdev)
 {
 	struct drm_device *dev = &mdev->base;
+	struct pci_dev *pdev = to_pci_dev(dev->dev);
 	unsigned char __iomem *rom;
 	unsigned char *bios;
 	size_t size;
@@ -227,7 +230,7 @@ static void mgag200_g200_init_refclk(struct mga_device *mdev)
 	mdev->model.g200.pclk_max = 230000;
 	mdev->model.g200.ref_clk = 27050;
 
-	rom = pci_map_rom(dev->pdev, &size);
+	rom = pci_map_rom(pdev, &size);
 	if (!rom)
 		return;
 
@@ -245,7 +248,7 @@ static void mgag200_g200_init_refclk(struct mga_device *mdev)
 
 	vfree(bios);
 out:
-	pci_unmap_rom(dev->pdev, rom);
+	pci_unmap_rom(pdev, rom);
 }
 
 static void mgag200_g200se_init_unique_id(struct mga_device *mdev)
@@ -302,7 +305,6 @@ mgag200_device_create(struct pci_dev *pdev, unsigned long flags)
 		return mdev;
 	dev = &mdev->base;
 
-	dev->pdev = pdev;
 	pci_set_drvdata(pdev, dev);
 
 	ret = mgag200_device_init(mdev, flags);
@@ -340,7 +342,9 @@ mgag200_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct drm_device *dev;
 	int ret;
 
-	drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, "mgag200drmfb");
+	ret = drm_aperture_remove_conflicting_pci_framebuffers(pdev, "mgag200drmfb");
+	if (ret)
+		return ret;
 
 	ret = pcim_enable_device(pdev);
 	if (ret)

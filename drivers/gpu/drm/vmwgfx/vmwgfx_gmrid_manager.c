@@ -29,7 +29,6 @@
  */
 
 #include "vmwgfx_drv.h"
-#include <drm/ttm/ttm_module.h>
 #include <drm/ttm/ttm_bo_driver.h>
 #include <drm/ttm/ttm_placement.h>
 #include <linux/idr.h>
@@ -53,10 +52,16 @@ static struct vmwgfx_gmrid_man *to_gmrid_manager(struct ttm_resource_manager *ma
 static int vmw_gmrid_man_get_node(struct ttm_resource_manager *man,
 				  struct ttm_buffer_object *bo,
 				  const struct ttm_place *place,
-				  struct ttm_resource *mem)
+				  struct ttm_resource **res)
 {
 	struct vmwgfx_gmrid_man *gman = to_gmrid_manager(man);
 	int id;
+
+	*res = kmalloc(sizeof(**res), GFP_KERNEL);
+	if (!*res)
+		return -ENOMEM;
+
+	ttm_resource_init(bo, place, *res);
 
 	id = ida_alloc_max(&gman->gmr_ida, gman->max_gmr_ids - 1, GFP_KERNEL);
 	if (id < 0)
@@ -65,37 +70,34 @@ static int vmw_gmrid_man_get_node(struct ttm_resource_manager *man,
 	spin_lock(&gman->lock);
 
 	if (gman->max_gmr_pages > 0) {
-		gman->used_gmr_pages += bo->num_pages;
+		gman->used_gmr_pages += (*res)->num_pages;
 		if (unlikely(gman->used_gmr_pages > gman->max_gmr_pages))
 			goto nospace;
 	}
 
-	mem->mm_node = gman;
-	mem->start = id;
-	mem->num_pages = bo->num_pages;
+	(*res)->start = id;
 
 	spin_unlock(&gman->lock);
 	return 0;
 
 nospace:
-	gman->used_gmr_pages -= bo->num_pages;
+	gman->used_gmr_pages -= (*res)->num_pages;
 	spin_unlock(&gman->lock);
 	ida_free(&gman->gmr_ida, id);
+	kfree(*res);
 	return -ENOSPC;
 }
 
 static void vmw_gmrid_man_put_node(struct ttm_resource_manager *man,
-				   struct ttm_resource *mem)
+				   struct ttm_resource *res)
 {
 	struct vmwgfx_gmrid_man *gman = to_gmrid_manager(man);
 
-	if (mem->mm_node) {
-		ida_free(&gman->gmr_ida, mem->start);
-		spin_lock(&gman->lock);
-		gman->used_gmr_pages -= mem->num_pages;
-		spin_unlock(&gman->lock);
-		mem->mm_node = NULL;
-	}
+	ida_free(&gman->gmr_ida, res->start);
+	spin_lock(&gman->lock);
+	gman->used_gmr_pages -= res->num_pages;
+	spin_unlock(&gman->lock);
+	kfree(res);
 }
 
 static const struct ttm_resource_manager_func vmw_gmrid_manager_func;
@@ -143,7 +145,7 @@ void vmw_gmrid_man_fini(struct vmw_private *dev_priv, int type)
 
 	ttm_resource_manager_set_used(man, false);
 
-	ttm_resource_manager_force_list_clean(&dev_priv->bdev, man);
+	ttm_resource_manager_evict_all(&dev_priv->bdev, man);
 
 	ttm_resource_manager_cleanup(man);
 

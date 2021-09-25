@@ -7,11 +7,13 @@ We never rebuild anything in-tree when building an out-of-tree
 modules, so external modules should not depend on the recordmcount
 sources.
 
---- a/scripts/Makefile.build
-+++ b/scripts/Makefile.build
-@@ -232,6 +232,11 @@ cmd_record_mcount =						\
- endif # CC_USING_RECORD_MCOUNT
- endif # CONFIG_FTRACE_MCOUNT_RECORD
+Index: linux/scripts/Makefile.build
+===================================================================
+--- linux.orig/scripts/Makefile.build
++++ linux/scripts/Makefile.build
+@@ -217,6 +217,11 @@ cmd_record_mcount = $(if $(findstring $(
+ 	$(sub_cmd_record_mcount))
+ endif # CONFIG_FTRACE_MCOUNT_USE_RECORDMCOUNT
  
 +# Don't require recordmcount source for an OOT build.
 +ifdef KBUILD_EXTMOD
@@ -19,5 +21,5 @@ sources.
 +endif
 +
  ifdef CONFIG_STACK_VALIDATION
- ifneq ($(SKIP_STACK_VALIDATION),1)
+ ifndef CONFIG_LTO_CLANG
  

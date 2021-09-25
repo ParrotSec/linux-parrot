@@ -16,12 +16,12 @@ Signed-off-by: Heiko Stuebner <heiko@sntech.de>
  .../dts/rockchip/rk3399-kobol-helios64.dts    | 53 +++++++++++++++++++
  1 file changed, 53 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts b/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
-index 9d4a0885fd12..037dc5cdc3f3 100644
---- a/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
-+++ b/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
-@@ -23,6 +23,16 @@ aliases {
- 		mmc1 = &sdhci;
+Index: linux/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
+===================================================================
+--- linux.orig/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
++++ linux/arch/arm64/boot/dts/rockchip/rk3399-kobol-helios64.dts
+@@ -33,6 +33,16 @@
+ 		vin-supply = <&vcc1v8_sys_s3>;
  	};
  
 +	avdd_0v9_s0: avdd-0v9-s0 {
@@ -37,8 +37,8 @@ index 9d4a0885fd12..037dc5cdc3f3 100644
  	avdd_1v8_s0: avdd-1v8-s0 {
  		compatible = "regulator-fixed";
  		regulator-name = "avdd_1v8_s0";
-@@ -72,6 +82,18 @@ led-1 {
- 		};
+@@ -108,6 +118,18 @@
+ 		vin-supply = <&vcc5v0_perdev>;
  	};
  
 +	pcie_power: pcie-power {
@@ -56,8 +56,8 @@ index 9d4a0885fd12..037dc5cdc3f3 100644
  	vcc1v8_sys_s0: vcc1v8-sys-s0 {
  		compatible = "regulator-fixed";
  		regulator-name = "vcc1v8_sys_s0";
-@@ -109,6 +131,16 @@ regulator-state-mem {
- 		};
+@@ -155,6 +177,16 @@
+ 		vin-supply = <&vcc12v_dcin_bkup>;
  	};
  
 +	vcc5v0_perdev: vcc5v0-perdev {
@@ -73,8 +73,8 @@ index 9d4a0885fd12..037dc5cdc3f3 100644
  	vcc5v0_sys: vcc5v0-sys {
  		compatible = "regulator-fixed";
  		regulator-name = "vcc5v0_sys";
-@@ -331,6 +363,20 @@ &io_domains {
- 	status = "okay";
+@@ -405,6 +437,20 @@
+ 	vpcie0v9-supply = <&avdd_0v9_s0>;
  };
  
 +&pcie_phy {
@@ -94,7 +94,7 @@ index 9d4a0885fd12..037dc5cdc3f3 100644
  &pinctrl {
  	gmac {
  		gphy_reset: gphy-reset {
-@@ -348,6 +394,13 @@ sys_red_led_on: sys-red-led-on {
+@@ -422,6 +468,13 @@
  		};
  	};
  
@@ -105,9 +105,6 @@ index 9d4a0885fd12..037dc5cdc3f3 100644
 +		};
 +	};
 +
- 	pmic {
- 		pmic_int_l: pmic-int-l {
- 			rockchip,pins = <0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
--- 
-2.30.2
-
+ 	pcie {
+ 		pcie_pwr: pcie-pwr {
+ 			rockchip,pins =

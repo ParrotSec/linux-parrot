@@ -7,6 +7,14 @@ CONFIG_CPU_SUBTYPE_SH7751R=y
 CONFIG_SH_PCLK_FREQ=60000000
 
 ##
+## file: arch/sh/Kconfig.cpu
+##
+## choice: Endianness selection
+CONFIG_CPU_LITTLE_ENDIAN=y
+## end choice
+CONFIG_SH_FPU=y
+
+##
 ## file: arch/sh/boards/Kconfig
 ##
 CONFIG_SH_RTS7751R2D=y
@@ -15,14 +23,6 @@ CONFIG_SH_RTS7751R2D=y
 ## file: arch/sh/boards/mach-r2d/Kconfig
 ##
 CONFIG_RTS7751R2D_PLUS=y
-
-##
-## file: arch/sh/Kconfig.cpu
-##
-## choice: Endianness selection
-CONFIG_CPU_LITTLE_ENDIAN=y
-## end choice
-CONFIG_SH_FPU=y
 
 ##
 ## file: arch/sh/mm/Kconfig

@@ -145,8 +145,7 @@ static void led_remove_brightness_hw_changed(struct led_classdev *led_cdev)
 	device_remove_file(led_cdev->dev, &dev_attr_brightness_hw_changed);
 }
 
-void led_classdev_notify_brightness_hw_changed(struct led_classdev *led_cdev,
-					       enum led_brightness brightness)
+void led_classdev_notify_brightness_hw_changed(struct led_classdev *led_cdev, unsigned int brightness)
 {
 	if (WARN_ON(!led_cdev->brightness_hw_changed_kn))
 		return;
@@ -285,10 +284,6 @@ struct led_classdev *__must_check devm_of_led_get(struct device *dev,
 
 	if (!dev)
 		return ERR_PTR(-EINVAL);
-
-	/* Not using device tree? */
-	if (!IS_ENABLED(CONFIG_OF) || !dev->of_node)
-		return ERR_PTR(-ENOTSUPP);
 
 	led = of_led_get(dev->of_node, index);
 	if (IS_ERR(led))
@@ -514,7 +509,7 @@ static int devm_led_classdev_match(struct device *dev, void *res, void *data)
 
 /**
  * devm_led_classdev_unregister() - resource managed led_classdev_unregister()
- * @parent: The device to unregister.
+ * @dev: The device to unregister.
  * @led_cdev: the led_classdev structure for this device.
  */
 void devm_led_classdev_unregister(struct device *dev,

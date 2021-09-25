@@ -128,7 +128,7 @@ struct btf_dump *btf_dump__new(const struct btf *btf,
 
 	d = calloc(1, sizeof(struct btf_dump));
 	if (!d)
-		return ERR_PTR(-ENOMEM);
+		return libbpf_err_ptr(-ENOMEM);
 
 	d->btf = btf;
 	d->btf_ext = btf_ext;
@@ -156,7 +156,7 @@ struct btf_dump *btf_dump__new(const struct btf *btf,
 	return d;
 err:
 	btf_dump__free(d);
-	return ERR_PTR(err);
+	return libbpf_err_ptr(err);
 }
 
 static int btf_dump_resize(struct btf_dump *d)
@@ -166,11 +166,11 @@ static int btf_dump_resize(struct btf_dump *d)
 	if (last_id <= d->last_id)
 		return 0;
 
-	if (btf_ensure_mem((void **)&d->type_states, &d->type_states_cap,
-			   sizeof(*d->type_states), last_id + 1))
+	if (libbpf_ensure_mem((void **)&d->type_states, &d->type_states_cap,
+			      sizeof(*d->type_states), last_id + 1))
 		return -ENOMEM;
-	if (btf_ensure_mem((void **)&d->cached_names, &d->cached_names_cap,
-			   sizeof(*d->cached_names), last_id + 1))
+	if (libbpf_ensure_mem((void **)&d->cached_names, &d->cached_names_cap,
+			      sizeof(*d->cached_names), last_id + 1))
 		return -ENOMEM;
 
 	if (d->last_id == 0) {
@@ -236,16 +236,16 @@ int btf_dump__dump_type(struct btf_dump *d, __u32 id)
 	int err, i;
 
 	if (id > btf__get_nr_types(d->btf))
-		return -EINVAL;
+		return libbpf_err(-EINVAL);
 
 	err = btf_dump_resize(d);
 	if (err)
-		return err;
+		return libbpf_err(err);
 
 	d->emit_queue_cnt = 0;
 	err = btf_dump_order_type(d, id, false);
 	if (err < 0)
-		return err;
+		return libbpf_err(err);
 
 	for (i = 0; i < d->emit_queue_cnt; i++)
 		btf_dump_emit_type(d, d->emit_queue[i], 0 /*top-level*/);
@@ -279,6 +279,7 @@ static int btf_dump_mark_referenced(struct btf_dump *d)
 		case BTF_KIND_INT:
 		case BTF_KIND_ENUM:
 		case BTF_KIND_FWD:
+		case BTF_KIND_FLOAT:
 			break;
 
 		case BTF_KIND_VOLATILE:
@@ -453,6 +454,7 @@ static int btf_dump_order_type(struct btf_dump *d, __u32 id, bool through_ptr)
 
 	switch (btf_kind(t)) {
 	case BTF_KIND_INT:
+	case BTF_KIND_FLOAT:
 		tstate->order_state = ORDERED;
 		return 0;
 
@@ -1073,11 +1075,11 @@ int btf_dump__emit_type_decl(struct btf_dump *d, __u32 id,
 	int lvl, err;
 
 	if (!OPTS_VALID(opts, btf_dump_emit_type_decl_opts))
-		return -EINVAL;
+		return libbpf_err(-EINVAL);
 
 	err = btf_dump_resize(d);
 	if (err)
-		return -EINVAL;
+		return libbpf_err(err);
 
 	fname = OPTS_GET(opts, field_name, "");
 	lvl = OPTS_GET(opts, indent_level, 0);
@@ -1133,6 +1135,7 @@ skip_mod:
 		case BTF_KIND_STRUCT:
 		case BTF_KIND_UNION:
 		case BTF_KIND_TYPEDEF:
+		case BTF_KIND_FLOAT:
 			goto done;
 		default:
 			pr_warn("unexpected type in decl chain, kind:%u, id:[%u]\n",
@@ -1247,6 +1250,7 @@ static void btf_dump_emit_type_chain(struct btf_dump *d,
 
 		switch (kind) {
 		case BTF_KIND_INT:
+		case BTF_KIND_FLOAT:
 			btf_dump_emit_mods(d, decls);
 			name = btf_name_of(d, t->name_off);
 			btf_dump_printf(d, "%s", name);

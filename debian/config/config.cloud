@@ -109,8 +109,6 @@ CONFIG_ATA_PIIX=m
 ## file: drivers/block/Kconfig
 ##
 # CONFIG_BLK_DEV_FD is not set
-# CONFIG_BLK_DEV_UMEM is not set
-# CONFIG_BLK_DEV_SKD is not set
 # CONFIG_BLK_DEV_SX8 is not set
 # CONFIG_CDROM_PKTCDVD is not set
 CONFIG_XEN_BLKDEV_FRONTEND=m
@@ -124,7 +122,6 @@ CONFIG_XEN_BLKDEV_FRONTEND=m
 ##
 ## file: drivers/char/Kconfig
 ##
-# CONFIG_R3964 is not set
 # CONFIG_APPLICOM is not set
 # CONFIG_MWAVE is not set
 # CONFIG_DEVPORT is not set
@@ -318,11 +315,6 @@ CONFIG_INFINIBAND_ADDR_TRANS=y
 ## file: drivers/infiniband/hw/hfi1/Kconfig
 ##
 # CONFIG_INFINIBAND_HFI1 is not set
-
-##
-## file: drivers/infiniband/hw/i40iw/Kconfig
-##
-# CONFIG_INFINIBAND_I40IW is not set
 
 ##
 ## file: drivers/infiniband/hw/mlx4/Kconfig
@@ -702,6 +694,13 @@ CONFIG_ENA_ETHERNET=m
 # CONFIG_NET_VENDOR_EZCHIP is not set
 
 ##
+## file: drivers/net/ethernet/google/Kconfig
+##
+CONFIG_NET_VENDOR_GOOGLE=y
+#. Google Cloud specific device
+CONFIG_GVE=m
+
+##
 ## file: drivers/net/ethernet/huawei/Kconfig
 ##
 # CONFIG_NET_VENDOR_HUAWEI is not set
@@ -744,6 +743,13 @@ CONFIG_NET_VENDOR_MELLANOX=y
 ## file: drivers/net/ethernet/microchip/Kconfig
 ##
 # CONFIG_NET_VENDOR_MICROCHIP is not set
+
+##
+## file: drivers/net/ethernet/microsoft/Kconfig
+##
+CONFIG_NET_VENDOR_MICROSOFT=y
+#. Microsoft Azure specific device
+CONFIG_MICROSOFT_MANA=m
 
 ##
 ## file: drivers/net/ethernet/myricom/Kconfig
@@ -1045,7 +1051,6 @@ CONFIG_NVME_MULTIPATH=y
 # CONFIG_RTC_DRV_MAX6916 is not set
 # CONFIG_RTC_DRV_R9701 is not set
 # CONFIG_RTC_DRV_RX4581 is not set
-# CONFIG_RTC_DRV_RX6110 is not set
 # CONFIG_RTC_DRV_RS5C348 is not set
 # CONFIG_RTC_DRV_MAX6902 is not set
 # CONFIG_RTC_DRV_PCF2123 is not set
@@ -1053,6 +1058,7 @@ CONFIG_NVME_MULTIPATH=y
 # CONFIG_RTC_DRV_DS3232 is not set
 # CONFIG_RTC_DRV_PCF2127 is not set
 # CONFIG_RTC_DRV_RV3029C2 is not set
+# CONFIG_RTC_DRV_RX6110 is not set
 # CONFIG_RTC_DRV_DS1286 is not set
 # CONFIG_RTC_DRV_DS1511 is not set
 # CONFIG_RTC_DRV_DS1553 is not set
@@ -1070,7 +1076,6 @@ CONFIG_NVME_MULTIPATH=y
 # CONFIG_RTC_DRV_WM831X is not set
 # CONFIG_RTC_DRV_WM8350 is not set
 # CONFIG_RTC_DRV_PCF50633 is not set
-# CONFIG_RTC_DRV_AB3100 is not set
 # CONFIG_RTC_DRV_ZYNQMP is not set
 # CONFIG_RTC_DRV_SNVS is not set
 # CONFIG_RTC_DRV_MOXART is not set
@@ -1211,11 +1216,6 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_SCSI_UFSHCD is not set
 
 ##
-## file: drivers/sfi/Kconfig
-##
-# CONFIG_SFI is not set
-
-##
 ## file: drivers/spi/Kconfig
 ##
 # CONFIG_SPI is not set
@@ -1254,7 +1254,6 @@ CONFIG_HYPERV_STORAGE=m
 ## file: drivers/tty/Kconfig
 ##
 # CONFIG_SERIAL_NONSTANDARD is not set
-# CONFIG_ISI is not set
 # CONFIG_N_HDLC is not set
 # CONFIG_N_GSM is not set
 # CONFIG_NOZOMI is not set
@@ -1678,11 +1677,6 @@ CONFIG_NET_MPLS_GSO=m
 ## file: net/switchdev/Kconfig
 ##
 # CONFIG_NET_SWITCHDEV is not set
-
-##
-## file: net/wimax/Kconfig
-##
-# CONFIG_WIMAX is not set
 
 ##
 ## file: net/wireless/Kconfig

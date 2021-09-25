@@ -258,9 +258,7 @@ __acquires(&port->port_lock)
 		list_del(&req->list);
 		req->zero = kfifo_is_empty(&port->port_write_buf);
 
-		pr_vdebug("ttyGS%d: tx len=%d, 0x%02x 0x%02x 0x%02x ...\n",
-			  port->port_num, len, *((u8 *)req->buf),
-			  *((u8 *)req->buf+1), *((u8 *)req->buf+2));
+		pr_vdebug("ttyGS%d: tx len=%d, %3ph ...\n", port->port_num, len, req->buf);
 
 		/* Drop lock while we call out of driver; completions
 		 * could be issued while we do so.  Disconnection may
@@ -346,7 +344,7 @@ __acquires(&port->port_lock)
 }
 
 /*
- * RX tasklet takes data out of the RX queue and hands it up to the TTY
+ * RX work takes data out of the RX queue and hands it up to the TTY
  * layer until it refuses to take any more data (or is throttled back).
  * Then it issues reads for any further data.
  *
@@ -709,7 +707,7 @@ raced_with_open:
 
 	/* Iff we're disconnected, there can be no I/O in flight so it's
 	 * ok to free the circular buffer; else just scrub it.  And don't
-	 * let the push tasklet fire again until we're re-opened.
+	 * let the push async work fire again until we're re-opened.
 	 */
 	if (gser == NULL)
 		kfifo_free(&port->port_write_buf);
@@ -776,34 +774,34 @@ static void gs_flush_chars(struct tty_struct *tty)
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
-static int gs_write_room(struct tty_struct *tty)
+static unsigned int gs_write_room(struct tty_struct *tty)
 {
 	struct gs_port	*port = tty->driver_data;
 	unsigned long	flags;
-	int		room = 0;
+	unsigned int room = 0;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb)
 		room = kfifo_avail(&port->port_write_buf);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	pr_vdebug("gs_write_room: (%d,%p) room=%d\n",
+	pr_vdebug("gs_write_room: (%d,%p) room=%u\n",
 		port->port_num, tty, room);
 
 	return room;
 }
 
-static int gs_chars_in_buffer(struct tty_struct *tty)
+static unsigned int gs_chars_in_buffer(struct tty_struct *tty)
 {
 	struct gs_port	*port = tty->driver_data;
 	unsigned long	flags;
-	int		chars = 0;
+	unsigned int	chars;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	chars = kfifo_len(&port->port_write_buf);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	pr_vdebug("gs_chars_in_buffer: (%d,%p) chars=%d\n",
+	pr_vdebug("gs_chars_in_buffer: (%d,%p) chars=%u\n",
 		port->port_num, tty, chars);
 
 	return chars;
@@ -1200,7 +1198,7 @@ void gserial_free_line(unsigned char port_num)
 	struct gs_port	*port;
 
 	mutex_lock(&ports[port_num].lock);
-	if (WARN_ON(!ports[port_num].port)) {
+	if (!ports[port_num].port) {
 		mutex_unlock(&ports[port_num].lock);
 		return;
 	}

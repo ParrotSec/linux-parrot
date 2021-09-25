@@ -23,7 +23,7 @@ Cc: linux-mtd@lists.infradead.org
 
 --- a/drivers/mtd/devices/phram.c
 +++ b/drivers/mtd/devices/phram.c
-@@ -294,7 +294,11 @@ static int phram_param_call(const char *
+@@ -317,7 +317,11 @@
  #endif
  }
  
@@ -33,7 +33,7 @@ Cc: linux-mtd@lists.infradead.org
 +};
 +__module_param_call(MODULE_PARAM_PREFIX, phram, &phram_param_ops, NULL,
 +		    0200, -1, KERNEL_PARAM_FL_HWPARAM | hwparam_iomem);
- MODULE_PARM_DESC(phram, "Memory region to map. \"phram=<name>,<start>,<length>\"");
+ MODULE_PARM_DESC(phram, "Memory region to map. \"phram=<name>,<start>,<length>[,<erasesize>]\"");
  
  
 --- a/drivers/mtd/devices/slram.c
@@ -46,7 +46,7 @@ Cc: linux-mtd@lists.infradead.org
  
  #include <linux/mtd/mtd.h>
  
-@@ -65,7 +66,7 @@ typedef struct slram_mtd_list {
+@@ -65,7 +66,7 @@
  #ifdef MODULE
  static char *map[SLRAM_MAX_DEVICES_PARAMS];
  
@@ -55,7 +55,7 @@ Cc: linux-mtd@lists.infradead.org
  MODULE_PARM_DESC(map, "List of memory regions to map. \"map=<name>, <start>, <length / end>\"");
  #else
  static char *map;
-@@ -281,11 +282,17 @@ static int __init init_slram(void)
+@@ -281,11 +282,17 @@
  #ifndef MODULE
  	char *devstart;
  	char *devlength;

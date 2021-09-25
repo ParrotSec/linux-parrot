@@ -74,7 +74,7 @@
 
 static inline void append_crc_ccitt(unsigned char *buffer, int len)
 {
- 	unsigned int crc = crc_ccitt(0xffff, buffer, len) ^ 0xffff;
+	unsigned int crc = crc_ccitt(0xffff, buffer, len) ^ 0xffff;
 	buffer += len;
 	*buffer++ = crc;
 	*buffer++ = crc >> 8;
@@ -597,7 +597,7 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	case HDLCDRVCTL_DRIVERNAME:
 		if (s->ops && s->ops->drvname) {
-			strncpy(bi.data.drivername, s->ops->drvname, 
+			strlcpy(bi.data.drivername, s->ops->drvname,
 				sizeof(bi.data.drivername));
 			break;
 		}

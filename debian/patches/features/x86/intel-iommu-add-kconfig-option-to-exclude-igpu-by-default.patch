@@ -15,7 +15,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
 --- a/drivers/iommu/intel/Kconfig
 +++ b/drivers/iommu/intel/Kconfig
-@@ -45,14 +45,28 @@ config INTEL_IOMMU_SVM
+@@ -46,14 +46,28 @@
  	  to access DMA resources through process address space by
  	  means of a Process Address Space ID (PASID).
  
@@ -53,7 +53,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	bool "Workaround broken graphics drivers (going away soon)"
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -338,11 +338,7 @@ static int intel_iommu_attach_device(str
+@@ -347,11 +347,7 @@
  static phys_addr_t intel_iommu_iova_to_phys(struct iommu_domain *domain,
  					    dma_addr_t iova);
  
@@ -66,16 +66,16 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  #ifdef CONFIG_INTEL_IOMMU_SCALABLE_MODE_DEFAULT_ON
  int intel_iommu_sm = 1;
-@@ -354,7 +350,7 @@ int intel_iommu_enabled = 0;
+@@ -363,7 +359,7 @@
  EXPORT_SYMBOL_GPL(intel_iommu_enabled);
  
  static int dmar_map_gfx = 1;
 -static int dmar_map_intgpu = 1;
 +static int dmar_map_intgpu = IS_ENABLED(CONFIG_INTEL_IOMMU_DEFAULT_ON);
- static int dmar_forcedac;
  static int intel_iommu_strict;
  static int intel_iommu_superpage = 1;
-@@ -442,6 +438,7 @@ static int __init intel_iommu_setup(char
+ static int iommu_identity_mapping;
+@@ -446,6 +442,7 @@
  	while (*str) {
  		if (!strncmp(str, "on", 2)) {
  			dmar_disabled = 0;

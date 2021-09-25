@@ -166,22 +166,6 @@ CONFIG_CONNECTOR=m
 # CONFIG_I2C is not set
 
 ##
-## file: drivers/ide/Kconfig
-##
-CONFIG_IDE=m
-# CONFIG_BLK_DEV_IDE_SATA is not set
-CONFIG_BLK_DEV_IDECS=m
-CONFIG_BLK_DEV_IDECD=m
-CONFIG_BLK_DEV_IDETAPE=m
-CONFIG_IDE_GENERIC=m
-CONFIG_BLK_DEV_PLATFORM=m
-CONFIG_BLK_DEV_GAYLE=m
-CONFIG_BLK_DEV_BUDDHA=m
-CONFIG_BLK_DEV_FALCON_IDE=m
-CONFIG_BLK_DEV_MAC_IDE=m
-CONFIG_BLK_DEV_Q40IDE=m
-
-##
 ## file: drivers/iio/Kconfig
 ##
 # CONFIG_IIO is not set
@@ -617,6 +601,12 @@ CONFIG_FB_ATY=y
 CONFIG_ZORRO_NAMES=y
 
 ##
+## file: fs/Kconfig.binfmt
+##
+CONFIG_BINFMT_ELF=y
+CONFIG_BINFMT_MISC=m
+
+##
 ## file: fs/adfs/Kconfig
 ##
 # CONFIG_ADFS_FS is not set
@@ -635,12 +625,6 @@ CONFIG_ZORRO_NAMES=y
 ## file: fs/bfs/Kconfig
 ##
 # CONFIG_BFS_FS is not set
-
-##
-## file: fs/Kconfig.binfmt
-##
-CONFIG_BINFMT_ELF=y
-CONFIG_BINFMT_MISC=m
 
 ##
 ## file: fs/ceph/Kconfig
@@ -850,11 +834,6 @@ CONFIG_IPV6=m
 ## file: net/tipc/Kconfig
 ##
 # CONFIG_TIPC is not set
-
-##
-## file: net/wimax/Kconfig
-##
-# CONFIG_WIMAX is not set
 
 ##
 ## file: net/wireless/Kconfig

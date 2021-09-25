@@ -38,7 +38,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  int verbose;
  char *prog;
  
-@@ -905,6 +917,78 @@ static int get_maxfds(void)
+@@ -971,6 +983,78 @@
   */
  static FILE *eventsfp;
  static char *mapfile;
@@ -85,14 +85,14 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 + */
 +static int ordered_ftw(const char *dirpath,
 +		       int (*fn)(const char *, int, struct FTW *),
-+		       int nopenfd)
++		       int nopenfd, int flags)
 +{
 +	struct ordered_ftw_state state = { NULL, 0, 0 };
 +	size_t i;
 +	int rc;
 +
 +	ordered_ftw_state = &state;
-+	rc = nftw(dirpath, ordered_ftw_add, nopenfd, 0);
++	rc = nftw(dirpath, ordered_ftw_add, nopenfd, flags);
 +	if (rc)
 +		goto out;
 +
@@ -117,7 +117,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  static int is_leaf_dir(const char *fpath)
  {
-@@ -957,19 +1041,19 @@ static int is_json_file(const char *name
+@@ -1023,19 +1107,19 @@
  	return 0;
  }
  
@@ -140,7 +140,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  			    int typeflag, struct FTW *ftwbuf)
  {
  	char *tblname, *bname;
-@@ -994,9 +1078,9 @@ static int process_one_file(const char *
+@@ -1065,9 +1149,9 @@
  	} else
  		bname = (char *) fpath + ftwbuf->base;
  
@@ -151,31 +151,30 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +		 level, bname, fpath);
  
  	/* base dir or too deep */
- 	if (level == 0 || level > 3)
-@@ -1151,7 +1235,7 @@ int main(int argc, char *argv[])
+ 	if (level == 0 || level > 4)
+@@ -1241,21 +1325,21 @@
+ 	 */
  
  	maxfds = get_maxfds();
- 	mapfile = NULL;
 -	rc = nftw(ldirname, preprocess_arch_std_files, maxfds, 0);
-+	rc = ordered_ftw(ldirname, preprocess_arch_std_files, maxfds);
- 	if (rc && verbose) {
- 		pr_info("%s: Error preprocessing arch standard files %s\n",
- 			prog, ldirname);
-@@ -1165,7 +1249,7 @@ int main(int argc, char *argv[])
- 		goto empty_map;
- 	}
++	rc = ordered_ftw(ldirname, preprocess_arch_std_files, maxfds, 0);
+ 	if (rc)
+ 		goto err_processing_std_arch_event_dir;
  
 -	rc = nftw(ldirname, process_one_file, maxfds, 0);
-+	rc = ordered_ftw(ldirname, process_one_file, maxfds);
- 	if (rc && verbose) {
- 		pr_info("%s: Error walking file tree %s\n", prog, ldirname);
- 		goto empty_map;
-@@ -1181,7 +1265,7 @@ int main(int argc, char *argv[])
++	rc = ordered_ftw(ldirname, process_one_file, maxfds, 0);
+ 	if (rc)
+ 		goto err_processing_dir;
  
  	sprintf(ldirname, "%s/test", start_dirname);
  
+-	rc = nftw(ldirname, preprocess_arch_std_files, maxfds, 0);
++	rc = ordered_ftw(ldirname, preprocess_arch_std_files, maxfds, 0);
+ 	if (rc)
+ 		goto err_processing_std_arch_event_dir;
+ 
 -	rc = nftw(ldirname, process_one_file, maxfds, 0);
-+	rc = ordered_ftw(ldirname, process_one_file, maxfds);
- 	if (rc && verbose) {
- 		pr_info("%s: Error walking file tree %s rc=%d for test\n",
- 			prog, ldirname, rc);
++	rc = ordered_ftw(ldirname, process_one_file, maxfds, 0);
+ 	if (rc)
+ 		goto err_processing_dir;
+ 

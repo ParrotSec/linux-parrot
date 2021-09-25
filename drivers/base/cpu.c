@@ -175,7 +175,7 @@ static struct attribute *crash_note_cpu_attrs[] = {
 	NULL
 };
 
-static struct attribute_group crash_note_cpu_attr_group = {
+static const struct attribute_group crash_note_cpu_attr_group = {
 	.attrs = crash_note_cpu_attrs,
 };
 #endif
@@ -409,13 +409,11 @@ __cpu_device_create(struct device *parent, void *drvdata,
 		    const char *fmt, va_list args)
 {
 	struct device *dev = NULL;
-	int retval = -ENODEV;
+	int retval = -ENOMEM;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (!dev) {
-		retval = -ENOMEM;
+	if (!dev)
 		goto error;
-	}
 
 	device_initialize(dev);
 	dev->parent = parent;
@@ -477,7 +475,7 @@ static struct attribute *cpu_root_attrs[] = {
 	NULL
 };
 
-static struct attribute_group cpu_root_attr_group = {
+static const struct attribute_group cpu_root_attr_group = {
 	.attrs = cpu_root_attrs,
 };
 

@@ -79,7 +79,7 @@ static struct sk_buff *rtl4a_tag_rcv(struct sk_buff *skb,
 
 	/* The RTL4 header has its own custom Ethertype 0x8899 and that
 	 * starts right at the beginning of the packet, after the src
-	 * ethernet addr. Apparantly skb->data always points 2 bytes in,
+	 * ethernet addr. Apparently skb->data always points 2 bytes in,
 	 * behind the Ethertype.
 	 */
 	tag = skb->data - 2;
@@ -124,7 +124,7 @@ static const struct dsa_device_ops rtl4a_netdev_ops = {
 	.proto	= DSA_TAG_PROTO_RTL4_A,
 	.xmit	= rtl4a_tag_xmit,
 	.rcv	= rtl4a_tag_rcv,
-	.overhead = RTL4_A_HDR_LEN,
+	.needed_headroom = RTL4_A_HDR_LEN,
 };
 module_dsa_tag_driver(rtl4a_netdev_ops);
 

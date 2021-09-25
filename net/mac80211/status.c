@@ -628,16 +628,12 @@ static void ieee80211_report_ack_skb(struct ieee80211_local *local,
 		u64 cookie = IEEE80211_SKB_CB(skb)->ack.cookie;
 		struct ieee80211_sub_if_data *sdata;
 		struct ieee80211_hdr *hdr = (void *)skb->data;
-		__be16 ethertype = 0;
-
-		if (skb->len >= ETH_HLEN && skb->protocol == cpu_to_be16(ETH_P_802_3))
-			skb_copy_bits(skb, 2 * ETH_ALEN, &ethertype, ETH_TLEN);
 
 		rcu_read_lock();
 		sdata = ieee80211_sdata_from_skb(local, skb);
 		if (sdata) {
-			if (ethertype == sdata->control_port_protocol ||
-			    ethertype == cpu_to_be16(ETH_P_PREAUTH))
+			if (skb->protocol == sdata->control_port_protocol ||
+			    skb->protocol == cpu_to_be16(ETH_P_PREAUTH))
 				cfg80211_control_port_tx_status(&sdata->wdev,
 								cookie,
 								skb->data,
@@ -974,6 +970,25 @@ static void __ieee80211_tx_status(struct ieee80211_hw *hw,
 		if (!(info->flags & IEEE80211_TX_CTL_INJECTED) && acked)
 			ieee80211_frame_acked(sta, skb);
 
+	} else if (wiphy_ext_feature_isset(local->hw.wiphy,
+					   NL80211_EXT_FEATURE_AIRTIME_FAIRNESS)) {
+		struct ieee80211_sub_if_data *sdata;
+		struct ieee80211_txq *txq;
+		u32 airtime;
+
+		/* Account airtime to multicast queue */
+		sdata = ieee80211_sdata_from_skb(local, skb);
+
+		if (sdata && (txq = sdata->vif.txq)) {
+			airtime = info->status.tx_time ?:
+				ieee80211_calc_expected_tx_airtime(hw,
+								   &sdata->vif,
+								   NULL,
+								   skb->len,
+								   false);
+
+			ieee80211_register_airtime(txq, airtime, 0);
+		}
 	}
 
 	/* SNMP counters
@@ -1010,12 +1025,11 @@ static void __ieee80211_tx_status(struct ieee80211_hw *hw,
 	    ieee80211_hw_check(&local->hw, REPORTS_TX_ACK_STATUS) &&
 	    !(info->flags & IEEE80211_TX_CTL_INJECTED) &&
 	    local->ps_sdata && !(local->scanning)) {
-		if (info->flags & IEEE80211_TX_STAT_ACK) {
+		if (info->flags & IEEE80211_TX_STAT_ACK)
 			local->ps_sdata->u.mgd.flags |=
 					IEEE80211_STA_NULLFUNC_ACKED;
-		} else
-			mod_timer(&local->dynamic_ps_timer, jiffies +
-					msecs_to_jiffies(10));
+		mod_timer(&local->dynamic_ps_timer,
+			  jiffies + msecs_to_jiffies(10));
 	}
 
 	ieee80211_report_used_skb(local, skb, false);

@@ -24,10 +24,10 @@ Signed-off-by: Geoff Levand <geoff@infradead.org>
  arch/arm64/kernel/acpi.c | 40 ++++++++++++++++++++++++++++++++++++----
  1 file changed, 36 insertions(+), 4 deletions(-)
 
-Index: debian-kernel/arch/arm64/kernel/acpi.c
+Index: linux/arch/arm64/kernel/acpi.c
 ===================================================================
---- debian-kernel.orig/arch/arm64/kernel/acpi.c
-+++ debian-kernel/arch/arm64/kernel/acpi.c
+--- linux.orig/arch/arm64/kernel/acpi.c
++++ linux/arch/arm64/kernel/acpi.c
 @@ -32,6 +32,8 @@
  #include <asm/daifflags.h>
  #include <asm/smp_plat.h>
@@ -89,4 +89,4 @@ Index: debian-kernel/arch/arm64/kernel/acpi.c
 +	acpi_fixup_m400_quirks();
  }
  
- pgprot_t __acpi_get_mem_attribute(phys_addr_t addr)
+ static pgprot_t __acpi_get_writethrough_mem_attribute(void)

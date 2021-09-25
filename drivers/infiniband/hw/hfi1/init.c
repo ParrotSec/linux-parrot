@@ -312,7 +312,7 @@ struct hfi1_ctxtdata *hfi1_rcd_get_by_index_safe(struct hfi1_devdata *dd,
 }
 
 /**
- * hfi1_rcd_get_by_index
+ * hfi1_rcd_get_by_index - get by index
  * @dd: pointer to a valid devdata structure
  * @ctxt: the index of an possilbe rcd
  *
@@ -499,7 +499,7 @@ bail:
 }
 
 /**
- * hfi1_free_ctxt
+ * hfi1_free_ctxt - free context
  * @rcd: pointer to an initialized rcd data structure
  *
  * This wrapper is the free function that matches hfi1_create_ctxtdata().
@@ -627,7 +627,7 @@ static enum hrtimer_restart cca_timer_fn(struct hrtimer *t)
  * Common code for initializing the physical port structure.
  */
 void hfi1_init_pportdata(struct pci_dev *pdev, struct hfi1_pportdata *ppd,
-			 struct hfi1_devdata *dd, u8 hw_pidx, u8 port)
+			 struct hfi1_devdata *dd, u8 hw_pidx, u32 port)
 {
 	int i;
 	uint default_pkey_idx;
@@ -650,12 +650,7 @@ void hfi1_init_pportdata(struct pci_dev *pdev, struct hfi1_pportdata *ppd,
 
 	ppd->pkeys[default_pkey_idx] = DEFAULT_P_KEY;
 	ppd->part_enforce |= HFI1_PART_ENFORCE_IN;
-
-	if (loopback) {
-		dd_dev_err(dd, "Faking data partition 0x8001 in idx %u\n",
-			   !default_pkey_idx);
-		ppd->pkeys[!default_pkey_idx] = 0x8001;
-	}
+	ppd->pkeys[0] = 0x8001;
 
 	INIT_WORK(&ppd->link_vc_work, handle_verify_cap);
 	INIT_WORK(&ppd->link_up_work, handle_link_up);
@@ -1775,7 +1770,7 @@ static void remove_one(struct pci_dev *pdev)
 	hfi1_unregister_ib_device(dd);
 
 	/* free netdev data */
-	hfi1_netdev_free(dd);
+	hfi1_free_rx(dd);
 
 	/*
 	 * Disable the IB link, disable interrupts on the device,
@@ -1860,7 +1855,8 @@ bail:
 }
 
 /**
- * allocate eager buffers, both kernel and user contexts.
+ * hfi1_setup_eagerbufs - llocate eager buffers, both kernel and user
+ * contexts.
  * @rcd: the context we are setting up.
  *
  * Allocate the eager TID buffers and program them into hip.

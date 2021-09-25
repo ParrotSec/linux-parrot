@@ -24,6 +24,7 @@ xircom_cb -
 8390 -
 fixed_phy -
 libphy -
+mdio_devres -
 
 # Exclude iSCSI drivers packaged in scsi-modules
 cnic -

@@ -22,18 +22,18 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -1837,6 +1837,8 @@
+@@ -1897,6 +1897,8 @@
  			bypassed by not enabling DMAR with this option. In
  			this case, gfx device will use physical address for
  			DMA.
 +		intgpu_off [Default Off]
 +			Bypass the DMAR unit for an integrated GPU only.
- 		forcedac [X86-64]
- 			With this option iommu will not optimize to look
- 			for io virtual address below 32-bit forcing dual
+ 		strict [Default Off]
+ 			With this option on every unmap_single operation will
+ 			result in a hardware IOTLB flush operation as opposed
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -54,6 +54,9 @@
+@@ -53,6 +53,9 @@
  #define CONTEXT_SIZE		VTD_PAGE_SIZE
  
  #define IS_GFX_DEVICE(pdev) ((pdev->class >> 16) == PCI_BASE_CLASS_DISPLAY)
@@ -43,15 +43,15 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #define IS_USB_DEVICE(pdev) ((pdev->class >> 8) == PCI_CLASS_SERIAL_USB)
  #define IS_ISA_DEVICE(pdev) ((pdev->class >> 8) == PCI_CLASS_BRIDGE_ISA)
  #define IS_AZALIA(pdev) ((pdev)->vendor == 0x8086 && (pdev)->device == 0x3a3e)
-@@ -351,6 +354,7 @@ int intel_iommu_enabled = 0;
+@@ -360,6 +363,7 @@
  EXPORT_SYMBOL_GPL(intel_iommu_enabled);
  
  static int dmar_map_gfx = 1;
 +static int dmar_map_intgpu = 1;
- static int dmar_forcedac;
  static int intel_iommu_strict;
  static int intel_iommu_superpage = 1;
-@@ -360,6 +364,7 @@ static int iommu_skip_te_disable;
+ static int iommu_identity_mapping;
+@@ -367,6 +371,7 @@
  
  #define IDENTMAP_GFX		2
  #define IDENTMAP_AZALIA		4
@@ -59,7 +59,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  int intel_iommu_gfx_mapped;
  EXPORT_SYMBOL_GPL(intel_iommu_gfx_mapped);
-@@ -445,6 +450,9 @@ static int __init intel_iommu_setup(char
+@@ -449,6 +454,9 @@
  		} else if (!strncmp(str, "igfx_off", 8)) {
  			dmar_map_gfx = 0;
  			pr_info("Disable GFX device mapping\n");
@@ -67,9 +67,9 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +			dmar_map_intgpu = 0;
 +			pr_info("Disable integrated GPU device mapping\n");
  		} else if (!strncmp(str, "forcedac", 8)) {
- 			pr_info("Forcing DAC for PCI devices\n");
- 			dmar_forcedac = 1;
-@@ -2890,6 +2898,9 @@ static int device_def_domain_type(struct
+ 			pr_warn("intel_iommu=forcedac deprecated; use iommu.forcedac instead\n");
+ 			iommu_dma_forcedac = true;
+@@ -2897,6 +2905,9 @@
  
  		if ((iommu_identity_mapping & IDENTMAP_GFX) && IS_GFX_DEVICE(pdev))
  			return IOMMU_DOMAIN_IDENTITY;
@@ -79,7 +79,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	}
  
  	return 0;
-@@ -3325,6 +3336,9 @@ static int __init init_dmars(void)
+@@ -3334,6 +3345,9 @@
  	if (!dmar_map_gfx)
  		iommu_identity_mapping |= IDENTMAP_GFX;
  

@@ -5,6 +5,19 @@ CONFIG_HIGHMEM=y
 # CONFIG_ISA is not set
 
 ##
+## file: arch/powerpc/platforms/Kconfig.cputype
+##
+# CONFIG_PPC64 is not set
+## choice: Processor Type
+# CONFIG_PPC_85xx is not set
+# CONFIG_PPC_8xx is not set
+# CONFIG_40x is not set
+# CONFIG_44x is not set
+## end choice
+CONFIG_ALTIVEC=y
+# CONFIG_SMP is not set
+
+##
 ## file: arch/powerpc/platforms/512x/Kconfig
 ##
 # CONFIG_MPC5121_ADS is not set
@@ -22,20 +35,6 @@ CONFIG_PPC_MPC5200_BUGFIX=y
 ## file: arch/powerpc/platforms/chrp/Kconfig
 ##
 CONFIG_PPC_CHRP=y
-
-##
-## file: arch/powerpc/platforms/Kconfig.cputype
-##
-# CONFIG_PPC64 is not set
-## choice: Processor Type
-# CONFIG_PPC_85xx is not set
-# CONFIG_PPC_8xx is not set
-# CONFIG_40x is not set
-# CONFIG_44x is not set
-# CONFIG_E200 is not set
-## end choice
-CONFIG_ALTIVEC=y
-# CONFIG_SMP is not set
 
 ##
 ## file: drivers/ata/Kconfig
@@ -107,7 +106,6 @@ CONFIG_SYSFS_SYSCALL=y
 ##
 ## choice: Memory model
 CONFIG_FLATMEM_MANUAL=y
-# CONFIG_DISCONTIGMEM_MANUAL is not set
 # CONFIG_SPARSEMEM_MANUAL is not set
 ## end choice
 

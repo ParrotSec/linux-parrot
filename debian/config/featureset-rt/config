@@ -1,10 +1,4 @@
 ##
-## file: certs/Kconfig
-##
-#. Certificate paths are resolved relative to debian/build/source_rt
-CONFIG_SYSTEM_TRUSTED_KEYS="../../certs/debian-uefi-certs.pem"
-
-##
 ## file: kernel/Kconfig.preempt
 ##
 ## choice: Preemption Model

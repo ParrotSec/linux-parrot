@@ -28,22 +28,22 @@ is missing, except for the pre-R600 case.
  drivers/gpu/drm/radeon/radeon_drv.c     | 30 +++++++++++++++++++++++++
  2 files changed, 59 insertions(+)
 
-Index: debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+Index: linux/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 ===================================================================
---- debian-kernel.orig/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-+++ debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-@@ -36,6 +36,8 @@
- #include <linux/vga_switcheroo.h>
+--- linux.orig/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ linux/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -38,6 +38,8 @@
  #include <drm/drm_probe_helper.h>
  #include <linux/mmu_notifier.h>
+ #include <linux/suspend.h>
 +#include <linux/namei.h>
 +#include <linux/path.h>
  
  #include "amdgpu.h"
  #include "amdgpu_irq.h"
-@@ -1017,6 +1019,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
+@@ -1227,6 +1229,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
  
- static struct drm_driver kms_driver;
+ static const struct drm_driver amdgpu_kms_driver;
  
 +/* Test that /lib/firmware/amdgpu is a directory (or symlink to a
 + * directory).  We could try to match the udev search path, but let's
@@ -70,7 +70,7 @@ Index: debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
  static int amdgpu_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -1070,6 +1094,11 @@ static int amdgpu_pci_probe(struct pci_d
+@@ -1291,6 +1315,11 @@ static int amdgpu_pci_probe(struct pci_d
  	}
  #endif
  
@@ -80,13 +80,13 @@ Index: debian-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 +	}
 +
  	/* Get rid of things like offb */
- 	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, "amdgpudrmfb");
+ 	ret = drm_aperture_remove_conflicting_pci_framebuffers(pdev, "amdgpudrmfb");
  	if (ret)
-Index: debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
+Index: linux/drivers/gpu/drm/radeon/radeon_drv.c
 ===================================================================
---- debian-kernel.orig/drivers/gpu/drm/radeon/radeon_drv.c
-+++ debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
-@@ -48,6 +48,8 @@
+--- linux.orig/drivers/gpu/drm/radeon/radeon_drv.c
++++ linux/drivers/gpu/drm/radeon/radeon_drv.c
+@@ -49,6 +49,8 @@
  #include <drm/drm_probe_helper.h>
  #include <drm/drm_vblank.h>
  #include <drm/radeon_drm.h>
@@ -94,10 +94,10 @@ Index: debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
 +#include <linux/path.h>
  
  #include "radeon_drv.h"
+ #include "radeon.h"
+@@ -289,6 +291,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
  
-@@ -321,6 +323,28 @@ static struct drm_driver kms_driver;
- 
- bool radeon_device_is_virtual(void);
+ static const struct drm_driver kms_driver;
  
 +/* Test that /lib/firmware/radeon is a directory (or symlink to a
 + * directory).  We could try to match the udev search path, but let's
@@ -124,7 +124,7 @@ Index: debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
  static int radeon_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -360,6 +384,12 @@ static int radeon_pci_probe(struct pci_d
+@@ -329,6 +353,12 @@ static int radeon_pci_probe(struct pci_d
  	if (vga_switcheroo_client_probe_defer(pdev))
  		return -EPROBE_DEFER;
  
@@ -135,5 +135,5 @@ Index: debian-kernel/drivers/gpu/drm/radeon/radeon_drv.c
 +	}
 +
  	/* Get rid of things like offb */
- 	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev, "radeondrmfb");
+ 	ret = drm_aperture_remove_conflicting_pci_framebuffers(pdev, "radeondrmfb");
  	if (ret)

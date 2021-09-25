@@ -1,5 +1,5 @@
-a46eb172db472ccbe5364b1de7eeb2a0  debian/bin/gencontrol.py
-635417353a1ccc0bebcc9c57f5e1ed0b  debian/build/version-info
+0a6803e81c5a9d67935cd913f57ea766  debian/bin/gencontrol.py
+842061f3461a59e771cfa0822160b332  debian/build/version-info
 fe4456d48e3218fb8980c8577d03a7ae  debian/templates/control.config.in
 9509e39d8e60906ebd5ee4a8b0355d25  debian/templates/control.docs.in
 358db3af53a223fe60ae89c7a481609f  debian/templates/control.docs.meta.in
@@ -17,7 +17,7 @@ d048c1b6a4d834060d0ce8b502aee906  debian/templates/control.image-unsigned.in
 77509b4624f98f87a0b4b1370813935b  debian/templates/control.signed-template.in
 9831ce1b8f9e8792b9a85d8761bdc385  debian/templates/control.sourcebin.in
 4124ed9de89fd889d6cf997ee8da76f0  debian/templates/control.sourcebin.meta.in
-b06c6809eb3b4a97698e1926f6195001  debian/templates/control.source.in
+0728bcfa2bbe9902e8c7eacd9a761df5  debian/templates/control.source.in
 692fab5899a4b3e3b3565a51028ddf3b  debian/templates/control.tools-unversioned.in
 ebd530107480c7f86443512f7e28ac40  debian/templates/control.tools-versioned.in
 6ac27e0078a5284814d0cf7b3a129d5c  debian/templates/control.tools-versioned.meta.in
@@ -38,7 +38,7 @@ afb508873a44a1f196c2a525fec4b415  debian/templates/image.prerm.in
 381bc892fd36ef7ea5327f649b99cb98  debian/templates/sourcebin.meta.maintscript.in
 814dda166c7e3ef02e6e259e805ac66a  debian/templates/tests-control.image.in
 33d71bfd398d2f9b3bc5c0193b67d17e  debian/templates/tests-control.main.in
-5c4caa16acc69da878f53e8df3b92eb8  debian/config/defines
+8cc545beeb065ef91711f6e06fce7a58  debian/config/defines
 59a811890d2e7129bec940075850f11f  debian/config/alpha/defines
 761833637f921cf6563b8c74a681e689  debian/config/amd64/defines
 ae3dc013facc79cfbc482f3a3318b113  debian/config/arm64/defines
@@ -62,9 +62,9 @@ e411d2dfe0018a7c40b6bf7efd45cd29  debian/config/mipsn32/defines
 73e2f095b2485f95bc164bf685684a47  debian/config/mipsn32r6el/defines
 f4f988c94f2fc477db801eddfe79c79e  debian/config/mipsr6/defines
 85c1ae5e3f2e17492053f7de76474463  debian/config/mipsr6el/defines
-45a4ad93313c2066248987dfa59dd6da  debian/config/powerpc/defines
-f9a739a574488a070d4811dd6a94cbbb  debian/config/ppc64/defines
-3cffb73a6b8570b2fc03e83a7d0e0772  debian/config/ppc64el/defines
+825c82b36a042a7cf513b489996e3771  debian/config/powerpc/defines
+2f6b6e879d027926fc2452edd6a2a835  debian/config/ppc64/defines
+49ff98c69df71ed1cee1afe01642bdf5  debian/config/ppc64el/defines
 a50ff431517bddd759d53c0ad2850cb7  debian/config/riscv64/defines
 9462622a41b618007bf9e8343f2fb3ce  debian/config/s390/defines
 c687c34582869dfb08f47ec435997514  debian/config/s390x/defines

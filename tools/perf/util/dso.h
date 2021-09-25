@@ -216,7 +216,7 @@ struct dso {
 
 /* dso__for_each_symbol - iterate over the symbols of given type
  *
- * @dso: the 'struct dso *' in which symbols itereated
+ * @dso: the 'struct dso *' in which symbols are iterated
  * @pos: the 'struct symbol *' to use as a loop cursor
  * @n: the 'struct rb_node *' to use as a temporary storage
  */
@@ -274,6 +274,8 @@ bool dso__needs_decompress(struct dso *dso);
 int dso__decompress_kmodule_fd(struct dso *dso, const char *name);
 int dso__decompress_kmodule_path(struct dso *dso, const char *name,
 				 char *pathname, size_t len);
+int filename__decompress(const char *name, char *pathname,
+			 size_t len, int comp, int *err);
 
 #define KMOD_DECOMP_NAME  "/tmp/perf-kmod-XXXXXX"
 #define KMOD_DECOMP_LEN   sizeof(KMOD_DECOMP_NAME)

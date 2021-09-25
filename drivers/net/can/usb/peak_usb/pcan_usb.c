@@ -11,14 +11,13 @@
 #include <linux/netdevice.h>
 #include <linux/usb.h>
 #include <linux/module.h>
+#include <linux/ethtool.h>
 
 #include <linux/can.h>
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
 
 #include "pcan_usb_core.h"
-
-MODULE_SUPPORTED_DEVICE("PEAK-System PCAN-USB adapter");
 
 /* PCAN-USB Endpoints */
 #define PCAN_USB_EP_CMDOUT		1
@@ -42,6 +41,7 @@ MODULE_SUPPORTED_DEVICE("PEAK-System PCAN-USB adapter");
 #define PCAN_USB_CMD_REGISTER	9
 #define PCAN_USB_CMD_EXT_VCC	10
 #define PCAN_USB_CMD_ERR_FR	11
+#define PCAN_USB_CMD_LED	12
 
 /* PCAN_USB_CMD_SET_BUS number arg */
 #define PCAN_USB_BUS_XCVER		2
@@ -117,7 +117,8 @@ MODULE_SUPPORTED_DEVICE("PEAK-System PCAN-USB adapter");
 #define PCAN_USB_BERR_MASK	(PCAN_USB_ERR_RXERR | PCAN_USB_ERR_TXERR)
 
 /* identify bus event packets with rx/tx error counters */
-#define PCAN_USB_ERR_CNT		0x80
+#define PCAN_USB_ERR_CNT_DEC		0x00	/* counters are decreasing */
+#define PCAN_USB_ERR_CNT_INC		0x80	/* counters are increasing */
 
 /* private to PCAN-USB adapter */
 struct pcan_usb {
@@ -250,6 +251,15 @@ static int pcan_usb_set_ext_vcc(struct peak_usb_device *dev, u8 onoff)
 	return pcan_usb_send_cmd(dev, PCAN_USB_CMD_EXT_VCC, PCAN_USB_SET, args);
 }
 
+static int pcan_usb_set_led(struct peak_usb_device *dev, u8 onoff)
+{
+	u8 args[PCAN_USB_CMD_ARGS_LEN] = {
+		[0] = !!onoff,
+	};
+
+	return pcan_usb_send_cmd(dev, PCAN_USB_CMD_LED, PCAN_USB_SET, args);
+}
+
 /*
  * set bittiming value to can
  */
@@ -356,16 +366,11 @@ static int pcan_usb_get_serial(struct peak_usb_device *dev, u32 *serial_number)
 	int err;
 
 	err = pcan_usb_wait_rsp(dev, PCAN_USB_CMD_SN, PCAN_USB_GET, args);
-	if (err) {
-		netdev_err(dev->netdev, "getting serial failure: %d\n", err);
-	} else if (serial_number) {
-		__le32 tmp32;
+	if (err)
+		return err;
+	*serial_number = le32_to_cpup((__le32 *)args);
 
-		memcpy(&tmp32, args, 4);
-		*serial_number = le32_to_cpu(tmp32);
-	}
-
-	return err;
+	return 0;
 }
 
 /*
@@ -379,8 +384,8 @@ static int pcan_usb_get_device_id(struct peak_usb_device *dev, u32 *device_id)
 	err = pcan_usb_wait_rsp(dev, PCAN_USB_CMD_DEVID, PCAN_USB_GET, args);
 	if (err)
 		netdev_err(dev->netdev, "getting device id failure: %d\n", err);
-	else if (device_id)
-		*device_id = args[0];
+
+	*device_id = args[0];
 
 	return err;
 }
@@ -390,14 +395,10 @@ static int pcan_usb_get_device_id(struct peak_usb_device *dev, u32 *device_id)
  */
 static int pcan_usb_update_ts(struct pcan_usb_msg_context *mc)
 {
-	__le16 tmp16;
-
-	if ((mc->ptr+2) > mc->end)
+	if ((mc->ptr + 2) > mc->end)
 		return -EINVAL;
 
-	memcpy(&tmp16, mc->ptr, 2);
-
-	mc->ts16 = le16_to_cpu(tmp16);
+	mc->ts16 = get_unaligned_le16(mc->ptr);
 
 	if (mc->rec_idx > 0)
 		peak_usb_update_ts_now(&mc->pdev->time_ref, mc->ts16);
@@ -414,16 +415,13 @@ static int pcan_usb_decode_ts(struct pcan_usb_msg_context *mc, u8 first_packet)
 {
 	/* only 1st packet supplies a word timestamp */
 	if (first_packet) {
-		__le16 tmp16;
-
 		if ((mc->ptr + 2) > mc->end)
 			return -EINVAL;
 
-		memcpy(&tmp16, mc->ptr, 2);
-		mc->ptr += 2;
-
-		mc->ts16 = le16_to_cpu(tmp16);
+		mc->ts16 = get_unaligned_le16(mc->ptr);
 		mc->prev_ts8 = mc->ts16 & 0x00ff;
+
+		mc->ptr += 2;
 	} else {
 		u8 ts8;
 
@@ -596,7 +594,7 @@ static int pcan_usb_decode_error(struct pcan_usb_msg_context *mc, u8 n,
 	}
 
 	mc->netdev->stats.rx_packets++;
-	mc->netdev->stats.rx_bytes += cf->can_dlc;
+	mc->netdev->stats.rx_bytes += cf->len;
 	netif_rx(skb);
 
 	return 0;
@@ -611,11 +609,12 @@ static int pcan_usb_handle_bus_evt(struct pcan_usb_msg_context *mc, u8 ir)
 
 	/* acccording to the content of the packet */
 	switch (ir) {
-	case PCAN_USB_ERR_CNT:
+	case PCAN_USB_ERR_CNT_DEC:
+	case PCAN_USB_ERR_CNT_INC:
 
 		/* save rx/tx error counters from in the device context */
-		pdev->bec.rxerr = mc->ptr[0];
-		pdev->bec.txerr = mc->ptr[1];
+		pdev->bec.rxerr = mc->ptr[1];
+		pdev->bec.txerr = mc->ptr[2];
 		break;
 
 	default:
@@ -713,28 +712,20 @@ static int pcan_usb_decode_data(struct pcan_usb_msg_context *mc, u8 status_len)
 		return -ENOMEM;
 
 	if (status_len & PCAN_USB_STATUSLEN_EXT_ID) {
-		__le32 tmp32;
-
 		if ((mc->ptr + 4) > mc->end)
 			goto decode_failed;
 
-		memcpy(&tmp32, mc->ptr, 4);
+		cf->can_id = get_unaligned_le32(mc->ptr) >> 3 | CAN_EFF_FLAG;
 		mc->ptr += 4;
-
-		cf->can_id = (le32_to_cpu(tmp32) >> 3) | CAN_EFF_FLAG;
 	} else {
-		__le16 tmp16;
-
 		if ((mc->ptr + 2) > mc->end)
 			goto decode_failed;
 
-		memcpy(&tmp16, mc->ptr, 2);
+		cf->can_id = get_unaligned_le16(mc->ptr) >> 5;
 		mc->ptr += 2;
-
-		cf->can_id = le16_to_cpu(tmp16) >> 5;
 	}
 
-	cf->can_dlc = get_can_dlc(rec_len);
+	can_frame_set_cc_len(cf, rec_len, mc->pdev->dev.can.ctrlmode);
 
 	/* Only first packet timestamp is a word */
 	if (pcan_usb_decode_ts(mc, !mc->rec_ts_idx))
@@ -751,7 +742,7 @@ static int pcan_usb_decode_data(struct pcan_usb_msg_context *mc, u8 status_len)
 		if ((mc->ptr + rec_len) > mc->end)
 			goto decode_failed;
 
-		memcpy(cf->data, mc->ptr, cf->can_dlc);
+		memcpy(cf->data, mc->ptr, cf->len);
 		mc->ptr += rec_len;
 	}
 
@@ -761,7 +752,7 @@ static int pcan_usb_decode_data(struct pcan_usb_msg_context *mc, u8 status_len)
 
 	/* update statistics */
 	mc->netdev->stats.rx_packets++;
-	mc->netdev->stats.rx_bytes += cf->can_dlc;
+	mc->netdev->stats.rx_bytes += cf->len;
 	/* push the skb */
 	netif_rx(skb);
 
@@ -838,28 +829,29 @@ static int pcan_usb_encode_msg(struct peak_usb_device *dev, struct sk_buff *skb,
 	pc = obuf + PCAN_USB_MSG_HEADER_LEN;
 
 	/* status/len byte */
-	*pc = cf->can_dlc;
+	*pc = can_get_cc_dlc(cf, dev->can.ctrlmode);
+
 	if (cf->can_id & CAN_RTR_FLAG)
 		*pc |= PCAN_USB_STATUSLEN_RTR;
 
 	/* can id */
 	if (cf->can_id & CAN_EFF_FLAG) {
-		__le32 tmp32 = cpu_to_le32((cf->can_id & CAN_ERR_MASK) << 3);
-
 		*pc |= PCAN_USB_STATUSLEN_EXT_ID;
-		memcpy(++pc, &tmp32, 4);
+		pc++;
+
+		put_unaligned_le32((cf->can_id & CAN_ERR_MASK) << 3, pc);
 		pc += 4;
 	} else {
-		__le16 tmp16 = cpu_to_le16((cf->can_id & CAN_ERR_MASK) << 5);
+		pc++;
 
-		memcpy(++pc, &tmp16, 2);
+		put_unaligned_le16((cf->can_id & CAN_ERR_MASK) << 5, pc);
 		pc += 2;
 	}
 
 	/* can data */
 	if (!(cf->can_id & CAN_RTR_FLAG)) {
-		memcpy(pc, cf->data, cf->can_dlc);
-		pc += cf->can_dlc;
+		memcpy(pc, cf->data, cf->len);
+		pc += cf->len;
 	}
 
 	obuf[(*size)-1] = (u8)(stats->tx_packets & 0xff);
@@ -972,6 +964,40 @@ static int pcan_usb_probe(struct usb_interface *intf)
 	return 0;
 }
 
+static int pcan_usb_set_phys_id(struct net_device *netdev,
+				enum ethtool_phys_id_state state)
+{
+	struct peak_usb_device *dev = netdev_priv(netdev);
+	int err = 0;
+
+	switch (state) {
+	case ETHTOOL_ID_ACTIVE:
+		/* call ON/OFF twice a second */
+		return 2;
+
+	case ETHTOOL_ID_OFF:
+		err = pcan_usb_set_led(dev, 0);
+		break;
+
+	case ETHTOOL_ID_ON:
+		fallthrough;
+
+	case ETHTOOL_ID_INACTIVE:
+		/* restore LED default */
+		err = pcan_usb_set_led(dev, 1);
+		break;
+
+	default:
+		break;
+	}
+
+	return err;
+}
+
+static const struct ethtool_ops pcan_usb_ethtool_ops = {
+	.set_phys_id = pcan_usb_set_phys_id,
+};
+
 /*
  * describe the PCAN-USB adapter
  */
@@ -992,18 +1018,20 @@ const struct peak_usb_adapter pcan_usb = {
 	.device_id = PCAN_USB_PRODUCT_ID,
 	.ctrl_count = 1,
 	.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES | CAN_CTRLMODE_LISTENONLY |
-			      CAN_CTRLMODE_BERR_REPORTING,
+			      CAN_CTRLMODE_BERR_REPORTING |
+			      CAN_CTRLMODE_CC_LEN8_DLC,
 	.clock = {
-		.freq = PCAN_USB_CRYSTAL_HZ / 2 ,
+		.freq = PCAN_USB_CRYSTAL_HZ / 2,
 	},
 	.bittiming_const = &pcan_usb_const,
 
 	/* size of device private data */
 	.sizeof_dev_private = sizeof(struct pcan_usb),
 
+	.ethtool_ops = &pcan_usb_ethtool_ops,
+
 	/* timestamps usage */
 	.ts_used_bits = 16,
-	.ts_period = 24575, /* calibration period in ts. */
 	.us_per_ts_scale = PCAN_USB_TS_US_PER_TICK, /* us=(ts*scale) */
 	.us_per_ts_shift = PCAN_USB_TS_DIV_SHIFTER, /*  >> shift     */
 

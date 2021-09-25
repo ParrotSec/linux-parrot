@@ -7,10 +7,12 @@ CONFIG_SECCOMP=y
 ## file: arch/riscv/Kconfig
 ##
 CONFIG_SMP=y
+CONFIG_KEXEC=y
 
 ##
 ## file: arch/riscv/Kconfig.socs
 ##
+CONFIG_SOC_MICROCHIP_POLARFIRE=y
 CONFIG_SOC_SIFIVE=y
 CONFIG_SOC_VIRT=y
 
@@ -39,6 +41,8 @@ CONFIG_MMC=m
 ##
 ## file: drivers/mmc/host/Kconfig
 ##
+CONFIG_MMC_SDHCI_PLTFM=m
+CONFIG_MMC_SDHCI_CADENCE=m
 CONFIG_MMC_SPI=m
 
 ##
@@ -56,6 +60,13 @@ CONFIG_PCI=y
 ##
 CONFIG_PCI_HOST_GENERIC=y
 CONFIG_PCIE_XILINX=y
+CONFIG_PCIE_MICROCHIP_HOST=y
+
+##
+## file: drivers/pci/controller/dwc/Kconfig
+##
+CONFIG_PCIE_DW_PLAT_HOST=y
+CONFIG_PCIE_FU740=y
 
 ##
 ## file: drivers/power/reset/Kconfig

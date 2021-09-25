@@ -20,6 +20,7 @@
  *   static_call(name)(args...);
  *   static_call_cond(name)(args...);
  *   static_call_update(name, func);
+ *   static_call_query(name);
  *
  * Usage example:
  *
@@ -91,6 +92,10 @@
  *
  *   which will include the required value tests to avoid NULL-pointer
  *   dereferences.
+ *
+ *   To query which function is currently set to be called, use:
+ *
+ *   func = static_call_query(name);
  */
 
 #include <linux/types.h>
@@ -113,10 +118,12 @@ extern void arch_static_call_transform(void *site, void *tramp, void *func, bool
 
 #define static_call_update(name, func)					\
 ({									\
-	BUILD_BUG_ON(!__same_type(*(func), STATIC_CALL_TRAMP(name)));	\
+	typeof(&STATIC_CALL_TRAMP(name)) __F = (func);			\
 	__static_call_update(&STATIC_CALL_KEY(name),			\
-			     STATIC_CALL_TRAMP_ADDR(name), func);	\
+			     STATIC_CALL_TRAMP_ADDR(name), __F);	\
 })
+
+#define static_call_query(name) (READ_ONCE(STATIC_CALL_KEY(name).func))
 
 #ifdef CONFIG_HAVE_STATIC_CALL_INLINE
 
@@ -126,16 +133,6 @@ struct static_call_mod {
 	struct static_call_mod *next;
 	struct module *mod; /* for vmlinux, mod == NULL */
 	struct static_call_site *sites;
-};
-
-struct static_call_key {
-	void *func;
-	union {
-		/* bit 0: 0 = mods, 1 = sites */
-		unsigned long type;
-		struct static_call_mod *mods;
-		struct static_call_site *sites;
-	};
 };
 
 /* For finding the key associated with a trampoline */
@@ -148,13 +145,15 @@ extern void __static_call_update(struct static_call_key *key, void *tramp, void 
 extern int static_call_mod_init(struct module *mod);
 extern int static_call_text_reserved(void *start, void *end);
 
-#define DEFINE_STATIC_CALL(name, _func)					\
+extern long __static_call_return0(void);
+
+#define __DEFINE_STATIC_CALL(name, _func, _func_init)			\
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = _func,						\
+		.func = _func_init,					\
 		.type = 1,						\
 	};								\
-	ARCH_DEFINE_STATIC_CALL_TRAMP(name, _func)
+	ARCH_DEFINE_STATIC_CALL_TRAMP(name, _func_init)
 
 #define DEFINE_STATIC_CALL_NULL(name, _func)				\
 	DECLARE_STATIC_CALL(name, _func);				\
@@ -185,16 +184,12 @@ extern int static_call_text_reserved(void *start, void *end);
 
 static inline int static_call_init(void) { return 0; }
 
-struct static_call_key {
-	void *func;
-};
-
-#define DEFINE_STATIC_CALL(name, _func)					\
+#define __DEFINE_STATIC_CALL(name, _func, _func_init)			\
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = _func,						\
+		.func = _func_init,					\
 	};								\
-	ARCH_DEFINE_STATIC_CALL_TRAMP(name, _func)
+	ARCH_DEFINE_STATIC_CALL_TRAMP(name, _func_init)
 
 #define DEFINE_STATIC_CALL_NULL(name, _func)				\
 	DECLARE_STATIC_CALL(name, _func);				\
@@ -202,6 +197,7 @@ struct static_call_key {
 		.func = NULL,						\
 	};								\
 	ARCH_DEFINE_STATIC_CALL_NULL_TRAMP(name)
+
 
 #define static_call_cond(name)	(void)__static_call(name)
 
@@ -215,6 +211,11 @@ void __static_call_update(struct static_call_key *key, void *tramp, void *func)
 }
 
 static inline int static_call_text_reserved(void *start, void *end)
+{
+	return 0;
+}
+
+static inline long __static_call_return0(void)
 {
 	return 0;
 }
@@ -236,14 +237,15 @@ static inline int static_call_text_reserved(void *start, void *end)
 
 static inline int static_call_init(void) { return 0; }
 
-struct static_call_key {
-	void *func;
-};
+static inline long __static_call_return0(void)
+{
+	return 0;
+}
 
-#define DEFINE_STATIC_CALL(name, _func)					\
+#define __DEFINE_STATIC_CALL(name, _func, _func_init)			\
 	DECLARE_STATIC_CALL(name, _func);				\
 	struct static_call_key STATIC_CALL_KEY(name) = {		\
-		.func = _func,						\
+		.func = _func_init,					\
 	}
 
 #define DEFINE_STATIC_CALL_NULL(name, _func)				\
@@ -291,5 +293,11 @@ static inline int static_call_text_reserved(void *start, void *end)
 #define EXPORT_STATIC_CALL_GPL(name)	EXPORT_SYMBOL_GPL(STATIC_CALL_KEY(name))
 
 #endif /* CONFIG_HAVE_STATIC_CALL */
+
+#define DEFINE_STATIC_CALL(name, _func)					\
+	__DEFINE_STATIC_CALL(name, _func, _func)
+
+#define DEFINE_STATIC_CALL_RET0(name, _func)				\
+	__DEFINE_STATIC_CALL(name, _func, __static_call_return0)
 
 #endif /* _LINUX_STATIC_CALL_H */

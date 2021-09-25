@@ -25,6 +25,7 @@
 #include "xfs_icache.h"
 #include "xfs_error.h"
 #include "xfs_buf_item.h"
+#include "xfs_ag.h"
 
 #define BLK_AVG(blk1, blk2)	((blk1+blk2) >> 1)
 
@@ -2457,8 +2458,10 @@ xlog_finish_defer_ops(
 
 		error = xfs_trans_alloc(mp, &resv, dfc->dfc_blkres,
 				dfc->dfc_rtxres, XFS_TRANS_RESERVE, &tp);
-		if (error)
+		if (error) {
+			xfs_force_shutdown(mp, SHUTDOWN_LOG_IO_ERROR);
 			return error;
+		}
 
 		/*
 		 * Transfer to this new transaction all the dfops we captured
@@ -2559,8 +2562,11 @@ xlog_recover_process_intents(
 		spin_unlock(&ailp->ail_lock);
 		error = lip->li_ops->iop_recover(lip, &capture_list);
 		spin_lock(&ailp->ail_lock);
-		if (error)
+		if (error) {
+			trace_xlog_intent_recovery_failed(log->l_mp, error,
+					lip->li_ops->iop_recover);
 			break;
+		}
 	}
 
 	xfs_trans_ail_cursor_done(&cur);
@@ -2628,7 +2634,7 @@ xlog_recover_clear_agi_bucket(
 {
 	xfs_trans_t	*tp;
 	xfs_agi_t	*agi;
-	xfs_buf_t	*agibp;
+	struct xfs_buf	*agibp;
 	int		offset;
 	int		error;
 
@@ -2680,9 +2686,10 @@ xlog_recover_process_one_iunlink(
 	/*
 	 * Get the on disk inode to find the next inode in the bucket.
 	 */
-	error = xfs_imap_to_bp(mp, NULL, &ip->i_imap, &dip, &ibp, 0);
+	error = xfs_imap_to_bp(mp, NULL, &ip->i_imap, &ibp);
 	if (error)
 		goto fail_iput;
+	dip = xfs_buf_offset(ibp, ip->i_imap.im_boffset);
 
 	xfs_iflags_clear(ip, XFS_IRECOVERY);
 	ASSERT(VFS_I(ip)->i_nlink == 0);
@@ -2691,12 +2698,6 @@ xlog_recover_process_one_iunlink(
 	/* setup for the next pass */
 	agino = be32_to_cpu(dip->di_next_unlinked);
 	xfs_buf_relse(ibp);
-
-	/*
-	 * Prevent any DMAPI event from being sent when the reference on
-	 * the inode is dropped.
-	 */
-	ip->i_d.di_dmevmask = 0;
 
 	xfs_irele(ip);
 	return agino;
@@ -2733,7 +2734,7 @@ xlog_recover_process_one_iunlink(
  * of log space.
  *
  * This behaviour is bad for latency on single CPU and non-preemptible kernels,
- * and can prevent other filesytem work (such as CIL pushes) from running. This
+ * and can prevent other filesystem work (such as CIL pushes) from running. This
  * can lead to deadlocks if the recovery process runs out of log reservation
  * space. Hence we need to yield the CPU when there is other kernel work
  * scheduled on this CPU to ensure other scheduled work can run without undue
@@ -2743,21 +2744,17 @@ STATIC void
 xlog_recover_process_iunlinks(
 	struct xlog	*log)
 {
-	xfs_mount_t	*mp;
-	xfs_agnumber_t	agno;
-	xfs_agi_t	*agi;
-	xfs_buf_t	*agibp;
-	xfs_agino_t	agino;
-	int		bucket;
-	int		error;
+	struct xfs_mount	*mp = log->l_mp;
+	struct xfs_perag	*pag;
+	xfs_agnumber_t		agno;
+	struct xfs_agi		*agi;
+	struct xfs_buf		*agibp;
+	xfs_agino_t		agino;
+	int			bucket;
+	int			error;
 
-	mp = log->l_mp;
-
-	for (agno = 0; agno < mp->m_sb.sb_agcount; agno++) {
-		/*
-		 * Find the agi for this ag.
-		 */
-		error = xfs_read_agi(mp, NULL, agno, &agibp);
+	for_each_perag(mp, agno, pag) {
+		error = xfs_read_agi(mp, NULL, pag->pag_agno, &agibp);
 		if (error) {
 			/*
 			 * AGI is b0rked. Don't process it.
@@ -2783,7 +2780,7 @@ xlog_recover_process_iunlinks(
 			agino = be32_to_cpu(agi->agi_unlinked[bucket]);
 			while (agino != NULLAGINO) {
 				agino = xlog_recover_process_one_iunlink(mp,
-							agno, agino, bucket);
+						pag->pag_agno, agino, bucket);
 				cond_resched();
 			}
 		}
@@ -3401,7 +3398,7 @@ xlog_recover(
 
 		/*
 		 * Delay log recovery if the debug hook is set. This is debug
-		 * instrumention to coordinate simulation of I/O failures with
+		 * instrumentation to coordinate simulation of I/O failures with
 		 * log recovery.
 		 */
 		if (xfs_globals.log_recovery_delay) {
@@ -3454,6 +3451,7 @@ xlog_recover_finish(
 			 * this) before we get around to xfs_log_mount_cancel.
 			 */
 			xlog_recover_cancel_intents(log);
+			xfs_force_shutdown(log->l_mp, SHUTDOWN_LOG_IO_ERROR);
 			xfs_alert(log->l_mp, "Failed to recover intents");
 			return error;
 		}
@@ -3495,27 +3493,28 @@ xlog_recover_cancel(
  */
 STATIC void
 xlog_recover_check_summary(
-	struct xlog	*log)
+	struct xlog		*log)
 {
-	xfs_mount_t	*mp;
-	xfs_buf_t	*agfbp;
-	xfs_buf_t	*agibp;
-	xfs_agnumber_t	agno;
-	uint64_t	freeblks;
-	uint64_t	itotal;
-	uint64_t	ifree;
-	int		error;
+	struct xfs_mount	*mp = log->l_mp;
+	struct xfs_perag	*pag;
+	struct xfs_buf		*agfbp;
+	struct xfs_buf		*agibp;
+	xfs_agnumber_t		agno;
+	uint64_t		freeblks;
+	uint64_t		itotal;
+	uint64_t		ifree;
+	int			error;
 
 	mp = log->l_mp;
 
 	freeblks = 0LL;
 	itotal = 0LL;
 	ifree = 0LL;
-	for (agno = 0; agno < mp->m_sb.sb_agcount; agno++) {
-		error = xfs_read_agf(mp, NULL, agno, 0, &agfbp);
+	for_each_perag(mp, agno, pag) {
+		error = xfs_read_agf(mp, NULL, pag->pag_agno, 0, &agfbp);
 		if (error) {
 			xfs_alert(mp, "%s agf read failed agno %d error %d",
-						__func__, agno, error);
+						__func__, pag->pag_agno, error);
 		} else {
 			struct xfs_agf	*agfp = agfbp->b_addr;
 
@@ -3524,10 +3523,10 @@ xlog_recover_check_summary(
 			xfs_buf_relse(agfbp);
 		}
 
-		error = xfs_read_agi(mp, NULL, agno, &agibp);
+		error = xfs_read_agi(mp, NULL, pag->pag_agno, &agibp);
 		if (error) {
 			xfs_alert(mp, "%s agi read failed agno %d error %d",
-						__func__, agno, error);
+						__func__, pag->pag_agno, error);
 		} else {
 			struct xfs_agi	*agi = agibp->b_addr;
 

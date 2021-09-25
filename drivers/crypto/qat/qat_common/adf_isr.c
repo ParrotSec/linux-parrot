@@ -15,11 +15,16 @@
 #include "adf_transport_access_macros.h"
 #include "adf_transport_internal.h"
 
+#define ADF_MAX_NUM_VFS	32
+
 static int adf_enable_msix(struct adf_accel_dev *accel_dev)
 {
 	struct adf_accel_pci *pci_dev_info = &accel_dev->accel_pci_dev;
 	struct adf_hw_device_data *hw_data = accel_dev->hw_device;
 	u32 msix_num_entries = 1;
+
+	if (hw_data->set_msix_rttable)
+		hw_data->set_msix_rttable(accel_dev);
 
 	/* If SR-IOV is disabled, add entries for each bank */
 	if (!accel_dev->pf.vf_info) {
@@ -50,8 +55,10 @@ static void adf_disable_msix(struct adf_accel_pci *pci_dev_info)
 static irqreturn_t adf_msix_isr_bundle(int irq, void *bank_ptr)
 {
 	struct adf_etr_bank_data *bank = bank_ptr;
+	struct adf_hw_csr_ops *csr_ops = GET_CSR_OPS(bank->accel_dev);
 
-	WRITE_CSR_INT_FLAG_AND_COL(bank->csr_addr, bank->bank_number, 0);
+	csr_ops->write_csr_int_flag_and_col(bank->csr_addr, bank->bank_number,
+					    0);
 	tasklet_hi_schedule(&bank->resp_handler);
 	return IRQ_HANDLED;
 }
@@ -67,7 +74,7 @@ static irqreturn_t adf_msix_isr_ae(int irq, void *dev_ptr)
 		struct adf_bar *pmisc =
 			&GET_BARS(accel_dev)[hw_data->get_misc_bar_id(hw_data)];
 		void __iomem *pmisc_bar_addr = pmisc->virt_addr;
-		u32 vf_mask;
+		unsigned long vf_mask;
 
 		/* Get the interrupt sources triggered by VFs */
 		vf_mask = ((ADF_CSR_RD(pmisc_bar_addr, ADF_ERRSOU5) &
@@ -88,8 +95,7 @@ static irqreturn_t adf_msix_isr_ae(int irq, void *dev_ptr)
 			 * unless the VF is malicious and is attempting to
 			 * flood the host OS with VF2PF interrupts.
 			 */
-			for_each_set_bit(i, (const unsigned long *)&vf_mask,
-					 (sizeof(vf_mask) * BITS_PER_BYTE)) {
+			for_each_set_bit(i, &vf_mask, ADF_MAX_NUM_VFS) {
 				vf_info = accel_dev->pf.vf_info + i;
 
 				if (!__ratelimit(&vf_info->vf2pf_ratelimit)) {

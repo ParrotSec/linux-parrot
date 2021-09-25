@@ -2,7 +2,6 @@
 ## file: arch/arm64/Kconfig.platforms
 ##
 # CONFIG_ARCH_ACTIONS is not set
-# CONFIG_ARCH_AGILEX is not set
 # CONFIG_ARCH_SUNXI is not set
 CONFIG_ARCH_ALPINE=y
 # CONFIG_ARCH_BCM2835 is not set
@@ -24,7 +23,6 @@ CONFIG_ARCH_QCOM=y
 # CONFIG_ARCH_RENESAS is not set
 # CONFIG_ARCH_ROCKCHIP is not set
 CONFIG_ARCH_SEATTLE=y
-# CONFIG_ARCH_STRATIX10 is not set
 # CONFIG_ARCH_SYNQUACER is not set
 # CONFIG_ARCH_TEGRA is not set
 # CONFIG_ARCH_SPRD is not set
@@ -33,7 +31,6 @@ CONFIG_ARCH_THUNDER2=y
 # CONFIG_ARCH_UNIPHIER is not set
 CONFIG_ARCH_VEXPRESS=y
 CONFIG_ARCH_XGENE=y
-# CONFIG_ARCH_ZX is not set
 # CONFIG_ARCH_ZYNQMP is not set
 
 ##

@@ -21,7 +21,7 @@ Any code that happens after the end of a given RCU grace period is guaranteed
 to see the effects of all accesses prior to the beginning of that grace
 period that are within RCU read-side critical sections.
 Similarly, any code that happens before the beginning of a given RCU grace
-period is guaranteed to see the effects of all accesses following the end
+period is guaranteed to not see the effects of all accesses following the end
 of that grace period that are within RCU read-side critical sections.
 
 Note well that RCU-sched read-side critical sections include any region
@@ -339,14 +339,14 @@ The diagram below shows the path of ordering if the leftmost
 leftmost ``rcu_node`` structure offlines its last CPU and if the next
 ``rcu_node`` structure has no online CPUs).
 
-.. kernel-figure:: TreeRCU-gp-init-1.svg
+.. kernel-figure:: TreeRCU-gp-init-2.svg
 
 The final ``rcu_gp_init()`` pass through the ``rcu_node`` tree traverses
 breadth-first, setting each ``rcu_node`` structure's ``->gp_seq`` field
 to the newly advanced value from the ``rcu_state`` structure, as shown
 in the following diagram.
 
-.. kernel-figure:: TreeRCU-gp-init-1.svg
+.. kernel-figure:: TreeRCU-gp-init-3.svg
 
 This change will also cause each CPU's next call to
 ``__note_gp_changes()`` to notice that a new grace period has started,
@@ -473,7 +473,7 @@ read-side critical sections that follow the idle period (the oval near
 the bottom of the diagram above).
 
 Plumbing this into the full grace-period execution is described
-`below <#Forcing%20Quiescent%20States>`__.
+`below <Forcing Quiescent States_>`__.
 
 CPU-Hotplug Interface
 ^^^^^^^^^^^^^^^^^^^^^
@@ -494,7 +494,7 @@ mask to detect CPUs having gone offline since the beginning of this
 grace period.
 
 Plumbing this into the full grace-period execution is described
-`below <#Forcing%20Quiescent%20States>`__.
+`below <Forcing Quiescent States_>`__.
 
 Forcing Quiescent States
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -532,7 +532,7 @@ from other CPUs.
 | RCU. But this diagram is complex enough as it is, so simplicity       |
 | overrode accuracy. You can think of it as poetic license, or you can  |
 | think of it as misdirection that is resolved in the                   |
-| `stitched-together diagram <#Putting%20It%20All%20Together>`__.       |
+| `stitched-together diagram <Putting It All Together_>`__.             |
 +-----------------------------------------------------------------------+
 
 Grace-Period Cleanup
@@ -596,7 +596,7 @@ maintain ordering. For example, if the callback function wakes up a task
 that runs on some other CPU, proper ordering must in place in both the
 callback function and the task being awakened. To see why this is
 important, consider the top half of the `grace-period
-cleanup <#Grace-Period%20Cleanup>`__ diagram. The callback might be
+cleanup`_ diagram. The callback might be
 running on a CPU corresponding to the leftmost leaf ``rcu_node``
 structure, and awaken a task that is to run on a CPU corresponding to
 the rightmost leaf ``rcu_node`` structure, and the grace-period kernel

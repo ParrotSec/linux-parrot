@@ -26,8 +26,8 @@ routine")]
 
 --- a/security/integrity/platform_certs/load_uefi.c
 +++ b/security/integrity/platform_certs/load_uefi.c
-@@ -175,6 +175,10 @@ static int __init load_uefi_certs(void)
- 		kfree(dbx);
+@@ -191,6 +191,10 @@
+ 		kfree(mokx);
  	}
  
 +	/* the MOK can not be trusted when secure boot is disabled */

@@ -148,7 +148,7 @@ static __inline__ void rtsdtr_ctrl(int bits)
  * ------------------------------------------------------------
  * rs_stop() and rs_start()
  *
- * This routines are called before setting or resetting tty->stopped.
+ * This routines are called before setting or resetting tty->flow.stopped.
  * They enable or disable transmitter interrupts, as necessary.
  * ------------------------------------------------------------
  */
@@ -309,7 +309,7 @@ static void transmit_chars(struct serial_state *info)
 		return;
 	}
 	if (info->xmit.head == info->xmit.tail
-	    || info->tport.tty->stopped
+	    || info->tport.tty->flow.stopped
 	    || info->tport.tty->hw_stopped) {
 		info->IER &= ~UART_IER_THRI;
 	        custom.intena = IF_TBE;
@@ -768,7 +768,7 @@ static void rs_flush_chars(struct tty_struct *tty)
 	unsigned long flags;
 
 	if (info->xmit.head == info->xmit.tail
-	    || tty->stopped
+	    || tty->flow.stopped
 	    || tty->hw_stopped
 	    || !info->xmit.buf)
 		return;
@@ -812,7 +812,7 @@ static int rs_write(struct tty_struct * tty, const unsigned char *buf, int count
 	local_irq_restore(flags);
 
 	if (info->xmit.head != info->xmit.tail
-	    && !tty->stopped
+	    && !tty->flow.stopped
 	    && !tty->hw_stopped
 	    && !(info->IER & UART_IER_THRI)) {
 		info->IER |= UART_IER_THRI;
@@ -827,14 +827,14 @@ static int rs_write(struct tty_struct * tty, const unsigned char *buf, int count
 	return ret;
 }
 
-static int rs_write_room(struct tty_struct *tty)
+static unsigned int rs_write_room(struct tty_struct *tty)
 {
 	struct serial_state *info = tty->driver_data;
 
 	return CIRC_SPACE(info->xmit.head, info->xmit.tail, SERIAL_XMIT_SIZE);
 }
 
-static int rs_chars_in_buffer(struct tty_struct *tty)
+static unsigned int rs_chars_in_buffer(struct tty_struct *tty)
 {
 	struct serial_state *info = tty->driver_data;
 
@@ -937,15 +937,21 @@ static void rs_unthrottle(struct tty_struct * tty)
 static int get_serial_info(struct tty_struct *tty, struct serial_struct *ss)
 {
 	struct serial_state *state = tty->driver_data;
+	unsigned int close_delay, closing_wait;
 
 	tty_lock(tty);
+	close_delay = jiffies_to_msecs(state->tport.close_delay) / 10;
+	closing_wait = state->tport.closing_wait;
+	if (closing_wait != ASYNC_CLOSING_WAIT_NONE)
+		closing_wait = jiffies_to_msecs(closing_wait) / 10;
+
 	ss->line = tty->index;
 	ss->port = state->port;
 	ss->flags = state->tport.flags;
 	ss->xmit_fifo_size = state->xmit_fifo_size;
 	ss->baud_base = state->baud_base;
-	ss->close_delay = state->tport.close_delay;
-	ss->closing_wait = state->tport.closing_wait;
+	ss->close_delay = close_delay;
+	ss->closing_wait = closing_wait;
 	ss->custom_divisor = state->custom_divisor;
 	tty_unlock(tty);
 	return 0;
@@ -957,6 +963,7 @@ static int set_serial_info(struct tty_struct *tty, struct serial_struct *ss)
 	struct tty_port *port = &state->tport;
 	bool change_spd;
 	int 			retval = 0;
+	unsigned int close_delay, closing_wait;
 
 	tty_lock(tty);
 	change_spd = ((ss->flags ^ port->flags) & ASYNC_SPD_MASK) ||
@@ -966,11 +973,16 @@ static int set_serial_info(struct tty_struct *tty, struct serial_struct *ss)
 		tty_unlock(tty);
 		return -EINVAL;
 	}
-  
+
+	close_delay = msecs_to_jiffies(ss->close_delay * 10);
+	closing_wait = ss->closing_wait;
+	if (closing_wait != ASYNC_CLOSING_WAIT_NONE)
+		closing_wait = msecs_to_jiffies(closing_wait * 10);
+
 	if (!serial_isroot()) {
 		if ((ss->baud_base != state->baud_base) ||
-		    (ss->close_delay != port->close_delay) ||
-		    (ss->closing_wait != port->closing_wait) ||
+		    (close_delay != port->close_delay) ||
+		    (closing_wait != port->closing_wait) ||
 		    (ss->xmit_fifo_size != state->xmit_fifo_size) ||
 		    ((ss->flags & ~ASYNC_USR_MASK) !=
 		     (port->flags & ~ASYNC_USR_MASK))) {
@@ -997,9 +1009,8 @@ static int set_serial_info(struct tty_struct *tty, struct serial_struct *ss)
 	port->flags = ((port->flags & ~ASYNC_FLAGS) |
 			(ss->flags & ASYNC_FLAGS));
 	state->custom_divisor = ss->custom_divisor;
-	port->close_delay = ss->close_delay * HZ/100;
-	port->closing_wait = ss->closing_wait * HZ/100;
-	port->low_latency = (port->flags & ASYNC_LOW_LATENCY) ? 1 : 0;
+	port->close_delay = close_delay;
+	port->closing_wait = closing_wait;
 
 check_and_exit:
 	if (tty_port_initialized(port)) {
@@ -1387,8 +1398,6 @@ static int rs_open(struct tty_struct *tty, struct file * filp)
 	tty->driver_data = info;
 	tty->port = port;
 
-	port->low_latency = (port->flags & ASYNC_LOW_LATENCY) ? 1 : 0;
-
 	retval = startup(tty, info);
 	if (retval) {
 		return retval;
@@ -1626,21 +1635,17 @@ fail_put_tty_driver:
 
 static int __exit amiga_serial_remove(struct platform_device *pdev)
 {
-	int error;
 	struct serial_state *state = platform_get_drvdata(pdev);
 
 	/* printk("Unloading %s: version %s\n", serial_name, serial_version); */
-	error = tty_unregister_driver(serial_driver);
-	if (error)
-		printk("SERIAL: failed to unregister serial driver (%d)\n",
-		       error);
+	tty_unregister_driver(serial_driver);
 	put_tty_driver(serial_driver);
 	tty_port_destroy(&state->tport);
 
 	free_irq(IRQ_AMIGA_TBE, state);
 	free_irq(IRQ_AMIGA_RBF, state);
 
-	return error;
+	return 0;
 }
 
 static struct platform_driver amiga_serial_driver = {

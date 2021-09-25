@@ -220,6 +220,8 @@ static unsigned int sr_get_events(struct scsi_device *sdev)
 		return DISK_EVENT_EJECT_REQUEST;
 	else if (med->media_event_code == 2)
 		return DISK_EVENT_MEDIA_CHANGE;
+	else if (med->media_event_code == 3)
+		return DISK_EVENT_MEDIA_CHANGE;
 	return 0;
 }
 
@@ -338,7 +340,7 @@ static int sr_done(struct scsi_cmnd *SCpnt)
 	 * care is taken to avoid unnecessary additional work such as
 	 * memcpy's that could be avoided.
 	 */
-	if (driver_byte(result) != 0 &&		/* An error occurred */
+	if (scsi_status_is_check_condition(result) &&
 	    (SCpnt->sense_buffer[0] & 0x7f) == 0x70) { /* Sense current */
 		switch (SCpnt->sense_buffer[2]) {
 		case MEDIUM_ERROR:
@@ -416,19 +418,7 @@ static blk_status_t sr_init_command(struct scsi_cmnd *SCpnt)
 		goto out;
 	}
 
-	/*
-	 * we do lazy blocksize switching (when reading XA sectors,
-	 * see CDROMREADMODE2 ioctl) 
-	 */
 	s_size = cd->device->sector_size;
-	if (s_size > 2048) {
-		if (!in_interrupt())
-			sr_set_blocklength(cd, 2048);
-		else
-			scmd_printk(KERN_INFO, SCpnt,
-				    "can't switch blocksize: in interrupt\n");
-	}
-
 	if (s_size != 512 && s_size != 1024 && s_size != 2048) {
 		scmd_printk(KERN_ERR, SCpnt, "bad sector size %d\n", s_size);
 		goto out;
@@ -701,11 +691,6 @@ error_out:
 
 static void sr_release(struct cdrom_device_info *cdi)
 {
-	struct scsi_cd *cd = cdi->handle;
-
-	if (cd->device->sector_size > 2048)
-		sr_set_blocklength(cd, 2048);
-
 }
 
 static int sr_probe(struct device *dev)
@@ -928,7 +913,7 @@ static void get_capabilities(struct scsi_cd *cd)
 	rc = scsi_mode_sense(cd->device, 0, 0x2a, buffer, ms_len,
 			     SR_TIMEOUT, 3, &data, NULL);
 
-	if (!scsi_status_is_good(rc) || data.length > ms_len ||
+	if (rc < 0 || data.length > ms_len ||
 	    data.header_length + data.block_descriptor_length > data.length) {
 		/* failed, drive doesn't have capabilities mode page */
 		cd->cdi.speed = 1;

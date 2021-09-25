@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <string.h>
 #include <execinfo.h> /* backtrace */
+#include <linux/membarrier.h>
 
 #define EXIT_NO_TEST		2
 #define EXIT_ERR_SETUP_INFRA	3
@@ -147,17 +148,17 @@ void test__end_subtest()
 	struct prog_test_def *test = env.test;
 	int sub_error_cnt = test->error_cnt - test->old_error_cnt;
 
-	if (sub_error_cnt)
-		env.fail_cnt++;
-	else
-		env.sub_succ_cnt++;
-	skip_account();
-
 	dump_test_log(test, sub_error_cnt);
 
 	fprintf(env.stdout, "#%d/%d %s:%s\n",
-	       test->test_num, test->subtest_num,
-	       test->subtest_name, sub_error_cnt ? "FAIL" : "OK");
+	       test->test_num, test->subtest_num, test->subtest_name,
+	       sub_error_cnt ? "FAIL" : (test->skip_cnt ? "SKIP" : "OK"));
+
+	if (sub_error_cnt)
+		env.fail_cnt++;
+	else if (test->skip_cnt == 0)
+		env.sub_succ_cnt++;
+	skip_account();
 
 	free(test->subtest_name);
 	test->subtest_name = NULL;
@@ -360,6 +361,68 @@ err:
 	return -1;
 }
 
+static int finit_module(int fd, const char *param_values, int flags)
+{
+	return syscall(__NR_finit_module, fd, param_values, flags);
+}
+
+static int delete_module(const char *name, int flags)
+{
+	return syscall(__NR_delete_module, name, flags);
+}
+
+/*
+ * Trigger synchronize_rcu() in kernel.
+ */
+int kern_sync_rcu(void)
+{
+	return syscall(__NR_membarrier, MEMBARRIER_CMD_SHARED, 0, 0);
+}
+
+static void unload_bpf_testmod(void)
+{
+	if (kern_sync_rcu())
+		fprintf(env.stderr, "Failed to trigger kernel-side RCU sync!\n");
+	if (delete_module("bpf_testmod", 0)) {
+		if (errno == ENOENT) {
+			if (env.verbosity > VERBOSE_NONE)
+				fprintf(stdout, "bpf_testmod.ko is already unloaded.\n");
+			return;
+		}
+		fprintf(env.stderr, "Failed to unload bpf_testmod.ko from kernel: %d\n", -errno);
+		return;
+	}
+	if (env.verbosity > VERBOSE_NONE)
+		fprintf(stdout, "Successfully unloaded bpf_testmod.ko.\n");
+}
+
+static int load_bpf_testmod(void)
+{
+	int fd;
+
+	/* ensure previous instance of the module is unloaded */
+	unload_bpf_testmod();
+
+	if (env.verbosity > VERBOSE_NONE)
+		fprintf(stdout, "Loading bpf_testmod.ko...\n");
+
+	fd = open("bpf_testmod.ko", O_RDONLY);
+	if (fd < 0) {
+		fprintf(env.stderr, "Can't find bpf_testmod.ko kernel module: %d\n", -errno);
+		return -ENOENT;
+	}
+	if (finit_module(fd, "", 0)) {
+		fprintf(env.stderr, "Failed to load bpf_testmod.ko into the kernel: %d\n", -errno);
+		close(fd);
+		return -EINVAL;
+	}
+	close(fd);
+
+	if (env.verbosity > VERBOSE_NONE)
+		fprintf(stdout, "Successfully loaded bpf_testmod.ko.\n");
+	return 0;
+}
+
 /* extern declarations for test funcs */
 #define DEFINE_TEST(name) extern void test_##name(void);
 #include <prog_tests/tests.h>
@@ -535,6 +598,16 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 				return -EINVAL;
 			}
 		}
+
+		if (env->verbosity > VERBOSE_NONE) {
+			if (setenv("SELFTESTS_VERBOSE", "1", 1) == -1) {
+				fprintf(stderr,
+					"Unable to setenv SELFTESTS_VERBOSE=1 (errno=%d)",
+					errno);
+				return -1;
+			}
+		}
+
 		break;
 	case ARG_GET_TEST_CNT:
 		env->get_test_cnt = true;
@@ -664,6 +737,9 @@ int main(int argc, char **argv)
 	if (err)
 		return err;
 
+	/* Use libbpf 1.0 API mode */
+	libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+
 	libbpf_set_print(libbpf_print_fn);
 
 	srand(time(NULL));
@@ -678,6 +754,11 @@ int main(int argc, char **argv)
 
 	save_netns();
 	stdio_hijack();
+	env.has_testmod = true;
+	if (load_bpf_testmod()) {
+		fprintf(env.stderr, "WARNING! Selftests relying on bpf_testmod.ko will be skipped.\n");
+		env.has_testmod = false;
+	}
 	for (i = 0; i < prog_test_cnt; i++) {
 		struct prog_test_def *test = &prog_test_defs[i];
 
@@ -705,23 +786,26 @@ int main(int argc, char **argv)
 			test__end_subtest();
 
 		test->tested = true;
+
+		dump_test_log(test, test->error_cnt);
+
+		fprintf(env.stdout, "#%d %s:%s\n",
+			test->test_num, test->test_name,
+			test->error_cnt ? "FAIL" : (test->skip_cnt ? "SKIP" : "OK"));
+
 		if (test->error_cnt)
 			env.fail_cnt++;
 		else
 			env.succ_cnt++;
 		skip_account();
 
-		dump_test_log(test, test->error_cnt);
-
-		fprintf(env.stdout, "#%d %s:%s\n",
-			test->test_num, test->test_name,
-			test->error_cnt ? "FAIL" : "OK");
-
 		reset_affinity();
 		restore_netns();
 		if (test->need_cgroup_cleanup)
 			cleanup_cgroup_environment();
 	}
+	if (env.has_testmod)
+		unload_bpf_testmod();
 	stdio_restore();
 
 	if (env.get_test_cnt) {

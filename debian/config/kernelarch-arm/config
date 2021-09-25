@@ -14,18 +14,18 @@ CONFIG_KEXEC=y
 CONFIG_CRASH_DUMP=y
 
 ##
-## file: arch/arm/crypto/Kconfig
-##
-CONFIG_CRYPTO_SHA1_ARM=m
-CONFIG_CRYPTO_AES_ARM=m
-CONFIG_CRYPTO_NHPOLY1305_NEON=m
-
-##
 ## file: arch/arm/Kconfig.debug
 ##
 CONFIG_DEBUG_WX=y
 CONFIG_DEBUG_LL=y
 CONFIG_EARLY_PRINTK=y
+
+##
+## file: arch/arm/crypto/Kconfig
+##
+CONFIG_CRYPTO_SHA1_ARM=m
+CONFIG_CRYPTO_AES_ARM=m
+CONFIG_CRYPTO_NHPOLY1305_NEON=m
 
 ##
 ## file: arch/arm/mm/Kconfig

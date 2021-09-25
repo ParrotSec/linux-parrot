@@ -1,9 +1,11 @@
 [abi]
-abiname: 8parrot1
+abiname: 2parrot1
 ignore-changes:
  __cpuhp_*
  __udp_gso_segment
  bpf_analyzer
+ bpf_offload_dev_create
+ bpf_verifier_log_write
  cxl_*
  dax_flush
  ieee80211_nullfunc_get
@@ -149,9 +151,10 @@ featuresets:
 debug-info: true
 # Disable code signing by default; this can be overridden per-architecture
 signed-code: false
+trusted-certs: debian/certs/debian-uefi-certs.pem
 
 [featureset-rt_base]
-enabled: true
+enabled: false
 
 [description]
 part-long-up: This kernel is not suitable for SMP (multi-processor,

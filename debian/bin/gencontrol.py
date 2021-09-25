@@ -608,9 +608,9 @@ class Gencontrol(Base):
             return check_config_files(configs)
 
         kconfig = check_config('config', True)
-        kconfig.extend(check_config("kernelarch-%s/config" %
-                                    config_entry_base['kernel-arch'],
-                                    False))
+        # XXX: We have no way to override kernelarch-X configs
+        kconfig.extend(check_config_default(False,
+            "kernelarch-%s/config" % config_entry_base['kernel-arch']))
         kconfig.extend(check_config("%s/config" % arch, True, arch))
         kconfig.extend(check_config("%s/config.%s" % (arch, flavour), False,
                                     arch, None, flavour))
@@ -630,6 +630,9 @@ class Gencontrol(Base):
         # Add "salt" to fix #872263
         makeflags['KCONFIG_OPTIONS'] += \
             ' -o "BUILD_SALT=\\"%(abiname)s%(localversion)s\\""' % vars
+        if config_entry_build.get('trusted-certs'):
+            makeflags['KCONFIG_OPTIONS'] += \
+                f' -o "SYSTEM_TRUSTED_KEYS=\\"${{CURDIR}}/{config_entry_build["trusted-certs"]}\\""'
 
         cmds_binary_arch = ["$(MAKE) -f debian/rules.real binary-arch-flavour "
                             "%s" %

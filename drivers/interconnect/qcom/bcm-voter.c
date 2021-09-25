@@ -39,19 +39,12 @@ struct bcm_voter {
 	u32 tcs_wait;
 };
 
-static int cmp_vcd(void *priv, struct list_head *a, struct list_head *b)
+static int cmp_vcd(void *priv, const struct list_head *a, const struct list_head *b)
 {
-	const struct qcom_icc_bcm *bcm_a =
-			list_entry(a, struct qcom_icc_bcm, list);
-	const struct qcom_icc_bcm *bcm_b =
-			list_entry(b, struct qcom_icc_bcm, list);
+	const struct qcom_icc_bcm *bcm_a = list_entry(a, struct qcom_icc_bcm, list);
+	const struct qcom_icc_bcm *bcm_b = list_entry(b, struct qcom_icc_bcm, list);
 
-	if (bcm_a->aux_data.vcd < bcm_b->aux_data.vcd)
-		return -1;
-	else if (bcm_a->aux_data.vcd == bcm_b->aux_data.vcd)
-		return 0;
-	else
-		return 1;
+	return bcm_a->aux_data.vcd - bcm_b->aux_data.vcd;
 }
 
 static u64 bcm_div(u64 num, u32 base)

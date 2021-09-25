@@ -18,6 +18,7 @@
 #include "adreno_pm4.xml.h"
 
 extern bool snapshot_debugbus;
+extern bool allow_vram_carveout;
 
 enum {
 	ADRENO_FW_PM4 = 0,
@@ -54,7 +55,7 @@ struct adreno_reglist {
 	u32 value;
 };
 
-extern const struct adreno_reglist a630_hwcg[], a640_hwcg[], a650_hwcg[];
+extern const struct adreno_reglist a630_hwcg[], a640_hwcg[], a650_hwcg[], a660_hwcg[];
 
 struct adreno_info {
 	struct adreno_rev rev;
@@ -196,9 +197,24 @@ static inline int adreno_is_a430(struct adreno_gpu *gpu)
        return gpu->revn == 430;
 }
 
+static inline int adreno_is_a508(struct adreno_gpu *gpu)
+{
+	return gpu->revn == 508;
+}
+
+static inline int adreno_is_a509(struct adreno_gpu *gpu)
+{
+	return gpu->revn == 509;
+}
+
 static inline int adreno_is_a510(struct adreno_gpu *gpu)
 {
 	return gpu->revn == 510;
+}
+
+static inline int adreno_is_a512(struct adreno_gpu *gpu)
+{
+	return gpu->revn == 512;
 }
 
 static inline int adreno_is_a530(struct adreno_gpu *gpu)
@@ -229,6 +245,17 @@ static inline int adreno_is_a640(struct adreno_gpu *gpu)
 static inline int adreno_is_a650(struct adreno_gpu *gpu)
 {
        return gpu->revn == 650;
+}
+
+static inline int adreno_is_a660(struct adreno_gpu *gpu)
+{
+       return gpu->revn == 660;
+}
+
+/* check for a650, a660, or any derivatives */
+static inline int adreno_is_a650_family(struct adreno_gpu *gpu)
+{
+       return gpu->revn == 650 || gpu->revn == 620 || gpu->revn == 660;
 }
 
 int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value);
@@ -271,6 +298,8 @@ int adreno_gpu_state_put(struct msm_gpu_state *state);
 struct msm_gem_address_space *
 adreno_iommu_create_address_space(struct msm_gpu *gpu,
 		struct platform_device *pdev);
+
+void adreno_set_llc_attributes(struct iommu_domain *iommu);
 
 /*
  * For a5xx and a6xx targets load the zap shader that is used to pull the GPU

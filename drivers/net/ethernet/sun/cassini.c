@@ -486,7 +486,7 @@ page_err:
 /* initialize spare pool of rx buffers, but allocate during the open */
 static void cas_spare_init(struct cas *cp)
 {
-  	spin_lock(&cp->rx_inuse_lock);
+	spin_lock(&cp->rx_inuse_lock);
 	INIT_LIST_HEAD(&cp->rx_inuse_list);
 	spin_unlock(&cp->rx_inuse_lock);
 
@@ -1599,6 +1599,7 @@ static inline int cas_mdio_link_not_up(struct cas *cp)
 			cas_phy_write(cp, MII_BMCR, val);
 			break;
 		}
+		break;
 	default:
 		break;
 	}

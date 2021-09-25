@@ -27,10 +27,6 @@ debian/perf-traceevent-support-asciidoctor-for-documentatio.patch
 debian/kbuild-look-for-module.lds-under-arch-directory-too.patch
 debian/kbuild-abort-build-if-subdirs-used.patch
 
-# Parrot patches
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
-
 # Fixes/improvements to firmware loading
 features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
 debian/iwlwifi-do-not-request-unreleased-firmware.patch
@@ -38,6 +34,10 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
+
+# Parrot patches
+features/all/wifi-injection.patch
+features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Patches from aufs5 repository, imported with debian/bin/genpatch-aufs.
 # These are only the changes needed to allow aufs to be built out-of-tree.
@@ -80,13 +80,9 @@ bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
 bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
-bugfix/arm/ARM-dts-sun8i-h3-orangepi-plus-Fix-ethernet-phy-mode.patch
-bugfix/x86/platform-x86-toshiba_haps-Fix-missing-newline-in-pr_.patch
+bugfix/mipsel/bpf-mips-Validate-conditional-branch-offsets.patch
 
 # Arch features
-features/arm64/arm64-dts-rockchip-Add-basic-support-for-Kobol-s-Hel.patch
-features/arm64/arm64-dts-rockchip-Rely-on-SoC-external-pull-up-on-p.patch
-features/arm64/arm64-dts-rockchip-kobol-helios64-Add-mmc-aliases.patch
 features/arm64/arm64-dts-rockchip-Add-support-for-two-PWM-fans-on-h.patch
 features/arm64/arm64-dts-rockchip-Add-support-for-PCIe-on-helios64.patch
 features/arm64/arm64-dts-rockchip-disable-USB-type-c-DisplayPort.patch
@@ -97,10 +93,8 @@ features/x86/x86-make-x32-syscall-support-conditional.patch
 bugfix/all/disable-some-marvell-phys.patch
 bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
-debian/makefile-do-not-check-for-libelf-when-building-oot-module.patch
-bugfix/all/partially-revert-net-socket-implement-64-bit-timestamps.patch
-bugfix/all/Revert-PCI-PM-Do-not-read-power-state-in-pci_enable_.patch
-bugfix/all/swiotlb-manipulate-orig_addr-when-tlb_addr-has-offse.patch
+bugfix/all/HID-apple-Add-missing-scan-code-event-for-keys-handl.patch
+bugfix/all/bnx2x-Fix-enabling-network-interfaces-without-VFs.patch
 
 # Miscellaneous features
 
@@ -121,10 +115,8 @@ features/all/db-mok-keyring/KEYS-Make-use-of-platform-keyring-for-module-signatu
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 debian/ntfs-mark-it-as-broken.patch
-bugfix/all/vfs-move-cap_convert_nscap-call-into-vfs_setxattr.patch
-bugfix/all/can-bcm-delay-release-of-struct-bcm_op-after-synchro.patch
-bugfix/all/KVM-do-not-allow-mapping-valid-but-non-reference-cou.patch
-bugfix/all/seq_file-Disallow-extremely-large-seq-buffer-allocat.patch
+bugfix/all/dccp-don-t-duplicate-ccid-when-cloning-dccp-sock.patch
+bugfix/all/io_uring-ensure-symmetry-in-handling-iter-types-in-l.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -137,13 +129,9 @@ bugfix/all/tools-perf-remove-shebangs.patch
 bugfix/x86/revert-perf-build-fix-libunwind-feature-detection-on.patch
 bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
-bugfix/all/libcpupower-hide-private-function.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/tools-perf-pmu-events-fix-reproducibility.patch
 bugfix/all/bpftool-fix-version-string-in-recursive-builds.patch
 bugfix/all/tools-include-uapi-fix-errno.h.patch
-
-# overlay: allow mounting in user namespaces
-debian/overlayfs-permit-mounts-in-userns.patch
 
 # ABI maintenance
