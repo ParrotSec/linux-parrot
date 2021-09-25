@@ -53,7 +53,6 @@
 enum fault_type {
 	KERNEL_FAULT,
 	USER_FAULT,
-	VDSO_FAULT,
 	GMAP_FAULT,
 };
 
@@ -77,22 +76,16 @@ static enum fault_type get_fault_type(struct pt_regs *regs)
 	trans_exc_code = regs->int_parm_long & 3;
 	if (likely(trans_exc_code == 0)) {
 		/* primary space exception */
-		if (IS_ENABLED(CONFIG_PGSTE) &&
-		    test_pt_regs_flag(regs, PIF_GUEST_FAULT))
-			return GMAP_FAULT;
-		if (current->thread.mm_segment == USER_DS)
+		if (user_mode(regs))
 			return USER_FAULT;
+		if (!IS_ENABLED(CONFIG_PGSTE))
+			return KERNEL_FAULT;
+		if (test_pt_regs_flag(regs, PIF_GUEST_FAULT))
+			return GMAP_FAULT;
 		return KERNEL_FAULT;
 	}
-	if (trans_exc_code == 2) {
-		/* secondary space exception */
-		if (current->thread.mm_segment & 1) {
-			if (current->thread.mm_segment == USER_DS_SACF)
-				return USER_FAULT;
-			return KERNEL_FAULT;
-		}
-		return VDSO_FAULT;
-	}
+	if (trans_exc_code == 2)
+		return USER_FAULT;
 	if (trans_exc_code == 1) {
 		/* access register mode, not used in the kernel */
 		return USER_FAULT;
@@ -187,10 +180,6 @@ static void dump_fault_info(struct pt_regs *regs)
 	case USER_FAULT:
 		asce = S390_lowcore.user_asce;
 		pr_cont("user ");
-		break;
-	case VDSO_FAULT:
-		asce = S390_lowcore.vdso_asce;
-		pr_cont("vdso ");
 		break;
 	case GMAP_FAULT:
 		asce = ((struct gmap *) S390_lowcore.gmap)->asce;
@@ -296,26 +285,6 @@ static noinline void do_sigbus(struct pt_regs *regs)
 			(void __user *)(regs->int_parm_long & __FAIL_ADDR_MASK));
 }
 
-static noinline int signal_return(struct pt_regs *regs)
-{
-	u16 instruction;
-	int rc;
-
-	rc = __get_user(instruction, (u16 __user *) regs->psw.addr);
-	if (rc)
-		return rc;
-	if (instruction == 0x0a77) {
-		set_pt_regs_flag(regs, PIF_SYSCALL);
-		regs->int_code = 0x00040077;
-		return 0;
-	} else if (instruction == 0x0aad) {
-		set_pt_regs_flag(regs, PIF_SYSCALL);
-		regs->int_code = 0x000400ad;
-		return 0;
-	}
-	return -EACCES;
-}
-
 static noinline void do_fault_error(struct pt_regs *regs, int access,
 					vm_fault_t fault)
 {
@@ -323,9 +292,6 @@ static noinline void do_fault_error(struct pt_regs *regs, int access,
 
 	switch (fault) {
 	case VM_FAULT_BADACCESS:
-		if (access == VM_EXEC && signal_return(regs) == 0)
-			break;
-		fallthrough;
 	case VM_FAULT_BADMAP:
 		/* Bad memory access. Check if it is kernel or user space. */
 		if (user_mode(regs)) {
@@ -396,7 +362,7 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
 	 * The instruction that caused the program check has
 	 * been nullified. Don't signal single step via SIGTRAP.
 	 */
-	clear_pt_regs_flag(regs, PIF_PER_TRAP);
+	clear_thread_flag(TIF_PER_TRAP);
 
 	if (kprobe_page_fault(regs, 14))
 		return 0;
@@ -413,9 +379,6 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
 	type = get_fault_type(regs);
 	switch (type) {
 	case KERNEL_FAULT:
-		goto out;
-	case VDSO_FAULT:
-		fault = VM_FAULT_BADMAP;
 		goto out;
 	case USER_FAULT:
 	case GMAP_FAULT:
@@ -716,7 +679,7 @@ static void pfault_interrupt(struct ext_code ext_code,
 			 * interrupt since it must be a leftover of a PFAULT
 			 * CANCEL operation which didn't remove all pending
 			 * completion interrupts. */
-			if (tsk->state == TASK_RUNNING)
+			if (task_is_running(tsk))
 				tsk->thread.pfault_wait = -1;
 		}
 	} else {
@@ -797,6 +760,7 @@ early_initcall(pfault_irq_init);
 #endif /* CONFIG_PFAULT */
 
 #if IS_ENABLED(CONFIG_PGSTE)
+
 void do_secure_storage_access(struct pt_regs *regs)
 {
 	unsigned long addr = regs->int_parm_long & __FAIL_ADDR_MASK;
@@ -804,6 +768,32 @@ void do_secure_storage_access(struct pt_regs *regs)
 	struct mm_struct *mm;
 	struct page *page;
 	int rc;
+
+	/*
+	 * bit 61 tells us if the address is valid, if it's not we
+	 * have a major problem and should stop the kernel or send a
+	 * SIGSEGV to the process. Unfortunately bit 61 is not
+	 * reliable without the misc UV feature so we need to check
+	 * for that as well.
+	 */
+	if (test_bit_inv(BIT_UV_FEAT_MISC, &uv_info.uv_feature_indications) &&
+	    !test_bit_inv(61, &regs->int_parm_long)) {
+		/*
+		 * When this happens, userspace did something that it
+		 * was not supposed to do, e.g. branching into secure
+		 * memory. Trigger a segmentation fault.
+		 */
+		if (user_mode(regs)) {
+			send_sig(SIGSEGV, current, 0);
+			return;
+		}
+
+		/*
+		 * The kernel should never run into this case and we
+		 * have no way out of this situation.
+		 */
+		panic("Unexpected PGM 0x3d with TEID bit 61=0");
+	}
 
 	switch (get_fault_type(regs)) {
 	case USER_FAULT:
@@ -834,7 +824,6 @@ void do_secure_storage_access(struct pt_regs *regs)
 		if (rc)
 			BUG();
 		break;
-	case VDSO_FAULT:
 	case GMAP_FAULT:
 	default:
 		do_fault_error(regs, VM_READ | VM_WRITE, VM_FAULT_BADMAP);
@@ -874,19 +863,4 @@ void do_secure_storage_violation(struct pt_regs *regs)
 	send_sig(SIGSEGV, current, 0);
 }
 
-#else
-void do_secure_storage_access(struct pt_regs *regs)
-{
-	default_trap_handler(regs);
-}
-
-void do_non_secure_storage_access(struct pt_regs *regs)
-{
-	default_trap_handler(regs);
-}
-
-void do_secure_storage_violation(struct pt_regs *regs)
-{
-	default_trap_handler(regs);
-}
-#endif
+#endif /* CONFIG_PGSTE */

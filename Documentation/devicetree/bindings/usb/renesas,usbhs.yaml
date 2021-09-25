@@ -53,7 +53,6 @@ properties:
 
   clocks:
     minItems: 1
-    maxItems: 3
     items:
       - description: USB 2.0 host
       - description: USB 2.0 peripheral
@@ -68,17 +67,15 @@ properties:
       Integer to use BUSWAIT register.
 
   renesas,enable-gpio:
+    maxItems: 1
     description: |
       gpio specifier to check GPIO determining if USB function should be
       enabled.
 
   phys:
     maxItems: 1
-    items:
-      - description: phandle + phy specifier pair.
 
   phy-names:
-    maxItems: 1
     items:
       - const: usb
 
@@ -88,7 +85,6 @@ properties:
 
   dma-names:
     minItems: 2
-    maxItems: 4
     items:
       - const: ch0
       - const: ch1
@@ -102,7 +98,6 @@ properties:
 
   resets:
     minItems: 1
-    maxItems: 2
     items:
       - description: USB 2.0 host
       - description: USB 2.0 peripheral

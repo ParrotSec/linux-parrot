@@ -6,13 +6,10 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
+#include <linux/mod_devicetable.h>
 #include <linux/slab.h>
-#include <linux/delay.h>
 #include <linux/hid-sensor-hub.h>
 #include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
 #include "../common/hid-sensors/hid-sensor-trigger.h"
 
@@ -27,6 +24,11 @@ struct press_state {
 	int scale_post_decml;
 	int scale_precision;
 	int value_offset;
+};
+
+static const u32 press_sensitivity_addresses[] = {
+	HID_USAGE_SENSOR_DATA_ATMOSPHERIC_PRESSURE,
+	HID_USAGE_SENSOR_ATMOSPHERIC_PRESSURE
 };
 
 /* Channel definitions */
@@ -225,17 +227,6 @@ static int press_parse_report(struct platform_device *pdev,
 				&st->press_attr,
 				&st->scale_pre_decml, &st->scale_post_decml);
 
-	/* Set Sensitivity field ids, when there is no individual modifier */
-	if (st->common_attributes.sensitivity.index < 0) {
-		sensor_hub_input_get_attribute_info(hsdev,
-			HID_FEATURE_REPORT, usage_id,
-			HID_USAGE_SENSOR_DATA_MOD_CHANGE_SENSITIVITY_ABS |
-			HID_USAGE_SENSOR_DATA_ATMOSPHERIC_PRESSURE,
-			&st->common_attributes.sensitivity);
-		dev_dbg(&pdev->dev, "Sensitivity index:report %d:%d\n",
-			st->common_attributes.sensitivity.index,
-			st->common_attributes.sensitivity.report_id);
-	}
 	return ret;
 }
 
@@ -260,7 +251,9 @@ static int hid_press_probe(struct platform_device *pdev)
 
 	ret = hid_sensor_parse_common_attributes(hsdev,
 					HID_USAGE_SENSOR_PRESSURE,
-					&press_state->common_attributes);
+					&press_state->common_attributes,
+					press_sensitivity_addresses,
+					ARRAY_SIZE(press_sensitivity_addresses));
 	if (ret) {
 		dev_err(&pdev->dev, "failed to setup common attributes\n");
 		return ret;
@@ -361,3 +354,4 @@ module_platform_driver(hid_press_platform_driver);
 MODULE_DESCRIPTION("HID Sensor Pressure");
 MODULE_AUTHOR("Archana Patni <archana.patni@intel.com>");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(IIO_HID);

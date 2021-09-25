@@ -382,7 +382,7 @@ static int armada_370_xp_ipi_alloc(struct irq_domain *d,
 		irq_set_percpu_devid(virq + i);
 		irq_domain_set_info(d, virq + i, i, &ipi_irqchip,
 				    d->host_data,
-				    handle_percpu_devid_fasteoi_ipi,
+				    handle_percpu_devid_irq,
 				    NULL, NULL);
 	}
 
@@ -582,20 +582,19 @@ static void armada_370_xp_handle_msi_irq(struct pt_regs *regs, bool is_chained)
 
 	for (msinr = PCI_MSI_DOORBELL_START;
 	     msinr < PCI_MSI_DOORBELL_END; msinr++) {
-		int irq;
+		unsigned int irq;
 
 		if (!(msimask & BIT(msinr)))
 			continue;
 
-		if (is_chained) {
-			irq = irq_find_mapping(armada_370_xp_msi_inner_domain,
-					       msinr - PCI_MSI_DOORBELL_START);
-			generic_handle_irq(irq);
-		} else {
-			irq = msinr - PCI_MSI_DOORBELL_START;
+		irq = msinr - PCI_MSI_DOORBELL_START;
+
+		if (is_chained)
+			generic_handle_domain_irq(armada_370_xp_msi_inner_domain,
+						  irq);
+		else
 			handle_domain_irq(armada_370_xp_msi_inner_domain,
 					  irq, regs);
-		}
 	}
 }
 #else
@@ -606,7 +605,6 @@ static void armada_370_xp_mpic_handle_cascade_irq(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	unsigned long irqmap, irqn, irqsrc, cpuid;
-	unsigned int cascade_irq;
 
 	chained_irq_enter(chip, desc);
 
@@ -628,8 +626,7 @@ static void armada_370_xp_mpic_handle_cascade_irq(struct irq_desc *desc)
 			continue;
 		}
 
-		cascade_irq = irq_find_mapping(armada_370_xp_mpic_domain, irqn);
-		generic_handle_irq(cascade_irq);
+		generic_handle_domain_irq(armada_370_xp_mpic_domain, irqn);
 	}
 
 	chained_irq_exit(chip, desc);

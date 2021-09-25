@@ -145,10 +145,8 @@ static int etnaviv_gem_mmap_obj(struct etnaviv_gem_object *etnaviv_obj,
 		 * address_space (so unmap_mapping_range does what we want,
 		 * in particular in the case of mmap'd dmabufs)
 		 */
-		fput(vma->vm_file);
-		get_file(etnaviv_obj->base.filp);
 		vma->vm_pgoff = 0;
-		vma->vm_file  = etnaviv_obj->base.filp;
+		vma_set_file(vma, etnaviv_obj->base.filp);
 
 		vma->vm_page_prot = vm_page_prot;
 	}
@@ -171,7 +169,7 @@ int etnaviv_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	return obj->ops->mmap(obj, vma);
 }
 
-vm_fault_t etnaviv_gem_fault(struct vm_fault *vmf)
+static vm_fault_t etnaviv_gem_fault(struct vm_fault *vmf)
 {
 	struct vm_area_struct *vma = vmf->vma;
 	struct drm_gem_object *obj = vma->vm_private_data;
@@ -392,14 +390,12 @@ int etnaviv_gem_cpu_prep(struct drm_gem_object *obj, u32 op,
 	}
 
 	if (op & ETNA_PREP_NOSYNC) {
-		if (!dma_resv_test_signaled_rcu(obj->resv,
-							  write))
+		if (!dma_resv_test_signaled(obj->resv, write))
 			return -EBUSY;
 	} else {
 		unsigned long remain = etnaviv_timeout_to_jiffies(timeout);
 
-		ret = dma_resv_wait_timeout_rcu(obj->resv,
-							  write, true, remain);
+		ret = dma_resv_wait_timeout(obj->resv, write, true, remain);
 		if (ret <= 0)
 			return ret == 0 ? -ETIMEDOUT : ret;
 	}
@@ -463,7 +459,7 @@ static void etnaviv_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 			off, etnaviv_obj->vaddr, obj->size);
 
 	rcu_read_lock();
-	fobj = rcu_dereference(robj->fence);
+	fobj = dma_resv_shared_list(robj);
 	if (fobj) {
 		unsigned int i, shared_count = fobj->shared_count;
 
@@ -473,7 +469,7 @@ static void etnaviv_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 		}
 	}
 
-	fence = rcu_dereference(robj->fence_excl);
+	fence = dma_resv_excl_fence(robj);
 	if (fence)
 		etnaviv_gem_describe_fence(fence, "Exclusive", m);
 	rcu_read_unlock();
@@ -559,6 +555,21 @@ void etnaviv_gem_obj_add(struct drm_device *dev, struct drm_gem_object *obj)
 	mutex_unlock(&priv->gem_lock);
 }
 
+static const struct vm_operations_struct vm_ops = {
+	.fault = etnaviv_gem_fault,
+	.open = drm_gem_vm_open,
+	.close = drm_gem_vm_close,
+};
+
+static const struct drm_gem_object_funcs etnaviv_gem_object_funcs = {
+	.free = etnaviv_gem_free_object,
+	.pin = etnaviv_gem_prime_pin,
+	.unpin = etnaviv_gem_prime_unpin,
+	.get_sg_table = etnaviv_gem_prime_get_sg_table,
+	.vmap = etnaviv_gem_prime_vmap,
+	.vm_ops = &vm_ops,
+};
+
 static int etnaviv_gem_new_impl(struct drm_device *dev, u32 size, u32 flags,
 	const struct etnaviv_gem_ops *ops, struct drm_gem_object **obj)
 {
@@ -593,6 +604,7 @@ static int etnaviv_gem_new_impl(struct drm_device *dev, u32 size, u32 flags,
 	INIT_LIST_HEAD(&etnaviv_obj->vram_list);
 
 	*obj = &etnaviv_obj->base;
+	(*obj)->funcs = &etnaviv_gem_object_funcs;
 
 	return 0;
 }
@@ -675,7 +687,8 @@ static int etnaviv_gem_userptr_get_pages(struct etnaviv_gem_object *etnaviv_obj)
 		struct page **pages = pvec + pinned;
 
 		ret = pin_user_pages_fast(ptr, num_pages,
-					  FOLL_WRITE | FOLL_FORCE, pages);
+					  FOLL_WRITE | FOLL_FORCE | FOLL_LONGTERM,
+					  pages);
 		if (ret < 0) {
 			unpin_user_pages(pvec, pinned);
 			kvfree(pvec);

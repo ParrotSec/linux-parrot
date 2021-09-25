@@ -1,7 +1,7 @@
 /*******************************************************************
  * This file is part of the Emulex Linux Device Driver for         *
  * Fibre Channel Host Bus Adapters.                                *
- * Copyright (C) 2017-2019 Broadcom. All Rights Reserved. The term *
+ * Copyright (C) 2017-2021 Broadcom. All Rights Reserved. The term *
  * “Broadcom” refers to Broadcom Inc. and/or its subsidiaries.  *
  * Copyright (C) 2009-2016 Emulex.  All rights reserved.           *
  * EMULEX and SLI are trademarks of Emulex.                        *
@@ -273,6 +273,9 @@ struct lpfc_sli4_flags {
 #define lpfc_vfi_rsrc_rdy_MASK		0x00000001
 #define lpfc_vfi_rsrc_rdy_WORD		word0
 #define LPFC_VFI_RSRC_RDY		1
+#define lpfc_ftr_ashdr_SHIFT            4
+#define lpfc_ftr_ashdr_MASK             0x00000001
+#define lpfc_ftr_ashdr_WORD             word0
 };
 
 struct sli4_bls_rsp {
@@ -2944,6 +2947,9 @@ struct lpfc_mbx_request_features {
 #define lpfc_mbx_rq_ftr_rq_mrqp_SHIFT		16
 #define lpfc_mbx_rq_ftr_rq_mrqp_MASK		0x00000001
 #define lpfc_mbx_rq_ftr_rq_mrqp_WORD		word2
+#define lpfc_mbx_rq_ftr_rq_ashdr_SHIFT          17
+#define lpfc_mbx_rq_ftr_rq_ashdr_MASK           0x00000001
+#define lpfc_mbx_rq_ftr_rq_ashdr_WORD           word2
 	uint32_t word3;
 #define lpfc_mbx_rq_ftr_rsp_iaab_SHIFT		0
 #define lpfc_mbx_rq_ftr_rsp_iaab_MASK		0x00000001
@@ -2975,6 +2981,9 @@ struct lpfc_mbx_request_features {
 #define lpfc_mbx_rq_ftr_rsp_mrqp_SHIFT		16
 #define lpfc_mbx_rq_ftr_rsp_mrqp_MASK		0x00000001
 #define lpfc_mbx_rq_ftr_rsp_mrqp_WORD		word3
+#define lpfc_mbx_rq_ftr_rsp_ashdr_SHIFT         17
+#define lpfc_mbx_rq_ftr_rsp_ashdr_MASK          0x00000001
+#define lpfc_mbx_rq_ftr_rsp_ashdr_WORD          word3
 };
 
 struct lpfc_mbx_memory_dump_type3 {
@@ -3336,8 +3345,14 @@ struct lpfc_sli4_parameters {
 #define cfg_max_tow_xri_MASK			0x0000ffff
 #define cfg_max_tow_xri_WORD			word20
 
-	uint32_t word21;                        /* RESERVED */
-	uint32_t word22;                        /* RESERVED */
+	uint32_t word21;
+#define cfg_mib_bde_cnt_SHIFT			16
+#define cfg_mib_bde_cnt_MASK			0x000000ff
+#define cfg_mib_bde_cnt_WORD			word21
+#define cfg_mi_ver_SHIFT			0
+#define cfg_mi_ver_MASK				0x0000ffff
+#define cfg_mi_ver_WORD				word21
+	uint32_t mib_size;
 	uint32_t word23;                        /* RESERVED */
 
 	uint32_t word24;
@@ -4208,9 +4223,14 @@ struct wqe_common {
 #define wqe_ebde_cnt_SHIFT    0
 #define wqe_ebde_cnt_MASK     0x0000000f
 #define wqe_ebde_cnt_WORD     word10
-#define wqe_nvme_SHIFT        4
-#define wqe_nvme_MASK         0x00000001
-#define wqe_nvme_WORD         word10
+#define wqe_xchg_SHIFT        4
+#define wqe_xchg_MASK         0x00000001
+#define wqe_xchg_WORD         word10
+#define LPFC_SCSI_XCHG	      0x0
+#define LPFC_NVME_XCHG	      0x1
+#define wqe_appid_SHIFT       5
+#define wqe_appid_MASK        0x00000001
+#define wqe_appid_WORD        word10
 #define wqe_oas_SHIFT         6
 #define wqe_oas_MASK          0x00000001
 #define wqe_oas_WORD          word10
@@ -4708,6 +4728,8 @@ struct lpfc_grp_hdr {
 #define NVME_READ_CMD		0x0
 #define FCP_COMMAND_DATA_OUT	0x1
 #define NVME_WRITE_CMD		0x1
+#define COMMAND_DATA_IN		0x0
+#define COMMAND_DATA_OUT	0x1
 #define FCP_COMMAND_TRECEIVE	0x2
 #define FCP_COMMAND_TRSP	0x3
 #define FCP_COMMAND_TSEND	0x7

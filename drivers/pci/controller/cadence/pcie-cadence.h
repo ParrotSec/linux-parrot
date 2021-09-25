@@ -197,6 +197,7 @@ enum cdns_pcie_rp_bar {
 };
 
 #define CDNS_PCIE_RP_MAX_IB	0x3
+#define CDNS_PCIE_MAX_OB	32
 
 struct cdns_pcie_rp_ib_bar {
 	u64 size;
@@ -262,9 +263,12 @@ struct cdns_pcie_ops {
  * struct cdns_pcie - private data for Cadence PCIe controller drivers
  * @reg_base: IO mapped register base
  * @mem_res: start/end offsets in the physical system memory to map PCI accesses
+ * @dev: PCIe controller
  * @is_rc: tell whether the PCIe controller mode is Root Complex or Endpoint.
- * @bus: In Root Complex mode, the bus number
- * @ops: Platform specific ops to control various inputs from Cadence PCIe
+ * @phy_count: number of supported PHY devices
+ * @phy: list of pointers to specific PHY control blocks
+ * @link: list of pointers to corresponding device link representations
+ * @ops: Platform-specific ops to control various inputs from Cadence PCIe
  *       wrapper
  */
 struct cdns_pcie {

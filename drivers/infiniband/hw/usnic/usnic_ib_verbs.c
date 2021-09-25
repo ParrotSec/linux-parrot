@@ -270,7 +270,7 @@ static int create_qp_validate_user_data(struct usnic_ib_create_qp_cmd cmd)
 /* Start of ib callback functions */
 
 enum rdma_link_layer usnic_ib_port_link_layer(struct ib_device *device,
-						u8 port_num)
+					      u32 port_num)
 {
 	return IB_LINK_LAYER_ETHERNET;
 }
@@ -332,7 +332,7 @@ int usnic_ib_query_device(struct ib_device *ibdev,
 	return 0;
 }
 
-int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
+int usnic_ib_query_port(struct ib_device *ibdev, u32 port,
 				struct ib_port_attr *props)
 {
 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
@@ -420,7 +420,7 @@ err_out:
 	return err;
 }
 
-int usnic_ib_query_gid(struct ib_device *ibdev, u8 port, int index,
+int usnic_ib_query_gid(struct ib_device *ibdev, u32 port, int index,
 				union ib_gid *gid)
 {
 
@@ -477,7 +477,7 @@ struct ib_qp *usnic_ib_create_qp(struct ib_pd *pd,
 	us_ibdev = to_usdev(pd->device);
 
 	if (init_attr->create_flags)
-		return ERR_PTR(-EINVAL);
+		return ERR_PTR(-EOPNOTSUPP);
 
 	err = ib_copy_from_udata(&cmd, udata, sizeof(cmd));
 	if (err) {
@@ -560,6 +560,9 @@ int usnic_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	int status;
 	usnic_dbg("\n");
 
+	if (attr_mask & ~IB_QP_ATTR_STANDARD_BITS)
+		return -EOPNOTSUPP;
+
 	qp_grp = to_uqp_grp(ibqp);
 
 	mutex_lock(&qp_grp->vf->pf->usdev_lock);
@@ -584,7 +587,7 @@ int usnic_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		       struct ib_udata *udata)
 {
 	if (attr->flags)
-		return -EINVAL;
+		return -EOPNOTSUPP;
 
 	return 0;
 }

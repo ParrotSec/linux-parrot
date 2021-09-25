@@ -1860,8 +1860,6 @@ static void wacom_map_usage(struct input_dev *input, struct hid_usage *usage,
 	usage->type = type;
 	usage->code = code;
 
-	set_bit(type, input->evbit);
-
 	switch (type) {
 	case EV_ABS:
 		input_set_abs_params(input, code, fmin, fmax, fuzz, 0);
@@ -1869,13 +1867,9 @@ static void wacom_map_usage(struct input_dev *input, struct hid_usage *usage,
 				  hidinput_calc_abs_res(field, resolution_code));
 		break;
 	case EV_KEY:
-		input_set_capability(input, EV_KEY, code);
-		break;
 	case EV_MSC:
-		input_set_capability(input, EV_MSC, code);
-		break;
 	case EV_SW:
-		input_set_capability(input, EV_SW, code);
+		input_set_capability(input, type, code);
 		break;
 	}
 }
@@ -2187,6 +2181,18 @@ static void wacom_wac_pad_report(struct hid_device *hdev,
 	}
 }
 
+static void wacom_set_barrel_switch3_usage(struct wacom_wac *wacom_wac)
+{
+	struct input_dev *input = wacom_wac->pen_input;
+	struct wacom_features *features = &wacom_wac->features;
+
+	if (!(features->quirks & WACOM_QUIRK_AESPEN) &&
+	    wacom_wac->hid_data.barrelswitch &&
+	    wacom_wac->hid_data.barrelswitch2 &&
+	    wacom_wac->hid_data.serialhi)
+		input_set_capability(input, EV_KEY, BTN_STYLUS3);
+}
+
 static void wacom_wac_pen_usage_mapping(struct hid_device *hdev,
 		struct hid_field *field, struct hid_usage *usage)
 {
@@ -2227,13 +2233,21 @@ static void wacom_wac_pen_usage_mapping(struct hid_device *hdev,
 		wacom_map_usage(input, usage, field, EV_ABS, ABS_Z, 0);
 		break;
 	case HID_DG_ERASER:
+		input_set_capability(input, EV_KEY, BTN_TOOL_RUBBER);
+		wacom_map_usage(input, usage, field, EV_KEY, BTN_TOUCH, 0);
+		break;
 	case HID_DG_TIPSWITCH:
+		input_set_capability(input, EV_KEY, BTN_TOOL_PEN);
 		wacom_map_usage(input, usage, field, EV_KEY, BTN_TOUCH, 0);
 		break;
 	case HID_DG_BARRELSWITCH:
+		wacom_wac->hid_data.barrelswitch = true;
+		wacom_set_barrel_switch3_usage(wacom_wac);
 		wacom_map_usage(input, usage, field, EV_KEY, BTN_STYLUS, 0);
 		break;
 	case HID_DG_BARRELSWITCH2:
+		wacom_wac->hid_data.barrelswitch2 = true;
+		wacom_set_barrel_switch3_usage(wacom_wac);
 		wacom_map_usage(input, usage, field, EV_KEY, BTN_STYLUS2, 0);
 		break;
 	case HID_DG_TOOLSERIALNUMBER:
@@ -2245,22 +2259,12 @@ static void wacom_wac_pen_usage_mapping(struct hid_device *hdev,
 		wacom_map_usage(input, usage, field, EV_KEY, BTN_TOOL_PEN, 0);
 		break;
 	case WACOM_HID_WD_SERIALHI:
+		wacom_wac->hid_data.serialhi = true;
+		wacom_set_barrel_switch3_usage(wacom_wac);
 		wacom_map_usage(input, usage, field, EV_ABS, ABS_MISC, 0);
-
-		if (!(features->quirks & WACOM_QUIRK_AESPEN)) {
-			set_bit(EV_KEY, input->evbit);
-			input_set_capability(input, EV_KEY, BTN_TOOL_PEN);
-			input_set_capability(input, EV_KEY, BTN_TOOL_RUBBER);
-			input_set_capability(input, EV_KEY, BTN_TOOL_BRUSH);
-			input_set_capability(input, EV_KEY, BTN_TOOL_PENCIL);
-			input_set_capability(input, EV_KEY, BTN_TOOL_AIRBRUSH);
-			if (!(features->device_type & WACOM_DEVICETYPE_DIRECT)) {
-				input_set_capability(input, EV_KEY, BTN_TOOL_MOUSE);
-				input_set_capability(input, EV_KEY, BTN_TOOL_LENS);
-			}
-		}
 		break;
 	case WACOM_HID_WD_FINGERWHEEL:
+		input_set_capability(input, EV_KEY, BTN_TOOL_AIRBRUSH);
 		wacom_map_usage(input, usage, field, EV_ABS, ABS_WHEEL, 0);
 		break;
 	}
@@ -2544,6 +2548,9 @@ static void wacom_wac_finger_slot(struct wacom_wac *wacom_wac,
 		int slot;
 
 		slot = input_mt_get_slot_by_key(input, hid_data->id);
+		if (slot < 0)
+			return;
+
 		input_mt_slot(input, slot);
 		input_mt_report_slot_state(input, MT_TOOL_FINGER, prox);
 	}
@@ -3582,11 +3589,9 @@ int wacom_setup_pen_input_capabilities(struct input_dev *input_dev,
 	else
 		__set_bit(INPUT_PROP_POINTER, input_dev->propbit);
 
-	if (features->type == HID_GENERIC) {
-		/* setup has already been done; apply otherwise-undetectible quirks */
-		input_set_capability(input_dev, EV_KEY, BTN_STYLUS3);
+	if (features->type == HID_GENERIC)
+		/* setup has already been done */
 		return 0;
-	}
 
 	input_dev->evbit[0] |= BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
@@ -3829,7 +3834,7 @@ int wacom_setup_touch_input_capabilities(struct input_dev *input_dev,
 		    wacom_wac->shared->touch->product == 0xF6) {
 			input_dev->evbit[0] |= BIT_MASK(EV_SW);
 			__set_bit(SW_MUTE_DEVICE, input_dev->swbit);
-			wacom_wac->shared->has_mute_touch_switch = true;
+			wacom_wac->has_mute_touch_switch = true;
 		}
 		fallthrough;
 

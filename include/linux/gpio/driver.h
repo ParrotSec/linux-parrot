@@ -227,7 +227,7 @@ struct gpio_irq_chip {
 	/**
 	 * @valid_mask:
 	 *
-	 * If not %NULL holds bitmask of GPIOs which are valid to be included
+	 * If not %NULL, holds bitmask of GPIOs which are valid to be included
 	 * in IRQ domain of the chip.
 	 */
 	unsigned long *valid_mask;
@@ -346,7 +346,7 @@ struct gpio_irq_chip {
  *	output.
  *
  * A gpio_chip can help platforms abstract various sources of GPIOs so
- * they can all be accessed through a common programing interface.
+ * they can all be accessed through a common programming interface.
  * Example sources would be SOC controllers, FPGAs, multifunction
  * chips, dedicated GPIO expanders, and so on.
  *
@@ -435,15 +435,15 @@ struct gpio_chip {
 	/**
 	 * @valid_mask:
 	 *
-	 * If not %NULL holds bitmask of GPIOs which are valid to be used
+	 * If not %NULL, holds bitmask of GPIOs which are valid to be used
 	 * from the chip.
 	 */
 	unsigned long *valid_mask;
 
 #if defined(CONFIG_OF_GPIO)
 	/*
-	 * If CONFIG_OF is enabled, then all GPIO controllers described in the
-	 * device tree automatically may have an OF translation
+	 * If CONFIG_OF_GPIO is enabled, then all GPIO controllers described in
+	 * the device tree automatically may have an OF translation
 	 */
 
 	/**
@@ -508,7 +508,7 @@ extern int gpiochip_add_data_with_key(struct gpio_chip *gc, void *data,
  * for GPIOs will fail rudely.
  *
  * gpiochip_add_data() must only be called after gpiolib initialization,
- * ie after core_initcall().
+ * i.e. after core_initcall().
  *
  * If gc->base is negative, this requests dynamic assignment of
  * a range of valid GPIOs.
@@ -621,19 +621,6 @@ int gpiochip_irq_domain_activate(struct irq_domain *domain,
 void gpiochip_irq_domain_deactivate(struct irq_domain *domain,
 				    struct irq_data *data);
 
-void gpiochip_set_nested_irqchip(struct gpio_chip *gc,
-		struct irq_chip *irqchip,
-		unsigned int parent_irq);
-
-int gpiochip_irqchip_add_key(struct gpio_chip *gc,
-			     struct irq_chip *irqchip,
-			     unsigned int first_irq,
-			     irq_flow_handler_t handler,
-			     unsigned int type,
-			     bool threaded,
-			     struct lock_class_key *lock_key,
-			     struct lock_class_key *request_key);
-
 bool gpiochip_irqchip_irq_valid(const struct gpio_chip *gc,
 				unsigned int offset);
 
@@ -648,64 +635,6 @@ static inline int gpiochip_irqchip_add_domain(struct gpio_chip *gc,
 	return -EINVAL;
 }
 #endif
-
-#ifdef CONFIG_LOCKDEP
-
-/*
- * Lockdep requires that each irqchip instance be created with a
- * unique key so as to avoid unnecessary warnings. This upfront
- * boilerplate static inlines provides such a key for each
- * unique instance.
- */
-static inline int gpiochip_irqchip_add(struct gpio_chip *gc,
-				       struct irq_chip *irqchip,
-				       unsigned int first_irq,
-				       irq_flow_handler_t handler,
-				       unsigned int type)
-{
-	static struct lock_class_key lock_key;
-	static struct lock_class_key request_key;
-
-	return gpiochip_irqchip_add_key(gc, irqchip, first_irq,
-					handler, type, false,
-					&lock_key, &request_key);
-}
-
-static inline int gpiochip_irqchip_add_nested(struct gpio_chip *gc,
-			  struct irq_chip *irqchip,
-			  unsigned int first_irq,
-			  irq_flow_handler_t handler,
-			  unsigned int type)
-{
-
-	static struct lock_class_key lock_key;
-	static struct lock_class_key request_key;
-
-	return gpiochip_irqchip_add_key(gc, irqchip, first_irq,
-					handler, type, true,
-					&lock_key, &request_key);
-}
-#else /* ! CONFIG_LOCKDEP */
-static inline int gpiochip_irqchip_add(struct gpio_chip *gc,
-				       struct irq_chip *irqchip,
-				       unsigned int first_irq,
-				       irq_flow_handler_t handler,
-				       unsigned int type)
-{
-	return gpiochip_irqchip_add_key(gc, irqchip, first_irq,
-					handler, type, false, NULL, NULL);
-}
-
-static inline int gpiochip_irqchip_add_nested(struct gpio_chip *gc,
-			  struct irq_chip *irqchip,
-			  unsigned int first_irq,
-			  irq_flow_handler_t handler,
-			  unsigned int type)
-{
-	return gpiochip_irqchip_add_key(gc, irqchip, first_irq,
-					handler, type, true, NULL, NULL);
-}
-#endif /* CONFIG_LOCKDEP */
 
 int gpiochip_generic_request(struct gpio_chip *gc, unsigned int offset);
 void gpiochip_generic_free(struct gpio_chip *gc, unsigned int offset);

@@ -380,7 +380,7 @@ static int smk_parse_rule(const char *data, struct smack_parsed_rule *rule,
  * @data: string to be parsed, null terminated
  * @rule: Will be filled with Smack parsed rule
  * @import: if non-zero, import labels
- * @tokens: numer of substrings expected in data
+ * @tokens: number of substrings expected in data
  *
  * Returns number of processed bytes on success, -ERRNO on failure.
  */
@@ -854,6 +854,8 @@ static ssize_t smk_set_cipso(struct file *file, const char __user *buf,
 		return -EINVAL;
 	if (format == SMK_FIXED24_FMT &&
 	    (count < SMK_CIPSOMIN || count > SMK_CIPSOMAX))
+		return -EINVAL;
+	if (count > PAGE_SIZE)
 		return -EINVAL;
 
 	data = memdup_user_nul(buf, count);
@@ -1946,7 +1948,7 @@ static void smk_list_swap_rcu(struct list_head *public,
  * smk_parse_label_list - parse list of Smack labels, separated by spaces
  *
  * @data: the string to parse
- * @private: destination list
+ * @list: destination list
  *
  * Returns zero on success or error code, as appropriate
  */
@@ -1977,7 +1979,7 @@ static int smk_parse_label_list(char *data, struct list_head *list)
 
 /**
  * smk_destroy_label_list - destroy a list of smack_known_list_elem
- * @head: header pointer of the list to destroy
+ * @list: header pointer of the list to destroy
  */
 void smk_destroy_label_list(struct list_head *list)
 {
@@ -2141,7 +2143,7 @@ static const struct file_operations smk_unconfined_ops = {
  * smk_read_logging - read() for /smack/logging
  * @filp: file pointer, not actually used
  * @buf: where to put the result
- * @cn: maximum to send along
+ * @count: maximum to send along
  * @ppos: where to start
  *
  * Returns number of bytes read or error code, as appropriate
@@ -2282,6 +2284,7 @@ static const struct file_operations smk_load_self_ops = {
  * @buf: data from user space
  * @count: bytes sent
  * @ppos: where to start - must be 0
+ * @format: /smack/load or /smack/load2 or /smack/change-rule format.
  */
 static ssize_t smk_user_access(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos, int format)

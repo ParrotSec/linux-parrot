@@ -47,9 +47,7 @@ static unsigned short pxa2xx_ac97_legacy_read(struct snd_ac97 *ac97,
 static void pxa2xx_ac97_legacy_write(struct snd_ac97 *ac97,
 				     unsigned short reg, unsigned short val)
 {
-	int __always_unused ret;
-
-	ret = pxa2xx_ac97_write(ac97->num, reg, val);
+	pxa2xx_ac97_write(ac97->num, reg, val);
 }
 
 static const struct snd_ac97_bus_ops pxa2xx_ac97_ops = {
@@ -235,7 +233,7 @@ static int pxa2xx_ac97_probe(struct platform_device *dev)
 	if (ret < 0)
 		goto err;
 
-	strlcpy(card->driver, dev->dev.driver->name, sizeof(card->driver));
+	strscpy(card->driver, dev->dev.driver->name, sizeof(card->driver));
 
 	ret = pxa2xx_ac97_pcm_new(card);
 	if (ret)

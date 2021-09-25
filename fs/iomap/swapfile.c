@@ -18,6 +18,7 @@ struct iomap_swapfile_info {
 	uint64_t highest_ppage;		/* highest physical addr seen (pages) */
 	unsigned long nr_pages;		/* number of pages collected */
 	int nr_extents;			/* extent count */
+	struct file *file;
 };
 
 /*
@@ -30,10 +31,15 @@ static int iomap_swapfile_add_extent(struct iomap_swapfile_info *isi)
 {
 	struct iomap *iomap = &isi->iomap;
 	unsigned long nr_pages;
+	unsigned long max_pages;
 	uint64_t first_ppage;
 	uint64_t first_ppage_reported;
 	uint64_t next_ppage;
 	int error;
+
+	if (unlikely(isi->nr_pages >= isi->sis->max))
+		return 0;
+	max_pages = isi->sis->max - isi->nr_pages;
 
 	/*
 	 * Round the start up and the end down so that the physical
@@ -47,6 +53,7 @@ static int iomap_swapfile_add_extent(struct iomap_swapfile_info *isi)
 	if (first_ppage >= next_ppage)
 		return 0;
 	nr_pages = next_ppage - first_ppage;
+	nr_pages = min(nr_pages, max_pages);
 
 	/*
 	 * Calculate how much swap space we're adding; the first page contains
@@ -70,6 +77,18 @@ static int iomap_swapfile_add_extent(struct iomap_swapfile_info *isi)
 	return 0;
 }
 
+static int iomap_swapfile_fail(struct iomap_swapfile_info *isi, const char *str)
+{
+	char *buf, *p = ERR_PTR(-ENOMEM);
+
+	buf = kmalloc(PATH_MAX, GFP_KERNEL);
+	if (buf)
+		p = file_path(isi->file, buf, PATH_MAX);
+	pr_err("swapon: file %s %s\n", IS_ERR(p) ? "<unknown>" : p, str);
+	kfree(buf);
+	return -EINVAL;
+}
+
 /*
  * Accumulate iomaps for this swap file.  We have to accumulate iomaps because
  * swap only cares about contiguous page-aligned physical extents and makes no
@@ -89,28 +108,20 @@ static loff_t iomap_swapfile_activate_actor(struct inode *inode, loff_t pos,
 		break;
 	case IOMAP_INLINE:
 		/* No inline data. */
-		pr_err("swapon: file is inline\n");
-		return -EINVAL;
+		return iomap_swapfile_fail(isi, "is inline");
 	default:
-		pr_err("swapon: file has unallocated extents\n");
-		return -EINVAL;
+		return iomap_swapfile_fail(isi, "has unallocated extents");
 	}
 
 	/* No uncommitted metadata or shared blocks. */
-	if (iomap->flags & IOMAP_F_DIRTY) {
-		pr_err("swapon: file is not committed\n");
-		return -EINVAL;
-	}
-	if (iomap->flags & IOMAP_F_SHARED) {
-		pr_err("swapon: file has shared extents\n");
-		return -EINVAL;
-	}
+	if (iomap->flags & IOMAP_F_DIRTY)
+		return iomap_swapfile_fail(isi, "is not committed");
+	if (iomap->flags & IOMAP_F_SHARED)
+		return iomap_swapfile_fail(isi, "has shared extents");
 
 	/* Only one bdev per swap file. */
-	if (iomap->bdev != isi->sis->bdev) {
-		pr_err("swapon: file is on multiple devices\n");
-		return -EINVAL;
-	}
+	if (iomap->bdev != isi->sis->bdev)
+		return iomap_swapfile_fail(isi, "outside the main device");
 
 	if (isi->iomap.length == 0) {
 		/* No accumulated extent, so just store it. */
@@ -139,6 +150,7 @@ int iomap_swapfile_activate(struct swap_info_struct *sis,
 	struct iomap_swapfile_info isi = {
 		.sis = sis,
 		.lowest_ppage = (sector_t)-1ULL,
+		.file = swap_file,
 	};
 	struct address_space *mapping = swap_file->f_mapping;
 	struct inode *inode = mapping->host;

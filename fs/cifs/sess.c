@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-2.1
 /*
  *   fs/cifs/sess.c
  *
@@ -6,19 +7,6 @@
  *   Copyright (c) International Business Machines  Corp., 2006, 2009
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *
- *   This library is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU Lesser General Public License as published
- *   by the Free Software Foundation; either version 2.1 of the License, or
- *   (at your option) any later version.
- *
- *   This library is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- *   the GNU Lesser General Public License for more details.
- *
- *   You should have received a copy of the GNU Lesser General Public License
- *   along with this library; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
 #include "cifspdu.h"
@@ -32,6 +20,11 @@
 #include <linux/slab.h>
 #include "cifs_spnego.h"
 #include "smb2proto.h"
+#include "fs_context.h"
+
+static int
+cifs_ses_add_channel(struct cifs_sb_info *cifs_sb, struct cifs_ses *ses,
+		     struct cifs_server_iface *iface);
 
 bool
 is_server_using_iface(struct TCP_Server_Info *server,
@@ -70,7 +63,7 @@ bool is_ses_using_iface(struct cifs_ses *ses, struct cifs_server_iface *iface)
 }
 
 /* returns number of channels added */
-int cifs_try_adding_channels(struct cifs_ses *ses)
+int cifs_try_adding_channels(struct cifs_sb_info *cifs_sb, struct cifs_ses *ses)
 {
 	int old_chan_count = ses->chan_count;
 	int left = ses->chan_max - ses->chan_count;
@@ -139,7 +132,7 @@ int cifs_try_adding_channels(struct cifs_ses *ses)
 			continue;
 		}
 
-		rc = cifs_ses_add_channel(ses, iface);
+		rc = cifs_ses_add_channel(cifs_sb, ses, iface);
 		if (rc) {
 			cifs_dbg(FYI, "failed to open extra channel on iface#%d rc=%d\n",
 				 i, rc);
@@ -172,11 +165,12 @@ cifs_ses_find_chan(struct cifs_ses *ses, struct TCP_Server_Info *server)
 	return NULL;
 }
 
-int
-cifs_ses_add_channel(struct cifs_ses *ses, struct cifs_server_iface *iface)
+static int
+cifs_ses_add_channel(struct cifs_sb_info *cifs_sb, struct cifs_ses *ses,
+		     struct cifs_server_iface *iface)
 {
 	struct cifs_chan *chan;
-	struct smb_vol vol = {NULL};
+	struct smb3_fs_context ctx = {NULL};
 	static const char unc_fmt[] = "\\%s\\foo";
 	char unc[sizeof(unc_fmt)+SERVER_NAME_LEN_WITH_NULL] = {0};
 	struct sockaddr_in *ipv4 = (struct sockaddr_in *)&iface->sockaddr;
@@ -189,73 +183,68 @@ cifs_ses_add_channel(struct cifs_ses *ses, struct cifs_server_iface *iface)
 			 ses, iface->speed, iface->rdma_capable ? "yes" : "no",
 			 &ipv4->sin_addr);
 	else
-		cifs_dbg(FYI, "adding channel to ses %p (speed:%zu bps rdma:%s ip:%pI4)\n",
+		cifs_dbg(FYI, "adding channel to ses %p (speed:%zu bps rdma:%s ip:%pI6)\n",
 			 ses, iface->speed, iface->rdma_capable ? "yes" : "no",
 			 &ipv6->sin6_addr);
 
 	/*
-	 * Setup a smb_vol with mostly the same info as the existing
+	 * Setup a ctx with mostly the same info as the existing
 	 * session and overwrite it with the requested iface data.
 	 *
 	 * We need to setup at least the fields used for negprot and
 	 * sesssetup.
 	 *
-	 * We only need the volume here, so we can reuse memory from
+	 * We only need the ctx here, so we can reuse memory from
 	 * the session and server without caring about memory
 	 * management.
 	 */
 
 	/* Always make new connection for now (TODO?) */
-	vol.nosharesock = true;
+	ctx.nosharesock = true;
 
 	/* Auth */
-	vol.domainauto = ses->domainAuto;
-	vol.domainname = ses->domainName;
-	vol.username = ses->user_name;
-	vol.password = ses->password;
-	vol.sectype = ses->sectype;
-	vol.sign = ses->sign;
+	ctx.domainauto = ses->domainAuto;
+	ctx.domainname = ses->domainName;
+	ctx.username = ses->user_name;
+	ctx.password = ses->password;
+	ctx.sectype = ses->sectype;
+	ctx.sign = ses->sign;
 
 	/* UNC and paths */
 	/* XXX: Use ses->server->hostname? */
-	sprintf(unc, unc_fmt, ses->serverName);
-	vol.UNC = unc;
-	vol.prepath = "";
+	sprintf(unc, unc_fmt, ses->ip_addr);
+	ctx.UNC = unc;
+	ctx.prepath = "";
 
 	/* Reuse same version as master connection */
-	vol.vals = ses->server->vals;
-	vol.ops = ses->server->ops;
+	ctx.vals = ses->server->vals;
+	ctx.ops = ses->server->ops;
 
-	vol.noblocksnd = ses->server->noblocksnd;
-	vol.noautotune = ses->server->noautotune;
-	vol.sockopt_tcp_nodelay = ses->server->tcp_nodelay;
-	vol.echo_interval = ses->server->echo_interval / HZ;
-	vol.max_credits = ses->server->max_credits;
+	ctx.noblocksnd = ses->server->noblocksnd;
+	ctx.noautotune = ses->server->noautotune;
+	ctx.sockopt_tcp_nodelay = ses->server->tcp_nodelay;
+	ctx.echo_interval = ses->server->echo_interval / HZ;
+	ctx.max_credits = ses->server->max_credits;
 
 	/*
 	 * This will be used for encoding/decoding user/domain/pw
 	 * during sess setup auth.
-	 *
-	 * XXX: We use the default for simplicity but the proper way
-	 * would be to use the one that ses used, which is not
-	 * stored. This might break when dealing with non-ascii
-	 * strings.
 	 */
-	vol.local_nls = load_nls_default();
+	ctx.local_nls = cifs_sb->local_nls;
 
 	/* Use RDMA if possible */
-	vol.rdma = iface->rdma_capable;
-	memcpy(&vol.dstaddr, &iface->sockaddr, sizeof(struct sockaddr_storage));
+	ctx.rdma = iface->rdma_capable;
+	memcpy(&ctx.dstaddr, &iface->sockaddr, sizeof(struct sockaddr_storage));
 
 	/* reuse master con client guid */
-	memcpy(&vol.client_guid, ses->server->client_guid,
+	memcpy(&ctx.client_guid, ses->server->client_guid,
 	       SMB2_CLIENT_GUID_SIZE);
-	vol.use_client_guid = true;
+	ctx.use_client_guid = true;
 
 	mutex_lock(&ses->session_mutex);
 
 	chan = ses->binding_chan = &ses->chans[ses->chan_count];
-	chan->server = cifs_get_tcp_session(&vol);
+	chan->server = cifs_get_tcp_session(&ctx);
 	if (IS_ERR(chan->server)) {
 		rc = PTR_ERR(chan->server);
 		chan->server = NULL;
@@ -281,7 +270,7 @@ cifs_ses_add_channel(struct cifs_ses *ses, struct cifs_server_iface *iface)
 	if (rc)
 		goto out;
 
-	rc = cifs_setup_session(xid, ses, vol.local_nls);
+	rc = cifs_setup_session(xid, ses, cifs_sb->local_nls);
 	if (rc)
 		goto out;
 
@@ -304,7 +293,6 @@ out:
 
 	if (rc && chan->server)
 		cifs_put_tcp_session(chan->server, 0);
-	unload_nls(vol.local_nls);
 
 	return rc;
 }
@@ -819,6 +807,7 @@ cifs_select_sectype(struct TCP_Server_Info *server, enum securityEnum requested)
 				return NTLMv2;
 			if (global_secflags & CIFSSEC_MAY_NTLM)
 				return NTLM;
+			break;
 		default:
 			break;
 		}
@@ -888,7 +877,7 @@ sess_alloc_buffer(struct sess_data *sess_data, int wct)
 	return 0;
 
 out_free_smb_buf:
-	kfree(smb_buf);
+	cifs_small_buf_release(smb_buf);
 	sess_data->iov[0].iov_base = NULL;
 	sess_data->iov[0].iov_len = 0;
 	sess_data->buf0_type = CIFS_NO_BUFFER;

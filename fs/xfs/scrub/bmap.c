@@ -22,16 +22,16 @@
 #include "scrub/scrub.h"
 #include "scrub/common.h"
 #include "scrub/btree.h"
+#include "xfs_ag.h"
 
 /* Set us up with an inode's bmap. */
 int
 xchk_setup_inode_bmap(
-	struct xfs_scrub	*sc,
-	struct xfs_inode	*ip)
+	struct xfs_scrub	*sc)
 {
 	int			error;
 
-	error = xchk_get_inode(sc, ip);
+	error = xchk_get_inode(sc);
 	if (error)
 		goto out;
 
@@ -272,7 +272,7 @@ xchk_bmap_iextent_xref(
 	case XFS_DATA_FORK:
 		if (xfs_is_reflink_inode(info->sc->ip))
 			break;
-		/* fall through */
+		fallthrough;
 	case XFS_ATTR_FORK:
 		xchk_xref_is_not_shared(info->sc, agbno,
 				irec->br_blockcount);
@@ -319,7 +319,6 @@ xchk_bmap_iextent(
 	struct xfs_bmbt_irec	*irec)
 {
 	struct xfs_mount	*mp = info->sc->mp;
-	xfs_filblks_t		end;
 	int			error = 0;
 
 	/*
@@ -327,6 +326,10 @@ xchk_bmap_iextent(
 	 * from the incore list, for which there is no ordering check.
 	 */
 	if (irec->br_startoff < info->lastoff)
+		xchk_fblock_set_corrupt(info->sc, info->whichfork,
+				irec->br_startoff);
+
+	if (!xfs_verify_fileext(mp, irec->br_startoff, irec->br_blockcount))
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
 
@@ -349,20 +352,12 @@ xchk_bmap_iextent(
 	if (irec->br_blockcount > MAXEXTLEN)
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
-	if (irec->br_startblock + irec->br_blockcount <= irec->br_startblock)
-		xchk_fblock_set_corrupt(info->sc, info->whichfork,
-				irec->br_startoff);
-	end = irec->br_startblock + irec->br_blockcount - 1;
 	if (info->is_rt &&
-	    (!xfs_verify_rtbno(mp, irec->br_startblock) ||
-	     !xfs_verify_rtbno(mp, end)))
+	    !xfs_verify_rtext(mp, irec->br_startblock, irec->br_blockcount))
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
 	if (!info->is_rt &&
-	    (!xfs_verify_fsbno(mp, irec->br_startblock) ||
-	     !xfs_verify_fsbno(mp, end) ||
-	     XFS_FSB_TO_AGNO(mp, irec->br_startblock) !=
-				XFS_FSB_TO_AGNO(mp, end)))
+	    !xfs_verify_fsbext(mp, irec->br_startblock, irec->br_blockcount))
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
 
@@ -453,12 +448,11 @@ xchk_bmap_btree(
 	int			error;
 
 	/* Load the incore bmap cache if it's not loaded. */
-	info->was_loaded = ifp->if_flags & XFS_IFEXTENTS;
-	if (!info->was_loaded) {
-		error = xfs_iread_extents(sc->tp, ip, whichfork);
-		if (!xchk_fblock_process_error(sc, whichfork, 0, &error))
-			goto out;
-	}
+	info->was_loaded = !xfs_need_iread_extents(ifp);
+
+	error = xfs_iread_extents(sc->tp, ip, whichfork);
+	if (!xchk_fblock_process_error(sc, whichfork, 0, &error))
+		goto out;
 
 	/* Check the btree structure. */
 	cur = xfs_bmbt_init_cursor(mp, sc->tp, ip, whichfork);
@@ -521,7 +515,7 @@ xchk_bmap_check_rmap(
 			xchk_fblock_set_corrupt(sc, sbcri->whichfork,
 					rec->rm_offset);
 		if (irec.br_startblock != XFS_AGB_TO_FSB(sc->mp,
-				cur->bc_ag.agno, rec->rm_startblock))
+				cur->bc_ag.pag->pag_agno, rec->rm_startblock))
 			xchk_fblock_set_corrupt(sc, sbcri->whichfork,
 					rec->rm_offset);
 		if (irec.br_blockcount > rec->rm_blockcount)
@@ -551,22 +545,18 @@ STATIC int
 xchk_bmap_check_ag_rmaps(
 	struct xfs_scrub		*sc,
 	int				whichfork,
-	xfs_agnumber_t			agno)
+	struct xfs_perag		*pag)
 {
 	struct xchk_bmap_check_rmap_info	sbcri;
 	struct xfs_btree_cur		*cur;
 	struct xfs_buf			*agf;
 	int				error;
 
-	error = xfs_alloc_read_agf(sc->mp, sc->tp, agno, 0, &agf);
+	error = xfs_alloc_read_agf(sc->mp, sc->tp, pag->pag_agno, 0, &agf);
 	if (error)
 		return error;
 
-	cur = xfs_rmapbt_init_cursor(sc->mp, sc->tp, agf, agno);
-	if (!cur) {
-		error = -ENOMEM;
-		goto out_agf;
-	}
+	cur = xfs_rmapbt_init_cursor(sc->mp, sc->tp, agf, pag);
 
 	sbcri.sc = sc;
 	sbcri.whichfork = whichfork;
@@ -575,7 +565,6 @@ xchk_bmap_check_ag_rmaps(
 		error = 0;
 
 	xfs_btree_del_cursor(cur, error);
-out_agf:
 	xfs_trans_brelse(sc->tp, agf);
 	return error;
 }
@@ -587,6 +576,7 @@ xchk_bmap_check_rmaps(
 	int			whichfork)
 {
 	struct xfs_ifork	*ifp = XFS_IFORK_PTR(sc->ip, whichfork);
+	struct xfs_perag	*pag;
 	xfs_agnumber_t		agno;
 	bool			zero_size;
 	int			error;
@@ -619,15 +609,16 @@ xchk_bmap_check_rmaps(
 	    (zero_size || ifp->if_nextents > 0))
 		return 0;
 
-	for (agno = 0; agno < sc->mp->m_sb.sb_agcount; agno++) {
-		error = xchk_bmap_check_ag_rmaps(sc, whichfork, agno);
+	for_each_perag(sc->mp, agno, pag) {
+		error = xchk_bmap_check_ag_rmaps(sc, whichfork, pag);
 		if (error)
-			return error;
+			break;
 		if (sc->sm->sm_flags & XFS_SCRUB_OFLAG_CORRUPT)
 			break;
 	}
-
-	return 0;
+	if (pag)
+		xfs_perag_put(pag);
+	return error;
 }
 
 /*
@@ -685,10 +676,6 @@ xchk_bmap(
 		/* No mappings to check. */
 		goto out;
 	case XFS_DINODE_FMT_EXTENTS:
-		if (!(ifp->if_flags & XFS_IFEXTENTS)) {
-			xchk_fblock_set_corrupt(sc, whichfork, 0);
-			goto out;
-		}
 		break;
 	case XFS_DINODE_FMT_BTREE:
 		if (whichfork == XFS_COW_FORK) {

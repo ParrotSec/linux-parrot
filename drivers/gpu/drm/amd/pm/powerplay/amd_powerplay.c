@@ -1034,28 +1034,43 @@ static int pp_set_power_limit(void *handle, uint32_t limit)
 	return 0;
 }
 
-static int pp_get_power_limit(void *handle, uint32_t *limit, bool default_limit)
+static int pp_get_power_limit(void *handle, uint32_t *limit,
+			      enum pp_power_limit_level pp_limit_level,
+			      enum pp_power_type power_type)
 {
 	struct pp_hwmgr *hwmgr = handle;
+	int ret = 0;
 
 	if (!hwmgr || !hwmgr->pm_en ||!limit)
 		return -EINVAL;
 
+	if (power_type != PP_PWR_TYPE_SUSTAINED)
+		return -EOPNOTSUPP;
+
 	mutex_lock(&hwmgr->smu_lock);
 
-	if (default_limit) {
-		*limit = hwmgr->default_power_limit;
-		if (hwmgr->od_enabled) {
-			*limit *= (100 + hwmgr->platform_descriptor.TDPODLimit);
-			*limit /= 100;
-		}
+	switch (pp_limit_level) {
+		case PP_PWR_LIMIT_CURRENT:
+			*limit = hwmgr->power_limit;
+			break;
+		case PP_PWR_LIMIT_DEFAULT:
+			*limit = hwmgr->default_power_limit;
+			break;
+		case PP_PWR_LIMIT_MAX:
+			*limit = hwmgr->default_power_limit;
+			if (hwmgr->od_enabled) {
+				*limit *= (100 + hwmgr->platform_descriptor.TDPODLimit);
+				*limit /= 100;
+			}
+			break;
+		default:
+			ret = -EOPNOTSUPP;
+			break;
 	}
-	else
-		*limit = hwmgr->power_limit;
 
 	mutex_unlock(&hwmgr->smu_lock);
 
-	return 0;
+	return ret;
 }
 
 static int pp_display_configuration_change(void *handle,
@@ -1629,6 +1644,44 @@ static ssize_t pp_get_gpu_metrics(void *handle, void **table)
 	return size;
 }
 
+static int pp_gfx_state_change_set(void *handle, uint32_t state)
+{
+	struct pp_hwmgr *hwmgr = handle;
+
+	if (!hwmgr || !hwmgr->pm_en)
+		return -EINVAL;
+
+	if (hwmgr->hwmgr_func->gfx_state_change == NULL) {
+		pr_info_ratelimited("%s was not implemented.\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&hwmgr->smu_lock);
+	hwmgr->hwmgr_func->gfx_state_change(hwmgr, state);
+	mutex_unlock(&hwmgr->smu_lock);
+	return 0;
+}
+
+static int pp_get_prv_buffer_details(void *handle, void **addr, size_t *size)
+{
+	struct pp_hwmgr *hwmgr = handle;
+	struct amdgpu_device *adev = hwmgr->adev;
+
+	if (!addr || !size)
+		return -EINVAL;
+
+	*addr = NULL;
+	*size = 0;
+	mutex_lock(&hwmgr->smu_lock);
+	if (adev->pm.smu_prv_buffer) {
+		amdgpu_bo_kmap(adev->pm.smu_prv_buffer, addr);
+		*size = adev->pm.smu_prv_buffer_size;
+	}
+	mutex_unlock(&hwmgr->smu_lock);
+
+	return 0;
+}
+
 static const struct amd_pm_funcs pp_dpm_funcs = {
 	.load_firmware = pp_dpm_load_fw,
 	.wait_for_fw_loading_complete = pp_dpm_fw_loading_complete,
@@ -1691,4 +1744,6 @@ static const struct amd_pm_funcs pp_dpm_funcs = {
 	.set_df_cstate = pp_set_df_cstate,
 	.set_xgmi_pstate = pp_set_xgmi_pstate,
 	.get_gpu_metrics = pp_get_gpu_metrics,
+	.gfx_state_change_set = pp_gfx_state_change_set,
+	.get_smu_prv_buf_details = pp_get_prv_buffer_details,
 };

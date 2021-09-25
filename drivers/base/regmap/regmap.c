@@ -243,6 +243,16 @@ static void regmap_format_7_9_write(struct regmap *map,
 	*out = cpu_to_be16((reg << 9) | val);
 }
 
+static void regmap_format_7_17_write(struct regmap *map,
+				    unsigned int reg, unsigned int val)
+{
+	u8 *out = map->work_buf;
+
+	out[2] = val;
+	out[1] = val >> 8;
+	out[0] = (val >> 16) | (reg << 1);
+}
+
 static void regmap_format_10_14_write(struct regmap *map,
 				    unsigned int reg, unsigned int val)
 {
@@ -885,6 +895,9 @@ struct regmap *__regmap_init(struct device *dev,
 		case 9:
 			map->format.format_write = regmap_format_7_9_write;
 			break;
+		case 17:
+			map->format.format_write = regmap_format_7_17_write;
+			break;
 		default:
 			goto err_hwlock;
 		}
@@ -1496,6 +1509,8 @@ void regmap_exit(struct regmap *map)
 		mutex_destroy(&map->mutex);
 	kfree_const(map->name);
 	kfree(map->patch);
+	if (map->bus && map->bus->free_on_exit)
+		kfree(map->bus);
 	kfree(map);
 }
 EXPORT_SYMBOL_GPL(regmap_exit);
@@ -1652,7 +1667,7 @@ static int _regmap_raw_write_impl(struct regmap *map, unsigned int reg,
 			if (ret) {
 				dev_err(map->dev,
 					"Error in caching of register: %x ret: %d\n",
-					reg + i, ret);
+					reg + regmap_get_offset(map, i), ret);
 				return ret;
 			}
 		}
@@ -1924,12 +1939,15 @@ int _regmap_write(struct regmap *map, unsigned int reg,
 		}
 	}
 
-	if (regmap_should_log(map))
-		dev_info(map->dev, "%x <= %x\n", reg, val);
+	ret = map->reg_write(context, reg, val);
+	if (ret == 0) {
+		if (regmap_should_log(map))
+			dev_info(map->dev, "%x <= %x\n", reg, val);
 
-	trace_regmap_reg_write(map, reg, val);
+		trace_regmap_reg_write(map, reg, val);
+	}
 
-	return map->reg_write(context, reg, val);
+	return ret;
 }
 
 /**

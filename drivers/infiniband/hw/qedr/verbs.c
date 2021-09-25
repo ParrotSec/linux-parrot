@@ -72,7 +72,7 @@ static inline int qedr_ib_copy_to_udata(struct ib_udata *udata, void *src,
 	return ib_copy_to_udata(udata, src, min_len);
 }
 
-int qedr_query_pkey(struct ib_device *ibdev, u8 port, u16 index, u16 *pkey)
+int qedr_query_pkey(struct ib_device *ibdev, u32 port, u16 index, u16 *pkey)
 {
 	if (index >= QEDR_ROCE_PKEY_TABLE_LEN)
 		return -EINVAL;
@@ -81,7 +81,7 @@ int qedr_query_pkey(struct ib_device *ibdev, u8 port, u16 index, u16 *pkey)
 	return 0;
 }
 
-int qedr_iw_query_gid(struct ib_device *ibdev, u8 port,
+int qedr_iw_query_gid(struct ib_device *ibdev, u32 port,
 		      int index, union ib_gid *sgid)
 {
 	struct qedr_dev *dev = get_qedr_dev(ibdev);
@@ -210,7 +210,8 @@ static inline void get_link_speed_and_width(int speed, u16 *ib_speed,
 	}
 }
 
-int qedr_query_port(struct ib_device *ibdev, u8 port, struct ib_port_attr *attr)
+int qedr_query_port(struct ib_device *ibdev, u32 port,
+		    struct ib_port_attr *attr)
 {
 	struct qedr_dev *dev;
 	struct qed_rdma_port *rdma_port;
@@ -928,6 +929,9 @@ int qedr_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		 "create_cq: called from %s. entries=%d, vector=%d\n",
 		 udata ? "User Lib" : "Kernel", entries, vector);
 
+	if (attr->flags)
+		return -EOPNOTSUPP;
+
 	if (entries > QEDR_MAX_CQES) {
 		DP_ERR(dev,
 		       "create cq: the number of entries %d is too high. Must be equal or below %d.\n",
@@ -1546,6 +1550,10 @@ int qedr_create_srq(struct ib_srq *ibsrq, struct ib_srq_init_attr *init_attr,
 	DP_DEBUG(dev, QEDR_MSG_QP,
 		 "create SRQ called from %s (pd %p)\n",
 		 (udata) ? "User lib" : "kernel", pd);
+
+	if (init_attr->srq_type != IB_SRQT_BASIC &&
+	    init_attr->srq_type != IB_SRQT_XRC)
+		return -EOPNOTSUPP;
 
 	rc = qedr_check_srq_params(dev, init_attr, udata);
 	if (rc)
@@ -2242,6 +2250,9 @@ struct ib_qp *qedr_create_qp(struct ib_pd *ibpd,
 	struct ib_qp *ibqp;
 	int rc = 0;
 
+	if (attrs->create_flags)
+		return ERR_PTR(-EOPNOTSUPP);
+
 	if (attrs->qp_type == IB_QPT_XRC_TGT) {
 		xrcd = get_qedr_xrcd(attrs->xrcd);
 		dev = get_qedr_dev(xrcd->ibxrcd.device);
@@ -2477,6 +2488,9 @@ int qedr_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	DP_DEBUG(dev, QEDR_MSG_QP,
 		 "modify qp: qp %p attr_mask=0x%x, state=%d", qp, attr_mask,
 		 attr->qp_state);
+
+	if (attr_mask & ~IB_QP_ATTR_STANDARD_BITS)
+		return -EOPNOTSUPP;
 
 	old_qp_state = qedr_get_ibqp_state(qp->state);
 	if (attr_mask & IB_QP_STATE)
@@ -4470,7 +4484,7 @@ int qedr_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *wc)
 }
 
 int qedr_process_mad(struct ib_device *ibdev, int process_mad_flags,
-		     u8 port_num, const struct ib_wc *in_wc,
+		     u32 port_num, const struct ib_wc *in_wc,
 		     const struct ib_grh *in_grh, const struct ib_mad *in,
 		     struct ib_mad *out_mad, size_t *out_mad_size,
 		     u16 *out_mad_pkey_index)

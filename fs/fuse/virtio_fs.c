@@ -18,6 +18,12 @@
 #include <linux/uio.h>
 #include "fuse_i.h"
 
+/* Used to help calculate the FUSE connection's max_pages limit for a request's
+ * size. Parts of the struct fuse_req are sliced into scattergather lists in
+ * addition to the pages used, so this can help account for that overhead.
+ */
+#define FUSE_HEADER_OVERHEAD    4
+
 /* List of virtio-fs device instances and a lock for the list. Also provides
  * mutual exclusion in device removal and mounting path
  */
@@ -125,11 +131,6 @@ static inline struct virtio_fs_vq *vq_to_fsvq(struct virtqueue *vq)
 	struct virtio_fs *fs = vq->vdev->priv;
 
 	return &fs->vqs[vq->index];
-}
-
-static inline struct fuse_pqueue *vq_to_fpq(struct virtqueue *vq)
-{
-	return &vq_to_fsvq(vq)->fud->pq;
 }
 
 /* Should be called with fsvq->lock held. */
@@ -1410,25 +1411,14 @@ static int virtio_fs_test_super(struct super_block *sb,
 	return fsc_fm->fc->iq.priv == sb_fm->fc->iq.priv;
 }
 
-static int virtio_fs_set_super(struct super_block *sb,
-			       struct fs_context *fsc)
-{
-	int err;
-
-	err = get_anon_bdev(&sb->s_dev);
-	if (!err)
-		fuse_mount_get(fsc->s_fs_info);
-
-	return err;
-}
-
 static int virtio_fs_get_tree(struct fs_context *fsc)
 {
 	struct virtio_fs *fs;
 	struct super_block *sb;
-	struct fuse_conn *fc;
+	struct fuse_conn *fc = NULL;
 	struct fuse_mount *fm;
-	int err;
+	unsigned int virtqueue_size;
+	int err = -EIO;
 
 	/* This gets a reference on virtio_fs object. This ptr gets installed
 	 * in fc->iq->priv. Once fuse_conn is going away, it calls ->put()
@@ -1440,38 +1430,43 @@ static int virtio_fs_get_tree(struct fs_context *fsc)
 		return -EINVAL;
 	}
 
+	virtqueue_size = virtqueue_get_vring_size(fs->vqs[VQ_REQUEST].vq);
+	if (WARN_ON(virtqueue_size <= FUSE_HEADER_OVERHEAD))
+		goto out_err;
+
+	err = -ENOMEM;
 	fc = kzalloc(sizeof(struct fuse_conn), GFP_KERNEL);
-	if (!fc) {
-		mutex_lock(&virtio_fs_mutex);
-		virtio_fs_put(fs);
-		mutex_unlock(&virtio_fs_mutex);
-		return -ENOMEM;
-	}
+	if (!fc)
+		goto out_err;
 
 	fm = kzalloc(sizeof(struct fuse_mount), GFP_KERNEL);
-	if (!fm) {
-		mutex_lock(&virtio_fs_mutex);
-		virtio_fs_put(fs);
-		mutex_unlock(&virtio_fs_mutex);
-		kfree(fc);
-		return -ENOMEM;
-	}
+	if (!fm)
+		goto out_err;
 
 	fuse_conn_init(fc, fm, fsc->user_ns, &virtio_fs_fiq_ops, fs);
 	fc->release = fuse_free_conn;
 	fc->delete_stale = true;
 	fc->auto_submounts = true;
+	fc->sync_fs = true;
+
+	/* Tell FUSE to split requests that exceed the virtqueue's size */
+	fc->max_pages_limit = min_t(unsigned int, fc->max_pages_limit,
+				    virtqueue_size - FUSE_HEADER_OVERHEAD);
 
 	fsc->s_fs_info = fm;
-	sb = sget_fc(fsc, virtio_fs_test_super, virtio_fs_set_super);
-	fuse_mount_put(fm);
+	sb = sget_fc(fsc, virtio_fs_test_super, set_anon_super_fc);
+	if (fsc->s_fs_info) {
+		fuse_conn_put(fc);
+		kfree(fm);
+	}
 	if (IS_ERR(sb))
 		return PTR_ERR(sb);
 
 	if (!sb->s_root) {
 		err = virtio_fs_fill_super(sb, fsc);
 		if (err) {
-			fuse_mount_put(fm);
+			fuse_conn_put(fc);
+			kfree(fm);
 			sb->s_fs_info = NULL;
 			deactivate_locked_super(sb);
 			return err;
@@ -1483,6 +1478,13 @@ static int virtio_fs_get_tree(struct fs_context *fsc)
 	WARN_ON(fsc->root);
 	fsc->root = dget(sb->s_root);
 	return 0;
+
+out_err:
+	kfree(fc);
+	mutex_lock(&virtio_fs_mutex);
+	virtio_fs_put(fs);
+	mutex_unlock(&virtio_fs_mutex);
+	return err;
 }
 
 static const struct fs_context_operations virtio_fs_context_ops = {
@@ -1494,6 +1496,9 @@ static const struct fs_context_operations virtio_fs_context_ops = {
 static int virtio_fs_init_fs_context(struct fs_context *fsc)
 {
 	struct fuse_fs_context *ctx;
+
+	if (fsc->purpose == FS_CONTEXT_FOR_SUBMOUNT)
+		return fuse_init_fs_context_submount(fsc);
 
 	ctx = kzalloc(sizeof(struct fuse_fs_context), GFP_KERNEL);
 	if (!ctx)

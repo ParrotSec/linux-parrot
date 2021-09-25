@@ -273,7 +273,7 @@ static struct attribute *ac97_controller_device_attrs[] = {
 	NULL
 };
 
-static struct attribute_group ac97_adapter_attr_group = {
+static const struct attribute_group ac97_adapter_attr_group = {
 	.name	= "ac97_operations",
 	.attrs	= ac97_controller_device_attrs,
 };
@@ -520,7 +520,7 @@ static int ac97_bus_remove(struct device *dev)
 	struct ac97_codec_driver *adrv = to_ac97_driver(dev->driver);
 	int ret;
 
-	ret = pm_runtime_get_sync(dev);
+	ret = pm_runtime_resume_and_get(dev);
 	if (ret < 0)
 		return ret;
 

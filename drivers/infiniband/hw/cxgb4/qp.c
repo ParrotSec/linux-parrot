@@ -295,6 +295,7 @@ static int create_qp(struct c4iw_rdev *rdev, struct t4_wq *wq,
 	if (user && (!wq->sq.bar2_pa || (need_rq && !wq->rq.bar2_pa))) {
 		pr_warn("%s: sqid %u or rqid %u not in BAR2 range\n",
 			pci_name(rdev->lldi.pdev), wq->sq.qid, wq->rq.qid);
+		ret = -EINVAL;
 		goto free_dma;
 	}
 
@@ -1963,7 +1964,6 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
 			t4_set_wq_in_error(&qhp->wq, 0);
 			set_state(qhp, C4IW_QP_STATE_ERROR);
 			if (!internal) {
-				abort = 1;
 				disconnect = 1;
 				ep = qhp->ep;
 				c4iw_get_ep(&qhp->ep->com);
@@ -2126,7 +2126,7 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
 
 	pr_debug("ib_pd %p\n", pd);
 
-	if (attrs->qp_type != IB_QPT_RC)
+	if (attrs->qp_type != IB_QPT_RC || attrs->create_flags)
 		return ERR_PTR(-EOPNOTSUPP);
 
 	php = to_c4iw_pd(pd);
@@ -2373,6 +2373,9 @@ int c4iw_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	struct c4iw_qp_attributes attrs = {};
 
 	pr_debug("ib_qp %p\n", ibqp);
+
+	if (attr_mask & ~IB_QP_ATTR_STANDARD_BITS)
+		return -EOPNOTSUPP;
 
 	/* iwarp does not support the RTR state */
 	if ((attr_mask & IB_QP_STATE) && (attr->qp_state == IB_QPS_RTR))
@@ -2679,6 +2682,9 @@ int c4iw_create_srq(struct ib_srq *ib_srq, struct ib_srq_init_attr *attrs,
 	int rqsize;
 	int ret;
 	int wr_len;
+
+	if (attrs->srq_type != IB_SRQT_BASIC)
+		return -EOPNOTSUPP;
 
 	pr_debug("%s ib_pd %p\n", __func__, pd);
 

@@ -25,7 +25,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/of_iommu.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
@@ -185,13 +184,6 @@ static void qcom_iommu_tlb_flush_walk(unsigned long iova, size_t size,
 	qcom_iommu_tlb_sync(cookie);
 }
 
-static void qcom_iommu_tlb_flush_leaf(unsigned long iova, size_t size,
-				      size_t granule, void *cookie)
-{
-	qcom_iommu_tlb_inv_range_nosync(iova, size, granule, true, cookie);
-	qcom_iommu_tlb_sync(cookie);
-}
-
 static void qcom_iommu_tlb_add_page(struct iommu_iotlb_gather *gather,
 				    unsigned long iova, size_t granule,
 				    void *cookie)
@@ -202,7 +194,6 @@ static void qcom_iommu_tlb_add_page(struct iommu_iotlb_gather *gather,
 static const struct iommu_flush_ops qcom_flush_ops = {
 	.tlb_flush_all	= qcom_iommu_tlb_inv_context,
 	.tlb_flush_walk = qcom_iommu_tlb_flush_walk,
-	.tlb_flush_leaf = qcom_iommu_tlb_flush_leaf,
 	.tlb_add_page	= qcom_iommu_tlb_add_page,
 };
 
@@ -855,10 +846,7 @@ static int qcom_iommu_device_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	iommu_device_set_ops(&qcom_iommu->iommu, &qcom_iommu_ops);
-	iommu_device_set_fwnode(&qcom_iommu->iommu, dev->fwnode);
-
-	ret = iommu_device_register(&qcom_iommu->iommu);
+	ret = iommu_device_register(&qcom_iommu->iommu, &qcom_iommu_ops, dev);
 	if (ret) {
 		dev_err(dev, "Failed to register iommu\n");
 		return ret;

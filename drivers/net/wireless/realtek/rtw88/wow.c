@@ -283,15 +283,26 @@ static void rtw_wow_rx_dma_start(struct rtw_dev *rtwdev)
 
 static int rtw_wow_check_fw_status(struct rtw_dev *rtwdev, bool wow_enable)
 {
-	/* wait 100ms for wow firmware to finish work */
-	msleep(100);
+	int ret;
+	u8 check;
+	u32 check_dis;
 
 	if (wow_enable) {
-		if (rtw_read8(rtwdev, REG_WOWLAN_WAKE_REASON))
+		ret = read_poll_timeout(rtw_read8, check, !check, 1000,
+					100000, true, rtwdev,
+					REG_WOWLAN_WAKE_REASON);
+		if (ret)
 			goto wow_fail;
 	} else {
-		if (rtw_read32_mask(rtwdev, REG_FE1IMR, BIT_FS_RXDONE) ||
-		    rtw_read32_mask(rtwdev, REG_RXPKT_NUM, BIT_RW_RELEASE))
+		ret = read_poll_timeout(rtw_read32_mask, check_dis,
+					!check_dis, 1000, 100000, true, rtwdev,
+					REG_FE1IMR, BIT_FS_RXDONE);
+		if (ret)
+			goto wow_fail;
+		ret = read_poll_timeout(rtw_read32_mask, check_dis,
+					!check_dis, 1000, 100000, false, rtwdev,
+					REG_RXPKT_NUM, BIT_RW_RELEASE);
+		if (ret)
 			goto wow_fail;
 	}
 
@@ -332,7 +343,8 @@ static void rtw_wow_fw_security_type_iter(struct ieee80211_hw *hw,
 		key->flags |= IEEE80211_KEY_FLAG_SW_MGMT_TX;
 		break;
 	default:
-		rtw_err(rtwdev, "Unsupported key type for wowlan mode\n");
+		rtw_err(rtwdev, "Unsupported key type for wowlan mode: %#x\n",
+			key->cipher);
 		hw_key_type = 0;
 		break;
 	}
@@ -555,7 +567,7 @@ static int rtw_wow_leave_no_link_ps(struct rtw_dev *rtwdev)
 	int ret = 0;
 
 	if (test_bit(RTW_FLAG_WOWLAN, rtwdev->flags)) {
-		if (rtw_fw_lps_deep_mode)
+		if (rtw_get_lps_deep_mode(rtwdev) != LPS_DEEP_MODE_NONE)
 			rtw_leave_lps_deep(rtwdev);
 	} else {
 		if (test_bit(RTW_FLAG_INACTIVE_PS, rtwdev->flags)) {
@@ -616,7 +628,8 @@ static int rtw_wow_enter_ps(struct rtw_dev *rtwdev)
 
 	if (rtw_wow_mgd_linked(rtwdev))
 		ret = rtw_wow_enter_linked_ps(rtwdev);
-	else if (rtw_wow_no_link(rtwdev) && rtw_fw_lps_deep_mode)
+	else if (rtw_wow_no_link(rtwdev) &&
+		 rtw_get_lps_deep_mode(rtwdev) != LPS_DEEP_MODE_NONE)
 		ret = rtw_wow_enter_no_link_ps(rtwdev);
 
 	return ret;

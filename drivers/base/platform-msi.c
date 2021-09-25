@@ -59,9 +59,15 @@ static int platform_msi_init(struct irq_domain *domain,
 	return irq_domain_set_hwirq_and_chip(domain, virq, hwirq,
 					     info->chip, info->chip_data);
 }
+
+static void platform_msi_set_proxy_dev(msi_alloc_info_t *arg)
+{
+	arg->flags |= MSI_ALLOC_FLAGS_PROXY_DEVICE;
+}
 #else
 #define platform_msi_set_desc		NULL
 #define platform_msi_init		NULL
+#define platform_msi_set_proxy_dev(x)	do {} while(0)
 #endif
 
 static void platform_msi_update_dom_ops(struct msi_domain_info *info)
@@ -310,10 +316,11 @@ void *platform_msi_get_host_data(struct irq_domain *domain)
 }
 
 /**
- * platform_msi_create_device_domain - Create a platform-msi domain
+ * __platform_msi_create_device_domain - Create a platform-msi domain
  *
  * @dev:		The device generating the MSIs
  * @nvec:		The number of MSIs that need to be allocated
+ * @is_tree:		flag to indicate tree hierarchy
  * @write_msi_msg:	Callback to write an interrupt message for @dev
  * @ops:		The hierarchy domain operations to use
  * @host_data:		Private data associated to this domain
@@ -343,6 +350,7 @@ __platform_msi_create_device_domain(struct device *dev,
 	if (!domain)
 		goto free_priv;
 
+	platform_msi_set_proxy_dev(&data->arg);
 	err = msi_domain_prepare_irqs(domain->parent, dev, nvec, &data->arg);
 	if (err)
 		goto free_domain;

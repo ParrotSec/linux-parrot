@@ -319,10 +319,8 @@ int qlcnic_read_mac_addr(struct qlcnic_adapter *adapter)
 static void qlcnic_delete_adapter_mac(struct qlcnic_adapter *adapter)
 {
 	struct qlcnic_mac_vlan_list *cur;
-	struct list_head *head;
 
-	list_for_each(head, &adapter->mac_list) {
-		cur = list_entry(head, struct qlcnic_mac_vlan_list, list);
+	list_for_each_entry(cur, &adapter->mac_list, list) {
 		if (ether_addr_equal_unaligned(adapter->mac_addr, cur->mac_addr)) {
 			qlcnic_sre_macaddr_change(adapter, cur->mac_addr,
 						  0, QLCNIC_MAC_DEL);
@@ -520,8 +518,6 @@ static const struct net_device_ops qlcnic_netdev_ops = {
 	.ndo_fdb_del		= qlcnic_fdb_del,
 	.ndo_fdb_dump		= qlcnic_fdb_dump,
 	.ndo_get_phys_port_id	= qlcnic_get_phys_port_id,
-	.ndo_udp_tunnel_add	= udp_tunnel_nic_add_port,
-	.ndo_udp_tunnel_del	= udp_tunnel_nic_del_port,
 	.ndo_features_check	= qlcnic_features_check,
 #ifdef CONFIG_QLCNIC_SRIOV
 	.ndo_set_vf_mac		= qlcnic_sriov_set_vf_mac,
@@ -3346,9 +3342,6 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
 	do {
 		msleep(1000);
 		prev_state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
-
-		if (prev_state == QLCNIC_DEV_QUISCENT)
-			continue;
 	} while ((prev_state != QLCNIC_DEV_READY) && --dev_init_timeo);
 
 	if (!dev_init_timeo) {
@@ -3458,6 +3451,7 @@ wait_npar:
 			adapter->fw_wait_cnt = 0;
 			return;
 		}
+		break;
 	case QLCNIC_DEV_FAILED:
 		break;
 	default:

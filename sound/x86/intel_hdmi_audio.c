@@ -236,7 +236,7 @@ static void had_write_register(struct snd_intelhad *ctx, u32 reg, u32 val)
  * updating AUD_CONFIG register.
  * This is because:
  * Bit6 of AUD_CONFIG register is writeonly due to a silicon bug on VLV2
- * HDMI IP. As a result a read-modify of AUD_CONFIG regiter will always
+ * HDMI IP. As a result a read-modify of AUD_CONFIG register will always
  * clear bit6. AUD_CONFIG[6:4] represents the "channels" field of the
  * register. This field should be 1xy binary for configuration with 6 or
  * more channels. Read-modify of AUD_CONFIG (Eg. for enabling audio)
@@ -342,7 +342,7 @@ static int had_prog_status_reg(struct snd_pcm_substream *substream,
 
 /*
  * function to initialize audio
- * registers and buffer confgiuration registers
+ * registers and buffer configuration registers
  * This function is called in the prepare callback
  */
 static int had_init_audio_ctrl(struct snd_pcm_substream *substream,
@@ -1770,8 +1770,7 @@ static int hdmi_lpe_audio_probe(struct platform_device *pdev)
 	card_ctx->irq = irq;
 
 	/* only 32bit addressable */
-	dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-	dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
 
 	init_channel_allocations();
 
@@ -1790,8 +1789,8 @@ static int hdmi_lpe_audio_probe(struct platform_device *pdev)
 		/* setup private data which can be retrieved when required */
 		pcm->private_data = ctx;
 		pcm->info_flags = 0;
-		strlcpy(pcm->name, card->shortname, strlen(card->shortname));
-		/* setup the ops for playabck */
+		strscpy(pcm->name, card->shortname, strlen(card->shortname));
+		/* setup the ops for playback */
 		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &had_pcm_ops);
 
 		/* allocate dma pages;
@@ -1888,4 +1887,3 @@ MODULE_AUTHOR("Vaibhav Agarwal <vaibhav.agarwal@intel.com>");
 MODULE_AUTHOR("Jerome Anand <jerome.anand@intel.com>");
 MODULE_DESCRIPTION("Intel HDMI Audio driver");
 MODULE_LICENSE("GPL v2");
-MODULE_SUPPORTED_DEVICE("{Intel,Intel_HAD}");

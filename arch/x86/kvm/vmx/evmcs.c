@@ -319,6 +319,9 @@ bool nested_enlightened_vmentry(struct kvm_vcpu *vcpu, u64 *evmcs_gpa)
 	if (unlikely(!assist_page.enlighten_vmentry))
 		return false;
 
+	if (unlikely(!evmptr_is_valid(assist_page.current_nested_vmcs)))
+		return false;
+
 	*evmcs_gpa = assist_page.current_nested_vmcs;
 
 	return true;
@@ -326,7 +329,6 @@ bool nested_enlightened_vmentry(struct kvm_vcpu *vcpu, u64 *evmcs_gpa)
 
 uint16_t nested_get_evmcs_version(struct kvm_vcpu *vcpu)
 {
-	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	/*
 	 * vmcs_version represents the range of supported Enlightened VMCS
 	 * versions: lower 8 bits is the minimal version, higher 8 bits is the
@@ -334,7 +336,7 @@ uint16_t nested_get_evmcs_version(struct kvm_vcpu *vcpu)
 	 * KVM_EVMCS_VERSION.
 	 */
 	if (kvm_cpu_cap_get(X86_FEATURE_VMX) &&
-	    vmx->nested.enlightened_vmcs_enabled)
+	    (!vcpu || to_vmx(vcpu)->nested.enlightened_vmcs_enabled))
 		return (KVM_EVMCS_VERSION << 8) | 1;
 
 	return 0;

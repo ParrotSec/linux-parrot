@@ -56,6 +56,7 @@ struct tcp_sock {
 	__u32	rcv_nxt;
 	__u32	snd_nxt;
 	__u32	snd_una;
+	__u32	window_clamp;
 	__u8	ecn_flags;
 	__u32	delivered;
 	__u32	delivered_ce;
@@ -176,6 +177,7 @@ struct tcp_congestion_ops {
 	 * after all the ca_state processing. (optional)
 	 */
 	void (*cong_control)(struct sock *sk, const struct rate_sample *rs);
+	void *owner;
 };
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -184,16 +186,6 @@ struct tcp_congestion_ops {
 	typeof(x) __x = (x);			\
 	typeof(y) __y = (y);			\
 	__x == 0 ? __y : ((__y == 0) ? __x : min(__x, __y)); })
-
-static __always_inline __u32 tcp_slow_start(struct tcp_sock *tp, __u32 acked)
-{
-	__u32 cwnd = min(tp->snd_cwnd + acked, tp->snd_ssthresh);
-
-	acked -= cwnd - tp->snd_cwnd;
-	tp->snd_cwnd = min(cwnd, tp->snd_cwnd_clamp);
-
-	return acked;
-}
 
 static __always_inline bool tcp_in_slow_start(const struct tcp_sock *tp)
 {
@@ -211,22 +203,7 @@ static __always_inline bool tcp_is_cwnd_limited(const struct sock *sk)
 	return !!BPF_CORE_READ_BITFIELD(tp, is_cwnd_limited);
 }
 
-static __always_inline void tcp_cong_avoid_ai(struct tcp_sock *tp, __u32 w, __u32 acked)
-{
-	/* If credits accumulated at a higher w, apply them gently now. */
-	if (tp->snd_cwnd_cnt >= w) {
-		tp->snd_cwnd_cnt = 0;
-		tp->snd_cwnd++;
-	}
-
-	tp->snd_cwnd_cnt += acked;
-	if (tp->snd_cwnd_cnt >= w) {
-		__u32 delta = tp->snd_cwnd_cnt / w;
-
-		tp->snd_cwnd_cnt -= delta * w;
-		tp->snd_cwnd += delta;
-	}
-	tp->snd_cwnd = min(tp->snd_cwnd, tp->snd_cwnd_clamp);
-}
+extern __u32 tcp_slow_start(struct tcp_sock *tp, __u32 acked) __ksym;
+extern void tcp_cong_avoid_ai(struct tcp_sock *tp, __u32 w, __u32 acked) __ksym;
 
 #endif

@@ -261,7 +261,7 @@ static int sdw_program_master_port_params(struct sdw_bus *bus,
  */
 static int sdw_program_port_params(struct sdw_master_runtime *m_rt)
 {
-	struct sdw_slave_runtime *s_rt = NULL;
+	struct sdw_slave_runtime *s_rt;
 	struct sdw_bus *bus = m_rt->bus;
 	struct sdw_port_runtime *p_rt;
 	int ret = 0;
@@ -422,7 +422,6 @@ static int sdw_prep_deprep_slave_ports(struct sdw_bus *bus,
 	struct completion *port_ready;
 	struct sdw_dpn_prop *dpn_prop;
 	struct sdw_prepare_ch prep_ch;
-	unsigned int time_left;
 	bool intr = false;
 	int ret = 0, val;
 	u32 addr;
@@ -479,15 +478,15 @@ static int sdw_prep_deprep_slave_ports(struct sdw_bus *bus,
 
 		/* Wait for completion on port ready */
 		port_ready = &s_rt->slave->port_ready[prep_ch.num];
-		time_left = wait_for_completion_timeout(port_ready,
-				msecs_to_jiffies(dpn_prop->ch_prep_timeout));
+		wait_for_completion_timeout(port_ready,
+			msecs_to_jiffies(dpn_prop->ch_prep_timeout));
 
 		val = sdw_read(s_rt->slave, SDW_DPN_PREPARESTATUS(p_rt->num));
-		val &= p_rt->ch_mask;
-		if (!time_left || val) {
+		if ((val < 0) || (val & p_rt->ch_mask)) {
+			ret = (val < 0) ? val : -ETIMEDOUT;
 			dev_err(&s_rt->slave->dev,
-				"Chn prep failed for port:%d\n", prep_ch.num);
-			return -ETIMEDOUT;
+				"Chn prep failed for port %d: %d\n", prep_ch.num, ret);
+			return ret;
 		}
 	}
 
@@ -1457,7 +1456,7 @@ struct sdw_dpn_prop *sdw_get_slave_dpn_prop(struct sdw_slave *slave,
 static void sdw_acquire_bus_lock(struct sdw_stream_runtime *stream)
 {
 	struct sdw_master_runtime *m_rt;
-	struct sdw_bus *bus = NULL;
+	struct sdw_bus *bus;
 
 	/* Iterate for all Master(s) in Master list */
 	list_for_each_entry(m_rt, &stream->master_list, stream_node) {
@@ -1478,8 +1477,8 @@ static void sdw_acquire_bus_lock(struct sdw_stream_runtime *stream)
  */
 static void sdw_release_bus_lock(struct sdw_stream_runtime *stream)
 {
-	struct sdw_master_runtime *m_rt = NULL;
-	struct sdw_bus *bus = NULL;
+	struct sdw_master_runtime *m_rt;
+	struct sdw_bus *bus;
 
 	/* Iterate for all Master(s) in Master list */
 	list_for_each_entry_reverse(m_rt, &stream->master_list, stream_node) {
@@ -1521,7 +1520,7 @@ static int _sdw_prepare_stream(struct sdw_stream_runtime *stream,
 		if (bus->compute_params) {
 			ret = bus->compute_params(bus);
 			if (ret < 0) {
-				dev_err(bus->dev, "Compute params failed: %d",
+				dev_err(bus->dev, "Compute params failed: %d\n",
 					ret);
 				return ret;
 			}
@@ -1799,7 +1798,7 @@ static int _sdw_deprepare_stream(struct sdw_stream_runtime *stream)
 		if (bus->compute_params) {
 			ret = bus->compute_params(bus);
 			if (ret < 0) {
-				dev_err(bus->dev, "Compute params failed: %d",
+				dev_err(bus->dev, "Compute params failed: %d\n",
 					ret);
 				return ret;
 			}
@@ -1863,7 +1862,7 @@ static int set_stream(struct snd_pcm_substream *substream,
 	for_each_rtd_dais(rtd, i, dai) {
 		ret = snd_soc_dai_set_sdw_stream(dai, sdw_stream, substream->stream);
 		if (ret < 0) {
-			dev_err(rtd->dev, "failed to set stream pointer on dai %s", dai->name);
+			dev_err(rtd->dev, "failed to set stream pointer on dai %s\n", dai->name);
 			break;
 		}
 	}
@@ -1896,7 +1895,7 @@ int sdw_startup_stream(void *sdw_substream)
 
 	sdw_stream = sdw_alloc_stream(name);
 	if (!sdw_stream) {
-		dev_err(rtd->dev, "alloc stream failed for substream DAI %s", substream->name);
+		dev_err(rtd->dev, "alloc stream failed for substream DAI %s\n", substream->name);
 		ret = -ENOMEM;
 		goto error;
 	}
@@ -1935,7 +1934,7 @@ void sdw_shutdown_stream(void *sdw_substream)
 	sdw_stream = snd_soc_dai_get_sdw_stream(dai, substream->stream);
 
 	if (IS_ERR(sdw_stream)) {
-		dev_err(rtd->dev, "no stream found for DAI %s", dai->name);
+		dev_err(rtd->dev, "no stream found for DAI %s\n", dai->name);
 		return;
 	}
 

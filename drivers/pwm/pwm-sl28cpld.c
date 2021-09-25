@@ -229,8 +229,9 @@ static int sl28cpld_pwm_probe(struct platform_device *pdev)
 	chip = &priv->pwm_chip;
 	chip->dev = &pdev->dev;
 	chip->ops = &sl28cpld_pwm_ops;
-	chip->base = -1;
 	chip->npwm = 1;
+
+	platform_set_drvdata(pdev, priv);
 
 	ret = pwmchip_add(&priv->pwm_chip);
 	if (ret) {
@@ -238,8 +239,6 @@ static int sl28cpld_pwm_probe(struct platform_device *pdev)
 			ERR_PTR(ret));
 		return ret;
 	}
-
-	platform_set_drvdata(pdev, priv);
 
 	return 0;
 }
