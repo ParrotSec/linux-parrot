@@ -1,5 +1,5 @@
-0a6803e81c5a9d67935cd913f57ea766  debian/bin/gencontrol.py
-842061f3461a59e771cfa0822160b332  debian/build/version-info
+5bf28310efb1b21eb5e9a4b23a6100e2  debian/bin/gencontrol.py
+8a7adf0f67a1d171d31acaf1ab8c8368  debian/build/version-info
 fe4456d48e3218fb8980c8577d03a7ae  debian/templates/control.config.in
 9509e39d8e60906ebd5ee4a8b0355d25  debian/templates/control.docs.in
 358db3af53a223fe60ae89c7a481609f  debian/templates/control.docs.meta.in
@@ -38,7 +38,7 @@ afb508873a44a1f196c2a525fec4b415  debian/templates/image.prerm.in
 381bc892fd36ef7ea5327f649b99cb98  debian/templates/sourcebin.meta.maintscript.in
 814dda166c7e3ef02e6e259e805ac66a  debian/templates/tests-control.image.in
 33d71bfd398d2f9b3bc5c0193b67d17e  debian/templates/tests-control.main.in
-8cc545beeb065ef91711f6e06fce7a58  debian/config/defines
+09d2627571f0030cf53b89dff135c9b8  debian/config/defines
 59a811890d2e7129bec940075850f11f  debian/config/alpha/defines
 761833637f921cf6563b8c74a681e689  debian/config/amd64/defines
 ae3dc013facc79cfbc482f3a3318b113  debian/config/arm64/defines
@@ -83,4 +83,4 @@ b4a45606f37c0d82a63779aa862528d9  debian/config/armhf/none/defines
 7146ff53fc4f9fbb49948225d8589b69  debian/config/i386/rt/defines
 1f2f888a9e94dfb519bb1eab12408d34  debian/config/riscv64/none/defines
 e657478131ce8e645c2d7151586ef24e  debian/installer/kernel-versions
-62b67e678eb87227e69d489aefa7ed79  debian/installer/package-list
+1109b8e3cf2a23eba1a883a535300371  debian/installer/package-list

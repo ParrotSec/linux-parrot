@@ -610,7 +610,7 @@ class Gencontrol(Base):
         kconfig = check_config('config', True)
         # XXX: We have no way to override kernelarch-X configs
         kconfig.extend(check_config_default(False,
-            "kernelarch-%s/config" % config_entry_base['kernel-arch']))
+                       "kernelarch-%s/config" % config_entry_base['kernel-arch']))
         kconfig.extend(check_config("%s/config" % arch, True, arch))
         kconfig.extend(check_config("%s/config.%s" % (arch, flavour), False,
                                     arch, None, flavour))
