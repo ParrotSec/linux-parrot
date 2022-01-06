@@ -20,7 +20,7 @@ static void __ap_flush_queue(struct ap_queue *aq);
 
 /**
  * ap_queue_enable_irq(): Enable interrupt support on this AP queue.
- * @qid: The AP queue number
+ * @aq: The AP queue
  * @ind: the notification indicator byte
  *
  * Enables interruption on AP queue via ap_aqic(). Based on the return
@@ -157,6 +157,8 @@ static struct ap_queue_status ap_sm_recv(struct ap_queue *aq)
 	switch (status.response_code) {
 	case AP_RESPONSE_NORMAL:
 		aq->queue_count = max_t(int, 0, aq->queue_count - 1);
+		if (!status.queue_empty && !aq->queue_count)
+			aq->queue_count++;
 		if (aq->queue_count > 0)
 			mod_timer(&aq->timeout,
 				  jiffies + aq->request_timeout);
@@ -311,7 +313,7 @@ static enum ap_sm_wait ap_sm_read_write(struct ap_queue *aq)
 
 /**
  * ap_sm_reset(): Reset an AP queue.
- * @qid: The AP queue number
+ * @aq: The AP queue
  *
  * Submit the Reset command to an AP queue.
  */

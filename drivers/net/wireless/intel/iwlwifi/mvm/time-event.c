@@ -168,6 +168,16 @@ static bool iwl_mvm_te_check_disconnect(struct iwl_mvm *mvm,
 		rcu_read_unlock();
 	}
 
+	if (vif->bss_conf.assoc) {
+		/*
+		 * When not associated, this will be called from
+		 * iwl_mvm_event_mlme_callback_ini()
+		 */
+		iwl_dbg_tlv_time_point(&mvm->fwrt,
+				       IWL_FW_INI_TIME_POINT_ASSOC_FAILED,
+				       NULL);
+	}
+
 	iwl_mvm_connection_loss(mvm, vif, errmsg);
 	return true;
 }
@@ -652,12 +662,13 @@ static bool __iwl_mvm_remove_time_event(struct iwl_mvm *mvm,
 					u32 *uid)
 {
 	u32 id;
-	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(te_data->vif);
+	struct iwl_mvm_vif *mvmvif;
 	enum nl80211_iftype iftype;
 
 	if (!te_data->vif)
 		return false;
 
+	mvmvif = iwl_mvm_vif_from_mac80211(te_data->vif);
 	iftype = te_data->vif->type;
 
 	/*

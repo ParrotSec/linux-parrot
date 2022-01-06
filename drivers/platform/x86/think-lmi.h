@@ -55,12 +55,12 @@ struct tlmi_attr_setting {
 struct think_lmi {
 	struct wmi_device *wmi_device;
 
-	int settings_count;
 	bool can_set_bios_settings;
 	bool can_get_bios_selections;
 	bool can_set_bios_password;
 	bool can_get_password_settings;
 	bool pending_changes;
+	bool can_debug_cmd;
 
 	struct tlmi_attr_setting *setting[TLMI_SETTINGS_COUNT];
 	struct device *class_dev;

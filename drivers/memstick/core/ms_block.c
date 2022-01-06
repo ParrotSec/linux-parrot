@@ -1105,7 +1105,7 @@ static u16 msb_get_free_block(struct msb_data *msb, int zone)
 	dbg_verbose("result of the free blocks scan: pba %d", pba);
 
 	if (pba == msb->block_count || (msb_get_zone_from_pba(pba)) != zone) {
-		pr_err("BUG: cant get a free block");
+		pr_err("BUG: can't get a free block");
 		msb->read_only = true;
 		return MS_BLOCK_INVALID;
 	}
@@ -1736,7 +1736,7 @@ static int msb_init_card(struct memstick_dev *card)
 	msb->pages_in_block = boot_block->attr.block_size * 2;
 	msb->block_size = msb->page_size * msb->pages_in_block;
 
-	if (msb->page_size > PAGE_SIZE) {
+	if ((size_t)msb->page_size > PAGE_SIZE) {
 		/* this isn't supported by linux at all, anyway*/
 		dbg("device page %d size isn't supported", msb->page_size);
 		return -EINVAL;

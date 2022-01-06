@@ -8,6 +8,7 @@
 #include <linux/phy.h>
 #include <linux/if_vlan.h>
 #include <linux/kfifo.h>
+#include <net/devlink.h>
 
 #include "hclge_cmd.h"
 #include "hclge_ptp.h"
@@ -37,22 +38,22 @@
 #define HCLGE_VECTOR_REG_OFFSET_H	0x1000
 #define HCLGE_VECTOR_VF_OFFSET		0x100000
 
-#define HCLGE_CMDQ_TX_ADDR_L_REG	0x27000
-#define HCLGE_CMDQ_TX_ADDR_H_REG	0x27004
-#define HCLGE_CMDQ_TX_DEPTH_REG		0x27008
-#define HCLGE_CMDQ_TX_TAIL_REG		0x27010
-#define HCLGE_CMDQ_TX_HEAD_REG		0x27014
-#define HCLGE_CMDQ_RX_ADDR_L_REG	0x27018
-#define HCLGE_CMDQ_RX_ADDR_H_REG	0x2701C
-#define HCLGE_CMDQ_RX_DEPTH_REG		0x27020
-#define HCLGE_CMDQ_RX_TAIL_REG		0x27024
-#define HCLGE_CMDQ_RX_HEAD_REG		0x27028
+#define HCLGE_NIC_CSQ_BASEADDR_L_REG	0x27000
+#define HCLGE_NIC_CSQ_BASEADDR_H_REG	0x27004
+#define HCLGE_NIC_CSQ_DEPTH_REG		0x27008
+#define HCLGE_NIC_CSQ_TAIL_REG		0x27010
+#define HCLGE_NIC_CSQ_HEAD_REG		0x27014
+#define HCLGE_NIC_CRQ_BASEADDR_L_REG	0x27018
+#define HCLGE_NIC_CRQ_BASEADDR_H_REG	0x2701C
+#define HCLGE_NIC_CRQ_DEPTH_REG		0x27020
+#define HCLGE_NIC_CRQ_TAIL_REG		0x27024
+#define HCLGE_NIC_CRQ_HEAD_REG		0x27028
+
 #define HCLGE_CMDQ_INTR_STS_REG		0x27104
 #define HCLGE_CMDQ_INTR_EN_REG		0x27108
 #define HCLGE_CMDQ_INTR_GEN_REG		0x2710C
 
 /* bar registers for common func */
-#define HCLGE_VECTOR0_OTER_EN_REG	0x20600
 #define HCLGE_GRO_EN_REG		0x28000
 #define HCLGE_RXD_ADV_LAYOUT_EN_REG	0x28008
 
@@ -193,6 +194,7 @@ enum HLCGE_PORT_TYPE {
 #define HCLGE_VECTOR0_IMP_CMDQ_ERR_B	4U
 #define HCLGE_VECTOR0_IMP_RD_POISON_B	5U
 #define HCLGE_VECTOR0_ALL_MSIX_ERR_B	6U
+#define HCLGE_TRIGGER_IMP_RESET_B	7U
 
 #define HCLGE_MAC_DEFAULT_FRAME \
 	(ETH_HLEN + ETH_FCS_LEN + 2 * VLAN_HLEN + ETH_DATA_LEN)
@@ -822,6 +824,9 @@ struct hclge_vf_vlan_cfg {
 		(y) = (_k_ ^ ~_v_) & (_k_); \
 	} while (0)
 
+#define HCLGE_MAC_STATS_FIELD_OFF(f) (offsetof(struct hclge_mac_stats, f))
+#define HCLGE_STATS_READ(p, offset) (*(u64 *)((u8 *)(p) + (offset)))
+
 #define HCLGE_MAC_TNL_LOG_SIZE	8
 #define HCLGE_VPORT_NUM 256
 struct hclge_dev {
@@ -874,12 +879,10 @@ struct hclge_dev {
 	u16 num_msi;
 	u16 num_msi_left;
 	u16 num_msi_used;
-	u32 base_msi_vector;
 	u16 *vector_status;
 	int *vector_irq;
 	u16 num_nic_msi;	/* Num of nic vectors for this PF */
 	u16 num_roce_msi;	/* Num of roce vectors for this PF */
-	int roce_base_vector;
 
 	unsigned long service_timer_period;
 	unsigned long service_timer_previous;
@@ -942,8 +945,8 @@ struct hclge_dev {
 
 	/* affinity mask and notify for misc interrupt */
 	cpumask_t affinity_mask;
-	struct irq_affinity_notify affinity_notify;
 	struct hclge_ptp *ptp;
+	struct devlink *devlink;
 };
 
 /* VPort level vlan tag configuration for TX direction */
@@ -1055,6 +1058,11 @@ struct hclge_vport {
 	struct list_head vlan_list;     /* Store VF vlan table */
 };
 
+struct hclge_speed_bit_map {
+	u32 speed;
+	u32 speed_bit;
+};
+
 int hclge_set_vport_promisc_mode(struct hclge_vport *vport, bool en_uc_pmc,
 				 bool en_mc_pmc, bool en_bc_pmc);
 int hclge_add_uc_addr_common(struct hclge_vport *vport,
@@ -1131,4 +1139,5 @@ void hclge_inform_vf_promisc_info(struct hclge_vport *vport);
 int hclge_dbg_dump_rst_info(struct hclge_dev *hdev, char *buf, int len);
 int hclge_push_vf_link_status(struct hclge_vport *vport);
 int hclge_enable_vport_vlan_filter(struct hclge_vport *vport, bool request_en);
+int hclge_mac_update_stats(struct hclge_dev *hdev);
 #endif
