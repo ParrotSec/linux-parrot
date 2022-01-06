@@ -1,0 +1,178 @@
+From: "Ahmed S. Darwish" <a.darwish@linutronix.de>
+Date: Sat, 16 Oct 2021 10:49:08 +0200
+Subject: [PATCH 7/9] net: sched: Use _bstats_update/set() instead of raw
+ writes
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.3-rt21.tar.xz
+
+The Qdisc::running sequence counter, used to protect Qdisc::bstats reads
+from parallel writes, is in the process of being removed. Qdisc::bstats
+read/writes will synchronize using an internal u64_stats sync point
+instead.
+
+Modify all bstats writes to use _bstats_update(). This ensures that
+the internal u64_stats sync point is always acquired and released as
+appropriate.
+
+Signed-off-by: Ahmed S. Darwish <a.darwish@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/gen_stats.c |    9 +++++----
+ net/sched/sch_cbq.c  |    3 +--
+ net/sched/sch_gred.c |    7 ++++---
+ net/sched/sch_htb.c  |   25 +++++++++++++++----------
+ net/sched/sch_qfq.c  |    3 +--
+ 5 files changed, 26 insertions(+), 21 deletions(-)
+
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -126,6 +126,7 @@ EXPORT_SYMBOL(gnet_stats_basic_packed_in
+ static void gnet_stats_add_basic_cpu(struct gnet_stats_basic_packed *bstats,
+ 				     struct gnet_stats_basic_cpu __percpu *cpu)
+ {
++	u64 t_bytes = 0, t_packets = 0;
+ 	int i;
+ 
+ 	for_each_possible_cpu(i) {
+@@ -139,9 +140,10 @@ static void gnet_stats_add_basic_cpu(str
+ 			packets = bcpu->bstats.packets;
+ 		} while (u64_stats_fetch_retry_irq(&bcpu->syncp, start));
+ 
+-		bstats->bytes += bytes;
+-		bstats->packets += packets;
++		t_bytes += bytes;
++		t_packets += packets;
+ 	}
++	_bstats_update(bstats, t_bytes, t_packets);
+ }
+ 
+ void gnet_stats_add_basic(const seqcount_t *running,
+@@ -164,8 +166,7 @@ void gnet_stats_add_basic(const seqcount
+ 		packets = b->packets;
+ 	} while (running && read_seqcount_retry(running, seq));
+ 
+-	bstats->bytes += bytes;
+-	bstats->packets += packets;
++	_bstats_update(bstats, bytes, packets);
+ }
+ EXPORT_SYMBOL(gnet_stats_add_basic);
+ 
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -565,8 +565,7 @@ cbq_update(struct cbq_sched_data *q)
+ 		long avgidle = cl->avgidle;
+ 		long idle;
+ 
+-		cl->bstats.packets++;
+-		cl->bstats.bytes += len;
++		_bstats_update(&cl->bstats, len, 1);
+ 
+ 		/*
+ 		 * (now - last) is total time between packet right edges.
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -353,6 +353,7 @@ static int gred_offload_dump_stats(struc
+ {
+ 	struct gred_sched *table = qdisc_priv(sch);
+ 	struct tc_gred_qopt_offload *hw_stats;
++	u64 bytes = 0, packets = 0;
+ 	unsigned int i;
+ 	int ret;
+ 
+@@ -381,15 +382,15 @@ static int gred_offload_dump_stats(struc
+ 		table->tab[i]->bytesin += hw_stats->stats.bstats[i].bytes;
+ 		table->tab[i]->backlog += hw_stats->stats.qstats[i].backlog;
+ 
+-		_bstats_update(&sch->bstats,
+-			       hw_stats->stats.bstats[i].bytes,
+-			       hw_stats->stats.bstats[i].packets);
++		bytes += hw_stats->stats.bstats[i].bytes;
++		packets += hw_stats->stats.bstats[i].packets;
+ 		sch->qstats.qlen += hw_stats->stats.qstats[i].qlen;
+ 		sch->qstats.backlog += hw_stats->stats.qstats[i].backlog;
+ 		sch->qstats.drops += hw_stats->stats.qstats[i].drops;
+ 		sch->qstats.requeues += hw_stats->stats.qstats[i].requeues;
+ 		sch->qstats.overlimits += hw_stats->stats.qstats[i].overlimits;
+ 	}
++	_bstats_update(&sch->bstats, bytes, packets);
+ 
+ 	kfree(hw_stats);
+ 	return ret;
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1308,6 +1308,7 @@ static int htb_dump_class(struct Qdisc *
+ static void htb_offload_aggregate_stats(struct htb_sched *q,
+ 					struct htb_class *cl)
+ {
++	u64 bytes = 0, packets = 0;
+ 	struct htb_class *c;
+ 	unsigned int i;
+ 
+@@ -1323,14 +1324,15 @@ static void htb_offload_aggregate_stats(
+ 			if (p != cl)
+ 				continue;
+ 
+-			cl->bstats.bytes += c->bstats_bias.bytes;
+-			cl->bstats.packets += c->bstats_bias.packets;
++			bytes += c->bstats_bias.bytes;
++			packets += c->bstats_bias.packets;
+ 			if (c->level == 0) {
+-				cl->bstats.bytes += c->leaf.q->bstats.bytes;
+-				cl->bstats.packets += c->leaf.q->bstats.packets;
++				bytes += c->leaf.q->bstats.bytes;
++				packets += c->leaf.q->bstats.packets;
+ 			}
+ 		}
+ 	}
++	_bstats_update(&cl->bstats, bytes, packets);
+ }
+ 
+ static int
+@@ -1358,8 +1360,9 @@ htb_dump_class_stats(struct Qdisc *sch,
+ 				cl->bstats = cl->leaf.q->bstats;
+ 			else
+ 				gnet_stats_basic_packed_init(&cl->bstats);
+-			cl->bstats.bytes += cl->bstats_bias.bytes;
+-			cl->bstats.packets += cl->bstats_bias.packets;
++			_bstats_update(&cl->bstats,
++				       cl->bstats_bias.bytes,
++				       cl->bstats_bias.packets);
+ 		} else {
+ 			htb_offload_aggregate_stats(q, cl);
+ 		}
+@@ -1578,8 +1581,9 @@ static int htb_destroy_class_offload(str
+ 		WARN_ON(old != q);
+ 
+ 	if (cl->parent) {
+-		cl->parent->bstats_bias.bytes += q->bstats.bytes;
+-		cl->parent->bstats_bias.packets += q->bstats.packets;
++		_bstats_update(&cl->parent->bstats_bias,
++			       q->bstats.bytes,
++			       q->bstats.packets);
+ 	}
+ 
+ 	offload_opt = (struct tc_htb_qopt_offload) {
+@@ -1925,8 +1929,9 @@ static int htb_change_class(struct Qdisc
+ 				htb_graft_helper(dev_queue, old_q);
+ 				goto err_kill_estimator;
+ 			}
+-			parent->bstats_bias.bytes += old_q->bstats.bytes;
+-			parent->bstats_bias.packets += old_q->bstats.packets;
++			_bstats_update(&parent->bstats_bias,
++				       old_q->bstats.bytes,
++				       old_q->bstats.packets);
+ 			qdisc_put(old_q);
+ 		}
+ 		new_q = qdisc_create_dflt(dev_queue, &pfifo_qdisc_ops,
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -1235,8 +1235,7 @@ static int qfq_enqueue(struct sk_buff *s
+ 		return err;
+ 	}
+ 
+-	cl->bstats.bytes += len;
+-	cl->bstats.packets += gso_segs;
++	_bstats_update(&cl->bstats, len, gso_segs);
+ 	sch->qstats.backlog += len;
+ 	++sch->q.qlen;
+ 

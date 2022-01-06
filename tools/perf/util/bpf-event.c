@@ -21,6 +21,17 @@
 #include "record.h"
 #include "util/synthetic-events.h"
 
+struct btf * __weak btf__load_from_kernel_by_id(__u32 id)
+{
+       struct btf *btf;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+       int err = btf__get_from_id(id, &btf);
+#pragma GCC diagnostic pop
+
+       return err ? ERR_PTR(err) : btf;
+}
+
 #define ptr_to_u64(ptr)    ((__u64)(unsigned long)(ptr))
 
 static int snprintf_hex(char *buf, size_t size, unsigned char *data, size_t len)
@@ -109,7 +120,11 @@ static int perf_env__fetch_btf(struct perf_env *env,
 	node->data_size = data_size;
 	memcpy(node->data, data, data_size);
 
-	perf_env__insert_btf(env, node);
+	if (!perf_env__insert_btf(env, node)) {
+		/* Insertion failed because of a duplicate. */
+		free(node);
+		return -1;
+	}
 	return 0;
 }
 
@@ -223,10 +238,10 @@ static int perf_event__synthesize_one_bpf_prog(struct perf_session *session,
 			free(info_linear);
 			return -1;
 		}
-		if (btf__get_from_id(info->btf_id, &btf)) {
+		btf = btf__load_from_kernel_by_id(info->btf_id);
+		if (libbpf_get_error(btf)) {
 			pr_debug("%s: failed to get BTF of id %u, aborting\n", __func__, info->btf_id);
 			err = -1;
-			btf = NULL;
 			goto out;
 		}
 		perf_env__fetch_btf(env, info->btf_id, btf);
@@ -478,7 +493,8 @@ static void perf_env__add_bpf_info(struct perf_env *env, u32 id)
 	if (btf_id == 0)
 		goto out;
 
-	if (btf__get_from_id(btf_id, &btf)) {
+	btf = btf__load_from_kernel_by_id(btf_id);
+	if (libbpf_get_error(btf)) {
 		pr_debug("%s: failed to get BTF of id %u, aborting\n",
 			 __func__, btf_id);
 		goto out;
@@ -564,7 +580,7 @@ void bpf_event__print_bpf_prog_info(struct bpf_prog_info *info,
 		synthesize_bpf_prog_name(name, KSYM_NAME_LEN, info, btf, 0);
 		fprintf(fp, "# bpf_prog_info %u: %s addr 0x%llx size %u\n",
 			info->id, name, prog_addrs[0], prog_lens[0]);
-		return;
+		goto out;
 	}
 
 	fprintf(fp, "# bpf_prog_info %u:\n", info->id);
@@ -574,4 +590,6 @@ void bpf_event__print_bpf_prog_info(struct bpf_prog_info *info,
 		fprintf(fp, "# \tsub_prog %u: %s addr 0x%llx size %u\n",
 			i, name, prog_addrs[i], prog_lens[i]);
 	}
+out:
+	btf__free(btf);
 }

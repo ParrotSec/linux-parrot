@@ -54,4 +54,3 @@ CONFIG_I2C_ALGOBIT=y
 # CONFIG_FLATMEM_MANUAL is not set
 # CONFIG_SPARSEMEM_MANUAL is not set
 ## end choice
-

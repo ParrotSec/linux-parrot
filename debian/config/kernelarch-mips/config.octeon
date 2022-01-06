@@ -186,4 +186,3 @@ CONFIG_USB_OCTEON_OHCI=y
 ## choice: Memory model
 CONFIG_SPARSEMEM_MANUAL=y
 ## end choice
-

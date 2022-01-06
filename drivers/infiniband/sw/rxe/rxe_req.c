@@ -466,12 +466,9 @@ static int finish_packet(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
 		       struct rxe_pkt_info *pkt, struct sk_buff *skb,
 		       int paylen)
 {
-	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
-	u32 crc = 0;
-	u32 *p;
 	int err;
 
-	err = rxe_prepare(pkt, skb, &crc);
+	err = rxe_prepare(pkt, skb);
 	if (err)
 		return err;
 
@@ -479,7 +476,6 @@ static int finish_packet(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
 		if (wqe->wr.send_flags & IB_SEND_INLINE) {
 			u8 *tmp = &wqe->dma.inline_data[wqe->dma.sge_offset];
 
-			crc = rxe_crc32(rxe, crc, tmp, paylen);
 			memcpy(payload_addr(pkt), tmp, paylen);
 
 			wqe->dma.resid -= paylen;
@@ -487,8 +483,7 @@ static int finish_packet(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
 		} else {
 			err = copy_data(qp->pd, 0, &wqe->dma,
 					payload_addr(pkt), paylen,
-					RXE_FROM_MR_OBJ,
-					&crc);
+					RXE_FROM_MR_OBJ);
 			if (err)
 				return err;
 		}
@@ -496,12 +491,8 @@ static int finish_packet(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
 			u8 *pad = payload_addr(pkt) + paylen;
 
 			memset(pad, 0, bth_pad(pkt));
-			crc = rxe_crc32(rxe, crc, pad, bth_pad(pkt));
 		}
 	}
-	p = payload_addr(pkt) + paylen + bth_pad(pkt);
-
-	*p = ~crc;
 
 	return 0;
 }
@@ -581,7 +572,6 @@ static void update_state(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
 static int rxe_do_local_ops(struct rxe_qp *qp, struct rxe_send_wqe *wqe)
 {
 	u8 opcode = wqe->wr.opcode;
-	struct rxe_mr *mr;
 	u32 rkey;
 	int ret;
 
@@ -599,14 +589,11 @@ static int rxe_do_local_ops(struct rxe_qp *qp, struct rxe_send_wqe *wqe)
 		}
 		break;
 	case IB_WR_REG_MR:
-		mr = to_rmr(wqe->wr.wr.reg.mr);
-		rxe_add_ref(mr);
-		mr->state = RXE_MR_STATE_VALID;
-		mr->access = wqe->wr.wr.reg.access;
-		mr->ibmr.lkey = wqe->wr.wr.reg.key;
-		mr->ibmr.rkey = wqe->wr.wr.reg.key;
-		mr->iova = wqe->wr.wr.reg.mr->iova;
-		rxe_drop_ref(mr);
+		ret = rxe_reg_fast_mr(qp, wqe);
+		if (unlikely(ret)) {
+			wqe->status = IB_WC_LOC_QP_OP_ERR;
+			return ret;
+		}
 		break;
 	case IB_WR_BIND_MW:
 		ret = rxe_bind_mw(qp, wqe);

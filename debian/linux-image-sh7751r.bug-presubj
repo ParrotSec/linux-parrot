@@ -2,4 +2,4 @@ You are about to report a bug in a Linux kernel meta package.
 This is probably not what you intended to do.
 
 If you want to report a bug in the Linux kernel or modules, you should use
-the package name linux-image-5.14.0-9parrot1-sh7751r instead.
+the package name linux-image-5.15.0-5parrot1-sh7751r instead.

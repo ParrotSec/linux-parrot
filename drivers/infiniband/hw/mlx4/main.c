@@ -2217,6 +2217,11 @@ static const struct ib_device_ops mlx4_ib_hw_stats_ops = {
 	.get_hw_stats = mlx4_ib_get_hw_stats,
 };
 
+static const struct ib_device_ops mlx4_ib_hw_stats_ops1 = {
+	.alloc_hw_device_stats = mlx4_ib_alloc_hw_device_stats,
+	.get_hw_stats = mlx4_ib_get_hw_stats,
+};
+
 static int mlx4_ib_alloc_diag_counters(struct mlx4_ib_dev *ibdev)
 {
 	struct mlx4_ib_diag_counters *diag = ibdev->diag_counters;
@@ -2229,9 +2234,16 @@ static int mlx4_ib_alloc_diag_counters(struct mlx4_ib_dev *ibdev)
 		return 0;
 
 	for (i = 0; i < MLX4_DIAG_COUNTERS_TYPES; i++) {
-		/* i == 1 means we are building port counters */
-		if (i && !per_port)
-			continue;
+		/*
+		 * i == 1 means we are building port counters, set a different
+		 * stats ops without port stats callback.
+		 */
+		if (i && !per_port) {
+			ib_set_device_ops(&ibdev->ib_dev,
+					  &mlx4_ib_hw_stats_ops1);
+
+			return 0;
+		}
 
 		ret = __mlx4_ib_alloc_diag_counters(ibdev, &diag[i].name,
 						    &diag[i].offset,
@@ -2577,6 +2589,7 @@ static const struct ib_device_ops mlx4_ib_dev_ops = {
 	INIT_RDMA_OBJ_SIZE(ib_ah, mlx4_ib_ah, ibah),
 	INIT_RDMA_OBJ_SIZE(ib_cq, mlx4_ib_cq, ibcq),
 	INIT_RDMA_OBJ_SIZE(ib_pd, mlx4_ib_pd, ibpd),
+	INIT_RDMA_OBJ_SIZE(ib_qp, mlx4_ib_qp, ibqp),
 	INIT_RDMA_OBJ_SIZE(ib_srq, mlx4_ib_srq, ibsrq),
 	INIT_RDMA_OBJ_SIZE(ib_ucontext, mlx4_ib_ucontext, ibucontext),
 };

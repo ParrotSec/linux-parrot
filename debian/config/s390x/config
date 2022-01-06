@@ -113,7 +113,6 @@ CONFIG_HOTPLUG_PCI_S390=y
 ##
 ## file: drivers/s390/block/Kconfig
 ##
-CONFIG_BLK_DEV_XPRAM=m
 CONFIG_DCSSBLK=m
 CONFIG_DASD=m
 # CONFIG_DASD_PROFILE is not set
@@ -221,4 +220,3 @@ CONFIG_AFIUCV=m
 ## file: net/llc/Kconfig
 ##
 # CONFIG_LLC2 is not set
-

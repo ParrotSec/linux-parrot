@@ -12,4 +12,3 @@
 ## file: security/tomoyo/Kconfig
 ##
 # CONFIG_SECURITY_TOMOYO is not set
-

@@ -1,5 +1,5 @@
 [abi]
-abiname: 9parrot1
+abiname: 5parrot1
 ignore-changes:
  __cpuhp_*
  __udp_gso_segment
@@ -154,7 +154,7 @@ signed-code: false
 trusted-certs: debian/certs/debian-uefi-certs.pem
 
 [featureset-rt_base]
-enabled: false
+enabled: true
 
 [description]
 part-long-up: This kernel is not suitable for SMP (multi-processor,

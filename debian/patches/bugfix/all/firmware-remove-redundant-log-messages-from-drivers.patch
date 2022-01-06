@@ -181,7 +181,7 @@ Index: linux/drivers/dma/imx-sdma.c
 ===================================================================
 --- linux.orig/drivers/dma/imx-sdma.c
 +++ linux/drivers/dma/imx-sdma.c
-@@ -1756,11 +1756,8 @@ static void sdma_load_firmware(const str
+@@ -1800,11 +1800,8 @@ static void sdma_load_firmware(const str
  	const struct sdma_script_start_addrs *addr;
  	unsigned short *ram_code;
  
@@ -231,7 +231,7 @@ Index: linux/drivers/gpu/drm/r128/r128_cce.c
 ===================================================================
 --- linux.orig/drivers/gpu/drm/r128/r128_cce.c
 +++ linux/drivers/gpu/drm/r128/r128_cce.c
-@@ -162,11 +162,8 @@ static int r128_cce_load_microcode(drm_r
+@@ -161,11 +161,8 @@ static int r128_cce_load_microcode(drm_r
  	}
  	rc = request_firmware(&fw, FIRMWARE_NAME, &pdev->dev);
  	platform_device_unregister(pdev);
@@ -262,7 +262,7 @@ Index: linux/drivers/gpu/drm/radeon/r100.c
 ===================================================================
 --- linux.orig/drivers/gpu/drm/radeon/r100.c
 +++ linux/drivers/gpu/drm/radeon/r100.c
-@@ -1047,9 +1047,7 @@ static int r100_cp_init_microcode(struct
+@@ -1056,9 +1056,7 @@ static int r100_cp_init_microcode(struct
  	}
  
  	err = request_firmware(&rdev->me_fw, fw_name, rdev->dev);
@@ -1289,7 +1289,7 @@ Index: linux/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 ===================================================================
 --- linux.orig/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ linux/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13471,11 +13471,8 @@ static int bnx2x_init_firmware(struct bn
+@@ -13420,11 +13420,8 @@ static int bnx2x_init_firmware(struct bn
  	BNX2X_DEV_INFO("Loading %s\n", fw_file_name);
  
  	rc = request_firmware(&bp->firmware, fw_file_name, &bp->pdev->dev);
@@ -1306,7 +1306,7 @@ Index: linux/drivers/net/ethernet/broadcom/tg3.c
 ===================================================================
 --- linux.orig/drivers/net/ethernet/broadcom/tg3.c
 +++ linux/drivers/net/ethernet/broadcom/tg3.c
-@@ -11407,11 +11407,8 @@ static int tg3_request_firmware(struct t
+@@ -11404,11 +11404,8 @@ static int tg3_request_firmware(struct t
  {
  	const struct tg3_firmware_hdr *fw_hdr;
  
@@ -1750,25 +1750,6 @@ Index: linux/drivers/net/wireless/intersil/p54/p54usb.c
  	}
  
  	complete(&priv->fw_wait_load);
-Index: linux/drivers/net/wireless/intersil/prism54/islpci_dev.c
-===================================================================
---- linux.orig/drivers/net/wireless/intersil/prism54/islpci_dev.c
-+++ linux/drivers/net/wireless/intersil/prism54/islpci_dev.c
-@@ -80,12 +80,9 @@ isl_upload_firmware(islpci_private *priv
- 		const u32 *fw_ptr;
- 
- 		rc = request_firmware(&fw_entry, priv->firmware, PRISM_FW_PDEV);
--		if (rc) {
--			printk(KERN_ERR
--			       "%s: request_firmware() failed for '%s'\n",
--			       "prism54", priv->firmware);
-+		if (rc)
- 			return rc;
--		}
-+
- 		/* prepare the Direct Memory Base register */
- 		reg = ISL38XX_DEV_FIRMWARE_ADDRES;
- 
 Index: linux/drivers/net/wireless/marvell/libertas_tf/if_usb.c
 ===================================================================
 --- linux.orig/drivers/net/wireless/marvell/libertas_tf/if_usb.c
@@ -2087,7 +2068,7 @@ Index: linux/drivers/scsi/qla1280.c
 ===================================================================
 --- linux.orig/drivers/scsi/qla1280.c
 +++ linux/drivers/scsi/qla1280.c
-@@ -1514,8 +1514,6 @@ qla1280_request_firmware(struct scsi_qla
+@@ -1513,8 +1513,6 @@ qla1280_request_firmware(struct scsi_qla
  	err = request_firmware(&fw, fwname, &ha->pdev->dev);
  
  	if (err) {
@@ -2100,7 +2081,7 @@ Index: linux/drivers/scsi/qla2xxx/qla_init.c
 ===================================================================
 --- linux.orig/drivers/scsi/qla2xxx/qla_init.c
 +++ linux/drivers/scsi/qla2xxx/qla_init.c
-@@ -8031,10 +8031,6 @@ qla2x00_load_risc(scsi_qla_host_t *vha,
+@@ -8187,10 +8187,6 @@ qla2x00_load_risc(scsi_qla_host_t *vha,
  	/* Load firmware blob. */
  	blob = qla2x00_request_firmware(vha);
  	if (!blob) {
@@ -2111,7 +2092,7 @@ Index: linux/drivers/scsi/qla2xxx/qla_init.c
  		return QLA_FUNCTION_FAILED;
  	}
  
-@@ -8137,9 +8133,6 @@ qla24xx_load_risc_blob(scsi_qla_host_t *
+@@ -8293,9 +8289,6 @@ qla24xx_load_risc_blob(scsi_qla_host_t *
  
  	blob = qla2x00_request_firmware(vha);
  	if (!blob) {
@@ -2125,7 +2106,7 @@ Index: linux/drivers/scsi/qla2xxx/qla_nx.c
 ===================================================================
 --- linux.orig/drivers/scsi/qla2xxx/qla_nx.c
 +++ linux/drivers/scsi/qla2xxx/qla_nx.c
-@@ -2429,11 +2429,8 @@ try_blob_fw:
+@@ -2427,11 +2427,8 @@ try_blob_fw:
  
  	/* Load firmware blob. */
  	blob = ha->hablob = qla2x00_request_firmware(vha);
@@ -2142,7 +2123,7 @@ Index: linux/drivers/scsi/qla2xxx/qla_os.c
 ===================================================================
 --- linux.orig/drivers/scsi/qla2xxx/qla_os.c
 +++ linux/drivers/scsi/qla2xxx/qla_os.c
-@@ -7403,8 +7403,6 @@ qla2x00_request_firmware(scsi_qla_host_t
+@@ -7552,8 +7552,6 @@ qla2x00_request_firmware(scsi_qla_host_t
  		goto out;
  
  	if (request_firmware(&blob->fw, blob->name, &ha->pdev->dev)) {
@@ -2188,7 +2169,7 @@ Index: linux/drivers/staging/rtl8712/hal_init.c
 ===================================================================
 --- linux.orig/drivers/staging/rtl8712/hal_init.c
 +++ linux/drivers/staging/rtl8712/hal_init.c
-@@ -73,8 +73,6 @@ int rtl871x_load_fw(struct _adapter *pad
+@@ -72,8 +72,6 @@ int rtl871x_load_fw(struct _adapter *pad
  	dev_info(dev, "r8712u: Loading firmware from \"%s\"\n", firmware_file);
  	rc = request_firmware_nowait(THIS_MODULE, 1, firmware_file, dev,
  				     GFP_KERNEL, padapter, rtl871x_load_fw_cb);
@@ -2201,7 +2182,7 @@ Index: linux/drivers/staging/vt6656/main_usb.c
 ===================================================================
 --- linux.orig/drivers/staging/vt6656/main_usb.c
 +++ linux/drivers/staging/vt6656/main_usb.c
-@@ -109,11 +109,8 @@ static int vnt_download_firmware(struct
+@@ -107,11 +107,8 @@ static int vnt_download_firmware(struct
  	dev_dbg(dev, "---->Download firmware\n");
  
  	ret = request_firmware(&fw, FIRMWARE_NAME, dev);
@@ -2547,7 +2528,7 @@ Index: linux/sound/isa/sscape.c
 ===================================================================
 --- linux.orig/sound/isa/sscape.c
 +++ linux/sound/isa/sscape.c
-@@ -531,10 +531,8 @@ static int sscape_upload_bootblock(struc
+@@ -520,10 +520,8 @@ static int sscape_upload_bootblock(struc
  	int ret;
  
  	ret = request_firmware(&init_fw, "scope.cod", card->dev);
@@ -2559,7 +2540,7 @@ Index: linux/sound/isa/sscape.c
  	ret = upload_dma_data(sscape, init_fw->data, init_fw->size);
  
  	release_firmware(init_fw);
-@@ -571,11 +569,8 @@ static int sscape_upload_microcode(struc
+@@ -560,11 +558,8 @@ static int sscape_upload_microcode(struc
  	snprintf(name, sizeof(name), "sndscape.co%d", version);
  
  	err = request_firmware(&init_fw, name, card->dev);
@@ -2605,7 +2586,7 @@ Index: linux/sound/pci/cs46xx/cs46xx_lib.c
 ===================================================================
 --- linux.orig/sound/pci/cs46xx/cs46xx_lib.c
 +++ linux/sound/pci/cs46xx/cs46xx_lib.c
-@@ -3246,11 +3246,8 @@ int snd_cs46xx_start_dsp(struct snd_cs46
+@@ -3199,11 +3199,8 @@ int snd_cs46xx_start_dsp(struct snd_cs46
  #ifdef CONFIG_SND_CS46XX_NEW_DSP
  	for (i = 0; i < CS46XX_DSP_MODULES; i++) {
  		err = load_firmware(chip, &chip->modules[i], module_names[i]);
@@ -2655,7 +2636,7 @@ Index: linux/sound/pci/hda/hda_intel.c
 ===================================================================
 --- linux.orig/sound/pci/hda/hda_intel.c
 +++ linux/sound/pci/hda/hda_intel.c
-@@ -2033,8 +2033,6 @@ static void azx_firmware_cb(const struct
+@@ -2018,8 +2018,6 @@ static void azx_firmware_cb(const struct
  
  	if (fw)
  		chip->fw = fw;
@@ -2668,14 +2649,14 @@ Index: linux/sound/pci/korg1212/korg1212.c
 ===================================================================
 --- linux.orig/sound/pci/korg1212/korg1212.c
 +++ linux/sound/pci/korg1212/korg1212.c
-@@ -2338,7 +2338,6 @@ static int snd_korg1212_create(struct sn
+@@ -2258,7 +2258,6 @@ static int snd_korg1212_create(struct sn
  
  	err = request_firmware(&dsp_code, "korg/k1212.dsp", &pci->dev);
  	if (err < 0) {
 -		snd_printk(KERN_ERR "firmware not available\n");
- 		snd_korg1212_free(korg1212);
  		return err;
  	}
+ 
 Index: linux/sound/pci/mixart/mixart_hwdep.c
 ===================================================================
 --- linux.orig/sound/pci/mixart/mixart_hwdep.c
@@ -2732,7 +2713,7 @@ Index: linux/sound/pci/rme9652/hdsp.c
 ===================================================================
 --- linux.orig/sound/pci/rme9652/hdsp.c
 +++ linux/sound/pci/rme9652/hdsp.c
-@@ -5209,11 +5209,8 @@ static int hdsp_request_fw_loader(struct
+@@ -5196,11 +5196,8 @@ static int hdsp_request_fw_loader(struct
  		return -EINVAL;
  	}
  

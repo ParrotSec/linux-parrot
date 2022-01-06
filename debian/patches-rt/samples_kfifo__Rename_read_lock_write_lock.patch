@@ -1,0 +1,157 @@
+Subject: samples/kfifo: Rename read_lock/write_lock
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu Jul  1 17:43:16 2021 +0200
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.3-rt21.tar.xz
+
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+
+The variables names read_lock and write_lock can clash with functions used for
+read/writer locks.
+
+Rename read_lock to read_access and write_lock to write_access to avoid a name
+collision.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Link: https://lkml.kernel.org/r/20210806152551.qio7c3ho6pexezup@linutronix.de
+---
+ samples/kfifo/bytestream-example.c |   12 ++++++------
+ samples/kfifo/inttype-example.c    |   12 ++++++------
+ samples/kfifo/record-example.c     |   12 ++++++------
+ 3 files changed, 18 insertions(+), 18 deletions(-)
+---
+--- a/samples/kfifo/bytestream-example.c
++++ b/samples/kfifo/bytestream-example.c
+@@ -22,10 +22,10 @@
+ #define	PROC_FIFO	"bytestream-fifo"
+ 
+ /* lock for procfs read access */
+-static DEFINE_MUTEX(read_lock);
++static DEFINE_MUTEX(read_access);
+ 
+ /* lock for procfs write access */
+-static DEFINE_MUTEX(write_lock);
++static DEFINE_MUTEX(write_access);
+ 
+ /*
+  * define DYNAMIC in this example for a dynamically allocated fifo.
+@@ -116,12 +116,12 @@ static ssize_t fifo_write(struct file *f
+ 	int ret;
+ 	unsigned int copied;
+ 
+-	if (mutex_lock_interruptible(&write_lock))
++	if (mutex_lock_interruptible(&write_access))
+ 		return -ERESTARTSYS;
+ 
+ 	ret = kfifo_from_user(&test, buf, count, &copied);
+ 
+-	mutex_unlock(&write_lock);
++	mutex_unlock(&write_access);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -134,12 +134,12 @@ static ssize_t fifo_read(struct file *fi
+ 	int ret;
+ 	unsigned int copied;
+ 
+-	if (mutex_lock_interruptible(&read_lock))
++	if (mutex_lock_interruptible(&read_access))
+ 		return -ERESTARTSYS;
+ 
+ 	ret = kfifo_to_user(&test, buf, count, &copied);
+ 
+-	mutex_unlock(&read_lock);
++	mutex_unlock(&read_access);
+ 	if (ret)
+ 		return ret;
+ 
+--- a/samples/kfifo/inttype-example.c
++++ b/samples/kfifo/inttype-example.c
+@@ -22,10 +22,10 @@
+ #define	PROC_FIFO	"int-fifo"
+ 
+ /* lock for procfs read access */
+-static DEFINE_MUTEX(read_lock);
++static DEFINE_MUTEX(read_access);
+ 
+ /* lock for procfs write access */
+-static DEFINE_MUTEX(write_lock);
++static DEFINE_MUTEX(write_access);
+ 
+ /*
+  * define DYNAMIC in this example for a dynamically allocated fifo.
+@@ -109,12 +109,12 @@ static ssize_t fifo_write(struct file *f
+ 	int ret;
+ 	unsigned int copied;
+ 
+-	if (mutex_lock_interruptible(&write_lock))
++	if (mutex_lock_interruptible(&write_access))
+ 		return -ERESTARTSYS;
+ 
+ 	ret = kfifo_from_user(&test, buf, count, &copied);
+ 
+-	mutex_unlock(&write_lock);
++	mutex_unlock(&write_access);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -127,12 +127,12 @@ static ssize_t fifo_read(struct file *fi
+ 	int ret;
+ 	unsigned int copied;
+ 
+-	if (mutex_lock_interruptible(&read_lock))
++	if (mutex_lock_interruptible(&read_access))
+ 		return -ERESTARTSYS;
+ 
+ 	ret = kfifo_to_user(&test, buf, count, &copied);
+ 
+-	mutex_unlock(&read_lock);
++	mutex_unlock(&read_access);
+ 	if (ret)
+ 		return ret;
+ 
+--- a/samples/kfifo/record-example.c
++++ b/samples/kfifo/record-example.c
+@@ -22,10 +22,10 @@
+ #define	PROC_FIFO	"record-fifo"
+ 
+ /* lock for procfs read access */
+-static DEFINE_MUTEX(read_lock);
++static DEFINE_MUTEX(read_access);
+ 
+ /* lock for procfs write access */
+-static DEFINE_MUTEX(write_lock);
++static DEFINE_MUTEX(write_access);
+ 
+ /*
+  * define DYNAMIC in this example for a dynamically allocated fifo.
+@@ -123,12 +123,12 @@ static ssize_t fifo_write(struct file *f
+ 	int ret;
+ 	unsigned int copied;
+ 
+-	if (mutex_lock_interruptible(&write_lock))
++	if (mutex_lock_interruptible(&write_access))
+ 		return -ERESTARTSYS;
+ 
+ 	ret = kfifo_from_user(&test, buf, count, &copied);
+ 
+-	mutex_unlock(&write_lock);
++	mutex_unlock(&write_access);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -141,12 +141,12 @@ static ssize_t fifo_read(struct file *fi
+ 	int ret;
+ 	unsigned int copied;
+ 
+-	if (mutex_lock_interruptible(&read_lock))
++	if (mutex_lock_interruptible(&read_access))
+ 		return -ERESTARTSYS;
+ 
+ 	ret = kfifo_to_user(&test, buf, count, &copied);
+ 
+-	mutex_unlock(&read_lock);
++	mutex_unlock(&read_access);
+ 	if (ret)
+ 		return ret;
+ 

@@ -209,7 +209,7 @@ CONFIG_B44=m
 ##
 ## file: drivers/net/ethernet/cirrus/Kconfig
 ##
-CONFIG_CS89x0=m
+CONFIG_CS89x0_ISA=m
 
 ##
 ## file: drivers/net/ethernet/dec/tulip/Kconfig
@@ -662,4 +662,3 @@ CONFIG_SND_HARMONY=m
 ## file: sound/pci/hda/Kconfig
 ##
 # CONFIG_SND_HDA_INTEL is not set
-

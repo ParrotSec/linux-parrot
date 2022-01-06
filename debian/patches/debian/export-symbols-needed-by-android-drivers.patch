@@ -22,7 +22,7 @@ Export the currently un-exported symbols they depend on.
 
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -1134,6 +1134,7 @@
+@@ -1153,6 +1153,7 @@ void mmput_async(struct mm_struct *mm)
  		schedule_work(&mm->async_put_work);
  	}
  }
@@ -32,7 +32,7 @@ Export the currently un-exported symbols they depend on.
  /**
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -5774,6 +5774,7 @@
+@@ -6931,6 +6931,7 @@ int can_nice(const struct task_struct *p
  	return (nice_rlim <= task_rlimit(p, RLIMIT_NICE) ||
  		capable(CAP_SYS_NICE));
  }
@@ -42,7 +42,7 @@ Export the currently un-exported symbols they depend on.
  
 --- a/kernel/task_work.c
 +++ b/kernel/task_work.c
-@@ -60,6 +60,7 @@
+@@ -60,6 +60,7 @@ int task_work_add(struct task_struct *ta
  
  	return 0;
  }
@@ -52,7 +52,7 @@ Export the currently un-exported symbols they depend on.
   * task_work_cancel_match - cancel a pending work added by task_work_add()
 --- a/mm/memory.c
 +++ b/mm/memory.c
-@@ -1560,6 +1560,7 @@
+@@ -1655,6 +1655,7 @@ void zap_page_range(struct vm_area_struc
  	mmu_notifier_invalidate_range_end(&range);
  	tlb_finish_mmu(&tlb);
  }
@@ -62,7 +62,7 @@ Export the currently un-exported symbols they depend on.
   * zap_page_range_single - remove user pages in a given range
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
-@@ -4231,6 +4231,7 @@
+@@ -4162,6 +4162,7 @@ int shmem_zero_setup(struct vm_area_stru
  
  	return 0;
  }
@@ -72,28 +72,28 @@ Export the currently un-exported symbols they depend on.
   * shmem_read_mapping_page_gfp - read into page cache, using specified page allocation flags.
 --- a/security/security.c
 +++ b/security/security.c
-@@ -750,24 +750,28 @@
+@@ -751,24 +751,28 @@ int security_binder_set_context_mgr(cons
  {
  	return call_int_hook(binder_set_context_mgr, 0, mgr);
  }
 +EXPORT_SYMBOL_GPL(security_binder_set_context_mgr);
  
- int security_binder_transaction(struct task_struct *from,
- 				struct task_struct *to)
+ int security_binder_transaction(const struct cred *from,
+ 				const struct cred *to)
  {
  	return call_int_hook(binder_transaction, 0, from, to);
  }
 +EXPORT_SYMBOL_GPL(security_binder_transaction);
  
- int security_binder_transfer_binder(struct task_struct *from,
- 				    struct task_struct *to)
+ int security_binder_transfer_binder(const struct cred *from,
+ 				    const struct cred *to)
  {
  	return call_int_hook(binder_transfer_binder, 0, from, to);
  }
 +EXPORT_SYMBOL_GPL(security_binder_transfer_binder);
  
- int security_binder_transfer_file(struct task_struct *from,
- 				  struct task_struct *to, struct file *file)
+ int security_binder_transfer_file(const struct cred *from,
+ 				  const struct cred *to, struct file *file)
  {
  	return call_int_hook(binder_transfer_file, 0, from, to, file);
  }
@@ -103,7 +103,7 @@ Export the currently un-exported symbols they depend on.
  {
 --- a/fs/file.c
 +++ b/fs/file.c
-@@ -788,6 +788,7 @@
+@@ -804,6 +804,7 @@ int close_fd_get_file(unsigned int fd, s
  
  	return ret;
  }

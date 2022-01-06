@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-alpha-smp-dbg linux-image-5.14.0-9parrot1-alpha-smp-dbg 5.7~rc5-1~exp1 linux-image-alpha-smp-dbg
+dir_to_symlink /usr/share/doc/linux-image-alpha-smp-dbg linux-image-5.15.0-5parrot1-alpha-smp-dbg 5.7~rc5-1~exp1 linux-image-alpha-smp-dbg

@@ -26,6 +26,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  - Adjust filename, context]
 [bwh: Forward-ported to 5.10: MokListRT and MokListXRT are now both
  loaded through a single code path.]
+[bwh: Forward-ported to 5.13: No they aren't]
 ---
  security/integrity/platform_certs/load_uefi.c | 27 ++++++++++++++-----
  1 file changed, 21 insertions(+), 6 deletions(-)
@@ -71,17 +72,17 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	*size = lsize;
  	return db;
  }
-@@ -115,7 +126,8 @@ load_moklist_certs(const char *list_name
- 	/* Get MokList(X)RT. It might not exist, so it isn't an error
+@@ -106,7 +117,8 @@ static int __init load_moklist_certs(voi
+ 	/* Get MokListRT. It might not exist, so it isn't an error
  	 * if we can't get it.
  	 */
--	mok = get_cert_list(list_name_w, &mok_var, &moksize, &status);
-+	mok = get_cert_list(list_name_w, &mok_var, &moksize, &status,
+-	mok = get_cert_list(L"MokListRT", &mok_var, &moksize, &status);
++	mok = get_cert_list(L"MokListRT", &mok_var, &moksize, &status,
 +				0, EFI_VARIABLE_NON_VOLATILE);
  	if (mok) {
- 		rc = parse_efi_signature_list(efivar_list_desc,
- 					      mok, moksize, get_handler);
-@@ -154,7 +166,8 @@ static int __init load_uefi_certs(void)
+ 		rc = parse_efi_signature_list("UEFI:MokListRT",
+ 					      mok, moksize, get_handler_for_db);
+@@ -145,7 +157,8 @@ static int __init load_uefi_certs(void)
  	 * if we can't get them.
  	 */
  	if (!uefi_check_ignore_db()) {
@@ -91,7 +92,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  		if (!db) {
  			if (status == EFI_NOT_FOUND)
  				pr_debug("MODSIGN: db variable wasn't found\n");
-@@ -170,7 +183,8 @@ static int __init load_uefi_certs(void)
+@@ -161,7 +174,8 @@ static int __init load_uefi_certs(void)
  		}
  	}
  
@@ -101,3 +102,13 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	if (!dbx) {
  		if (status == EFI_NOT_FOUND)
  			pr_debug("dbx variable wasn't found\n");
+@@ -180,7 +194,8 @@ static int __init load_uefi_certs(void)
+ 	if (!efi_enabled(EFI_SECURE_BOOT))
+ 		return 0;
+ 
+-	mokx = get_cert_list(L"MokListXRT", &mok_var, &mokxsize, &status);
++	mokx = get_cert_list(L"MokListXRT", &mok_var, &mokxsize, &status,
++				0, EFI_VARIABLE_NON_VOLATILE);
+ 	if (!mokx) {
+ 		if (status == EFI_NOT_FOUND)
+ 			pr_debug("mokx variable wasn't found\n");

@@ -1,0 +1,42 @@
+Subject: printk: call boot_delay_msec() in printk_delay()
+From: John Ogness <john.ogness@linutronix.de>
+Date: Mon Nov 30 01:42:04 2020 +0106
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.3-rt21.tar.xz
+
+From: John Ogness <john.ogness@linutronix.de>
+
+boot_delay_msec() is always called immediately before printk_delay()
+so just call it from within printk_delay().
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+
+---
+ kernel/printk/printk.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+---
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -1750,8 +1750,10 @@ SYSCALL_DEFINE3(syslog, int, type, char
+ 
+ int printk_delay_msec __read_mostly;
+ 
+-static inline void printk_delay(void)
++static inline void printk_delay(int level)
+ {
++	boot_delay_msec(level);
++
+ 	if (unlikely(printk_delay_msec)) {
+ 		int m = printk_delay_msec;
+ 
+@@ -2223,8 +2225,7 @@ asmlinkage int vprintk_emit(int facility
+ 		in_sched = true;
+ 	}
+ 
+-	boot_delay_msec(level);
+-	printk_delay();
++	printk_delay(level);
+ 
+ 	printed_len = vprintk_store(facility, level, dev_info, fmt, args);
+ 

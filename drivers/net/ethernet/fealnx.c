@@ -463,7 +463,7 @@ static const struct net_device_ops netdev_ops = {
 	.ndo_start_xmit		= start_tx,
 	.ndo_get_stats 		= get_stats,
 	.ndo_set_rx_mode	= set_rx_mode,
-	.ndo_do_ioctl		= mii_ioctl,
+	.ndo_eth_ioctl		= mii_ioctl,
 	.ndo_tx_timeout		= fealnx_tx_timeout,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -857,7 +857,7 @@ static int netdev_open(struct net_device *dev)
 	np->bcrvalue |= 0x04;	/* big-endian */
 #endif
 
-#if defined(__i386__) && !defined(MODULE)
+#if defined(__i386__) && !defined(MODULE) && !defined(CONFIG_UML)
 	if (boot_cpu_data.x86 <= 4)
 		np->crvalue = 0xa00;
 	else

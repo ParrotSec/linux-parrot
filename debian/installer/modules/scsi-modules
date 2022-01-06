@@ -27,6 +27,7 @@ ses -
 tcm_qla2xxx -
 
 # Exclude common code packaged in {cdrom,scsi}-core-modules
+scsi_common -
 scsi_mod -
 sd_mod -
 sr_mod -

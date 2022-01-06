@@ -139,4 +139,3 @@ CONFIG_PREEMPT=y
 ## file: sound/pci/hda/Kconfig
 ##
 CONFIG_SND_HDA_INTEL=m
-

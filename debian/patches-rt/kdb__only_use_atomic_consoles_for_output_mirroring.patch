@@ -1,0 +1,54 @@
+Subject: kdb: only use atomic consoles for output mirroring
+From: John Ogness <john.ogness@linutronix.de>
+Date: Fri Mar 19 14:57:31 2021 +0100
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.3-rt21.tar.xz
+
+From: John Ogness <john.ogness@linutronix.de>
+
+Currently kdb uses the @oops_in_progress hack to mirror kdb output
+to all active consoles from NMI context. Ignoring locks is unsafe.
+Now that an NMI-safe atomic interfaces is available for consoles,
+use that interface to mirror kdb output.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+
+
+
+---
+ kernel/debug/kdb/kdb_io.c |   18 ++++++------------
+ 1 file changed, 6 insertions(+), 12 deletions(-)
+---
+--- a/kernel/debug/kdb/kdb_io.c
++++ b/kernel/debug/kdb/kdb_io.c
+@@ -559,23 +559,17 @@ static void kdb_msg_write(const char *ms
+ 		cp++;
+ 	}
+ 
++	/* mirror output on atomic consoles */
+ 	for_each_console(c) {
+ 		if (!(c->flags & CON_ENABLED))
+ 			continue;
+ 		if (c == dbg_io_ops->cons)
+ 			continue;
+-		/*
+-		 * Set oops_in_progress to encourage the console drivers to
+-		 * disregard their internal spin locks: in the current calling
+-		 * context the risk of deadlock is a bigger problem than risks
+-		 * due to re-entering the console driver. We operate directly on
+-		 * oops_in_progress rather than using bust_spinlocks() because
+-		 * the calls bust_spinlocks() makes on exit are not appropriate
+-		 * for this calling context.
+-		 */
+-		++oops_in_progress;
+-		c->write(c, msg, msg_len);
+-		--oops_in_progress;
++
++		if (!c->write_atomic)
++			continue;
++		c->write_atomic(c, msg, msg_len);
++
+ 		touch_nmi_watchdog();
+ 	}
+ }

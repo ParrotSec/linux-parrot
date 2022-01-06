@@ -1,0 +1,58 @@
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: x86/softirq: Disable softirq stacks on PREEMPT_RT
+Date: Fri, 24 Sep 2021 18:12:45 +0200
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.3-rt21.tar.xz
+
+PREEMPT_RT preempts softirqs and the current implementation avoids
+do_softirq_own_stack() and only uses __do_softirq().
+
+Disable the unused softirqs stacks on PREEMPT_RT to safe some memory and
+ensure that do_softirq_own_stack() is not used which is not expected.
+
+[bigeasy: commit description.]
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20210924161245.2357247-1-bigeasy@linutronix.de
+---
+ arch/x86/include/asm/irq_stack.h |    3 +++
+ arch/x86/kernel/irq_32.c         |    2 ++
+ 2 files changed, 5 insertions(+)
+
+--- a/arch/x86/include/asm/irq_stack.h
++++ b/arch/x86/include/asm/irq_stack.h
+@@ -201,6 +201,7 @@
+ 			      IRQ_CONSTRAINTS, regs, vector);		\
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ /*
+  * Macro to invoke __do_softirq on the irq stack. This is only called from
+  * task context when bottom halves are about to be reenabled and soft
+@@ -214,6 +215,8 @@
+ 	__this_cpu_write(hardirq_stack_inuse, false);			\
+ }
+ 
++#endif
++
+ #else /* CONFIG_X86_64 */
+ /* System vector handlers always run on the stack they interrupted. */
+ #define run_sysvec_on_irqstack_cond(func, regs)				\
+--- a/arch/x86/kernel/irq_32.c
++++ b/arch/x86/kernel/irq_32.c
+@@ -132,6 +132,7 @@ int irq_init_percpu_irqstack(unsigned in
+ 	return 0;
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	struct irq_stack *irqstk;
+@@ -148,6 +149,7 @@ void do_softirq_own_stack(void)
+ 
+ 	call_on_stack(__do_softirq, isp);
+ }
++#endif
+ 
+ void __handle_irq(struct irq_desc *desc, struct pt_regs *regs)
+ {

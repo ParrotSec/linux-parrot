@@ -24,8 +24,10 @@ CONFIG_EARLY_PRINTK=y
 ## file: arch/arm/crypto/Kconfig
 ##
 CONFIG_CRYPTO_SHA1_ARM=m
+CONFIG_CRYPTO_SHA256_ARM=m
+CONFIG_CRYPTO_SHA512_ARM=m
+CONFIG_CRYPTO_BLAKE2S_ARM=m
 CONFIG_CRYPTO_AES_ARM=m
-CONFIG_CRYPTO_NHPOLY1305_NEON=m
 
 ##
 ## file: arch/arm/mm/Kconfig
@@ -61,6 +63,11 @@ CONFIG_MOUSE_APPLETOUCH=m
 ## file: drivers/input/touchscreen/Kconfig
 ##
 # CONFIG_TOUCHSCREEN_EETI is not set
+
+##
+## file: drivers/leds/trigger/Kconfig
+##
+CONFIG_LEDS_TRIGGER_HEARTBEAT=y
 
 ##
 ## file: drivers/mtd/maps/Kconfig
@@ -132,4 +139,3 @@ CONFIG_CPU_THERMAL=y
 ##
 CONFIG_XZ_DEC_ARM=y
 CONFIG_XZ_DEC_ARMTHUMB=y
-

@@ -37,4 +37,6 @@ libcpupower.so.1 libcpupower1 #MINVER#
  cpuidle_state_time@Base 4.7~rc2-1~exp1
  cpuidle_state_usage@Base 4.7~rc2-1~exp1
  cpupower_is_cpu_online@Base 4.7~rc2-1~exp1
+ cpupower_read_sysfs@Base 5.13.9-1~exp1
+ cpupower_write_sysfs@Base 5.13.9-1~exp1
  get_cpu_topology@Base 4.7~rc2-1~exp1

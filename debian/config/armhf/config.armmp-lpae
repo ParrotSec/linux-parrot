@@ -12,4 +12,3 @@ CONFIG_ARM_LPAE=y
 ## file: drivers/iommu/Kconfig
 ##
 CONFIG_ARM_SMMU=y
-

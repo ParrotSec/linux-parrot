@@ -50,4 +50,3 @@ CONFIG_I2C_STUB=m
 ## file: lib/Kconfig.debug
 ##
 # CONFIG_DEBUG_HIGHMEM is not set
-

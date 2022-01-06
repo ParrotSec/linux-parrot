@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-loongson-3 linux-headers-5.14.0-9parrot1-loongson-3 5.7~rc5-1~exp1 linux-headers-loongson-3
+dir_to_symlink /usr/share/doc/linux-headers-loongson-3 linux-headers-5.15.0-5parrot1-loongson-3 5.7~rc5-1~exp1 linux-headers-loongson-3

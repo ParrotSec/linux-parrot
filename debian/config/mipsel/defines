@@ -35,6 +35,7 @@ hardware: Loongson 3A/3B
 hardware-long: Loongson 3A or 3B based systems (e.g. from Loongson or Lemote)
 
 [loongson-3_image]
+recommends: pmon-update
 configs: kernelarch-mips/config.loongson-3
 
 [octeon_description]

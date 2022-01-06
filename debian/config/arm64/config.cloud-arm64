@@ -110,4 +110,3 @@ CONFIG_POWER_SUPPLY_HWMON=y
 ## file: kernel/power/Kconfig
 ##
 CONFIG_PM=y
-

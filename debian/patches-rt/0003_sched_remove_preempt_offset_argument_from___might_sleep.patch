@@ -1,0 +1,77 @@
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: sched: Remove preempt_offset argument from __might_sleep()
+Date: Thu, 23 Sep 2021 18:54:38 +0200
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.3-rt21.tar.xz
+
+All callers hand in 0 and never will hand in anything else.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20210923165358.054321586@linutronix.de
+---
+ include/linux/kernel.h |    7 +++----
+ kernel/sched/core.c    |    4 ++--
+ mm/memory.c            |    2 +-
+ 3 files changed, 6 insertions(+), 7 deletions(-)
+
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -112,7 +112,7 @@ static __always_inline void might_resche
+ 
+ #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
+ extern void __might_resched(const char *file, int line, int preempt_offset);
+-extern void __might_sleep(const char *file, int line, int preempt_offset);
++extern void __might_sleep(const char *file, int line);
+ extern void __cant_sleep(const char *file, int line, int preempt_offset);
+ extern void __cant_migrate(const char *file, int line);
+ 
+@@ -129,7 +129,7 @@ extern void __cant_migrate(const char *f
+  * supposed to.
+  */
+ # define might_sleep() \
+-	do { __might_sleep(__FILE__, __LINE__, 0); might_resched(); } while (0)
++	do { __might_sleep(__FILE__, __LINE__); might_resched(); } while (0)
+ /**
+  * cant_sleep - annotation for functions that cannot sleep
+  *
+@@ -170,8 +170,7 @@ extern void __cant_migrate(const char *f
+ #else
+   static inline void __might_resched(const char *file, int line,
+ 				     int preempt_offset) { }
+-  static inline void __might_sleep(const char *file, int line,
+-				   int preempt_offset) { }
++static inline void __might_sleep(const char *file, int line) { }
+ # define might_sleep() do { might_resched(); } while (0)
+ # define cant_sleep() do { } while (0)
+ # define cant_migrate()		do { } while (0)
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -9475,7 +9475,7 @@ static inline int preempt_count_equals(i
+ 	return (nested == preempt_offset);
+ }
+ 
+-void __might_sleep(const char *file, int line, int preempt_offset)
++void __might_sleep(const char *file, int line)
+ {
+ 	unsigned int state = get_current_state();
+ 	/*
+@@ -9489,7 +9489,7 @@ void __might_sleep(const char *file, int
+ 			(void *)current->task_state_change,
+ 			(void *)current->task_state_change);
+ 
+-	__might_resched(file, line, preempt_offset);
++	__might_resched(file, line, 0);
+ }
+ EXPORT_SYMBOL(__might_sleep);
+ 
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -5256,7 +5256,7 @@ void __might_fault(const char *file, int
+ 		return;
+ 	if (pagefault_disabled())
+ 		return;
+-	__might_sleep(file, line, 0);
++	__might_sleep(file, line);
+ #if defined(CONFIG_DEBUG_ATOMIC_SLEEP)
+ 	if (current->mm)
+ 		might_lock_read(&current->mm->mmap_lock);

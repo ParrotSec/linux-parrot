@@ -1,0 +1,45 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 29 Jul 2021 12:52:14 +0200
+Subject: [PATCH] arm64/sve: Delay freeing memory in fpsimd_flush_thread()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.3-rt21.tar.xz
+
+fpsimd_flush_thread() invokes kfree() via sve_free() within a preempt disabled
+section which is not working on -RT.
+
+Delay freeing of memory until preemption is enabled again.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ arch/arm64/kernel/fpsimd.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+--- a/arch/arm64/kernel/fpsimd.c
++++ b/arch/arm64/kernel/fpsimd.c
+@@ -1033,6 +1033,7 @@ void fpsimd_thread_switch(struct task_st
+ void fpsimd_flush_thread(void)
+ {
+ 	int vl, supported_vl;
++	void *sve_state = NULL;
+ 
+ 	if (!system_supports_fpsimd())
+ 		return;
+@@ -1045,7 +1046,10 @@ void fpsimd_flush_thread(void)
+ 
+ 	if (system_supports_sve()) {
+ 		clear_thread_flag(TIF_SVE);
+-		sve_free(current);
++
++		/* Defer kfree() while in atomic context */
++		sve_state = current->thread.sve_state;
++		current->thread.sve_state = NULL;
+ 
+ 		/*
+ 		 * Reset the task vector length as required.
+@@ -1079,6 +1083,7 @@ void fpsimd_flush_thread(void)
+ 	}
+ 
+ 	put_cpu_fpsimd_context();
++	kfree(sve_state);
+ }
+ 
+ /*

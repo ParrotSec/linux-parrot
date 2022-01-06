@@ -13,18 +13,17 @@ corresponding to "on", "off", and "on,intgpu_off".
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
---- a/drivers/iommu/intel/Kconfig
-+++ b/drivers/iommu/intel/Kconfig
-@@ -46,14 +46,28 @@
+Index: linux/drivers/iommu/intel/Kconfig
+===================================================================
+--- linux.orig/drivers/iommu/intel/Kconfig
++++ linux/drivers/iommu/intel/Kconfig
+@@ -54,14 +54,25 @@ config INTEL_IOMMU_SVM
  	  to access DMA resources through process address space by
  	  means of a Process Address Space ID (PASID).
  
 -config INTEL_IOMMU_DEFAULT_ON
--	def_bool y
--	prompt "Enable Intel DMA Remapping Devices by default"
--	depends on INTEL_IOMMU
-+if INTEL_IOMMU
-+
+-	bool "Enable Intel DMA Remapping Devices by default"
+-	default y
 +choice
 +	prompt "Default state of Intel DMA Remapping Devices"
 +	default INTEL_IOMMU_DEFAULT_ON
@@ -44,38 +43,34 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +
 +config INTEL_IOMMU_DEFAULT_OFF
 +	bool "Disable"
-+
-+endchoice
-+
-+endif
  
++endchoice
++ 
  config INTEL_IOMMU_BROKEN_GFX_WA
  	bool "Workaround broken graphics drivers (going away soon)"
---- a/drivers/iommu/intel/iommu.c
-+++ b/drivers/iommu/intel/iommu.c
-@@ -347,11 +347,7 @@
+ 	depends on BROKEN && X86
+Index: linux/drivers/iommu/intel/iommu.c
+===================================================================
+--- linux.orig/drivers/iommu/intel/iommu.c
++++ linux/drivers/iommu/intel/iommu.c
+@@ -331,14 +331,14 @@ static int intel_iommu_attach_device(str
  static phys_addr_t intel_iommu_iova_to_phys(struct iommu_domain *domain,
  					    dma_addr_t iova);
  
--#ifdef CONFIG_INTEL_IOMMU_DEFAULT_ON
--int dmar_disabled = 0;
--#else
--int dmar_disabled = 1;
--#endif /* CONFIG_INTEL_IOMMU_DEFAULT_ON */
+-int dmar_disabled = !IS_ENABLED(CONFIG_INTEL_IOMMU_DEFAULT_ON);
 +int dmar_disabled = IS_ENABLED(CONFIG_INTEL_IOMMU_DEFAULT_OFF);
+ int intel_iommu_sm = IS_ENABLED(CONFIG_INTEL_IOMMU_SCALABLE_MODE_DEFAULT_ON);
  
- #ifdef CONFIG_INTEL_IOMMU_SCALABLE_MODE_DEFAULT_ON
- int intel_iommu_sm = 1;
-@@ -363,7 +359,7 @@
+ int intel_iommu_enabled = 0;
  EXPORT_SYMBOL_GPL(intel_iommu_enabled);
  
  static int dmar_map_gfx = 1;
 -static int dmar_map_intgpu = 1;
 +static int dmar_map_intgpu = IS_ENABLED(CONFIG_INTEL_IOMMU_DEFAULT_ON);
- static int intel_iommu_strict;
  static int intel_iommu_superpage = 1;
  static int iommu_identity_mapping;
-@@ -446,6 +442,7 @@
+ static int iommu_skip_te_disable;
+@@ -420,6 +420,7 @@ static int __init intel_iommu_setup(char
  	while (*str) {
  		if (!strncmp(str, "on", 2)) {
  			dmar_disabled = 0;

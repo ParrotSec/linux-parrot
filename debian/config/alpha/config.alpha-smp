@@ -13,4 +13,3 @@ CONFIG_NR_CPUS=64
 ## file: drivers/scsi/Kconfig
 ##
 CONFIG_SCSI=y
-

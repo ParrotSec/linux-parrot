@@ -64,4 +64,3 @@ CONFIG_HZ_250=y
 ## file: kernel/irq/Kconfig
 ##
 CONFIG_SPARSE_IRQ=y
-

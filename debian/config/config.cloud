@@ -467,11 +467,6 @@ CONFIG_HYPERV_KEYBOARD=m
 # CONFIG_NEW_LEDS is not set
 
 ##
-## file: drivers/lightnvm/Kconfig
-##
-# CONFIG_NVM is not set
-
-##
 ## file: drivers/macintosh/Kconfig
 ##
 # CONFIG_MACINTOSH_DRIVERS is not set
@@ -1702,4 +1697,3 @@ CONFIG_SECURITY_INFINIBAND=y
 ## file: sound/Kconfig
 ##
 # CONFIG_SOUND is not set
-

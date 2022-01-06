@@ -20,20 +20,24 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  drivers/iommu/intel/iommu.c                     | 14 ++++++++++++++
  2 files changed, 16 insertions(+)
 
---- a/Documentation/admin-guide/kernel-parameters.txt
-+++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -1897,6 +1897,8 @@
+Index: linux/Documentation/admin-guide/kernel-parameters.txt
+===================================================================
+--- linux.orig/Documentation/admin-guide/kernel-parameters.txt
++++ linux/Documentation/admin-guide/kernel-parameters.txt
+@@ -1959,6 +1959,8 @@
  			bypassed by not enabling DMAR with this option. In
  			this case, gfx device will use physical address for
  			DMA.
 +		intgpu_off [Default Off]
 +			Bypass the DMAR unit for an integrated GPU only.
  		strict [Default Off]
- 			With this option on every unmap_single operation will
- 			result in a hardware IOTLB flush operation as opposed
---- a/drivers/iommu/intel/iommu.c
-+++ b/drivers/iommu/intel/iommu.c
-@@ -53,6 +53,9 @@
+ 			Deprecated, equivalent to iommu.strict=1.
+ 		sp_off [Default Off]
+Index: linux/drivers/iommu/intel/iommu.c
+===================================================================
+--- linux.orig/drivers/iommu/intel/iommu.c
++++ linux/drivers/iommu/intel/iommu.c
+@@ -55,6 +55,9 @@
  #define CONTEXT_SIZE		VTD_PAGE_SIZE
  
  #define IS_GFX_DEVICE(pdev) ((pdev->class >> 16) == PCI_BASE_CLASS_DISPLAY)
@@ -43,15 +47,14 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  #define IS_USB_DEVICE(pdev) ((pdev->class >> 8) == PCI_CLASS_SERIAL_USB)
  #define IS_ISA_DEVICE(pdev) ((pdev->class >> 8) == PCI_CLASS_BRIDGE_ISA)
  #define IS_AZALIA(pdev) ((pdev)->vendor == 0x8086 && (pdev)->device == 0x3a3e)
-@@ -360,6 +363,7 @@
+@@ -335,12 +338,14 @@ int intel_iommu_enabled = 0;
  EXPORT_SYMBOL_GPL(intel_iommu_enabled);
  
  static int dmar_map_gfx = 1;
 +static int dmar_map_intgpu = 1;
- static int intel_iommu_strict;
  static int intel_iommu_superpage = 1;
  static int iommu_identity_mapping;
-@@ -367,6 +371,7 @@
+ static int iommu_skip_te_disable;
  
  #define IDENTMAP_GFX		2
  #define IDENTMAP_AZALIA		4
@@ -59,7 +62,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  int intel_iommu_gfx_mapped;
  EXPORT_SYMBOL_GPL(intel_iommu_gfx_mapped);
-@@ -449,6 +454,9 @@
+@@ -423,6 +428,9 @@ static int __init intel_iommu_setup(char
  		} else if (!strncmp(str, "igfx_off", 8)) {
  			dmar_map_gfx = 0;
  			pr_info("Disable GFX device mapping\n");
@@ -69,7 +72,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  		} else if (!strncmp(str, "forcedac", 8)) {
  			pr_warn("intel_iommu=forcedac deprecated; use iommu.forcedac instead\n");
  			iommu_dma_forcedac = true;
-@@ -2897,6 +2905,9 @@
+@@ -2877,6 +2885,9 @@ static int device_def_domain_type(struct
  
  		if ((iommu_identity_mapping & IDENTMAP_GFX) && IS_GFX_DEVICE(pdev))
  			return IOMMU_DOMAIN_IDENTITY;
@@ -79,7 +82,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	}
  
  	return 0;
-@@ -3334,6 +3345,9 @@
+@@ -3313,6 +3324,9 @@ static int __init init_dmars(void)
  	if (!dmar_map_gfx)
  		iommu_identity_mapping |= IDENTMAP_GFX;
  

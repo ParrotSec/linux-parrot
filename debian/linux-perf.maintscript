@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-perf linux-perf-5.14 5.7~rc5-1~exp1 linux-perf
+dir_to_symlink /usr/share/doc/linux-perf linux-perf-5.15 5.7~rc5-1~exp1 linux-perf

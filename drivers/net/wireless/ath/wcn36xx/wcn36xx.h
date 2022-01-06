@@ -128,7 +128,6 @@ struct wcn36xx_vif {
 	enum wcn36xx_hal_bss_type bss_type;
 
 	/* Power management */
-	bool allow_bmps;
 	enum wcn36xx_power_state pw_state;
 
 	u8 bss_index;
@@ -199,6 +198,7 @@ struct wcn36xx {
 	struct device		*dev;
 	struct list_head	vif_list;
 
+	const char		*nv_file;
 	const struct firmware	*nv;
 
 	u8			fw_revision;

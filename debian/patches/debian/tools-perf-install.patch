@@ -8,9 +8,11 @@ Forwarded: no
  tools/perf/Makefile.perf | 20 ++++++++++----------
  1 file changed, 10 insertions(+), 10 deletions(-)
 
---- a/tools/perf/Makefile.perf
-+++ b/tools/perf/Makefile.perf
-@@ -952,8 +952,8 @@ endif
+Index: linux/tools/perf/Makefile.perf
+===================================================================
+--- linux.orig/tools/perf/Makefile.perf
++++ linux/tools/perf/Makefile.perf
+@@ -975,8 +975,8 @@ endif
  ifndef NO_LIBPERL
  	$(call QUIET_INSTALL, perl-scripts) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/Perf-Trace-Util/lib/Perf/Trace'; \
@@ -21,8 +23,8 @@ Forwarded: no
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/bin'; \
  		$(INSTALL) scripts/perl/bin/* -t '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/bin'
  endif
-@@ -967,22 +967,22 @@ ifndef NO_LIBPYTHON
- endif
+@@ -993,22 +993,22 @@ endif
+ 		$(INSTALL) $(DLFILTERS) '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/dlfilters';
  	$(call QUIET_INSTALL, perf_completion-script) \
  		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(sysconfdir_SQ)/bash_completion.d'; \
 -		$(INSTALL) perf-completion.sh '$(DESTDIR_SQ)$(sysconfdir_SQ)/bash_completion.d/perf_$(VERSION)'

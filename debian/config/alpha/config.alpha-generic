@@ -7,4 +7,3 @@
 ## file: arch/alpha/Kconfig.debug
 ##
 # CONFIG_ALPHA_LEGACY_START_ADDRESS is not set
-

@@ -7,6 +7,7 @@ CONFIG_SECCOMP=y
 ## file: arch/riscv/Kconfig
 ##
 CONFIG_SMP=y
+CONFIG_NUMA=y
 CONFIG_KEXEC=y
 
 ##
@@ -32,6 +33,11 @@ CONFIG_GPIO_SIFIVE=y
 ##
 CONFIG_DRM=m
 CONFIG_DRM_RADEON=m
+
+##
+## file: drivers/hwmon/Kconfig
+##
+CONFIG_SENSORS_LM90=m
 
 ##
 ## file: drivers/mmc/Kconfig
@@ -122,4 +128,3 @@ CONFIG_USB_EHCI_HCD=m
 CONFIG_USB_EHCI_HCD_PLATFORM=m
 CONFIG_USB_OHCI_HCD=m
 CONFIG_USB_OHCI_HCD_PLATFORM=m
-
