@@ -1,0 +1,63 @@
+From 13dc6ed14c5943c52597b6b75794ca0cfcd7393d Mon Sep 17 00:00:00 2001
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 28 Oct 2021 16:33:27 +0200
+Subject: [PATCH 030/158] mm: Disable NUMA_BALANCING_DEFAULT_ENABLED and
+ TRANSPARENT_HUGEPAGE on PREEMPT_RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+TRANSPARENT_HUGEPAGE:
+There are potential non-deterministic delays to an RT thread if a critical
+memory region is not THP-aligned and a non-RT buffer is located in the same
+hugepage-aligned region. It's also possible for an unrelated thread to migrate
+pages belonging to an RT task incurring unexpected page faults due to memory
+defragmentation even if khugepaged is disabled.
+
+Regular HUGEPAGEs are not affected by this can be used.
+
+NUMA_BALANCING:
+There is a non-deterministic delay to mark PTEs PROT_NONE to gather NUMA fault
+samples, increased page faults of regions even if mlocked and non-deterministic
+delays when migrating pages.
+
+[Mel Gorman worded 99% of the commit description].
+
+Link: https://lore.kernel.org/all/20200304091159.GN3818@techsingularity.net/
+Link: https://lore.kernel.org/all/20211026165100.ahz5bkx44lrrw5pt@linutronix.de/
+Cc: Mel Gorman <mgorman@techsingularity.net>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Acked-by: Mel Gorman <mgorman@techsingularity.net>
+Link: https://lore.kernel.org/r/20211028143327.hfbxjze7palrpfgp@linutronix.de
+---
+ init/Kconfig | 2 +-
+ mm/Kconfig   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/init/Kconfig b/init/Kconfig
+index 906527d01bff..45bcaa8e7481 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -901,7 +901,7 @@ config NUMA_BALANCING
+ 	bool "Memory placement aware NUMA scheduler"
+ 	depends on ARCH_SUPPORTS_NUMA_BALANCING
+ 	depends on !ARCH_WANT_NUMA_VARIABLE_LOCALITY
+-	depends on SMP && NUMA && MIGRATION
++	depends on SMP && NUMA && MIGRATION && !PREEMPT_RT
+ 	help
+ 	  This option adds support for automatic NUMA aware memory/task placement.
+ 	  The mechanism is quite primitive and is based on migrating memory when
+diff --git a/mm/Kconfig b/mm/Kconfig
+index 4ecfacc50193..71c7457bb974 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -371,7 +371,7 @@ config NOMMU_INITIAL_TRIM_EXCESS
+ 
+ config TRANSPARENT_HUGEPAGE
+ 	bool "Transparent Hugepage Support"
+-	depends on HAVE_ARCH_TRANSPARENT_HUGEPAGE
++	depends on HAVE_ARCH_TRANSPARENT_HUGEPAGE && !PREEMPT_RT
+ 	select COMPACTION
+ 	select XARRAY_MULTI
+ 	help
+-- 
+2.33.1
+

@@ -1,0 +1,83 @@
+From 734e4824bf88bfba0dc17f69f837f5c11f644ce7 Mon Sep 17 00:00:00 2001
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 10 Mar 2021 15:09:02 +0100
+Subject: [PATCH 104/158] rcu: Delay RCU-selftests
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+Delay RCU-selftests until ksoftirqd is up and running.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ include/linux/rcupdate.h | 7 +++++++
+ init/main.c              | 1 +
+ kernel/rcu/tasks.h       | 9 ++-------
+ 3 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+index 434d12fe2d4f..de6d1a21f113 100644
+--- a/include/linux/rcupdate.h
++++ b/include/linux/rcupdate.h
+@@ -94,6 +94,13 @@ void rcu_init_tasks_generic(void);
+ static inline void rcu_init_tasks_generic(void) { }
+ #endif
+ 
++#if defined(CONFIG_PROVE_RCU) && defined(CONFIG_TASKS_RCU_GENERIC)
++void rcu_tasks_initiate_self_tests(void);
++#else
++static inline void rcu_tasks_initiate_self_tests(void) {}
++#endif
++
++
+ #ifdef CONFIG_RCU_STALL_COMMON
+ void rcu_sysrq_start(void);
+ void rcu_sysrq_end(void);
+diff --git a/init/main.c b/init/main.c
+index bcd132d4e7bd..af4c7f963955 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -1604,6 +1604,7 @@ static noinline void __init kernel_init_freeable(void)
+ 
+ 	rcu_init_tasks_generic();
+ 	do_pre_smp_initcalls();
++	rcu_tasks_initiate_self_tests();
+ 	lockup_detector_init();
+ 
+ 	smp_init();
+diff --git a/kernel/rcu/tasks.h b/kernel/rcu/tasks.h
+index 6591914af486..a404897d826f 100644
+--- a/kernel/rcu/tasks.h
++++ b/kernel/rcu/tasks.h
+@@ -1347,7 +1347,7 @@ static void test_rcu_tasks_callback(struct rcu_head *rhp)
+ 	rttd->notrun = true;
+ }
+ 
+-static void rcu_tasks_initiate_self_tests(void)
++void rcu_tasks_initiate_self_tests(void)
+ {
+ 	pr_info("Running RCU-tasks wait API self tests\n");
+ #ifdef CONFIG_TASKS_RCU
+@@ -1384,9 +1384,7 @@ static int rcu_tasks_verify_self_tests(void)
+ 	return ret;
+ }
+ late_initcall(rcu_tasks_verify_self_tests);
+-#else /* #ifdef CONFIG_PROVE_RCU */
+-static void rcu_tasks_initiate_self_tests(void) { }
+-#endif /* #else #ifdef CONFIG_PROVE_RCU */
++#endif /* #ifdef CONFIG_PROVE_RCU */
+ 
+ void __init rcu_init_tasks_generic(void)
+ {
+@@ -1401,9 +1399,6 @@ void __init rcu_init_tasks_generic(void)
+ #ifdef CONFIG_TASKS_TRACE_RCU
+ 	rcu_spawn_tasks_trace_kthread();
+ #endif
+-
+-	// Run the self-tests.
+-	rcu_tasks_initiate_self_tests();
+ }
+ 
+ #else /* #ifdef CONFIG_TASKS_RCU_GENERIC */
+-- 
+2.33.1
+

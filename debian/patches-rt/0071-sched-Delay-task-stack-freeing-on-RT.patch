@@ -1,0 +1,76 @@
+From 05b9b496262295dc9f12a548a9cc4bcf8e885a97 Mon Sep 17 00:00:00 2001
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 28 Sep 2021 14:24:30 +0200
+Subject: [PATCH 071/158] sched: Delay task stack freeing on RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+Anything which is done on behalf of a dead task at the end of
+finish_task_switch() is preventing the incoming task from doing useful
+work. While it is benefitial for fork heavy workloads to recycle the task
+stack quickly, this is a latency source for real-time tasks.
+
+Therefore delay the stack cleanup on RT enabled kernels.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Link: https://lore.kernel.org/r/20210928122411.593486363@linutronix.de
+---
+ kernel/exit.c       | 5 +++++
+ kernel/fork.c       | 5 ++++-
+ kernel/sched/core.c | 8 ++++++--
+ 3 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/kernel/exit.c b/kernel/exit.c
+index 63851320ae73..1d099609568d 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -172,6 +172,11 @@ static void delayed_put_task_struct(struct rcu_head *rhp)
+ 	kprobe_flush_task(tsk);
+ 	perf_event_delayed_put(tsk);
+ 	trace_sched_process_free(tsk);
++
++	/* RT enabled kernels delay freeing the VMAP'ed task stack */
++	if (IS_ENABLED(CONFIG_PREEMPT_RT))
++		put_task_stack(tsk);
++
+ 	put_task_struct(tsk);
+ }
+ 
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 10885c649ca4..b46896abbbf5 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -289,7 +289,10 @@ static inline void free_thread_stack(struct task_struct *tsk)
+ 			return;
+ 		}
+ 
+-		vfree_atomic(tsk->stack);
++		if (!IS_ENABLED(CONFIG_PREEMPT_RT))
++			vfree_atomic(tsk->stack);
++		else
++			vfree(tsk->stack);
+ 		return;
+ 	}
+ #endif
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 2ff76391063e..8b626d40adc7 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -4849,8 +4849,12 @@ static struct rq *finish_task_switch(struct task_struct *prev)
+ 		if (prev->sched_class->task_dead)
+ 			prev->sched_class->task_dead(prev);
+ 
+-		/* Task is done with its stack. */
+-		put_task_stack(prev);
++		/*
++		 * Release VMAP'ed task stack immediate for reuse. On RT
++		 * enabled kernels this is delayed for latency reasons.
++		 */
++		if (!IS_ENABLED(CONFIG_PREEMPT_RT))
++			put_task_stack(prev);
+ 
+ 		put_task_struct_rcu_user(prev);
+ 	}
+-- 
+2.33.1
+

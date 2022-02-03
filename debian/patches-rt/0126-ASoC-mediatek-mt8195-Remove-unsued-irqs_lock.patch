@@ -1,0 +1,36 @@
+From ced943bef5fbc383f71f226aac3132dd597b2990 Mon Sep 17 00:00:00 2001
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 9 Sep 2021 10:15:30 +0200
+Subject: [PATCH 126/158] ASoC: mediatek: mt8195: Remove unsued irqs_lock.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+irqs_lock is not used, never was.
+
+Remove irqs_lock.
+
+Fixes: 283b612429a27 ("ASoC: mediatek: implement mediatek common structure")
+Cc: Liam Girdwood <lgirdwood@gmail.com>
+Cc: Mark Brown <broonie@kernel.org>
+Cc: Jaroslav Kysela <perex@perex.cz>
+Cc: Takashi Iwai <tiwai@suse.com>
+Cc: Matthias Brugger <matthias.bgg@gmail.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ sound/soc/mediatek/common/mtk-afe-fe-dai.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/sound/soc/mediatek/common/mtk-afe-fe-dai.c b/sound/soc/mediatek/common/mtk-afe-fe-dai.c
+index e95c7c018e7d..4f2c2379531b 100644
+--- a/sound/soc/mediatek/common/mtk-afe-fe-dai.c
++++ b/sound/soc/mediatek/common/mtk-afe-fe-dai.c
+@@ -288,7 +288,6 @@ const struct snd_soc_dai_ops mtk_afe_fe_ops = {
+ };
+ EXPORT_SYMBOL_GPL(mtk_afe_fe_ops);
+ 
+-static DEFINE_MUTEX(irqs_lock);
+ int mtk_dynamic_irq_acquire(struct mtk_base_afe *afe)
+ {
+ 	int i;
+-- 
+2.33.1
+

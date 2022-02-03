@@ -36,8 +36,8 @@ Build-Depends-Arch:
 # used by upstream headers_install target and by debian/rules.d/tools/usb/usbip
  rsync,
  lz4 [amd64 arm64] <!stage1 !pkg.linux.nokernel>,
-# used for bft debug info (not multi-arch capable)
- dwarves:native (>= 1.16~) <!stage1 !pkg.linux.nokernel>,
+# used for bft debug info
+ pahole <!stage1 !pkg.linux.nokernel> | dwarves:native (>= 1.16~) <!stage1 !pkg.linux.nokernel>,
 Rules-Requires-Root: no
 Vcs-Git: https://nest.parrotsec.org/packages/kernel/linux
 Vcs-Browser: https://nest.parrotsec.org/packages/kernel/linux

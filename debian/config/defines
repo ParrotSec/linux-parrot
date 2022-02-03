@@ -1,5 +1,5 @@
 [abi]
-abiname: 5parrot1
+abiname: 3parrot1
 ignore-changes:
  __cpuhp_*
  __udp_gso_segment
@@ -142,7 +142,7 @@ arches:
  sparc
  sparc64
  x32
-compiler: gcc-10
+compiler: gcc-11
 featuresets:
  none
  rt
@@ -167,7 +167,7 @@ recommends: apparmor
 
 [relations]
 # compilers
-gcc-10: gcc-10 <!stage1 !cross !pkg.linux.nokernel>, gcc-10-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
+gcc-11: gcc-11 <!stage1 !cross !pkg.linux.nokernel>, gcc-11-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
 
 # initramfs-generators
 initramfs-fallback: linux-initramfs-tool

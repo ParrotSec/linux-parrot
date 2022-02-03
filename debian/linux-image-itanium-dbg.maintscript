@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-itanium-dbg linux-image-5.15.0-5parrot1-itanium-dbg 5.7~rc5-1~exp1 linux-image-itanium-dbg
+dir_to_symlink /usr/share/doc/linux-image-itanium-dbg linux-image-5.15.0-3parrot1-itanium-dbg 5.7~rc5-1~exp1 linux-image-itanium-dbg

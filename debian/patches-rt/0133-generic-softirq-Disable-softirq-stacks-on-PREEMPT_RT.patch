@@ -1,0 +1,36 @@
+From 96e70dea77b4bc1045c512270b3a73a0c8c5b9b9 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 24 Sep 2021 17:05:48 +0200
+Subject: [PATCH 133/158] generic/softirq: Disable softirq stacks on PREEMPT_RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+PREEMPT_RT preempts softirqs and the current implementation avoids
+do_softirq_own_stack() and only uses __do_softirq().
+
+Disable the unused softirqs stacks on PREEMPT_RT to safe some memory and
+ensure that do_softirq_own_stack() is not used which is not expected.
+
+[bigeasy: commit description.]
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/asm-generic/softirq_stack.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/asm-generic/softirq_stack.h b/include/asm-generic/softirq_stack.h
+index eceeecf6a5bd..d3e2d81656e0 100644
+--- a/include/asm-generic/softirq_stack.h
++++ b/include/asm-generic/softirq_stack.h
+@@ -2,7 +2,7 @@
+ #ifndef __ASM_GENERIC_SOFTIRQ_STACK_H
+ #define __ASM_GENERIC_SOFTIRQ_STACK_H
+ 
+-#ifdef CONFIG_HAVE_SOFTIRQ_ON_OWN_STACK
++#if defined(CONFIG_HAVE_SOFTIRQ_ON_OWN_STACK) && !defined(CONFIG_PREEMPT_RT)
+ void do_softirq_own_stack(void);
+ #else
+ static inline void do_softirq_own_stack(void)
+-- 
+2.33.1
+

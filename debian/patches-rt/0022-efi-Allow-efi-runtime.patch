@@ -1,0 +1,36 @@
+From a55188b19dc9fd40ef86147112702b64b8992745 Mon Sep 17 00:00:00 2001
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 26 Jul 2018 15:06:10 +0200
+Subject: [PATCH 022/158] efi: Allow efi=runtime
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+In case the command line option "efi=noruntime" is default at built-time, the user
+could overwrite its state by `efi=runtime' and allow it again.
+
+This is useful on PREEMPT_RT where "efi=noruntime" is default and the
+user might need to alter the boot order for instance.
+
+Acked-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lkml.kernel.org/r/20210924134919.1913476-3-bigeasy@linutronix.de
+---
+ drivers/firmware/efi/efi.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
+index 39031cfcb6b9..ae79c3300129 100644
+--- a/drivers/firmware/efi/efi.c
++++ b/drivers/firmware/efi/efi.c
+@@ -97,6 +97,9 @@ static int __init parse_efi_cmdline(char *str)
+ 	if (parse_option_str(str, "noruntime"))
+ 		disable_runtime = true;
+ 
++	if (parse_option_str(str, "runtime"))
++		disable_runtime = false;
++
+ 	if (parse_option_str(str, "nosoftreserve"))
+ 		set_bit(EFI_MEM_NO_SOFT_RESERVE, &efi.flags);
+ 
+-- 
+2.33.1
+

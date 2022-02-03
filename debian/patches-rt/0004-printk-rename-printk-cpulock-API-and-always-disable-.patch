@@ -1,0 +1,126 @@
+From 7cdde6d0945e28e31949885b7a13b9fc474c93d1 Mon Sep 17 00:00:00 2001
+From: John Ogness <john.ogness@linutronix.de>
+Date: Thu, 15 Jul 2021 09:34:45 +0206
+Subject: [PATCH 004/158] printk: rename printk cpulock API and always disable
+ interrupts
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+The printk cpulock functions use local_irq_disable(). This means that
+hardware interrupts are also disabled on PREEMPT_RT. To make this
+clear, rename the functions to use the raw_ prefix:
+
+raw_printk_cpu_lock_irqsave(flags);
+raw_printk_cpu_unlock_irqrestore(flags);
+
+Also, these functions were a NOP for !CONFIG_SMP. But for !CONFIG_SMP
+they still need to disable hardware interrupts. So modify them
+appropriately for this.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ include/linux/printk.h | 30 ++++++++++++++----------------
+ lib/dump_stack.c       |  4 ++--
+ lib/nmi_backtrace.c    |  4 ++--
+ 3 files changed, 18 insertions(+), 20 deletions(-)
+
+diff --git a/include/linux/printk.h b/include/linux/printk.h
+index 9497f6b98339..86140f3e7317 100644
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -284,17 +284,22 @@ static inline void printk_trigger_flush(void)
+ extern int __printk_cpu_trylock(void);
+ extern void __printk_wait_on_cpu_lock(void);
+ extern void __printk_cpu_unlock(void);
++#else
++#define __printk_cpu_trylock()		1
++#define __printk_wait_on_cpu_lock()
++#define __printk_cpu_unlock()
++#endif /* CONFIG_SMP */
+ 
+ /**
+- * printk_cpu_lock_irqsave() - Acquire the printk cpu-reentrant spinning
+- *                             lock and disable interrupts.
++ * raw_printk_cpu_lock_irqsave() - Acquire the printk cpu-reentrant spinning
++ *                                 lock and disable interrupts.
+  * @flags: Stack-allocated storage for saving local interrupt state,
+- *         to be passed to printk_cpu_unlock_irqrestore().
++ *         to be passed to raw_printk_cpu_unlock_irqrestore().
+  *
+  * If the lock is owned by another CPU, spin until it becomes available.
+  * Interrupts are restored while spinning.
+  */
+-#define printk_cpu_lock_irqsave(flags)		\
++#define raw_printk_cpu_lock_irqsave(flags)	\
+ 	for (;;) {				\
+ 		local_irq_save(flags);		\
+ 		if (__printk_cpu_trylock())	\
+@@ -304,22 +309,15 @@ extern void __printk_cpu_unlock(void);
+ 	}
+ 
+ /**
+- * printk_cpu_unlock_irqrestore() - Release the printk cpu-reentrant spinning
+- *                                  lock and restore interrupts.
+- * @flags: Caller's saved interrupt state, from printk_cpu_lock_irqsave().
++ * raw_printk_cpu_unlock_irqrestore() - Release the printk cpu-reentrant
++ *                                      spinning lock and restore interrupts.
++ * @flags: Caller's saved interrupt state from raw_printk_cpu_lock_irqsave().
+  */
+-#define printk_cpu_unlock_irqrestore(flags)	\
++#define raw_printk_cpu_unlock_irqrestore(flags)	\
+ 	do {					\
+ 		__printk_cpu_unlock();		\
+ 		local_irq_restore(flags);	\
+-	} while (0)				\
+-
+-#else
+-
+-#define printk_cpu_lock_irqsave(flags) ((void)flags)
+-#define printk_cpu_unlock_irqrestore(flags) ((void)flags)
+-
+-#endif /* CONFIG_SMP */
++	} while (0)
+ 
+ extern int kptr_restrict;
+ 
+diff --git a/lib/dump_stack.c b/lib/dump_stack.c
+index 6b7f1bf6715d..6e8ae42c7e27 100644
+--- a/lib/dump_stack.c
++++ b/lib/dump_stack.c
+@@ -102,9 +102,9 @@ asmlinkage __visible void dump_stack_lvl(const char *log_lvl)
+ 	 * Permit this cpu to perform nested stack dumps while serialising
+ 	 * against other CPUs
+ 	 */
+-	printk_cpu_lock_irqsave(flags);
++	raw_printk_cpu_lock_irqsave(flags);
+ 	__dump_stack(log_lvl);
+-	printk_cpu_unlock_irqrestore(flags);
++	raw_printk_cpu_unlock_irqrestore(flags);
+ }
+ EXPORT_SYMBOL(dump_stack_lvl);
+ 
+diff --git a/lib/nmi_backtrace.c b/lib/nmi_backtrace.c
+index 199ab201d501..06410209197a 100644
+--- a/lib/nmi_backtrace.c
++++ b/lib/nmi_backtrace.c
+@@ -99,7 +99,7 @@ bool nmi_cpu_backtrace(struct pt_regs *regs)
+ 		 * Allow nested NMI backtraces while serializing
+ 		 * against other CPUs.
+ 		 */
+-		printk_cpu_lock_irqsave(flags);
++		raw_printk_cpu_lock_irqsave(flags);
+ 		if (!READ_ONCE(backtrace_idle) && regs && cpu_in_idle(instruction_pointer(regs))) {
+ 			pr_warn("NMI backtrace for cpu %d skipped: idling at %pS\n",
+ 				cpu, (void *)instruction_pointer(regs));
+@@ -110,7 +110,7 @@ bool nmi_cpu_backtrace(struct pt_regs *regs)
+ 			else
+ 				dump_stack();
+ 		}
+-		printk_cpu_unlock_irqrestore(flags);
++		raw_printk_cpu_unlock_irqrestore(flags);
+ 		cpumask_clear_cpu(cpu, to_cpumask(backtrace_mask));
+ 		return true;
+ 	}
+-- 
+2.33.1
+

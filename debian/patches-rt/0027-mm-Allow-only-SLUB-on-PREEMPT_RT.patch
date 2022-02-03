@@ -1,0 +1,59 @@
+From 1f8c776c3f0ee3156496b66864b5f7b11bbb96de Mon Sep 17 00:00:00 2001
+From: Ingo Molnar <mingo@kernel.org>
+Date: Fri, 3 Jul 2009 08:44:03 -0500
+Subject: [PATCH 027/158] mm: Allow only SLUB on PREEMPT_RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+Memory allocators may disable interrupts or preemption as part of the
+allocation and freeing process. For PREEMPT_RT it is important that
+these sections remain deterministic and short and therefore don't depend
+on the size of the memory to allocate/ free or the inner state of the
+algorithm.
+
+Until v3.12-RT the SLAB allocator was an option but involved several
+changes to meet all the requirements. The SLUB design fits better with
+PREEMPT_RT model and so the SLAB patches were dropped in the 3.12-RT
+patchset. Comparing the two allocator, SLUB outperformed SLAB in both
+throughput (time needed to allocate and free memory) and the maximal
+latency of the system measured with cyclictest during hackbench.
+
+SLOB was never evaluated since it was unlikely that it preforms better
+than SLAB. During a quick test, the kernel crashed with SLOB enabled
+during boot.
+
+Disable SLAB and SLOB on PREEMPT_RT.
+
+[bigeasy: commit description.]
+
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Acked-by: Vlastimil Babka <vbabka@suse.cz>
+Link: https://lore.kernel.org/r/20211015210336.gen3tib33ig5q2md@linutronix.de
+---
+ init/Kconfig | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/init/Kconfig b/init/Kconfig
+index 11f8a845f259..906527d01bff 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1896,6 +1896,7 @@ choice
+ 
+ config SLAB
+ 	bool "SLAB"
++	depends on !PREEMPT_RT
+ 	select HAVE_HARDENED_USERCOPY_ALLOCATOR
+ 	help
+ 	  The regular slab allocator that is established and known to work
+@@ -1916,6 +1917,7 @@ config SLUB
+ config SLOB
+ 	depends on EXPERT
+ 	bool "SLOB (Simple Allocator)"
++	depends on !PREEMPT_RT
+ 	help
+ 	   SLOB replaces the stock allocator with a drastically simpler
+ 	   allocator. SLOB is generally more space efficient but
+-- 
+2.33.1
+

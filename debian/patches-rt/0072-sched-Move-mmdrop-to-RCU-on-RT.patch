@@ -1,0 +1,117 @@
+From c75da95e84997f87d1a767be282be60b9ae74a67 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Tue, 28 Sep 2021 14:24:32 +0200
+Subject: [PATCH 072/158] sched: Move mmdrop to RCU on RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+mmdrop() is invoked from finish_task_switch() by the incoming task to drop
+the mm which was handed over by the previous task. mmdrop() can be quite
+expensive which prevents an incoming real-time task from getting useful
+work done.
+
+Provide mmdrop_sched() which maps to mmdrop() on !RT kernels. On RT kernels
+it delagates the eventually required invocation of __mmdrop() to RCU.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20210928122411.648582026@linutronix.de
+---
+ include/linux/mm_types.h |  4 ++++
+ include/linux/sched/mm.h | 20 ++++++++++++++++++++
+ kernel/fork.c            | 13 +++++++++++++
+ kernel/sched/core.c      |  2 +-
+ 4 files changed, 38 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+index 7f8ee09c711f..e9672de22cf2 100644
+--- a/include/linux/mm_types.h
++++ b/include/linux/mm_types.h
+@@ -12,6 +12,7 @@
+ #include <linux/completion.h>
+ #include <linux/cpumask.h>
+ #include <linux/uprobes.h>
++#include <linux/rcupdate.h>
+ #include <linux/page-flags-layout.h>
+ #include <linux/workqueue.h>
+ #include <linux/seqlock.h>
+@@ -572,6 +573,9 @@ struct mm_struct {
+ 		bool tlb_flush_batched;
+ #endif
+ 		struct uprobes_state uprobes_state;
++#ifdef CONFIG_PREEMPT_RT
++		struct rcu_head delayed_drop;
++#endif
+ #ifdef CONFIG_HUGETLB_PAGE
+ 		atomic_long_t hugetlb_usage;
+ #endif
+diff --git a/include/linux/sched/mm.h b/include/linux/sched/mm.h
+index 5561486fddef..8358352428d4 100644
+--- a/include/linux/sched/mm.h
++++ b/include/linux/sched/mm.h
+@@ -49,6 +49,26 @@ static inline void mmdrop(struct mm_struct *mm)
+ 		__mmdrop(mm);
+ }
+ 
++#ifdef CONFIG_PREEMPT_RT
++extern void __mmdrop_delayed(struct rcu_head *rhp);
++
++/*
++ * Invoked from finish_task_switch(). Delegates the heavy lifting on RT
++ * kernels via RCU.
++ */
++static inline void mmdrop_sched(struct mm_struct *mm)
++{
++	/* Provides a full memory barrier. See mmdrop() */
++	if (atomic_dec_and_test(&mm->mm_count))
++		call_rcu(&mm->delayed_drop, __mmdrop_delayed);
++}
++#else
++static inline void mmdrop_sched(struct mm_struct *mm)
++{
++	mmdrop(mm);
++}
++#endif
++
+ /**
+  * mmget() - Pin the address space associated with a &struct mm_struct.
+  * @mm: The address space to pin.
+diff --git a/kernel/fork.c b/kernel/fork.c
+index b46896abbbf5..0aef8ad1028c 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -708,6 +708,19 @@ void __mmdrop(struct mm_struct *mm)
+ }
+ EXPORT_SYMBOL_GPL(__mmdrop);
+ 
++#ifdef CONFIG_PREEMPT_RT
++/*
++ * RCU callback for delayed mm drop. Not strictly RCU, but call_rcu() is
++ * by far the least expensive way to do that.
++ */
++void __mmdrop_delayed(struct rcu_head *rhp)
++{
++	struct mm_struct *mm = container_of(rhp, struct mm_struct, delayed_drop);
++
++	__mmdrop(mm);
++}
++#endif
++
+ static void mmdrop_async_fn(struct work_struct *work)
+ {
+ 	struct mm_struct *mm;
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 8b626d40adc7..a203f2605d6d 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -4843,7 +4843,7 @@ static struct rq *finish_task_switch(struct task_struct *prev)
+ 	 */
+ 	if (mm) {
+ 		membarrier_mm_sync_core_before_usermode(mm);
+-		mmdrop(mm);
++		mmdrop_sched(mm);
+ 	}
+ 	if (unlikely(prev_state == TASK_DEAD)) {
+ 		if (prev->sched_class->task_dead)
+-- 
+2.33.1
+

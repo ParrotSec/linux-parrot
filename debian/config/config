@@ -1554,6 +1554,11 @@ CONFIG_INFINIBAND_CXGB4=m
 CONFIG_INFINIBAND_HFI1=m
 
 ##
+## file: drivers/infiniband/hw/irdma/Kconfig
+##
+CONFIG_INFINIBAND_IRDMA=m
+
+##
 ## file: drivers/infiniband/hw/mlx4/Kconfig
 ##
 CONFIG_MLX4_INFINIBAND=m
@@ -3182,7 +3187,7 @@ CONFIG_CAN_SOFTING_CS=m
 ## file: drivers/net/can/spi/Kconfig
 ##
 # CONFIG_CAN_HI311X is not set
-# CONFIG_CAN_MCP251X is not set
+CONFIG_CAN_MCP251X=m
 
 ##
 ## file: drivers/net/can/usb/Kconfig
@@ -6456,8 +6461,8 @@ CONFIG_MODULE_SIG_SHA256=y
 ##
 ## choice: Timer frequency
 # CONFIG_HZ_100 is not set
-# CONFIG_HZ_250 is not set
 CONFIG_HZ_300=y
+# CONFIG_HZ_250 is not set
 # CONFIG_HZ_1000 is not set
 ## end choice
 

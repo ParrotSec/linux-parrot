@@ -1,0 +1,22 @@
+From 1afb02b9853b01cae5b14bbea69094f46eea2c76 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 8 Jul 2011 20:25:16 +0200
+Subject: [PATCH 157/158] Add localversion for -RT release
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.15/older/patches-5.15.10-rt24.tar.xz
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ localversion-rt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 localversion-rt
+
+diff --git a/localversion-rt b/localversion-rt
+new file mode 100644
+index 000000000000..c29508d21914
+--- /dev/null
++++ b/localversion-rt
+@@ -0,0 +1 @@
++-rt22
+-- 
+2.33.1
+

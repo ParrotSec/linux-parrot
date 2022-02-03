@@ -670,7 +670,6 @@ CONFIG_BCM2835_MBOX=y
 ##
 ## file: drivers/media/Kconfig
 ##
-CONFIG_MEDIA_SUPPORT=y
 CONFIG_MEDIA_CONTROLLER=y
 
 ##

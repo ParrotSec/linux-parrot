@@ -23,8 +23,7 @@ MAKE_PERF += feature-libbfd=0 feature-libbfd-liberty=0 feature-libbfd-liberty-z=
 MAKE_PERF += NO_LIBCRYPTO=1
 
 # perf only links against libopencsd (coresight) if specifically enabled
-# version in bullseye is too old
-#MAKE_PERF += CORESIGHT=1
+MAKE_PERF += CORESIGHT=1
 
 # Currently babeltrace support for `perf data' is not automatically detected.
 MAKE_PERF += LIBBABELTRACE=1

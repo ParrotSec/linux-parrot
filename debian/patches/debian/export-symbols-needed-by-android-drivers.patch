@@ -32,7 +32,7 @@ Export the currently un-exported symbols they depend on.
  /**
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -6931,6 +6931,7 @@ int can_nice(const struct task_struct *p
+@@ -6935,6 +6935,7 @@ int can_nice(const struct task_struct *p
  	return (nice_rlim <= task_rlimit(p, RLIMIT_NICE) ||
  		capable(CAP_SYS_NICE));
  }
@@ -40,6 +40,16 @@ Export the currently un-exported symbols they depend on.
  
  #ifdef __ARCH_WANT_SYS_NICE
  
+--- a/kernel/sched/wait.c
++++ b/kernel/sched/wait.c
+@@ -244,6 +244,7 @@ void __wake_up_pollfree(struct wait_queu
+ 	/* POLLFREE must have cleared the queue. */
+ 	WARN_ON_ONCE(waitqueue_active(wq_head));
+ }
++EXPORT_SYMBOL_GPL(__wake_up_pollfree);
+ 
+ /*
+  * Note: we use "set_current_state()" _after_ the wait-queue add,
 --- a/kernel/task_work.c
 +++ b/kernel/task_work.c
 @@ -60,6 +60,7 @@ int task_work_add(struct task_struct *ta

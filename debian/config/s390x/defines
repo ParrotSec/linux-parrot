@@ -13,7 +13,7 @@ bootloaders: s390-tools
 install-stem: vmlinuz
 
 [relations]
-headers%gcc-10: linux-compiler-gcc-10-s390
+headers%gcc-11: linux-compiler-gcc-11-s390
 
 [s390x_description]
 hardware: IBM zSeries
