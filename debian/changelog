@@ -1,3 +1,9 @@
+linux (5.15.15-15parrot2) parrot-updates; urgency=medium
+
+  * Import Debian backports settings.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Tue, 15 Feb 2022 16:34:11 +0100
+
 linux (5.15.15-15parrot1) parrot-updates; urgency=medium
 
   * Import new Debian release.

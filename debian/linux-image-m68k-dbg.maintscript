@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-m68k-dbg linux-image-5.15.0-3parrot1-m68k-dbg 5.7~rc5-1~exp1 linux-image-m68k-dbg
+dir_to_symlink /usr/share/doc/linux-image-m68k-dbg linux-image-5.15.0-15parrot1-m68k-dbg 5.7~rc5-1~exp1 linux-image-m68k-dbg
