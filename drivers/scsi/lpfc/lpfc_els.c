@@ -1072,7 +1072,8 @@ stop_rr_fcf_flogi:
 
 		/* FLOGI failed, so there is no fabric */
 		spin_lock_irq(shost->host_lock);
-		vport->fc_flag &= ~(FC_FABRIC | FC_PUBLIC_LOOP);
+		vport->fc_flag &= ~(FC_FABRIC | FC_PUBLIC_LOOP |
+				    FC_PT2PT_NO_NVME);
 		spin_unlock_irq(shost->host_lock);
 
 		/* If private loop, then allow max outstanding els to be
@@ -2329,6 +2330,13 @@ lpfc_cmpl_els_prli(struct lpfc_hba *phba, struct lpfc_iocbq *cmdiocb,
 			lpfc_disc_state_machine(vport, ndlp, cmdiocb,
 						NLP_EVT_CMPL_PRLI);
 
+		/*
+		 * For P2P topology, retain the node so that PLOGI can be
+		 * attempted on it again.
+		 */
+		if (vport->fc_flag & FC_PT2PT)
+			goto out;
+
 		/* As long as this node is not registered with the SCSI
 		 * or NVMe transport and no other PRLIs are outstanding,
 		 * it is no longer an active node.  Otherwise devloss
@@ -3531,11 +3539,6 @@ lpfc_issue_els_rscn(struct lpfc_vport *vport, uint8_t retry)
 		return 1;
 	}
 
-	/* This will cause the callback-function lpfc_cmpl_els_cmd to
-	 * trigger the release of node.
-	 */
-	if (!(vport->fc_flag & FC_PT2PT))
-		lpfc_nlp_put(ndlp);
 	return 0;
 }
 
@@ -4570,6 +4573,19 @@ lpfc_els_retry(struct lpfc_hba *phba, struct lpfc_iocbq *cmdiocb,
 			retry = 1;
 			delay = 100;
 			break;
+		case IOERR_SLI_ABORTED:
+			/* Retry ELS PLOGI command?
+			 * Possibly the rport just wasn't ready.
+			 */
+			if (cmd == ELS_CMD_PLOGI) {
+				/* No retry if state change */
+				if (ndlp &&
+				    ndlp->nlp_state != NLP_STE_PLOGI_ISSUE)
+					goto out_retry;
+				retry = 1;
+				maxretry = 2;
+			}
+			break;
 		}
 		break;
 
@@ -4592,6 +4608,23 @@ lpfc_els_retry(struct lpfc_hba *phba, struct lpfc_iocbq *cmdiocb,
 		/* Added for Vendor specifc support
 		 * Just keep retrying for these Rsn / Exp codes
 		 */
+		if ((vport->fc_flag & FC_PT2PT) &&
+		    cmd == ELS_CMD_NVMEPRLI) {
+			switch (stat.un.b.lsRjtRsnCode) {
+			case LSRJT_UNABLE_TPC:
+			case LSRJT_INVALID_CMD:
+			case LSRJT_LOGICAL_ERR:
+			case LSRJT_CMD_UNSUPPORTED:
+				lpfc_printf_vlog(vport, KERN_WARNING, LOG_ELS,
+						 "0168 NVME PRLI LS_RJT "
+						 "reason %x port doesn't "
+						 "support NVME, disabling NVME\n",
+						 stat.un.b.lsRjtRsnCode);
+				retry = 0;
+				vport->fc_flag |= FC_PT2PT_NO_NVME;
+				goto out_retry;
+			}
+		}
 		switch (stat.un.b.lsRjtRsnCode) {
 		case LSRJT_UNABLE_TPC:
 			/* The driver has a VALID PLOGI but the rport has
@@ -5290,6 +5323,7 @@ out:
 	 */
 	if (phba->sli_rev == LPFC_SLI_REV4 &&
 	    (vport && vport->port_type == LPFC_NPIV_PORT) &&
+	    !(ndlp->fc4_xpt_flags & SCSI_XPT_REGD) &&
 	    ndlp->nlp_flag & NLP_RELEASE_RPI) {
 		lpfc_sli4_free_rpi(phba, ndlp->nlp_rpi);
 		spin_lock_irq(&ndlp->lock);
@@ -5593,11 +5627,12 @@ lpfc_els_rsp_reject(struct lpfc_vport *vport, uint32_t rejectError,
 	}
 
 	/* The NPIV instance is rejecting this unsolicited ELS. Make sure the
-	 * node's assigned RPI needs to be released as this node will get
-	 * freed.
+	 * node's assigned RPI gets released provided this node is not already
+	 * registered with the transport.
 	 */
 	if (phba->sli_rev == LPFC_SLI_REV4 &&
-	    vport->port_type == LPFC_NPIV_PORT) {
+	    vport->port_type == LPFC_NPIV_PORT &&
+	    !(ndlp->fc4_xpt_flags & SCSI_XPT_REGD)) {
 		spin_lock_irq(&ndlp->lock);
 		ndlp->nlp_flag |= NLP_RELEASE_RPI;
 		spin_unlock_irq(&ndlp->lock);
@@ -6877,6 +6912,7 @@ static int
 lpfc_get_rdp_info(struct lpfc_hba *phba, struct lpfc_rdp_context *rdp_context)
 {
 	LPFC_MBOXQ_t *mbox = NULL;
+	struct lpfc_dmabuf *mp;
 	int rc;
 
 	mbox = mempool_alloc(phba->mbox_mem_pool, GFP_KERNEL);
@@ -6892,8 +6928,11 @@ lpfc_get_rdp_info(struct lpfc_hba *phba, struct lpfc_rdp_context *rdp_context)
 	mbox->mbox_cmpl = lpfc_mbx_cmpl_rdp_page_a0;
 	mbox->ctx_ndlp = (struct lpfc_rdp_context *)rdp_context;
 	rc = lpfc_sli_issue_mbox(phba, mbox, MBX_NOWAIT);
-	if (rc == MBX_NOT_FINISHED)
+	if (rc == MBX_NOT_FINISHED) {
+		mp = (struct lpfc_dmabuf *)mbox->ctx_buf;
+		lpfc_mbuf_free(phba, mp->virt, mp->phys);
 		goto issue_mbox_fail;
+	}
 
 	return 0;
 
@@ -11383,6 +11422,7 @@ lpfc_sli4_vport_delete_els_xri_aborted(struct lpfc_vport *vport)
 {
 	struct lpfc_hba *phba = vport->phba;
 	struct lpfc_sglq *sglq_entry = NULL, *sglq_next = NULL;
+	struct lpfc_nodelist *ndlp = NULL;
 	unsigned long iflag = 0;
 
 	spin_lock_irqsave(&phba->sli4_hba.sgl_list_lock, iflag);
@@ -11390,7 +11430,20 @@ lpfc_sli4_vport_delete_els_xri_aborted(struct lpfc_vport *vport)
 			&phba->sli4_hba.lpfc_abts_els_sgl_list, list) {
 		if (sglq_entry->ndlp && sglq_entry->ndlp->vport == vport) {
 			lpfc_nlp_put(sglq_entry->ndlp);
+			ndlp = sglq_entry->ndlp;
 			sglq_entry->ndlp = NULL;
+
+			/* If the xri on the abts_els_sgl list is for the Fport
+			 * node and the vport is unloading, the xri aborted wcqe
+			 * likely isn't coming back.  Just release the sgl.
+			 */
+			if ((vport->load_flag & FC_UNLOADING) &&
+			    ndlp->nlp_DID == Fabric_DID) {
+				list_del(&sglq_entry->list);
+				sglq_entry->state = SGL_FREED;
+				list_add_tail(&sglq_entry->list,
+					&phba->sli4_hba.lpfc_els_sgl_list);
+			}
 		}
 	}
 	spin_unlock_irqrestore(&phba->sli4_hba.sgl_list_lock, iflag);
