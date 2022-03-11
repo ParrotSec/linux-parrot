@@ -9,11 +9,11 @@ modpost.real-$(TYPE): file2alias.real-$(TYPE).o modpost.real-$(TYPE).o sumversio
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 %.real-$(TYPE).o: $(SOURCEDIR)/%.c real-$(TYPE)/devicetable-offsets.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 real-$(TYPE)/devicetable-offsets.s: $(SOURCEDIR)/devicetable-offsets.c
 	mkdir -p real-$(TYPE)
-	$(CC) -include $(wrapperdir)/real-$(TYPE)/types.h $(CFLAGS) -nostdinc -I$(top_srcdir)/include -S -o $@ $<
+	$(CC) -include $(wrapperdir)/real-$(TYPE)/types.h $(CFLAGS) $(CPPFLAGS) -nostdinc -I$(top_srcdir)/include -S -o $@ $<
 
 real-$(TYPE)/devicetable-offsets.h: real-$(TYPE)/devicetable-offsets.s
 	echo >$@ "#define __DEVICEVTABLE_OFFSETS_H__"

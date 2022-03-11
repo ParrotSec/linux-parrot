@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-itanium linux-image-5.15.0-15parrot1-itanium 5.7~rc5-1~exp1 linux-image-itanium
+dir_to_symlink /usr/share/doc/linux-image-itanium linux-image-5.16.0-12parrot1-itanium 5.7~rc5-1~exp1 linux-image-itanium

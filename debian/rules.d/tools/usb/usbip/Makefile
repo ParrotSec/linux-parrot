@@ -6,7 +6,7 @@ srcdir := $(top_srcdir)/tools/usb/usbip
 unexport MAKEFLAGS
 
 all: export CFLAGS := $(shell dpkg-buildflags --get CFLAGS)
-all: export CPPFLAGS := $(shell dpkg-buildflags --get CFLAGS) \
+all: export CPPFLAGS := $(shell dpkg-buildflags --get CPPFLAGS) \
 	-isystem $(top_srcdir)/debian/build/build-tools/include
 all: export LDFLAGS := $(shell dpkg-buildflags --get LDFLAGS)
 all:
@@ -19,10 +19,10 @@ all:
 		--disable-shared \
 		--disable-static \
 		--host=$(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-	$(MAKE) V=$(KBUILD_VERBOSE)
+	$(MAKE) V=1
 
 install:
-	$(MAKE) V=$(KBUILD_VERBOSE) install
+	$(MAKE) V=1 install
 ifneq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	rm -rf $(DESTDIR)/usr/share/man
 endif

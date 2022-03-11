@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-powerpc-smp-dbg linux-image-5.15.0-15parrot1-powerpc-smp-dbg 5.7~rc5-1~exp1 linux-image-powerpc-smp-dbg
+dir_to_symlink /usr/share/doc/linux-image-powerpc-smp-dbg linux-image-5.16.0-12parrot1-powerpc-smp-dbg 5.7~rc5-1~exp1 linux-image-powerpc-smp-dbg

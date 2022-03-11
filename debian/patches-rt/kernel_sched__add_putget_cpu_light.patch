@@ -1,0 +1,27 @@
+Subject: kernel/sched: add {put|get}_cpu_light()
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Sat May 27 19:02:06 2017 +0200
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+
+
+---
+ include/linux/smp.h |    3 +++
+ 1 file changed, 3 insertions(+)
+---
+--- a/include/linux/smp.h
++++ b/include/linux/smp.h
+@@ -267,6 +267,9 @@ static inline int get_boot_cpu_id(void)
+ #define get_cpu()		({ preempt_disable(); __smp_processor_id(); })
+ #define put_cpu()		preempt_enable()
+ 
++#define get_cpu_light()		({ migrate_disable(); __smp_processor_id(); })
++#define put_cpu_light()		migrate_enable()
++
+ /*
+  * Callback to arch code if there's nosmp or maxcpus=0 on the
+  * boot command line:

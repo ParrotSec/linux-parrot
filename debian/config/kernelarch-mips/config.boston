@@ -37,11 +37,6 @@ CONFIG_I2C_EG20T=y
 CONFIG_PCH_PHUB=y
 
 ##
-## file: drivers/mmc/Kconfig
-##
-CONFIG_MMC=y
-
-##
 ## file: drivers/mmc/host/Kconfig
 ##
 CONFIG_MMC_SDHCI=y
@@ -56,6 +51,7 @@ CONFIG_PCIE_XILINX=y
 ## file: drivers/rtc/Kconfig
 ##
 CONFIG_RTC_DRV_M41T80=y
+CONFIG_RTC_DRV_GOLDFISH=y
 
 ##
 ## file: drivers/spi/Kconfig

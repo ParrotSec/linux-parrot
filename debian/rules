@@ -16,6 +16,11 @@ ifdef DEBIAN_KERNEL_JOBS
   MAKEFLAGS += -j$(DEBIAN_KERNEL_JOBS)
 endif
 
+# dpkg-buildpackage passes the -s option if DEB_BUILD_OPTIONS contains
+# terse, but that triggers Kbuild to turn off progress messages
+# completely, which we don't want.
+override MAKEFLAGS := $(subst s,,$(filter-out -%,$(MAKEFLAGS))) $(filter -%,$(MAKEFLAGS))
+
 .NOTPARALLEL:
 
 source: debian/control
@@ -30,6 +35,14 @@ build: build-arch build-indep
 
 build-arch: debian/control
 	dh_testdir
+# The perf-read-vdso* programs are built for different architectures,
+# without standard flags, but are not exposed to untrusted input.
+# Kernel code needs different hardening options that blhc doesn't know
+# about.
+# We need to use terse builds in CI due to the log size limit.  This
+# mostly affects the output for builds of kernel code, which need
+# different options for hardening anyway.
+	@printf '%s\n' 'blhc: ignore-line-regexp: (.* -o *[^ ]*/perf-read-vdso.*|.* -D__KERNEL__ .*$(if $(filter terse,$(DEB_BUILD_OPTIONS)),| *(CC(LD)?|LD|LINK)\b.*))'
 	$(MAKE) -f debian/rules.gen build-arch_$(DEB_HOST_ARCH)
 
 build-indep: debian/control

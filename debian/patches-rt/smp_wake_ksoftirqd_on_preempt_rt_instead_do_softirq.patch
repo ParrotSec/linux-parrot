@@ -1,0 +1,46 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: smp: Wake ksoftirqd on PREEMPT_RT instead do_softirq().
+Date: Mon, 27 Sep 2021 09:38:14 +0200
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The softirq implementation on PREEMPT_RT does not provide do_softirq().
+The other user of do_softirq() is replaced with a local_bh_disable()
++ enable() around the possible raise-softirq invocation. This can not be
+done here because migration_cpu_stop() is invoked with disabled
+preemption.
+
+Wake the softirq thread on PREEMPT_RT if there are any pending softirqs.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20210927073814.x5h6osr4dgiu44sc@linutronix.de
+---
+v1…v2: Drop an empty line.
+
+ kernel/smp.c |   14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+---
+--- a/kernel/smp.c
++++ b/kernel/smp.c
+@@ -690,10 +690,20 @@ void flush_smp_call_function_from_idle(v
+ 
+ 	cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->idle, CFD_SEQ_NOCPU,
+ 		      smp_processor_id(), CFD_SEQ_IDLE);
++
+ 	local_irq_save(flags);
+ 	flush_smp_call_function_queue(true);
+-	if (local_softirq_pending())
+-		do_softirq();
++
++	if (local_softirq_pending()) {
++		if (!IS_ENABLED(CONFIG_PREEMPT_RT)) {
++			do_softirq();
++		} else {
++			struct task_struct *ksoftirqd = this_cpu_ksoftirqd();
++
++			if (ksoftirqd && !task_is_running(ksoftirqd))
++				wake_up_process(ksoftirqd);
++		}
++	}
+ 
+ 	local_irq_restore(flags);
+ }

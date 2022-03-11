@@ -1,0 +1,51 @@
+Subject: mm/vmalloc: Another preempt disable region which sucks
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Tue Jul 12 11:39:36 2011 +0200
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+From: Thomas Gleixner <tglx@linutronix.de>
+
+Avoid the preempt disable version of get_cpu_var(). The inner-lock should
+provide enough serialisation.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ mm/vmalloc.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+---
+--- a/mm/vmalloc.c
++++ b/mm/vmalloc.c
+@@ -1922,11 +1922,12 @@ static void *new_vmap_block(unsigned int
+ 		return ERR_PTR(err);
+ 	}
+ 
+-	vbq = &get_cpu_var(vmap_block_queue);
++	get_cpu_light();
++	vbq = this_cpu_ptr(&vmap_block_queue);
+ 	spin_lock(&vbq->lock);
+ 	list_add_tail_rcu(&vb->free_list, &vbq->free);
+ 	spin_unlock(&vbq->lock);
+-	put_cpu_var(vmap_block_queue);
++	put_cpu_light();
+ 
+ 	return vaddr;
+ }
+@@ -2005,7 +2006,8 @@ static void *vb_alloc(unsigned long size
+ 	order = get_order(size);
+ 
+ 	rcu_read_lock();
+-	vbq = &get_cpu_var(vmap_block_queue);
++	get_cpu_light();
++	vbq = this_cpu_ptr(&vmap_block_queue);
+ 	list_for_each_entry_rcu(vb, &vbq->free, free_list) {
+ 		unsigned long pages_off;
+ 
+@@ -2028,7 +2030,7 @@ static void *vb_alloc(unsigned long size
+ 		break;
+ 	}
+ 
+-	put_cpu_var(vmap_block_queue);
++	put_cpu_light();
+ 	rcu_read_unlock();
+ 
+ 	/* Allocate new block if nothing was found */

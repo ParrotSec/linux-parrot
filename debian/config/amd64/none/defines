@@ -3,6 +3,7 @@ flavours:
  amd64
  cloud-amd64
 default-flavour: amd64
+quick-flavour: cloud-amd64
 
 [cloud-amd64_image]
 configs:

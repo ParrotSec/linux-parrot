@@ -1,0 +1,67 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: kernel/fork, IA64: Provide a alloc_thread_stack_node() for IA64.
+Date: Thu, 18 Nov 2021 15:34:47 +0100
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+Provide a generic alloc_thread_stack_node() for IA64/
+CONFIG_ARCH_THREAD_STACK_ALLOCATOR which returns stack pointer and sets
+task_struct::stack so it behaves exactly like the other implementations.
+
+Rename IA64's alloc_thread_stack_node() and add the generic version to
+the fork code so it is in one place _and_ to drastically lower chances
+of fat fingering the IA64 code.
+Do the same for free_thread_stack().
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211118143452.136421-4-bigeasy@linutronix.de
+---
+ arch/ia64/include/asm/thread_info.h |    6 +++---
+ kernel/fork.c                       |   16 ++++++++++++++++
+ 2 files changed, 19 insertions(+), 3 deletions(-)
+
+--- a/arch/ia64/include/asm/thread_info.h
++++ b/arch/ia64/include/asm/thread_info.h
+@@ -55,15 +55,15 @@ struct thread_info {
+ #ifndef ASM_OFFSETS_C
+ /* how to get the thread information struct from C */
+ #define current_thread_info()	((struct thread_info *) ((char *) current + IA64_TASK_SIZE))
+-#define alloc_thread_stack_node(tsk, node)	\
++#define arch_alloc_thread_stack_node(tsk, node)	\
+ 		((unsigned long *) ((char *) (tsk) + IA64_TASK_SIZE))
+ #define task_thread_info(tsk)	((struct thread_info *) ((char *) (tsk) + IA64_TASK_SIZE))
+ #else
+ #define current_thread_info()	((struct thread_info *) 0)
+-#define alloc_thread_stack_node(tsk, node)	((unsigned long *) 0)
++#define arch_alloc_thread_stack_node(tsk, node)	((unsigned long *) 0)
+ #define task_thread_info(tsk)	((struct thread_info *) 0)
+ #endif
+-#define free_thread_stack(tsk)	/* nothing */
++#define arch_free_thread_stack(tsk)	/* nothing */
+ #define task_stack_page(tsk)	((void *)(tsk))
+ 
+ #define __HAVE_THREAD_FUNCTIONS
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -329,6 +329,22 @@ void thread_stack_cache_init(void)
+ }
+ 
+ # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
++#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
++
++static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++{
++	unsigned long *stack;
++
++	stack = arch_alloc_thread_stack_node(tsk, node);
++	tsk->stack = stack;
++	return stack;
++}
++
++static void free_thread_stack(struct task_struct *tsk, bool cache_only)
++{
++	arch_free_thread_stack(tsk);
++}
++
+ #endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 
+ /* SLAB cache for signal_struct structures (tsk->signal) */

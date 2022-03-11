@@ -1,0 +1,63 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Wed, 10 Nov 2021 17:26:21 +0106
+Subject: [PATCH 04/14] printk: get caller_id/timestamp after migration disable
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+Currently the local CPU timestamp and caller_id for the record are
+collected while migration is enabled. Since this information is
+CPU-specific, it should be collected with migration disabled.
+
+Migration is disabled immediately after collecting this information
+anyway, so just move the information collection to after the
+migration disabling.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/printk/printk.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -2018,7 +2018,7 @@ static inline void printk_delay(void)
+ static inline u32 printk_caller_id(void)
+ {
+ 	return in_task() ? task_pid_nr(current) :
+-		0x80000000 + raw_smp_processor_id();
++		0x80000000 + smp_processor_id();
+ }
+ 
+ /**
+@@ -2100,7 +2100,6 @@ int vprintk_store(int facility, int leve
+ 		  const struct dev_printk_info *dev_info,
+ 		  const char *fmt, va_list args)
+ {
+-	const u32 caller_id = printk_caller_id();
+ 	struct prb_reserved_entry e;
+ 	enum printk_info_flags flags = 0;
+ 	struct printk_record r;
+@@ -2110,10 +2109,14 @@ int vprintk_store(int facility, int leve
+ 	u8 *recursion_ptr;
+ 	u16 reserve_size;
+ 	va_list args2;
++	u32 caller_id;
+ 	u16 text_len;
+ 	int ret = 0;
+ 	u64 ts_nsec;
+ 
++	if (!printk_enter_irqsave(recursion_ptr, irqflags))
++		return 0;
++
+ 	/*
+ 	 * Since the duration of printk() can vary depending on the message
+ 	 * and state of the ringbuffer, grab the timestamp now so that it is
+@@ -2122,8 +2125,7 @@ int vprintk_store(int facility, int leve
+ 	 */
+ 	ts_nsec = local_clock();
+ 
+-	if (!printk_enter_irqsave(recursion_ptr, irqflags))
+-		return 0;
++	caller_id = printk_caller_id();
+ 
+ 	/*
+ 	 * The sprintf needs to come first since the syslog prefix might be

@@ -1,5 +1,5 @@
 Package: @source_basename@-source-@version@
-Build-Profiles: <!stage1 !pkg.linux.nosource>
+Build-Profiles: <!stage1 !pkg.linux.nosource !pkg.linux.quick>
 Architecture: all
 Section: kernel
 Build-Depends: patchutils

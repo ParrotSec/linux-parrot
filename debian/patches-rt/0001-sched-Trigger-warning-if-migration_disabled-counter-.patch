@@ -1,0 +1,29 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 29 Nov 2021 18:46:44 +0100
+Subject: [PATCH 01/11] sched: Trigger warning if ->migration_disabled counter
+ underflows.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+If migrate_enable() is used more often than its counter part then it
+remains undetected and rq::nr_pinned will underflow, too.
+
+Add a warning if migrate_enable() is attempted if without a matching a
+migrate_disable().
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211129174654.668506-2-bigeasy@linutronix.de
+---
+ kernel/sched/core.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -2171,6 +2171,8 @@ void migrate_enable(void)
+ 	if (p->migration_disabled > 1) {
+ 		p->migration_disabled--;
+ 		return;
++	} else if (WARN_ON_ONCE(p->migration_disabled == 0)) {
++		return;
+ 	}
+ 
+ 	/*

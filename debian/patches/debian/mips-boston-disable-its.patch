@@ -6,15 +6,16 @@ Forwarded: not-needed
 MIPS generic trys to generate uImage when build, which then ask for
 u-boot-tools.
 
---- a/arch/mips/generic/Platform
-+++ b/arch/mips/generic/Platform
-@@ -14,9 +14,6 @@ cflags-$(CONFIG_MIPS_GENERIC)	+= -I$(src
+Index: linux/arch/mips/generic/Platform
+===================================================================
+--- linux.orig/arch/mips/generic/Platform
++++ linux/arch/mips/generic/Platform
+@@ -13,8 +13,6 @@ cflags-$(CONFIG_MACH_INGENIC_SOC)	+= -I$
+ cflags-$(CONFIG_MIPS_GENERIC)	+= -I$(srctree)/arch/mips/include/asm/mach-generic
  
  load-$(CONFIG_MIPS_GENERIC)	+= 0xffffffff80100000
- zload-$(CONFIG_MIPS_GENERIC)	+= 0xffffffff81000000
+-zload-$(CONFIG_MIPS_GENERIC)	+= 0xffffffff81000000
 -all-$(CONFIG_MIPS_GENERIC)	:= vmlinux.gz.itb
--
--its-y					:= vmlinux.its.S
+ 
+ its-y					:= vmlinux.its.S
  its-$(CONFIG_FIT_IMAGE_FDT_BOSTON)	+= board-boston.its.S
- its-$(CONFIG_FIT_IMAGE_FDT_NI169445)	+= board-ni169445.its.S
- its-$(CONFIG_FIT_IMAGE_FDT_OCELOT)	+= board-ocelot.its.S

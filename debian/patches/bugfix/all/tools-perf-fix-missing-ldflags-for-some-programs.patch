@@ -1,0 +1,26 @@
+From: Ben Hutchings <benh@debian.org>
+Date: Sat, 15 Jan 2022 22:59:11 +0100
+Subject: tools/perf: Fix missing LDFLAGS for some programs
+
+Signed-off-by: Ben Hutchings <benh@debian.org>
+---
+--- a/tools/perf/Makefile.perf
++++ b/tools/perf/Makefile.perf
+@@ -668,7 +668,7 @@ $(JEVENTS_IN): FORCE
+ 	$(Q)$(MAKE) -f $(srctree)/tools/build/Makefile.build dir=pmu-events obj=jevents
+ 
+ $(JEVENTS): $(JEVENTS_IN)
+-	$(QUIET_LINK)$(HOSTCC) $(JEVENTS_IN) -o $@
++	$(QUIET_LINK)$(HOSTCC) $(LDFLAGS) $(JEVENTS_IN) -o $@
+ 
+ $(PMU_EVENTS_IN): $(JEVENTS) FORCE
+ 	$(Q)$(MAKE) -f $(srctree)/tools/build/Makefile.build dir=pmu-events obj=pmu-events
+@@ -797,7 +797,7 @@ $(OUTPUT)dlfilters/%.o: dlfilters/%.c in
+ .SECONDARY: $(DLFILTERS:.so=.o)
+ 
+ $(OUTPUT)dlfilters/%.so: $(OUTPUT)dlfilters/%.o
+-	$(QUIET_LINK)$(CC) $(EXTRA_CFLAGS) -shared -o $@ $<
++	$(QUIET_LINK)$(CC) $(EXTRA_CFLAGS) $(LDFLAGS) -shared -o $@ $<
+ 
+ ifndef NO_JVMTI
+ LIBJVMTI_IN := $(OUTPUT)jvmti/jvmti-in.o

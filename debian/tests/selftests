@@ -39,8 +39,8 @@ if [ "$step" -ge 0 ]; then
 	echo >&2 "Should be running: $ver"
 	echo >&2 "Actually running: $(uname -r)"
     else
-	cp -lR . $ADTTMP/build
-	cd $ADTTMP/build
+	cp -lR . $AUTOPKGTEST_TMP/build
+	cd $AUTOPKGTEST_TMP/build
 	make headers_install
 
 	# Ignore compiler warnings
@@ -62,9 +62,9 @@ if [ "$step" -ge 0 ]; then
 	    make -C tools/testing/selftests/memory-hotplug run_full_test &&
 	    make -C tools/testing/selftests/memfd run_fuse &&
 	    make -C tools/testing/selftests/timers run_destructive_tests
-	} 2>&1 | tee $ADTTMP/log
+	} 2>&1 | tee $AUTOPKGTEST_TMP/log
 	set +o pipefail
-	if grep -E '\[(FAIL|UNSUPPORTED)\]|recipe for target .run_tests. failed' $ADTTMP/log | \
+	if grep -E '\[(FAIL|UNSUPPORTED)\]|recipe for target .run_tests. failed' $AUTOPKGTEST_TMP/log | \
 	    grep -q -v \
 		 -e '^selftests: fw_userhelper.sh \[FAIL\]' \
 		 -e 'ftrace - function profiler with function tracing   \[UNSUPPORTED\]' \

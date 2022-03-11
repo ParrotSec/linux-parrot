@@ -1,0 +1,26 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 9 Sep 2021 10:15:30 +0200
+Subject: [PATCH] virt: acrn: Remove unsued acrn_irqfds_mutex.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+acrn_irqfds_mutex is not used, never was.
+
+Remove acrn_irqfds_mutex.
+
+Fixes: aa3b483ff1d71 ("virt: acrn: Introduce irqfd")
+Cc: Fei Li <fei1.li@intel.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/virt/acrn/irqfd.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- a/drivers/virt/acrn/irqfd.c
++++ b/drivers/virt/acrn/irqfd.c
+@@ -17,7 +17,6 @@
+ #include "acrn_drv.h"
+ 
+ static LIST_HEAD(acrn_irqfd_clients);
+-static DEFINE_MUTEX(acrn_irqfds_mutex);
+ 
+ /**
+  * struct hsm_irqfd - Properties of HSM irqfd

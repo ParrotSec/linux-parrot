@@ -1,0 +1,50 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Tue, 3 Aug 2021 13:00:00 +0206
+Subject: [PATCH 02/14] printk: cpu sync always disable interrupts
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The CPU sync functions are a NOP for !CONFIG_SMP. But for
+!CONFIG_SMP they still need to disable interrupts in order to
+preserve context within the CPU sync sections.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/printk.h |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -285,9 +285,16 @@ extern int __printk_cpu_sync_try_get(voi
+ extern void __printk_cpu_sync_wait(void);
+ extern void __printk_cpu_sync_put(void);
+ 
++#else
++
++#define __printk_cpu_sync_try_get() true
++#define __printk_cpu_sync_wait()
++#define __printk_cpu_sync_put()
++#endif /* CONFIG_SMP */
++
+ /**
+- * printk_cpu_sync_get_irqsave() - Acquire the printk cpu-reentrant spinning
+- *                                 lock and disable interrupts.
++ * printk_cpu_sync_get_irqsave() - Disable interrupts and acquire the printk
++ *                                 cpu-reentrant spinning lock.
+  * @flags: Stack-allocated storage for saving local interrupt state,
+  *         to be passed to printk_cpu_sync_put_irqrestore().
+  *
+@@ -314,13 +321,6 @@ extern void __printk_cpu_sync_put(void);
+ 		local_irq_restore(flags);	\
+ 	} while (0)
+ 
+-#else
+-
+-#define printk_cpu_sync_get_irqsave(flags) ((void)flags)
+-#define printk_cpu_sync_put_irqrestore(flags) ((void)flags)
+-
+-#endif /* CONFIG_SMP */
+-
+ extern int kptr_restrict;
+ 
+ /**

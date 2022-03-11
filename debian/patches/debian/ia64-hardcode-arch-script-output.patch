@@ -26,7 +26,7 @@ their own scripts in the future.
 
 --- a/arch/ia64/Makefile
 +++ b/arch/ia64/Makefile
-@@ -26,16 +26,7 @@
+@@ -26,16 +26,7 @@ cflags-y	:= -pipe $(EXTRA) -ffixed-r13 -
  		   -falign-functions=32 -frename-registers -fno-optimize-sibling-calls
  KBUILD_CFLAGS_KERNEL := -mconstant-gp
  
@@ -44,7 +44,7 @@ their own scripts in the future.
  
  quiet_cmd_gzip = GZIP    $@
  cmd_gzip = cat $(real-prereqs) | $(KGZIP) -n -f -9 > $@
-@@ -54,7 +45,7 @@
+@@ -52,7 +43,7 @@ drivers-y			+= arch/ia64/pci/ arch/ia64/
  
  PHONY += compressed check
  
@@ -53,17 +53,17 @@ their own scripts in the future.
  
  compressed: vmlinux.gz
  
-@@ -66,9 +57,6 @@
+@@ -64,9 +55,6 @@ vmlinux.gz: vmlinux.bin FORCE
  vmlinux.bin: vmlinux FORCE
  	$(call if_changed,objcopy)
  
 -unwcheck: vmlinux
 -	-$(Q)READELF=$(READELF) $(PYTHON3) $(srctree)/arch/ia64/scripts/unwcheck.py $<
 -
- archclean:
- 
  archheaders:
-@@ -82,5 +70,4 @@
+ 	$(Q)$(MAKE) $(build)=arch/ia64/kernel/syscalls all
+ 
+@@ -78,5 +66,4 @@ install: vmlinux.gz
  define archhelp
    echo '* compressed	- Build compressed kernel image'
    echo '  install	- Install compressed kernel image'

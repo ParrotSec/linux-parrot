@@ -1,7 +1,7 @@
 [base]
 flavours:
  4kc-malta
- 5kc-malta
+ mips32r2eb
  octeon
 kernel-arch: mips
 
@@ -20,14 +20,14 @@ configs:
  kernelarch-mips/config.malta
  kernelarch-mips/config.mips32r2
 
-[5kc-malta_description]
-hardware: MIPS Malta (64-bit)
-hardware-long: MIPS Malta boards (64-bit)
+[mips32r2eb_description]
+hardware: MIPS Generic (mips32r2eb)
+hardware-long: MIPS Generic platform (mips32r2eb)
 
-[5kc-malta_image]
+[mips32r2eb_image]
 configs:
- kernelarch-mips/config.malta
- kernelarch-mips/config.mips64r2
+ kernelarch-mips/config.boston
+ kernelarch-mips/config.mips32r2
 
 [octeon_description]
 hardware: Octeon

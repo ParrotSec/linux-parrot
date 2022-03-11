@@ -5,7 +5,7 @@ all:
 # for multiple targets and add a wrapper, same as for modpost.
 # objtool explicitly sets CC and LD to be native tools; we need to override
 # this on the command line to make cross-builds work.
-	$(MAKE) -C $(top_srcdir)/tools/objtool O=$(CURDIR) HOSTARCH=$(KERNEL_ARCH) ARCH=x86 CC=$(CC) LD=$(CROSS_COMPILE)ld V=$(KBUILD_VERBOSE)
+	$(MAKE) -C $(top_srcdir)/tools/objtool O=$(CURDIR) HOSTARCH=$(KERNEL_ARCH) ARCH=x86 CC=$(CC) LD=$(CROSS_COMPILE)ld V=1 EXTRA_CFLAGS='$(CFLAGS) $(CPPFLAGS)'
 
 install:
 	install -D -m755 objtool $(DESTDIR)/$(installdir)/objtool

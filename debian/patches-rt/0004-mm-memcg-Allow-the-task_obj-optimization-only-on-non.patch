@@ -1,0 +1,82 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 22 Dec 2021 12:16:27 +0100
+Subject: [PATCH 4/4] mm/memcg: Allow the task_obj optimization only on
+ non-PREEMPTIBLE kernels.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+Based on my understanding the optimisation with task_obj for in_task()
+mask sense on non-PREEMPTIBLE kernels because preempt_disable()/enable()
+is optimized away. This could be then restricted to !CONFIG_PREEMPTION kernel
+instead to only PREEMPT_RT.
+With CONFIG_PREEMPT_DYNAMIC a non-PREEMPTIBLE kernel can also be
+configured but these kernels always have preempt_disable()/enable()
+present so it probably makes no sense here for the optimisation.
+
+I did a micro benchmark with disabled interrupts and a loop of
+100.000.000 invokcations of kfree(kmalloc()). Based on the results it
+makes no sense to add an exception based on dynamic preemption.
+
+Restrict the optimisation to !CONFIG_PREEMPTION kernels.
+
+Link: https://lore.kernel.org/all/YdX+INO9gQje6d0S@linutronix.de
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/memcontrol.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -2023,7 +2023,7 @@ struct memcg_stock_pcp {
+ 	local_lock_t stock_lock;
+ 	struct mem_cgroup *cached; /* this never be root cgroup */
+ 	unsigned int nr_pages;
+-#ifndef CONFIG_PREEMPT_RT
++#ifndef CONFIG_PREEMPTION
+ 	/* Protects only task_obj */
+ 	local_lock_t task_obj_lock;
+ 	struct obj_stock task_obj;
+@@ -2036,7 +2036,7 @@ struct memcg_stock_pcp {
+ };
+ static DEFINE_PER_CPU(struct memcg_stock_pcp, memcg_stock) = {
+ 	.stock_lock = INIT_LOCAL_LOCK(stock_lock),
+-#ifndef CONFIG_PREEMPT_RT
++#ifndef CONFIG_PREEMPTION
+ 	.task_obj_lock = INIT_LOCAL_LOCK(task_obj_lock),
+ #endif
+ };
+@@ -2125,7 +2125,7 @@ static void drain_local_stock(struct wor
+ 	 * drain_stock races is that we always operate on local CPU stock
+ 	 * here with IRQ disabled
+ 	 */
+-#ifndef CONFIG_PREEMPT_RT
++#ifndef CONFIG_PREEMPTION
+ 	local_lock(&memcg_stock.task_obj_lock);
+ 	old = drain_obj_stock(&this_cpu_ptr(&memcg_stock)->task_obj, NULL);
+ 	local_unlock(&memcg_stock.task_obj_lock);
+@@ -2734,7 +2734,7 @@ static inline struct obj_stock *get_obj_
+ {
+ 	struct memcg_stock_pcp *stock;
+ 
+-#ifndef CONFIG_PREEMPT_RT
++#ifndef CONFIG_PREEMPTION
+ 	if (likely(in_task())) {
+ 		*pflags = 0UL;
+ 		*stock_lock_acquried = false;
+@@ -2752,7 +2752,7 @@ static inline struct obj_stock *get_obj_
+ static inline void put_obj_stock(unsigned long flags,
+ 				 bool stock_lock_acquried)
+ {
+-#ifndef CONFIG_PREEMPT_RT
++#ifndef CONFIG_PREEMPTION
+ 	if (likely(!stock_lock_acquried)) {
+ 		local_unlock(&memcg_stock.task_obj_lock);
+ 		return;
+@@ -3165,7 +3165,7 @@ static bool obj_stock_flush_required(str
+ {
+ 	struct mem_cgroup *memcg;
+ 
+-#ifndef CONFIG_PREEMPT_RT
++#ifndef CONFIG_PREEMPTION
+ 	if (in_task() && stock->task_obj.cached_objcg) {
+ 		memcg = obj_cgroup_memcg(stock->task_obj.cached_objcg);
+ 		if (memcg && mem_cgroup_is_descendant(memcg, root_memcg))

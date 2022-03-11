@@ -1734,6 +1734,7 @@ int bmc150_accel_core_probe(struct device *dev, struct regmap *regmap, int irq,
 	ret = iio_triggered_buffer_setup_ext(indio_dev,
 					     &iio_pollfunc_store_time,
 					     bmc150_accel_trigger_handler,
+					     IIO_BUFFER_DIRECTION_IN,
 					     &bmc150_accel_buffer_ops,
 					     fifo_attrs);
 	if (ret < 0) {
@@ -1782,11 +1783,14 @@ int bmc150_accel_core_probe(struct device *dev, struct regmap *regmap, int irq,
 	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
 		dev_err(dev, "Unable to register iio device\n");
-		goto err_trigger_unregister;
+		goto err_pm_cleanup;
 	}
 
 	return 0;
 
+err_pm_cleanup:
+	pm_runtime_dont_use_autosuspend(dev);
+	pm_runtime_disable(dev);
 err_trigger_unregister:
 	bmc150_accel_unregister_triggers(data, BMC150_ACCEL_TRIGGERS - 1);
 err_buffer_cleanup:
@@ -1799,7 +1803,7 @@ err_disable_regulators:
 }
 EXPORT_SYMBOL_GPL(bmc150_accel_core_probe);
 
-int bmc150_accel_core_remove(struct device *dev)
+void bmc150_accel_core_remove(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct bmc150_accel_data *data = iio_priv(indio_dev);
@@ -1819,8 +1823,6 @@ int bmc150_accel_core_remove(struct device *dev)
 
 	regulator_bulk_disable(ARRAY_SIZE(data->regulators),
 			       data->regulators);
-
-	return 0;
 }
 EXPORT_SYMBOL_GPL(bmc150_accel_core_remove);
 

@@ -3,7 +3,7 @@ include $(top_rulesdir)/Makefile.inc
 MAKE_BPFTOOL := +$(MAKE) -C $(top_srcdir)/$(OUTDIR) O=$(CURDIR)
 MAKE_BPFTOOL += prefix=/usr
 MAKE_BPFTOOL += mandir=/usr/share/man
-MAKE_BPFTOOL += V=$(KBUILD_VERBOSE)
+MAKE_BPFTOOL += V=1
 MAKE_BPFTOOL += ARCH=$(KERNEL_ARCH)
 MAKE_BPFTOOL += EXTRA_CFLAGS='$(CFLAGS) $(CPPFLAGS)'
 MAKE_BPFTOOL += EXTRA_LDFLAGS='$(LDFLAGS)'

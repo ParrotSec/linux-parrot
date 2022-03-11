@@ -1,6 +1,6 @@
 include $(top_rulesdir)/Makefile.inc
 
-MAKE_CPUPOWER := $(shell dpkg-buildflags --export=cmdline) $(MAKE) O=$(CURDIR) CPUFREQ_BENCH=false V=true mandir=/usr/share/man
+MAKE_CPUPOWER := CFLAGS='$(CFLAGS) $(CPPFLAGS)' LDFLAGS='$(LDFLAGS)' $(MAKE) O=$(CURDIR) CPUFREQ_BENCH=false V=true mandir=/usr/share/man
 
 MAKE_CPUPOWER += DEBUG=$(if $(filter noopt,$(DEB_BUILD_OPTIONS)),true,)
 

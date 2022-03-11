@@ -1,0 +1,49 @@
+From: He Zhe <zhe.he@windriver.com>
+Date: Tue, 12 Oct 2021 16:44:21 +0800
+Subject: [PATCH] arm64: signal: Use ARCH_RT_DELAYS_SIGNAL_SEND.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The software breakpoint is handled via do_debug_exception() which
+disables preemption. On PREEMPT_RT spinlock_t become sleeping locks and
+must not be acquired with disabled preemption.
+
+Use ARCH_RT_DELAYS_SIGNAL_SEND so the signal (from send_user_sigtrap())
+is sent delayed in return to userland.
+
+Cc: stable-rt@vger.kernel.org
+Signed-off-by: He Zhe <zhe.he@windriver.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211012084421.35136-1-zhe.he@windriver.com
+---
+ arch/arm64/include/asm/signal.h |    4 ++++
+ arch/arm64/kernel/signal.c      |    8 ++++++++
+ 2 files changed, 12 insertions(+)
+
+--- a/arch/arm64/include/asm/signal.h
++++ b/arch/arm64/include/asm/signal.h
+@@ -22,4 +22,8 @@ static inline void __user *arch_untagged
+ }
+ #define arch_untagged_si_addr arch_untagged_si_addr
+ 
++#if defined(CONFIG_PREEMPT_RT)
++#define ARCH_RT_DELAYS_SIGNAL_SEND
++#endif
++
+ #endif
+--- a/arch/arm64/kernel/signal.c
++++ b/arch/arm64/kernel/signal.c
+@@ -928,6 +928,14 @@ void do_notify_resume(struct pt_regs *re
+ 		} else {
+ 			local_daif_restore(DAIF_PROCCTX);
+ 
++#ifdef ARCH_RT_DELAYS_SIGNAL_SEND
++			if (unlikely(current->forced_info.si_signo)) {
++				struct task_struct *t = current;
++				force_sig_info(&t->forced_info);
++				t->forced_info.si_signo = 0;
++			}
++#endif
++
+ 			if (thread_flags & _TIF_UPROBE)
+ 				uprobe_notify_resume(regs);
+ 

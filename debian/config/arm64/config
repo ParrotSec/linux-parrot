@@ -329,6 +329,13 @@ CONFIG_RASPBERRYPI_FIRMWARE=y
 CONFIG_TURRIS_MOX_RWTM=m
 
 ##
+## file: drivers/firmware/efi/Kconfig
+##
+#. Enable until support for loading initrd from a device path is supported
+#. in bootloaders, cf. #997907 for details.
+CONFIG_EFI_GENERIC_STUB_INITRD_CMDLINE_LOADER=y
+
+##
 ## file: drivers/gpio/Kconfig
 ##
 CONFIG_GPIOLIB=y
@@ -433,6 +440,7 @@ CONFIG_NOUVEAU_PLATFORM_DRIVER=y
 ## file: drivers/gpu/drm/panel/Kconfig
 ##
 CONFIG_DRM_PANEL_SIMPLE=m
+CONFIG_DRM_PANEL_EDP=m
 CONFIG_DRM_PANEL_RASPBERRYPI_TOUCHSCREEN=m
 CONFIG_DRM_PANEL_SITRONIX_ST7703=m
 
@@ -473,6 +481,7 @@ CONFIG_DRM_VC4_HDMI_CEC=y
 ## file: drivers/gpu/drm/vmwgfx/Kconfig
 ##
 CONFIG_DRM_VMWGFX=m
+CONFIG_DRM_VMWGFX_FBCON=y
 
 ##
 ## file: drivers/gpu/host1x/Kconfig
@@ -530,6 +539,14 @@ CONFIG_I2C_XGENE_SLIMPRO=m
 ## file: drivers/i2c/muxes/Kconfig
 ##
 CONFIG_I2C_MUX_PCA954x=m
+CONFIG_I2C_MUX_PINCTRL=m
+
+##
+## file: drivers/iio/adc/Kconfig
+##
+CONFIG_QCOM_SPMI_IADC=m
+CONFIG_QCOM_SPMI_VADC=m
+CONFIG_ROCKCHIP_SARADC=m
 
 ##
 ## file: drivers/iio/common/cros_ec_sensors/Kconfig
@@ -1188,6 +1205,7 @@ CONFIG_PWM_BCM2835=m
 CONFIG_PWM_CROS_EC=m
 CONFIG_PWM_IMX27=m
 CONFIG_PWM_MESON=m
+CONFIG_PWM_RASPBERRYPI_POE=m
 CONFIG_PWM_ROCKCHIP=m
 CONFIG_PWM_SL28CPLD=m
 CONFIG_PWM_SUN4I=m
@@ -1589,6 +1607,8 @@ CONFIG_ENERGY_MODEL=y
 ## file: lib/Kconfig.debug
 ##
 CONFIG_DEBUG_INFO_BTF=y
+#. In case debug info is disabled
+CONFIG_DEBUG_INFO_BTF_MODULES_NOOP=y
 
 ##
 ## file: mm/Kconfig

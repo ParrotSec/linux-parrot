@@ -1,0 +1,92 @@
+From: Ben Hutchings <benh@debian.org>
+Date: Wed, 02 Mar 2022 21:22:28 +0100
+Subject: module: Avoid ABI changes when debug info is disabled
+Forwarded: not-needed
+
+CI builds are done with debug info disabled, but this removes some
+members from struct module and replaces some BTF-related exports with
+static definitions.  This causes builds to fail if there is an ABI
+reference for the current ABI.
+
+- Add a new config symbol DEBUG_INFO_BTF_MODULES_NOOP which can be
+  enabled when DEBUG_INFO is not enabled
+- When the symbol is enabled:
+  - Define the BTF-related members of struct module
+  - Export the no-op definitions of BTF-related functions
+  - Define and export the same BTF-related static lists
+
+---
+--- a/include/linux/module.h
++++ b/include/linux/module.h
+@@ -470,7 +470,7 @@ struct module {
+ 	unsigned int num_bpf_raw_events;
+ 	struct bpf_raw_event_map *bpf_raw_events;
+ #endif
+-#ifdef CONFIG_DEBUG_INFO_BTF_MODULES
++#if defined(CONFIG_DEBUG_INFO_BTF_MODULES) || defined(CONFIG_DEBUG_INFO_BTF_MODULES_NOOP)
+ 	unsigned int btf_data_size;
+ 	void *btf_data;
+ #endif
+--- a/include/linux/btf.h
++++ b/include/linux/btf.h
+@@ -250,7 +250,7 @@ struct kfunc_btf_id_list {
+ 	struct mutex mutex;
+ };
+ 
+-#ifdef CONFIG_DEBUG_INFO_BTF_MODULES
++#if defined(CONFIG_DEBUG_INFO_BTF_MODULES) || defined(CONFIG_DEBUG_INFO_BTF_MODULES_NOOP)
+ void register_kfunc_btf_id_set(struct kfunc_btf_id_list *l,
+ 			       struct kfunc_btf_id_set *s);
+ void unregister_kfunc_btf_id_set(struct kfunc_btf_id_list *l,
+--- a/kernel/bpf/btf.c
++++ b/kernel/bpf/btf.c
+@@ -6383,6 +6383,30 @@ bool bpf_check_mod_kfunc_call(struct kfu
+ 	return false;
+ }
+ 
++#elif defined(CONFIG_DEBUG_INFO_BTF_MODULES_NOOP)
++
++void register_kfunc_btf_id_set(struct kfunc_btf_id_list *l,
++			       struct kfunc_btf_id_set *s)
++{
++}
++EXPORT_SYMBOL_GPL(register_kfunc_btf_id_set);
++
++void unregister_kfunc_btf_id_set(struct kfunc_btf_id_list *l,
++				 struct kfunc_btf_id_set *s)
++{
++}
++EXPORT_SYMBOL_GPL(unregister_kfunc_btf_id_set);
++
++bool bpf_check_mod_kfunc_call(struct kfunc_btf_id_list *klist, u32 kfunc_id,
++			      struct module *owner)
++{
++	return false;
++}
++
++#endif /* CONFIG_DEBUG_INFO_BTF_MODULES */
++
++#if defined(CONFIG_DEBUG_INFO_BTF_MODULES) || defined(CONFIG_DEBUG_INFO_BTF_MODULES_NOOP)
++
+ #define DEFINE_KFUNC_BTF_ID_LIST(name)                                         \
+ 	struct kfunc_btf_id_list name = { LIST_HEAD_INIT(name.list),           \
+ 					  __MUTEX_INITIALIZER(name.mutex) };   \
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -343,6 +343,16 @@ config GDB_SCRIPTS
+ 
+ endif # DEBUG_INFO
+ 
++if !DEBUG_INFO
++
++config DEBUG_INFO_BTF_MODULES_NOOP
++	bool "Provide no-op BTF ABI to modules"
++	help
++	  Enable this option instead of DEBUG_INFO_BTF to avoid an ABI
++	  change when debug info is disabled.
++
++endif
++
+ config FRAME_WARN
+ 	int "Warn for stack frames larger than"
+ 	range 0 8192

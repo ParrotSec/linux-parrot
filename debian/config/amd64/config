@@ -238,6 +238,8 @@ CONFIG_RCU_FANOUT=64
 ## file: lib/Kconfig.debug
 ##
 CONFIG_DEBUG_INFO_BTF=y
+#. In case debug info is disabled
+CONFIG_DEBUG_INFO_BTF_MODULES_NOOP=y
 CONFIG_FRAME_WARN=2048
 
 ##

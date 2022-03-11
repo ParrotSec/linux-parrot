@@ -3,8 +3,9 @@ import os
 import re
 from collections import OrderedDict
 
-from .debian import Changelog, PackageArchitecture, PackageDescription, \
-    PackageRelation, Version
+from .debian import Changelog, PackageArchitecture, \
+    PackageBuildRestrictFormula, PackageBuildRestrictList, \
+    PackageBuildRestrictTerm, PackageDescription, PackageRelation, Version
 
 
 class PackagesList(OrderedDict):
@@ -386,9 +387,7 @@ class Gencontrol(object):
                     if package["Architecture"] != arch_all and not item.arches:
                         item.arches = sorted(package["Architecture"])
                     if package.get("Build-Profiles") and not item.restrictions:
-                        profiles = package["Build-Profiles"]
-                        assert profiles[0] == "<" and profiles[-1] == ">"
-                        item.restrictions = re.split(r"\s+", profiles[1:-1])
+                        item.restrictions = package["Build-Profiles"]
             if package["Architecture"] == arch_all:
                 dep_type = "Build-Depends-Indep"
             else:
@@ -435,3 +434,14 @@ def merge_packages(packages, new, arch):
         else:
             new_package['Architecture'] = arch
             packages.append(new_package)
+
+
+def add_package_build_restriction(package, term):
+    if not isinstance(term, PackageBuildRestrictTerm):
+        term = PackageBuildRestrictTerm(term)
+    old_form = package['Build-Profiles']
+    new_form = PackageBuildRestrictFormula()
+    for old_list in old_form:
+        new_list = PackageBuildRestrictList(list(old_list) + [term])
+        new_form.add(new_list)
+    package['Build-Profiles'] = new_form

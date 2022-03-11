@@ -1,0 +1,57 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: panic: Remove oops_id.
+Date: Thu, 02 Dec 2021 15:27:13 +0100
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The oops id has been added as part of the end of trace marker for the
+kerneloops.org project. The id is used to automatically identify duplicate
+submissions of the same report. Identical looking reports with different
+a id can be considered as the same oops occurred again.
+
+The early initialisation of the oops_id can create a warning if the
+random core is not yet fully initialized. On PREEMPT_RT it is
+problematic if the id is initialized on demand from non preemptible
+context.
+
+The kernel oops project is not available since 2017.
+Remove the oops_id and use 0 in the output in case parser rely on it.
+
+Link: https://bugs.debian.org/953172
+Cc: Arjan van de Ven <arjan@linux.intel.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211202142713.ofadr43tawengfw4@linutronix.de
+Link: https://lore.kernel.org/r/Ybdi16aP2NEugWHq@linutronix.de>
+---
+ kernel/panic.c |   19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
+
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -537,26 +537,9 @@ void oops_enter(void)
+ 		trigger_all_cpu_backtrace();
+ }
+ 
+-/*
+- * 64-bit random ID for oopses:
+- */
+-static u64 oops_id;
+-
+-static int init_oops_id(void)
+-{
+-	if (!oops_id)
+-		get_random_bytes(&oops_id, sizeof(oops_id));
+-	else
+-		oops_id++;
+-
+-	return 0;
+-}
+-late_initcall(init_oops_id);
+-
+ static void print_oops_end_marker(void)
+ {
+-	init_oops_id();
+-	pr_warn("---[ end trace %016llx ]---\n", (unsigned long long)oops_id);
++	pr_warn("---[ end trace %016llx ]---\n", 0ULL);
+ }
+ 
+ /*

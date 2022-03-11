@@ -1,0 +1,36 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 2 Apr 2020 21:16:30 +0200
+Subject: [PATCH] irq_poll: Use raise_softirq_irqoff() in cpu_dead notifier
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+__raise_softirq_irqoff() adds a bit to the pending sofirq mask and this
+is it. The softirq won't be handled in a deterministic way but randomly
+when an interrupt fires and handles softirq in its irq_exit() routine or
+if something randomly checks and handles pending softirqs in the call
+chain before the CPU goes idle.
+
+Add a local_bh_disable/enable() around the IRQ-off section which will
+handle pending softirqs.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lkml.kernel.org/r/20210930103754.2128949-1-bigeasy@linutronix.de
+---
+ lib/irq_poll.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- a/lib/irq_poll.c
++++ b/lib/irq_poll.c
+@@ -191,11 +191,13 @@ static int irq_poll_cpu_dead(unsigned in
+ 	 * If a CPU goes away, splice its entries to the current CPU
+ 	 * and trigger a run of the softirq
+ 	 */
++	local_bh_disable();
+ 	local_irq_disable();
+ 	list_splice_init(&per_cpu(blk_cpu_iopoll, cpu),
+ 			 this_cpu_ptr(&blk_cpu_iopoll));
+ 	__raise_softirq_irqoff(IRQ_POLL_SOFTIRQ);
+ 	local_irq_enable();
++	local_bh_enable();
+ 
+ 	return 0;
+ }

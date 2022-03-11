@@ -1,5 +1,5 @@
 Package: @source_basename@-doc@source_suffix@
-Build-Profiles: <!stage1 !nodoc !pkg.linux.nometa>
+Build-Profiles: <!stage1 !nodoc !pkg.linux.nometa !pkg.linux.quick>
 Section: doc
 Architecture: all
 Depends: @source_basename@-doc-@version@ (= ${binary:Version}), ${misc:Depends}

@@ -1,0 +1,143 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 15 Dec 2021 12:47:30 +0100
+Subject: [PATCH 3/4] net: dev: Makes sure netif_rx() can be invoked in any
+ context.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+Dave suggested a while ago (11y by now) "Let's make netif_rx() work in
+all contexts and get rid of netif_rx_ni()". Eric agreed and pointed out
+that modern devices should use netif_receive_skb() to avoid the
+overhead.
+In the meantime someone added another variant, netif_rx_any_context(),
+which behaves as suggested.
+
+netif_rx() must be invoked with disabled bottom halfs to ensure that to
+ensure that pending softirqs, which were raised within the function, are
+handled.
+netif_rx_ni() can be invoked only from preemptible context because the
+function handles pending softirqs without checking if bottom halfes were
+disabled or not.
+netif_rx_any_context() invokes on the former functions by checking
+in_interrupts().
+
+netif_rx() could be taught to handle both cases (disabled and enabled
+bottom halves) by simply disabling bottom halfs while invoking
+netif_rx_internal(). The local_bh_enable() invokcation will then invoke
+pending softirqs only if the BH-disable counter drops to zero.
+
+Add a local_bh_disable() section in netif_rx() to ensure softirqs are
+handled if needed. Make netif_rx_ni() and netif_rx_any_context() invoke
+netif_rx() so they can be removed once they are no more users left.
+
+Link: https://lkml.kernel.org/r/20100415.020246.218622820.davem@davemloft.net
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/netdevice.h  |   13 +++++++++++--
+ include/trace/events/net.h |   14 --------------
+ net/core/dev.c             |   34 ++--------------------------------
+ 3 files changed, 13 insertions(+), 48 deletions(-)
+
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4003,8 +4003,17 @@ u32 bpf_prog_run_generic_xdp(struct sk_b
+ void generic_xdp_tx(struct sk_buff *skb, struct bpf_prog *xdp_prog);
+ int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb);
+ int netif_rx(struct sk_buff *skb);
+-int netif_rx_ni(struct sk_buff *skb);
+-int netif_rx_any_context(struct sk_buff *skb);
++
++static inline int netif_rx_ni(struct sk_buff *skb)
++{
++	return netif_rx(skb);
++}
++
++static inline int netif_rx_any_context(struct sk_buff *skb)
++{
++	return netif_rx(skb);
++}
++
+ int netif_receive_skb(struct sk_buff *skb);
+ int netif_receive_skb_core(struct sk_buff *skb);
+ void netif_receive_skb_list(struct list_head *head);
+--- a/include/trace/events/net.h
++++ b/include/trace/events/net.h
+@@ -260,13 +260,6 @@ DEFINE_EVENT(net_dev_rx_verbose_template
+ 	TP_ARGS(skb)
+ );
+ 
+-DEFINE_EVENT(net_dev_rx_verbose_template, netif_rx_ni_entry,
+-
+-	TP_PROTO(const struct sk_buff *skb),
+-
+-	TP_ARGS(skb)
+-);
+-
+ DECLARE_EVENT_CLASS(net_dev_rx_exit_template,
+ 
+ 	TP_PROTO(int ret),
+@@ -309,13 +302,6 @@ DEFINE_EVENT(net_dev_rx_exit_template, n
+ 
+ 	TP_PROTO(int ret),
+ 
+-	TP_ARGS(ret)
+-);
+-
+-DEFINE_EVENT(net_dev_rx_exit_template, netif_rx_ni_exit,
+-
+-	TP_PROTO(int ret),
+-
+ 	TP_ARGS(ret)
+ );
+ 
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4953,47 +4953,17 @@ int netif_rx(struct sk_buff *skb)
+ {
+ 	int ret;
+ 
++	local_bh_disable();
+ 	trace_netif_rx_entry(skb);
+ 
+ 	ret = netif_rx_internal(skb);
+ 	trace_netif_rx_exit(ret);
++	local_bh_enable();
+ 
+ 	return ret;
+ }
+ EXPORT_SYMBOL(netif_rx);
+ 
+-int netif_rx_ni(struct sk_buff *skb)
+-{
+-	int err;
+-
+-	trace_netif_rx_ni_entry(skb);
+-
+-	preempt_disable();
+-	err = netif_rx_internal(skb);
+-	if (local_softirq_pending())
+-		do_softirq();
+-	preempt_enable();
+-	trace_netif_rx_ni_exit(err);
+-
+-	return err;
+-}
+-EXPORT_SYMBOL(netif_rx_ni);
+-
+-int netif_rx_any_context(struct sk_buff *skb)
+-{
+-	/*
+-	 * If invoked from contexts which do not invoke bottom half
+-	 * processing either at return from interrupt or when softrqs are
+-	 * reenabled, use netif_rx_ni() which invokes bottomhalf processing
+-	 * directly.
+-	 */
+-	if (in_interrupt())
+-		return netif_rx(skb);
+-	else
+-		return netif_rx_ni(skb);
+-}
+-EXPORT_SYMBOL(netif_rx_any_context);
+-
+ static __latent_entropy void net_tx_action(struct softirq_action *h)
+ {
+ 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);

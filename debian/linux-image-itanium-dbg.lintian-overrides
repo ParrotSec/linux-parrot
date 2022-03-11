@@ -1,2 +1,1 @@
 linux-image-itanium-dbg: wrong-section-according-to-package-name linux-image-itanium-dbg => debug
-linux-image-itanium-dbg: debug-package-should-be-priority-extra linux-image-itanium-dbg

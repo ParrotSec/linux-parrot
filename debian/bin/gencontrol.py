@@ -10,9 +10,10 @@ import re
 
 from debian_linux import config
 from debian_linux.debian import PackageDescription, PackageRelation, \
-    PackageRelationEntry, PackageRelationGroup, VersionLinux
+    PackageRelationEntry, PackageRelationGroup, VersionLinux, \
+    restriction_requires_profile
 from debian_linux.gencontrol import Gencontrol as Base, merge_packages, \
-    iter_featuresets, iter_flavours
+    iter_featuresets, iter_flavours, add_package_build_restriction
 from debian_linux.utils import Templates, read_control
 
 locale.setlocale(locale.LC_CTYPE, "C.UTF-8")
@@ -197,16 +198,10 @@ class Gencontrol(Base):
         if self.config.merge('packages').get('tools-unversioned', True):
             packages.extend(self.process_packages(
                 self.templates["control.tools-unversioned"], vars))
+            self.substitute_debhelper_config('perf', vars, 'linux-perf')
         if self.config.merge('packages').get('tools-versioned', True):
             packages.extend(self.process_packages(
                 self.templates["control.tools-versioned"], vars))
-            self.substitute_debhelper_config('perf', vars,
-                                              'linux-perf-%(version)s' % vars)
-            if do_meta:
-                packages.extend(self.process_packages(
-                    self.templates["control.tools-versioned.meta"], vars))
-                self.substitute_debhelper_config('perf.meta', vars,
-                                                  'linux-perf')
         if self.config.merge('packages').get('source', True):
             packages.extend(self.process_packages(
                 self.templates["control.sourcebin"], vars))
@@ -346,6 +341,9 @@ class Gencontrol(Base):
                 raise RuntimeError("default-flavour %s for %s %s does not exist"
                                    % (self.default_flavour, arch, featureset))
 
+        self.quick_flavour = self.config.merge('base', arch, featureset) \
+                                        .get('quick-flavour')
+
     flavour_makeflags_base = (
         ('compiler', 'COMPILER', False),
         ('compiler-filename', 'COMPILER', True),
@@ -424,8 +422,10 @@ class Gencontrol(Base):
             self.substitute(config_entry_relations.get('headers%' + compiler)
                             or config_entry_relations.get(compiler), vars))
         relations_compiler_headers = PackageRelation(
-            PackageRelationGroup(entry for entry in group
-                                 if 'cross' not in entry.restrictions)
+            PackageRelationGroup(
+                entry for entry in group
+                if not restriction_requires_profile(entry.restrictions,
+                                                    'cross'))
             for group in relations_compiler_headers)
         for group in relations_compiler_headers:
             for entry in group:
@@ -549,7 +549,6 @@ class Gencontrol(Base):
             build_debug = False
 
         if build_debug:
-            makeflags['DEBUG'] = True
             packages_own.extend(self.process_packages(
                 self.templates['control.image-dbg'], vars))
             if do_meta:
@@ -558,6 +557,11 @@ class Gencontrol(Base):
                 self.substitute_debhelper_config(
                     'image-dbg.meta', vars,
                     'linux-image%(localversion)s-dbg' % vars)
+
+        # In a quick build, only build the quick flavour (if any).
+        if flavour != self.quick_flavour:
+            for package in packages_own:
+                add_package_build_restriction(package, '!pkg.linux.quick')
 
         merge_packages(packages, packages_own, arch)
 
@@ -623,8 +627,6 @@ class Gencontrol(Base):
                                     arch, featureset, flavour))
         makeflags['KCONFIG'] = ' '.join(kconfig)
         makeflags['KCONFIG_OPTIONS'] = ''
-        if build_debug:
-            makeflags['KCONFIG_OPTIONS'] += ' -o DEBUG_INFO=y'
         if build_signed:
             makeflags['KCONFIG_OPTIONS'] += ' -o MODULE_SIG=y'
         # Add "salt" to fix #872263

@@ -1,4 +1,3 @@
-# Find first non-rc tarball linked from kernel.org.
 version=3
-opts="pgpmode=mangle, pgpsigurlmangle=s|\.xz$|.sign|, decompress" \
-https://www.kernel.org/ .*/linux-([0-9.]+).tar.xz debian uupdate
+opts="mode=git, gitmode-shallow, pgpmode=gittag, uversionmangle=s|-rc|~rc|" \
+https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git refs/tags/v(.*) debian

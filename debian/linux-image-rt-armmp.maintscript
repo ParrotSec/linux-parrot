@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-rt-armmp linux-image-5.15.0-15parrot1-rt-armmp 5.7~rc5-1~exp1 linux-image-rt-armmp
+dir_to_symlink /usr/share/doc/linux-image-rt-armmp linux-image-5.16.0-12parrot1-rt-armmp 5.7~rc5-1~exp1 linux-image-rt-armmp

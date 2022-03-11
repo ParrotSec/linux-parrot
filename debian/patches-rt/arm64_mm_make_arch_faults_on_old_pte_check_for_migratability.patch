@@ -1,0 +1,34 @@
+From: Valentin Schneider <valentin.schneider@arm.com>
+Subject: arm64: mm: Make arch_faults_on_old_pte() check for migratability
+Date: Wed, 11 Aug 2021 21:13:54 +0100
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+arch_faults_on_old_pte() relies on the calling context being
+non-preemptible. CONFIG_PREEMPT_RT turns the PTE lock into a sleepable
+spinlock, which doesn't disable preemption once acquired, triggering the
+warning in arch_faults_on_old_pte().
+
+It does however disable migration, ensuring the task remains on the same
+CPU during the entirety of the critical section, making the read of
+cpu_has_hw_af() safe and stable.
+
+Make arch_faults_on_old_pte() check migratable() instead of preemptible().
+
+Signed-off-by: Valentin Schneider <valentin.schneider@arm.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20210811201354.1976839-5-valentin.schneider@arm.com
+---
+ arch/arm64/include/asm/pgtable.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/arch/arm64/include/asm/pgtable.h
++++ b/arch/arm64/include/asm/pgtable.h
+@@ -1001,7 +1001,7 @@ static inline void update_mmu_cache(stru
+  */
+ static inline bool arch_faults_on_old_pte(void)
+ {
+-	WARN_ON(preemptible());
++	WARN_ON(is_migratable());
+ 
+ 	return !cpu_has_hw_af();
+ }

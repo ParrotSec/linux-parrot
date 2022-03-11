@@ -1,0 +1,40 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 30 Mar 2016 13:36:29 +0200
+Subject: [PATCH] net: dev: Always serialize on Qdisc::busylock in
+ __dev_xmit_skb() on PREEMPT_RT.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The root-lock is dropped before dev_hard_start_xmit() is invoked and after
+setting the __QDISC___STATE_RUNNING bit. If the Qdisc owner is preempted
+by another sender/task with a higher priority then this new sender won't
+be able to submit packets to the NIC directly instead they will be
+enqueued into the Qdisc. The NIC will remain idle until the Qdisc owner
+is scheduled again and finishes the job.
+
+By serializing every task on the ->busylock then the task will be
+preempted by a sender only after the Qdisc has no owner.
+
+Always serialize on the busylock on PREEMPT_RT.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lkml.kernel.org/r/YbcmKeLngWW/pb1V@linutronix.de
+---
+ net/core/dev.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3836,8 +3836,12 @@ static inline int __dev_xmit_skb(struct
+ 	 * separate lock before trying to get qdisc main lock.
+ 	 * This permits qdisc->running owner to get the lock more
+ 	 * often and dequeue packets faster.
++	 * On PREEMPT_RT it is possible to preempt the qdisc owner during xmit
++	 * and then other tasks will only enqueue packets. The packets will be
++	 * sent after the qdisc owner is scheduled again. To prevent this
++	 * scenario the task always serialize on the lock.
+ 	 */
+-	contended = qdisc_is_running(q);
++	contended = IS_ENABLED(CONFIG_PREEMPT_RT) || qdisc_is_running(q);
+ 	if (unlikely(contended))
+ 		spin_lock(&q->busylock);
+ 

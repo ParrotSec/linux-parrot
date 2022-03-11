@@ -1,0 +1,55 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Thu, 16 Dec 2021 16:06:29 +0106
+Subject: [PATCH 11/14] console: introduce CON_MIGHT_SLEEP for vt
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+Deadlocks and the framebuffer console have been a recurring issue
+that is getting worse. Daniel Vetter suggested [0] that
+fbcon->write() should no longer be called from an atomic context.
+
+Introduce a new console flag CON_MIGHT_SLEEP for a console driver to
+specify that it is only called from sleepable contexts. Set the
+fbcon to use this new flag.
+
+[0] https://lore.kernel.org/all/YYuS1uNhxWOEX1Ci@phenom.ffwll.local
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/tty/vt/vt.c     |    2 +-
+ include/linux/console.h |    1 +
+ kernel/printk/printk.c  |    2 ++
+ 3 files changed, 4 insertions(+), 1 deletion(-)
+
+--- a/drivers/tty/vt/vt.c
++++ b/drivers/tty/vt/vt.c
+@@ -3161,7 +3161,7 @@ static struct console vt_console_driver
+ 	.write		= vt_console_print,
+ 	.device		= vt_console_device,
+ 	.unblank	= unblank_screen,
+-	.flags		= CON_PRINTBUFFER,
++	.flags		= CON_PRINTBUFFER|CON_MIGHT_SLEEP,
+ 	.index		= -1,
+ };
+ #endif
+--- a/include/linux/console.h
++++ b/include/linux/console.h
+@@ -138,6 +138,7 @@ static inline int con_debug_leave(void)
+ #define CON_BRL		(32) /* Used for a braille device */
+ #define CON_EXTENDED	(64) /* Use the extended output format a la /dev/kmsg */
+ #define CON_PAUSED	(128) /* Sleep while console is locked */
++#define CON_MIGHT_SLEEP	(256) /* Can only be called from sleepable context */
+ 
+ struct console {
+ 	char	name[16];
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -2781,6 +2781,8 @@ static bool console_flush_all(bool do_co
+ 
+ 			if (!console_is_usable(con))
+ 				continue;
++			if ((con->flags & CON_MIGHT_SLEEP) && !do_cond_resched)
++				continue;
+ 			any_usable = true;
+ 
+ 			if (con->flags & CON_EXTENDED) {

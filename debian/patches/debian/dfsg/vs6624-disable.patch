@@ -7,18 +7,13 @@ Forwarded: not-needed
  drivers/media/i2c/Kconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/media/i2c/Kconfig b/drivers/media/i2c/Kconfig
-index c68e002d26ea..9055d4658c78 100644
 --- a/drivers/media/i2c/Kconfig
 +++ b/drivers/media/i2c/Kconfig
-@@ -843,6 +843,7 @@ config VIDEO_OV13858
- 	  OV13858 camera.
+@@ -1213,6 +1213,7 @@ config VIDEO_OV13B10
+ 	  OV13B10 camera.
  
  config VIDEO_VS6624
 +	depends on BROKEN
  	tristate "ST VS6624 sensor support"
  	depends on VIDEO_V4L2 && I2C
  	help
--- 
-2.24.0
-

@@ -1,5 +1,5 @@
 Package: @source_basename@-source@source_suffix@
-Build-Profiles: <!stage1 !pkg.linux.nosource !pkg.linux.nometa>
+Build-Profiles: <!stage1 !pkg.linux.nosource !pkg.linux.nometa !pkg.linux.quick>
 Architecture: all
 Depends: @source_basename@-source-@version@ (= ${binary:Version}), ${misc:Depends}
 Description: Linux kernel source (meta-package)

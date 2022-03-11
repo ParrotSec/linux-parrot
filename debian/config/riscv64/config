@@ -18,6 +18,12 @@ CONFIG_SOC_SIFIVE=y
 CONFIG_SOC_VIRT=y
 
 ##
+## file: arch/riscv/kvm/Kconfig
+##
+CONFIG_VIRTUALIZATION=y
+CONFIG_KVM=m
+
+##
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_SATA_AHCI_PLATFORM=m
@@ -38,6 +44,16 @@ CONFIG_DRM_RADEON=m
 ## file: drivers/hwmon/Kconfig
 ##
 CONFIG_SENSORS_LM90=m
+
+##
+## file: drivers/input/misc/Kconfig
+##
+CONFIG_INPUT_DA9063_ONKEY=m
+
+##
+## file: drivers/mfd/Kconfig
+##
+CONFIG_MFD_DA9063=m
 
 ##
 ## file: drivers/mmc/Kconfig
@@ -89,6 +105,16 @@ CONFIG_PWM=y
 CONFIG_PWM_SIFIVE=m
 
 ##
+## file: drivers/regulator/Kconfig
+##
+CONFIG_REGULATOR_DA9063=m
+
+##
+## file: drivers/rtc/Kconfig
+##
+CONFIG_RTC_DRV_DA9063=m
+
+##
 ## file: drivers/soc/sifive/Kconfig
 ##
 CONFIG_SIFIVE_L2=y
@@ -128,3 +154,8 @@ CONFIG_USB_EHCI_HCD=m
 CONFIG_USB_EHCI_HCD_PLATFORM=m
 CONFIG_USB_OHCI_HCD=m
 CONFIG_USB_OHCI_HCD_PLATFORM=m
+
+##
+## file: drivers/watchdog/Kconfig
+##
+CONFIG_DA9063_WATCHDOG=m

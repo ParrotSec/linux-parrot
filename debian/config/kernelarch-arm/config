@@ -42,6 +42,11 @@ CONFIG_DRM_VC4=m
 CONFIG_DRM_VC4_HDMI_CEC=y
 
 ##
+## file: drivers/i2c/muxes/Kconfig
+##
+CONFIG_I2C_MUX_PINCTRL=m
+
+##
 ## file: drivers/iio/humidity/Kconfig
 ##
 CONFIG_DHT11=m
@@ -89,6 +94,11 @@ CONFIG_MTD_PHYSMAP=y
 ## file: drivers/pci/Kconfig
 ##
 # CONFIG_PCI_IOV is not set
+
+##
+## file: drivers/pwm/Kconfig
+##
+CONFIG_PWM_RASPBERRYPI_POE=m
 
 ##
 ## file: drivers/scsi/Kconfig

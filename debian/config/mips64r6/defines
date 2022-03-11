@@ -1,20 +1,19 @@
 [base]
 flavours:
- mips64r6
-default-flavour: mips64r6
+ mips64r6eb
 kernel-arch: mips
 
 [build]
-image-file: vmlinux
+image-file: vmlinuz
 
 [image]
-install-stem: vmlinux
+install-stem: vmlinuz
 
-[mips64r6_description]
-hardware: MIPS R6 (64 bit, big endian)
-hardware-long: MIPS R6 (64 bit, big endian)
+[mips64r6eb_description]
+hardware: MIPS Generic (mips64r6eb)
+hardware-long: MIPS Generic platform (mips64r6eb)
 
-[mips64r6_image]
+[mips64r6eb_image]
 configs:
  kernelarch-mips/config.boston
  kernelarch-mips/config.mips64r6

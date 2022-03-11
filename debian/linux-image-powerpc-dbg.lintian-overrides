@@ -1,2 +1,1 @@
 linux-image-powerpc-dbg: wrong-section-according-to-package-name linux-image-powerpc-dbg => debug
-linux-image-powerpc-dbg: debug-package-should-be-priority-extra linux-image-powerpc-dbg

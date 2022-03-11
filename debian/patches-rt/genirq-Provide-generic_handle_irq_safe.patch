@@ -1,0 +1,55 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Fri, 21 Jan 2022 18:08:11 +0100
+Subject: [PATCH] genirq: Provide generic_handle_irq_safe().
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+Provide generic_handle_irq_safe() which can be used can used from any
+context.
+
+Suggested-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/irqdesc.h |    1 +
+ kernel/irq/irqdesc.c    |   21 +++++++++++++++++++++
+ 2 files changed, 22 insertions(+)
+
+--- a/include/linux/irqdesc.h
++++ b/include/linux/irqdesc.h
+@@ -160,6 +160,7 @@ static inline void generic_handle_irq_de
+ 
+ int handle_irq_desc(struct irq_desc *desc);
+ int generic_handle_irq(unsigned int irq);
++int generic_handle_irq_safe(unsigned int irq);
+ 
+ #ifdef CONFIG_IRQ_DOMAIN
+ /*
+--- a/kernel/irq/irqdesc.c
++++ b/kernel/irq/irqdesc.c
+@@ -662,6 +662,27 @@ int generic_handle_irq(unsigned int irq)
+ }
+ EXPORT_SYMBOL_GPL(generic_handle_irq);
+ 
++/**
++ * generic_handle_irq_safe - Invoke the handler for a particular irq
++ * @irq:	The irq number to handle
++ *
++ * Returns:	0 on success, or -EINVAL if conversion has failed
++ *
++ * This function must be called either from an IRQ context with irq regs
++ * initialized or with care from any context.
++ */
++int generic_handle_irq_safe(unsigned int irq)
++{
++	unsigned long flags;
++	int ret;
++
++	local_irq_save(flags);
++	ret = handle_irq_desc(irq_to_desc(irq));
++	local_irq_restore(flags);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(generic_handle_irq_safe);
++
+ #ifdef CONFIG_IRQ_DOMAIN
+ /**
+  * generic_handle_domain_irq - Invoke the handler for a HW irq belonging

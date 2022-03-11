@@ -1,0 +1,37 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 29 Nov 2021 18:46:53 +0100
+Subject: [PATCH 10/11] x86/mm: Include spinlock_t definition in pgtable.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+This header file provides forward declartion for pgd_lock but does not
+include the header defining its type. This works since the definition of
+spinlock_t is usually included somehow via printk.
+
+By trying to avoid recursive includes on PREEMPT_RT I avoided the loop
+in printk and as a consequnce kernel/intel.c failed to compile due to
+missing type definition.
+
+Include the needed definition for spinlock_t.
+
+Cc: x86@kernel.org
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: H. Peter Anvin <hpa@zytor.com>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211129174654.668506-11-bigeasy@linutronix.de
+---
+ arch/x86/include/asm/pgtable.h |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/arch/x86/include/asm/pgtable.h
++++ b/arch/x86/include/asm/pgtable.h
+@@ -22,6 +22,7 @@
+ #define pgprot_decrypted(prot)	__pgprot(__sme_clr(pgprot_val(prot)))
+ 
+ #ifndef __ASSEMBLY__
++#include <linux/spinlock.h>
+ #include <asm/x86_init.h>
+ #include <asm/pkru.h>
+ #include <asm/fpu/api.h>

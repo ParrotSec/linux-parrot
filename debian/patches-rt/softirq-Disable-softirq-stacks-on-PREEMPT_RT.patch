@@ -1,0 +1,88 @@
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 24 Sep 2021 17:05:48 +0200
+Subject: [PATCH] */softirq: Disable softirq stacks on PREEMPT_RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+PREEMPT_RT preempts softirqs and the current implementation avoids
+do_softirq_own_stack() and only uses __do_softirq().
+
+Disable the unused softirqs stacks on PREEMPT_RT to safe some memory and
+ensure that do_softirq_own_stack() is not used which is not expected.
+
+[bigeasy: commit description.]
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ arch/powerpc/kernel/irq.c  |    4 ++++
+ arch/sh/kernel/irq.c       |    2 ++
+ arch/sparc/kernel/irq_64.c |    2 ++
+ 3 files changed, 8 insertions(+)
+
+--- a/arch/powerpc/kernel/irq.c
++++ b/arch/powerpc/kernel/irq.c
+@@ -690,6 +690,7 @@ static inline void check_stack_overflow(
+ 	}
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ static __always_inline void call_do_softirq(const void *sp)
+ {
+ 	/* Temporarily switch r1 to sp, call __do_softirq() then restore r1. */
+@@ -708,6 +709,7 @@ static __always_inline void call_do_soft
+ 		   "r11", "r12"
+ 	);
+ }
++#endif
+ 
+ static __always_inline void call_do_irq(struct pt_regs *regs, void *sp)
+ {
+@@ -820,10 +822,12 @@ void *mcheckirq_ctx[NR_CPUS] __read_most
+ void *softirq_ctx[NR_CPUS] __read_mostly;
+ void *hardirq_ctx[NR_CPUS] __read_mostly;
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	call_do_softirq(softirq_ctx[smp_processor_id()]);
+ }
++#endif
+ 
+ irq_hw_number_t virq_to_hw(unsigned int virq)
+ {
+--- a/arch/sh/kernel/irq.c
++++ b/arch/sh/kernel/irq.c
+@@ -149,6 +149,7 @@ void irq_ctx_exit(int cpu)
+ 	hardirq_ctx[cpu] = NULL;
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	struct thread_info *curctx;
+@@ -176,6 +177,7 @@ void do_softirq_own_stack(void)
+ 		  "r5", "r6", "r7", "r8", "r9", "r15", "t", "pr"
+ 	);
+ }
++#endif
+ #else
+ static inline void handle_one_irq(unsigned int irq)
+ {
+--- a/arch/sparc/kernel/irq_64.c
++++ b/arch/sparc/kernel/irq_64.c
+@@ -855,6 +855,7 @@ void __irq_entry handler_irq(int pil, st
+ 	set_irq_regs(old_regs);
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	void *orig_sp, *sp = softirq_stack[smp_processor_id()];
+@@ -869,6 +870,7 @@ void do_softirq_own_stack(void)
+ 	__asm__ __volatile__("mov %0, %%sp"
+ 			     : : "r" (orig_sp));
+ }
++#endif
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+ void fixup_irqs(void)

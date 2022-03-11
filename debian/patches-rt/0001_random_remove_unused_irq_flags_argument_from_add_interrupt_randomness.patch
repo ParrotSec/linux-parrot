@@ -1,0 +1,98 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: random: Remove unused irq_flags argument from add_interrupt_randomness().
+Date: Tue, 07 Dec 2021 13:17:33 +0100
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+Since commit
+   ee3e00e9e7101 ("random: use registers from interrupted code for CPU's w/o a cycle counter")
+
+the irq_flags argument is no longer used.
+
+Remove unused irq_flags irq_flags.
+
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Dexuan Cui <decui@microsoft.com>
+Cc: H. Peter Anvin <hpa@zytor.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Wei Liu <wei.liu@kernel.org>
+Cc: linux-hyperv@vger.kernel.org
+Cc: x86@kernel.org
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211207121737.2347312-2-bigeasy@linutronix.de
+---
+ arch/x86/kernel/cpu/mshyperv.c |    2 +-
+ drivers/char/random.c          |    4 ++--
+ drivers/hv/vmbus_drv.c         |    2 +-
+ include/linux/random.h         |    2 +-
+ kernel/irq/handle.c            |    2 +-
+ 5 files changed, 6 insertions(+), 6 deletions(-)
+
+--- a/arch/x86/kernel/cpu/mshyperv.c
++++ b/arch/x86/kernel/cpu/mshyperv.c
+@@ -79,7 +79,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_sti
+ 	inc_irq_stat(hyperv_stimer0_count);
+ 	if (hv_stimer0_handler)
+ 		hv_stimer0_handler();
+-	add_interrupt_randomness(HYPERV_STIMER0_VECTOR, 0);
++	add_interrupt_randomness(HYPERV_STIMER0_VECTOR);
+ 	ack_APIC_irq();
+ 
+ 	set_irq_regs(old_regs);
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -200,7 +200,7 @@
+  *	void add_device_randomness(const void *buf, unsigned int size);
+  * 	void add_input_randomness(unsigned int type, unsigned int code,
+  *                                unsigned int value);
+- *	void add_interrupt_randomness(int irq, int irq_flags);
++ *	void add_interrupt_randomness(int irq);
+  * 	void add_disk_randomness(struct gendisk *disk);
+  *
+  * add_device_randomness() is for adding data to the random pool that
+@@ -1260,7 +1260,7 @@ static __u32 get_reg(struct fast_pool *f
+ 	return *ptr;
+ }
+ 
+-void add_interrupt_randomness(int irq, int irq_flags)
++void add_interrupt_randomness(int irq)
+ {
+ 	struct entropy_store	*r;
+ 	struct fast_pool	*fast_pool = this_cpu_ptr(&irq_randomness);
+--- a/drivers/hv/vmbus_drv.c
++++ b/drivers/hv/vmbus_drv.c
+@@ -1381,7 +1381,7 @@ static void vmbus_isr(void)
+ 			tasklet_schedule(&hv_cpu->msg_dpc);
+ 	}
+ 
+-	add_interrupt_randomness(vmbus_interrupt, 0);
++	add_interrupt_randomness(vmbus_interrupt);
+ }
+ 
+ static irqreturn_t vmbus_percpu_isr(int irq, void *dev_id)
+--- a/include/linux/random.h
++++ b/include/linux/random.h
+@@ -35,7 +35,7 @@ static inline void add_latent_entropy(vo
+ 
+ extern void add_input_randomness(unsigned int type, unsigned int code,
+ 				 unsigned int value) __latent_entropy;
+-extern void add_interrupt_randomness(int irq, int irq_flags) __latent_entropy;
++extern void add_interrupt_randomness(int irq) __latent_entropy;
+ 
+ extern void get_random_bytes(void *buf, int nbytes);
+ extern int wait_for_random_bytes(void);
+--- a/kernel/irq/handle.c
++++ b/kernel/irq/handle.c
+@@ -197,7 +197,7 @@ irqreturn_t handle_irq_event_percpu(stru
+ 
+ 	retval = __handle_irq_event_percpu(desc, &flags);
+ 
+-	add_interrupt_randomness(desc->irq_data.irq, flags);
++	add_interrupt_randomness(desc->irq_data.irq);
+ 
+ 	if (!irq_settings_no_debug(desc))
+ 		note_interrupt(desc, retval);

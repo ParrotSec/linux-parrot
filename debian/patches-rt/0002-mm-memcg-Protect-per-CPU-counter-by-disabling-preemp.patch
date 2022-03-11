@@ -1,0 +1,86 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Fri, 17 Dec 2021 18:19:19 +0100
+Subject: [PATCH 2/4] mm/memcg: Protect per-CPU counter by disabling preemption
+ on PREEMPT_RT where needed.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The per-CPU counter are modified with the non-atomic modifier. The
+consistency is ensured by disabling interrupts for the update.
+On non PREEMPT_RT configuration this works because acquiring a
+spinlock_t typed lock with the _irq() suffix disables interrupts. On
+PREEMPT_RT configurations the RMW operation can be interrupted.
+
+Another problem is that mem_cgroup_swapout() expects to be invoked with
+disabled interrupts because the caller has to acquire a spinlock_t which
+is acquired with disabled interrupts. Since spinlock_t never disables
+interrupts on PREEMPT_RT the interrupts are never disabled at this
+point.
+
+The code is never called from in_irq() context on PREEMPT_RT therefore
+disabling preemption during the update is sufficient on PREEMPT_RT.
+The sections which explicitly disable interrupts can remain on
+PREEMPT_RT because the sections remain short and they don't involve
+sleeping locks (memcg_check_events() is doing nothing on PREEMPT_RT).
+
+Disable preemption during update of the per-CPU variables which do not
+explicitly disable interrupts.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ mm/memcontrol.c |   21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -667,6 +667,8 @@
+ 	pn = container_of(lruvec, struct mem_cgroup_per_node, lruvec);
+ 	memcg = pn->memcg;
+ 
++	if (IS_ENABLED(CONFIG_PREEMPT_RT))
++		preempt_disable();
+ 	/* Update memcg */
+ 	__this_cpu_add(memcg->vmstats_percpu->state[idx], val);
+ 
+@@ -674,6 +676,8 @@
+ 	__this_cpu_add(pn->lruvec_stats_percpu->state[idx], val);
+ 
+ 	memcg_rstat_updated(memcg, val);
++	if (IS_ENABLED(CONFIG_PREEMPT_RT))
++		preempt_enable();
+ }
+ 
+ /**
+@@ -756,8 +760,12 @@
+ 	if (mem_cgroup_disabled())
+ 		return;
+ 
++	if (IS_ENABLED(PREEMPT_RT))
++		preempt_disable();
+ 	__this_cpu_add(memcg->vmstats_percpu->events[idx], count);
+ 	memcg_rstat_updated(memcg, count);
++	if (IS_ENABLED(PREEMPT_RT))
++		preempt_enable();
+ }
+ 
+ static unsigned long memcg_events(struct mem_cgroup *memcg, int event)
+@@ -7179,9 +7187,18 @@
+ 	 * i_pages lock which is taken with interrupts-off. It is
+ 	 * important here to have the interrupts disabled because it is the
+ 	 * only synchronisation we have for updating the per-CPU variables.
++	 * On PREEMPT_RT interrupts are never disabled and the updates to per-CPU
++	 * variables are synchronised by keeping preemption disabled.
+ 	 */
+-	VM_BUG_ON(!irqs_disabled());
+-	mem_cgroup_charge_statistics(memcg, -nr_entries);
++	if (!IS_ENABLED(CONFIG_PREEMPT_RT)) {
++		VM_BUG_ON(!irqs_disabled());
++		mem_cgroup_charge_statistics(memcg, -nr_entries);
++	} else {
++		preempt_disable();
++		mem_cgroup_charge_statistics(memcg, -nr_entries);
++		preempt_enable();
++	}
++
+ 	memcg_check_events(memcg, page_to_nid(page));
+ 
+ 	css_put(&memcg->css);

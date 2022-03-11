@@ -753,8 +753,13 @@ static int pm8001_exec_internal_tmf_task(struct domain_device *dev,
 		res = -TMF_RESP_FUNC_FAILED;
 		/* Even TMF timed out, return direct. */
 		if (task->task_state_flags & SAS_TASK_STATE_ABORTED) {
+			struct pm8001_ccb_info *ccb = task->lldd_task;
+
 			pm8001_dbg(pm8001_ha, FAIL, "TMF task[%x]timeout.\n",
 				   tmf->tmf);
+
+			if (ccb)
+				ccb->task = NULL;
 			goto ex_err;
 		}
 
@@ -1354,4 +1359,19 @@ int pm8001_clear_task_set(struct domain_device *dev, u8 *lun)
 		   pm8001_dev->device_id);
 	tmf_task.tmf = TMF_CLEAR_TASK_SET;
 	return pm8001_issue_ssp_tmf(dev, lun, &tmf_task);
+}
+
+void pm8001_port_formed(struct asd_sas_phy *sas_phy)
+{
+	struct sas_ha_struct *sas_ha = sas_phy->ha;
+	struct pm8001_hba_info *pm8001_ha = sas_ha->lldd_ha;
+	struct pm8001_phy *phy = sas_phy->lldd_phy;
+	struct asd_sas_port *sas_port = sas_phy->port;
+	struct pm8001_port *port = phy->port;
+
+	if (!sas_port) {
+		pm8001_dbg(pm8001_ha, FAIL, "Received null port\n");
+		return;
+	}
+	sas_port->lldd_port = port;
 }

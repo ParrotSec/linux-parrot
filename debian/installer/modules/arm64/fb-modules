@@ -7,6 +7,7 @@ hibmc-drm
 
 # For panel/backlight on some chromeos devices
 panel-simple
+panel-edp
 pwm_bl
 pwm-cros-ec
 

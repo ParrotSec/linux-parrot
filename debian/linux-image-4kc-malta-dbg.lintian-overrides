@@ -1,2 +1,1 @@
 linux-image-4kc-malta-dbg: wrong-section-according-to-package-name linux-image-4kc-malta-dbg => debug
-linux-image-4kc-malta-dbg: debug-package-should-be-priority-extra linux-image-4kc-malta-dbg

@@ -254,7 +254,6 @@ CONFIG_MFD_VX855=m
 ##
 ## file: drivers/misc/Kconfig
 ##
-CONFIG_CS5535_MFGPT=m
 CONFIG_CS5535_CLOCK_EVENT_SRC=m
 CONFIG_PCH_PHUB=m
 
@@ -285,14 +284,12 @@ CONFIG_CAN_CC770_ISA=m
 ##
 ## file: drivers/net/ethernet/3com/Kconfig
 ##
-CONFIG_NET_VENDOR_3COM=y
 CONFIG_EL3=m
 CONFIG_3C515=m
 
 ##
 ## file: drivers/net/ethernet/8390/Kconfig
 ##
-CONFIG_NET_VENDOR_8390=y
 CONFIG_NE2000=m
 CONFIG_ULTRA=m
 CONFIG_WD80x3=m
@@ -300,7 +297,6 @@ CONFIG_WD80x3=m
 ##
 ## file: drivers/net/ethernet/amd/Kconfig
 ##
-CONFIG_NET_VENDOR_AMD=y
 CONFIG_LANCE=m
 CONFIG_NI65=m
 
@@ -316,11 +312,6 @@ CONFIG_CS89x0_ISA=m
 CONFIG_NET_VENDOR_DEC=y
 
 ##
-## file: drivers/net/ethernet/fujitsu/Kconfig
-##
-CONFIG_NET_VENDOR_FUJITSU=y
-
-##
 ## file: drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
 ##
 CONFIG_PCH_GBE=m
@@ -328,7 +319,6 @@ CONFIG_PCH_GBE=m
 ##
 ## file: drivers/net/ethernet/smsc/Kconfig
 ##
-CONFIG_NET_VENDOR_SMSC=y
 CONFIG_SMC9194=m
 
 ##

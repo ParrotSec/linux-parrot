@@ -1,0 +1,57 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 29 Jul 2021 10:36:30 +0200
+Subject: [PATCH] arm64/sve: Make kernel FPU protection RT friendly
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+Non RT kernels need to protect FPU against preemption and bottom half
+processing. This is achieved by disabling bottom halves via
+local_bh_disable() which implictly disables preemption.
+
+On RT kernels this protection mechanism is not sufficient because
+local_bh_disable() does not disable preemption. It serializes bottom half
+related processing via a CPU local lock.
+
+As bottom halves are running always in thread context on RT kernels
+disabling preemption is the proper choice as it implicitly prevents bottom
+half processing.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ arch/arm64/kernel/fpsimd.c |   16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+--- a/arch/arm64/kernel/fpsimd.c
++++ b/arch/arm64/kernel/fpsimd.c
+@@ -201,10 +201,19 @@ static void __get_cpu_fpsimd_context(voi
+  *
+  * The double-underscore version must only be called if you know the task
+  * can't be preempted.
++ *
++ * On RT kernels local_bh_disable() is not sufficient because it only
++ * serializes soft interrupt related sections via a local lock, but stays
++ * preemptible. Disabling preemption is the right choice here as bottom
++ * half processing is always in thread context on RT kernels so it
++ * implicitly prevents bottom half processing as well.
+  */
+ static void get_cpu_fpsimd_context(void)
+ {
+-	local_bh_disable();
++	if (!IS_ENABLED(CONFIG_PREEMPT_RT))
++		local_bh_disable();
++	else
++		preempt_disable();
+ 	__get_cpu_fpsimd_context();
+ }
+ 
+@@ -225,7 +234,10 @@ static void __put_cpu_fpsimd_context(voi
+ static void put_cpu_fpsimd_context(void)
+ {
+ 	__put_cpu_fpsimd_context();
+-	local_bh_enable();
++	if (!IS_ENABLED(CONFIG_PREEMPT_RT))
++		local_bh_enable();
++	else
++		preempt_enable();
+ }
+ 
+ static bool have_cpu_fpsimd_context(void)

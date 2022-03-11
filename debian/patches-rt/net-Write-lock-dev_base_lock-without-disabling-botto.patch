@@ -1,0 +1,155 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Fri, 26 Nov 2021 17:15:29 +0100
+Subject: [PATCH] net: Write lock dev_base_lock without disabling bottom
+ halves.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The writer acquires dev_base_lock with disabled bottom halves.
+The reader can acquire dev_base_lock without disabling bottom halves
+because there is no writer in softirq context.
+
+On PREEMPT_RT the softirqs are preemptible and local_bh_disable() acts
+as a lock to ensure that resources, that are protected by disabling
+bottom halves, remain protected.
+This leads to a circular locking dependency if the lock acquired with
+disabled bottom halves (as in write_lock_bh()) and somewhere else with
+enabled bottom halves (as by read_lock() in netstat_show()) followed by
+disabling bottom halves (cxgb_get_stats() -> t4_wr_mbox_meat_timeout()
+-> spin_lock_bh()). This is the reverse locking order.
+
+All read_lock() invocation are from sysfs callback which are not invoked
+from softirq context. Therefore there is no need to disable bottom
+halves while acquiring a write lock.
+
+Acquire the write lock of dev_base_lock without disabling bottom halves.
+
+Cc: stable-rt@vger.kernel.org
+Reported-by: Pei Zhang <pezhang@redhat.com>
+Reported-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211126161529.hwqbkv6z2svox3zs@linutronix.de
+---
+ net/core/dev.c        |   16 ++++++++--------
+ net/core/link_watch.c |    4 ++--
+ net/core/rtnetlink.c  |    8 ++++----
+ net/hsr/hsr_device.c  |    6 +++---
+ 4 files changed, 17 insertions(+), 17 deletions(-)
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -371,12 +371,12 @@ static void list_netdevice(struct net_de
+ 
+ 	ASSERT_RTNL();
+ 
+-	write_lock_bh(&dev_base_lock);
++	write_lock(&dev_base_lock);
+ 	list_add_tail_rcu(&dev->dev_list, &net->dev_base_head);
+ 	netdev_name_node_add(net, dev->name_node);
+ 	hlist_add_head_rcu(&dev->index_hlist,
+ 			   dev_index_hash(net, dev->ifindex));
+-	write_unlock_bh(&dev_base_lock);
++	write_unlock(&dev_base_lock);
+ 
+ 	dev_base_seq_inc(net);
+ }
+@@ -389,11 +389,11 @@ static void unlist_netdevice(struct net_
+ 	ASSERT_RTNL();
+ 
+ 	/* Unlink dev from the device chain */
+-	write_lock_bh(&dev_base_lock);
++	write_lock(&dev_base_lock);
+ 	list_del_rcu(&dev->dev_list);
+ 	netdev_name_node_del(dev->name_node);
+ 	hlist_del_rcu(&dev->index_hlist);
+-	write_unlock_bh(&dev_base_lock);
++	write_unlock(&dev_base_lock);
+ 
+ 	dev_base_seq_inc(dev_net(dev));
+ }
+@@ -1272,15 +1272,15 @@ int dev_change_name(struct net_device *d
+ 
+ 	netdev_adjacent_rename_links(dev, oldname);
+ 
+-	write_lock_bh(&dev_base_lock);
++	write_lock(&dev_base_lock);
+ 	netdev_name_node_del(dev->name_node);
+-	write_unlock_bh(&dev_base_lock);
++	write_unlock(&dev_base_lock);
+ 
+ 	synchronize_rcu();
+ 
+-	write_lock_bh(&dev_base_lock);
++	write_lock(&dev_base_lock);
+ 	netdev_name_node_add(net, dev->name_node);
+-	write_unlock_bh(&dev_base_lock);
++	write_unlock(&dev_base_lock);
+ 
+ 	ret = call_netdevice_notifiers(NETDEV_CHANGENAME, dev);
+ 	ret = notifier_to_errno(ret);
+--- a/net/core/link_watch.c
++++ b/net/core/link_watch.c
+@@ -55,7 +55,7 @@ static void rfc2863_policy(struct net_de
+ 	if (operstate == dev->operstate)
+ 		return;
+ 
+-	write_lock_bh(&dev_base_lock);
++	write_lock(&dev_base_lock);
+ 
+ 	switch(dev->link_mode) {
+ 	case IF_LINK_MODE_TESTING:
+@@ -74,7 +74,7 @@ static void rfc2863_policy(struct net_de
+ 
+ 	dev->operstate = operstate;
+ 
+-	write_unlock_bh(&dev_base_lock);
++	write_unlock(&dev_base_lock);
+ }
+ 
+ 
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -842,9 +842,9 @@ static void set_operstate(struct net_dev
+ 	}
+ 
+ 	if (dev->operstate != operstate) {
+-		write_lock_bh(&dev_base_lock);
++		write_lock(&dev_base_lock);
+ 		dev->operstate = operstate;
+-		write_unlock_bh(&dev_base_lock);
++		write_unlock(&dev_base_lock);
+ 		netdev_state_change(dev);
+ 	}
+ }
+@@ -2779,11 +2779,11 @@ static int do_setlink(const struct sk_bu
+ 	if (tb[IFLA_LINKMODE]) {
+ 		unsigned char value = nla_get_u8(tb[IFLA_LINKMODE]);
+ 
+-		write_lock_bh(&dev_base_lock);
++		write_lock(&dev_base_lock);
+ 		if (dev->link_mode ^ value)
+ 			status |= DO_SETLINK_NOTIFY;
+ 		dev->link_mode = value;
+-		write_unlock_bh(&dev_base_lock);
++		write_unlock(&dev_base_lock);
+ 	}
+ 
+ 	if (tb[IFLA_VFINFO_LIST]) {
+--- a/net/hsr/hsr_device.c
++++ b/net/hsr/hsr_device.c
+@@ -30,13 +30,13 @@ static bool is_slave_up(struct net_devic
+ 
+ static void __hsr_set_operstate(struct net_device *dev, int transition)
+ {
+-	write_lock_bh(&dev_base_lock);
++	write_lock(&dev_base_lock);
+ 	if (dev->operstate != transition) {
+ 		dev->operstate = transition;
+-		write_unlock_bh(&dev_base_lock);
++		write_unlock(&dev_base_lock);
+ 		netdev_state_change(dev);
+ 	} else {
+-		write_unlock_bh(&dev_base_lock);
++		write_unlock(&dev_base_lock);
+ 	}
+ }
+ 

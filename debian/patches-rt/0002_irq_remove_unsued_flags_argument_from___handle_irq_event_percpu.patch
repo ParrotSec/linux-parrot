@@ -1,0 +1,83 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: irq: Remove unsued flags argument from __handle_irq_event_percpu().
+Date: Tue, 07 Dec 2021 13:17:34 +0100
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The __IRQF_TIMER bit from the flags argument was used in
+add_interrupt_randomness() to distinguish the timer interrupt from other
+interrupts. This is no longer the case.
+
+Remove the flags argument from __handle_irq_event_percpu().
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211207121737.2347312-3-bigeasy@linutronix.de
+---
+ kernel/irq/chip.c      |    4 +---
+ kernel/irq/handle.c    |    9 ++-------
+ kernel/irq/internals.h |    2 +-
+ 3 files changed, 4 insertions(+), 11 deletions(-)
+
+--- a/kernel/irq/chip.c
++++ b/kernel/irq/chip.c
+@@ -575,8 +575,6 @@ EXPORT_SYMBOL_GPL(handle_simple_irq);
+  */
+ void handle_untracked_irq(struct irq_desc *desc)
+ {
+-	unsigned int flags = 0;
+-
+ 	raw_spin_lock(&desc->lock);
+ 
+ 	if (!irq_may_run(desc))
+@@ -593,7 +591,7 @@ void handle_untracked_irq(struct irq_des
+ 	irqd_set(&desc->irq_data, IRQD_IRQ_INPROGRESS);
+ 	raw_spin_unlock(&desc->lock);
+ 
+-	__handle_irq_event_percpu(desc, &flags);
++	__handle_irq_event_percpu(desc);
+ 
+ 	raw_spin_lock(&desc->lock);
+ 	irqd_clear(&desc->irq_data, IRQD_IRQ_INPROGRESS);
+--- a/kernel/irq/handle.c
++++ b/kernel/irq/handle.c
+@@ -136,7 +136,7 @@ void __irq_wake_thread(struct irq_desc *
+ 	wake_up_process(action->thread);
+ }
+ 
+-irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc, unsigned int *flags)
++irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc)
+ {
+ 	irqreturn_t retval = IRQ_NONE;
+ 	unsigned int irq = desc->irq_data.irq;
+@@ -174,10 +174,6 @@ irqreturn_t __handle_irq_event_percpu(st
+ 			}
+ 
+ 			__irq_wake_thread(desc, action);
+-
+-			fallthrough;	/* to add to randomness */
+-		case IRQ_HANDLED:
+-			*flags |= action->flags;
+ 			break;
+ 
+ 		default:
+@@ -193,9 +189,8 @@ irqreturn_t __handle_irq_event_percpu(st
+ irqreturn_t handle_irq_event_percpu(struct irq_desc *desc)
+ {
+ 	irqreturn_t retval;
+-	unsigned int flags = 0;
+ 
+-	retval = __handle_irq_event_percpu(desc, &flags);
++	retval = __handle_irq_event_percpu(desc);
+ 
+ 	add_interrupt_randomness(desc->irq_data.irq);
+ 
+--- a/kernel/irq/internals.h
++++ b/kernel/irq/internals.h
+@@ -103,7 +103,7 @@ extern int __irq_get_irqchip_state(struc
+ 
+ extern void init_kstat_irqs(struct irq_desc *desc, int node, int nr);
+ 
+-irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc, unsigned int *flags);
++irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc);
+ irqreturn_t handle_irq_event_percpu(struct irq_desc *desc);
+ irqreturn_t handle_irq_event(struct irq_desc *desc);
+ 

@@ -1,0 +1,231 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: kernel/fork: Only cache the VMAP stack in finish_task_switch().
+Date: Thu, 18 Nov 2021 15:34:51 +0100
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+The task stack could be deallocated later in delayed_put_task_struct().
+For fork()/exec() kind of workloads (say a shell script executing
+several commands) it is important that the stack is released in
+finish_task_switch() so that in VMAP_STACK case it can be cached and
+reused in the new task.
+If the free/caching is RCU-delayed then a new stack has to be allocated
+because the cache is filled in batches of which only two stacks, out of
+many, are recycled.
+
+For PREEMPT_RT it would be good if the wake-up in vfree_atomic() could
+be avoided in the scheduling path. Far worse are the other
+free_thread_stack() implementations which invoke __free_pages()/
+kmem_cache_free() with disabled preemption.
+
+Introduce put_task_stack_sched() which is invoked from the
+finish_task_switch() and only caches the VMAP stack. If the cache is
+full or !CONFIG_VMAP_STACK is used than the stack is freed from
+delayed_put_task_struct(). In the VMAP case this is another opportunity
+to fill the cache.
+
+The stack is finally released in delayed_put_task_struct() which means
+that a valid stack reference can be held during its invocation. As such
+there can be made no assumption whether the task_struct::stack pointer
+can be freed if non-NULL.
+Set the lowest bit of task_struct::stack if the stack was released via
+put_task_stack_sched() and needs a final free in
+delayed_put_task_struct(). If the bit is missing then a reference is
+held and put_task_stack() will release it.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211118143452.136421-8-bigeasy@linutronix.de
+---
+ include/linux/sched/task_stack.h |    8 +++++
+ kernel/exit.c                    |    1 
+ kernel/fork.c                    |   60 ++++++++++++++++++++++++++++++++-------
+ kernel/sched/core.c              |    7 +++-
+ 4 files changed, 64 insertions(+), 12 deletions(-)
+
+--- a/include/linux/sched/task_stack.h
++++ b/include/linux/sched/task_stack.h
+@@ -70,6 +70,7 @@ static inline void *try_get_task_stack(s
+ }
+ 
+ extern void put_task_stack(struct task_struct *tsk);
++extern void put_task_stack_sched(struct task_struct *tsk);
+ #else
+ static inline void *try_get_task_stack(struct task_struct *tsk)
+ {
+@@ -77,6 +78,13 @@ static inline void *try_get_task_stack(s
+ }
+ 
+ static inline void put_task_stack(struct task_struct *tsk) {}
++static inline void put_task_stack_sched(struct task_struct *tsk) {}
++#endif
++
++#ifdef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
++static inline void task_stack_cleanup(struct task_struct *tsk) {}
++#else
++extern void task_stack_cleanup(struct task_struct *tsk);
+ #endif
+ 
+ void exit_task_stack_account(struct task_struct *tsk);
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -171,6 +171,7 @@ static void delayed_put_task_struct(stru
+ 	kprobe_flush_task(tsk);
+ 	perf_event_delayed_put(tsk);
+ 	trace_sched_process_free(tsk);
++	task_stack_cleanup(tsk);
+ 	put_task_struct(tsk);
+ }
+ 
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -178,6 +178,16 @@ static inline void free_task_struct(stru
+ 
+ #ifndef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
+ 
++#define THREAD_STACK_DELAYED_FREE	1UL
++
++static void thread_stack_mark_delayed_free(struct task_struct *tsk)
++{
++	unsigned long val = (unsigned long)tsk->stack;
++
++	val |= THREAD_STACK_DELAYED_FREE;
++	WRITE_ONCE(tsk->stack, (void *)val);
++}
++
+ /*
+  * Allocate pages if THREAD_SIZE is >= PAGE_SIZE, otherwise use a
+  * kmemcache based allocator.
+@@ -293,7 +303,7 @@ static int alloc_thread_stack_node(struc
+ 	return 0;
+ }
+ 
+-static void free_thread_stack(struct task_struct *tsk)
++static void free_thread_stack(struct task_struct *tsk, bool cache_only)
+ {
+ 	int i;
+ 
+@@ -306,7 +316,12 @@ static void free_thread_stack(struct tas
+ 		tsk->stack_vm_area = NULL;
+ 		return;
+ 	}
+-	vfree_atomic(tsk->stack);
++	if (cache_only) {
++		thread_stack_mark_delayed_free(tsk);
++		return;
++	}
++
++	vfree(tsk->stack);
+ 	tsk->stack = NULL;
+ 	tsk->stack_vm_area = NULL;
+ }
+@@ -325,8 +340,12 @@ static int alloc_thread_stack_node(struc
+ 	return -ENOMEM;
+ }
+ 
+-static void free_thread_stack(struct task_struct *tsk)
++static void free_thread_stack(struct task_struct *tsk, bool cache_only)
+ {
++	if (cache_only) {
++		thread_stack_mark_delayed_free(tsk);
++		return;
++	}
+ 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
+ 	tsk->stack = NULL;
+ }
+@@ -345,8 +364,12 @@ static int alloc_thread_stack_node(struc
+ 	return stack ? 0 : -ENOMEM;
+ }
+ 
+-static void free_thread_stack(struct task_struct *tsk)
++static void free_thread_stack(struct task_struct *tsk, bool cache_only)
+ {
++	if (cache_only) {
++		thread_stack_mark_delayed_free(tsk);
++		return;
++	}
+ 	kmem_cache_free(thread_stack_cache, tsk->stack);
+ 	tsk->stack = NULL;
+ }
+@@ -360,8 +383,19 @@ void thread_stack_cache_init(void)
+ }
+ 
+ # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
+-#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 
++void task_stack_cleanup(struct task_struct *tsk)
++{
++	unsigned long val = (unsigned long)tsk->stack;
++
++	if (!(val & THREAD_STACK_DELAYED_FREE))
++		return;
++
++	WRITE_ONCE(tsk->stack, (void *)(val & ~THREAD_STACK_DELAYED_FREE));
++	free_thread_stack(tsk, false);
++}
++
++#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	unsigned long *stack;
+@@ -461,19 +495,25 @@ void exit_task_stack_account(struct task
+ 	}
+ }
+ 
+-static void release_task_stack(struct task_struct *tsk)
++static void release_task_stack(struct task_struct *tsk, bool cache_only)
+ {
+ 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
+ 		return;  /* Better to leak the stack than to free prematurely */
+ 
+-	free_thread_stack(tsk);
++	free_thread_stack(tsk, cache_only);
+ }
+ 
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ void put_task_stack(struct task_struct *tsk)
+ {
+ 	if (refcount_dec_and_test(&tsk->stack_refcount))
+-		release_task_stack(tsk);
++		release_task_stack(tsk, false);
++}
++
++void put_task_stack_sched(struct task_struct *tsk)
++{
++	if (refcount_dec_and_test(&tsk->stack_refcount))
++		release_task_stack(tsk, true);
+ }
+ #endif
+ 
+@@ -487,7 +527,7 @@ void free_task(struct task_struct *tsk)
+ 	 * The task is finally done with both the stack and thread_info,
+ 	 * so free both.
+ 	 */
+-	release_task_stack(tsk);
++	release_task_stack(tsk, false);
+ #else
+ 	/*
+ 	 * If the task had a separate stack allocation, it should be gone
+@@ -989,7 +1029,7 @@ static struct task_struct *dup_task_stru
+ 
+ free_stack:
+ 	exit_task_stack_account(tsk);
+-	free_thread_stack(tsk);
++	free_thread_stack(tsk, false);
+ free_tsk:
+ 	free_task_struct(tsk);
+ 	return NULL;
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -4881,8 +4881,11 @@ static struct rq *finish_task_switch(str
+ 		if (prev->sched_class->task_dead)
+ 			prev->sched_class->task_dead(prev);
+ 
+-		/* Task is done with its stack. */
+-		put_task_stack(prev);
++		/*
++		 * Cache only the VMAP stack. The final deallocation is in
++		 * delayed_put_task_struct.
++		 */
++		put_task_stack_sched(prev);
+ 
+ 		put_task_struct_rcu_user(prev);
+ 	}

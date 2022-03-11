@@ -8,15 +8,14 @@ Provides_armel: rtc-modules
 Provides_armmp: mmc-core-modules, mtd-core-modules
 Provides_i386: rtc-modules
 Provides_ia64: efi-modules
-Provides_loongson-3: i2c-modules, rtc-modules
-Provides_mips: rtc-modules
-Provides_mips64: rtc-modules
-Provides_mips64el: rtc-modules
-Provides_mips64r6: rtc-modules
-Provides_mips64r6el: rtc-modules
-Provides_mipsel: rtc-modules
-Provides_mipsr6: rtc-modules
-Provides_mipsr6el: rtc-modules
+Provides_mips: i2c-modules, rtc-modules, mtd-core-modules, mtd-modules
+Provides_mips64: i2c-modules, rtc-modules, mtd-core-modules, mtd-modules
+Provides_mips64el: i2c-modules, rtc-modules, mtd-core-modules, mtd-modules
+Provides_mips64r6: i2c-modules, rtc-modules, mtd-core-modules, mtd-modules
+Provides_mips64r6el: i2c-modules, rtc-modules, mtd-core-modules, mtd-modules
+Provides_mipsel: i2c-modules, rtc-modules, mtd-core-modules, mtd-modules
+Provides_mipsr6: i2c-modules, rtc-modules, mtd-core-modules, mtd-modules
+Provides_mipsr6el: i2c-modules, rtc-modules, mtd-core-modules, mtd-modules
 Provides_parisc64-smp: i2c-modules
 Provides_powerpc: i2c-modules
 Provides_powerpc64:
@@ -367,12 +366,6 @@ Depends: kernel-image
 Priority: optional
 Description: speakup modules
  This package contains speakup modules.
-
-Package: rtc-modules
-Depends: kernel-image
-Priority: optional
-Description: RTC modules
- This package contains RTC modules.
 
 Package: uinput-modules
 Depends: kernel-image

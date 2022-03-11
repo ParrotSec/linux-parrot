@@ -1,0 +1,35 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 29 Nov 2021 18:46:45 +0100
+Subject: [PATCH 02/11] locking: Remove rt_rwlock_is_contended().
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+
+rt_rwlock_is_contended() has not users. It makes no sense to use it as
+rwlock_is_contended() because it is a sleeping lock on RT and preemption
+is possible. It reports always != 0 if used by a writer and even if
+there is a waiter then the lock might not be handed over if the
+current owner has the highest priority.
+
+Remove rt_rwlock_is_contended().
+
+Reported-by: kernel test robot <lkp@intel.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20211129174654.668506-3-bigeasy@linutronix.de
+---
+ kernel/locking/spinlock_rt.c |    6 ------
+ 1 file changed, 6 deletions(-)
+
+--- a/kernel/locking/spinlock_rt.c
++++ b/kernel/locking/spinlock_rt.c
+@@ -257,12 +257,6 @@ void __sched rt_write_unlock(rwlock_t *r
+ }
+ EXPORT_SYMBOL(rt_write_unlock);
+ 
+-int __sched rt_rwlock_is_contended(rwlock_t *rwlock)
+-{
+-	return rw_base_is_contended(&rwlock->rwbase);
+-}
+-EXPORT_SYMBOL(rt_rwlock_is_contended);
+-
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+ void __rt_rwlock_init(rwlock_t *rwlock, const char *name,
+ 		      struct lock_class_key *key)
