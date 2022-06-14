@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-mckinley linux-headers-5.16.0-12parrot1-mckinley 5.7~rc5-1~exp1 linux-headers-mckinley
+dir_to_symlink /usr/share/doc/linux-headers-mckinley linux-headers-5.18.0-0.bpo.1-mckinley 5.7~rc5-1~exp1 linux-headers-mckinley

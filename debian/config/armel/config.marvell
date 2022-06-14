@@ -238,11 +238,6 @@ CONFIG_MV_XOR=y
 # CONFIG_DRM is not set
 
 ##
-## file: drivers/gpu/vga/Kconfig
-##
-# CONFIG_VGA_ARB is not set
-
-##
 ## file: drivers/hwmon/Kconfig
 ##
 CONFIG_HWMON=m
@@ -421,11 +416,6 @@ CONFIG_MTD_OF_PARTS=m
 # CONFIG_MTD_REDBOOT_PARTS is not set
 
 ##
-## file: drivers/mtd/spi-nor/Kconfig
-##
-CONFIG_MTD_SPI_NOR=m
-
-##
 ## file: drivers/net/arcnet/Kconfig
 ##
 # CONFIG_ARCNET is not set
@@ -503,6 +493,7 @@ CONFIG_MWIFIEX_SDIO=m
 ## file: drivers/pci/Kconfig
 ##
 CONFIG_PCI=y
+# CONFIG_VGA_ARB is not set
 
 ##
 ## file: drivers/pci/controller/Kconfig

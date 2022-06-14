@@ -685,22 +685,42 @@ CONFIG_MEDIA_CONTROLLER=y
 ##
 ## file: drivers/media/platform/Kconfig
 ##
-CONFIG_VIDEO_ASPEED=m
 CONFIG_VIDEO_MUX=m
-CONFIG_VIDEO_OMAP3=m
-CONFIG_VIDEO_CODA=m
-CONFIG_VIDEO_IMX_PXP=m
-CONFIG_VIDEO_TI_VPE=m
 
 ##
-## file: drivers/media/platform/marvell-ccic/Kconfig
+## file: drivers/media/platform/aspeed/Kconfig
+##
+CONFIG_VIDEO_ASPEED=m
+
+##
+## file: drivers/media/platform/chips-media/Kconfig
+##
+CONFIG_VIDEO_CODA=m
+
+##
+## file: drivers/media/platform/marvell/Kconfig
 ##
 CONFIG_VIDEO_MMP_CAMERA=m
 
 ##
-## file: drivers/media/platform/omap/Kconfig
+## file: drivers/media/platform/nxp/Kconfig
+##
+CONFIG_VIDEO_IMX_PXP=m
+
+##
+## file: drivers/media/platform/ti/Kconfig
+##
+CONFIG_VIDEO_TI_VPE=m
+
+##
+## file: drivers/media/platform/ti/omap/Kconfig
 ##
 CONFIG_VIDEO_OMAP2_VOUT=m
+
+##
+## file: drivers/media/platform/ti/omap3isp/Kconfig
+##
+CONFIG_VIDEO_OMAP3=m
 
 ##
 ## file: drivers/media/radio/Kconfig
@@ -930,6 +950,11 @@ CONFIG_SUNDANCE=m
 CONFIG_FTGMAC100=m
 
 ##
+## file: drivers/net/ethernet/freescale/Kconfig
+##
+CONFIG_FEC=m
+
+##
 ## file: drivers/net/ethernet/intel/Kconfig
 ##
 CONFIG_NET_VENDOR_INTEL=y
@@ -1115,9 +1140,9 @@ CONFIG_TWL4030_USB=m
 CONFIG_PINCTRL_AS3722=y
 CONFIG_PINCTRL_AXP209=m
 CONFIG_PINCTRL_MCP23S08=m
-CONFIG_PINCTRL_SINGLE=y
 CONFIG_PINCTRL_PALMAS=y
 CONFIG_PINCTRL_RK805=y
+CONFIG_PINCTRL_SINGLE=y
 
 ##
 ## file: drivers/pinctrl/aspeed/Kconfig
@@ -1349,6 +1374,7 @@ CONFIG_VIDEO_BCM2835=m
 ## file: drivers/thermal/Kconfig
 ##
 CONFIG_IMX_THERMAL=m
+CONFIG_SUN8I_THERMAL=m
 CONFIG_ROCKCHIP_THERMAL=m
 CONFIG_DOVE_THERMAL=m
 CONFIG_ARMADA_THERMAL=y

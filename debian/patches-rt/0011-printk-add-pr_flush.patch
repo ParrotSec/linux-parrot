@@ -1,0 +1,185 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Wed, 20 Apr 2022 01:52:33 +0206
+Subject: [PATCH 11/18] printk: add pr_flush()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+Provide a might-sleep function to allow waiting for console printers
+to catch up to the latest logged message.
+
+Use pr_flush() whenever it is desirable to get buffered messages
+printed before continuing: suspend_console(), resume_console(),
+console_stop(), console_start(), console_unblank().
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20220419234637.357112-12-john.ogness@linutronix.de
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ include/linux/printk.h |    7 ++++
+ kernel/printk/printk.c |   83 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 90 insertions(+)
+
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -170,6 +170,8 @@ extern void __printk_safe_exit(void);
+ #define printk_deferred_enter __printk_safe_enter
+ #define printk_deferred_exit __printk_safe_exit
+ 
++extern bool pr_flush(int timeout_ms, bool reset_on_progress);
++
+ /*
+  * Please don't use printk_ratelimit(), because it shares ratelimiting state
+  * with all other unrelated printk_ratelimit() callsites.  Instead use
+@@ -220,6 +222,11 @@ static inline void printk_deferred_exit(
+ {
+ }
+ 
++static inline bool pr_flush(int timeout_ms, bool reset_on_progress)
++{
++	return true;
++}
++
+ static inline int printk_ratelimit(void)
+ {
+ 	return 0;
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -2296,6 +2296,8 @@ asmlinkage __visible int _printk(const c
+ }
+ EXPORT_SYMBOL(_printk);
+ 
++static bool __pr_flush(struct console *con, int timeout_ms, bool reset_on_progress);
++
+ #else /* CONFIG_PRINTK */
+ 
+ #define CONSOLE_LOG_MAX		0
+@@ -2328,6 +2330,7 @@ static void call_console_driver(struct c
+ {
+ }
+ static bool suppress_message_printing(int level) { return false; }
++static bool __pr_flush(struct console *con, int timeout_ms, bool reset_on_progress) { return true; }
+ 
+ #endif /* CONFIG_PRINTK */
+ 
+@@ -2515,6 +2518,7 @@ void suspend_console(void)
+ 	if (!console_suspend_enabled)
+ 		return;
+ 	pr_info("Suspending console(s) (use no_console_suspend to debug)\n");
++	pr_flush(1000, true);
+ 	console_lock();
+ 	console_suspended = 1;
+ 	up_console_sem();
+@@ -2527,6 +2531,7 @@ void resume_console(void)
+ 	down_console_sem();
+ 	console_suspended = 0;
+ 	console_unlock();
++	pr_flush(1000, true);
+ }
+ 
+ /**
+@@ -2912,6 +2917,9 @@ void console_unblank(void)
+ 		if ((c->flags & CON_ENABLED) && c->unblank)
+ 			c->unblank();
+ 	console_unlock();
++
++	if (!oops_in_progress)
++		pr_flush(1000, true);
+ }
+ 
+ /**
+@@ -2970,6 +2978,7 @@ struct tty_driver *console_device(int *i
+  */
+ void console_stop(struct console *console)
+ {
++	__pr_flush(console, 1000, true);
+ 	console_lock();
+ 	console->flags &= ~CON_ENABLED;
+ 	console_unlock();
+@@ -2981,6 +2990,7 @@ void console_start(struct console *conso
+ 	console_lock();
+ 	console->flags |= CON_ENABLED;
+ 	console_unlock();
++	__pr_flush(console, 1000, true);
+ }
+ EXPORT_SYMBOL(console_start);
+ 
+@@ -3352,6 +3362,79 @@ static int __init printk_late_init(void)
+ late_initcall(printk_late_init);
+ 
+ #if defined CONFIG_PRINTK
++/* If @con is specified, only wait for that console. Otherwise wait for all. */
++static bool __pr_flush(struct console *con, int timeout_ms, bool reset_on_progress)
++{
++	int remaining = timeout_ms;
++	struct console *c;
++	u64 last_diff = 0;
++	u64 printk_seq;
++	u64 diff;
++	u64 seq;
++
++	might_sleep();
++
++	seq = prb_next_seq(prb);
++
++	for (;;) {
++		diff = 0;
++
++		console_lock();
++		for_each_console(c) {
++			if (con && con != c)
++				continue;
++			if (!console_is_usable(c))
++				continue;
++			printk_seq = c->seq;
++			if (printk_seq < seq)
++				diff += seq - printk_seq;
++		}
++		console_unlock();
++
++		if (diff != last_diff && reset_on_progress)
++			remaining = timeout_ms;
++
++		if (diff == 0 || remaining == 0)
++			break;
++
++		if (remaining < 0) {
++			/* no timeout limit */
++			msleep(100);
++		} else if (remaining < 100) {
++			msleep(remaining);
++			remaining = 0;
++		} else {
++			msleep(100);
++			remaining -= 100;
++		}
++
++		last_diff = diff;
++	}
++
++	return (diff == 0);
++}
++
++/**
++ * pr_flush() - Wait for printing threads to catch up.
++ *
++ * @timeout_ms:        The maximum time (in ms) to wait.
++ * @reset_on_progress: Reset the timeout if forward progress is seen.
++ *
++ * A value of 0 for @timeout_ms means no waiting will occur. A value of -1
++ * represents infinite waiting.
++ *
++ * If @reset_on_progress is true, the timeout will be reset whenever any
++ * printer has been seen to make some forward progress.
++ *
++ * Context: Process context. May sleep while acquiring console lock.
++ * Return: true if all enabled printers are caught up.
++ */
++bool pr_flush(int timeout_ms, bool reset_on_progress)
++{
++	return __pr_flush(NULL, timeout_ms, reset_on_progress);
++}
++EXPORT_SYMBOL(pr_flush);
++
+ /*
+  * Delayed printk version, for scheduler-internal messages:
+  */

@@ -227,8 +227,8 @@ CONFIG_SERIO_LIBPS2=y
 ##
 ## file: drivers/media/radio/Kconfig
 ##
-# CONFIG_USB_DSBR is not set
 # CONFIG_RADIO_MAXIRADIO is not set
+# CONFIG_USB_DSBR is not set
 
 ##
 ## file: drivers/mmc/Kconfig

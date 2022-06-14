@@ -1,0 +1,42 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Wed, 20 Apr 2022 01:52:29 +0206
+Subject: [PATCH 07/18] printk: call boot_delay_msec() in printk_delay()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+boot_delay_msec() is always called immediately before printk_delay()
+so just call it from within printk_delay().
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Reviewed-by: Sergey Senozhatsky <senozhatsky@chromium.org>
+Reviewed-by: Petr Mladek <pmladek@suse.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20220419234637.357112-8-john.ogness@linutronix.de
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/printk/printk.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -2048,8 +2048,10 @@ static u8 *__printk_recursion_counter(vo
+ 
+ int printk_delay_msec __read_mostly;
+ 
+-static inline void printk_delay(void)
++static inline void printk_delay(int level)
+ {
++	boot_delay_msec(level);
++
+ 	if (unlikely(printk_delay_msec)) {
+ 		int m = printk_delay_msec;
+ 
+@@ -2274,8 +2276,7 @@ asmlinkage int vprintk_emit(int facility
+ 		in_sched = true;
+ 	}
+ 
+-	boot_delay_msec(level);
+-	printk_delay();
++	printk_delay(level);
+ 
+ 	printed_len = vprintk_store(facility, level, dev_info, fmt, args);
+ 

@@ -537,6 +537,11 @@ CONFIG_SYSFS_SYSCALL=y
 ##
 ## file: lib/Kconfig.debug
 ##
+## choice: Debug information
+#. temporarily disable debug info: Required disk size exceeds our hppa buildd machines.
+CONFIG_DEBUG_INFO_NONE=y
+# CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT is not set
+## end choice
 CONFIG_DEBUG_STACKOVERFLOW=y
 # CONFIG_SOFTLOCKUP_DETECTOR is not set
 # CONFIG_HARDLOCKUP_DETECTOR is not set

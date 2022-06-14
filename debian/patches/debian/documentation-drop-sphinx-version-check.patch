@@ -8,12 +8,10 @@ Forwarded: not-needed
  Documentation/Makefile | 5 -----
  1 file changed, 5 deletions(-)
 
-diff --git a/Documentation/Makefile b/Documentation/Makefile
-index 6b12dd82f712..613276ca41f6 100644
 --- a/Documentation/Makefile
 +++ b/Documentation/Makefile
-@@ -78,14 +78,12 @@ quiet_cmd_sphinx = SPHINX  $@ --> file://$(abspath $(BUILDDIR)/$3/$4)
- 	$(abspath $(BUILDDIR)/$3/$4)
+@@ -92,14 +92,12 @@ quiet_cmd_sphinx = SPHINX  $@ --> file:/
+ 	fi
  
  htmldocs:
 -	@$(srctree)/scripts/sphinx-pre-install --version-check
@@ -27,7 +25,7 @@ index 6b12dd82f712..613276ca41f6 100644
  	@+$(foreach var,$(SPHINXDIRS),$(call loop_cmd,sphinx,latex,$(var),latex,$(var)))
  
  ifeq ($(HAVE_PDFLATEX),0)
-@@ -97,7 +95,6 @@ pdfdocs:
+@@ -111,7 +109,6 @@ pdfdocs:
  else # HAVE_PDFLATEX
  
  pdfdocs: latexdocs
@@ -35,7 +33,7 @@ index 6b12dd82f712..613276ca41f6 100644
  	$(foreach var,$(SPHINXDIRS), \
  	   $(MAKE) PDFLATEX="$(PDFLATEX)" LATEXOPTS="$(LATEXOPTS)" -C $(BUILDDIR)/$(var)/latex || exit; \
  	   mkdir -p $(BUILDDIR)/$(var)/pdf; \
-@@ -107,11 +104,9 @@ pdfdocs: latexdocs
+@@ -121,11 +118,9 @@ pdfdocs: latexdocs
  endif # HAVE_PDFLATEX
  
  epubdocs:
@@ -47,6 +45,3 @@ index 6b12dd82f712..613276ca41f6 100644
  	@+$(foreach var,$(SPHINXDIRS),$(call loop_cmd,sphinx,xml,$(var),xml,$(var)))
  
  endif # HAVE_SPHINX
--- 
-2.28.0
-

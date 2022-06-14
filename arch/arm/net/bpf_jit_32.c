@@ -163,7 +163,7 @@ static const s8 bpf2a32[][2] = {
 	[BPF_REG_9] = {STACK_OFFSET(BPF_R9_HI), STACK_OFFSET(BPF_R9_LO)},
 	/* Read only Frame Pointer to access Stack */
 	[BPF_REG_FP] = {STACK_OFFSET(BPF_FP_HI), STACK_OFFSET(BPF_FP_LO)},
-	/* Temporary Register for internal BPF JIT, can be used
+	/* Temporary Register for BPF JIT, can be used
 	 * for constant blindings and others.
 	 */
 	[TMP_REG_1] = {ARM_R7, ARM_R6},
@@ -1864,7 +1864,7 @@ static int build_body(struct jit_ctx *ctx)
 		if (ctx->target == NULL)
 			ctx->offsets[i] = ctx->idx;
 
-		/* If unsuccesfull, return with error code */
+		/* If unsuccesful, return with error code */
 		if (ret)
 			return ret;
 	}
@@ -1973,7 +1973,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 	 * for jit, although it can decrease the size of the image.
 	 *
 	 * As each arm instruction is of length 32bit, we are translating
-	 * number of JITed intructions into the size required to store these
+	 * number of JITed instructions into the size required to store these
 	 * JITed code.
 	 */
 	image_size = sizeof(u32) * ctx.idx;

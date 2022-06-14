@@ -19,6 +19,7 @@ debian/mips-ieee754-relaxed.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/tools-perf-perf-read-vdso-in-libexec.patch
 debian/tools-perf-install.patch
+debian/tools-perf-install-python-bindings.patch
 debian/wireless-add-debian-wireless-regdb-certificates.patch
 debian/export-symbols-needed-by-android-drivers.patch
 debian/android-enable-building-ashmem-and-binder-as-modules.patch
@@ -35,10 +36,6 @@ bugfix/all/firmware_class-log-every-success-and-failure.patch
 bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
-
-# Parrot patches
-features/all/wifi-injection.patch
-features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Change some defaults for security reasons
 debian/af_802154-Disable-auto-loading-as-mitigation-against.patch
@@ -74,18 +71,16 @@ bugfix/sh/sh-boot-do-not-use-hyphen-in-exported-variable-name.patch
 bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
 bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
 bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
-bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
 
 # Arch features
-features/arm64/arm64-dts-rockchip-Add-support-for-two-PWM-fans-on-h.patch
-features/arm64/arm64-dts-rockchip-Add-support-for-PCIe-on-helios64.patch
-features/riscv64/RISC-V-Use-SBI-SRST-extension-when-available.patch
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
 
 # Miscellaneous bug fixes
 bugfix/all/disable-some-marvell-phys.patch
 bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
+bugfix/all/sign-file-Convert-API-usage-to-support-OpenSSL-v3.patch
+bugfix/all/block-loop-support-partitions-without-scanning.patch
 
 # Miscellaneous features
 
@@ -105,14 +100,6 @@ features/all/db-mok-keyring/KEYS-Make-use-of-platform-keyring-for-module-signatu
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
 debian/ntfs-mark-it-as-broken.patch
-bugfix/x86/bhb/0001-x86-speculation-Rename-RETPOLINE_AMD-to-RETPOLINE_LF.patch
-bugfix/x86/bhb/0002-x86-speculation-Add-eIBRS-Retpoline-options.patch
-bugfix/x86/bhb/0003-Documentation-hw-vuln-Update-spectre-doc.patch
-bugfix/x86/bhb/0004-x86-speculation-Include-unprivileged-eBPF-status-in-.patch
-bugfix/x86/bhb/0005-x86-speculation-Use-generic-retpoline-by-default-on-.patch
-bugfix/x86/bhb/0006-x86-speculation-Update-link-to-AMD-speculation-white.patch
-bugfix/x86/bhb/0007-x86-speculation-Warn-about-Spectre-v2-LFENCE-mitigat.patch
-bugfix/x86/bhb/0008-x86-speculation-Warn-about-eIBRS-LFENCE-Unprivileged.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -127,7 +114,6 @@ bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/tools-perf-pmu-events-fix-reproducibility.patch
-bugfix/all/bpftool-fix-version-string-in-recursive-builds.patch
 bugfix/all/tools-include-uapi-fix-errno.h.patch
 bugfix/all/libapi-define-_fortify_source-as-2-not-empty.patch
 bugfix/all/tools-perf-fix-missing-ldflags-for-some-programs.patch

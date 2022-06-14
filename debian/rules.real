@@ -46,7 +46,7 @@ setup_env := env -u ABINAME -u ARCH -u FEATURESET -u FLAVOUR -u VERSION -u LOCAL
 setup_env += DISTRIBUTION_OFFICIAL_BUILD=1 DISTRIBUTOR="$(DISTRIBUTOR)" DISTRIBUTION_VERSION="$(SOURCEVERSION)" KBUILD_BUILD_TIMESTAMP="$(SOURCE_DATE)" KBUILD_BUILD_VERSION_TIMESTAMP="$(DISTRIBUTOR) $(SOURCEVERSION) ($(SOURCE_DATE_UTC_ISO))" KBUILD_BUILD_USER="$(word 1,$(subst @, ,$(MAINTAINER)))" KBUILD_BUILD_HOST="$(word 2,$(subst @, ,$(MAINTAINER)))"
 setup_env += KBUILD_VERBOSE=$(if $(filter terse,$(DEB_BUILD_OPTIONS)),0,1)
 
-MAKE_CLEAN = $(setup_env) $(MAKE) KCFLAGS=-fdebug-prefix-map=$(CURDIR)/= KBUILD_HOSTCFLAGS='$(CFLAGS) $(CPPFLAGS)' KBUILD_HOSTLDFLAGS='$(LDFLAGS)'
+MAKE_CLEAN = $(setup_env) $(MAKE) KCFLAGS=-fdebug-prefix-map=$(CURDIR)/= KBUILD_HOSTCFLAGS='$(CFLAGS) $(CPPFLAGS)' HOSTCFLAGS='$(CFLAGS) $(CPPFLAGS)' KBUILD_HOSTLDFLAGS='$(LDFLAGS)'
 MAKE_SELF := $(MAKE) -f debian/rules.real $(MAKEOVERRIDES)
 MAKEOVERRIDES =
 
@@ -59,6 +59,9 @@ BUILDDEB_ARGS := $(if $(filter pkg.linux.quick,$(DEB_BUILD_PROFILES)),-Zgzip,-Zx
 packages_enabled := $(shell dh_listpackages)
 define if_package
 $(if $(filter $(1),$(packages_enabled)),$(2))
+endef
+define if_profile
+$(if $(filter $(1),$(DEB_BUILD_PROFILES)),$(2))
 endef
 
 build-arch-arch: \
@@ -112,7 +115,7 @@ source-featureset: $(STAMPS_DIR)/source_$(FEATURESET)
 $(BUILD_DIR)/config.$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(KCONFIG)
 	mkdir -p '$(dir $@)'
 	debian/bin/kconfig.py '$@' $(KCONFIG) $(KCONFIG_OPTIONS) \
-		$(call if_package,linux-image-$(ABINAME)$(LOCALVERSION)-dbg,-o DEBUG_INFO=y)
+		$(call if_profile, pkg.linux.nokerneldbginfo pkg.linux.quick,-o DEBUG_INFO_NONE=y -o DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=n)
 
 define copy_source
 mkdir -p '$(1)'
@@ -643,11 +646,14 @@ endif
 	dh_fixperms
 	dh_installdeb
 	dh_shlibdeps
-	dh_gencontrol
+	VERSION="$$(($$(sed -ne 's,^#define LIBBPF_MAJOR_VERSION \(.*\)$$,\1,p' tools/lib/bpf/libbpf_version.h) + 6)).$$(sed -ne 's,^#define LIBBPF_MINOR_VERSION \(.*\)$$,\1,p' tools/lib/bpf/libbpf_version.h).$$(sed -ne 's,^#define BPFTOOL_PATCH_VERSION \(.*\)$$,\1,p' tools/bpf/bpftool/main.c)" && \
+	test -n "$$VERSION" -a -n "$(DEB_VERSION)" && \
+	dh_gencontrol -- -v$$VERSION+$(DEB_VERSION)
 	dh_md5sums
 	dh_builddeb -- $(BUILDDEB_ARGS)
 
 build-kbuild: $(STAMPS_DIR)/build-tools-headers
+	$(call make-tools,certs)
 	$(call make-tools,scripts)
 	$(call make-tools,tools/objtool)
 
@@ -659,6 +665,7 @@ install-kbuild: build-kbuild
 	dh_testdir
 	dh_testroot
 	dh_prep
+	$(call make-tools,certs) install DESTDIR=$(DIR) prefix=$(PREFIX_DIR)
 	$(call make-tools,scripts) install DESTDIR=$(DIR) prefix=$(PREFIX_DIR)
 	$(call make-tools,tools/objtool) install DESTDIR=$(DIR) prefix=$(PREFIX_DIR)
 	dh_link $(PREFIX_DIR) /usr/src/$(PACKAGE_NAME)

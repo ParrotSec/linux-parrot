@@ -1,7 +1,7 @@
 Subject: powerpc/kvm: Disable in-kernel MPIC emulation for PREEMPT_RT
 From: Bogdan Purcareata <bogdan.purcareata@freescale.com>
 Date: Fri Apr 24 15:53:13 2015 +0000
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 From: Bogdan Purcareata <bogdan.purcareata@freescale.com>
 
@@ -33,7 +33,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/arch/powerpc/kvm/Kconfig
 +++ b/arch/powerpc/kvm/Kconfig
-@@ -178,6 +178,7 @@ config KVM_E500MC
+@@ -204,6 +204,7 @@ config KVM_E500MC
  config KVM_MPIC
  	bool "KVM in-kernel MPIC emulation"
  	depends on KVM && E500

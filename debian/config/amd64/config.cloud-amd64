@@ -10,18 +10,22 @@
 #. XXX
 # CONFIG_X86_MCE is not set
 # CONFIG_X86_16BIT is not set
-# CONFIG_I8K is not set
 # CONFIG_MICROCODE is not set
 # CONFIG_AMD_NUMA is not set
 # CONFIG_NUMA_EMU is not set
 # CONFIG_ISA_DMA_API is not set
 # CONFIG_ISA is not set
-# CONFIG_X86_X32 is not set
+# CONFIG_X86_X32_ABI is not set
 
 ##
 ## file: arch/x86/xen/Kconfig
 ##
 # CONFIG_XEN_DOM0 is not set
+
+##
+## file: drivers/hwmon/Kconfig
+##
+# CONFIG_I8K is not set
 
 ##
 ## file: drivers/infiniband/hw/usnic/Kconfig

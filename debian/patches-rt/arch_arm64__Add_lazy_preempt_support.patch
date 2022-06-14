@@ -1,7 +1,7 @@
 Subject: arch/arm64: Add lazy preempt support
 From: Anders Roxell <anders.roxell@linaro.org>
 Date: Thu May 14 17:52:17 2015 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 From: Anders Roxell <anders.roxell@linaro.org>
 
@@ -26,17 +26,17 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
-@@ -192,6 +192,7 @@ config ARM64
- 	select HAVE_PERF_REGS
+@@ -194,6 +194,7 @@ config ARM64
  	select HAVE_PERF_USER_STACK_DUMP
+ 	select HAVE_PREEMPT_DYNAMIC_KEY
  	select HAVE_REGS_AND_STACK_ACCESS_API
 +	select HAVE_PREEMPT_LAZY
  	select HAVE_POSIX_CPU_TIMERS_TASK_WORK
  	select HAVE_FUNCTION_ARG_ACCESS_API
- 	select HAVE_FUTEX_CMPXCHG if FUTEX
+ 	select MMU_GATHER_RCU_TABLE_FREE
 --- a/arch/arm64/include/asm/preempt.h
 +++ b/arch/arm64/include/asm/preempt.h
-@@ -70,13 +70,36 @@ static inline bool __preempt_count_dec_a
+@@ -71,13 +71,36 @@ static inline bool __preempt_count_dec_a
  	 * interrupt occurring between the non-atomic READ_ONCE/WRITE_ONCE
  	 * pair.
  	 */
@@ -125,7 +125,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
 --- a/arch/arm64/kernel/signal.c
 +++ b/arch/arm64/kernel/signal.c
-@@ -920,7 +920,7 @@ static void do_signal(struct pt_regs *re
+@@ -921,7 +921,7 @@ static void do_signal(struct pt_regs *re
  void do_notify_resume(struct pt_regs *regs, unsigned long thread_flags)
  {
  	do {

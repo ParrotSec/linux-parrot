@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Jul 2021 10:36:30 +0200
 Subject: [PATCH] arm64/sve: Make kernel FPU protection RT friendly
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 Non RT kernels need to protect FPU against preemption and bottom half
 processing. This is achieved by disabling bottom halves via
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/arch/arm64/kernel/fpsimd.c
 +++ b/arch/arm64/kernel/fpsimd.c
-@@ -201,10 +201,19 @@ static void __get_cpu_fpsimd_context(voi
+@@ -206,10 +206,19 @@ static void __get_cpu_fpsimd_context(voi
   *
   * The double-underscore version must only be called if you know the task
   * can't be preempted.
@@ -43,7 +43,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	__get_cpu_fpsimd_context();
  }
  
-@@ -225,7 +234,10 @@ static void __put_cpu_fpsimd_context(voi
+@@ -230,7 +239,10 @@ static void __put_cpu_fpsimd_context(voi
  static void put_cpu_fpsimd_context(void)
  {
  	__put_cpu_fpsimd_context();

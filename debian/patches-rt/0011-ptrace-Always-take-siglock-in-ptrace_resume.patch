@@ -1,0 +1,47 @@
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Thu, 5 May 2022 13:26:44 -0500
+Subject: [PATCH 11/12] ptrace: Always take siglock in ptrace_resume
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+Make code analysis simpler and future changes easier by
+always taking siglock in ptrace_resume.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20220505182645.497868-11-ebiederm@xmission.com
+---
+ kernel/ptrace.c |   13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
+
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -837,8 +837,6 @@ static long ptrace_get_rseq_configuratio
+ static int ptrace_resume(struct task_struct *child, long request,
+ 			 unsigned long data)
+ {
+-	bool need_siglock;
+-
+ 	if (!valid_signal(data))
+ 		return -EIO;
+ 
+@@ -874,18 +872,11 @@ static int ptrace_resume(struct task_str
+ 	 * Note that we need siglock even if ->exit_code == data and/or this
+ 	 * status was not reported yet, the new status must not be cleared by
+ 	 * wait_task_stopped() after resume.
+-	 *
+-	 * If data == 0 we do not care if wait_task_stopped() reports the old
+-	 * status and clears the code too; this can't race with the tracee, it
+-	 * takes siglock after resume.
+ 	 */
+-	need_siglock = data && !thread_group_empty(current);
+-	if (need_siglock)
+-		spin_lock_irq(&child->sighand->siglock);
++	spin_lock_irq(&child->sighand->siglock);
+ 	child->exit_code = data;
+ 	wake_up_state(child, __TASK_TRACED);
+-	if (need_siglock)
+-		spin_unlock_irq(&child->sighand->siglock);
++	spin_unlock_irq(&child->sighand->siglock);
+ 
+ 	return 0;
+ }

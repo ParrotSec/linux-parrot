@@ -364,8 +364,8 @@ CONFIG_PMAC_RACKMETER=m
 ##
 ## file: drivers/media/radio/Kconfig
 ##
-CONFIG_USB_DSBR=m
 CONFIG_RADIO_MAXIRADIO=m
+CONFIG_USB_DSBR=m
 
 ##
 ## file: drivers/misc/Kconfig

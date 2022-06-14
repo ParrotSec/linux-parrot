@@ -182,7 +182,7 @@ License: Xen-interface
  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  DEALINGS IN THE SOFTWARE.
 
-Files: scripts/extract-cert.c scripts/sign-file.c
+Files: certs/extract-cert.c scripts/sign-file.c
 Copyright: 2014-2015 Red Hat, Inc.
            2015 Intel Corporation
 License: LGPL-2.1

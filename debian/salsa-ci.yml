@@ -2,20 +2,29 @@ include:
   - https://salsa.debian.org/salsa-ci-team/pipeline/raw/master/salsa-ci.yml
 
 variables:
-  RELEASE: 'unstable'
+  RELEASE: 'bullseye-backports'
   # Make that build quicker
   SALSA_CI_DPKG_BUILDPACKAGE_ARGS: '-Ppkg.linux.quick'
   # We have to bump the version in source preparation, not later
   SALSA_CI_DISABLE_VERSION_BUMP: 'true'
-  # Currently triggering falsely (bugs #973313, #1000977)
-  SALSA_CI_LINTIAN_SUPPRESS_TAGS: 'groff-message,elf-error'
+  # Currently triggering falsely (bug #973313)
+  SALSA_CI_LINTIAN_SUPPRESS_TAGS: 'groff-message'
   # Currently broken in quick build
   DEBIAN_KERNEL_DISABLE_INSTALLER: 'true'
-  DEBIAN_KERNEL_DISABLE_SIGNED: 'true'
   # Output is limited to 4 MiB total, so use 'terse'.
   # Current runners have 2 CPUs but have slow I/O so 'parallel=4' is
   # a bit faster.
   DEB_BUILD_OPTIONS: 'terse parallel=4'
+
+# Add stages for signed packages
+stages:
+  - provisioning
+  - build
+  - publish
+  - test
+  - sign-code
+  - build-signed
+  - test-signed
 
 # The common Salsa CI pipeline relies on keeping the unpacked source
 # as an artifact, but in our case this is far too large for the
@@ -181,6 +190,11 @@ extract-source:
     - sed -i -e '1 s/) [^;]*/+salsaci) UNRELEASED/' debian/changelog
     - version=${version}+salsaci
 
+    # Change trusted signing certificate to the one we will use
+    - |
+      sed -i -e 's|^trusted-certs:.*|trusted-certs: debian/certs/ci-test-sign/ci-test-sign.pem|' \
+        debian/config/defines
+
     # Run gencontrol.py
     # - create temporary log
     - log="$(mktemp)"
@@ -328,4 +342,105 @@ kconfig-static:
       if [ -s "$error_log" ]; then cat "$error_log"; false; fi
   needs:
     - job: extract-source
+      artifacts: true
+
+# Sign code with the test key and certificate, build and test that
+
+sign-code:
+  stage: sign-code
+  image: $SALSA_CI_IMAGES_BASE
+  extends:
+    - .artifacts-default-expire
+  except:
+    variables:
+      - $CI_COMMIT_TAG != null
+  script:
+    - |
+      apt-get update && eatmydata apt-get install --no-install-recommends -y \
+        dpkg-dev git openssl python3 python3-debian sbsigntool \
+        ${WORKING_DIR}/linux-kbuild-*[0-9]_*_${BUILD_ARCH}.deb
+
+    # Fetch kernel-team repository
+    - kernel_team_dir="$(mktemp -d)"
+    - |
+      git clone --depth=1 https://salsa.debian.org/kernel-team/kernel-team.git \
+        "$kernel_team_dir"
+
+    # Sign the code and build a source package
+    - |
+      "$kernel_team_dir"/scripts/debian-test-sign \
+        ${WORKING_DIR}/linux_*_${BUILD_ARCH}.changes \
+        debian/certs/ci-test-sign/ci-test-sign-key.pem \
+        debian/certs/ci-test-sign/ci-test-sign.pem
+  artifacts:
+    paths:
+      - ${WORKING_DIR}/linux-signed-${BUILD_ARCH}_*
+  needs:
+    - job: build
+      artifacts: true
+
+build-signed:
+  stage: build-signed
+  image: $SALSA_CI_IMAGES_BASE
+  extends:
+    - .artifacts-default-expire
+  except:
+    variables:
+      - $CI_COMMIT_TAG != null
+  variables:
+    SALSA_CI_DPKG_BUILDPACKAGE_ARGS: ''
+    CCACHE_TMP_DIR: ${CI_PROJECT_DIR}/../.ccache
+    CCACHE_WORK_DIR: ${CI_PROJECT_DIR}/.ccache
+    DB_BUILD_PARAM: ${SALSA_CI_DPKG_BUILDPACKAGE_ARGS}
+    DB_BUILD_TYPE: full
+  script:
+    # Unpack the source
+    - |
+      apt-get update && eatmydata apt-get install --no-install-recommends -y \
+        dpkg-dev
+    - |
+      dpkg-source -x ${WORKING_DIR}/linux-signed-${BUILD_ARCH}_*.dsc \
+        ${WORKING_DIR}/${SOURCE_DIR}
+
+    # Install build-dependencies produced by build job
+    - |
+      apt-get install --no-install-recommends -y \
+        ${WORKING_DIR}/linux-image-*-unsigned_*_${BUILD_ARCH}.deb \
+        ${WORKING_DIR}/linux-kbuild-*[0-9]_*_${BUILD_ARCH}.deb \
+        ${WORKING_DIR}/linux-support-*_all.deb
+
+    # Do the same as the common .build-definition script
+    - *build-before-script
+    - *build-script
+    - mv ${CCACHE_TMP_DIR} ${CCACHE_WORK_DIR}
+  artifacts:
+    # This should include the linux-signed source package, its binary
+    # packages, and (for piuparts) the versioned dependencies produced
+    # by the build job
+    paths:
+      - ${WORKING_DIR}/linux-signed-${BUILD_ARCH}_*
+      - ${WORKING_DIR}/linux-headers-*_${BUILD_ARCH}.deb
+      - ${WORKING_DIR}/linux-headers-*-common_*_all.deb
+      - ${WORKING_DIR}/linux-image-*_${BUILD_ARCH}.deb
+      - ${WORKING_DIR}/linux-kbuild-*[0-9]_*_${BUILD_ARCH}.deb
+    exclude:
+      - ${WORKING_DIR}/linux-image-*-unsigned_*_${BUILD_ARCH}.deb
+  needs:
+    - job: build
+      artifacts: true
+    - job: sign-code
+      artifacts: true
+
+lintian-signed:
+  extends: .test-lintian
+  stage: test-signed
+  needs:
+    - job: build-signed
+      artifacts: true
+
+piuparts-signed:
+  extends: .test-piuparts
+  stage: test-signed
+  needs:
+    - job: build-signed
       artifacts: true

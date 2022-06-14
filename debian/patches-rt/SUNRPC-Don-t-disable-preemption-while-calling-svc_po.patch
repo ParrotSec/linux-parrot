@@ -1,0 +1,56 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 4 May 2022 19:24:10 +0200
+Subject: [PATCH] SUNRPC: Don't disable preemption while calling
+ svc_pool_for_cpu().
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+svc_xprt_enqueue() disables preemption via get_cpu() and then asks for a
+pool of a specific CPU (current) via svc_pool_for_cpu().
+With disabled preemption it acquires svc_pool::sp_lock, a spinlock_t,
+which is a sleeping lock on PREEMPT_RT and can't be acquired with
+disabled preemption.
+
+Disabling preemption is not required here. The pool is protected with a
+lock so the following list access is safe even cross-CPU. The following
+iteration through svc_pool::sp_all_threads is under RCU-readlock and
+remaining operations within the loop are atomic and do not rely on
+disabled-preemption.
+
+Use raw_smp_processor_id() as the argument for the requested CPU in
+svc_pool_for_cpu().
+
+Reported-by: Mike Galbraith <umgwanakikbuti@gmail.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/YnK2ujabd2+oCrT/@linutronix.de
+---
+ net/sunrpc/svc_xprt.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+--- a/net/sunrpc/svc_xprt.c
++++ b/net/sunrpc/svc_xprt.c
+@@ -448,7 +448,6 @@ void svc_xprt_enqueue(struct svc_xprt *x
+ {
+ 	struct svc_pool *pool;
+ 	struct svc_rqst	*rqstp = NULL;
+-	int cpu;
+ 
+ 	if (!svc_xprt_ready(xprt))
+ 		return;
+@@ -461,8 +460,7 @@ void svc_xprt_enqueue(struct svc_xprt *x
+ 	if (test_and_set_bit(XPT_BUSY, &xprt->xpt_flags))
+ 		return;
+ 
+-	cpu = get_cpu();
+-	pool = svc_pool_for_cpu(xprt->xpt_server, cpu);
++	pool = svc_pool_for_cpu(xprt->xpt_server, raw_smp_processor_id());
+ 
+ 	atomic_long_inc(&pool->sp_stats.packets);
+ 
+@@ -485,7 +483,6 @@ void svc_xprt_enqueue(struct svc_xprt *x
+ 	rqstp = NULL;
+ out_unlock:
+ 	rcu_read_unlock();
+-	put_cpu();
+ 	trace_svc_xprt_enqueue(xprt, rqstp);
+ }
+ EXPORT_SYMBOL_GPL(svc_xprt_enqueue);

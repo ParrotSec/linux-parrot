@@ -1,0 +1,149 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Fri, 13 May 2022 15:19:41 +0200
+Subject: [PATCH] fs/dcache: Delay dentry::d_lock outside of the locked
+ section.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+__d_add() and __d_move() invoke __d_lookup_done() with disabled
+preemption (due to the critical section started in start_dir_add()).
+__d_lookup_done() additionally disables preemption by acquiring a bit
+spinlock and then invokes wake_up_all().
+
+This is problematic on PREEMPT_RT because wake_up_all() acquires
+spinlock_t locks which must not be acquired with disabled preemption on
+PREEMPT_RT.
+
+The wait_queue_head_t, which is assigned to dentry::d_wait, is always
+provided by the caller of __d_lookup_done(). If d_alloc_parallel()
+returns an allready existing dentry then dentry::d_wait does not belong
+to the caller. In this case d_wait_lookup() ensured that the dentry is
+no longer d_in_lookup() and so __d_lookup_done() is not invoked in order
+to wake any possible waiter.
+
+The wake up could be delayed outside of the atomic section since it is
+always owned by the __d_lookup_done() caller. It could even be moved
+after dentry::d_lock has been released which is the lock, that the
+waiter acquries after wake up.
+
+Rename __d_lookup_done() to __d_lookup_clear_d_wait() and make it return
+dentry::d_wait and move the invocation of wake_up_all() to the caller.
+Use this only internally dcache.c. Provide a __d_lookup_done() for
+d_lookup_done() which performs the wake up.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c            |   27 +++++++++++++++++++++++----
+ include/linux/dcache.h |    7 ++-----
+ 2 files changed, 25 insertions(+), 9 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -2709,18 +2709,30 @@ struct dentry *d_alloc_parallel(struct d
+ }
+ EXPORT_SYMBOL(d_alloc_parallel);
+ 
+-void __d_lookup_done(struct dentry *dentry)
++static wait_queue_head_t *__d_lookup_clear_d_wait(struct dentry *dentry)
+ {
++	wait_queue_head_t *d_wait;
+ 	struct hlist_bl_head *b = in_lookup_hash(dentry->d_parent,
+ 						 dentry->d_name.hash);
+ 	hlist_bl_lock(b);
+ 	dentry->d_flags &= ~DCACHE_PAR_LOOKUP;
+ 	__hlist_bl_del(&dentry->d_u.d_in_lookup_hash);
+-	wake_up_all(dentry->d_wait);
++	d_wait = dentry->d_wait;
+ 	dentry->d_wait = NULL;
+ 	hlist_bl_unlock(b);
+ 	INIT_HLIST_NODE(&dentry->d_u.d_alias);
+ 	INIT_LIST_HEAD(&dentry->d_lru);
++	return d_wait;
++}
++
++void __d_lookup_done(struct dentry *dentry)
++{
++	wait_queue_head_t *wq_head;
++
++	spin_lock(&dentry->d_lock);
++	wq_head = __d_lookup_clear_d_wait(dentry);
++	spin_unlock(&dentry->d_lock);
++	wake_up_all(wq_head);
+ }
+ EXPORT_SYMBOL(__d_lookup_done);
+ 
+@@ -2728,13 +2740,15 @@ EXPORT_SYMBOL(__d_lookup_done);
+ 
+ static inline void __d_add(struct dentry *dentry, struct inode *inode)
+ {
++	wait_queue_head_t *d_wait = NULL;
+ 	struct inode *dir = NULL;
++
+ 	unsigned n;
+ 	spin_lock(&dentry->d_lock);
+ 	if (unlikely(d_in_lookup(dentry))) {
+ 		dir = dentry->d_parent->d_inode;
+ 		n = start_dir_add(dir);
+-		__d_lookup_done(dentry);
++		d_wait = __d_lookup_clear_d_wait(dentry);
+ 	}
+ 	if (inode) {
+ 		unsigned add_flags = d_flags_for_inode(inode);
+@@ -2748,6 +2762,8 @@ static inline void __d_add(struct dentry
+ 	if (dir)
+ 		end_dir_add(dir, n);
+ 	spin_unlock(&dentry->d_lock);
++	if (d_wait)
++		wake_up_all(d_wait);
+ 	if (inode)
+ 		spin_unlock(&inode->i_lock);
+ }
+@@ -2892,6 +2908,7 @@ static void copy_name(struct dentry *den
+ static void __d_move(struct dentry *dentry, struct dentry *target,
+ 		     bool exchange)
+ {
++	wait_queue_head_t *d_wait = NULL;
+ 	struct dentry *old_parent, *p;
+ 	struct inode *dir = NULL;
+ 	unsigned n;
+@@ -2923,7 +2940,7 @@ static void __d_move(struct dentry *dent
+ 	if (unlikely(d_in_lookup(target))) {
+ 		dir = target->d_parent->d_inode;
+ 		n = start_dir_add(dir);
+-		__d_lookup_done(target);
++		d_wait = __d_lookup_clear_d_wait(target);
+ 	}
+ 
+ 	write_seqcount_begin(&dentry->d_seq);
+@@ -2967,6 +2984,8 @@ static void __d_move(struct dentry *dent
+ 		spin_unlock(&old_parent->d_lock);
+ 	spin_unlock(&target->d_lock);
+ 	spin_unlock(&dentry->d_lock);
++	if (d_wait)
++		wake_up_all(d_wait);
+ }
+ 
+ /*
+--- a/include/linux/dcache.h
++++ b/include/linux/dcache.h
+@@ -349,7 +349,7 @@ static inline void dont_mount(struct den
+ 	spin_unlock(&dentry->d_lock);
+ }
+ 
+-extern void __d_lookup_done(struct dentry *);
++extern void __d_lookup_done(struct dentry *dentry);
+ 
+ static inline int d_in_lookup(const struct dentry *dentry)
+ {
+@@ -358,11 +358,8 @@ static inline int d_in_lookup(const stru
+ 
+ static inline void d_lookup_done(struct dentry *dentry)
+ {
+-	if (unlikely(d_in_lookup(dentry))) {
+-		spin_lock(&dentry->d_lock);
++	if (unlikely(d_in_lookup(dentry)))
+ 		__d_lookup_done(dentry);
+-		spin_unlock(&dentry->d_lock);
+-	}
+ }
+ 
+ extern void dput(struct dentry *);

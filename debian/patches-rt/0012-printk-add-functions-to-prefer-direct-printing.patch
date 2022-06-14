@@ -1,0 +1,331 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Wed, 20 Apr 2022 01:52:34 +0206
+Subject: [PATCH 12/18] printk: add functions to prefer direct printing
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+Once kthread printing is available, console printing will no longer
+occur in the context of the printk caller. However, there are some
+special contexts where it is desirable for the printk caller to
+directly print out kernel messages. Using pr_flush() to wait for
+threaded printers is only possible if the caller is in a sleepable
+context and the kthreads are active. That is not always the case.
+
+Introduce printk_prefer_direct_enter() and printk_prefer_direct_exit()
+functions to explicitly (and globally) activate/deactivate preferred
+direct console printing. The term "direct console printing" refers to
+printing to all enabled consoles from the context of the printk
+caller. The term "prefer" is used because this type of printing is
+only best effort. If the console is currently locked or other
+printers are already actively printing, the printk caller will need
+to rely on the other contexts to handle the printing.
+
+This preferred direct printing is how all printing has been handled
+until now (unless it was explicitly deferred).
+
+When kthread printing is introduced, there may be some unanticipated
+problems due to kthreads being unable to flush important messages.
+In order to minimize such risks, preferred direct printing is
+activated for the primary important messages when the system
+experiences general types of major errors. These are:
+
+ - emergency reboot/shutdown
+ - cpu and rcu stalls
+ - hard and soft lockups
+ - hung tasks
+ - warn
+ - sysrq
+
+Note that since kthread printing does not yet exist, no behavior
+changes result from this commit. This is only implementing the
+counter and marking the various places where preferred direct
+printing is active.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Reviewed-by: Petr Mladek <pmladek@suse.com>
+Acked-by: Paul E. McKenney <paulmck@kernel.org> # for RCU
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20220419234637.357112-13-john.ogness@linutronix.de
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/tty/sysrq.c     |    2 ++
+ include/linux/printk.h  |   11 +++++++++++
+ kernel/hung_task.c      |   11 ++++++++++-
+ kernel/panic.c          |    4 ++++
+ kernel/printk/printk.c  |   28 ++++++++++++++++++++++++++++
+ kernel/rcu/tree_stall.h |    2 ++
+ kernel/reboot.c         |   14 +++++++++++++-
+ kernel/watchdog.c       |    4 ++++
+ kernel/watchdog_hld.c   |    4 ++++
+ 9 files changed, 78 insertions(+), 2 deletions(-)
+
+--- a/drivers/tty/sysrq.c
++++ b/drivers/tty/sysrq.c
+@@ -578,6 +578,7 @@ void __handle_sysrq(int key, bool check_
+ 
+ 	rcu_sysrq_start();
+ 	rcu_read_lock();
++	printk_prefer_direct_enter();
+ 	/*
+ 	 * Raise the apparent loglevel to maximum so that the sysrq header
+ 	 * is shown to provide the user with positive feedback.  We do not
+@@ -619,6 +620,7 @@ void __handle_sysrq(int key, bool check_
+ 		pr_cont("\n");
+ 		console_loglevel = orig_log_level;
+ 	}
++	printk_prefer_direct_exit();
+ 	rcu_read_unlock();
+ 	rcu_sysrq_end();
+ 
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -170,6 +170,9 @@ extern void __printk_safe_exit(void);
+ #define printk_deferred_enter __printk_safe_enter
+ #define printk_deferred_exit __printk_safe_exit
+ 
++extern void printk_prefer_direct_enter(void);
++extern void printk_prefer_direct_exit(void);
++
+ extern bool pr_flush(int timeout_ms, bool reset_on_progress);
+ 
+ /*
+@@ -222,6 +225,14 @@ static inline void printk_deferred_exit(
+ {
+ }
+ 
++static inline void printk_prefer_direct_enter(void)
++{
++}
++
++static inline void printk_prefer_direct_exit(void)
++{
++}
++
+ static inline bool pr_flush(int timeout_ms, bool reset_on_progress)
+ {
+ 	return true;
+--- a/kernel/hung_task.c
++++ b/kernel/hung_task.c
+@@ -127,6 +127,8 @@ static void check_hung_task(struct task_
+ 	 * complain:
+ 	 */
+ 	if (sysctl_hung_task_warnings) {
++		printk_prefer_direct_enter();
++
+ 		if (sysctl_hung_task_warnings > 0)
+ 			sysctl_hung_task_warnings--;
+ 		pr_err("INFO: task %s:%d blocked for more than %ld seconds.\n",
+@@ -142,6 +144,8 @@ static void check_hung_task(struct task_
+ 
+ 		if (sysctl_hung_task_all_cpu_backtrace)
+ 			hung_task_show_all_bt = true;
++
++		printk_prefer_direct_exit();
+ 	}
+ 
+ 	touch_nmi_watchdog();
+@@ -204,12 +208,17 @@ static void check_hung_uninterruptible_t
+ 	}
+  unlock:
+ 	rcu_read_unlock();
+-	if (hung_task_show_lock)
++	if (hung_task_show_lock) {
++		printk_prefer_direct_enter();
+ 		debug_show_all_locks();
++		printk_prefer_direct_exit();
++	}
+ 
+ 	if (hung_task_show_all_bt) {
+ 		hung_task_show_all_bt = false;
++		printk_prefer_direct_enter();
+ 		trigger_all_cpu_backtrace();
++		printk_prefer_direct_exit();
+ 	}
+ 
+ 	if (hung_task_call_panic)
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -579,6 +579,8 @@ void __warn(const char *file, int line,
+ {
+ 	disable_trace_on_warning();
+ 
++	printk_prefer_direct_enter();
++
+ 	if (file)
+ 		pr_warn("WARNING: CPU: %d PID: %d at %s:%d %pS\n",
+ 			raw_smp_processor_id(), current->pid, file, line,
+@@ -608,6 +610,8 @@ void __warn(const char *file, int line,
+ 
+ 	/* Just a warning, don't kill lockdep. */
+ 	add_taint(taint, LOCKDEP_STILL_OK);
++
++	printk_prefer_direct_exit();
+ }
+ 
+ #ifndef __WARN_FLAGS
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -362,6 +362,34 @@ static int console_msg_format = MSG_FORM
+ static DEFINE_MUTEX(syslog_lock);
+ 
+ #ifdef CONFIG_PRINTK
++static atomic_t printk_prefer_direct = ATOMIC_INIT(0);
++
++/**
++ * printk_prefer_direct_enter - cause printk() calls to attempt direct
++ *                              printing to all enabled consoles
++ *
++ * Since it is not possible to call into the console printing code from any
++ * context, there is no guarantee that direct printing will occur.
++ *
++ * This globally effects all printk() callers.
++ *
++ * Context: Any context.
++ */
++void printk_prefer_direct_enter(void)
++{
++	atomic_inc(&printk_prefer_direct);
++}
++
++/**
++ * printk_prefer_direct_exit - restore printk() behavior
++ *
++ * Context: Any context.
++ */
++void printk_prefer_direct_exit(void)
++{
++	WARN_ON(atomic_dec_if_positive(&printk_prefer_direct) < 0);
++}
++
+ DECLARE_WAIT_QUEUE_HEAD(log_wait);
+ /* All 3 protected by @syslog_lock. */
+ /* the next printk record to read by syslog(READ) or /proc/kmsg */
+--- a/kernel/rcu/tree_stall.h
++++ b/kernel/rcu/tree_stall.h
+@@ -619,6 +619,7 @@ static void print_cpu_stall(unsigned lon
+ 	 * See Documentation/RCU/stallwarn.rst for info on how to debug
+ 	 * RCU CPU stall warnings.
+ 	 */
++	printk_prefer_direct_enter();
+ 	trace_rcu_stall_warning(rcu_state.name, TPS("SelfDetected"));
+ 	pr_err("INFO: %s self-detected stall on CPU\n", rcu_state.name);
+ 	raw_spin_lock_irqsave_rcu_node(rdp->mynode, flags);
+@@ -656,6 +657,7 @@ static void print_cpu_stall(unsigned lon
+ 	 */
+ 	set_tsk_need_resched(current);
+ 	set_preempt_need_resched();
++	printk_prefer_direct_exit();
+ }
+ 
+ static void check_cpu_stall(struct rcu_data *rdp)
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -447,9 +447,11 @@ static int __orderly_reboot(void)
+ 	ret = run_cmd(reboot_cmd);
+ 
+ 	if (ret) {
++		printk_prefer_direct_enter();
+ 		pr_warn("Failed to start orderly reboot: forcing the issue\n");
+ 		emergency_sync();
+ 		kernel_restart(NULL);
++		printk_prefer_direct_exit();
+ 	}
+ 
+ 	return ret;
+@@ -462,6 +464,7 @@ static int __orderly_poweroff(bool force
+ 	ret = run_cmd(poweroff_cmd);
+ 
+ 	if (ret && force) {
++		printk_prefer_direct_enter();
+ 		pr_warn("Failed to start orderly shutdown: forcing the issue\n");
+ 
+ 		/*
+@@ -471,6 +474,7 @@ static int __orderly_poweroff(bool force
+ 		 */
+ 		emergency_sync();
+ 		kernel_power_off();
++		printk_prefer_direct_exit();
+ 	}
+ 
+ 	return ret;
+@@ -528,6 +532,8 @@ EXPORT_SYMBOL_GPL(orderly_reboot);
+  */
+ static void hw_failure_emergency_poweroff_func(struct work_struct *work)
+ {
++	printk_prefer_direct_enter();
++
+ 	/*
+ 	 * We have reached here after the emergency shutdown waiting period has
+ 	 * expired. This means orderly_poweroff has not been able to shut off
+@@ -544,6 +550,8 @@ static void hw_failure_emergency_powerof
+ 	 */
+ 	pr_emerg("Hardware protection shutdown failed. Trying emergency restart\n");
+ 	emergency_restart();
++
++	printk_prefer_direct_exit();
+ }
+ 
+ static DECLARE_DELAYED_WORK(hw_failure_emergency_poweroff_work,
+@@ -582,11 +590,13 @@ void hw_protection_shutdown(const char *
+ {
+ 	static atomic_t allow_proceed = ATOMIC_INIT(1);
+ 
++	printk_prefer_direct_enter();
++
+ 	pr_emerg("HARDWARE PROTECTION shutdown (%s)\n", reason);
+ 
+ 	/* Shutdown should be initiated only once. */
+ 	if (!atomic_dec_and_test(&allow_proceed))
+-		return;
++		goto out;
+ 
+ 	/*
+ 	 * Queue a backup emergency shutdown in the event of
+@@ -594,6 +604,8 @@ void hw_protection_shutdown(const char *
+ 	 */
+ 	hw_failure_emergency_poweroff(ms_until_forced);
+ 	orderly_poweroff(true);
++out:
++	printk_prefer_direct_exit();
+ }
+ EXPORT_SYMBOL_GPL(hw_protection_shutdown);
+ 
+--- a/kernel/watchdog.c
++++ b/kernel/watchdog.c
+@@ -424,6 +424,8 @@ static enum hrtimer_restart watchdog_tim
+ 		/* Start period for the next softlockup warning. */
+ 		update_report_ts();
+ 
++		printk_prefer_direct_enter();
++
+ 		pr_emerg("BUG: soft lockup - CPU#%d stuck for %us! [%s:%d]\n",
+ 			smp_processor_id(), duration,
+ 			current->comm, task_pid_nr(current));
+@@ -442,6 +444,8 @@ static enum hrtimer_restart watchdog_tim
+ 		add_taint(TAINT_SOFTLOCKUP, LOCKDEP_STILL_OK);
+ 		if (softlockup_panic)
+ 			panic("softlockup: hung tasks");
++
++		printk_prefer_direct_exit();
+ 	}
+ 
+ 	return HRTIMER_RESTART;
+--- a/kernel/watchdog_hld.c
++++ b/kernel/watchdog_hld.c
+@@ -135,6 +135,8 @@ static void watchdog_overflow_callback(s
+ 		if (__this_cpu_read(hard_watchdog_warn) == true)
+ 			return;
+ 
++		printk_prefer_direct_enter();
++
+ 		pr_emerg("Watchdog detected hard LOCKUP on cpu %d\n",
+ 			 this_cpu);
+ 		print_modules();
+@@ -155,6 +157,8 @@ static void watchdog_overflow_callback(s
+ 		if (hardlockup_panic)
+ 			nmi_panic(regs, "Hard LOCKUP");
+ 
++		printk_prefer_direct_exit();
++
+ 		__this_cpu_write(hard_watchdog_warn, true);
+ 		return;
+ 	}

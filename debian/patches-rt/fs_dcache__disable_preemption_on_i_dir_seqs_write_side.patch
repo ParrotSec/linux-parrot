@@ -1,7 +1,7 @@
 Subject: fs/dcache: disable preemption on i_dir_seq's write side
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri Oct 20 11:29:53 2017 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
@@ -39,7 +39,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2537,7 +2537,13 @@ EXPORT_SYMBOL(d_rehash);
+@@ -2563,7 +2563,13 @@ EXPORT_SYMBOL(d_rehash);
  
  static inline unsigned start_dir_add(struct inode *dir)
  {
@@ -54,7 +54,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	for (;;) {
  		unsigned n = dir->i_dir_seq;
  		if (!(n & 1) && cmpxchg(&dir->i_dir_seq, n, n + 1) == n)
-@@ -2549,6 +2555,8 @@ static inline unsigned start_dir_add(str
+@@ -2575,6 +2581,8 @@ static inline unsigned start_dir_add(str
  static inline void end_dir_add(struct inode *dir, unsigned n)
  {
  	smp_store_release(&dir->i_dir_seq, n + 2);

@@ -65,6 +65,7 @@ install-meta:
 	dh_prep
 	dh_bugfiles
 	dh_installdocs --link-doc=$(LINK_DOC_PACKAGE_NAME)
+	dh_lintian
 	dh_compress
 	dh_fixperms
 	dh_installdeb

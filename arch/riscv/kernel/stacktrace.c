@@ -14,8 +14,6 @@
 
 #include <asm/stacktrace.h>
 
-register unsigned long sp_in_global __asm__("sp");
-
 #ifdef CONFIG_FRAME_POINTER
 
 void notrace walk_stackframe(struct task_struct *task, struct pt_regs *regs,
@@ -30,7 +28,7 @@ void notrace walk_stackframe(struct task_struct *task, struct pt_regs *regs,
 		pc = instruction_pointer(regs);
 	} else if (task == NULL || task == current) {
 		fp = (unsigned long)__builtin_frame_address(0);
-		sp = sp_in_global;
+		sp = current_stack_pointer;
 		pc = (unsigned long)walk_stackframe;
 	} else {
 		/* task blocked in __switch_to */
@@ -78,7 +76,7 @@ void notrace walk_stackframe(struct task_struct *task,
 		sp = user_stack_pointer(regs);
 		pc = instruction_pointer(regs);
 	} else if (task == NULL || task == current) {
-		sp = sp_in_global;
+		sp = current_stack_pointer;
 		pc = (unsigned long)walk_stackframe;
 	} else {
 		/* task blocked in __switch_to */
@@ -140,12 +138,8 @@ unsigned long __get_wchan(struct task_struct *task)
 	return pc;
 }
 
-#ifdef CONFIG_STACKTRACE
-
 noinline void arch_stack_walk(stack_trace_consume_fn consume_entry, void *cookie,
 		     struct task_struct *task, struct pt_regs *regs)
 {
 	walk_stackframe(task, regs, consume_entry, cookie);
 }
-
-#endif /* CONFIG_STACKTRACE */

@@ -1,7 +1,7 @@
 Subject: drivers/block/zram: Replace bit spinlocks with rtmutex for -rt
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Thu Mar 31 04:08:28 2016 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 
@@ -20,7 +20,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/drivers/block/zram/zram_drv.c
 +++ b/drivers/block/zram/zram_drv.c
-@@ -59,6 +59,40 @@ static void zram_free_page(struct zram *
+@@ -58,6 +58,40 @@ static void zram_free_page(struct zram *
  static int zram_bvec_read(struct zram *zram, struct bio_vec *bvec,
  				u32 index, int offset, struct bio *bio);
  
@@ -61,7 +61,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  static int zram_slot_trylock(struct zram *zram, u32 index)
  {
-@@ -74,6 +108,7 @@ static void zram_slot_unlock(struct zram
+@@ -73,6 +107,7 @@ static void zram_slot_unlock(struct zram
  {
  	bit_spin_unlock(ZRAM_LOCK, &zram->table[index].flags);
  }
@@ -69,7 +69,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  static inline bool init_done(struct zram *zram)
  {
-@@ -1199,6 +1234,7 @@ static bool zram_meta_alloc(struct zram
+@@ -1194,6 +1229,7 @@ static bool zram_meta_alloc(struct zram
  
  	if (!huge_class_size)
  		huge_class_size = zs_huge_class_size(zram->mem_pool);

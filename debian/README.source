@@ -229,6 +229,9 @@ Several build profiles are understood and supported:
 - pkg.linux.notools: Exclude userland tool packages (linux-kbuild-<version>,
   linux-perf-<version>, etc.)
 - pkg.linux.nokernel: Exclude kernel image and header packages
+- pkg.linux.nokerneldbg: Exclude kernel debug packages
+- pkg.linux.nokerneldbginfo: Build kernel without debug symbols (also disables
+  BTF)
 - pkg.linux.nosource: Exclude source binary package (linux-source-<version>)
 - cross: Needed when cross-building.
 - nopython: Disable Python bindings.  This currently disables building the

@@ -88,7 +88,7 @@ Description: Core FireWire drivers
  This package contains core FireWire drivers for the kernel.
 
 Package: scsi-core-modules
-Depends: kernel-image
+Depends: kernel-image, crc-modules
 Priority: standard
 Description: Core SCSI subsystem
  This package contains the core SCSI subsystem for the kernel.

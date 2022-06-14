@@ -1,0 +1,56 @@
+From: John Ogness <john.ogness@linutronix.de>
+Date: Wed, 20 Apr 2022 01:52:30 +0206
+Subject: [PATCH 08/18] printk: add con_printk() macro for console details
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+It is useful to generate log messages that include details about
+the related console. Rather than duplicate the code to assemble
+the details, put that code into a macro con_printk().
+
+Once console printers become threaded, this macro will find more
+users.
+
+Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20220419234637.357112-9-john.ogness@linutronix.de
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/printk/printk.c |   13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -3015,6 +3015,11 @@ static void try_enable_default_console(s
+ 		newcon->flags |= CON_CONSDEV;
+ }
+ 
++#define con_printk(lvl, con, fmt, ...)			\
++	printk(lvl pr_fmt("%sconsole [%s%d] " fmt),	\
++	       (con->flags & CON_BOOT) ? "boot" : "",	\
++	       con->name, con->index, ##__VA_ARGS__)
++
+ /*
+  * The console driver calls this routine during kernel initialization
+  * to register the console printing procedure with printk() and to
+@@ -3153,9 +3158,7 @@ void register_console(struct console *ne
+ 	 * users know there might be something in the kernel's log buffer that
+ 	 * went to the bootconsole (that they do not see on the real console)
+ 	 */
+-	pr_info("%sconsole [%s%d] enabled\n",
+-		(newcon->flags & CON_BOOT) ? "boot" : "" ,
+-		newcon->name, newcon->index);
++	con_printk(KERN_INFO, newcon, "enabled\n");
+ 	if (bootcon_enabled &&
+ 	    ((newcon->flags & (CON_CONSDEV | CON_BOOT)) == CON_CONSDEV) &&
+ 	    !keep_bootcon) {
+@@ -3174,9 +3177,7 @@ int unregister_console(struct console *c
+ 	struct console *con;
+ 	int res;
+ 
+-	pr_info("%sconsole [%s%d] disabled\n",
+-		(console->flags & CON_BOOT) ? "boot" : "" ,
+-		console->name, console->index);
++	con_printk(KERN_INFO, console, "disabled\n");
+ 
+ 	res = _braille_unregister_console(console);
+ 	if (res < 0)

@@ -1,7 +1,7 @@
 Subject: powerpc: Add support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu Nov  1 10:14:11 2012 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
@@ -18,7 +18,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/arch/powerpc/Kconfig
 +++ b/arch/powerpc/Kconfig
-@@ -237,6 +237,7 @@ config PPC
+@@ -236,6 +236,7 @@ config PPC
  	select HAVE_PERF_EVENTS_NMI		if PPC64
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
@@ -84,8 +84,8 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /* Don't move TLF_NAPPING without adjusting the code in entry_32.S */
 --- a/arch/powerpc/kernel/interrupt.c
 +++ b/arch/powerpc/kernel/interrupt.c
-@@ -346,7 +346,7 @@ interrupt_exit_user_prepare_main(unsigne
- 	ti_flags = READ_ONCE(current_thread_info()->flags);
+@@ -345,7 +345,7 @@ interrupt_exit_user_prepare_main(unsigne
+ 	ti_flags = read_thread_flags();
  	while (unlikely(ti_flags & (_TIF_USER_WORK_MASK & ~_TIF_RESTORE_TM))) {
  		local_irq_enable();
 -		if (ti_flags & _TIF_NEED_RESCHED) {
@@ -93,14 +93,14 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  			schedule();
  		} else {
  			/*
-@@ -552,11 +552,15 @@ notrace unsigned long interrupt_exit_ker
+@@ -549,11 +549,15 @@ notrace unsigned long interrupt_exit_ker
  		/* Returning to a kernel context with local irqs enabled. */
  		WARN_ON_ONCE(!(regs->msr & MSR_EE));
  again:
 -		if (IS_ENABLED(CONFIG_PREEMPT)) {
 +		if (IS_ENABLED(CONFIG_PREEMPTION)) {
  			/* Return to preemptible kernel context */
- 			if (unlikely(current_thread_info()->flags & _TIF_NEED_RESCHED)) {
+ 			if (unlikely(read_thread_flags() & _TIF_NEED_RESCHED)) {
  				if (preempt_count() == 0)
  					preempt_schedule_irq();
 +			} else if (unlikely(current_thread_info()->flags & _TIF_NEED_RESCHED_LAZY)) {

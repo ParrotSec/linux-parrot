@@ -25,7 +25,6 @@ class Gencontrol(Base):
             'ignore-changes': config.SchemaItemList(),
         },
         'build': {
-            'debug-info': config.SchemaItemBoolean(),
             'signed-code': config.SchemaItemBoolean(),
             'vdso': config.SchemaItemBoolean(),
         },
@@ -60,7 +59,6 @@ class Gencontrol(Base):
     }
 
     env_flags = [
-        ('DEBIAN_KERNEL_DISABLE_DEBUG', 'disable_debug', 'debug infos'),
         ('DEBIAN_KERNEL_DISABLE_INSTALLER', 'disable_installer', 'installer modules'),
         ('DEBIAN_KERNEL_DISABLE_SIGNED', 'disable_signed', 'signed code'),
     ]
@@ -198,7 +196,6 @@ class Gencontrol(Base):
         if self.config.merge('packages').get('tools-unversioned', True):
             packages.extend(self.process_packages(
                 self.templates["control.tools-unversioned"], vars))
-            self.substitute_debhelper_config('perf', vars, 'linux-perf')
         if self.config.merge('packages').get('tools-versioned', True):
             packages.extend(self.process_packages(
                 self.templates["control.tools-versioned"], vars))
@@ -543,20 +540,14 @@ class Gencontrol(Base):
         if config_entry_build.get('vdso', False):
             makeflags['VDSO'] = True
 
-        if not self.disable_debug:
-            build_debug = config_entry_build.get('debug-info')
-        else:
-            build_debug = False
-
-        if build_debug:
+        packages_own.extend(self.process_packages(
+            self.templates['control.image-dbg'], vars))
+        if do_meta:
             packages_own.extend(self.process_packages(
-                self.templates['control.image-dbg'], vars))
-            if do_meta:
-                packages_own.extend(self.process_packages(
-                    self.templates["control.image-dbg.meta"], vars))
-                self.substitute_debhelper_config(
-                    'image-dbg.meta', vars,
-                    'linux-image%(localversion)s-dbg' % vars)
+                self.templates["control.image-dbg.meta"], vars))
+            self.substitute_debhelper_config(
+                'image-dbg.meta', vars,
+                'linux-image%(localversion)s-dbg' % vars)
 
         # In a quick build, only build the quick flavour (if any).
         if flavour != self.quick_flavour:
@@ -660,10 +651,9 @@ class Gencontrol(Base):
             'headers', vars,
             'linux-headers-%(abiname)s%(localversion)s' % vars)
         self.substitute_debhelper_config('image', vars, image_main['Package'])
-        if build_debug:
-            self.substitute_debhelper_config(
-                'image-dbg', vars,
-                'linux-image-%(abiname)s%(localversion)s-dbg' % vars)
+        self.substitute_debhelper_config(
+            'image-dbg', vars,
+            'linux-image-%(abiname)s%(localversion)s-dbg' % vars)
 
     def process_changelog(self):
         version = self.version = self.changelog[0].version

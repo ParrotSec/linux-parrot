@@ -1,7 +1,7 @@
 Subject: x86/entry: Use should_resched() in idtentry_exit_cond_resched()
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue Jun 30 11:45:14 2020 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
@@ -22,7 +22,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/kernel/entry/common.c
 +++ b/kernel/entry/common.c
-@@ -395,7 +395,7 @@ void irqentry_exit_cond_resched(void)
+@@ -381,7 +381,7 @@ void raw_irqentry_exit_cond_resched(void
  		rcu_irq_exit_check_preempt();
  		if (IS_ENABLED(CONFIG_DEBUG_ENTRY))
  			WARN_ON_ONCE(!on_thread_stack());

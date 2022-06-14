@@ -1,27 +1,27 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sat, 19 Aug 2017 21:42:09 +0100
+Date: Mon, 07 Feb 2022 00:00:26 +0100
 Subject: sh: Do not use hyphen in exported variable names
-Forwarded: https://marc.info/?l=linux-sh&m=150317827322995&w=2
 
 arch/sh/Makefile defines and exports ld-bfd to be used by
-arch/sh/boot/Makefile and arch/sh/boot/compressed/Makefile.  Similarly
-arch/sh/boot/Makefile defines and exports suffix-y to be used by
-arch/sh/boot/compressed/Makefile.  However some shells, including
-dash, will not pass through environment variables whose name includes
-a hyphen.  Usually GNU make does not use a shell to recurse, but if
-e.g. $(srctree) contains '~' it will use a shell here.
+arch/sh/boot/Makefile and arch/sh/boot/compressed/Makefile.  However
+some shells, including dash, will not pass through environment
+variables whose name includes a hyphen.  Usually GNU make does not use
+a shell to recurse, but if e.g. $(srctree) contains '~' it will use a
+shell here.
 
-Rename these variables to ld_bfd and suffix_y.
+Rename the variable to ld_bfd.
+
+(Another instance of this problem was fixed upstream by commit
+82977af93a0d "sh: rename suffix-y to suffix_y".)
 
 References: https://buildd.debian.org/status/fetch.php?pkg=linux&arch=sh4&ver=4.13%7Erc5-1%7Eexp1&stamp=1502943967&raw=0
 Fixes: ef9b542fce00 ("sh: bzip2/lzma uImage support.")
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
  arch/sh/Makefile                 | 10 +++++-----
- arch/sh/boot/Makefile            | 16 ++++++++--------
- arch/sh/boot/compressed/Makefile |  6 +++---
+ arch/sh/boot/compressed/Makefile |  4 ++--
  arch/sh/boot/romimage/Makefile   |  4 ++--
- 4 files changed, 18 insertions(+), 18 deletions(-)
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
 --- a/arch/sh/Makefile
 +++ b/arch/sh/Makefile
@@ -47,40 +47,6 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  
  head-y	:= arch/sh/kernel/head_32.o
  
---- a/arch/sh/boot/Makefile
-+++ b/arch/sh/boot/Makefile
-@@ -19,12 +19,12 @@ CONFIG_ZERO_PAGE_OFFSET	?= 0x00001000
- CONFIG_ENTRY_OFFSET	?= 0x00001000
- CONFIG_PHYSICAL_START	?= $(CONFIG_MEMORY_START)
- 
--suffix-y := bin
--suffix-$(CONFIG_KERNEL_GZIP)	:= gz
--suffix-$(CONFIG_KERNEL_BZIP2)	:= bz2
--suffix-$(CONFIG_KERNEL_LZMA)	:= lzma
--suffix-$(CONFIG_KERNEL_XZ)	:= xz
--suffix-$(CONFIG_KERNEL_LZO)	:= lzo
-+suffix_y := bin
-+suffix_$(CONFIG_KERNEL_GZIP)	:= gz
-+suffix_$(CONFIG_KERNEL_BZIP2)	:= bz2
-+suffix_$(CONFIG_KERNEL_LZMA)	:= lzma
-+suffix_$(CONFIG_KERNEL_XZ)	:= xz
-+suffix_$(CONFIG_KERNEL_LZO)	:= lzo
- 
- targets := zImage vmlinux.srec romImage uImage uImage.srec uImage.gz \
- 	   uImage.bz2 uImage.lzma uImage.xz uImage.lzo uImage.bin \
-@@ -106,10 +106,10 @@ OBJCOPYFLAGS_uImage.srec := -I binary -O
- $(obj)/uImage.srec: $(obj)/uImage FORCE
- 	$(call if_changed,objcopy)
- 
--$(obj)/uImage: $(obj)/uImage.$(suffix-y)
-+$(obj)/uImage: $(obj)/uImage.$(suffix_y)
- 	@ln -sf $(notdir $<) $@
- 	@echo '  Image $@ is ready'
- 
- export CONFIG_PAGE_OFFSET CONFIG_MEMORY_START CONFIG_BOOT_LINK_OFFSET \
-        CONFIG_PHYSICAL_START CONFIG_ZERO_PAGE_OFFSET CONFIG_ENTRY_OFFSET \
--       KERNEL_MEMORY suffix-y
-+       KERNEL_MEMORY suffix_y
 --- a/arch/sh/boot/compressed/Makefile
 +++ b/arch/sh/boot/compressed/Makefile
 @@ -36,7 +36,7 @@ endif
@@ -92,15 +58,14 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  		   -T $(obj)/../../kernel/vmlinux.lds
  
  KBUILD_CFLAGS += -DDISABLE_BRANCH_PROFILING
-@@ -62,7 +62,7 @@ $(obj)/vmlinux.bin.lzo: $(vmlinux.bin.al
+@@ -60,7 +60,7 @@ $(obj)/vmlinux.bin.lzo: $(obj)/vmlinux.b
  
  OBJCOPYFLAGS += -R .empty_zero_page
  
 -LDFLAGS_piggy.o := -r --format binary --oformat $(ld-bfd) -T
 +LDFLAGS_piggy.o := -r --format binary --oformat $(ld_bfd) -T
  
--$(obj)/piggy.o: $(obj)/vmlinux.scr $(obj)/vmlinux.bin.$(suffix-y) FORCE
-+$(obj)/piggy.o: $(obj)/vmlinux.scr $(obj)/vmlinux.bin.$(suffix_y) FORCE
+ $(obj)/piggy.o: $(obj)/vmlinux.scr $(obj)/vmlinux.bin.$(suffix_y) FORCE
  	$(call if_changed,ld)
 --- a/arch/sh/boot/romimage/Makefile
 +++ b/arch/sh/boot/romimage/Makefile

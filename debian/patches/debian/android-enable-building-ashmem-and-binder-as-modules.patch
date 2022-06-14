@@ -12,14 +12,18 @@ need them.
 - Change the Makefiles to build each driver as an object with the
   "_linux" suffix (which is what Anbox expects)
 - Change config symbol types to tristate
+
+Update:
+In upstream commit 721412ed3d titled "staging: remove ashmem" the ashmem
+driver was removed entirely. Secondary commit message:
+"The mainline replacement for ashmem is memfd, so remove the legacy
+code from drivers/staging/"
+Consequently, the ashmem part of this patch has been removed.
 ---
  drivers/android/Kconfig          | 2 +-
  drivers/android/Makefile         | 7 ++++---
  drivers/android/binder_alloc.c   | 2 +-
- drivers/staging/android/Kconfig  | 2 +-
- drivers/staging/android/Makefile | 3 ++-
- drivers/staging/android/ashmem.c | 3 +++
- 6 files changed, 12 insertions(+), 7 deletions(-)
+ 3 files changed, 6 insertions(+), 5 deletions(-)
 
 --- a/drivers/android/Kconfig
 +++ b/drivers/android/Kconfig
@@ -56,39 +60,3 @@ need them.
  		   uint, 0644);
  
  #define binder_alloc_debug(mask, x...) \
---- a/drivers/staging/android/Kconfig
-+++ b/drivers/staging/android/Kconfig
-@@ -4,7 +4,7 @@
- if ANDROID
- 
- config ASHMEM
--	bool "Enable the Anonymous Shared Memory Subsystem"
-+	tristate "Enable the Anonymous Shared Memory Subsystem"
- 	depends on SHMEM
- 	help
- 	  The ashmem subsystem is a new shared memory allocator, similar to
---- a/drivers/staging/android/Makefile
-+++ b/drivers/staging/android/Makefile
-@@ -1,4 +1,5 @@
- # SPDX-License-Identifier: GPL-2.0
- ccflags-y += -I$(src)			# needed for trace events
- 
--obj-$(CONFIG_ASHMEM)			+= ashmem.o
-+obj-$(CONFIG_ASHMEM)			+= ashmem_linux.o
-+ashmem_linux-y				+= ashmem.o
---- a/drivers/staging/android/ashmem.c
-+++ b/drivers/staging/android/ashmem.c
-@@ -24,6 +24,7 @@
- #include <linux/bitops.h>
- #include <linux/mutex.h>
- #include <linux/shmem_fs.h>
-+#include <linux/module.h>
- #include "ashmem.h"
- 
- #define ASHMEM_NAME_PREFIX "dev/ashmem/"
-@@ -965,3 +966,5 @@
- 	return ret;
- }
- device_initcall(ashmem_init);
-+
-+MODULE_LICENSE("GPL v2");

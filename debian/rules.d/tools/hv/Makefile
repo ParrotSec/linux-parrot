@@ -1,4 +1,4 @@
-ifeq ($(filter i386 amd64 x32,$(DEB_HOST_ARCH)),)
+ifeq ($(filter i386 amd64 x32 arm64,$(DEB_HOST_ARCH)),)
 
 # Build nothing
 include $(top_rulesdir)/Makefile.inc

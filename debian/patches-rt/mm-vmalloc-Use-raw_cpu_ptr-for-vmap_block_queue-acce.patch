@@ -1,0 +1,59 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 4 May 2022 19:03:25 +0200
+Subject: [PATCH] mm/vmalloc: Use raw_cpu_ptr() for vmap_block_queue access.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+The per-CPU resource vmap_block_queue is accessed via the
+get_cpu_var(). That macro disables preemption and then loads the pointer
+from the current CPU.
+This doesn't work on PREEMPT_RT because a spinlock_t is later accessed
+within the preempt-disable section.
+
+There is no need to disable preemption while accessing the per-CPU
+struct vmap_block_queue because the list is protected with a spinlock_t.
+The per-CPU struct is also accessed cross-CPU in
+purge_fragmented_blocks().
+It is possible that by using raw_cpu_ptr() the code migrates to another
+CPU and uses struct from another CPU. This is fine because the list
+locked and the locked section is very short.
+
+Use raw_cpu_ptr() to access vmap_block_queue.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/YnKx3duAB53P7ojN@linutronix.de
+---
+ mm/vmalloc.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+--- a/mm/vmalloc.c
++++ b/mm/vmalloc.c
+@@ -1938,11 +1938,10 @@ static void *new_vmap_block(unsigned int
+ 		return ERR_PTR(err);
+ 	}
+ 
+-	vbq = &get_cpu_var(vmap_block_queue);
++	vbq = raw_cpu_ptr(&vmap_block_queue);
+ 	spin_lock(&vbq->lock);
+ 	list_add_tail_rcu(&vb->free_list, &vbq->free);
+ 	spin_unlock(&vbq->lock);
+-	put_cpu_var(vmap_block_queue);
+ 
+ 	return vaddr;
+ }
+@@ -2021,7 +2020,7 @@ static void *vb_alloc(unsigned long size
+ 	order = get_order(size);
+ 
+ 	rcu_read_lock();
+-	vbq = &get_cpu_var(vmap_block_queue);
++	vbq = raw_cpu_ptr(&vmap_block_queue);
+ 	list_for_each_entry_rcu(vb, &vbq->free, free_list) {
+ 		unsigned long pages_off;
+ 
+@@ -2044,7 +2043,6 @@ static void *vb_alloc(unsigned long size
+ 		break;
+ 	}
+ 
+-	put_cpu_var(vmap_block_queue);
+ 	rcu_read_unlock();
+ 
+ 	/* Allocate new block if nothing was found */

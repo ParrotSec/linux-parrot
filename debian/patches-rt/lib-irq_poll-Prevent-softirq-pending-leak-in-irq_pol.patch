@@ -1,0 +1,50 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Sun, 10 Apr 2022 14:49:36 +0200
+Subject: [PATCH] lib/irq_poll: Prevent softirq pending leak in
+ irq_poll_cpu_dead()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+irq_poll_cpu_dead() pulls the blk_cpu_iopoll backlog from the dead CPU and
+raises the POLL softirq with __raise_softirq_irqoff() on the CPU it is
+running on. That just sets the bit in the pending softirq mask.
+
+This means the handling of the softirq is delayed until the next interrupt
+or a local_bh_disable/enable() pair. As a consequence the CPU on which this
+code runs can reach idle with the POLL softirq pending, which triggers a
+warning in the NOHZ idle code.
+
+Add a local_bh_disable/enable() pair around the interrupts disabled section
+in irq_poll_cpu_dead(). local_bh_enable will handle the pending softirq.
+
+[tglx: Massaged changelog and comment]
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Link: https://lore.kernel.org/r/87k0bxgl27.ffs@tglx
+---
+ lib/irq_poll.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+--- a/lib/irq_poll.c
++++ b/lib/irq_poll.c
+@@ -188,14 +188,18 @@ EXPORT_SYMBOL(irq_poll_init);
+ static int irq_poll_cpu_dead(unsigned int cpu)
+ {
+ 	/*
+-	 * If a CPU goes away, splice its entries to the current CPU
+-	 * and trigger a run of the softirq
++	 * If a CPU goes away, splice its entries to the current CPU and
++	 * set the POLL softirq bit. The local_bh_disable()/enable() pair
++	 * ensures that it is handled. Otherwise the current CPU could
++	 * reach idle with the POLL softirq pending.
+ 	 */
++	local_bh_disable();
+ 	local_irq_disable();
+ 	list_splice_init(&per_cpu(blk_cpu_iopoll, cpu),
+ 			 this_cpu_ptr(&blk_cpu_iopoll));
+ 	__raise_softirq_irqoff(IRQ_POLL_SOFTIRQ);
+ 	local_irq_enable();
++	local_bh_enable();
+ 
+ 	return 0;
+ }

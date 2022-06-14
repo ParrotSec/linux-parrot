@@ -1,7 +1,7 @@
 Subject: x86: Support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu Nov  1 11:03:47 2012 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
@@ -20,7 +20,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -235,6 +235,7 @@ config X86
+@@ -240,6 +240,7 @@ config X86
  	select HAVE_PCI
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
@@ -137,7 +137,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /**
 --- a/kernel/entry/common.c
 +++ b/kernel/entry/common.c
-@@ -159,7 +159,7 @@ static unsigned long exit_to_user_mode_l
+@@ -153,7 +153,7 @@ static unsigned long exit_to_user_mode_l
  
  		local_irq_enable_exit_to_user(ti_work);
  
@@ -145,4 +145,4 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 +		if (ti_work & _TIF_NEED_RESCHED_MASK)
  			schedule();
  
- #ifdef ARCH_RT_DELAYS_SIGNAL_SEND
+ 		if (ti_work & _TIF_UPROBE)

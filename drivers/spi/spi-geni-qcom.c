@@ -71,10 +71,6 @@
 #define GSI_CPHA		BIT(4)
 #define GSI_CPOL		BIT(5)
 
-#define MAX_TX_SG		3
-#define NUM_SPI_XFER		8
-#define SPI_XFER_TIMEOUT_MS	250
-
 struct spi_geni_master {
 	struct geni_se se;
 	struct device *dev;
@@ -902,11 +898,8 @@ static int spi_geni_probe(struct platform_device *pdev)
 		return irq;
 
 	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
-	if (ret) {
-		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
-		if (ret)
-			return dev_err_probe(dev, ret, "could not set DMA mask\n");
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "could not set DMA mask\n");
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base))

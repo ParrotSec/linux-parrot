@@ -30,7 +30,7 @@ is missing, except for the pre-R600 case.
 
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-@@ -40,6 +40,8 @@
+@@ -39,6 +39,8 @@
  #include <linux/suspend.h>
  #include <linux/cc_platform.h>
  #include <linux/fb.h>
@@ -39,8 +39,8 @@ is missing, except for the pre-R600 case.
  
  #include "amdgpu.h"
  #include "amdgpu_irq.h"
-@@ -1911,6 +1913,28 @@ static bool amdgpu_is_fw_framebuffer(res
- 	return found;
+@@ -1992,6 +1994,28 @@ static void amdgpu_get_secondary_funcs(s
+ 	}
  }
  
 +/* Test that /lib/firmware/amdgpu is a directory (or symlink to a
@@ -68,7 +68,7 @@ is missing, except for the pre-R600 case.
  static int amdgpu_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -1993,6 +2017,11 @@ static int amdgpu_pci_probe(struct pci_d
+@@ -2072,6 +2096,11 @@ static int amdgpu_pci_probe(struct pci_d
  	size = pci_resource_len(pdev, 0);
  	is_fw_fb = amdgpu_is_fw_framebuffer(base, size);
  
@@ -82,7 +82,7 @@ is missing, except for the pre-R600 case.
  	if (ret)
 --- a/drivers/gpu/drm/radeon/radeon_drv.c
 +++ b/drivers/gpu/drm/radeon/radeon_drv.c
-@@ -49,6 +49,8 @@
+@@ -48,6 +48,8 @@
  #include <drm/drm_probe_helper.h>
  #include <drm/drm_vblank.h>
  #include <drm/radeon_drm.h>
@@ -91,7 +91,7 @@ is missing, except for the pre-R600 case.
  
  #include "radeon_drv.h"
  #include "radeon.h"
-@@ -289,6 +291,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
+@@ -288,6 +290,28 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
  
  static const struct drm_driver kms_driver;
  
@@ -120,7 +120,7 @@ is missing, except for the pre-R600 case.
  static int radeon_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *ent)
  {
-@@ -329,6 +353,12 @@ static int radeon_pci_probe(struct pci_d
+@@ -328,6 +352,12 @@ static int radeon_pci_probe(struct pci_d
  	if (vga_switcheroo_client_probe_defer(pdev))
  		return -EPROBE_DEFER;
  

@@ -1,0 +1,126 @@
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Wed, 13 Apr 2022 15:31:03 +0200
+Subject: [PATCH 2/3] smp: Rename flush_smp_call_function_from_idle()
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+This is invoked from the stopper thread too, which is definitely not idle.
+Rename it to flush_smp_call_function_queue() and fixup the callers.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20220413133024.305001096@linutronix.de
+---
+ kernel/sched/core.c |    2 +-
+ kernel/sched/idle.c |    2 +-
+ kernel/sched/smp.h  |    4 ++--
+ kernel/smp.c        |   27 ++++++++++++++++++++-------
+ 4 files changed, 24 insertions(+), 11 deletions(-)
+
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -2411,7 +2411,7 @@ static int migration_cpu_stop(void *data
+ 	 * __migrate_task() such that we will not miss enforcing cpus_ptr
+ 	 * during wakeups, see set_cpus_allowed_ptr()'s TASK_WAKING test.
+ 	 */
+-	flush_smp_call_function_from_idle();
++	flush_smp_call_function_queue();
+ 
+ 	raw_spin_lock(&p->pi_lock);
+ 	rq_lock(rq, &rf);
+--- a/kernel/sched/idle.c
++++ b/kernel/sched/idle.c
+@@ -327,7 +327,7 @@ static void do_idle(void)
+ 	 * RCU relies on this call to be done outside of an RCU read-side
+ 	 * critical section.
+ 	 */
+-	flush_smp_call_function_from_idle();
++	flush_smp_call_function_queue();
+ 	schedule_idle();
+ 
+ 	if (unlikely(klp_patch_pending(current)))
+--- a/kernel/sched/smp.h
++++ b/kernel/sched/smp.h
+@@ -9,7 +9,7 @@ extern void sched_ttwu_pending(void *arg
+ extern void send_call_function_single_ipi(int cpu);
+ 
+ #ifdef CONFIG_SMP
+-extern void flush_smp_call_function_from_idle(void);
++extern void flush_smp_call_function_queue(void);
+ #else
+-static inline void flush_smp_call_function_from_idle(void) { }
++static inline void flush_smp_call_function_queue(void) { }
+ #endif
+--- a/kernel/smp.c
++++ b/kernel/smp.c
+@@ -96,7 +96,7 @@ static DEFINE_PER_CPU_ALIGNED(struct cal
+ 
+ static DEFINE_PER_CPU_SHARED_ALIGNED(struct llist_head, call_single_queue);
+ 
+-static void flush_smp_call_function_queue(bool warn_cpu_offline);
++static void __flush_smp_call_function_queue(bool warn_cpu_offline);
+ 
+ int smpcfd_prepare_cpu(unsigned int cpu)
+ {
+@@ -141,7 +141,7 @@ int smpcfd_dying_cpu(unsigned int cpu)
+ 	 * ensure that the outgoing CPU doesn't go offline with work
+ 	 * still pending.
+ 	 */
+-	flush_smp_call_function_queue(false);
++	__flush_smp_call_function_queue(false);
+ 	irq_work_run();
+ 	return 0;
+ }
+@@ -541,11 +541,11 @@ void generic_smp_call_function_single_in
+ {
+ 	cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->gotipi, CFD_SEQ_NOCPU,
+ 		      smp_processor_id(), CFD_SEQ_GOTIPI);
+-	flush_smp_call_function_queue(true);
++	__flush_smp_call_function_queue(true);
+ }
+ 
+ /**
+- * flush_smp_call_function_queue - Flush pending smp-call-function callbacks
++ * __flush_smp_call_function_queue - Flush pending smp-call-function callbacks
+  *
+  * @warn_cpu_offline: If set to 'true', warn if callbacks were queued on an
+  *		      offline CPU. Skip this check if set to 'false'.
+@@ -558,7 +558,7 @@ void generic_smp_call_function_single_in
+  * Loop through the call_single_queue and run all the queued callbacks.
+  * Must be called with interrupts disabled.
+  */
+-static void flush_smp_call_function_queue(bool warn_cpu_offline)
++static void __flush_smp_call_function_queue(bool warn_cpu_offline)
+ {
+ 	call_single_data_t *csd, *csd_next;
+ 	struct llist_node *entry, *prev;
+@@ -681,7 +681,20 @@ static void flush_smp_call_function_queu
+ 		      smp_processor_id(), CFD_SEQ_HDLEND);
+ }
+ 
+-void flush_smp_call_function_from_idle(void)
++
++/**
++ * flush_smp_call_function_queue - Flush pending smp-call-function callbacks
++ *				   from task context (idle, migration thread)
++ *
++ * When TIF_POLLING_NRFLAG is supported and a CPU is in idle and has it
++ * set, then remote CPUs can avoid sending IPIs and wake the idle CPU by
++ * setting TIF_NEED_RESCHED. The idle task on the woken up CPU has to
++ * handle queued SMP function calls before scheduling.
++ *
++ * The migration thread has to ensure that an eventually pending wakeup has
++ * been handled before it migrates a task.
++ */
++void flush_smp_call_function_queue(void)
+ {
+ 	unsigned long flags;
+ 
+@@ -691,7 +704,7 @@ void flush_smp_call_function_from_idle(v
+ 	cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->idle, CFD_SEQ_NOCPU,
+ 		      smp_processor_id(), CFD_SEQ_IDLE);
+ 	local_irq_save(flags);
+-	flush_smp_call_function_queue(true);
++	__flush_smp_call_function_queue(true);
+ 	if (local_softirq_pending())
+ 		do_softirq();
+ 

@@ -1,0 +1,97 @@
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Thu, 5 May 2022 13:26:35 -0500
+Subject: [PATCH 02/12] signal: Replace __group_send_sig_info with
+ send_signal_locked
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+The function __group_send_sig_info is just a light wrapper around
+send_signal_locked with one parameter fixed to a constant value.  As
+the wrapper adds no real value update the code to directly call the
+wrapped function.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20220505182645.497868-2-ebiederm@xmission.com
+---
+ drivers/tty/tty_jobctrl.c      |    4 ++--
+ include/linux/signal.h         |    1 -
+ kernel/signal.c                |    8 +-------
+ kernel/time/posix-cpu-timers.c |    6 +++---
+ 4 files changed, 6 insertions(+), 13 deletions(-)
+
+--- a/drivers/tty/tty_jobctrl.c
++++ b/drivers/tty/tty_jobctrl.c
+@@ -215,8 +215,8 @@ int tty_signal_session_leader(struct tty
+ 				spin_unlock_irq(&p->sighand->siglock);
+ 				continue;
+ 			}
+-			__group_send_sig_info(SIGHUP, SEND_SIG_PRIV, p);
+-			__group_send_sig_info(SIGCONT, SEND_SIG_PRIV, p);
++			send_signal_locked(SIGHUP, SEND_SIG_PRIV, p, PIDTYPE_TGID);
++			send_signal_locked(SIGCONT, SEND_SIG_PRIV, p, PIDTYPE_TGID);
+ 			put_pid(p->signal->tty_old_pgrp);  /* A noop */
+ 			spin_lock(&tty->ctrl.lock);
+ 			tty_pgrp = get_pid(tty->ctrl.pgrp);
+--- a/include/linux/signal.h
++++ b/include/linux/signal.h
+@@ -282,7 +282,6 @@ extern int do_send_sig_info(int sig, str
+ 				struct task_struct *p, enum pid_type type);
+ extern int group_send_sig_info(int sig, struct kernel_siginfo *info,
+ 			       struct task_struct *p, enum pid_type type);
+-extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struct *);
+ extern int send_signal_locked(int sig, struct kernel_siginfo *info,
+ 			      struct task_struct *p, enum pid_type type);
+ extern int sigprocmask(int, sigset_t *, sigset_t *);
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -1281,12 +1281,6 @@ static int __init setup_print_fatal_sign
+ 
+ __setup("print-fatal-signals=", setup_print_fatal_signals);
+ 
+-int
+-__group_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p)
+-{
+-	return send_signal_locked(sig, info, p, PIDTYPE_TGID);
+-}
+-
+ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p,
+ 			enum pid_type type)
+ {
+@@ -2173,7 +2167,7 @@ static void do_notify_parent_cldstop(str
+ 	spin_lock_irqsave(&sighand->siglock, flags);
+ 	if (sighand->action[SIGCHLD-1].sa.sa_handler != SIG_IGN &&
+ 	    !(sighand->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDSTOP))
+-		__group_send_sig_info(SIGCHLD, &info, parent);
++		send_signal_locked(SIGCHLD, &info, parent, PIDTYPE_TGID);
+ 	/*
+ 	 * Even if SIGCHLD is not generated, we must wake up wait4 calls.
+ 	 */
+--- a/kernel/time/posix-cpu-timers.c
++++ b/kernel/time/posix-cpu-timers.c
+@@ -870,7 +870,7 @@ static inline void check_dl_overrun(stru
+ {
+ 	if (tsk->dl.dl_overrun) {
+ 		tsk->dl.dl_overrun = 0;
+-		__group_send_sig_info(SIGXCPU, SEND_SIG_PRIV, tsk);
++		send_signal_locked(SIGXCPU, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
+ 	}
+ }
+ 
+@@ -884,7 +884,7 @@ static bool check_rlimit(u64 time, u64 l
+ 			rt ? "RT" : "CPU", hard ? "hard" : "soft",
+ 			current->comm, task_pid_nr(current));
+ 	}
+-	__group_send_sig_info(signo, SEND_SIG_PRIV, current);
++	send_signal_locked(signo, SEND_SIG_PRIV, current, PIDTYPE_TGID);
+ 	return true;
+ }
+ 
+@@ -958,7 +958,7 @@ static void check_cpu_itimer(struct task
+ 		trace_itimer_expire(signo == SIGPROF ?
+ 				    ITIMER_PROF : ITIMER_VIRTUAL,
+ 				    task_tgid(tsk), cur_time);
+-		__group_send_sig_info(signo, SEND_SIG_PRIV, tsk);
++		send_signal_locked(signo, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
+ 	}
+ 
+ 	if (it->expires && it->expires < *expires)

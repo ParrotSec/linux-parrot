@@ -1,13 +1,17 @@
 From: John Ogness <john.ogness@linutronix.de>
-Date: Tue, 3 Aug 2021 13:00:00 +0206
-Subject: [PATCH 02/14] printk: cpu sync always disable interrupts
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.16/older/patches-5.16.2-rt19.tar.xz
+Date: Wed, 20 Apr 2022 01:52:24 +0206
+Subject: [PATCH 02/18] printk: cpu sync always disable interrupts
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
 
 The CPU sync functions are a NOP for !CONFIG_SMP. But for
 !CONFIG_SMP they still need to disable interrupts in order to
 preserve context within the CPU sync sections.
 
 Signed-off-by: John Ogness <john.ogness@linutronix.de>
+Reviewed-by: Petr Mladek <pmladek@suse.com>
+Reviewed-by: Sergey Senozhatsky <senozhatsky@chromium.org>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/20220419234637.357112-3-john.ogness@linutronix.de
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  include/linux/printk.h |   18 +++++++++---------
@@ -15,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/printk.h
 +++ b/include/linux/printk.h
-@@ -285,9 +285,16 @@ extern int __printk_cpu_sync_try_get(voi
+@@ -281,9 +281,16 @@ extern int __printk_cpu_sync_try_get(voi
  extern void __printk_cpu_sync_wait(void);
  extern void __printk_cpu_sync_put(void);
  
@@ -34,7 +38,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
   * @flags: Stack-allocated storage for saving local interrupt state,
   *         to be passed to printk_cpu_sync_put_irqrestore().
   *
-@@ -314,13 +321,6 @@ extern void __printk_cpu_sync_put(void);
+@@ -322,13 +329,6 @@ extern void __printk_cpu_sync_put(void);
  		local_irq_restore(flags);	\
  	} while (0)
  

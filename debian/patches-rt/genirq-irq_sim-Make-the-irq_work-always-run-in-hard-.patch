@@ -1,0 +1,38 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 11 May 2022 13:07:50 +0200
+Subject: [PATCH] genirq/irq_sim: Make the irq_work always run in hard irq
+ context.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+The IRQ simulator uses irq_work to trigger an interrupt. Without the
+IRQ_WORK_HARD_IRQ flag the irq_work will be performed in thread context
+on PREEMPT_RT. This causes locking errors later in handle_simple_irq()
+which expects to be invoked with disabled interrupts.
+
+Triggering individual interrupts in hardirq context should not lead to
+unexpected high latencies since this is also what the hardware
+controller does. Also it is used as a simulator so…
+
+Use IRQ_WORK_INIT_HARD() to carry out the irq_work in hardirq context on
+PREEMPT_RT.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lore.kernel.org/r/YnuZBoEVMGwKkLm+@linutronix.de
+---
+ kernel/irq/irq_sim.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/kernel/irq/irq_sim.c
++++ b/kernel/irq/irq_sim.c
+@@ -181,7 +181,7 @@ struct irq_domain *irq_domain_create_sim
+ 		goto err_free_bitmap;
+ 
+ 	work_ctx->irq_count = num_irqs;
+-	init_irq_work(&work_ctx->work, irq_sim_handle_irq);
++	work_ctx->work = IRQ_WORK_INIT_HARD(irq_sim_handle_irq);
+ 
+ 	return work_ctx->domain;
+ 

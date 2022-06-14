@@ -69,7 +69,8 @@ Build-Depends:
  libperl-dev,
  libpython3-dev,
  libunwind-dev [amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel powerpc ppc64 ppc64el sh4],
- libopencsd-dev (>= 1.1.1),
+# version in bullseye is too old
+# libopencsd-dev (>= 1.1.1),
  python3-dev:any,
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends}, ${python3:Depends}
 Provides: linux-tools-@version@
@@ -111,7 +112,7 @@ Description: USB device sharing system over IP network
 
 Package: hyperv-daemons
 Build-Profiles: <!stage1 !pkg.linux.notools>
-Architecture: i386 amd64 x32
+Architecture: i386 amd64 x32 arm64
 Pre-Depends: ${misc:Pre-Depends}
 Depends: lsb-base, ${shlibs:Depends}, ${misc:Depends}
 Section: admin

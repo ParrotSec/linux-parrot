@@ -8,9 +8,9 @@ it by default yet.
 
 --- a/kernel/sched/autogroup.c
 +++ b/kernel/sched/autogroup.c
-@@ -5,7 +5,7 @@
- #include <linux/nospec.h>
- #include "sched.h"
+@@ -4,7 +4,7 @@
+  * Auto-group scheduling implementation:
+  */
  
 -unsigned int __read_mostly sysctl_sched_autogroup_enabled = 1;
 +unsigned int __read_mostly sysctl_sched_autogroup_enabled = 0;

@@ -20,21 +20,21 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 [Salvatore Bonaccorso: Forward-ported to 5.10: Refresh for changes in
 38a1f03aa240 ("integrity: Move import of MokListRT certs to a separate
 routine")]
-[bwh: Adjust context after 5.13]
+[bwh: Forward-ported to 5.17: The upstream code now has this check but
+ ties it to IMA policy. Until we determine whether we want to do that,
+ revert to checking the EFI flag directly instead.]
 ---
- security/integrity/platform_certs/load_uefi.c | 26 +++++++++++++++-----------
- 1 file changed, 15 insertions(+), 11 deletions(-)
+ security/integrity/platform_certs/load_uefi.c | 2 +-
+ 1 file changed, 1 insertions(+), 1 deletions(-)
 
 --- a/security/integrity/platform_certs/load_uefi.c
 +++ b/security/integrity/platform_certs/load_uefi.c
-@@ -176,6 +176,10 @@ static int __init load_uefi_certs(void)
- 		kfree(dbx);
+@@ -178,7 +178,7 @@ static int __init load_uefi_certs(void)
  	}
  
-+	/* the MOK can not be trusted when secure boot is disabled */
+ 	/* the MOK/MOKx can not be trusted when secure boot is disabled */
+-	if (!arch_ima_get_secureboot())
 +	if (!efi_enabled(EFI_SECURE_BOOT))
-+		return 0;
-+
+ 		return 0;
+ 
  	mokx = get_cert_list(L"MokListXRT", &mok_var, &mokxsize, &status);
- 	if (!mokx) {
- 		if (status == EFI_NOT_FOUND)

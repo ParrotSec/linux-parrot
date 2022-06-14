@@ -1,5 +1,5 @@
 Package: linux-image-@abiname@@localversion@-dbg
-Build-Profiles: <!stage1 !pkg.linux.nokernel !pkg.linux.quick>
+Build-Profiles: <!stage1 !pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
 Depends: ${misc:Depends}
 Section: debug
 Priority: optional

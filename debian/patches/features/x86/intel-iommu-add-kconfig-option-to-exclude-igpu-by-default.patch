@@ -13,11 +13,9 @@ corresponding to "on", "off", and "on,intgpu_off".
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
-Index: linux/drivers/iommu/intel/Kconfig
-===================================================================
---- linux.orig/drivers/iommu/intel/Kconfig
-+++ linux/drivers/iommu/intel/Kconfig
-@@ -54,14 +54,25 @@ config INTEL_IOMMU_SVM
+--- a/drivers/iommu/intel/Kconfig
++++ b/drivers/iommu/intel/Kconfig
+@@ -58,14 +58,25 @@ config INTEL_IOMMU_SVM
  	  to access DMA resources through process address space by
  	  means of a Process Address Space ID (PASID).
  
@@ -49,13 +47,11 @@ Index: linux/drivers/iommu/intel/Kconfig
  config INTEL_IOMMU_BROKEN_GFX_WA
  	bool "Workaround broken graphics drivers (going away soon)"
  	depends on BROKEN && X86
-Index: linux/drivers/iommu/intel/iommu.c
-===================================================================
---- linux.orig/drivers/iommu/intel/iommu.c
-+++ linux/drivers/iommu/intel/iommu.c
-@@ -331,14 +331,14 @@ static int intel_iommu_attach_device(str
- static phys_addr_t intel_iommu_iova_to_phys(struct iommu_domain *domain,
- 					    dma_addr_t iova);
+--- a/drivers/iommu/intel/iommu.c
++++ b/drivers/iommu/intel/iommu.c
+@@ -303,14 +303,14 @@ static void domain_remove_dev_info(struc
+ static void dmar_remove_one_dev_info(struct device *dev);
+ static void __dmar_remove_one_dev_info(struct device_domain_info *info);
  
 -int dmar_disabled = !IS_ENABLED(CONFIG_INTEL_IOMMU_DEFAULT_ON);
 +int dmar_disabled = IS_ENABLED(CONFIG_INTEL_IOMMU_DEFAULT_OFF);
@@ -70,7 +66,7 @@ Index: linux/drivers/iommu/intel/iommu.c
  static int intel_iommu_superpage = 1;
  static int iommu_identity_mapping;
  static int iommu_skip_te_disable;
-@@ -420,6 +420,7 @@ static int __init intel_iommu_setup(char
+@@ -378,6 +378,7 @@ static int __init intel_iommu_setup(char
  	while (*str) {
  		if (!strncmp(str, "on", 2)) {
  			dmar_disabled = 0;

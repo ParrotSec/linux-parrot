@@ -22,7 +22,8 @@ MAKE_PERF += feature-libbfd=0 feature-libbfd-liberty=0 feature-libbfd-liberty-z=
 MAKE_PERF += NO_LIBCRYPTO=1
 
 # perf only links against libopencsd (coresight) if specifically enabled
-MAKE_PERF += CORESIGHT=1
+# version in bullseye is too old
+#MAKE_PERF += CORESIGHT=1
 
 # Currently babeltrace support for `perf data' is not automatically detected.
 MAKE_PERF += LIBBABELTRACE=1
@@ -57,7 +58,7 @@ endif
 	grep cplus_demangle $(CURDIR)/perf
 
 install:
-	+$(MAKE_PERF) -C $(top_srcdir)/tools/perf -f Makefile.perf install
+	+$(MAKE_PERF) -C $(top_srcdir)/tools/perf -f Makefile.perf install install-python_ext
 # Don't install a 'trace' alias yet:
 # - We need a wrapper for it anyway, so there's little point adding a
 #   versioned link

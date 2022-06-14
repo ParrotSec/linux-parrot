@@ -33,7 +33,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 
 --- a/security/integrity/platform_certs/load_uefi.c
 +++ b/security/integrity/platform_certs/load_uefi.c
-@@ -35,11 +35,13 @@ static __init bool uefi_check_ignore_db(
+@@ -36,11 +36,13 @@ static __init bool uefi_check_ignore_db(
   * Get a certificate list blob from the named EFI variable.
   */
  static __init void *get_cert_list(efi_char16_t *name, efi_guid_t *guid,
@@ -48,7 +48,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  
  	*status = efi.get_variable(name, guid, NULL, &lsize, &tmpdb);
  	if (*status == EFI_NOT_FOUND)
-@@ -54,13 +56,22 @@ static __init void *get_cert_list(efi_ch
+@@ -55,13 +57,22 @@ static __init void *get_cert_list(efi_ch
  	if (!db)
  		return NULL;
  
@@ -72,7 +72,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	*size = lsize;
  	return db;
  }
-@@ -106,7 +117,8 @@ static int __init load_moklist_certs(voi
+@@ -107,7 +118,8 @@ static int __init load_moklist_certs(voi
  	/* Get MokListRT. It might not exist, so it isn't an error
  	 * if we can't get it.
  	 */
@@ -81,8 +81,8 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 +				0, EFI_VARIABLE_NON_VOLATILE);
  	if (mok) {
  		rc = parse_efi_signature_list("UEFI:MokListRT",
- 					      mok, moksize, get_handler_for_db);
-@@ -145,7 +157,8 @@ static int __init load_uefi_certs(void)
+ 					      mok, moksize, get_handler_for_mok);
+@@ -146,7 +158,8 @@ static int __init load_uefi_certs(void)
  	 * if we can't get them.
  	 */
  	if (!uefi_check_ignore_db()) {
@@ -92,7 +92,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  		if (!db) {
  			if (status == EFI_NOT_FOUND)
  				pr_debug("MODSIGN: db variable wasn't found\n");
-@@ -161,7 +174,8 @@ static int __init load_uefi_certs(void)
+@@ -162,7 +175,8 @@ static int __init load_uefi_certs(void)
  		}
  	}
  
@@ -102,7 +102,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	if (!dbx) {
  		if (status == EFI_NOT_FOUND)
  			pr_debug("dbx variable wasn't found\n");
-@@ -180,7 +194,8 @@ static int __init load_uefi_certs(void)
+@@ -181,7 +195,8 @@ static int __init load_uefi_certs(void)
  	if (!efi_enabled(EFI_SECURE_BOOT))
  		return 0;
  

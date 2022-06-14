@@ -1,0 +1,86 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 2 May 2022 13:58:03 +0200
+Subject: [PATCH] sched: Consider task_struct::saved_state in
+ wait_task_inactive().
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+
+Ptrace is using wait_task_inactive() to wait for the tracee to reach a
+certain task state. On PREEMPT_RT that state may be stored in
+task_struct::saved_state while the tracee blocks on a sleeping lock.
+
+In that case wait_task_inactive() should wait until the requested state
+is in task_struct::__state and the task idle.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/sched/core.c |   38 ++++++++++++++++++++++++++++++++++----
+ 1 file changed, 34 insertions(+), 4 deletions(-)
+
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3285,6 +3285,8 @@ unsigned long wait_task_inactive(struct
+ 	struct rq_flags rf;
+ 	unsigned long ncsw;
+ 	struct rq *rq;
++	bool saved_state_match;
++	bool update_ncsw;
+ 
+ 	for (;;) {
+ 		/*
+@@ -3307,8 +3309,22 @@ unsigned long wait_task_inactive(struct
+ 		 * is actually now running somewhere else!
+ 		 */
+ 		while (task_running(rq, p)) {
+-			if (match_state && unlikely(READ_ONCE(p->__state) != match_state))
+-				return 0;
++			if (match_state) {
++				unsigned long flags;
++				bool missmatch = false;
++
++				raw_spin_lock_irqsave(&p->pi_lock, flags);
++#ifdef CONFIG_PREEMPT_RT
++				if ((READ_ONCE(p->__state) != match_state) &&
++				    (READ_ONCE(p->saved_state) != match_state))
++#else
++				if (READ_ONCE(p->__state) != match_state)
++#endif
++					missmatch = true;
++				raw_spin_unlock_irqrestore(&p->pi_lock, flags);
++				if (missmatch)
++					return 0;
++			}
+ 			cpu_relax();
+ 		}
+ 
+@@ -3322,7 +3338,21 @@ unsigned long wait_task_inactive(struct
+ 		running = task_running(rq, p);
+ 		queued = task_on_rq_queued(p);
+ 		ncsw = 0;
+-		if (!match_state || READ_ONCE(p->__state) == match_state)
++		update_ncsw = false;
++		saved_state_match = false;
++
++		if (!match_state) {
++			update_ncsw = true;
++		} else if (READ_ONCE(p->__state) == match_state) {
++			update_ncsw = true;
++#ifdef CONFIG_PREEMPT_RT
++		} else if (READ_ONCE(p->saved_state) == match_state) {
++			update_ncsw = true;
++			saved_state_match = true;
++#endif
++		}
++
++		if (update_ncsw)
+ 			ncsw = p->nvcsw | LONG_MIN; /* sets MSB */
+ 		task_rq_unlock(rq, p, &rf);
+ 
+@@ -3352,7 +3382,7 @@ unsigned long wait_task_inactive(struct
+ 		 * running right now), it's preempted, and we should
+ 		 * yield - it could be a while.
+ 		 */
+-		if (unlikely(queued)) {
++		if (unlikely(queued) || saved_state_match) {
+ 			ktime_t to = NSEC_PER_SEC / HZ;
+ 
+ 			set_current_state(TASK_UNINTERRUPTIBLE);
