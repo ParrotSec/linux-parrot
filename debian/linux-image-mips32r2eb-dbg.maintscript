@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-mips32r2eb-dbg linux-image-5.18.0-0.bpo.1-mips32r2eb-dbg 5.7~rc5-1~exp1 linux-image-mips32r2eb-dbg
+dir_to_symlink /usr/share/doc/linux-image-mips32r2eb-dbg linux-image-5.18.0-1parrot1-mips32r2eb-dbg 5.7~rc5-1~exp1 linux-image-mips32r2eb-dbg

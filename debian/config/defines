@@ -1,5 +1,5 @@
 [abi]
-abiname: 0.bpo.1
+abiname: 1parrot1
 ignore-changes:
  __cpuhp_*
  __udp_gso_segment

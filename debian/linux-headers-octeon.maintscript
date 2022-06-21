@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-octeon linux-headers-5.18.0-0.bpo.1-octeon 5.7~rc5-1~exp1 linux-headers-octeon
+dir_to_symlink /usr/share/doc/linux-headers-octeon linux-headers-5.18.0-1parrot1-octeon 5.7~rc5-1~exp1 linux-headers-octeon

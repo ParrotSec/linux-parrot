@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-cloud-arm64-dbg linux-image-5.18.0-0.bpo.1-cloud-arm64-dbg 5.7~rc5-1~exp1 linux-image-cloud-arm64-dbg
+dir_to_symlink /usr/share/doc/linux-image-cloud-arm64-dbg linux-image-5.18.0-1parrot1-cloud-arm64-dbg 5.7~rc5-1~exp1 linux-image-cloud-arm64-dbg

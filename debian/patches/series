@@ -37,6 +37,10 @@ bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
 
+# Parrot patches
+features/all/wifi-injection.patch
+features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
+
 # Change some defaults for security reasons
 debian/af_802154-Disable-auto-loading-as-mitigation-against.patch
 debian/rds-Disable-auto-loading-as-mitigation-against-local.patch

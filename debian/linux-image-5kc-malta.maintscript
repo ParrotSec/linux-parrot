@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-5kc-malta linux-image-5.18.0-0.bpo.1-5kc-malta 5.7~rc5-1~exp1 linux-image-5kc-malta
+dir_to_symlink /usr/share/doc/linux-image-5kc-malta linux-image-5.18.0-1parrot1-5kc-malta 5.7~rc5-1~exp1 linux-image-5kc-malta

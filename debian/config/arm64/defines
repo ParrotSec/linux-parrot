@@ -7,7 +7,7 @@ featuresets:
 
 [build]
 image-file: arch/arm64/boot/Image
-signed-code: true
+signed-code: false
 vdso: true
 
 [image]

@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-mips32r2eb linux-headers-5.18.0-0.bpo.1-mips32r2eb 5.7~rc5-1~exp1 linux-headers-mips32r2eb
+dir_to_symlink /usr/share/doc/linux-headers-mips32r2eb linux-headers-5.18.0-1parrot1-mips32r2eb 5.7~rc5-1~exp1 linux-headers-mips32r2eb
