@@ -439,7 +439,7 @@ static bool gve_rx_ctx_init(struct gve_rx_ctx *ctx, struct gve_rx_ring *rx)
 		if (frag_size > rx->packet_buffer_size) {
 			packet_size_error = true;
 			netdev_warn(priv->dev,
-				    "RX fragment error: packet_buffer_size=%d, frag_size=%d, droping packet.",
+				    "RX fragment error: packet_buffer_size=%d, frag_size=%d, dropping packet.",
 				    rx->packet_buffer_size, be16_to_cpu(desc->len));
 		}
 		page_info = &rx->data.page_info[idx];
@@ -641,8 +641,6 @@ bool gve_rx_work_pending(struct gve_rx_ring *rx)
 	desc = rx->desc.desc_ring + next_idx;
 
 	flags_seq = desc->flags_seq;
-	/* Make sure we have synchronized the seq no with the device */
-	smp_rmb();
 
 	return (GVE_SEQNO(flags_seq) == rx->desc.seqno);
 }

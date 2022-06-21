@@ -44,6 +44,7 @@ config SND_SOC_AMD_RV_RT5682_MACH
 
 config SND_SOC_AMD_RENOIR
 	tristate "AMD Audio Coprocessor - Renoir support"
+	select SND_AMD_ACP_CONFIG
 	depends on X86 && PCI
 	help
 	 This option enables ACP support for Renoir platform
@@ -95,5 +96,12 @@ config SND_SOC_AMD_YC_MACH
 	  DMIC can be connected directly to ACP IP.
 	  Say m if you have such a device.
 	  If unsure select "N".
+
+config SND_AMD_ACP_CONFIG
+	tristate "AMD ACP configuration selection"
+	select SND_SOC_ACPI if ACPI
+	help
+	 This option adds an auto detection to determine which ACP
+	 driver modules to use
 
 source "sound/soc/amd/acp/Kconfig"

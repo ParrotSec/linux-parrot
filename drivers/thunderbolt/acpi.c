@@ -14,15 +14,15 @@
 static acpi_status tb_acpi_add_link(acpi_handle handle, u32 level, void *data,
 				    void **return_value)
 {
+	struct acpi_device *adev = acpi_fetch_acpi_dev(handle);
 	struct fwnode_reference_args args;
 	struct fwnode_handle *fwnode;
 	struct tb_nhi *nhi = data;
-	struct acpi_device *adev;
 	struct pci_dev *pdev;
 	struct device *dev;
 	int ret;
 
-	if (acpi_bus_get_device(handle, &adev))
+	if (!adev)
 		return AE_OK;
 
 	fwnode = acpi_fwnode_handle(adev);
@@ -32,7 +32,7 @@ static acpi_status tb_acpi_add_link(acpi_handle handle, u32 level, void *data,
 		return AE_OK;
 
 	/* It needs to reference this NHI */
-	if (nhi->pdev->dev.fwnode != args.fwnode)
+	if (dev_fwnode(&nhi->pdev->dev) != args.fwnode)
 		goto out_put;
 
 	/*

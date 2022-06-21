@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB
 /* Copyright (c) 2019 Mellanox Technologies */
 
+#include <linux/mlx5/vport.h>
 #include "mlx5_core.h"
 #include "fs_core.h"
 #include "fs_cmd.h"
@@ -194,6 +195,15 @@ static struct mlx5dr_action *create_vport_action(struct mlx5dr_domain *domain,
 					       dest_attr->vport.vhca_id);
 }
 
+static struct mlx5dr_action *create_uplink_action(struct mlx5dr_domain *domain,
+						  struct mlx5_flow_rule *dst)
+{
+	struct mlx5_flow_destination *dest_attr = &dst->dest_attr;
+
+	return mlx5dr_action_create_dest_vport(domain, MLX5_VPORT_UPLINK, 1,
+					       dest_attr->vport.vhca_id);
+}
+
 static struct mlx5dr_action *create_ft_action(struct mlx5dr_domain *domain,
 					      struct mlx5_flow_rule *dst)
 {
@@ -218,7 +228,8 @@ static struct mlx5dr_action *create_action_push_vlan(struct mlx5dr_domain *domai
 
 static bool contain_vport_reformat_action(struct mlx5_flow_rule *dst)
 {
-	return dst->dest_attr.type == MLX5_FLOW_DESTINATION_TYPE_VPORT &&
+	return (dst->dest_attr.type == MLX5_FLOW_DESTINATION_TYPE_VPORT ||
+		dst->dest_attr.type == MLX5_FLOW_DESTINATION_TYPE_UPLINK) &&
 		dst->dest_attr.vport.flags & MLX5_FLOW_DEST_VPORT_REFORMAT_ID;
 }
 
@@ -415,8 +426,11 @@ static int mlx5_cmd_dr_create_fte(struct mlx5_flow_root_namespace *ns,
 				fs_dr_actions[fs_dr_num_actions++] = tmp_action;
 				term_actions[num_term_actions++].dest = tmp_action;
 				break;
+			case MLX5_FLOW_DESTINATION_TYPE_UPLINK:
 			case MLX5_FLOW_DESTINATION_TYPE_VPORT:
-				tmp_action = create_vport_action(domain, dst);
+				tmp_action = type == MLX5_FLOW_DESTINATION_TYPE_VPORT ?
+					     create_vport_action(domain, dst) :
+					     create_uplink_action(domain, dst);
 				if (!tmp_action) {
 					err = -ENOMEM;
 					goto free_actions;
@@ -506,6 +520,7 @@ static int mlx5_cmd_dr_create_fte(struct mlx5_flow_root_namespace *ns,
 	} else if (num_term_actions > 1) {
 		bool ignore_flow_level =
 			!!(fte->action.flags & FLOW_ACT_IGNORE_FLOW_LEVEL);
+		u32 flow_source = fte->flow_context.flow_source;
 
 		if (num_actions == MLX5_FLOW_CONTEXT_ACTION_MAX ||
 		    fs_dr_num_actions == MLX5_FLOW_CONTEXT_ACTION_MAX) {
@@ -515,7 +530,8 @@ static int mlx5_cmd_dr_create_fte(struct mlx5_flow_root_namespace *ns,
 		tmp_action = mlx5dr_action_create_mult_dest_tbl(domain,
 								term_actions,
 								num_term_actions,
-								ignore_flow_level);
+								ignore_flow_level,
+								flow_source);
 		if (!tmp_action) {
 			err = -EOPNOTSUPP;
 			goto free_actions;
@@ -740,6 +756,16 @@ static int mlx5_cmd_dr_destroy_ns(struct mlx5_flow_root_namespace *ns)
 	return mlx5dr_domain_destroy(ns->fs_dr_domain.dr_domain);
 }
 
+static u32 mlx5_cmd_dr_get_capabilities(struct mlx5_flow_root_namespace *ns,
+					enum fs_flow_table_type ft_type)
+{
+	if (ft_type != FS_FT_FDB ||
+	    MLX5_CAP_GEN(ns->dev, steering_format_version) == MLX5_STEERING_FORMAT_CONNECTX_5)
+		return 0;
+
+	return MLX5_FLOW_STEERING_CAP_VLAN_PUSH_ON_RX | MLX5_FLOW_STEERING_CAP_VLAN_POP_ON_TX;
+}
+
 bool mlx5_fs_dr_is_supported(struct mlx5_core_dev *dev)
 {
 	return mlx5dr_is_supported(dev);
@@ -764,6 +790,7 @@ static const struct mlx5_flow_cmds mlx5_flow_cmds_dr = {
 	.set_peer = mlx5_cmd_dr_set_peer,
 	.create_ns = mlx5_cmd_dr_create_ns,
 	.destroy_ns = mlx5_cmd_dr_destroy_ns,
+	.get_capabilities = mlx5_cmd_dr_get_capabilities,
 };
 
 const struct mlx5_flow_cmds *mlx5_fs_cmd_get_dr_cmds(void)

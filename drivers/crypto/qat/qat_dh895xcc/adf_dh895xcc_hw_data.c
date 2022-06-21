@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: (BSD-3-Clause OR GPL-2.0-only)
-/* Copyright(c) 2014 - 2020 Intel Corporation */
+/* Copyright(c) 2014 - 2021 Intel Corporation */
 #include <adf_accel_devices.h>
-#include <adf_pf2vf_msg.h>
 #include <adf_common_drv.h>
 #include <adf_gen2_hw_data.h>
+#include <adf_gen2_pfvf.h>
 #include "adf_dh895xcc_hw_data.h"
 #include "icp_qat_hw.h"
+
+#define ADF_DH895XCC_VF_MSK	0xFFFFFFFF
 
 /* Worker thread to service arbiter mappings */
 static const u32 thrd_to_arb_map[ADF_DH895XCC_MAX_ACCELENGINES] = {
@@ -69,6 +71,8 @@ static u32 get_accel_cap(struct adf_accel_dev *accel_dev)
 		capabilities &= ~ICP_ACCEL_CAPABILITIES_CRYPTO_ASYMMETRIC;
 	if (legfuses & ICP_ACCEL_MASK_AUTH_SLICE)
 		capabilities &= ~ICP_ACCEL_CAPABILITIES_AUTHENTICATION;
+	if (legfuses & ICP_ACCEL_MASK_COMPRESS_SLICE)
+		capabilities &= ~ICP_ACCEL_CAPABILITIES_COMPRESSION;
 
 	return capabilities;
 }
@@ -112,34 +116,19 @@ static void adf_enable_ints(struct adf_accel_dev *accel_dev)
 		   ADF_DH895XCC_SMIA1_MASK);
 }
 
-static u32 get_vf2pf_sources(void __iomem *pmisc_bar)
-{
-	u32 errsou5, errmsk5, vf_int_mask;
-
-	vf_int_mask = adf_gen2_get_vf2pf_sources(pmisc_bar);
-
-	/* Get the interrupt sources triggered by VFs, but to avoid duplicates
-	 * in the work queue, clear vf_int_mask_sets bits that are already
-	 * masked in ERRMSK register.
-	 */
-	errsou5 = ADF_CSR_RD(pmisc_bar, ADF_GEN2_ERRSOU5);
-	errmsk5 = ADF_CSR_RD(pmisc_bar, ADF_GEN2_ERRMSK5);
-	vf_int_mask |= ADF_DH895XCC_ERR_REG_VF2PF_U(errsou5);
-	vf_int_mask &= ~ADF_DH895XCC_ERR_REG_VF2PF_U(errmsk5);
-
-	return vf_int_mask;
-}
-
 static void enable_vf2pf_interrupts(void __iomem *pmisc_addr, u32 vf_mask)
 {
 	/* Enable VF2PF Messaging Ints - VFs 0 through 15 per vf_mask[15:0] */
-	adf_gen2_enable_vf2pf_interrupts(pmisc_addr, vf_mask);
+	if (vf_mask & 0xFFFF) {
+		u32 val = ADF_CSR_RD(pmisc_addr, ADF_GEN2_ERRMSK3)
+			  & ~ADF_DH895XCC_ERR_MSK_VF2PF_L(vf_mask);
+		ADF_CSR_WR(pmisc_addr, ADF_GEN2_ERRMSK3, val);
+	}
 
 	/* Enable VF2PF Messaging Ints - VFs 16 through 31 per vf_mask[31:16] */
 	if (vf_mask >> 16) {
 		u32 val = ADF_CSR_RD(pmisc_addr, ADF_GEN2_ERRMSK5)
 			  & ~ADF_DH895XCC_ERR_MSK_VF2PF_U(vf_mask);
-
 		ADF_CSR_WR(pmisc_addr, ADF_GEN2_ERRMSK5, val);
 	}
 }
@@ -147,7 +136,11 @@ static void enable_vf2pf_interrupts(void __iomem *pmisc_addr, u32 vf_mask)
 static void disable_vf2pf_interrupts(void __iomem *pmisc_addr, u32 vf_mask)
 {
 	/* Disable VF2PF interrupts for VFs 0 through 15 per vf_mask[15:0] */
-	adf_gen2_disable_vf2pf_interrupts(pmisc_addr, vf_mask);
+	if (vf_mask & 0xFFFF) {
+		u32 val = ADF_CSR_RD(pmisc_addr, ADF_GEN2_ERRMSK3)
+			  | ADF_DH895XCC_ERR_MSK_VF2PF_L(vf_mask);
+		ADF_CSR_WR(pmisc_addr, ADF_GEN2_ERRMSK3, val);
+	}
 
 	/* Disable VF2PF interrupts for VFs 16 through 31 per vf_mask[31:16] */
 	if (vf_mask >> 16) {
@@ -156,6 +149,54 @@ static void disable_vf2pf_interrupts(void __iomem *pmisc_addr, u32 vf_mask)
 
 		ADF_CSR_WR(pmisc_addr, ADF_GEN2_ERRMSK5, val);
 	}
+}
+
+static u32 disable_pending_vf2pf_interrupts(void __iomem *pmisc_addr)
+{
+	u32 sources, pending, disabled;
+	u32 errsou3, errmsk3;
+	u32 errsou5, errmsk5;
+
+	/* Get the interrupt sources triggered by VFs */
+	errsou3 = ADF_CSR_RD(pmisc_addr, ADF_GEN2_ERRSOU3);
+	errsou5 = ADF_CSR_RD(pmisc_addr, ADF_GEN2_ERRSOU5);
+	sources = ADF_DH895XCC_ERR_REG_VF2PF_L(errsou3)
+		  | ADF_DH895XCC_ERR_REG_VF2PF_U(errsou5);
+
+	if (!sources)
+		return 0;
+
+	/* Get the already disabled interrupts */
+	errmsk3 = ADF_CSR_RD(pmisc_addr, ADF_GEN2_ERRMSK3);
+	errmsk5 = ADF_CSR_RD(pmisc_addr, ADF_GEN2_ERRMSK5);
+	disabled = ADF_DH895XCC_ERR_REG_VF2PF_L(errmsk3)
+		   | ADF_DH895XCC_ERR_REG_VF2PF_U(errmsk5);
+
+	pending = sources & ~disabled;
+	if (!pending)
+		return 0;
+
+	/* Due to HW limitations, when disabling the interrupts, we can't
+	 * just disable the requested sources, as this would lead to missed
+	 * interrupts if sources changes just before writing to ERRMSK3 and
+	 * ERRMSK5.
+	 * To work around it, disable all and re-enable only the sources that
+	 * are not in vf_mask and were not already disabled. Re-enabling will
+	 * trigger a new interrupt for the sources that have changed in the
+	 * meantime, if any.
+	 */
+	errmsk3 |= ADF_DH895XCC_ERR_MSK_VF2PF_L(ADF_DH895XCC_VF_MSK);
+	errmsk5 |= ADF_DH895XCC_ERR_MSK_VF2PF_U(ADF_DH895XCC_VF_MSK);
+	ADF_CSR_WR(pmisc_addr, ADF_GEN2_ERRMSK3, errmsk3);
+	ADF_CSR_WR(pmisc_addr, ADF_GEN2_ERRMSK5, errmsk5);
+
+	errmsk3 &= ADF_DH895XCC_ERR_MSK_VF2PF_L(sources | disabled);
+	errmsk5 &= ADF_DH895XCC_ERR_MSK_VF2PF_U(sources | disabled);
+	ADF_CSR_WR(pmisc_addr, ADF_GEN2_ERRMSK3, errmsk3);
+	ADF_CSR_WR(pmisc_addr, ADF_GEN2_ERRMSK5, errmsk5);
+
+	/* Return the sources of the (new) interrupt(s) */
+	return pending;
 }
 
 static void configure_iov_threads(struct adf_accel_dev *accel_dev, bool enable)
@@ -176,6 +217,7 @@ void adf_init_hw_data_dh895xcc(struct adf_hw_device_data *hw_data)
 	hw_data->num_engines = ADF_DH895XCC_MAX_ACCELENGINES;
 	hw_data->tx_rx_gap = ADF_GEN2_RX_RINGS_OFFSET;
 	hw_data->tx_rings_mask = ADF_GEN2_TX_RINGS_MASK;
+	hw_data->ring_to_svc_map = ADF_GEN2_DEFAULT_RING_TO_SRV_MAP;
 	hw_data->alloc_irq = adf_isr_resource_alloc;
 	hw_data->free_irq = adf_isr_resource_free;
 	hw_data->enable_error_correction = adf_gen2_enable_error_correction;
@@ -201,14 +243,12 @@ void adf_init_hw_data_dh895xcc(struct adf_hw_device_data *hw_data)
 	hw_data->get_arb_mapping = adf_get_arbiter_mapping;
 	hw_data->enable_ints = adf_enable_ints;
 	hw_data->reset_device = adf_reset_sbr;
-	hw_data->get_pf2vf_offset = adf_gen2_get_pf2vf_offset;
-	hw_data->get_vf2pf_sources = get_vf2pf_sources;
-	hw_data->enable_vf2pf_interrupts = enable_vf2pf_interrupts;
-	hw_data->disable_vf2pf_interrupts = disable_vf2pf_interrupts;
-	hw_data->enable_pfvf_comms = adf_enable_pf2vf_comms;
 	hw_data->disable_iov = adf_disable_sriov;
-	hw_data->min_iov_compat_ver = ADF_PFVF_COMPAT_THIS_VERSION;
 
+	adf_gen2_init_pf_pfvf_ops(&hw_data->pfvf_ops);
+	hw_data->pfvf_ops.enable_vf2pf_interrupts = enable_vf2pf_interrupts;
+	hw_data->pfvf_ops.disable_vf2pf_interrupts = disable_vf2pf_interrupts;
+	hw_data->pfvf_ops.disable_pending_vf2pf_interrupts = disable_pending_vf2pf_interrupts;
 	adf_gen2_init_hw_csr_ops(&hw_data->csr_ops);
 }
 
