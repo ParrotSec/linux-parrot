@@ -592,6 +592,18 @@ to the guest kernel command line (see
 Documentation/admin-guide/kernel-parameters.rst).
 
 
+nmi_wd_lpm_factor (PPC only)
+============================
+
+Factor to apply to the NMI watchdog timeout (only when ``nmi_watchdog`` is
+set to 1). This factor represents the percentage added to
+``watchdog_thresh`` when calculating the NMI watchdog timeout during an
+LPM. The soft lockup timeout is not impacted.
+
+A value of 0 means no change. The default value is 200 meaning the NMI
+watchdog is set to 30s (based on ``watchdog_thresh`` equal to 10).
+
+
 numa_balancing
 ==============
 
@@ -783,6 +795,13 @@ is useful to define the root cause of RCU stalls using a vmcore.
 1 panic() after printing RCU stall messages.
 = ============================================================
 
+max_rcu_stall_to_panic
+======================
+
+When ``panic_on_rcu_stall`` is set to 1, this value determines the
+number of times that RCU can stall before panic() is called.
+
+When ``panic_on_rcu_stall`` is set to 0, this value is has no effect.
 
 perf_cpu_time_max_percent
 =========================

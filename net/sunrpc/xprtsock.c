@@ -822,17 +822,9 @@ static int xs_stream_nospace(struct rpc_rqst *req, bool vm_wait)
 	return ret;
 }
 
-static int
-xs_stream_prepare_request(struct rpc_rqst *req)
+static int xs_stream_prepare_request(struct rpc_rqst *req, struct xdr_buf *buf)
 {
-	gfp_t gfp = rpc_task_gfp_mask();
-	int ret;
-
-	ret = xdr_alloc_bvec(&req->rq_snd_buf, gfp);
-	if (ret < 0)
-		return ret;
-	xdr_free_bvec(&req->rq_rcv_buf);
-	return xdr_alloc_bvec(&req->rq_rcv_buf, gfp);
+	return xdr_alloc_bvec(buf, rpc_task_gfp_mask());
 }
 
 /*
@@ -1355,7 +1347,7 @@ static void xs_udp_data_receive(struct sock_xprt *transport)
 	if (sk == NULL)
 		goto out;
 	for (;;) {
-		skb = skb_recv_udp(sk, 0, 1, &err);
+		skb = skb_recv_udp(sk, MSG_DONTWAIT, &err);
 		if (skb == NULL)
 			break;
 		xs_udp_data_read_skb(&transport->xprt, sk, skb);

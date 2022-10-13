@@ -23,6 +23,7 @@
 #include <linux/pvclock_gtod.h>
 #include <linux/compiler.h>
 #include <linux/audit.h>
+#include <linux/random.h>
 
 #include "tick-internal.h"
 #include "ntp_internal.h"
@@ -430,6 +431,14 @@ static void update_fast_timekeeper(const struct tk_read_base *tkr,
 	memcpy(base + 1, base, sizeof(*base));
 }
 
+static __always_inline u64 fast_tk_get_delta_ns(struct tk_read_base *tkr)
+{
+	u64 delta, cycles = tk_clock_read(tkr);
+
+	delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
+	return timekeeping_delta_to_ns(tkr, delta);
+}
+
 static __always_inline u64 __ktime_get_fast_ns(struct tk_fast *tkf)
 {
 	struct tk_read_base *tkr;
@@ -440,12 +449,7 @@ static __always_inline u64 __ktime_get_fast_ns(struct tk_fast *tkf)
 		seq = raw_read_seqcount_latch(&tkf->seq);
 		tkr = tkf->base + (seq & 0x01);
 		now = ktime_to_ns(tkr->base);
-
-		now += timekeeping_delta_to_ns(tkr,
-				clocksource_delta(
-					tk_clock_read(tkr),
-					tkr->cycle_last,
-					tkr->mask));
+		now += fast_tk_get_delta_ns(tkr);
 	} while (read_seqcount_latch_retry(&tkf->seq, seq));
 
 	return now;
@@ -529,9 +533,26 @@ u64 notrace ktime_get_boot_fast_ns(void)
 {
 	struct timekeeper *tk = &tk_core.timekeeper;
 
-	return (ktime_get_mono_fast_ns() + ktime_to_ns(tk->offs_boot));
+	return (ktime_get_mono_fast_ns() + ktime_to_ns(data_race(tk->offs_boot)));
 }
 EXPORT_SYMBOL_GPL(ktime_get_boot_fast_ns);
+
+/**
+ * ktime_get_tai_fast_ns - NMI safe and fast access to tai clock.
+ *
+ * The same limitations as described for ktime_get_boot_fast_ns() apply. The
+ * mono time and the TAI offset are not read atomically which may yield wrong
+ * readouts. However, an update of the TAI offset is an rare event e.g., caused
+ * by settime or adjtimex with an offset. The user of this function has to deal
+ * with the possibility of wrong timestamps in post processing.
+ */
+u64 notrace ktime_get_tai_fast_ns(void)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+
+	return (ktime_get_mono_fast_ns() + ktime_to_ns(data_race(tk->offs_tai)));
+}
+EXPORT_SYMBOL_GPL(ktime_get_tai_fast_ns);
 
 static __always_inline u64 __ktime_get_real_fast(struct tk_fast *tkf, u64 *mono)
 {
@@ -544,10 +565,7 @@ static __always_inline u64 __ktime_get_real_fast(struct tk_fast *tkf, u64 *mono)
 		tkr = tkf->base + (seq & 0x01);
 		basem = ktime_to_ns(tkr->base);
 		baser = ktime_to_ns(tkr->base_real);
-
-		delta = timekeeping_delta_to_ns(tkr,
-				clocksource_delta(tk_clock_read(tkr),
-				tkr->cycle_last, tkr->mask));
+		delta = fast_tk_get_delta_ns(tkr);
 	} while (read_seqcount_latch_retry(&tkf->seq, seq));
 
 	if (mono)
@@ -1326,8 +1344,10 @@ out:
 	/* Signal hrtimers about time change */
 	clock_was_set(CLOCK_SET_WALL);
 
-	if (!ret)
+	if (!ret) {
 		audit_tk_injoffset(ts_delta);
+		add_device_randomness(ts, sizeof(*ts));
+	}
 
 	return ret;
 }
@@ -2413,6 +2433,7 @@ int do_adjtimex(struct __kernel_timex *txc)
 	ret = timekeeping_validate_timex(txc);
 	if (ret)
 		return ret;
+	add_device_randomness(txc, sizeof(*txc));
 
 	if (txc->modes & ADJ_SETOFFSET) {
 		struct timespec64 delta;
@@ -2430,6 +2451,7 @@ int do_adjtimex(struct __kernel_timex *txc)
 	audit_ntp_init(&ad);
 
 	ktime_get_real_ts64(&ts);
+	add_device_randomness(&ts, sizeof(ts));
 
 	raw_spin_lock_irqsave(&timekeeper_lock, flags);
 	write_seqcount_begin(&tk_core.seq);

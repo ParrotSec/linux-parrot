@@ -874,7 +874,8 @@ static void build_completion_wait(struct iommu_cmd *cmd,
 	memset(cmd, 0, sizeof(*cmd));
 	cmd->data[0] = lower_32_bits(paddr) | CMD_COMPL_WAIT_STORE_MASK;
 	cmd->data[1] = upper_32_bits(paddr);
-	cmd->data[2] = data;
+	cmd->data[2] = lower_32_bits(data);
+	cmd->data[3] = upper_32_bits(data);
 	CMD_SET_TYPE(cmd, CMD_COMPL_WAIT);
 }
 
@@ -1838,16 +1839,9 @@ void amd_iommu_domain_update(struct protection_domain *domain)
 	amd_iommu_domain_flush_complete(domain);
 }
 
-static void __init amd_iommu_init_dma_ops(void)
-{
-	swiotlb = (iommu_default_passthrough() || sme_me_mask) ? 1 : 0;
-}
-
 int __init amd_iommu_init_api(void)
 {
 	int err;
-
-	amd_iommu_init_dma_ops();
 
 	err = bus_set_iommu(&pci_bus_type, &amd_iommu_ops);
 	if (err)
@@ -2162,6 +2156,8 @@ static bool amd_iommu_capable(enum iommu_cap cap)
 		return (irq_remapping_enabled == 1);
 	case IOMMU_CAP_NOEXEC:
 		return false;
+	case IOMMU_CAP_PRE_BOOT_PROTECTION:
+		return amdr_ivrs_remap_support;
 	default:
 		break;
 	}
@@ -2271,6 +2267,12 @@ static int amd_iommu_def_domain_type(struct device *dev)
 	return 0;
 }
 
+static bool amd_iommu_enforce_cache_coherency(struct iommu_domain *domain)
+{
+	/* IOMMU_PTE_FC is always set */
+	return true;
+}
+
 const struct iommu_ops amd_iommu_ops = {
 	.capable = amd_iommu_capable,
 	.domain_alloc = amd_iommu_domain_alloc,
@@ -2293,6 +2295,7 @@ const struct iommu_ops amd_iommu_ops = {
 		.flush_iotlb_all = amd_iommu_flush_iotlb_all,
 		.iotlb_sync	= amd_iommu_iotlb_sync,
 		.free		= amd_iommu_domain_free,
+		.enforce_cache_coherency = amd_iommu_enforce_cache_coherency,
 	}
 };
 

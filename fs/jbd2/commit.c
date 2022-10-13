@@ -62,6 +62,7 @@ static void journal_end_buffer_io_sync(struct buffer_head *bh, int uptodate)
  */
 static void release_buffer_page(struct buffer_head *bh)
 {
+	struct folio *folio;
 	struct page *page;
 
 	if (buffer_dirty(bh))
@@ -71,18 +72,19 @@ static void release_buffer_page(struct buffer_head *bh)
 	page = bh->b_page;
 	if (!page)
 		goto nope;
-	if (page->mapping)
+	folio = page_folio(page);
+	if (folio->mapping)
 		goto nope;
 
 	/* OK, it's a truncated page */
-	if (!trylock_page(page))
+	if (!folio_trylock(folio))
 		goto nope;
 
-	get_page(page);
+	folio_get(folio);
 	__brelse(bh);
-	try_to_free_buffers(page);
-	unlock_page(page);
-	put_page(page);
+	try_to_free_buffers(folio);
+	folio_unlock(folio);
+	folio_put(folio);
 	return;
 
 nope:
@@ -551,13 +553,13 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 	 */
 	jbd2_journal_switch_revoke_table(journal);
 
+	write_lock(&journal->j_state_lock);
 	/*
 	 * Reserved credits cannot be claimed anymore, free them
 	 */
 	atomic_sub(atomic_read(&journal->j_reserved_credits),
 		   &commit_transaction->t_outstanding_credits);
 
-	write_lock(&journal->j_state_lock);
 	trace_jbd2_commit_flushing(journal, commit_transaction);
 	stats.run.rs_flushing = jiffies;
 	stats.run.rs_locked = jbd2_time_diff(stats.run.rs_locked,

@@ -14,22 +14,9 @@
 #define KS_PRIO_M			0x3
 #define KS_PRIO_S			2
 
-#define REG_CHIP_ID0			0x00
-
-#define KSZ87_FAMILY_ID			0x87
-#define KSZ88_FAMILY_ID			0x88
-
-#define REG_CHIP_ID1			0x01
-
-#define SW_CHIP_ID_M			0xF0
-#define SW_CHIP_ID_S			4
 #define SW_REVISION_M			0x0E
 #define SW_REVISION_S			1
 #define SW_START			0x01
-
-#define CHIP_ID_94			0x60
-#define CHIP_ID_95			0x90
-#define CHIP_ID_63			0x30
 
 #define KSZ8863_REG_SW_RESET		0x43
 
@@ -160,9 +147,6 @@
 #define PORT_DISCARD_NON_VID		BIT(5)
 #define PORT_FORCE_FLOW_CTRL		BIT(4)
 #define PORT_BACK_PRESSURE		BIT(3)
-#define PORT_TX_ENABLE			BIT(2)
-#define PORT_RX_ENABLE			BIT(1)
-#define PORT_LEARN_DISABLE		BIT(0)
 
 #define REG_PORT_1_CTRL_3		0x13
 #define REG_PORT_2_CTRL_3		0x23
@@ -220,8 +204,6 @@
 #define REG_PORT_4_STATUS_0		0x48
 
 /* For KSZ8765. */
-#define PORT_FIBER_MODE			BIT(7)
-
 #define PORT_REMOTE_ASYM_PAUSE		BIT(5)
 #define PORT_REMOTE_SYM_PAUSE		BIT(4)
 #define PORT_REMOTE_100BTX_FD		BIT(3)
@@ -325,7 +307,6 @@
 
 #define REG_PORT_CTRL_5			0x05
 
-#define REG_PORT_STATUS_0		0x08
 #define REG_PORT_STATUS_1		0x09
 #define REG_PORT_LINK_MD_CTRL		0x0A
 #define REG_PORT_LINK_MD_RESULT		0x0B

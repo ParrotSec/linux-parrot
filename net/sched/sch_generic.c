@@ -409,7 +409,7 @@ static inline bool qdisc_restart(struct Qdisc *q, int *packets)
 
 void __qdisc_run(struct Qdisc *q)
 {
-	int quota = dev_tx_weight;
+	int quota = READ_ONCE(dev_tx_weight);
 	int packets;
 
 	while (qdisc_restart(q, &packets)) {
@@ -1019,22 +1019,14 @@ EXPORT_SYMBOL(qdisc_create_dflt);
 void qdisc_reset(struct Qdisc *qdisc)
 {
 	const struct Qdisc_ops *ops = qdisc->ops;
-	struct sk_buff *skb, *tmp;
 
 	trace_qdisc_reset(qdisc);
 
 	if (ops->reset)
 		ops->reset(qdisc);
 
-	skb_queue_walk_safe(&qdisc->gso_skb, skb, tmp) {
-		__skb_unlink(skb, &qdisc->gso_skb);
-		kfree_skb_list(skb);
-	}
-
-	skb_queue_walk_safe(&qdisc->skb_bad_txq, skb, tmp) {
-		__skb_unlink(skb, &qdisc->skb_bad_txq);
-		kfree_skb_list(skb);
-	}
+	__skb_queue_purge(&qdisc->gso_skb);
+	__skb_queue_purge(&qdisc->skb_bad_txq);
 
 	qdisc->q.qlen = 0;
 	qdisc->qstats.backlog = 0;
@@ -1133,6 +1125,21 @@ struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
 }
 EXPORT_SYMBOL(dev_graft_qdisc);
 
+static void shutdown_scheduler_queue(struct net_device *dev,
+				     struct netdev_queue *dev_queue,
+				     void *_qdisc_default)
+{
+	struct Qdisc *qdisc = dev_queue->qdisc_sleeping;
+	struct Qdisc *qdisc_default = _qdisc_default;
+
+	if (qdisc) {
+		rcu_assign_pointer(dev_queue->qdisc, qdisc_default);
+		dev_queue->qdisc_sleeping = qdisc_default;
+
+		qdisc_put(qdisc);
+	}
+}
+
 static void attach_one_default_qdisc(struct net_device *dev,
 				     struct netdev_queue *dev_queue,
 				     void *_unused)
@@ -1180,6 +1187,7 @@ static void attach_default_qdiscs(struct net_device *dev)
 	if (qdisc == &noop_qdisc) {
 		netdev_warn(dev, "default qdisc (%s) fail, fallback to %s\n",
 			    default_qdisc_ops->id, noqueue_qdisc_ops.id);
+		netdev_for_each_tx_queue(dev, shutdown_scheduler_queue, &noop_qdisc);
 		dev->priv_flags |= IFF_NO_QUEUE;
 		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
 		qdisc = txq->qdisc_sleeping;
@@ -1456,21 +1464,6 @@ void dev_init_scheduler(struct net_device *dev)
 		dev_init_scheduler_queue(dev, dev_ingress_queue(dev), &noop_qdisc);
 
 	timer_setup(&dev->watchdog_timer, dev_watchdog, 0);
-}
-
-static void shutdown_scheduler_queue(struct net_device *dev,
-				     struct netdev_queue *dev_queue,
-				     void *_qdisc_default)
-{
-	struct Qdisc *qdisc = dev_queue->qdisc_sleeping;
-	struct Qdisc *qdisc_default = _qdisc_default;
-
-	if (qdisc) {
-		rcu_assign_pointer(dev_queue->qdisc, qdisc_default);
-		dev_queue->qdisc_sleeping = qdisc_default;
-
-		qdisc_put(qdisc);
-	}
 }
 
 void dev_shutdown(struct net_device *dev)

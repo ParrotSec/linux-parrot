@@ -87,6 +87,7 @@ enum {
 enum {
 	MLX5_OBJ_TYPE_GENEVE_TLV_OPT = 0x000b,
 	MLX5_OBJ_TYPE_VIRTIO_NET_Q = 0x000d,
+	MLX5_OBJ_TYPE_VIRTIO_Q_COUNTERS = 0x001c,
 	MLX5_OBJ_TYPE_MATCH_DEFINER = 0x0018,
 	MLX5_OBJ_TYPE_MKEY = 0xff01,
 	MLX5_OBJ_TYPE_QP = 0xff02,
@@ -1359,7 +1360,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         vhca_resource_manager[0x1];
 
 	u8         hca_cap_2[0x1];
-	u8         reserved_at_21[0x1];
+	u8         create_lag_when_not_master_up[0x1];
 	u8         dtor[0x1];
 	u8         event_on_vhca_state_teardown_request[0x1];
 	u8         event_on_vhca_state_in_use[0x1];
@@ -1803,19 +1804,22 @@ struct mlx5_ifc_cmd_hca_cap_2_bits {
 	u8	   max_reformat_remove_size[0x8];
 	u8	   max_reformat_remove_offset[0x8];
 
-	u8	   reserved_at_c0[0x740];
+	u8	   reserved_at_c0[0x160];
+
+	u8	   reserved_at_220[0x1];
+	u8	   sw_vhca_id_valid[0x1];
+	u8	   sw_vhca_id[0xe];
+	u8	   reserved_at_230[0x10];
+
+	u8	   reserved_at_240[0x5c0];
 };
 
-enum mlx5_flow_destination_type {
-	MLX5_FLOW_DESTINATION_TYPE_VPORT        = 0x0,
-	MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE   = 0x1,
-	MLX5_FLOW_DESTINATION_TYPE_TIR          = 0x2,
-	MLX5_FLOW_DESTINATION_TYPE_FLOW_SAMPLER = 0x6,
-	MLX5_FLOW_DESTINATION_TYPE_UPLINK       = 0x8,
-
-	MLX5_FLOW_DESTINATION_TYPE_PORT         = 0x99,
-	MLX5_FLOW_DESTINATION_TYPE_COUNTER      = 0x100,
-	MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE_NUM = 0x101,
+enum mlx5_ifc_flow_destination_type {
+	MLX5_IFC_FLOW_DESTINATION_TYPE_VPORT        = 0x0,
+	MLX5_IFC_FLOW_DESTINATION_TYPE_FLOW_TABLE   = 0x1,
+	MLX5_IFC_FLOW_DESTINATION_TYPE_TIR          = 0x2,
+	MLX5_IFC_FLOW_DESTINATION_TYPE_FLOW_SAMPLER = 0x6,
+	MLX5_IFC_FLOW_DESTINATION_TYPE_UPLINK       = 0x8,
 };
 
 enum mlx5_flow_table_miss_action {
@@ -3718,6 +3722,11 @@ struct mlx5_ifc_rmpc_bits {
 	struct mlx5_ifc_wq_bits wq;
 };
 
+enum {
+	VHCA_ID_TYPE_HW = 0,
+	VHCA_ID_TYPE_SW = 1,
+};
+
 struct mlx5_ifc_nic_vport_context_bits {
 	u8         reserved_at_0[0x5];
 	u8         min_wqe_inline_mode[0x3];
@@ -3734,8 +3743,8 @@ struct mlx5_ifc_nic_vport_context_bits {
 	u8         event_on_mc_address_change[0x1];
 	u8         event_on_uc_address_change[0x1];
 
-	u8         reserved_at_40[0xc];
-
+	u8         vhca_id_type[0x1];
+	u8         reserved_at_41[0xb];
 	u8	   affiliation_criteria[0x4];
 	u8	   affiliated_vhca_id[0x10];
 
@@ -5180,12 +5189,11 @@ struct mlx5_ifc_query_qp_out_bits {
 
 	u8         syndrome[0x20];
 
-	u8         reserved_at_40[0x20];
-	u8         ece[0x20];
+	u8         reserved_at_40[0x40];
 
 	u8         opt_param_mask[0x20];
 
-	u8         reserved_at_a0[0x20];
+	u8         ece[0x20];
 
 	struct mlx5_ifc_qpc_bits qpc;
 
@@ -7193,7 +7201,12 @@ struct mlx5_ifc_init_hca_in_bits {
 	u8         reserved_at_20[0x10];
 	u8         op_mod[0x10];
 
-	u8         reserved_at_40[0x40];
+	u8         reserved_at_40[0x20];
+
+	u8         reserved_at_60[0x2];
+	u8         sw_vhca_id[0xe];
+	u8         reserved_at_70[0x10];
+
 	u8	   sw_owner_id[4][0x20];
 };
 
@@ -10820,7 +10833,8 @@ struct mlx5_ifc_dcbx_param_bits {
 
 enum {
 	MLX5_LAG_PORT_SELECT_MODE_QUEUE_AFFINITY = 0,
-	MLX5_LAG_PORT_SELECT_MODE_PORT_SELECT_FT,
+	MLX5_LAG_PORT_SELECT_MODE_PORT_SELECT_FT = 1,
+	MLX5_LAG_PORT_SELECT_MODE_PORT_SELECT_MPESW = 2,
 };
 
 struct mlx5_ifc_lagc_bits {
@@ -11383,8 +11397,6 @@ enum {
 
 enum {
 	MLX5_IPSEC_OBJECT_ICV_LEN_16B,
-	MLX5_IPSEC_OBJECT_ICV_LEN_12B,
-	MLX5_IPSEC_OBJECT_ICV_LEN_8B,
 };
 
 struct mlx5_ifc_ipsec_obj_bits {

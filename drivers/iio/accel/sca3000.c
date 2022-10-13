@@ -167,8 +167,8 @@ struct sca3000_state {
 	int				mo_det_use_count;
 	struct mutex			lock;
 	/* Can these share a cacheline ? */
-	u8				rx[384] ____cacheline_aligned;
-	u8				tx[6] ____cacheline_aligned;
+	u8				rx[384] __aligned(IIO_DMA_MINALIGN);
+	u8				tx[6] __aligned(IIO_DMA_MINALIGN);
 };
 
 /**
@@ -1474,7 +1474,6 @@ static int sca3000_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	ret = devm_iio_kfifo_buffer_setup(&spi->dev, indio_dev,
-					  INDIO_BUFFER_SOFTWARE,
 					  &sca3000_ring_setup_ops);
 	if (ret)
 		return ret;

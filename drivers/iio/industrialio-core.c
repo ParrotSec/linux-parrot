@@ -185,6 +185,20 @@ int iio_device_id(struct iio_dev *indio_dev)
 EXPORT_SYMBOL_GPL(iio_device_id);
 
 /**
+ * iio_buffer_enabled() - helper function to test if the buffer is enabled
+ * @indio_dev:		IIO device structure for device
+ */
+bool iio_buffer_enabled(struct iio_dev *indio_dev)
+{
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+
+	return iio_dev_opaque->currentmode
+		& (INDIO_BUFFER_TRIGGERED | INDIO_BUFFER_HARDWARE |
+		   INDIO_BUFFER_SOFTWARE);
+}
+EXPORT_SYMBOL_GPL(iio_buffer_enabled);
+
+/**
  * iio_sysfs_match_string_with_gaps - matches given string in an array with gaps
  * @array: array of strings
  * @n: number of strings in the array
@@ -821,7 +835,23 @@ static ssize_t iio_format_avail_list(char *buf, const int *vals,
 
 static ssize_t iio_format_avail_range(char *buf, const int *vals, int type)
 {
-	return iio_format_list(buf, vals, type, 3, "[", "]");
+	int length;
+
+	/*
+	 * length refers to the array size , not the number of elements.
+	 * The purpose is to print the range [min , step ,max] so length should
+	 * be 3 in case of int, and 6 for other types.
+	 */
+	switch (type) {
+	case IIO_VAL_INT:
+		length = 3;
+		break;
+	default:
+		length = 6;
+		break;
+	}
+
+	return iio_format_list(buf, vals, type, length, "[", "]");
 }
 
 static ssize_t iio_read_channel_info_avail(struct device *dev,
@@ -892,8 +922,7 @@ static int __iio_str_to_fixpoint(const char *str, int fract_mult,
 		} else if (*str == '\n') {
 			if (*(str + 1) == '\0')
 				break;
-			else
-				return -EINVAL;
+			return -EINVAL;
 		} else if (!strncmp(str, " dB", sizeof(" dB") - 1) && scale_db) {
 			/* Ignore the dB suffix */
 			str += sizeof(" dB") - 1;
@@ -1640,7 +1669,7 @@ struct iio_dev *iio_device_alloc(struct device *parent, int sizeof_priv)
 
 	alloc_size = sizeof(struct iio_dev_opaque);
 	if (sizeof_priv) {
-		alloc_size = ALIGN(alloc_size, IIO_ALIGN);
+		alloc_size = ALIGN(alloc_size, IIO_DMA_MINALIGN);
 		alloc_size += sizeof_priv;
 	}
 
@@ -1650,7 +1679,7 @@ struct iio_dev *iio_device_alloc(struct device *parent, int sizeof_priv)
 
 	indio_dev = &iio_dev_opaque->indio_dev;
 	indio_dev->priv = (char *)iio_dev_opaque +
-		ALIGN(sizeof(struct iio_dev_opaque), IIO_ALIGN);
+		ALIGN(sizeof(struct iio_dev_opaque), IIO_DMA_MINALIGN);
 
 	indio_dev->dev.parent = parent;
 	indio_dev->dev.type = &iio_device_type;
@@ -1894,20 +1923,22 @@ static const struct iio_buffer_setup_ops noop_ring_setup_ops;
 int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
-	const char *label;
+	struct fwnode_handle *fwnode;
 	int ret;
 
 	if (!indio_dev->info)
 		return -EINVAL;
 
 	iio_dev_opaque->driver_module = this_mod;
-	/* If the calling driver did not initialize of_node, do it here */
-	if (!indio_dev->dev.of_node && indio_dev->dev.parent)
-		indio_dev->dev.of_node = indio_dev->dev.parent->of_node;
 
-	label = of_get_property(indio_dev->dev.of_node, "label", NULL);
-	if (label)
-		indio_dev->label = label;
+	/* If the calling driver did not initialize firmware node, do it here */
+	if (dev_fwnode(&indio_dev->dev))
+		fwnode = dev_fwnode(&indio_dev->dev);
+	else
+		fwnode = dev_fwnode(indio_dev->dev.parent);
+	device_set_node(&indio_dev->dev, fwnode);
+
+	fwnode_property_read_string(fwnode, "label", &indio_dev->label);
 
 	ret = iio_check_unique_scan_index(indio_dev);
 	if (ret < 0)
@@ -2058,6 +2089,19 @@ void iio_device_release_direct_mode(struct iio_dev *indio_dev)
 	mutex_unlock(&indio_dev->mlock);
 }
 EXPORT_SYMBOL_GPL(iio_device_release_direct_mode);
+
+/**
+ * iio_device_get_current_mode() - helper function providing read-only access to
+ *				   the opaque @currentmode variable
+ * @indio_dev:			   IIO device structure for device
+ */
+int iio_device_get_current_mode(struct iio_dev *indio_dev)
+{
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+
+	return iio_dev_opaque->currentmode;
+}
+EXPORT_SYMBOL_GPL(iio_device_get_current_mode);
 
 subsys_initcall(iio_init);
 module_exit(iio_exit);

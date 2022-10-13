@@ -95,8 +95,8 @@ struct funeth_txq_stats {  /* per Tx queue SW counters */
 
 struct funeth_tx_info {      /* per Tx descriptor state */
 	union {
-		struct sk_buff *skb; /* associated packet */
-		void *vaddr;         /* start address for XDP */
+		struct sk_buff *skb;    /* associated packet (sk_buff path) */
+		struct xdp_frame *xdpf; /* associated XDP frame (XDP path) */
 	};
 };
 
@@ -205,9 +205,9 @@ struct funeth_rxq {
 
 #define FUN_QSTAT_READ(q, seq, stats_copy) \
 	do { \
-		seq = u64_stats_fetch_begin(&(q)->syncp); \
+		seq = u64_stats_fetch_begin_irq(&(q)->syncp); \
 		stats_copy = (q)->stats; \
-	} while (u64_stats_fetch_retry(&(q)->syncp, (seq)))
+	} while (u64_stats_fetch_retry_irq(&(q)->syncp, (seq)))
 
 #define FUN_INT_NAME_LEN (IFNAMSIZ + 16)
 
@@ -245,7 +245,7 @@ static inline int fun_irq_node(const struct fun_irq *p)
 int fun_rxq_napi_poll(struct napi_struct *napi, int budget);
 int fun_txq_napi_poll(struct napi_struct *napi, int budget);
 netdev_tx_t fun_start_xmit(struct sk_buff *skb, struct net_device *netdev);
-bool fun_xdp_tx(struct funeth_txq *q, void *data, unsigned int len);
+bool fun_xdp_tx(struct funeth_txq *q, struct xdp_frame *xdpf);
 int fun_xdp_xmit_frames(struct net_device *dev, int n,
 			struct xdp_frame **frames, u32 flags);
 

@@ -68,11 +68,13 @@ void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, uns
 {
 	u8 *ptr = NULL;
 
-	if (k >= SKF_NET_OFF)
+	if (k >= SKF_NET_OFF) {
 		ptr = skb_network_header(skb) + k - SKF_NET_OFF;
-	else if (k >= SKF_LL_OFF)
+	} else if (k >= SKF_LL_OFF) {
+		if (unlikely(!skb_mac_header_was_set(skb)))
+			return NULL;
 		ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
-
+	}
 	if (ptr >= skb->head && ptr + size <= skb_tail_pointer(skb))
 		return ptr;
 
@@ -647,12 +649,6 @@ static bool bpf_prog_kallsyms_candidate(const struct bpf_prog *fp)
 	return fp->jited && !bpf_prog_was_classic(fp);
 }
 
-static bool bpf_prog_kallsyms_verify_off(const struct bpf_prog *fp)
-{
-	return list_empty(&fp->aux->ksym.lnode) ||
-	       fp->aux->ksym.lnode.prev == LIST_POISON2;
-}
-
 void bpf_prog_kallsyms_add(struct bpf_prog *fp)
 {
 	if (!bpf_prog_kallsyms_candidate(fp) ||
@@ -968,6 +964,9 @@ static void bpf_prog_pack_free(struct bpf_binary_header *hdr)
 	nbits = BPF_PROG_SIZE_TO_NBITS(hdr->size);
 	pos = ((unsigned long)hdr - (unsigned long)pack_ptr) >> BPF_PROG_CHUNK_SHIFT;
 
+	WARN_ONCE(bpf_arch_text_invalidate(hdr, hdr->size),
+		  "bpf_prog_pack bug: missing bpf_arch_text_invalidate?\n");
+
 	bitmap_clear(pack->bitmap, pos, nbits);
 	if (bitmap_find_next_zero_area(pack->bitmap, bpf_prog_chunk_count(), 0,
 				       bpf_prog_chunk_count(), 0) == 0) {
@@ -1006,7 +1005,7 @@ pure_initcall(bpf_jit_charge_init);
 
 int bpf_jit_charge_modmem(u32 size)
 {
-	if (atomic_long_add_return(size, &bpf_jit_current) > bpf_jit_limit) {
+	if (atomic_long_add_return(size, &bpf_jit_current) > READ_ONCE(bpf_jit_limit)) {
 		if (!bpf_capable()) {
 			atomic_long_sub(size, &bpf_jit_current);
 			return -EPERM;
@@ -1147,7 +1146,6 @@ int bpf_jit_binary_pack_finalize(struct bpf_prog *prog,
 		bpf_prog_pack_free(ro_header);
 		return PTR_ERR(ptr);
 	}
-	prog->aux->use_bpf_prog_pack = true;
 	return 0;
 }
 
@@ -1171,17 +1169,23 @@ void bpf_jit_binary_pack_free(struct bpf_binary_header *ro_header,
 	bpf_jit_uncharge_modmem(size);
 }
 
+struct bpf_binary_header *
+bpf_jit_binary_pack_hdr(const struct bpf_prog *fp)
+{
+	unsigned long real_start = (unsigned long)fp->bpf_func;
+	unsigned long addr;
+
+	addr = real_start & BPF_PROG_CHUNK_MASK;
+	return (void *)addr;
+}
+
 static inline struct bpf_binary_header *
 bpf_jit_binary_hdr(const struct bpf_prog *fp)
 {
 	unsigned long real_start = (unsigned long)fp->bpf_func;
 	unsigned long addr;
 
-	if (fp->aux->use_bpf_prog_pack)
-		addr = real_start & BPF_PROG_CHUNK_MASK;
-	else
-		addr = real_start & PAGE_MASK;
-
+	addr = real_start & PAGE_MASK;
 	return (void *)addr;
 }
 
@@ -1194,11 +1198,7 @@ void __weak bpf_jit_free(struct bpf_prog *fp)
 	if (fp->jited) {
 		struct bpf_binary_header *hdr = bpf_jit_binary_hdr(fp);
 
-		if (fp->aux->use_bpf_prog_pack)
-			bpf_jit_binary_pack_free(hdr, NULL /* rw_buffer */);
-		else
-			bpf_jit_binary_free(hdr);
-
+		bpf_jit_binary_free(hdr);
 		WARN_ON_ONCE(!bpf_prog_kallsyms_verify_off(fp));
 	}
 
@@ -1950,6 +1950,11 @@ out:
 		CONT;							\
 	LDX_MEM_##SIZEOP:						\
 		DST = *(SIZE *)(unsigned long) (SRC + insn->off);	\
+		CONT;							\
+	LDX_PROBE_MEM_##SIZEOP:						\
+		bpf_probe_read_kernel(&DST, sizeof(SIZE),		\
+				      (const void *)(long) (SRC + insn->off));	\
+		DST = *((SIZE *)&DST);					\
 		CONT;
 
 	LDST(B,   u8)
@@ -1957,15 +1962,6 @@ out:
 	LDST(W,  u32)
 	LDST(DW, u64)
 #undef LDST
-#define LDX_PROBE(SIZEOP, SIZE)							\
-	LDX_PROBE_MEM_##SIZEOP:							\
-		bpf_probe_read_kernel(&DST, SIZE, (const void *)(long) (SRC + insn->off));	\
-		CONT;
-	LDX_PROBE(B,  1)
-	LDX_PROBE(H,  2)
-	LDX_PROBE(W,  4)
-	LDX_PROBE(DW, 8)
-#undef LDX_PROBE
 
 #define ATOMIC_ALU_OP(BOP, KOP)						\
 		case BOP:						\
@@ -2631,6 +2627,7 @@ const struct bpf_func_proto bpf_map_delete_elem_proto __weak;
 const struct bpf_func_proto bpf_map_push_elem_proto __weak;
 const struct bpf_func_proto bpf_map_pop_elem_proto __weak;
 const struct bpf_func_proto bpf_map_peek_elem_proto __weak;
+const struct bpf_func_proto bpf_map_lookup_percpu_elem_proto __weak;
 const struct bpf_func_proto bpf_spin_lock_proto __weak;
 const struct bpf_func_proto bpf_spin_unlock_proto __weak;
 const struct bpf_func_proto bpf_jiffies64_proto __weak;
@@ -2714,6 +2711,12 @@ bool __weak bpf_jit_needs_zext(void)
 	return false;
 }
 
+/* Return TRUE if the JIT backend supports mixing bpf2bpf and tailcalls. */
+bool __weak bpf_jit_supports_subprog_tailcalls(void)
+{
+	return false;
+}
+
 bool __weak bpf_jit_supports_kfunc_call(void)
 {
 	return false;
@@ -2737,6 +2740,11 @@ int __weak bpf_arch_text_poke(void *ip, enum bpf_text_poke_type t,
 void * __weak bpf_arch_text_copy(void *dst, void *src, size_t len)
 {
 	return ERR_PTR(-ENOTSUPP);
+}
+
+int __weak bpf_arch_text_invalidate(void *dst, size_t len)
+{
+	return -ENOTSUPP;
 }
 
 DEFINE_STATIC_KEY_FALSE(bpf_stats_enabled_key);

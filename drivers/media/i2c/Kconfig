@@ -372,6 +372,7 @@ config VIDEO_OV13B10
 config VIDEO_OV2640
 	tristate "OmniVision OV2640 sensor support"
 	depends on VIDEO_DEV && I2C
+	select V4L2_ASYNC
 	help
 	  This is a Video4Linux2 sensor driver for the OmniVision
 	  OV2640 camera.
@@ -1177,6 +1178,7 @@ config VIDEO_ISL7998X
 	depends on OF_GPIO
 	select MEDIA_CONTROLLER
 	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
 	help
 	  Support for Intersil ISL7998x analog to MIPI-CSI2 or
 	  BT.656 decoder.

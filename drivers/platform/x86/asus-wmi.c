@@ -107,7 +107,7 @@ module_param(fnlock_default, bool, 0444);
 #define WMI_EVENT_MASK			0xFFFF
 
 #define FAN_CURVE_POINTS		8
-#define FAN_CURVE_BUF_LEN		(FAN_CURVE_POINTS * 2)
+#define FAN_CURVE_BUF_LEN		32
 #define FAN_CURVE_DEV_CPU		0x00
 #define FAN_CURVE_DEV_GPU		0x01
 /* Mask to determine if setting temperature or percentage */
@@ -2208,8 +2208,10 @@ static int fan_curve_get_factory_default(struct asus_wmi *asus, u32 fan_dev)
 	curves = &asus->custom_fan_curves[fan_idx];
 	err = asus_wmi_evaluate_method_buf(asus->dsts_id, fan_dev, mode, buf,
 					   FAN_CURVE_BUF_LEN);
-	if (err)
+	if (err) {
+		pr_warn("%s (0x%08x) failed: %d\n", __func__, fan_dev, err);
 		return err;
+	}
 
 	fan_curve_copy_from_buf(curves, buf);
 	curves->device_id = fan_dev;
@@ -2227,9 +2229,6 @@ static int fan_curve_check_present(struct asus_wmi *asus, bool *available,
 
 	err = fan_curve_get_factory_default(asus, fan_dev);
 	if (err) {
-		pr_debug("fan_curve_get_factory_default(0x%08x) failed: %d\n",
-			 fan_dev, err);
-		/* Don't cause probe to fail on devices without fan-curves */
 		return 0;
 	}
 
@@ -2534,7 +2533,7 @@ static struct attribute *asus_fan_curve_attr[] = {
 static umode_t asus_fan_curve_is_visible(struct kobject *kobj,
 					 struct attribute *attr, int idx)
 {
-	struct device *dev = container_of(kobj, struct device, kobj);
+	struct device *dev = kobj_to_dev(kobj);
 	struct asus_wmi *asus = dev_get_drvdata(dev->parent);
 
 	/*
@@ -3114,7 +3113,7 @@ static void asus_wmi_handle_event_code(int code, struct asus_wmi *asus)
 
 	if (!sparse_keymap_report_event(asus->inputdev, code,
 					key_value, autorelease))
-		pr_info("Unknown key %x pressed\n", code);
+		pr_info("Unknown key code 0x%x\n", code);
 }
 
 static void asus_wmi_notify(u32 value, void *context)

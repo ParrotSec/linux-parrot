@@ -1395,7 +1395,7 @@ cifs_push_posix_locks(struct cifsFileInfo *cfile)
 			cifs_dbg(VFS, "Can't push all brlocks!\n");
 			break;
 		}
-		length = 1 + flock->fl_end - flock->fl_start;
+		length = cifs_flock_len(flock);
 		if (flock->fl_type == F_RDLCK || flock->fl_type == F_SHLCK)
 			type = CIFS_RDLCK;
 		else
@@ -1511,7 +1511,7 @@ cifs_getlk(struct file *file, struct file_lock *flock, __u32 type,
 	   bool wait_flag, bool posix_lck, unsigned int xid)
 {
 	int rc = 0;
-	__u64 length = 1 + flock->fl_end - flock->fl_start;
+	__u64 length = cifs_flock_len(flock);
 	struct cifsFileInfo *cfile = (struct cifsFileInfo *)file->private_data;
 	struct cifs_tcon *tcon = tlink_tcon(cfile->tlink);
 	struct TCP_Server_Info *server = tcon->ses->server;
@@ -1609,7 +1609,7 @@ cifs_unlock_range(struct cifsFileInfo *cfile, struct file_lock *flock,
 	struct cifs_tcon *tcon = tlink_tcon(cfile->tlink);
 	struct cifsInodeInfo *cinode = CIFS_I(d_inode(cfile->dentry));
 	struct cifsLockInfo *li, *tmp;
-	__u64 length = 1 + flock->fl_end - flock->fl_start;
+	__u64 length = cifs_flock_len(flock);
 	struct list_head tmp_llist;
 
 	INIT_LIST_HEAD(&tmp_llist);
@@ -1713,7 +1713,7 @@ cifs_setlk(struct file *file, struct file_lock *flock, __u32 type,
 	   unsigned int xid)
 {
 	int rc = 0;
-	__u64 length = 1 + flock->fl_end - flock->fl_start;
+	__u64 length = cifs_flock_len(flock);
 	struct cifsFileInfo *cfile = (struct cifsFileInfo *)file->private_data;
 	struct cifs_tcon *tcon = tlink_tcon(cfile->tlink);
 	struct TCP_Server_Info *server = tcon->ses->server;
@@ -1861,9 +1861,9 @@ int cifs_lock(struct file *file, int cmd, struct file_lock *flock)
 	rc = -EACCES;
 	xid = get_xid();
 
-	cifs_dbg(FYI, "Lock parm: 0x%x flockflags: 0x%x flocktype: 0x%x start: %lld end: %lld\n",
-		 cmd, flock->fl_flags, flock->fl_type,
-		 flock->fl_start, flock->fl_end);
+	cifs_dbg(FYI, "%s: %pD2 cmd=0x%x type=0x%x flags=0x%x r=%lld:%lld\n", __func__, file, cmd,
+		 flock->fl_flags, flock->fl_type, (long long)flock->fl_start,
+		 (long long)flock->fl_end);
 
 	cfile = (struct cifsFileInfo *)file->private_data;
 	tcon = tlink_tcon(cfile->tlink);
@@ -2004,7 +2004,7 @@ struct cifsFileInfo *find_readable_file(struct cifsInodeInfo *cifs_inode,
 					bool fsuid_only)
 {
 	struct cifsFileInfo *open_file = NULL;
-	struct cifs_sb_info *cifs_sb = CIFS_SB(cifs_inode->vfs_inode.i_sb);
+	struct cifs_sb_info *cifs_sb = CIFS_SB(cifs_inode->netfs.inode.i_sb);
 
 	/* only filter by fsuid on multiuser mounts */
 	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_MULTIUSER))
@@ -2060,7 +2060,7 @@ cifs_get_writable_file(struct cifsInodeInfo *cifs_inode, int flags,
 		return rc;
 	}
 
-	cifs_sb = CIFS_SB(cifs_inode->vfs_inode.i_sb);
+	cifs_sb = CIFS_SB(cifs_inode->netfs.inode.i_sb);
 
 	/* only filter by fsuid on multiuser mounts */
 	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_MULTIUSER))
@@ -2777,8 +2777,11 @@ int cifs_flush(struct file *file, fl_owner_t id)
 		rc = filemap_write_and_wait(inode->i_mapping);
 
 	cifs_dbg(FYI, "Flush inode %p file %p rc %d\n", inode, file, rc);
-	if (rc)
+	if (rc) {
+		/* get more nuanced writeback errors */
+		rc = filemap_check_wb_err(file->f_mapping, 0);
 		trace_cifs_flush_err(inode->i_ino, rc);
+	}
 	return rc;
 }
 
@@ -3324,6 +3327,9 @@ static ssize_t __cifs_writev(
 
 ssize_t cifs_direct_writev(struct kiocb *iocb, struct iov_iter *from)
 {
+	struct file *file = iocb->ki_filp;
+
+	cifs_revalidate_mapping(file->f_inode);
 	return __cifs_writev(iocb, from, true);
 }
 
@@ -4456,10 +4462,10 @@ static void cifs_readahead(struct readahead_control *ractl)
 				 * TODO: Send a whole batch of pages to be read
 				 * by the cache.
 				 */
-				page = readahead_page(ractl);
-				last_batch_size = 1 << thp_order(page);
+				struct folio *folio = readahead_folio(ractl);
+				last_batch_size = folio_nr_pages(folio);
 				if (cifs_readpage_from_fscache(ractl->mapping->host,
-							       page) < 0) {
+							       &folio->page) < 0) {
 					/*
 					 * TODO: Deal with cache read failure
 					 * here, but for the moment, delegate
@@ -4467,7 +4473,7 @@ static void cifs_readahead(struct readahead_control *ractl)
 					 */
 					caching = false;
 				}
-				unlock_page(page);
+				folio_unlock(folio);
 				next_cached++;
 				cache_nr_pages--;
 				if (cache_nr_pages == 0)
@@ -4612,8 +4618,9 @@ read_complete:
 	return rc;
 }
 
-static int cifs_readpage(struct file *file, struct page *page)
+static int cifs_read_folio(struct file *file, struct folio *folio)
 {
+	struct page *page = &folio->page;
 	loff_t offset = page_file_offset(page);
 	int rc = -EACCES;
 	unsigned int xid;
@@ -4626,7 +4633,7 @@ static int cifs_readpage(struct file *file, struct page *page)
 		return rc;
 	}
 
-	cifs_dbg(FYI, "readpage %p at offset %d 0x%x\n",
+	cifs_dbg(FYI, "read_folio %p at offset %d 0x%x\n",
 		 page, (int)offset, (int)offset);
 
 	rc = cifs_readpage_worker(file, page, &offset);
@@ -4665,14 +4672,14 @@ bool is_size_safe_to_change(struct cifsInodeInfo *cifsInode, __u64 end_of_file)
 		/* This inode is open for write at least once */
 		struct cifs_sb_info *cifs_sb;
 
-		cifs_sb = CIFS_SB(cifsInode->vfs_inode.i_sb);
+		cifs_sb = CIFS_SB(cifsInode->netfs.inode.i_sb);
 		if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_DIRECT_IO) {
 			/* since no page cache to corrupt on directio
 			we can change size safely */
 			return true;
 		}
 
-		if (i_size_read(&cifsInode->vfs_inode) < end_of_file)
+		if (i_size_read(&cifsInode->netfs.inode) < end_of_file)
 			return true;
 
 		return false;
@@ -4681,7 +4688,7 @@ bool is_size_safe_to_change(struct cifsInodeInfo *cifsInode, __u64 end_of_file)
 }
 
 static int cifs_write_begin(struct file *file, struct address_space *mapping,
-			loff_t pos, unsigned len, unsigned flags,
+			loff_t pos, unsigned len,
 			struct page **pagep, void **fsdata)
 {
 	int oncethru = 0;
@@ -4695,7 +4702,7 @@ static int cifs_write_begin(struct file *file, struct address_space *mapping,
 	cifs_dbg(FYI, "write_begin from %lld len %d\n", (long long)pos, len);
 
 start:
-	page = grab_cache_page_write_begin(mapping, index, flags);
+	page = grab_cache_page_write_begin(mapping, index);
 	if (!page) {
 		rc = -ENOMEM;
 		goto out;
@@ -4757,16 +4764,16 @@ out:
 	return rc;
 }
 
-static int cifs_release_page(struct page *page, gfp_t gfp)
+static bool cifs_release_folio(struct folio *folio, gfp_t gfp)
 {
-	if (PagePrivate(page))
+	if (folio_test_private(folio))
 		return 0;
-	if (PageFsCache(page)) {
+	if (folio_test_fscache(folio)) {
 		if (current_is_kswapd() || !(gfp & __GFP_FS))
 			return false;
-		wait_on_page_fscache(page);
+		folio_wait_fscache(folio);
 	}
-	fscache_note_page_release(cifs_inode_cookie(page->mapping->host));
+	fscache_note_page_release(cifs_inode_cookie(folio->mapping->host));
 	return true;
 }
 
@@ -4807,8 +4814,6 @@ void cifs_oplock_break(struct work_struct *work)
 	struct TCP_Server_Info *server = tcon->ses->server;
 	int rc = 0;
 	bool purge_cache = false;
-	bool is_deferred = false;
-	struct cifs_deferred_close *dclose;
 
 	wait_on_bit(&cinode->flags, CIFS_INODE_PENDING_WRITERS,
 			TASK_UNINTERRUPTIBLE);
@@ -4845,22 +4850,6 @@ void cifs_oplock_break(struct work_struct *work)
 
 oplock_break_ack:
 	/*
-	 * When oplock break is received and there are no active
-	 * file handles but cached, then schedule deferred close immediately.
-	 * So, new open will not use cached handle.
-	 */
-	spin_lock(&CIFS_I(inode)->deferred_lock);
-	is_deferred = cifs_is_deferred_close(cfile, &dclose);
-	spin_unlock(&CIFS_I(inode)->deferred_lock);
-	if (is_deferred &&
-	    cfile->deferred_close_scheduled &&
-	    delayed_work_pending(&cfile->deferred)) {
-		if (cancel_delayed_work(&cfile->deferred)) {
-			_cifsFileInfo_put(cfile, false, false);
-			goto oplock_break_done;
-		}
-	}
-	/*
 	 * releasing stale oplock after recent reconnect of smb session using
 	 * a now incorrect file handle is not a data integrity issue but do
 	 * not bother sending an oplock release if session to server still is
@@ -4871,7 +4860,7 @@ oplock_break_ack:
 							     cinode);
 		cifs_dbg(FYI, "Oplock release rc = %d\n", rc);
 	}
-oplock_break_done:
+
 	_cifsFileInfo_put(cfile, false /* do not wait for ourself */, false);
 	cifs_done_oplock_break(cinode);
 }
@@ -4905,6 +4894,10 @@ static int cifs_swap_activate(struct swap_info_struct *sis,
 
 	cifs_dbg(FYI, "swap activate\n");
 
+	if (!swap_file->f_mapping->a_ops->swap_rw)
+		/* Cannot support swap */
+		return -EINVAL;
+
 	spin_lock(&inode->i_lock);
 	blocks = inode->i_blocks;
 	isize = inode->i_size;
@@ -4933,7 +4926,8 @@ static int cifs_swap_activate(struct swap_info_struct *sis,
 	 * from reading or writing the file
 	 */
 
-	return 0;
+	sis->flags |= SWP_FS_OPS;
+	return add_swap_extent(sis, 0, sis->max, 0);
 }
 
 static void cifs_swap_deactivate(struct file *file)
@@ -4965,14 +4959,14 @@ static bool cifs_dirty_folio(struct address_space *mapping, struct folio *folio)
 #endif
 
 const struct address_space_operations cifs_addr_ops = {
-	.readpage = cifs_readpage,
+	.read_folio = cifs_read_folio,
 	.readahead = cifs_readahead,
 	.writepage = cifs_writepage,
 	.writepages = cifs_writepages,
 	.write_begin = cifs_write_begin,
 	.write_end = cifs_write_end,
 	.dirty_folio = cifs_dirty_folio,
-	.releasepage = cifs_release_page,
+	.release_folio = cifs_release_folio,
 	.direct_IO = cifs_direct_io,
 	.invalidate_folio = cifs_invalidate_folio,
 	.launder_folio = cifs_launder_folio,
@@ -4986,18 +4980,18 @@ const struct address_space_operations cifs_addr_ops = {
 };
 
 /*
- * cifs_readpages requires the server to support a buffer large enough to
+ * cifs_readahead requires the server to support a buffer large enough to
  * contain the header plus one complete page of data.  Otherwise, we need
- * to leave cifs_readpages out of the address space operations.
+ * to leave cifs_readahead out of the address space operations.
  */
 const struct address_space_operations cifs_addr_ops_smallbuf = {
-	.readpage = cifs_readpage,
+	.read_folio = cifs_read_folio,
 	.writepage = cifs_writepage,
 	.writepages = cifs_writepages,
 	.write_begin = cifs_write_begin,
 	.write_end = cifs_write_end,
 	.dirty_folio = cifs_dirty_folio,
-	.releasepage = cifs_release_page,
+	.release_folio = cifs_release_folio,
 	.invalidate_folio = cifs_invalidate_folio,
 	.launder_folio = cifs_launder_folio,
 };

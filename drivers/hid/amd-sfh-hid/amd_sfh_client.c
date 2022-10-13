@@ -141,6 +141,24 @@ u32 amd_sfh_wait_for_response(struct amd_mp2_dev *mp2, u8 sid, u32 sensor_sts)
 	return sensor_sts;
 }
 
+const char *get_sensor_name(int idx)
+{
+	switch (idx) {
+	case accel_idx:
+		return "accelerometer";
+	case gyro_idx:
+		return "gyroscope";
+	case mag_idx:
+		return "magnetometer";
+	case als_idx:
+		return "ALS";
+	case HPD_IDX:
+		return "HPD";
+	default:
+		return "unknown sensor type";
+	}
+}
+
 int amd_sfh_hid_client_init(struct amd_mp2_dev *privdata)
 {
 	struct amd_input_data *in_data = &privdata->in_data;
@@ -155,6 +173,8 @@ int amd_sfh_hid_client_init(struct amd_mp2_dev *privdata)
 	dev = &privdata->pdev->dev;
 
 	cl_data->num_hid_devices = amd_mp2_get_sensor_num(privdata, &cl_data->sensor_idx[0]);
+	if (cl_data->num_hid_devices == 0)
+		return -ENODEV;
 
 	INIT_DELAYED_WORK(&cl_data->work, amd_sfh_work);
 	INIT_DELAYED_WORK(&cl_data->work_buffer, amd_sfh_work_buffer);
@@ -219,13 +239,16 @@ int amd_sfh_hid_client_init(struct amd_mp2_dev *privdata)
 					(privdata, cl_data->sensor_idx[i], SENSOR_DISABLED);
 				if (status != SENSOR_ENABLED)
 					cl_data->sensor_sts[i] = SENSOR_DISABLED;
-				dev_dbg(dev, "sid 0x%x status 0x%x\n",
-					cl_data->sensor_idx[i], cl_data->sensor_sts[i]);
+				dev_dbg(dev, "sid 0x%x (%s) status 0x%x\n",
+					cl_data->sensor_idx[i],
+					get_sensor_name(cl_data->sensor_idx[i]),
+					cl_data->sensor_sts[i]);
 				goto cleanup;
 			}
 		}
-		dev_dbg(dev, "sid 0x%x status 0x%x\n",
-			cl_data->sensor_idx[i], cl_data->sensor_sts[i]);
+		dev_dbg(dev, "sid 0x%x (%s) status 0x%x\n",
+			cl_data->sensor_idx[i], get_sensor_name(cl_data->sensor_idx[i]),
+			cl_data->sensor_sts[i]);
 	}
 	if (privdata->mp2_ops->discovery_status &&
 	    privdata->mp2_ops->discovery_status(privdata) == 0) {
@@ -268,8 +291,9 @@ int amd_sfh_hid_client_deinit(struct amd_mp2_dev *privdata)
 					(privdata, cl_data->sensor_idx[i], SENSOR_DISABLED);
 			if (status != SENSOR_ENABLED)
 				cl_data->sensor_sts[i] = SENSOR_DISABLED;
-			dev_dbg(&privdata->pdev->dev, "stopping sid 0x%x status 0x%x\n",
-				cl_data->sensor_idx[i], cl_data->sensor_sts[i]);
+			dev_dbg(&privdata->pdev->dev, "stopping sid 0x%x (%s) status 0x%x\n",
+				cl_data->sensor_idx[i], get_sensor_name(cl_data->sensor_idx[i]),
+				cl_data->sensor_sts[i]);
 		}
 	}
 

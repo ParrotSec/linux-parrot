@@ -946,7 +946,7 @@ static unsigned int ag71xx_max_frame_len(unsigned int mtu)
 	return ETH_HLEN + VLAN_HLEN + mtu + ETH_FCS_LEN;
 }
 
-static void ag71xx_hw_set_macaddr(struct ag71xx *ag, unsigned char *mac)
+static void ag71xx_hw_set_macaddr(struct ag71xx *ag, const unsigned char *mac)
 {
 	u32 t;
 
@@ -1922,7 +1922,8 @@ static int ag71xx_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	netif_napi_add(ndev, &ag->napi, ag71xx_poll, AG71XX_NAPI_WEIGHT);
+	netif_napi_add_weight(ndev, &ag->napi, ag71xx_poll,
+			      AG71XX_NAPI_WEIGHT);
 
 	err = clk_prepare_enable(ag->clk_eth);
 	if (err) {

@@ -149,6 +149,7 @@ extern u64 __read_mostly shadow_mmio_value;
 extern u64 __read_mostly shadow_mmio_mask;
 extern u64 __read_mostly shadow_mmio_access_mask;
 extern u64 __read_mostly shadow_present_mask;
+extern u64 __read_mostly shadow_me_value;
 extern u64 __read_mostly shadow_me_mask;
 
 /*
@@ -204,12 +205,23 @@ extern u64 __read_mostly shadow_nonpresent_or_rsvd_lower_gfn_mask;
 static inline bool is_mmio_spte(u64 spte)
 {
 	return (spte & shadow_mmio_mask) == shadow_mmio_value &&
-	       likely(shadow_mmio_value);
+	       likely(enable_mmio_caching);
 }
 
 static inline bool is_shadow_present_pte(u64 pte)
 {
 	return !!(pte & SPTE_MMU_PRESENT_MASK);
+}
+
+/*
+ * Returns true if A/D bits are supported in hardware and are enabled by KVM.
+ * When enabled, KVM uses A/D bits for all non-nested MMUs.  Because L1 can
+ * disable A/D bits in EPTP12, SP and SPTE variants are needed to handle the
+ * scenario where KVM is using A/D bits for L1, but not L2.
+ */
+static inline bool kvm_ad_enabled(void)
+{
+	return !!shadow_accessed_mask;
 }
 
 static inline bool sp_ad_disabled(struct kvm_mmu_page *sp)
@@ -314,7 +326,7 @@ static __always_inline bool is_rsvd_spte(struct rsvd_bits_validate *rsvd_check,
 }
 
 /*
- * An shadow-present leaf SPTE may be non-writable for 3 possible reasons:
+ * A shadow-present leaf SPTE may be non-writable for 4 possible reasons:
  *
  *  1. To intercept writes for dirty logging. KVM write-protects huge pages
  *     so that they can be split be split down into the dirty logging
@@ -332,8 +344,13 @@ static __always_inline bool is_rsvd_spte(struct rsvd_bits_validate *rsvd_check,
  *     read-only memslot or guest memory backed by a read-only VMA. Writes to
  *     such pages are disallowed entirely.
  *
- * To keep track of why a given SPTE is write-protected, KVM uses 2
- * software-only bits in the SPTE:
+ *  4. To emulate the Accessed bit for SPTEs without A/D bits.  Note, in this
+ *     case, the SPTE is access-protected, not just write-protected!
+ *
+ * For cases #1 and #4, KVM can safely make such SPTEs writable without taking
+ * mmu_lock as capturing the Accessed/Dirty state doesn't require taking it.
+ * To differentiate #1 and #4 from #2 and #3, KVM uses two software-only bits
+ * in the SPTE:
  *
  *  shadow_mmu_writable_mask, aka MMU-writable -
  *    Cleared on SPTEs that KVM is currently write-protecting for shadow paging
@@ -362,7 +379,8 @@ static __always_inline bool is_rsvd_spte(struct rsvd_bits_validate *rsvd_check,
  * shadow page tables between vCPUs. Write-protecting an SPTE for dirty logging
  * (which does not clear the MMU-writable bit), does not flush TLBs before
  * dropping the lock, as it only needs to synchronize guest writes with the
- * dirty bitmap.
+ * dirty bitmap. Similarly, making the SPTE inaccessible (and non-writable) for
+ * access-tracking via the clear_young() MMU notifier also does not flush TLBs.
  *
  * So, there is the problem: clearing the MMU-writable bit can encounter a
  * write-protected SPTE while CPUs still have writable mappings for that SPTE
@@ -432,6 +450,7 @@ static inline u64 restore_acc_track_spte(u64 spte)
 
 u64 kvm_mmu_changed_pte_notifier_make_spte(u64 old_spte, kvm_pfn_t new_pfn);
 
+void __init kvm_mmu_spte_module_init(void);
 void kvm_mmu_reset_all_pte_masks(void);
 
 #endif

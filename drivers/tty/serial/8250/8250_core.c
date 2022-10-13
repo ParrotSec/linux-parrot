@@ -23,6 +23,7 @@
 #include <linux/sysrq.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/tty.h>
 #include <linux/ratelimit.h>
 #include <linux/tty_flip.h>
@@ -32,7 +33,6 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
-#include <linux/pm_runtime.h>
 #include <linux/io.h>
 #ifdef CONFIG_SPARC
 #include <linux/sunserialcore.h>
@@ -277,8 +277,7 @@ static void serial8250_backup_timeout(struct timer_list *t)
 	 * the "Diva" UART used on the management processor on many HP
 	 * ia64 and parisc boxes.
 	 */
-	lsr = serial_in(up, UART_LSR);
-	up->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;
+	lsr = serial_lsr_in(up);
 	if ((iir & UART_IIR_NO_INT) && (up->ier & UART_IER_THRI) &&
 	    (!uart_circ_empty(&up->port.state->xmit) || up->port.x_char) &&
 	    (lsr & UART_LSR_THRE)) {
@@ -559,6 +558,9 @@ serial8250_register_ports(struct uart_driver *drv, struct device *dev)
 			continue;
 
 		up->port.dev = dev;
+
+		if (uart_console_enabled(&up->port))
+			pm_runtime_get_sync(up->port.dev);
 
 		serial8250_apply_quirks(up);
 		uart_add_one_port(drv, &up->port);

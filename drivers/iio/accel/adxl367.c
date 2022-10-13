@@ -179,7 +179,7 @@ struct adxl367_state {
 	unsigned int	fifo_set_size;
 	unsigned int	fifo_watermark;
 
-	__be16		fifo_buf[ADXL367_FIFO_SIZE] ____cacheline_aligned;
+	__be16		fifo_buf[ADXL367_FIFO_SIZE] __aligned(IIO_DMA_MINALIGN);
 	__be16		sample_buf;
 	u8		act_threshold_buf[2];
 	u8		inact_time_buf[2];
@@ -1567,7 +1567,6 @@ int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 		return ret;
 
 	ret = devm_iio_kfifo_buffer_setup_ext(st->dev, indio_dev,
-					      INDIO_BUFFER_SOFTWARE,
 					      &adxl367_buffer_ops,
 					      adxl367_fifo_attributes);
 	if (ret)

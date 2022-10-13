@@ -84,7 +84,8 @@ void *adi_axi_adc_conv_priv(struct adi_axi_adc_conv *conv)
 {
 	struct adi_axi_adc_client *cl = conv_to_client(conv);
 
-	return (char *)cl + ALIGN(sizeof(struct adi_axi_adc_client), IIO_ALIGN);
+	return (char *)cl + ALIGN(sizeof(struct adi_axi_adc_client),
+				  IIO_DMA_MINALIGN);
 }
 EXPORT_SYMBOL_GPL(adi_axi_adc_conv_priv);
 
@@ -169,9 +170,9 @@ static struct adi_axi_adc_conv *adi_axi_adc_conv_register(struct device *dev,
 	struct adi_axi_adc_client *cl;
 	size_t alloc_size;
 
-	alloc_size = ALIGN(sizeof(struct adi_axi_adc_client), IIO_ALIGN);
+	alloc_size = ALIGN(sizeof(struct adi_axi_adc_client), IIO_DMA_MINALIGN);
 	if (sizeof_priv)
-		alloc_size += ALIGN(sizeof_priv, IIO_ALIGN);
+		alloc_size += ALIGN(sizeof_priv, IIO_DMA_MINALIGN);
 
 	cl = kzalloc(alloc_size, GFP_KERNEL);
 	if (!cl)
@@ -322,16 +323,19 @@ static struct adi_axi_adc_client *adi_axi_adc_attach_client(struct device *dev)
 
 		if (!try_module_get(cl->dev->driver->owner)) {
 			mutex_unlock(&registered_clients_lock);
+			of_node_put(cln);
 			return ERR_PTR(-ENODEV);
 		}
 
 		get_device(cl->dev);
 		cl->info = info;
 		mutex_unlock(&registered_clients_lock);
+		of_node_put(cln);
 		return cl;
 	}
 
 	mutex_unlock(&registered_clients_lock);
+	of_node_put(cln);
 
 	return ERR_PTR(-EPROBE_DEFER);
 }

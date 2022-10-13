@@ -571,6 +571,7 @@ int hci_dev_close(__u16 dev)
 		goto done;
 	}
 
+	cancel_work_sync(&hdev->power_on);
 	if (hci_dev_test_and_clear_flag(hdev, HCI_AUTO_OFF))
 		cancel_delayed_work(&hdev->power_off);
 
@@ -593,6 +594,11 @@ static int hci_dev_do_reset(struct hci_dev *hdev)
 	skb_queue_purge(&hdev->rx_q);
 	skb_queue_purge(&hdev->cmd_q);
 
+	/* Cancel these to avoid queueing non-chained pending work */
+	hci_dev_set_flag(hdev, HCI_CMD_DRAIN_WORKQUEUE);
+	cancel_delayed_work(&hdev->cmd_timer);
+	cancel_delayed_work(&hdev->ncmd_timer);
+
 	/* Avoid potential lockdep warnings from the *_flush() calls by
 	 * ensuring the workqueue is empty up front.
 	 */
@@ -605,6 +611,8 @@ static int hci_dev_do_reset(struct hci_dev *hdev)
 
 	if (hdev->flush)
 		hdev->flush(hdev);
+
+	hci_dev_clear_flag(hdev, HCI_CMD_DRAIN_WORKQUEUE);
 
 	atomic_set(&hdev->cmd_cnt, 1);
 	hdev->acl_cnt = 0; hdev->sco_cnt = 0; hdev->le_cnt = 0;
@@ -2153,7 +2161,7 @@ int hci_bdaddr_list_add_with_flags(struct list_head *list, bdaddr_t *bdaddr,
 
 	bacpy(&entry->bdaddr, bdaddr);
 	entry->bdaddr_type = type;
-	bitmap_from_u64(entry->flags, flags);
+	entry->flags = flags;
 
 	list_add(&entry->list, list);
 
@@ -2634,7 +2642,7 @@ int hci_register_dev(struct hci_dev *hdev)
 	 * callback.
 	 */
 	if (hdev->wakeup)
-		set_bit(HCI_CONN_FLAG_REMOTE_WAKEUP, hdev->conn_flags);
+		hdev->conn_flags |= HCI_CONN_FLAG_REMOTE_WAKEUP;
 
 	hci_sock_dev_event(hdev, HCI_DEV_REG);
 	hci_dev_hold(hdev);
@@ -3863,7 +3871,8 @@ static void hci_cmd_work(struct work_struct *work)
 			if (res < 0)
 				__hci_cmd_sync_cancel(hdev, -res);
 
-			if (test_bit(HCI_RESET, &hdev->flags))
+			if (test_bit(HCI_RESET, &hdev->flags) ||
+			    hci_dev_test_flag(hdev, HCI_CMD_DRAIN_WORKQUEUE))
 				cancel_delayed_work(&hdev->cmd_timer);
 			else
 				schedule_delayed_work(&hdev->cmd_timer,

@@ -210,13 +210,9 @@ void fuse_finish_open(struct inode *inode, struct file *file)
 		fi->attr_version = atomic64_inc_return(&fc->attr_version);
 		i_size_write(inode, 0);
 		spin_unlock(&fi->lock);
-		truncate_pagecache(inode, 0);
 		file_update_time(file);
 		fuse_invalidate_attr_mask(inode, FUSE_STATX_MODSIZE);
-	} else if (!(ff->open_flags & FOPEN_KEEP_CACHE)) {
-		invalidate_inode_pages2(inode->i_mapping);
 	}
-
 	if ((file->f_mode & FMODE_WRITE) && fc->writeback_cache)
 		fuse_link_write_file(file);
 }
@@ -239,30 +235,38 @@ int fuse_open_common(struct inode *inode, struct file *file, bool isdir)
 	if (err)
 		return err;
 
-	if (is_wb_truncate || dax_truncate) {
+	if (is_wb_truncate || dax_truncate)
 		inode_lock(inode);
-		fuse_set_nowrite(inode);
-	}
 
 	if (dax_truncate) {
 		filemap_invalidate_lock(inode->i_mapping);
 		err = fuse_dax_break_layouts(inode, 0, 0);
 		if (err)
-			goto out;
+			goto out_inode_unlock;
 	}
+
+	if (is_wb_truncate || dax_truncate)
+		fuse_set_nowrite(inode);
 
 	err = fuse_do_open(fm, get_node_id(inode), file, isdir);
 	if (!err)
 		fuse_finish_open(inode, file);
 
-out:
+	if (is_wb_truncate || dax_truncate)
+		fuse_release_nowrite(inode);
+	if (!err) {
+		struct fuse_file *ff = file->private_data;
+
+		if (fc->atomic_o_trunc && (file->f_flags & O_TRUNC))
+			truncate_pagecache(inode, 0);
+		else if (!(ff->open_flags & FOPEN_KEEP_CACHE))
+			invalidate_inode_pages2(inode->i_mapping);
+	}
 	if (dax_truncate)
 		filemap_invalidate_unlock(inode->i_mapping);
-
-	if (is_wb_truncate | dax_truncate) {
-		fuse_release_nowrite(inode);
+out_inode_unlock:
+	if (is_wb_truncate || dax_truncate)
 		inode_unlock(inode);
-	}
 
 	return err;
 }
@@ -338,6 +342,15 @@ static int fuse_open(struct inode *inode, struct file *file)
 
 static int fuse_release(struct inode *inode, struct file *file)
 {
+	struct fuse_conn *fc = get_fuse_conn(inode);
+
+	/*
+	 * Dirty pages might remain despite write_inode_now() call from
+	 * fuse_flush() due to writes racing with the close.
+	 */
+	if (fc->writeback_cache)
+		write_inode_now(inode, 1);
+
 	fuse_release_common(file, false);
 
 	/* return value is ignored by VFS */
@@ -857,8 +870,9 @@ static int fuse_do_readpage(struct file *file, struct page *page)
 	return 0;
 }
 
-static int fuse_readpage(struct file *file, struct page *page)
+static int fuse_read_folio(struct file *file, struct folio *folio)
 {
+	struct page *page = &folio->page;
 	struct inode *inode = page->mapping->host;
 	int err;
 
@@ -1174,7 +1188,7 @@ static ssize_t fuse_fill_write_pages(struct fuse_io_args *ia,
 			break;
 
 		err = -ENOMEM;
-		page = grab_cache_page_write_begin(mapping, index, 0);
+		page = grab_cache_page_write_begin(mapping, index);
 		if (!page)
 			break;
 
@@ -2273,8 +2287,7 @@ out:
  * but how to implement it without killing performance need more thinking.
  */
 static int fuse_write_begin(struct file *file, struct address_space *mapping,
-		loff_t pos, unsigned len, unsigned flags,
-		struct page **pagep, void **fsdata)
+		loff_t pos, unsigned len, struct page **pagep, void **fsdata)
 {
 	pgoff_t index = pos >> PAGE_SHIFT;
 	struct fuse_conn *fc = get_fuse_conn(file_inode(file));
@@ -2284,7 +2297,7 @@ static int fuse_write_begin(struct file *file, struct address_space *mapping,
 
 	WARN_ON(!fc->writeback_cache);
 
-	page = grab_cache_page_write_begin(mapping, index, flags);
+	page = grab_cache_page_write_begin(mapping, index);
 	if (!page)
 		goto error;
 
@@ -3175,7 +3188,7 @@ static const struct file_operations fuse_file_operations = {
 };
 
 static const struct address_space_operations fuse_file_aops  = {
-	.readpage	= fuse_readpage,
+	.read_folio	= fuse_read_folio,
 	.readahead	= fuse_readahead,
 	.writepage	= fuse_writepage,
 	.writepages	= fuse_writepages,

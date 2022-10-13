@@ -4013,10 +4013,11 @@ static int exp_ll_privacy_feature_changed(bool enabled, struct hci_dev *hdev,
 	memcpy(ev.uuid, rpa_resolution_uuid, 16);
 	ev.flags = cpu_to_le32((enabled ? BIT(0) : 0) | BIT(1));
 
+	// Do we need to be atomic with the conn_flags?
 	if (enabled && privacy_mode_capable(hdev))
-		set_bit(HCI_CONN_FLAG_DEVICE_PRIVACY, hdev->conn_flags);
+		hdev->conn_flags |= HCI_CONN_FLAG_DEVICE_PRIVACY;
 	else
-		clear_bit(HCI_CONN_FLAG_DEVICE_PRIVACY, hdev->conn_flags);
+		hdev->conn_flags &= ~HCI_CONN_FLAG_DEVICE_PRIVACY;
 
 	return mgmt_limited_event(MGMT_EV_EXP_FEATURE_CHANGED, hdev,
 				  &ev, sizeof(ev),
@@ -4419,6 +4420,22 @@ static int set_exp_feature(struct sock *sk, struct hci_dev *hdev,
 			       MGMT_STATUS_NOT_SUPPORTED);
 }
 
+static u32 get_params_flags(struct hci_dev *hdev,
+			    struct hci_conn_params *params)
+{
+	u32 flags = hdev->conn_flags;
+
+	/* Devices using RPAs can only be programmed in the acceptlist if
+	 * LL Privacy has been enable otherwise they cannot mark
+	 * HCI_CONN_FLAG_REMOTE_WAKEUP.
+	 */
+	if ((flags & HCI_CONN_FLAG_REMOTE_WAKEUP) && !use_ll_privacy(hdev) &&
+	    hci_find_irk_by_addr(hdev, &params->addr, params->addr_type))
+		flags &= ~HCI_CONN_FLAG_REMOTE_WAKEUP;
+
+	return flags;
+}
+
 static int get_device_flags(struct sock *sk, struct hci_dev *hdev, void *data,
 			    u16 data_len)
 {
@@ -4435,8 +4452,7 @@ static int get_device_flags(struct sock *sk, struct hci_dev *hdev, void *data,
 
 	hci_dev_lock(hdev);
 
-	bitmap_to_arr32(&supported_flags, hdev->conn_flags,
-			__HCI_CONN_NUM_FLAGS);
+	supported_flags = hdev->conn_flags;
 
 	memset(&rp, 0, sizeof(rp));
 
@@ -4447,17 +4463,15 @@ static int get_device_flags(struct sock *sk, struct hci_dev *hdev, void *data,
 		if (!br_params)
 			goto done;
 
-		bitmap_to_arr32(&current_flags, br_params->flags,
-				__HCI_CONN_NUM_FLAGS);
+		current_flags = br_params->flags;
 	} else {
 		params = hci_conn_params_lookup(hdev, &cp->addr.bdaddr,
 						le_addr_type(cp->addr.type));
-
 		if (!params)
 			goto done;
 
-		bitmap_to_arr32(&current_flags, params->flags,
-				__HCI_CONN_NUM_FLAGS);
+		supported_flags = get_params_flags(hdev, params);
+		current_flags = params->flags;
 	}
 
 	bacpy(&rp.addr.bdaddr, &cp->addr.bdaddr);
@@ -4502,8 +4516,8 @@ static int set_device_flags(struct sock *sk, struct hci_dev *hdev, void *data,
 		   &cp->addr.bdaddr, cp->addr.type,
 		   __le32_to_cpu(current_flags));
 
-	bitmap_to_arr32(&supported_flags, hdev->conn_flags,
-			__HCI_CONN_NUM_FLAGS);
+	// We should take hci_dev_lock() early, I think.. conn_flags can change
+	supported_flags = hdev->conn_flags;
 
 	if ((supported_flags | current_flags) != supported_flags) {
 		bt_dev_warn(hdev, "Bad flag given (0x%x) vs supported (0x%0x)",
@@ -4519,32 +4533,42 @@ static int set_device_flags(struct sock *sk, struct hci_dev *hdev, void *data,
 							      cp->addr.type);
 
 		if (br_params) {
-			bitmap_from_u64(br_params->flags, current_flags);
+			br_params->flags = current_flags;
 			status = MGMT_STATUS_SUCCESS;
 		} else {
 			bt_dev_warn(hdev, "No such BR/EDR device %pMR (0x%x)",
 				    &cp->addr.bdaddr, cp->addr.type);
 		}
-	} else {
-		params = hci_conn_params_lookup(hdev, &cp->addr.bdaddr,
-						le_addr_type(cp->addr.type));
-		if (params) {
-			bitmap_from_u64(params->flags, current_flags);
-			status = MGMT_STATUS_SUCCESS;
 
-			/* Update passive scan if HCI_CONN_FLAG_DEVICE_PRIVACY
-			 * has been set.
-			 */
-			if (test_bit(HCI_CONN_FLAG_DEVICE_PRIVACY,
-				     params->flags))
-				hci_update_passive_scan(hdev);
-		} else {
-			bt_dev_warn(hdev, "No such LE device %pMR (0x%x)",
-				    &cp->addr.bdaddr,
-				    le_addr_type(cp->addr.type));
-		}
+		goto unlock;
 	}
 
+	params = hci_conn_params_lookup(hdev, &cp->addr.bdaddr,
+					le_addr_type(cp->addr.type));
+	if (!params) {
+		bt_dev_warn(hdev, "No such LE device %pMR (0x%x)",
+			    &cp->addr.bdaddr, le_addr_type(cp->addr.type));
+		goto unlock;
+	}
+
+	supported_flags = get_params_flags(hdev, params);
+
+	if ((supported_flags | current_flags) != supported_flags) {
+		bt_dev_warn(hdev, "Bad flag given (0x%x) vs supported (0x%0x)",
+			    current_flags, supported_flags);
+		goto unlock;
+	}
+
+	params->flags = current_flags;
+	status = MGMT_STATUS_SUCCESS;
+
+	/* Update passive scan if HCI_CONN_FLAG_DEVICE_PRIVACY
+	 * has been set.
+	 */
+	if (params->flags & HCI_CONN_FLAG_DEVICE_PRIVACY)
+		hci_update_passive_scan(hdev);
+
+unlock:
 	hci_dev_unlock(hdev);
 
 done:
@@ -4712,7 +4736,6 @@ static int __add_adv_patterns_monitor(struct sock *sk, struct hci_dev *hdev,
 		else
 			status = MGMT_STATUS_FAILED;
 
-		mgmt_pending_remove(cmd);
 		goto unlock;
 	}
 
@@ -6810,11 +6833,14 @@ static int get_conn_info(struct sock *sk, struct hci_dev *hdev, void *data,
 
 		cmd = mgmt_pending_new(sk, MGMT_OP_GET_CONN_INFO, hdev, data,
 				       len);
-		if (!cmd)
+		if (!cmd) {
 			err = -ENOMEM;
-		else
+		} else {
+			hci_conn_hold(conn);
+			cmd->user_data = hci_conn_get(conn);
 			err = hci_cmd_sync_queue(hdev, get_conn_info_sync,
 						 cmd, get_conn_info_complete);
+		}
 
 		if (err < 0) {
 			mgmt_cmd_complete(sk, hdev->id, MGMT_OP_GET_CONN_INFO,
@@ -6825,9 +6851,6 @@ static int get_conn_info(struct sock *sk, struct hci_dev *hdev, void *data,
 
 			goto unlock;
 		}
-
-		hci_conn_hold(conn);
-		cmd->user_data = hci_conn_get(conn);
 
 		conn->conn_info_timestamp = jiffies;
 	} else {
@@ -7136,8 +7159,7 @@ static int add_device(struct sock *sk, struct hci_dev *hdev,
 		params = hci_conn_params_lookup(hdev, &cp->addr.bdaddr,
 						addr_type);
 		if (params)
-			bitmap_to_arr32(&current_flags, params->flags,
-					__HCI_CONN_NUM_FLAGS);
+			current_flags = params->flags;
 	}
 
 	err = hci_cmd_sync_queue(hdev, add_device_sync, NULL, NULL);
@@ -7146,8 +7168,7 @@ static int add_device(struct sock *sk, struct hci_dev *hdev,
 
 added:
 	device_added(sk, hdev, &cp->addr.bdaddr, cp->addr.type, cp->action);
-	bitmap_to_arr32(&supported_flags, hdev->conn_flags,
-			__HCI_CONN_NUM_FLAGS);
+	supported_flags = hdev->conn_flags;
 	device_flags_changed(NULL, hdev, &cp->addr.bdaddr, cp->addr.type,
 			     supported_flags, current_flags);
 

@@ -1066,6 +1066,7 @@ static const struct snd_soc_component_driver wsa881x_component_drv = {
 	.num_dapm_widgets = ARRAY_SIZE(wsa881x_dapm_widgets),
 	.dapm_routes = wsa881x_audio_map,
 	.num_dapm_routes = ARRAY_SIZE(wsa881x_audio_map),
+	.endianness = 1,
 };
 
 static int wsa881x_update_status(struct sdw_slave *slave,
@@ -1174,11 +1175,17 @@ static int __maybe_unused wsa881x_runtime_resume(struct device *dev)
 	struct sdw_slave *slave = dev_to_sdw_dev(dev);
 	struct regmap *regmap = dev_get_regmap(dev, NULL);
 	struct wsa881x_priv *wsa881x = dev_get_drvdata(dev);
+	unsigned long time;
 
 	gpiod_direction_output(wsa881x->sd_n, 1);
 
-	wait_for_completion_timeout(&slave->initialization_complete,
-				    msecs_to_jiffies(WSA881X_PROBE_TIMEOUT));
+	time = wait_for_completion_timeout(&slave->initialization_complete,
+					   msecs_to_jiffies(WSA881X_PROBE_TIMEOUT));
+	if (!time) {
+		dev_err(dev, "Initialization not complete, timed out\n");
+		gpiod_direction_output(wsa881x->sd_n, 0);
+		return -ETIMEDOUT;
+	}
 
 	regcache_cache_only(regmap, false);
 	regcache_sync(regmap);

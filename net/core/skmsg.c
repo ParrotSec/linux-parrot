@@ -462,7 +462,7 @@ int sk_msg_recvmsg(struct sock *sk, struct sk_psock *psock, struct msghdr *msg,
 
 			if (copied == len)
 				break;
-		} while (i != msg_rx->sg.end);
+		} while ((i != msg_rx->sg.end) && !sg_is_last(sge));
 
 		if (unlikely(peek)) {
 			msg_rx = sk_psock_next_msg(psock, msg_rx);
@@ -472,7 +472,7 @@ int sk_msg_recvmsg(struct sock *sk, struct sk_psock *psock, struct msghdr *msg,
 		}
 
 		msg_rx->sg.start = i;
-		if (!sge->length && msg_rx->sg.start == msg_rx->sg.end) {
+		if (!sge->length && (i == msg_rx->sg.end || sg_is_last(sge))) {
 			msg_rx = sk_psock_dequeue_msg(psock);
 			kfree_sk_msg(msg_rx);
 		}
@@ -524,16 +524,20 @@ static int sk_psock_skb_ingress_enqueue(struct sk_buff *skb,
 {
 	int num_sge, copied;
 
-	/* skb linearize may fail with ENOMEM, but lets simply try again
-	 * later if this happens. Under memory pressure we don't want to
-	 * drop the skb. We need to linearize the skb so that the mapping
-	 * in skb_to_sgvec can not error.
-	 */
-	if (skb_linearize(skb))
-		return -EAGAIN;
 	num_sge = skb_to_sgvec(skb, msg->sg.data, off, len);
-	if (unlikely(num_sge < 0))
-		return num_sge;
+	if (num_sge < 0) {
+		/* skb linearize may fail with ENOMEM, but lets simply try again
+		 * later if this happens. Under memory pressure we don't want to
+		 * drop the skb. We need to linearize the skb so that the mapping
+		 * in skb_to_sgvec can not error.
+		 */
+		if (skb_linearize(skb))
+			return -EAGAIN;
+
+		num_sge = skb_to_sgvec(skb, msg->sg.data, off, len);
+		if (unlikely(num_sge < 0))
+			return num_sge;
+	}
 
 	copied = len;
 	msg->sg.start = 0;
@@ -695,6 +699,11 @@ struct sk_psock *sk_psock_init(struct sock *sk, int node)
 
 	write_lock_bh(&sk->sk_callback_lock);
 
+	if (sk_is_inet(sk) && inet_csk_has_ulp(sk)) {
+		psock = ERR_PTR(-EINVAL);
+		goto out;
+	}
+
 	if (sk->sk_user_data) {
 		psock = ERR_PTR(-EBUSY);
 		goto out;
@@ -726,7 +735,9 @@ struct sk_psock *sk_psock_init(struct sock *sk, int node)
 	sk_psock_set_state(psock, SK_PSOCK_TX_ENABLED);
 	refcount_set(&psock->refcnt, 1);
 
-	rcu_assign_sk_user_data_nocopy(sk, psock);
+	__rcu_assign_sk_user_data_with_flags(sk, psock,
+					     SK_USER_DATA_NOCOPY |
+					     SK_USER_DATA_PSOCK);
 	sock_hold(sk);
 
 out:

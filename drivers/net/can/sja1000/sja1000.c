@@ -60,7 +60,6 @@
 
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
-#include <linux/can/led.h>
 
 #include "sja1000.h"
 
@@ -383,8 +382,6 @@ static void sja1000_rx(struct net_device *dev)
 	sja1000_write_cmdreg(priv, CMD_RRB);
 
 	netif_rx(skb);
-
-	can_led_event(dev, CAN_LED_EVENT_RX);
 }
 
 static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
@@ -404,9 +401,6 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 
 	txerr = priv->read_reg(priv, SJA1000_TXERR);
 	rxerr = priv->read_reg(priv, SJA1000_RXERR);
-
-	cf->data[6] = txerr;
-	cf->data[7] = rxerr;
 
 	if (isrc & IRQ_DOI) {
 		/* data overrun interrupt */
@@ -428,6 +422,10 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 			state = CAN_STATE_ERROR_WARNING;
 		else
 			state = CAN_STATE_ERROR_ACTIVE;
+	}
+	if (state != CAN_STATE_BUS_OFF) {
+		cf->data[6] = txerr;
+		cf->data[7] = rxerr;
 	}
 	if (isrc & IRQ_BEI) {
 		/* bus error interrupt */
@@ -531,7 +529,6 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 				stats->tx_packets++;
 			}
 			netif_wake_queue(dev);
-			can_led_event(dev, CAN_LED_EVENT_TX);
 		}
 		if (isrc & IRQ_RI) {
 			/* receive interrupt */
@@ -587,8 +584,6 @@ static int sja1000_open(struct net_device *dev)
 	/* init and start chi */
 	sja1000_start(dev);
 
-	can_led_event(dev, CAN_LED_EVENT_OPEN);
-
 	netif_start_queue(dev);
 
 	return 0;
@@ -605,8 +600,6 @@ static int sja1000_close(struct net_device *dev)
 		free_irq(dev->irq, (void *)dev);
 
 	close_candev(dev);
-
-	can_led_event(dev, CAN_LED_EVENT_STOP);
 
 	return 0;
 }
@@ -672,9 +665,6 @@ int register_sja1000dev(struct net_device *dev)
 	chipset_init(dev);
 
 	ret =  register_candev(dev);
-
-	if (!ret)
-		devm_can_led_init(dev);
 
 	return ret;
 }

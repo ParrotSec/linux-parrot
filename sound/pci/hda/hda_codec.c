@@ -2936,12 +2936,18 @@ static int hda_codec_runtime_suspend(struct device *dev)
 		return 0;
 
 	cancel_delayed_work_sync(&codec->jackpoll_work);
+
 	state = hda_call_codec_suspend(codec);
 	if (codec->link_down_at_suspend ||
 	    (codec_has_clkstop(codec) && codec_has_epss(codec) &&
 	     (state & AC_PWRST_CLK_STOP_OK)))
 		snd_hdac_codec_link_down(&codec->core);
 	snd_hda_codec_display_power(codec, false);
+
+	if (codec->bus->jackpoll_in_suspend &&
+		(dev->power.power_state.event != PM_EVENT_SUSPEND))
+		schedule_delayed_work(&codec->jackpoll_work,
+					codec->jackpoll_interval);
 	return 0;
 }
 
@@ -2965,6 +2971,9 @@ static int hda_codec_runtime_resume(struct device *dev)
 #ifdef CONFIG_PM_SLEEP
 static int hda_codec_pm_prepare(struct device *dev)
 {
+	struct hda_codec *codec = dev_to_hda_codec(dev);
+
+	cancel_delayed_work_sync(&codec->jackpoll_work);
 	dev->power.power_state = PMSG_SUSPEND;
 	return pm_runtime_suspended(dev);
 }
@@ -2996,6 +3005,9 @@ static int hda_codec_pm_resume(struct device *dev)
 
 static int hda_codec_pm_freeze(struct device *dev)
 {
+	struct hda_codec *codec = dev_to_hda_codec(dev);
+
+	cancel_delayed_work_sync(&codec->jackpoll_work);
 	dev->power.power_state = PMSG_FREEZE;
 	return pm_runtime_force_suspend(dev);
 }
@@ -3038,6 +3050,7 @@ void snd_hda_codec_shutdown(struct hda_codec *codec)
 	if (!codec->registered)
 		return;
 
+	cancel_delayed_work_sync(&codec->jackpoll_work);
 	list_for_each_entry(cpcm, &codec->pcm_list_head, list)
 		snd_pcm_suspend_all(cpcm->pcm);
 

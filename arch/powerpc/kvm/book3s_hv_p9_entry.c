@@ -379,7 +379,7 @@ void restore_p9_host_os_sprs(struct kvm_vcpu *vcpu,
 {
 	/*
 	 * current->thread.xxx registers must all be restored to host
-	 * values before a potential context switch, othrewise the context
+	 * values before a potential context switch, otherwise the context
 	 * switch itself will overwrite current->thread.xxx with the values
 	 * from the guest SPRs.
 	 */
@@ -438,15 +438,6 @@ void restore_p9_host_os_sprs(struct kvm_vcpu *vcpu,
 EXPORT_SYMBOL_GPL(restore_p9_host_os_sprs);
 
 #ifdef CONFIG_KVM_BOOK3S_HV_EXIT_TIMING
-static void __start_timing(struct kvm_vcpu *vcpu, struct kvmhv_tb_accumulator *next)
-{
-	struct kvmppc_vcore *vc = vcpu->arch.vcore;
-	u64 tb = mftb() - vc->tb_offset_applied;
-
-	vcpu->arch.cur_activity = next;
-	vcpu->arch.cur_tb_start = tb;
-}
-
 static void __accumulate_time(struct kvm_vcpu *vcpu, struct kvmhv_tb_accumulator *next)
 {
 	struct kvmppc_vcore *vc = vcpu->arch.vcore;
@@ -478,8 +469,8 @@ static void __accumulate_time(struct kvm_vcpu *vcpu, struct kvmhv_tb_accumulator
 	curr->seqcount = seq + 2;
 }
 
-#define start_timing(vcpu, next) __start_timing(vcpu, next)
-#define end_timing(vcpu) __start_timing(vcpu, NULL)
+#define start_timing(vcpu, next) __accumulate_time(vcpu, next)
+#define end_timing(vcpu) __accumulate_time(vcpu, NULL)
 #define accumulate_time(vcpu, next) __accumulate_time(vcpu, next)
 #else
 #define start_timing(vcpu, next) do {} while (0)
@@ -539,8 +530,10 @@ static void switch_mmu_to_guest_radix(struct kvm *kvm, struct kvm_vcpu *vcpu, u6
 {
 	struct kvm_nested_guest *nested = vcpu->arch.nested;
 	u32 lpid;
+	u32 pid;
 
 	lpid = nested ? nested->shadow_lpid : kvm->arch.lpid;
+	pid = vcpu->arch.pid;
 
 	/*
 	 * Prior memory accesses to host PID Q3 must be completed before we
@@ -551,7 +544,7 @@ static void switch_mmu_to_guest_radix(struct kvm *kvm, struct kvm_vcpu *vcpu, u6
 	isync();
 	mtspr(SPRN_LPID, lpid);
 	mtspr(SPRN_LPCR, lpcr);
-	mtspr(SPRN_PID, vcpu->arch.pid);
+	mtspr(SPRN_PID, pid);
 	/*
 	 * isync not required here because we are HRFID'ing to guest before
 	 * any guest context access, which is context synchronising.
@@ -561,9 +554,11 @@ static void switch_mmu_to_guest_radix(struct kvm *kvm, struct kvm_vcpu *vcpu, u6
 static void switch_mmu_to_guest_hpt(struct kvm *kvm, struct kvm_vcpu *vcpu, u64 lpcr)
 {
 	u32 lpid;
+	u32 pid;
 	int i;
 
 	lpid = kvm->arch.lpid;
+	pid = vcpu->arch.pid;
 
 	/*
 	 * See switch_mmu_to_guest_radix. ptesync should not be required here
@@ -574,7 +569,7 @@ static void switch_mmu_to_guest_hpt(struct kvm *kvm, struct kvm_vcpu *vcpu, u64 
 	isync();
 	mtspr(SPRN_LPID, lpid);
 	mtspr(SPRN_LPCR, lpcr);
-	mtspr(SPRN_PID, vcpu->arch.pid);
+	mtspr(SPRN_PID, pid);
 
 	for (i = 0; i < vcpu->arch.slb_max; i++)
 		mtslb(vcpu->arch.slb[i].orige, vcpu->arch.slb[i].origv);
@@ -585,6 +580,9 @@ static void switch_mmu_to_guest_hpt(struct kvm *kvm, struct kvm_vcpu *vcpu, u64 
 
 static void switch_mmu_to_host(struct kvm *kvm, u32 pid)
 {
+	u32 lpid = kvm->arch.host_lpid;
+	u64 lpcr = kvm->arch.host_lpcr;
+
 	/*
 	 * The guest has exited, so guest MMU context is no longer being
 	 * non-speculatively accessed, but a hwsync is needed before the
@@ -594,8 +592,8 @@ static void switch_mmu_to_host(struct kvm *kvm, u32 pid)
 	asm volatile("hwsync" ::: "memory");
 	isync();
 	mtspr(SPRN_PID, pid);
-	mtspr(SPRN_LPID, kvm->arch.host_lpid);
-	mtspr(SPRN_LPCR, kvm->arch.host_lpcr);
+	mtspr(SPRN_LPID, lpid);
+	mtspr(SPRN_LPCR, lpcr);
 	/*
 	 * isync is not required after the switch, because mtmsrd with L=0
 	 * is performed after this switch, which is context synchronising.

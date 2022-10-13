@@ -204,7 +204,8 @@ static int dpu_crtc_get_crc(struct drm_crtc *crtc)
 		rc = m->hw_lm->ops.collect_misr(m->hw_lm, &crcs[i]);
 
 		if (rc) {
-			DRM_DEBUG_DRIVER("MISR read failed\n");
+			if (rc != -ENODATA)
+				DRM_DEBUG_DRIVER("MISR read failed\n");
 			return rc;
 		}
 	}
@@ -358,6 +359,9 @@ static void _dpu_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		state = plane->state;
 		if (!state)
+			continue;
+
+		if (!state->visible)
 			continue;
 
 		pstate = to_dpu_plane_state(state);
@@ -869,6 +873,13 @@ void dpu_crtc_commit_kickoff(struct drm_crtc *crtc)
 
 	DPU_ATRACE_BEGIN("crtc_commit");
 
+	drm_for_each_encoder_mask(encoder, crtc->dev,
+			crtc->state->encoder_mask) {
+		if (!dpu_encoder_is_valid_for_commit(encoder)) {
+			DRM_DEBUG_ATOMIC("invalid FB not kicking off crtc\n");
+			goto end;
+		}
+	}
 	/*
 	 * Encoder will flush/start now, unless it has a tx pending. If so, it
 	 * may delay and flush at an irq event (e.g. ppdone)
@@ -891,6 +902,8 @@ void dpu_crtc_commit_kickoff(struct drm_crtc *crtc)
 		dpu_encoder_kickoff(encoder);
 
 	reinit_completion(&dpu_crtc->frame_done_comp);
+
+end:
 	DPU_ATRACE_END("crtc_commit");
 }
 
@@ -1122,6 +1135,9 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
 			goto end;
 		}
 		if (cnt >= DPU_STAGE_MAX * 4)
+			continue;
+
+		if (!pstate->visible)
 			continue;
 
 		pstates[cnt].dpu_pstate = dpu_pstate;

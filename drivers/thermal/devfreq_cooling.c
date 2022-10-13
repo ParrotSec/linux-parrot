@@ -200,7 +200,11 @@ static int devfreq_cooling_get_requested_power(struct thermal_cooling_device *cd
 		res = dfc->power_ops->get_real_power(df, power, freq, voltage);
 		if (!res) {
 			state = dfc->capped_state;
+
+			/* Convert EM power into milli-Watts first */
 			dfc->res_util = dfc->em_pd->table[state].power;
+			dfc->res_util /= MICROWATT_PER_MILLIWATT;
+
 			dfc->res_util *= SCALE_ERROR_MITIGATION;
 
 			if (*power > 1)
@@ -218,8 +222,10 @@ static int devfreq_cooling_get_requested_power(struct thermal_cooling_device *cd
 
 		_normalize_load(&status);
 
-		/* Scale power for utilization */
+		/* Convert EM power into milli-Watts first */
 		*power = dfc->em_pd->table[perf_idx].power;
+		*power /= MICROWATT_PER_MILLIWATT;
+		/* Scale power for utilization */
 		*power *= status.busy_time;
 		*power >>= 10;
 	}
@@ -244,6 +250,7 @@ static int devfreq_cooling_state2power(struct thermal_cooling_device *cdev,
 
 	perf_idx = dfc->max_state - state;
 	*power = dfc->em_pd->table[perf_idx].power;
+	*power /= MICROWATT_PER_MILLIWATT;
 
 	return 0;
 }
@@ -254,7 +261,7 @@ static int devfreq_cooling_power2state(struct thermal_cooling_device *cdev,
 	struct devfreq_cooling_device *dfc = cdev->devdata;
 	struct devfreq *df = dfc->devfreq;
 	struct devfreq_dev_status status;
-	unsigned long freq;
+	unsigned long freq, em_power_mw;
 	s32 est_power;
 	int i;
 
@@ -279,9 +286,13 @@ static int devfreq_cooling_power2state(struct thermal_cooling_device *cdev,
 	 * Find the first cooling state that is within the power
 	 * budget. The EM power table is sorted ascending.
 	 */
-	for (i = dfc->max_state; i > 0; i--)
-		if (est_power >= dfc->em_pd->table[i].power)
+	for (i = dfc->max_state; i > 0; i--) {
+		/* Convert EM power to milli-Watts to make safe comparison */
+		em_power_mw = dfc->em_pd->table[i].power;
+		em_power_mw /= MICROWATT_PER_MILLIWATT;
+		if (est_power >= em_power_mw)
 			break;
+	}
 
 	*state = dfc->max_state - i;
 	dfc->capped_state = *state;
@@ -358,28 +369,37 @@ of_devfreq_cooling_register_power(struct device_node *np, struct devfreq *df,
 	struct thermal_cooling_device *cdev;
 	struct device *dev = df->dev.parent;
 	struct devfreq_cooling_device *dfc;
+	struct em_perf_domain *em;
+	struct thermal_cooling_device_ops *ops;
 	char *name;
 	int err, num_opps;
 
-	dfc = kzalloc(sizeof(*dfc), GFP_KERNEL);
-	if (!dfc)
+	ops = kmemdup(&devfreq_cooling_ops, sizeof(*ops), GFP_KERNEL);
+	if (!ops)
 		return ERR_PTR(-ENOMEM);
+
+	dfc = kzalloc(sizeof(*dfc), GFP_KERNEL);
+	if (!dfc) {
+		err = -ENOMEM;
+		goto free_ops;
+	}
 
 	dfc->devfreq = df;
 
-	dfc->em_pd = em_pd_get(dev);
-	if (dfc->em_pd) {
-		devfreq_cooling_ops.get_requested_power =
+	em = em_pd_get(dev);
+	if (em && !em_is_artificial(em)) {
+		dfc->em_pd = em;
+		ops->get_requested_power =
 			devfreq_cooling_get_requested_power;
-		devfreq_cooling_ops.state2power = devfreq_cooling_state2power;
-		devfreq_cooling_ops.power2state = devfreq_cooling_power2state;
+		ops->state2power = devfreq_cooling_state2power;
+		ops->power2state = devfreq_cooling_power2state;
 
 		dfc->power_ops = dfc_power;
 
 		num_opps = em_pd_nr_perf_states(dfc->em_pd);
 	} else {
 		/* Backward compatibility for drivers which do not use IPA */
-		dev_dbg(dev, "missing EM for cooling device\n");
+		dev_dbg(dev, "missing proper EM for cooling device\n");
 
 		num_opps = dev_pm_opp_get_opp_count(dev);
 
@@ -407,8 +427,7 @@ of_devfreq_cooling_register_power(struct device_node *np, struct devfreq *df,
 	if (!name)
 		goto remove_qos_req;
 
-	cdev = thermal_of_cooling_device_register(np, name, dfc,
-						  &devfreq_cooling_ops);
+	cdev = thermal_of_cooling_device_register(np, name, dfc, ops);
 	kfree(name);
 
 	if (IS_ERR(cdev)) {
@@ -429,6 +448,8 @@ free_table:
 	kfree(dfc->freq_table);
 free_dfc:
 	kfree(dfc);
+free_ops:
+	kfree(ops);
 
 	return ERR_PTR(err);
 }
@@ -510,11 +531,13 @@ EXPORT_SYMBOL_GPL(devfreq_cooling_em_register);
 void devfreq_cooling_unregister(struct thermal_cooling_device *cdev)
 {
 	struct devfreq_cooling_device *dfc;
+	const struct thermal_cooling_device_ops *ops;
 	struct device *dev;
 
 	if (IS_ERR_OR_NULL(cdev))
 		return;
 
+	ops = cdev->ops;
 	dfc = cdev->devdata;
 	dev = dfc->devfreq->dev.parent;
 
@@ -525,5 +548,6 @@ void devfreq_cooling_unregister(struct thermal_cooling_device *cdev)
 
 	kfree(dfc->freq_table);
 	kfree(dfc);
+	kfree(ops);
 }
 EXPORT_SYMBOL_GPL(devfreq_cooling_unregister);
