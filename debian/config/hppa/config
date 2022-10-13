@@ -27,7 +27,6 @@ CONFIG_CRYPTO_MANAGER_DISABLE_TESTS=y
 ## file: drivers/ata/Kconfig
 ##
 CONFIG_PATA_NS87415=m
-CONFIG_PATA_LEGACY=m
 
 ##
 ## file: drivers/block/Kconfig
@@ -199,7 +198,6 @@ CONFIG_ADAPTEC_STARFIRE=m
 CONFIG_AMD8111_ETH=m
 # CONFIG_LANCE is not set
 CONFIG_PCMCIA_NMCLAN=m
-# CONFIG_NI65 is not set
 
 ##
 ## file: drivers/net/ethernet/broadcom/Kconfig

@@ -26,7 +26,7 @@ CONFIG_MQ_IOSCHED_DEADLINE=m
 ##
 ## file: drivers/android/Kconfig
 ##
-# CONFIG_ANDROID is not set
+# CONFIG_ANDROID_BINDER_IPC is not set
 
 ##
 ## file: drivers/ata/Kconfig
@@ -1204,11 +1204,6 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_SCSI_SMARTPQI is not set
 
 ##
-## file: drivers/scsi/ufs/Kconfig
-##
-# CONFIG_SCSI_UFSHCD is not set
-
-##
 ## file: drivers/spi/Kconfig
 ##
 # CONFIG_SPI is not set
@@ -1264,6 +1259,11 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_SERIAL_8250_EXAR is not set
 # CONFIG_SERIAL_8250_RSA is not set
 # CONFIG_SERIAL_8250_MID is not set
+
+##
+## file: drivers/ufs/Kconfig
+##
+# CONFIG_SCSI_UFSHCD is not set
 
 ##
 ## file: drivers/usb/Kconfig

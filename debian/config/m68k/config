@@ -499,11 +499,6 @@ CONFIG_MVME16x_SCSI=m
 CONFIG_BVME6000_SCSI=m
 
 ##
-## file: drivers/scsi/ufs/Kconfig
-##
-# CONFIG_SCSI_UFSHCD is not set
-
-##
 ## file: drivers/spi/Kconfig
 ##
 # CONFIG_SPI is not set
@@ -541,6 +536,11 @@ CONFIG_SERIAL_8250_CS=m
 CONFIG_SERIAL_8250_NR_UARTS=4
 CONFIG_SERIAL_8250_RUNTIME_UARTS=4
 # CONFIG_SERIAL_8250_EXTENDED is not set
+
+##
+## file: drivers/ufs/Kconfig
+##
+# CONFIG_SCSI_UFSHCD is not set
 
 ##
 ## file: drivers/usb/Kconfig
@@ -699,7 +699,6 @@ CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 ## end choice
 CONFIG_SGETMASK_SYSCALL=y
 CONFIG_SYSFS_SYSCALL=y
-CONFIG_COMPAT_BRK=y
 # CONFIG_MODULE_SIG is not set
 
 ##
@@ -730,6 +729,7 @@ CONFIG_FONT_PEARL_8x8=y
 ##
 ## file: mm/Kconfig
 ##
+CONFIG_COMPAT_BRK=y
 # CONFIG_COMPACTION is not set
 # CONFIG_MIGRATION is not set
 # CONFIG_KSM is not set

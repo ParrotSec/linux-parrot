@@ -90,7 +90,7 @@ enum dc_edid_status dm_helpers_parse_edid_caps(
 {
 	struct amdgpu_dm_connector *aconnector = link->priv;
 	struct drm_connector *connector = &aconnector->base;
-	struct edid *edid_buf = (struct edid *) edid->raw_edid;
+	struct edid *edid_buf = edid ? (struct edid *) edid->raw_edid : NULL;
 	struct cea_sad *sads;
 	int sad_count = -1;
 	int sadb_count = -1;
@@ -571,7 +571,7 @@ static bool execute_synaptics_rc_command(struct drm_dp_aux *aux,
 	unsigned char rc_cmd = 0;
 	unsigned char rc_result = 0xFF;
 	unsigned char i = 0;
-	uint8_t ret = 0;
+	int ret;
 
 	if (is_write_cmd) {
 		// write rc data
@@ -977,9 +977,7 @@ void dm_set_phyd32clk(struct dc_context *ctx, int freq_khz)
        // TODO
 }
 
-#if defined(CONFIG_DRM_AMD_DC_DCN)
 void dm_helpers_enable_periodic_detection(struct dc_context *ctx, bool enable)
 {
 	/* TODO: add periodic detection implementation */
 }
-#endif

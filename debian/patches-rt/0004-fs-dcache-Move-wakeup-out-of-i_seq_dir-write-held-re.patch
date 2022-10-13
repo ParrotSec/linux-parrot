@@ -1,0 +1,83 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Wed, 27 Jul 2022 11:20:40 +0200
+Subject: [PATCH 4/4] fs/dcache: Move wakeup out of i_seq_dir write held
+ region.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+
+__d_add() and __d_move() wake up waiters on dentry::d_wait from within
+the i_seq_dir write held region.  This violates the PREEMPT_RT
+constraints as the wake up acquires wait_queue_head::lock which is a
+"sleeping" spinlock on RT.
+
+There is no requirement to do so. __d_lookup_unhash() has cleared
+DCACHE_PAR_LOOKUP and dentry::d_wait and returned the now unreachable wait
+queue head pointer to the caller, so the actual wake up can be postponed
+until the i_dir_seq write side critical section is left. The only
+requirement is that dentry::lock is held across the whole sequence
+including the wake up. The previous commit includes an analysis why this
+is considered safe.
+
+Move the wake up past end_dir_add() which leaves the i_dir_seq write side
+critical section and enables preemption.
+
+For non RT kernels there is no difference because preemption is still
+disabled due to dentry::lock being held, but it shortens the time between
+wake up and unlocking dentry::lock, which reduces the contention for the
+woken up waiter.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -2581,11 +2581,13 @@ static inline unsigned start_dir_add(str
+ 	}
+ }
+ 
+-static inline void end_dir_add(struct inode *dir, unsigned n)
++static inline void end_dir_add(struct inode *dir, unsigned int n,
++			       wait_queue_head_t *d_wait)
+ {
+ 	smp_store_release(&dir->i_dir_seq, n + 2);
+ 	if (IS_ENABLED(CONFIG_PREEMPT_RT))
+ 		preempt_enable();
++	wake_up_all(d_wait);
+ }
+ 
+ static void d_wait_lookup(struct dentry *dentry)
+@@ -2756,7 +2758,6 @@ static inline void __d_add(struct dentry
+ 		dir = dentry->d_parent->d_inode;
+ 		n = start_dir_add(dir);
+ 		d_wait = __d_lookup_unhash(dentry);
+-		wake_up_all(d_wait);
+ 	}
+ 	if (inode) {
+ 		unsigned add_flags = d_flags_for_inode(inode);
+@@ -2768,7 +2769,7 @@ static inline void __d_add(struct dentry
+ 	}
+ 	__d_rehash(dentry);
+ 	if (dir)
+-		end_dir_add(dir, n);
++		end_dir_add(dir, n, d_wait);
+ 	spin_unlock(&dentry->d_lock);
+ 	if (inode)
+ 		spin_unlock(&inode->i_lock);
+@@ -2947,7 +2948,6 @@ static void __d_move(struct dentry *dent
+ 		dir = target->d_parent->d_inode;
+ 		n = start_dir_add(dir);
+ 		d_wait = __d_lookup_unhash(target);
+-		wake_up_all(d_wait);
+ 	}
+ 
+ 	write_seqcount_begin(&dentry->d_seq);
+@@ -2983,7 +2983,7 @@ static void __d_move(struct dentry *dent
+ 	write_seqcount_end(&dentry->d_seq);
+ 
+ 	if (dir)
+-		end_dir_add(dir, n);
++		end_dir_add(dir, n, d_wait);
+ 
+ 	if (dentry->d_parent != old_parent)
+ 		spin_unlock(&dentry->d_parent->d_lock);

@@ -8,7 +8,7 @@ tp3
 (dp4
 Vabiname
 p5
-V1parrot1
+V11parrot1
 p6
 sVignore-changes
 p7
@@ -1709,11 +1709,11 @@ tp913
 (dp914
 Vhardware
 p915
-VMIPS Generic (mips64r2eb)
+VMIPS Generic (mips64r2el)
 p916
 sVhardware-long
 p917
-VMIPS Generic platform (mips64r2eb)
+VMIPS Generic platform (mips64r2el)
 p918
 ss(Vimage
 p919
@@ -3048,18 +3048,18 @@ tp1636
 (dp1637
 Vsource
 p1638
-V5.18.2-1parrot1
+V5.19.11-11parrot1
 p1639
 sVupstream
 p1640
-V5.18
+V5.19
 p1641
 sVabiname_base
 p1642
-V5.18.0
+V5.19.0
 p1643
 sVabiname
 p1644
-V5.18.0-1parrot1
+V5.19.0-11parrot1
 p1645
 ss.

@@ -1,22 +1,24 @@
-Subject: drivers/block/zram: Replace bit spinlocks with rtmutex for -rt
+Subject: zram: Replace bit spinlocks with spinlock_t for PREEMPT_RT.
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Thu Mar 31 04:08:28 2016 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 
-They're nondeterministic, and lead to ___might_sleep() splats in -rt.
-OTOH, they're a lot less wasteful than an rtmutex per page.
+The bit spinlock disables preemption on PREEMPT_RT. With disabled preemption it
+is not allowed to acquire other sleeping locks which includes invoking
+zs_free().
+
+Use a spinlock_t on PREEMPT_RT for locking and set/ clear ZRAM_LOCK after the
+lock has been acquired/ dropped.
 
 Signed-off-by: Mike Galbraith <umgwanakikbuti@gmail.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-
-
+Link: https://lkml.kernel.org/r/YqIbMuHCPiQk+Ac2@linutronix.de
 ---
  drivers/block/zram/zram_drv.c |   36 ++++++++++++++++++++++++++++++++++++
- drivers/block/zram/zram_drv.h |    1 +
- 2 files changed, 37 insertions(+)
+ drivers/block/zram/zram_drv.h |    3 +++
+ 2 files changed, 39 insertions(+)
 ---
 --- a/drivers/block/zram/zram_drv.c
 +++ b/drivers/block/zram/zram_drv.c
@@ -69,7 +71,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  static inline bool init_done(struct zram *zram)
  {
-@@ -1194,6 +1229,7 @@ static bool zram_meta_alloc(struct zram
+@@ -1195,6 +1230,7 @@ static bool zram_meta_alloc(struct zram
  
  	if (!huge_class_size)
  		huge_class_size = zs_huge_class_size(zram->mem_pool);
@@ -79,11 +81,13 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
 --- a/drivers/block/zram/zram_drv.h
 +++ b/drivers/block/zram/zram_drv.h
-@@ -63,6 +63,7 @@ struct zram_table_entry {
+@@ -63,6 +63,9 @@ struct zram_table_entry {
  		unsigned long element;
  	};
  	unsigned long flags;
++#ifdef CONFIG_PREEMPT_RT
 +	spinlock_t lock;
++#endif
  #ifdef CONFIG_ZRAM_MEMORY_TRACKING
  	ktime_t ac_time;
  #endif

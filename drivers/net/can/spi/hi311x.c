@@ -16,7 +16,6 @@
 
 #include <linux/can/core.h>
 #include <linux/can/dev.h>
-#include <linux/can/led.h>
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
@@ -354,8 +353,6 @@ static void hi3110_hw_rx(struct spi_device *spi)
 	}
 	priv->net->stats.rx_packets++;
 
-	can_led_event(priv->net, CAN_LED_EVENT_RX);
-
 	netif_rx(skb);
 }
 
@@ -567,8 +564,6 @@ static int hi3110_stop(struct net_device *net)
 
 	mutex_unlock(&priv->hi3110_lock);
 
-	can_led_event(net, CAN_LED_EVENT_STOP);
-
 	return 0;
 }
 
@@ -672,8 +667,6 @@ static irqreturn_t hi3110_can_ist(int irq, void *dev_id)
 
 			txerr = hi3110_read(spi, HI3110_READ_TEC);
 			rxerr = hi3110_read(spi, HI3110_READ_REC);
-			cf->data[6] = txerr;
-			cf->data[7] = rxerr;
 			tx_state = txerr >= rxerr ? new_state : 0;
 			rx_state = txerr <= rxerr ? new_state : 0;
 			can_change_state(net, cf, tx_state, rx_state);
@@ -686,6 +679,9 @@ static irqreturn_t hi3110_can_ist(int irq, void *dev_id)
 					hi3110_hw_sleep(spi);
 					break;
 				}
+			} else {
+				cf->data[6] = txerr;
+				cf->data[7] = rxerr;
 			}
 		}
 
@@ -725,7 +721,6 @@ static irqreturn_t hi3110_can_ist(int irq, void *dev_id)
 		if (priv->tx_busy && statf & HI3110_STAT_TXMTY) {
 			net->stats.tx_packets++;
 			net->stats.tx_bytes += can_get_echo_skb(net, 0, NULL);
-			can_led_event(net, CAN_LED_EVENT_TX);
 			priv->tx_busy = false;
 			netif_wake_queue(net);
 		}
@@ -783,7 +778,6 @@ static int hi3110_open(struct net_device *net)
 	if (ret)
 		goto out_free_wq;
 
-	can_led_event(net, CAN_LED_EVENT_OPEN);
 	netif_wake_queue(net);
 	mutex_unlock(&priv->hi3110_lock);
 
@@ -931,7 +925,6 @@ static int hi3110_can_probe(struct spi_device *spi)
 	if (ret)
 		goto error_probe;
 
-	devm_can_led_init(net);
 	netdev_info(net, "%x successfully initialized.\n", priv->model);
 
 	return 0;

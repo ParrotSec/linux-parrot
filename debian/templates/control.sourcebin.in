@@ -4,7 +4,7 @@ Architecture: all
 Section: kernel
 Build-Depends: patchutils
 Depends: binutils, xz-utils, ${misc:Depends}
-Recommends: libc6-dev | libc-dev, gcc, make, bc, bison, flex, @source_basename@-config-@version@
+Recommends: build-essential, bc, rsync, kmod, cpio, bison, flex, libelf-dev, libssl-dev, @source_basename@-config-@version@
 Suggests: libncurses-dev | ncurses-dev, qtbase5-dev, pkg-config
 Multi-Arch: foreign
 Description: Linux kernel source for version @version@ with Debian patches

@@ -1,0 +1,151 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 14 Jun 2022 20:18:14 +0200
+Subject: [PATCH] arch/*: Disable softirq stacks on PREEMPT_RT.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+
+PREEMPT_RT preempts softirqs and the current implementation avoids
+do_softirq_own_stack() and only uses __do_softirq().
+
+Disable the unused softirqs stacks on PREEMPT_RT to save some memory and
+ensure that do_softirq_own_stack() is not used bwcause it is not expected.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lkml.kernel.org/r/CAK8P3a1QmeAscV-Ory-Dae4RoLvDSPEjEgFGQHR9U8jUervGuA@mail.gmail.com
+---
+ arch/arm/kernel/irq.c                 |    3 ++-
+ arch/parisc/kernel/irq.c              |    2 ++
+ arch/powerpc/kernel/irq.c             |    4 ++++
+ arch/s390/include/asm/softirq_stack.h |    3 ++-
+ arch/sh/kernel/irq.c                  |    2 ++
+ arch/sparc/kernel/irq_64.c            |    2 ++
+ include/asm-generic/softirq_stack.h   |    2 +-
+ 7 files changed, 15 insertions(+), 3 deletions(-)
+
+--- a/arch/arm/kernel/irq.c
++++ b/arch/arm/kernel/irq.c
+@@ -70,6 +70,7 @@ static void __init init_irq_stacks(void)
+ 	}
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ static void ____do_softirq(void *arg)
+ {
+ 	__do_softirq();
+@@ -80,7 +81,7 @@ void do_softirq_own_stack(void)
+ 	call_with_stack(____do_softirq, NULL,
+ 			__this_cpu_read(irq_stack_ptr));
+ }
+-
++#endif
+ #endif
+ 
+ int arch_show_interrupts(struct seq_file *p, int prec)
+--- a/arch/parisc/kernel/irq.c
++++ b/arch/parisc/kernel/irq.c
+@@ -480,10 +480,12 @@ static void execute_on_irq_stack(void *f
+ 	*irq_stack_in_use = 1;
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	execute_on_irq_stack(__do_softirq, 0);
+ }
++#endif
+ #endif /* CONFIG_IRQSTACKS */
+ 
+ /* ONLY called from entry.S:intr_extint() */
+--- a/arch/powerpc/kernel/irq.c
++++ b/arch/powerpc/kernel/irq.c
+@@ -611,6 +611,7 @@ static inline void check_stack_overflow(
+ 	}
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ static __always_inline void call_do_softirq(const void *sp)
+ {
+ 	/* Temporarily switch r1 to sp, call __do_softirq() then restore r1. */
+@@ -629,6 +630,7 @@ static __always_inline void call_do_soft
+ 		   "r11", "r12"
+ 	);
+ }
++#endif
+ 
+ static __always_inline void call_do_irq(struct pt_regs *regs, void *sp)
+ {
+@@ -747,10 +749,12 @@ void *mcheckirq_ctx[NR_CPUS] __read_most
+ void *softirq_ctx[NR_CPUS] __read_mostly;
+ void *hardirq_ctx[NR_CPUS] __read_mostly;
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	call_do_softirq(softirq_ctx[smp_processor_id()]);
+ }
++#endif
+ 
+ irq_hw_number_t virq_to_hw(unsigned int virq)
+ {
+--- a/arch/s390/include/asm/softirq_stack.h
++++ b/arch/s390/include/asm/softirq_stack.h
+@@ -5,9 +5,10 @@
+ #include <asm/lowcore.h>
+ #include <asm/stacktrace.h>
+ 
++#ifndef CONFIG_PREEMPT_RT
+ static inline void do_softirq_own_stack(void)
+ {
+ 	call_on_stack(0, S390_lowcore.async_stack, void, __do_softirq);
+ }
+-
++#endif
+ #endif /* __ASM_S390_SOFTIRQ_STACK_H */
+--- a/arch/sh/kernel/irq.c
++++ b/arch/sh/kernel/irq.c
+@@ -149,6 +149,7 @@ void irq_ctx_exit(int cpu)
+ 	hardirq_ctx[cpu] = NULL;
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	struct thread_info *curctx;
+@@ -176,6 +177,7 @@ void do_softirq_own_stack(void)
+ 		  "r5", "r6", "r7", "r8", "r9", "r15", "t", "pr"
+ 	);
+ }
++#endif
+ #else
+ static inline void handle_one_irq(unsigned int irq)
+ {
+--- a/arch/sparc/kernel/irq_64.c
++++ b/arch/sparc/kernel/irq_64.c
+@@ -855,6 +855,7 @@ void __irq_entry handler_irq(int pil, st
+ 	set_irq_regs(old_regs);
+ }
+ 
++#ifndef CONFIG_PREEMPT_RT
+ void do_softirq_own_stack(void)
+ {
+ 	void *orig_sp, *sp = softirq_stack[smp_processor_id()];
+@@ -869,6 +870,7 @@ void do_softirq_own_stack(void)
+ 	__asm__ __volatile__("mov %0, %%sp"
+ 			     : : "r" (orig_sp));
+ }
++#endif
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+ void fixup_irqs(void)
+--- a/include/asm-generic/softirq_stack.h
++++ b/include/asm-generic/softirq_stack.h
+@@ -2,7 +2,7 @@
+ #ifndef __ASM_GENERIC_SOFTIRQ_STACK_H
+ #define __ASM_GENERIC_SOFTIRQ_STACK_H
+ 
+-#ifdef CONFIG_HAVE_SOFTIRQ_ON_OWN_STACK
++#if defined(CONFIG_HAVE_SOFTIRQ_ON_OWN_STACK) && !defined(CONFIG_PREEMPT_RT)
+ void do_softirq_own_stack(void);
+ #else
+ static inline void do_softirq_own_stack(void)

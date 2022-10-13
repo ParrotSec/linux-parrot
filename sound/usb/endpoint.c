@@ -35,6 +35,14 @@ struct snd_usb_iface_ref {
 	struct list_head list;
 };
 
+/* clock refcounting */
+struct snd_usb_clock_ref {
+	unsigned char clock;
+	atomic_t locked;
+	int rate;
+	struct list_head list;
+};
+
 /*
  * snd_usb_endpoint is a model that abstracts everything related to an
  * USB endpoint and its streaming.
@@ -591,6 +599,25 @@ iface_ref_find(struct snd_usb_audio *chip, int iface)
 	return ip;
 }
 
+/* Similarly, a refcount object for clock */
+static struct snd_usb_clock_ref *
+clock_ref_find(struct snd_usb_audio *chip, int clock)
+{
+	struct snd_usb_clock_ref *ref;
+
+	list_for_each_entry(ref, &chip->clock_ref_list, list)
+		if (ref->clock == clock)
+			return ref;
+
+	ref = kzalloc(sizeof(*ref), GFP_KERNEL);
+	if (!ref)
+		return NULL;
+	ref->clock = clock;
+	atomic_set(&ref->locked, 0);
+	list_add_tail(&ref->list, &chip->clock_ref_list);
+	return ref;
+}
+
 /*
  * Get the existing endpoint object corresponding EP
  * Returns NULL if not present.
@@ -731,7 +758,8 @@ bool snd_usb_endpoint_compatible(struct snd_usb_audio *chip,
  * The endpoint needs to be closed via snd_usb_endpoint_close() later.
  *
  * Note that this function doesn't configure the endpoint.  The substream
- * needs to set it up later via snd_usb_endpoint_configure().
+ * needs to set it up later via snd_usb_endpoint_set_params() and
+ * snd_usb_endpoint_prepare().
  */
 struct snd_usb_endpoint *
 snd_usb_endpoint_open(struct snd_usb_audio *chip,
@@ -768,6 +796,14 @@ snd_usb_endpoint_open(struct snd_usb_audio *chip,
 			goto unlock;
 		}
 
+		if (fp->protocol != UAC_VERSION_1) {
+			ep->clock_ref = clock_ref_find(chip, fp->clock);
+			if (!ep->clock_ref) {
+				ep = NULL;
+				goto unlock;
+			}
+		}
+
 		ep->cur_audiofmt = fp;
 		ep->cur_channels = fp->channels;
 		ep->cur_rate = params_rate(params);
@@ -777,7 +813,6 @@ snd_usb_endpoint_open(struct snd_usb_audio *chip,
 		ep->cur_period_frames = params_period_size(params);
 		ep->cur_period_bytes = ep->cur_period_frames * ep->cur_frame_bytes;
 		ep->cur_buffer_periods = params_periods(params);
-		ep->cur_clock = fp->clock;
 
 		if (ep->type == SND_USB_ENDPOINT_TYPE_SYNC)
 			endpoint_set_syncinterval(chip, ep);
@@ -890,12 +925,14 @@ void snd_usb_endpoint_close(struct snd_usb_audio *chip,
 		endpoint_set_interface(chip, ep, false);
 
 	if (!--ep->opened) {
+		if (ep->clock_ref && !atomic_read(&ep->clock_ref->locked))
+			ep->clock_ref->rate = 0;
 		ep->iface = 0;
 		ep->altsetting = 0;
 		ep->cur_audiofmt = NULL;
 		ep->cur_rate = 0;
-		ep->cur_clock = 0;
 		ep->iface_ref = NULL;
+		ep->clock_ref = NULL;
 		usb_audio_dbg(chip, "EP 0x%x closed\n", ep->ep_num);
 	}
 	mutex_unlock(&chip->mutex);
@@ -907,6 +944,8 @@ void snd_usb_endpoint_suspend(struct snd_usb_endpoint *ep)
 	ep->need_setup = true;
 	if (ep->iface_ref)
 		ep->iface_ref->need_setup = true;
+	if (ep->clock_ref)
+		ep->clock_ref->rate = 0;
 }
 
 /*
@@ -1254,12 +1293,13 @@ out_of_memory:
 /*
  * snd_usb_endpoint_set_params: configure an snd_usb_endpoint
  *
+ * It's called either from hw_params callback.
  * Determine the number of URBs to be used on this endpoint.
  * An endpoint must be configured before it can be started.
  * An endpoint that is already running can not be reconfigured.
  */
-static int snd_usb_endpoint_set_params(struct snd_usb_audio *chip,
-				       struct snd_usb_endpoint *ep)
+int snd_usb_endpoint_set_params(struct snd_usb_audio *chip,
+				struct snd_usb_endpoint *ep)
 {
 	const struct audioformat *fmt = ep->cur_audiofmt;
 	int err;
@@ -1314,19 +1354,46 @@ static int snd_usb_endpoint_set_params(struct snd_usb_audio *chip,
 	return 0;
 }
 
+static int init_sample_rate(struct snd_usb_audio *chip,
+			    struct snd_usb_endpoint *ep)
+{
+	struct snd_usb_clock_ref *clock = ep->clock_ref;
+	int err;
+
+	if (clock) {
+		if (atomic_read(&clock->locked))
+			return 0;
+		if (clock->rate == ep->cur_rate)
+			return 0;
+		if (clock->rate && clock->rate != ep->cur_rate) {
+			usb_audio_dbg(chip, "Mismatched sample rate %d vs %d for EP 0x%x\n",
+				      clock->rate, ep->cur_rate, ep->ep_num);
+			return -EINVAL;
+		}
+	}
+
+	err = snd_usb_init_sample_rate(chip, ep->cur_audiofmt, ep->cur_rate);
+	if (err < 0)
+		return err;
+
+	if (clock)
+		clock->rate = ep->cur_rate;
+	return 0;
+}
+
 /*
- * snd_usb_endpoint_configure: Configure the endpoint
+ * snd_usb_endpoint_prepare: Prepare the endpoint
  *
  * This function sets up the EP to be fully usable state.
- * It's called either from hw_params or prepare callback.
+ * It's called either from prepare callback.
  * The function checks need_setup flag, and performs nothing unless needed,
  * so it's safe to call this multiple times.
  *
  * This returns zero if unchanged, 1 if the configuration has changed,
  * or a negative error code.
  */
-int snd_usb_endpoint_configure(struct snd_usb_audio *chip,
-			       struct snd_usb_endpoint *ep)
+int snd_usb_endpoint_prepare(struct snd_usb_audio *chip,
+			     struct snd_usb_endpoint *ep)
 {
 	bool iface_first;
 	int err = 0;
@@ -1343,14 +1410,10 @@ int snd_usb_endpoint_configure(struct snd_usb_audio *chip,
 		 * to update at each EP configuration
 		 */
 		if (ep->cur_audiofmt->protocol == UAC_VERSION_1) {
-			err = snd_usb_init_sample_rate(chip, ep->cur_audiofmt,
-						       ep->cur_rate);
+			err = init_sample_rate(chip, ep);
 			if (err < 0)
 				goto unlock;
 		}
-		err = snd_usb_endpoint_set_params(chip, ep);
-		if (err < 0)
-			goto unlock;
 		goto done;
 	}
 
@@ -1374,11 +1437,7 @@ int snd_usb_endpoint_configure(struct snd_usb_audio *chip,
 	if (err < 0)
 		goto unlock;
 
-	err = snd_usb_init_sample_rate(chip, ep->cur_audiofmt, ep->cur_rate);
-	if (err < 0)
-		goto unlock;
-
-	err = snd_usb_endpoint_set_params(chip, ep);
+	err = init_sample_rate(chip, ep);
 	if (err < 0)
 		goto unlock;
 
@@ -1407,15 +1466,15 @@ unlock:
 /* get the current rate set to the given clock by any endpoint */
 int snd_usb_endpoint_get_clock_rate(struct snd_usb_audio *chip, int clock)
 {
-	struct snd_usb_endpoint *ep;
+	struct snd_usb_clock_ref *ref;
 	int rate = 0;
 
 	if (!clock)
 		return 0;
 	mutex_lock(&chip->mutex);
-	list_for_each_entry(ep, &chip->ep_list, list) {
-		if (ep->cur_clock == clock && ep->cur_rate) {
-			rate = ep->cur_rate;
+	list_for_each_entry(ref, &chip->clock_ref_list, list) {
+		if (ref->clock == clock) {
+			rate = ref->rate;
 			break;
 		}
 	}
@@ -1455,6 +1514,9 @@ int snd_usb_endpoint_start(struct snd_usb_endpoint *ep)
 	/* already running? */
 	if (atomic_inc_return(&ep->running) != 1)
 		return 0;
+
+	if (ep->clock_ref)
+		atomic_inc(&ep->clock_ref->locked);
 
 	ep->active_mask = 0;
 	ep->unlink_mask = 0;
@@ -1565,6 +1627,9 @@ void snd_usb_endpoint_stop(struct snd_usb_endpoint *ep, bool keep_pending)
 		if (ep->sync_source)
 			WRITE_ONCE(ep->sync_source->sync_sink, NULL);
 		stop_urbs(ep, false, keep_pending);
+		if (ep->clock_ref)
+			if (!atomic_dec_return(&ep->clock_ref->locked))
+				ep->clock_ref->rate = 0;
 	}
 }
 
@@ -1591,12 +1656,16 @@ void snd_usb_endpoint_free_all(struct snd_usb_audio *chip)
 {
 	struct snd_usb_endpoint *ep, *en;
 	struct snd_usb_iface_ref *ip, *in;
+	struct snd_usb_clock_ref *cp, *cn;
 
 	list_for_each_entry_safe(ep, en, &chip->ep_list, list)
 		kfree(ep);
 
 	list_for_each_entry_safe(ip, in, &chip->iface_ref_list, list)
 		kfree(ip);
+
+	list_for_each_entry_safe(cp, cn, &chip->clock_ref_list, list)
+		kfree(cp);
 }
 
 /*

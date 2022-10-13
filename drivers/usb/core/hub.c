@@ -1635,7 +1635,7 @@ static int hub_configure(struct usb_hub *hub,
 	 * maxpktsize is defined in hcd.c's fake endpoint descriptors
 	 * to be big enough for at least USB_MAXCHILDREN ports. */
 	pipe = usb_rcvintpipe(hdev, endpoint->bEndpointAddress);
-	maxp = usb_maxpacket(hdev, pipe, usb_pipeout(pipe));
+	maxp = usb_maxpacket(hdev, pipe);
 
 	if (maxp > sizeof(*hub->buffer))
 		maxp = sizeof(*hub->buffer);
@@ -5511,7 +5511,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 /* Handle notifying userspace about hub over-current events */
 static void port_over_current_notify(struct usb_port *port_dev)
 {
-	char *envp[3];
+	char *envp[3] = { NULL, NULL, NULL };
 	struct device *hub_dev;
 	char *port_dev_path;
 
@@ -5528,20 +5528,18 @@ static void port_over_current_notify(struct usb_port *port_dev)
 
 	envp[0] = kasprintf(GFP_KERNEL, "OVER_CURRENT_PORT=%s", port_dev_path);
 	if (!envp[0])
-		goto exit_path;
+		goto exit;
 
 	envp[1] = kasprintf(GFP_KERNEL, "OVER_CURRENT_COUNT=%u",
 			port_dev->over_current_count);
 	if (!envp[1])
 		goto exit;
 
-	envp[2] = NULL;
 	kobject_uevent_env(&hub_dev->kobj, KOBJ_CHANGE, envp);
 
-	kfree(envp[1]);
 exit:
+	kfree(envp[1]);
 	kfree(envp[0]);
-exit_path:
 	kfree(port_dev_path);
 }
 
@@ -6050,6 +6048,11 @@ re_enumerate:
  * the reset is over (using their post_reset method).
  *
  * Return: The same as for usb_reset_and_verify_device().
+ * However, if a reset is already in progress (for instance, if a
+ * driver doesn't have pre_ or post_reset() callbacks, and while
+ * being unbound or re-bound during the ongoing reset its disconnect()
+ * or probe() routine tries to perform a second, nested reset), the
+ * routine returns -EINPROGRESS.
  *
  * Note:
  * The caller must own the device lock.  For example, it's safe to use
@@ -6082,6 +6085,10 @@ int usb_reset_device(struct usb_device *udev)
 		dev_dbg(&udev->dev, "%s for root hub!\n", __func__);
 		return -EISDIR;
 	}
+
+	if (udev->reset_in_progress)
+		return -EINPROGRESS;
+	udev->reset_in_progress = 1;
 
 	port_dev = hub->ports[udev->portnum - 1];
 
@@ -6147,6 +6154,7 @@ int usb_reset_device(struct usb_device *udev)
 
 	usb_autosuspend_device(udev);
 	memalloc_noio_restore(noio_flag);
+	udev->reset_in_progress = 0;
 	return ret;
 }
 EXPORT_SYMBOL_GPL(usb_reset_device);

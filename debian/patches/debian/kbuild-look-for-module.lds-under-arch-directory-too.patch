@@ -22,10 +22,8 @@ Therefore, we move module.lds under the arch build directory in
 rules.real and change Makefile.modfinal to look for it in both places.
 
 ---
-Index: linux/scripts/Makefile.modfinal
-===================================================================
---- linux.orig/scripts/Makefile.modfinal
-+++ linux/scripts/Makefile.modfinal
+--- a/scripts/Makefile.modfinal
++++ b/scripts/Makefile.modfinal
 @@ -29,12 +29,13 @@ quiet_cmd_cc_o_c = CC [M]  $@
  	$(call if_changed_dep,cc_o_c)
  
@@ -42,11 +40,11 @@ Index: linux/scripts/Makefile.modfinal
  
  quiet_cmd_btf_ko = BTF [M] $@
 @@ -55,7 +56,7 @@ if_changed_except = $(if $(call newer_pr
- 
+ 	printf '%s\n' 'cmd_$@ := $(make-cmd)' > $(dot-target).cmd, @:)
  
  # Re-generate module BTFs if either module's .ko or vmlinux changed
--$(modules): %.ko: %$(mod-prelink-ext).o %.mod.o scripts/module.lds $(if $(KBUILD_BUILTIN),vmlinux) FORCE
-+$(modules): %.ko: %$(mod-prelink-ext).o %.mod.o $(ARCH_MODULE_LDS) $(if $(KBUILD_BUILTIN),vmlinux) FORCE
+-$(modules): %.ko: %.o %.mod.o scripts/module.lds $(if $(KBUILD_BUILTIN),vmlinux) FORCE
++$(modules): %.ko: %.o %.mod.o $(ARCH_MODULE_LDS) $(if $(KBUILD_BUILTIN),vmlinux) FORCE
  	+$(call if_changed_except,ld_ko_o,vmlinux)
  ifdef CONFIG_DEBUG_INFO_BTF_MODULES
  	+$(if $(newer-prereqs),$(call cmd,btf_ko))

@@ -82,17 +82,21 @@ maintainerclean:
 # We cannot use dh_clean here because it requires debian/control to exist
 	rm -rf debian/.debhelper debian/*.debhelper* debian/files
 	rm -f \
-		debian/linux-image-*.NEWS \
-		debian/linux-*.bug-presubj \
-		debian/linux-*.lintian-overrides \
-		debian/linux-*.maintscript \
-		debian/linux-*.postinst \
-		debian/linux-*.postrm \
-		debian/linux-*.preinst \
-		debian/linux-*.prerm \
 		debian/config.defines.dump \
 		debian/control \
 		debian/control.md5sum \
+		debian/linux-doc.maintscript \
+		debian/linux-headers-*.maintscript \
+		debian/linux-headers-*.postinst \
+		debian/linux-image-*.NEWS \
+		debian/linux-image-*.bug-presubj \
+		debian/linux-image-*.lintian-overrides \
+		debian/linux-image-*.maintscript \
+		debian/linux-image-*.postinst \
+		debian/linux-image-*.postrm \
+		debian/linux-image-*.preinst \
+		debian/linux-image-*.prerm \
+		debian/linux-source.maintscript \
 		debian/rules.gen \
 		debian/tests/control
 	rm -rf $(filter-out debian .svk .svn .git, $(wildcard * .[^.]*))

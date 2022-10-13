@@ -1,0 +1,36 @@
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Wed, 27 Jul 2022 08:24:15 +0200
+Subject: [PATCH 1/4] fs/dcache: d_add_ci() needs to complete parallel lookup.
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+
+Result of d_alloc_parallel() in d_add_ci() is fed to d_splice_alias(), which
+*NORMALLY* feeds it to __d_add() or __d_move() in a way that will have
+__d_lookup_done() applied to it.
+
+However, there is a nasty possibility - d_splice_alias() might legitimately
+fail without having marked the sucker not in-lookup. dentry will get dropped
+by d_add_ci(), so ->d_wait won't end up pointing to freed object, but it's
+still a bug - retain_dentry() will scream bloody murder upon seeing that, and
+for a good reason; we'll get hash chain corrupted. It's impossible to hit
+without corrupted fs image (ntfs or case-insensitive xfs), but it's a bug.
+
+Invoke d_lookup_done() after d_splice_alias() to ensure that the
+in-lookip flag is always cleared.
+
+Fixes: d9171b9345261 ("parallel lookups machinery, part 4 (and last)")
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ fs/dcache.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -2239,6 +2239,7 @@ struct dentry *d_add_ci(struct dentry *d
+ 		} 
+ 	}
+ 	res = d_splice_alias(inode, found);
++	d_lookup_done(found);
+ 	if (res) {
+ 		dput(found);
+ 		return res;

@@ -453,9 +453,10 @@ struct ieee80211_if_managed {
 	bool nullfunc_failed;
 	u8 connection_loss:1,
 	   driver_disconnect:1,
-	   reconnect:1;
+	   reconnect:1,
+	   associated:1;
 
-	struct cfg80211_bss *associated;
+	struct cfg80211_bss *assoc_bss;
 	struct ieee80211_mgd_auth_data *auth_data;
 	struct ieee80211_mgd_assoc_data *assoc_data;
 
@@ -1076,7 +1077,7 @@ ieee80211_vif_get_shift(struct ieee80211_vif *vif)
 	int shift = 0;
 
 	rcu_read_lock();
-	chanctx_conf = rcu_dereference(vif->chanctx_conf);
+	chanctx_conf = rcu_dereference(vif->bss_conf.chanctx_conf);
 	if (chanctx_conf)
 		shift = ieee80211_chandef_get_shift(&chanctx_conf->def);
 	rcu_read_unlock();
@@ -1148,6 +1149,9 @@ struct tpt_led_trigger {
  *	a scan complete for an aborted scan.
  * @SCAN_HW_CANCELLED: Set for our scan work function when the scan is being
  *	cancelled.
+ * @SCAN_BEACON_WAIT: Set whenever we're passive scanning because of radar/no-IR
+ *	and could send a probe request after receiving a beacon.
+ * @SCAN_BEACON_DONE: Beacon received, we can now send a probe request
  */
 enum {
 	SCAN_SW_SCANNING,
@@ -1156,6 +1160,8 @@ enum {
 	SCAN_COMPLETED,
 	SCAN_ABORTED,
 	SCAN_HW_CANCELLED,
+	SCAN_BEACON_WAIT,
+	SCAN_BEACON_DONE,
 };
 
 /**
@@ -1522,7 +1528,7 @@ ieee80211_get_sband(struct ieee80211_sub_if_data *sdata)
 	enum nl80211_band band;
 
 	rcu_read_lock();
-	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
+	chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf);
 
 	if (!chanctx_conf) {
 		rcu_read_unlock();
@@ -1854,7 +1860,7 @@ void ieee80211_mgd_quiesce(struct ieee80211_sub_if_data *sdata);
 void ieee80211_sta_restart(struct ieee80211_sub_if_data *sdata);
 void ieee80211_sta_handle_tspec_ac_params(struct ieee80211_sub_if_data *sdata);
 void ieee80211_sta_connection_lost(struct ieee80211_sub_if_data *sdata,
-				   u8 *bssid, u8 reason, bool tx);
+				   u8 reason, bool tx);
 
 /* IBSS code */
 void ieee80211_ibss_notify_scan_completed(struct ieee80211_local *local);
@@ -2219,7 +2225,7 @@ static inline void ieee80211_tx_skb_tid(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_chanctx_conf *chanctx_conf;
 
 	rcu_read_lock();
-	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
+	chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf);
 	if (WARN_ON(!chanctx_conf)) {
 		rcu_read_unlock();
 		kfree_skb(skb);

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 1 Dec 2021 17:41:09 +0100
 Subject: [PATCH] softirq: Use a dedicated thread for timer wakeups.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 A timer/hrtimer softirq is raised in-IRQ context. With threaded
 interrupts enabled or on PREEMPT_RT this leads to waking the ksoftirqd
@@ -46,7 +46,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
-@@ -623,6 +623,22 @@ extern void __raise_softirq_irqoff(unsig
+@@ -605,6 +605,22 @@ extern void __raise_softirq_irqoff(unsig
  extern void raise_softirq_irqoff(unsigned int nr);
  extern void raise_softirq(unsigned int nr);
  
@@ -195,7 +195,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	__hrtimer_run_queues(cpu_base, now, flags, HRTIMER_ACTIVE_HARD);
 --- a/kernel/time/timer.c
 +++ b/kernel/time/timer.c
-@@ -1769,7 +1769,7 @@ static void run_local_timers(void)
+@@ -1822,7 +1822,7 @@ static void run_local_timers(void)
  		if (time_before(jiffies, base->next_expiry))
  			return;
  	}

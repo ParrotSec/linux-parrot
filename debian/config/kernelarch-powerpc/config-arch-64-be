@@ -1,6 +1,7 @@
 ##
 ## file: arch/powerpc/Kconfig
 ##
+CONFIG_COMPAT=y
 CONFIG_CMDLINE="console=hvsi0 console=hvc0 console=ttyS0,9600 console=tty0"
 
 ##

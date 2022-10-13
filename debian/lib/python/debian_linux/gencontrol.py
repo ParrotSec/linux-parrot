@@ -1,4 +1,3 @@
-import codecs
 import os
 import re
 from collections import OrderedDict
@@ -356,6 +355,8 @@ class Gencontrol(object):
     # bug presubj message and lintian overrides
     def substitute_debhelper_config(self, prefix, vars, package_name,
                                     output_dir='debian'):
+        vars = vars.copy()
+        vars['package'] = package_name
         for id in ['bug-presubj', 'lintian-overrides', 'maintscript',
                    'postinst', 'postrm', 'preinst', 'prerm']:
             name = '%s.%s' % (prefix, id)
@@ -401,7 +402,7 @@ class Gencontrol(object):
         self.write_makefile(makefile)
 
     def write_control(self, list, name='debian/control'):
-        self.write_rfc822(codecs.open(name, 'w', 'utf-8'), list)
+        self.write_rfc822(open(name, 'w', encoding='utf-8'), list)
 
     def write_makefile(self, makefile, name='debian/rules.gen'):
         f = open(name, 'w')

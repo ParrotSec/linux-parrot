@@ -1,7 +1,7 @@
 Subject: arm: Add support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed Oct 31 12:04:11 2012 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
@@ -76,7 +76,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
    DEFINE(TI_CPU_SAVE,		offsetof(struct thread_info, cpu_context));
 --- a/arch/arm/kernel/entry-armv.S
 +++ b/arch/arm/kernel/entry-armv.S
-@@ -224,11 +224,18 @@ ENDPROC(__dabt_svc)
+@@ -222,11 +222,18 @@ ENDPROC(__dabt_svc)
  
  #ifdef CONFIG_PREEMPTION
  	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
@@ -97,7 +97,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
  
  	svc_exit r5, irq = 1			@ return from exception
-@@ -243,8 +250,14 @@ ENDPROC(__irq_svc)
+@@ -241,8 +248,14 @@ ENDPROC(__irq_svc)
  1:	bl	preempt_schedule_irq		@ irq en/disable is done inside
  	ldr	r0, [tsk, #TI_FLAGS]		@ get new tasks TI_FLAGS
  	tst	r0, #_TIF_NEED_RESCHED

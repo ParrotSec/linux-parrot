@@ -2,7 +2,6 @@
 
 import sys
 import locale
-import io
 import os
 import os.path
 import subprocess
@@ -103,6 +102,7 @@ class Gencontrol(Base):
         self.tests_control = self.process_packages(
             self.templates['tests-control.main'], vars)
         self.tests_control_image = None
+        self.tests_control_headers = None
 
         self.installer_packages = {}
 
@@ -114,12 +114,9 @@ class Gencontrol(Base):
             kw_proc = subprocess.Popen(
                 ['kernel-wedge', 'gen-control', vars['abiname']],
                 stdout=subprocess.PIPE,
+                text=True,
                 env=kw_env)
-            if not isinstance(kw_proc.stdout, io.IOBase):
-                udeb_packages = read_control(io.open(kw_proc.stdout.fileno(),
-                                                     closefd=False))
-            else:
-                udeb_packages = read_control(io.TextIOWrapper(kw_proc.stdout))
+            udeb_packages = read_control(kw_proc.stdout)
             kw_proc.wait()
             if kw_proc.returncode != 0:
                 raise RuntimeError('kernel-wedge exited with code %d' %
@@ -246,16 +243,16 @@ class Gencontrol(Base):
         self._setup_makeflags(self.arch_makeflags, makeflags, config_base)
 
         try:
-            gnu_type_bytes = subprocess.check_output(
+            gnu_type = subprocess.check_output(
                 ['dpkg-architecture', '-f', '-a', arch,
                  '-q', 'DEB_HOST_GNU_TYPE'],
-                stderr=subprocess.DEVNULL)
+                stderr=subprocess.DEVNULL,
+                encoding='utf-8')
         except subprocess.CalledProcessError:
             # This sometimes happens for the newest ports :-/
             print('W: Unable to get GNU type for %s' % arch, file=sys.stderr)
         else:
-            vars['gnu-type-package'] = (
-                gnu_type_bytes.decode('utf-8').strip().replace('_', '-'))
+            vars['gnu-type-package'] = gnu_type.strip().replace('_', '-')
 
     def do_arch_packages(self, packages, makefile, arch, vars, makeflags,
                          extra):
@@ -568,6 +565,16 @@ class Gencontrol(Base):
             self.tests_control_image = tests_control
             self.tests_control.append(tests_control)
 
+        if flavour == (self.quick_flavour or self.default_flavour):
+            if not self.tests_control_headers:
+                self.tests_control_headers = self.process_package(
+                    self.templates['tests-control.headers'][0], vars)
+                self.tests_control.append(self.tests_control_headers)
+            self.tests_control_headers['Architecture'].add(arch)
+            self.tests_control_headers['Depends'].append(
+                PackageRelationGroup(package_headers['Package'],
+                                     override_arches=(arch,)))
+
         def get_config(*entry_name):
             entry_real = ('image',) + entry_name
             entry = self.config.get(entry_real, None)
@@ -619,7 +626,7 @@ class Gencontrol(Base):
         makeflags['KCONFIG'] = ' '.join(kconfig)
         makeflags['KCONFIG_OPTIONS'] = ''
         if build_signed:
-            makeflags['KCONFIG_OPTIONS'] += ' -o MODULE_SIG=y'
+            makeflags['KCONFIG_OPTIONS'] += ' -o SECURITY_LOCKDOWN_LSM=y -o MODULE_SIG=y'
         # Add "salt" to fix #872263
         makeflags['KCONFIG_OPTIONS'] += \
             ' -o "BUILD_SALT=\\"%(abiname)s%(localversion)s\\""' % vars

@@ -71,7 +71,8 @@ build-arch-arch: \
 	$(call if_package, bpftool,                      build-bpftool) \
 	$(call if_package, usbip,                        build-usbip) \
 	$(call if_package, linux-cpupower,               build-cpupower) \
-	$(call if_package, hyperv-daemons,               build-hyperv-daemons)
+	$(call if_package, hyperv-daemons,               build-hyperv-daemons) \
+	$(call if_package, rtla,                         build-rtla)
 binary-arch-arch: \
 	$(call if_package, $(SOURCE_BASENAME)-config-$(VERSION), install-config_$(ARCH)) \
 	$(call if_package, linux-libc-dev,               install-libc-dev_$(ARCH)) \
@@ -81,7 +82,8 @@ binary-arch-arch: \
 	$(call if_package, bpftool,                      install-bpftool) \
 	$(call if_package, usbip,                        install-usbip) \
 	$(call if_package, linux-cpupower,               install-cpupower) \
-	$(call if_package, hyperv-daemons,               install-hyperv-daemons)
+	$(call if_package, hyperv-daemons,               install-hyperv-daemons) \
+	$(call if_package, rtla,                         install-rtla)
 
 build-indep: \
 	$(call if_package, $(SOURCE_BASENAME)-doc-$(VERSION), $(STAMPS_DIR)/build-doc)
@@ -203,6 +205,7 @@ endif
 ifdef KCFLAGS
 	echo 'KCFLAGS += $(KCFLAGS)' >> '$(DIR)/.kernelvariables'
 endif
+	echo 'DEBIAN_KERNEL_NO_CC_VERSION_CHECK = y' >> '$(DIR)/.kernelvariables'
 	+$(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' listnewconfig
 	+yes "" | $(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' oldconfig >/dev/null
 	@$(stamp)
@@ -234,6 +237,7 @@ ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs $(if $(LINK_DOC_PACKAGE),--link-doc=$(LINK_DOC_PACKAGE))
 endif
 	dh_installchangelogs
+	dh_lintian
 	dh_compress
 	dh_fixperms
 	dh_installdeb
@@ -504,7 +508,6 @@ install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/build_$(ARCH)_
 	dh_testroot
 	dh_prep
 	dh_installdirs usr/lib/debug usr/lib/debug/boot usr/share/lintian/overrides/
-	dh_lintian
 	install -m644 $(DIR)/vmlinux $(DEBUG_DIR)/boot/vmlinux-$(REAL_VERSION)
 	install -m644 $(DIR)/System.map $(DEBUG_DIR)/boot/System.map-$(REAL_VERSION)
 	+$(MAKE_CLEAN) -C $(DIR) modules_install DEPMOD='$(CURDIR)/debian/bin/no-depmod' INSTALL_MOD_PATH='$(CURDIR)'/$(DEBUG_DIR)
@@ -535,7 +538,6 @@ install-image-dbg-meta_$(ARCH)_$(FEATURESET)_$(FLAVOUR): LINK_DOC_PACKAGE = linu
 install-image-dbg-meta_$(ARCH)_$(FEATURESET)_$(FLAVOUR):
 	dh_testdir
 	dh_prep
-	dh_lintian
 	+$(MAKE_SELF) install-base
 
 install-signed-template_$(ARCH): PACKAGE_NAME = linux-image$(SOURCE_SUFFIX)-$(ARCH)-signed-template
@@ -673,6 +675,7 @@ install-kbuild: build-kbuild
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	dh_installdocs
 endif
+	dh_lintian
 	dh_strip
 	dh_compress
 	dh_fixperms
@@ -825,6 +828,35 @@ install-bootwrapper: build-bootwrapper
 	dh_prep
 	$(call make-tools,arch/powerpc/boot) install DESTDIR=$(DIR) installdir=/usr/lib/$(PACKAGE_NAME)
 	dh_installchangelogs
+	dh_lintian
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb -- $(BUILDDEB_ARGS)
+
+build-rtla: $(STAMPS_DIR)/build-tools-headers
+	$(call make-tools,tools/tracing/rtla)
+
+install-rtla: PACKAGE_NAME = rtla
+install-rtla: DH_OPTIONS = -p$(PACKAGE_NAME)
+install-rtla: DIR = $(CURDIR)/debian/$(PACKAGE_NAME)
+install-rtla: build-rtla
+	dh_testdir
+	dh_testroot
+	dh_prep
+	$(call make-tools,tools/tracing/rtla) install DESTDIR=$(DIR)
+	dh_install
+	dh_link
+	dh_installchangelogs
+ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
+	dh_installdocs
+	dh_installman
+endif
+	dh_lintian
 	dh_strip
 	dh_compress
 	dh_fixperms

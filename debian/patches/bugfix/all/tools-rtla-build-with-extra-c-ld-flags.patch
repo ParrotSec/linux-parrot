@@ -1,0 +1,24 @@
+From: Ben Hutchings <benh@debian.org>
+Date: Sat, 16 Jul 2022 15:00:01 +0200
+Subject: tools/rtla: Build with EXTRA_{C,LD}FLAGS
+Forwarded: https://lore.kernel.org/linux-trace-devel/YtLBshz0nMQ7530H@decadent.org.uk/T/
+
+To allow for distributions and other builders to apply hardening
+policy and other customisation, append EXTRA_CFLAGS and EXTRA_LDFLAGS
+to the corresponding variables.
+
+Signed-off-by: Ben Hutchings <benh@debian.org>
+---
+--- a/tools/tracing/rtla/Makefile
++++ b/tools/tracing/rtla/Makefile
+@@ -30,8 +30,8 @@ WOPTS	:= 	-Wall -Werror=format-security
+ 
+ TRACEFS_HEADERS	:= $$($(PKG_CONFIG) --cflags libtracefs)
+ 
+-CFLAGS	:=	-O -g -DVERSION=\"$(VERSION)\" $(FOPTS) $(MOPTS) $(WOPTS) $(TRACEFS_HEADERS)
+-LDFLAGS	:=	-ggdb
++CFLAGS	:=	-O -g -DVERSION=\"$(VERSION)\" $(FOPTS) $(MOPTS) $(WOPTS) $(TRACEFS_HEADERS) $(EXTRA_CFLAGS)
++LDFLAGS	:=	-ggdb $(EXTRA_LDFLAGS)
+ LIBS	:=	$$($(PKG_CONFIG) --libs libtracefs)
+ 
+ SRC	:=	$(wildcard src/*.c)

@@ -20,19 +20,28 @@ Cc: Josh Boyer <jwboyer@fedoraproject.org>
 Cc: James Bottomley <James.Bottomley@HansenPartnership.com>
 Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 [Rebased by Luca Boccassi]
+[bwh: Forward-ported to 5.19:
+ - The type parameter to is_hash_blacklisted() is now an enumeration
+   rather than a string
+ - Adjust filename, context]
 ---
- kernel/module_signing.c | 59 +++++++++++++++++++++++++++++++++++++++--
+ kernel/module/signing.c | 59 +++++++++++++++++++++++++++++++++++++++--
  1 file changed, 57 insertions(+), 2 deletions(-)
 
---- a/kernel/module_signing.c
-+++ b/kernel/module_signing.c
-@@ -12,15 +12,62 @@
- #include <linux/string.h>
+--- a/kernel/module/signing.c
++++ b/kernel/module/signing.c
+@@ -13,6 +13,8 @@
  #include <linux/verification.h>
+ #include <linux/security.h>
  #include <crypto/public_key.h>
 +#include <crypto/hash.h>
 +#include <keys/system_keyring.h>
- #include "module-internal.h"
+ #include <uapi/linux/module.h>
+ #include "internal.h"
+ 
+@@ -37,13 +39,58 @@ void set_module_sig_enforced(void)
+ 	sig_enforce = true;
+ }
  
 +static int mod_is_hash_blacklisted(const void *mod, size_t verifylen)
 +{
@@ -66,7 +75,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 +
 +	pr_debug("%ld digest: %*phN\n", verifylen, (int) digest_size, digest);
 +
-+	ret = is_hash_blacklisted(digest, digest_size, "bin");
++	ret = is_hash_blacklisted(digest, digest_size, BLACKLIST_HASH_BINARY);
 +	if (ret == -EKEYREJECTED)
 +		pr_err("Module hash %*phN is blacklisted\n",
 +		       (int) digest_size, digest);
@@ -90,7 +99,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	int ret;
  
  	pr_devel("==>%s(,%zu)\n", __func__, modlen);
-@@ -28,6 +75,7 @@ int mod_verify_sig(const void *mod, stru
+@@ -51,6 +98,7 @@ int mod_verify_sig(const void *mod, stru
  	if (modlen <= sizeof(ms))
  		return -EBADMSG;
  
@@ -98,7 +107,7 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
  	memcpy(&ms, mod + (modlen - sizeof(ms)), sizeof(ms));
  
  	ret = mod_check_sig(&ms, modlen, "module");
-@@ -38,8 +86,15 @@ int mod_verify_sig(const void *mod, stru
+@@ -61,10 +109,17 @@ int mod_verify_sig(const void *mod, stru
  	modlen -= sig_len + sizeof(ms);
  	info->len = modlen;
  
@@ -115,3 +124,5 @@ Signed-off-by: "Lee, Chun-Yi" <jlee@suse.com>
 +
 +	return ret;
  }
+ 
+ int module_sig_check(struct load_info *info, int flags)

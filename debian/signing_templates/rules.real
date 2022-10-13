@@ -46,6 +46,7 @@ install-signed:
 	dh_installchangelogs
 	ln -sf linux-image.NEWS debian/$(PACKAGE_NAME).NEWS
 	dh_installdocs
+	dh_lintian
 	dh_compress
 	dh_fixperms
 	dh_installdeb

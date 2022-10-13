@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-headers-powerpc-smp linux-headers-5.18.0-1parrot1-powerpc-smp 5.7~rc5-1~exp1 linux-headers-powerpc-smp
+dir_to_symlink /usr/share/doc/linux-headers-powerpc-smp linux-headers-5.19.0-11parrot1-powerpc-smp 5.7~rc5-1~exp1 linux-headers-powerpc-smp

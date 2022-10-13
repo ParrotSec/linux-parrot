@@ -1,1 +1,1 @@
-linux-image@source_suffix@-@flavour@-dbg: wrong-section-according-to-package-name linux-image@source_suffix@-@flavour@-dbg => debug
+@package@: wrong-section-according-to-package-name linux-image@source_suffix@-@flavour@-dbg => debug

@@ -4,6 +4,7 @@ import functools
 import os.path
 import re
 import unittest
+import warnings
 
 from . import utils
 
@@ -729,6 +730,9 @@ class _ControlFileDict(dict):
             if not isinstance(value, cls):
                 value = cls(value)
         except KeyError:
+            warnings.warn(
+                f'setting unknown field { key } in { type(self).__name__ }',
+                stacklevel=2)
             pass
         super(_ControlFileDict, self).__setitem__(key, value)
 
@@ -750,9 +754,8 @@ class _ControlFileDict(dict):
             yield self[i]
 
 
-class Package(_ControlFileDict):
+class SourcePackage(_ControlFileDict):
     _fields = collections.OrderedDict((
-        ('Package', str),
         ('Source', str),
         ('Architecture', PackageArchitecture),
         ('Section', str),
@@ -763,6 +766,27 @@ class Package(_ControlFileDict):
         ('Build-Depends', PackageRelation),
         ('Build-Depends-Arch', PackageRelation),
         ('Build-Depends-Indep', PackageRelation),
+        ('Rules-Requires-Root', str),
+        ('Homepage', str),
+        ('Vcs-Browser', str),
+        ('Vcs-Git', str),
+    ))
+
+
+class BinaryPackage(_ControlFileDict):
+    _fields = collections.OrderedDict((
+        ('Package', str),
+        ('Package-Type', str),  # for udeb only
+        ('Architecture', PackageArchitecture),
+        ('Section', str),
+        ('Priority', str),
+        # Build-Depends* fields aren't allowed for binary packages in
+        # the real control file, but we move them to the source
+        # package
+        ('Build-Depends', PackageRelation),
+        ('Build-Depends-Arch', PackageRelation),
+        ('Build-Depends-Indep', PackageRelation),
+        ('Build-Profiles', PackageBuildRestrictFormula),
         ('Provides', PackageRelation),
         ('Pre-Depends', PackageRelation),
         ('Depends', PackageRelation),
@@ -771,8 +795,9 @@ class Package(_ControlFileDict):
         ('Replaces', PackageRelation),
         ('Breaks', PackageRelation),
         ('Conflicts', PackageRelation),
+        ('Multi-Arch', str),
+        ('Kernel-Version', str),  # for udeb only
         ('Description', PackageDescription),
-        ('Build-Profiles', PackageBuildRestrictFormula),
     ))
 
 
@@ -780,6 +805,7 @@ class TestsControl(_ControlFileDict):
     _fields = collections.OrderedDict((
         ('Tests', str),
         ('Test-Command', str),
+        ('Architecture', PackageArchitecture),
         ('Restrictions', str),
         ('Features', str),
         ('Depends', PackageRelation),

@@ -54,6 +54,7 @@ struct ip_tunnel_key {
 	__be32			label;		/* Flow Label for IPv6 */
 	__be16			tp_src;
 	__be16			tp_dst;
+	__u8			flow_flags;
 };
 
 /* Flags for ip_tunnel_info mode. */
@@ -245,7 +246,8 @@ static inline void ip_tunnel_init_flow(struct flowi4 *fl4,
 				       __be32 daddr, __be32 saddr,
 				       __be32 key, __u8 tos,
 				       struct net *net, int oif,
-				       __u32 mark, __u32 tun_inner_hash)
+				       __u32 mark, __u32 tun_inner_hash,
+				       __u8 flow_flags)
 {
 	memset(fl4, 0, sizeof(*fl4));
 
@@ -262,6 +264,7 @@ static inline void ip_tunnel_init_flow(struct flowi4 *fl4,
 	fl4->fl4_gre_key = key;
 	fl4->flowi4_mark = mark;
 	fl4->flowi4_multipath_hash = tun_inner_hash;
+	fl4->flowi4_flags = flow_flags;
 }
 
 int ip_tunnel_init(struct net_device *dev);

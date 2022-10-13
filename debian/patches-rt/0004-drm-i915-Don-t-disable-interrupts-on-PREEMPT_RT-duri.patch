@@ -2,7 +2,7 @@ From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Sat, 27 Feb 2016 09:01:42 +0100
 Subject: [PATCH 04/10] drm/i915: Don't disable interrupts on PREEMPT_RT during
  atomic updates
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 Commit
    8d7849db3eab7 ("drm/i915: Make sprite updates atomic")
@@ -37,9 +37,9 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/drivers/gpu/drm/i915/display/intel_crtc.c
 +++ b/drivers/gpu/drm/i915/display/intel_crtc.c
-@@ -518,7 +518,8 @@ void intel_pipe_update_start(struct inte
+@@ -522,7 +522,8 @@ void intel_pipe_update_start(struct inte
  	 */
- 	intel_psr_wait_for_idle(new_crtc_state);
+ 	intel_psr_wait_for_idle_locked(new_crtc_state);
  
 -	local_irq_disable();
 +	if (!IS_ENABLED(CONFIG_PREEMPT_RT))
@@ -47,7 +47,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  	crtc->debug.min_vbl = min;
  	crtc->debug.max_vbl = max;
-@@ -543,11 +544,13 @@ void intel_pipe_update_start(struct inte
+@@ -547,11 +548,13 @@ void intel_pipe_update_start(struct inte
  			break;
  		}
  
@@ -63,7 +63,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	finish_wait(wq, &wait);
-@@ -580,7 +583,8 @@ void intel_pipe_update_start(struct inte
+@@ -584,7 +587,8 @@ void intel_pipe_update_start(struct inte
  	return;
  
  irq_disable:
@@ -73,7 +73,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  #if IS_ENABLED(CONFIG_DRM_I915_DEBUG_VBLANK_EVADE)
-@@ -679,7 +683,8 @@ void intel_pipe_update_end(struct intel_
+@@ -685,7 +689,8 @@ void intel_pipe_update_end(struct intel_
  	 */
  	intel_vrr_send_push(new_crtc_state);
  

@@ -450,7 +450,6 @@ CONFIG_PLIP=m
 ## file: drivers/net/wan/Kconfig
 ##
 CONFIG_WAN=y
-CONFIG_LANMEDIA=m
 CONFIG_PCI200SYN=m
 CONFIG_WANXL=m
 CONFIG_FARSYNC=m
@@ -674,6 +673,7 @@ CONFIG_IPV6=y
 ## file: security/Kconfig
 ##
 CONFIG_LSM_MMAP_MIN_ADDR=65536
+# CONFIG_HARDENED_USERCOPY is not set
 
 ##
 ## file: sound/drivers/Kconfig

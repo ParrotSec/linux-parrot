@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-powerpc64le-dbg linux-image-5.18.0-1parrot1-powerpc64le-dbg 5.7~rc5-1~exp1 linux-image-powerpc64le-dbg
+dir_to_symlink /usr/share/doc/linux-image-powerpc64le-dbg linux-image-5.19.0-11parrot1-powerpc64le-dbg 5.7~rc5-1~exp1 linux-image-powerpc64le-dbg

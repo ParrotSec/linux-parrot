@@ -1,7 +1,7 @@
 Subject: ARM: enable irq in translation/section permission fault handlers
 From: Yadi.hu <yadi.hu@windriver.com>
 Date: Wed Dec 10 10:32:09 2014 +0800
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 From: Yadi.hu <yadi.hu@windriver.com>
 

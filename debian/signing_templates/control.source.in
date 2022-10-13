@@ -5,7 +5,7 @@ Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
 Uploaders: Bastian Blank <waldi@debian.org>, maximilian attems <maks@debian.org>, Ben Hutchings <benh@debian.org>, Salvatore Bonaccorso <carnil@debian.org>
 Standards-Version: 4.2.0
 Build-Depends:
- debhelper-compat (= 12),
+ debhelper-compat (= 12), dh-exec,
  rsync,
  sbsigntool [amd64 arm64 i386],
  kernel-wedge (>= 2.102~),

@@ -1,30 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright(c) 2007 - 2011 Realtek Corporation. */
 
-/*++
-
-Module Name:
-	HalPwrSeqCmd.c
-
-Abstract:
-	Implement HW Power sequence configuration CMD handling routine for Realtek devices.
-
-Major Change History:
-	When       Who               What
-	---------- ---------------   -------------------------------
-	2011-10-26 Lucas            Modify to be compatible with SD4-CE driver.
-	2011-07-07 Roger            Create.
-
---*/
-
 #include "../include/HalPwrSeqCmd.h"
 
-/*	Description: */
-/*		This routine deals with the Power Configuration CMDs parsing
- *		for RTL8723/RTL8188E Series IC.
- *	Assumption:
- *		We should follow specific format which was released from HW SD.
- */
 u8 HalPwrSeqCmdParsing(struct adapter *padapter, struct wl_pwr_cfg pwrseqcmd[])
 {
 	struct wl_pwr_cfg pwrcfgcmd = {0};
@@ -34,6 +12,7 @@ u8 HalPwrSeqCmdParsing(struct adapter *padapter, struct wl_pwr_cfg pwrseqcmd[])
 	u32 offset = 0;
 	u32 poll_count = 0; /*  polling autoload done. */
 	u32 max_poll_count = 5000;
+	int res;
 
 	do {
 		pwrcfgcmd = pwrseqcmd[aryidx];
@@ -43,7 +22,9 @@ u8 HalPwrSeqCmdParsing(struct adapter *padapter, struct wl_pwr_cfg pwrseqcmd[])
 			offset = GET_PWR_CFG_OFFSET(pwrcfgcmd);
 
 			/*  Read the value from system register */
-			value = rtw_read8(padapter, offset);
+			res = rtw_read8(padapter, offset, &value);
+			if (res)
+				return false;
 
 			value &= ~(GET_PWR_CFG_MASK(pwrcfgcmd));
 			value |= (GET_PWR_CFG_VALUE(pwrcfgcmd) & GET_PWR_CFG_MASK(pwrcfgcmd));
@@ -55,7 +36,9 @@ u8 HalPwrSeqCmdParsing(struct adapter *padapter, struct wl_pwr_cfg pwrseqcmd[])
 			poll_bit = false;
 			offset = GET_PWR_CFG_OFFSET(pwrcfgcmd);
 			do {
-				value = rtw_read8(padapter, offset);
+				res = rtw_read8(padapter, offset, &value);
+				if (res)
+					return false;
 
 				value &= GET_PWR_CFG_MASK(pwrcfgcmd);
 				if (value == (GET_PWR_CFG_VALUE(pwrcfgcmd) & GET_PWR_CFG_MASK(pwrcfgcmd)))

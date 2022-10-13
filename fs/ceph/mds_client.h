@@ -33,10 +33,6 @@ enum ceph_feature_type {
 	CEPHFS_FEATURE_MAX = CEPHFS_FEATURE_METRIC_COLLECT,
 };
 
-/*
- * This will always have the highest feature bit value
- * as the last element of the array.
- */
 #define CEPHFS_FEATURES_CLIENT_SUPPORTED {	\
 	0, 1, 2, 3, 4, 5, 6, 7,			\
 	CEPHFS_FEATURE_MIMIC,			\
@@ -45,8 +41,6 @@ enum ceph_feature_type {
 	CEPHFS_FEATURE_MULTI_RECONNECT,		\
 	CEPHFS_FEATURE_DELEG_INO,		\
 	CEPHFS_FEATURE_METRIC_COLLECT,		\
-						\
-	CEPHFS_FEATURE_MAX,			\
 }
 #define CEPHFS_FEATURES_CLIENT_REQUIRED {}
 
@@ -579,7 +573,7 @@ static inline int ceph_wait_on_async_create(struct inode *inode)
 	struct ceph_inode_info *ci = ceph_inode(inode);
 
 	return wait_on_bit(&ci->i_ceph_flags, CEPH_ASYNC_CREATE_BIT,
-			   TASK_INTERRUPTIBLE);
+			   TASK_KILLABLE);
 }
 
 extern u64 ceph_get_deleg_ino(struct ceph_mds_session *session);

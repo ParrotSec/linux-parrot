@@ -1,7 +1,7 @@
 Subject: tpm_tis: fix stall after iowrite*()s
 From: Haris Okanovic <haris.okanovic@ni.com>
 Date: Tue Aug 15 15:13:08 2017 -0500
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 From: Haris Okanovic <haris.okanovic@ni.com>
 
@@ -63,21 +63,18 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  static int interrupts = -1;
  module_param(interrupts, int, 0444);
  MODULE_PARM_DESC(interrupts, "Enable interrupts");
-@@ -169,7 +194,7 @@ static int tpm_tcg_write_bytes(struct tp
- 	struct tpm_tis_tcg_phy *phy = to_tpm_tis_tcg_phy(data);
+@@ -185,12 +210,12 @@ static int tpm_tcg_write_bytes(struct tp
+ 	switch (io_mode) {
+ 	case TPM_TIS_PHYS_8:
+ 		while (len--)
+-			iowrite8(*value++, phy->iobase + addr);
++			tpm_tis_iowrite8(*value++, phy->iobase, addr);
+ 		break;
+ 	case TPM_TIS_PHYS_16:
+ 		return -EINVAL;
+ 	case TPM_TIS_PHYS_32:
+-		iowrite32(le32_to_cpu(*((__le32 *)value)), phy->iobase + addr);
++		tpm_tis_iowrite32(le32_to_cpu(*((__le32 *)value)), phy->iobase, addr);
+ 		break;
+ 	}
  
- 	while (len--)
--		iowrite8(*value++, phy->iobase + addr);
-+		tpm_tis_iowrite8(*value++, phy->iobase, addr);
- 
- 	return 0;
- }
-@@ -196,7 +221,7 @@ static int tpm_tcg_write32(struct tpm_ti
- {
- 	struct tpm_tis_tcg_phy *phy = to_tpm_tis_tcg_phy(data);
- 
--	iowrite32(value, phy->iobase + addr);
-+	tpm_tis_iowrite32(value, phy->iobase, addr);
- 
- 	return 0;
- }

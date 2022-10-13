@@ -23,20 +23,6 @@ upstream submission.
  
  	ret = UCODE_ERROR;
  	if (!verify_container(fw->data, fw->size, false))
---- a/drivers/atm/ambassador.c
-+++ b/drivers/atm/ambassador.c
-@@ -1914,10 +1914,8 @@ static int ucode_init(loader_block *lb,
-   int res;
- 
-   res = request_ihex_firmware(&fw, "atmsar11.fw", &dev->pci_dev->dev);
--  if (res) {
--    PRINTK (KERN_ERR, "Cannot load microcode data");
-+  if (res)
-     return res;
--  }
- 
-   /* First record contains just the start address */
-   rec = (const struct ihex_binrec *)fw->data;
 --- a/drivers/atm/fore200e.c
 +++ b/drivers/atm/fore200e.c
 @@ -2398,10 +2398,9 @@ static int fore200e_load_and_start_fw(st
@@ -161,7 +147,7 @@ upstream submission.
  		       fw->size, fw_name);
 --- a/drivers/dma/imx-sdma.c
 +++ b/drivers/dma/imx-sdma.c
-@@ -1816,11 +1816,8 @@ static void sdma_load_firmware(const str
+@@ -1882,11 +1882,8 @@ static void sdma_load_firmware(const str
  	const struct sdma_script_start_addrs *addr;
  	unsigned short *ram_code;
  
@@ -858,7 +844,7 @@ upstream submission.
  	if (!buf) {
 --- a/drivers/media/usb/dvb-usb/opera1.c
 +++ b/drivers/media/usb/dvb-usb/opera1.c
-@@ -450,8 +450,6 @@ static int opera1_xilinx_load_firmware(s
+@@ -455,8 +455,6 @@ static int opera1_xilinx_load_firmware(s
  	info("start downloading fpga firmware %s",filename);
  
  	if ((ret = request_firmware(&fw, filename, &dev->dev)) != 0) {
@@ -1235,7 +1221,7 @@ upstream submission.
 @@ -580,8 +580,6 @@ static int myri10ge_load_hotplug_firmwar
  	unsigned i;
  
- 	if ((status = request_firmware(&fw, mgp->fw_name, dev)) < 0) {
+ 	if (request_firmware(&fw, mgp->fw_name, dev) < 0) {
 -		dev_err(dev, "Unable to load %s firmware image via hotplug\n",
 -			mgp->fw_name);
  		status = -EINVAL;
@@ -1301,7 +1287,7 @@ upstream submission.
  		dev_err(&kaweth->intf->dev, "Firmware too big: %zu\n",
 --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
 +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-@@ -1223,9 +1223,6 @@ static void ath9k_hif_usb_firmware_cb(co
+@@ -1222,9 +1222,6 @@ static void ath9k_hif_usb_firmware_cb(co
  		if (!ret)
  			return;
  
@@ -1434,7 +1420,7 @@ upstream submission.
  
 --- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
 +++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -3396,10 +3396,8 @@ static int ipw_get_fw(struct ipw_priv *p
+@@ -3393,10 +3393,8 @@ static int ipw_get_fw(struct ipw_priv *p
  
  	/* ask firmware_class module to get the boot firmware off disk */
  	rc = request_firmware(raw, name, &priv->pci_dev->dev);
@@ -1684,7 +1670,7 @@ upstream submission.
  		wl1251_error("nvs size is not multiple of 32 bits: %zu",
 --- a/drivers/net/wireless/ti/wlcore/main.c
 +++ b/drivers/net/wireless/ti/wlcore/main.c
-@@ -764,10 +764,8 @@ static int wl12xx_fetch_firmware(struct
+@@ -756,10 +756,8 @@ static int wl12xx_fetch_firmware(struct
  
  	ret = request_firmware(&fw, fw_name, wl->dev);
  
@@ -1878,7 +1864,7 @@ upstream submission.
  	if (qla82xx_validate_firmware_blob(vha,
 --- a/drivers/scsi/qla2xxx/qla_os.c
 +++ b/drivers/scsi/qla2xxx/qla_os.c
-@@ -7558,8 +7558,6 @@ qla2x00_request_firmware(scsi_qla_host_t
+@@ -7557,8 +7557,6 @@ qla2x00_request_firmware(scsi_qla_host_t
  		goto out;
  
  	if (request_firmware(&blob->fw, blob->name, &ha->pdev->dev)) {
@@ -1961,7 +1947,7 @@ upstream submission.
  
 --- a/drivers/tty/serial/icom.c
 +++ b/drivers/tty/serial/icom.c
-@@ -362,7 +362,6 @@ static void load_code(struct icom_port *
+@@ -621,7 +621,6 @@ static void load_code(struct icom_port *
  
  	/* Load Call Setup into Adapter */
  	if (request_firmware(&fw, "icom_call_setup.bin", &dev->dev) < 0) {
@@ -1969,7 +1955,7 @@ upstream submission.
  		status = -1;
  		goto load_code_exit;
  	}
-@@ -382,7 +381,6 @@ static void load_code(struct icom_port *
+@@ -641,7 +640,6 @@ static void load_code(struct icom_port *
  
  	/* Load Resident DCE portion of Adapter */
  	if (request_firmware(&fw, "icom_res_dce.bin", &dev->dev) < 0) {
@@ -1977,7 +1963,7 @@ upstream submission.
  		status = -1;
  		goto load_code_exit;
  	}
-@@ -427,7 +425,6 @@ static void load_code(struct icom_port *
+@@ -686,7 +684,6 @@ static void load_code(struct icom_port *
  	}
  
  	if (request_firmware(&fw, "icom_asc.bin", &dev->dev) < 0) {
@@ -2156,7 +2142,7 @@ upstream submission.
  	BootMajorVersion = rec->data[0];
 --- a/drivers/usb/serial/io_ti.c
 +++ b/drivers/usb/serial/io_ti.c
-@@ -1006,8 +1006,6 @@ static int download_fw(struct edgeport_s
+@@ -1008,8 +1008,6 @@ static int download_fw(struct edgeport_s
  
  	status = request_firmware(&fw, fw_name, dev);
  	if (status) {
@@ -2195,7 +2181,7 @@ upstream submission.
  	if ((fw_entry->size < 8*1024) || (fw_entry->size > 64*1024)) {
 --- a/drivers/video/fbdev/metronomefb.c
 +++ b/drivers/video/fbdev/metronomefb.c
-@@ -680,10 +680,8 @@ static int metronomefb_probe(struct plat
+@@ -679,10 +679,8 @@ static int metronomefb_probe(struct plat
  		a) request the waveform file from userspace
  		b) process waveform and decode into metromem */
  	retval = request_firmware(&fw_entry, "metronome.wbf", &dev->dev);
@@ -2270,7 +2256,7 @@ upstream submission.
  		snd_printk(KERN_INFO "sscape: MIDI firmware loaded %zu KBs\n",
 --- a/sound/isa/wavefront/wavefront_synth.c
 +++ b/sound/isa/wavefront/wavefront_synth.c
-@@ -1971,10 +1971,8 @@ wavefront_download_firmware (snd_wavefro
+@@ -1972,10 +1972,8 @@ wavefront_download_firmware (snd_wavefro
  	const struct firmware *firmware;
  
  	err = request_firmware(&firmware, path, dev->card->dev);
@@ -2421,7 +2407,7 @@ upstream submission.
  			"too short firmware size %d (expected %d)\n",
 --- a/sound/soc/codecs/wm2000.c
 +++ b/sound/soc/codecs/wm2000.c
-@@ -894,10 +894,8 @@ static int wm2000_i2c_probe(struct i2c_c
+@@ -892,10 +892,8 @@ static int wm2000_i2c_probe(struct i2c_c
  	}
  
  	ret = request_firmware(&fw, filename, &i2c->dev);

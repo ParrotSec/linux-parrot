@@ -8,13 +8,11 @@ Forwarded: not-needed
  drivers/net/appletalk/Makefile |  1 -
  2 files changed, 27 deletions(-)
 
-Index: linux/drivers/net/appletalk/Kconfig
-===================================================================
---- linux.orig/drivers/net/appletalk/Kconfig
-+++ linux/drivers/net/appletalk/Kconfig
-@@ -50,35 +50,6 @@ config LTPC
- 	  This driver is experimental, which means that it may not work.
- 	  See the file <file:Documentation/networking/device_drivers/appletalk/ltpc.rst>.
+--- a/drivers/net/appletalk/Kconfig
++++ b/drivers/net/appletalk/Kconfig
+@@ -39,35 +39,6 @@ config DEV_APPLETALK
+ 	  connect to the AppleTalk network, say Y.
+ 	  
  
 -config COPS
 -	tristate "COPS LocalTalk PC support"
@@ -48,13 +46,10 @@ Index: linux/drivers/net/appletalk/Kconfig
  config IPDDP
  	tristate "Appletalk-IP driver support"
  	depends on DEV_APPLETALK && ATALK
-Index: linux/drivers/net/appletalk/Makefile
-===================================================================
---- linux.orig/drivers/net/appletalk/Makefile
-+++ linux/drivers/net/appletalk/Makefile
-@@ -4,5 +4,4 @@
+--- a/drivers/net/appletalk/Makefile
++++ b/drivers/net/appletalk/Makefile
+@@ -4,4 +4,3 @@
  #
  
  obj-$(CONFIG_IPDDP) += ipddp.o
 -obj-$(CONFIG_COPS) += cops.o
- obj-$(CONFIG_LTPC) += ltpc.o

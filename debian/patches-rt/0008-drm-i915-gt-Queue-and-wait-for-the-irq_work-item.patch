@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 8 Sep 2021 17:18:00 +0200
 Subject: [PATCH 08/10] drm/i915/gt: Queue and wait for the irq_work item.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 Disabling interrupts and invoking the irq_work function directly breaks
 on PREEMPT_RT.
@@ -27,7 +27,7 @@ Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
 
 --- a/drivers/gpu/drm/i915/gt/intel_breadcrumbs.c
 +++ b/drivers/gpu/drm/i915/gt/intel_breadcrumbs.c
-@@ -311,10 +311,9 @@ void __intel_breadcrumbs_park(struct int
+@@ -312,10 +312,9 @@ void __intel_breadcrumbs_park(struct int
  	/* Kick the work once more to drain the signalers, and disarm the irq */
  	irq_work_sync(&b->irq_work);
  	while (READ_ONCE(b->irq_armed) && !atomic_read(&b->active)) {

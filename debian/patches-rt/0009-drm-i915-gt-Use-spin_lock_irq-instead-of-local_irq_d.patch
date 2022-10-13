@@ -2,7 +2,7 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 8 Sep 2021 19:03:41 +0200
 Subject: [PATCH 09/10] drm/i915/gt: Use spin_lock_irq() instead of
  local_irq_disable() + spin_lock()
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 execlists_dequeue() is invoked from a function which uses
 local_irq_disable() to disable interrupts so the spin_lock() behaves
@@ -28,7 +28,7 @@ Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
 
 --- a/drivers/gpu/drm/i915/gt/intel_execlists_submission.c
 +++ b/drivers/gpu/drm/i915/gt/intel_execlists_submission.c
-@@ -1290,7 +1290,7 @@ static void execlists_dequeue(struct int
+@@ -1299,7 +1299,7 @@ static void execlists_dequeue(struct int
  	 * and context switches) submission.
  	 */
  
@@ -37,7 +37,7 @@ Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
  
  	/*
  	 * If the queue is higher priority than the last
-@@ -1390,7 +1390,7 @@ static void execlists_dequeue(struct int
+@@ -1399,7 +1399,7 @@ static void execlists_dequeue(struct int
  				 * Even if ELSP[1] is occupied and not worthy
  				 * of timeslices, our queue might be.
  				 */
@@ -46,7 +46,7 @@ Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
  				return;
  			}
  		}
-@@ -1416,7 +1416,7 @@ static void execlists_dequeue(struct int
+@@ -1425,7 +1425,7 @@ static void execlists_dequeue(struct int
  
  		if (last && !can_merge_rq(last, rq)) {
  			spin_unlock(&ve->base.sched_engine->lock);
@@ -55,7 +55,7 @@ Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
  			return; /* leave this for another sibling */
  		}
  
-@@ -1578,7 +1578,7 @@ static void execlists_dequeue(struct int
+@@ -1587,7 +1587,7 @@ static void execlists_dequeue(struct int
  	 */
  	sched_engine->queue_priority_hint = queue_prio(sched_engine);
  	i915_sched_engine_reset_on_empty(sched_engine);
@@ -64,7 +64,7 @@ Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
  
  	/*
  	 * We can skip poking the HW if we ended up with exactly the same set
-@@ -1604,13 +1604,6 @@ static void execlists_dequeue(struct int
+@@ -1613,13 +1613,6 @@ static void execlists_dequeue(struct int
  	}
  }
  
@@ -78,7 +78,7 @@ Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
  static void clear_ports(struct i915_request **ports, int count)
  {
  	memset_p((void **)ports, NULL, count);
-@@ -2431,7 +2424,7 @@ static void execlists_submission_tasklet
+@@ -2449,7 +2442,7 @@ static void execlists_submission_tasklet
  	}
  
  	if (!engine->execlists.pending[0]) {

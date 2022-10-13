@@ -25,7 +25,6 @@
 
 #define REG_CHIP_ID2__1			0x0002
 
-#define CHIP_ID_63			0x63
 #define CHIP_ID_66			0x66
 #define CHIP_ID_67			0x67
 #define CHIP_ID_77			0x77
@@ -1585,10 +1584,6 @@
 #define REG_PORT_LUE_MSTP_INDEX		0x0B01
 
 #define REG_PORT_LUE_MSTP_STATE		0x0B04
-
-#define PORT_TX_ENABLE			BIT(2)
-#define PORT_RX_ENABLE			BIT(1)
-#define PORT_LEARN_DISABLE		BIT(0)
 
 /* C - PTP */
 

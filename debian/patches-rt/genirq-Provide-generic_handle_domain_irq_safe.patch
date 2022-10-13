@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 9 May 2022 16:04:08 +0200
 Subject: [PATCH] genirq: Provide generic_handle_domain_irq_safe().
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 Provide generic_handle_domain_irq_safe() which can used from any context.
 This similar to commit
@@ -39,7 +39,7 @@ Link: https://lore.kernel.org/r/YnkfWFzvusFFktSt@linutronix.de
 
 --- a/drivers/bcma/driver_gpio.c
 +++ b/drivers/bcma/driver_gpio.c
-@@ -113,7 +113,7 @@ static irqreturn_t bcma_gpio_irq_handler
+@@ -115,7 +115,7 @@ static irqreturn_t bcma_gpio_irq_handler
  		return IRQ_NONE;
  
  	for_each_set_bit(gpio, &irqs, gc->ngpio)
@@ -65,7 +65,7 @@ Link: https://lore.kernel.org/r/YnkfWFzvusFFktSt@linutronix.de
  }
 --- a/drivers/pinctrl/pinctrl-amd.c
 +++ b/drivers/pinctrl/pinctrl-amd.c
-@@ -638,7 +638,7 @@ static bool do_amd_gpio_irq_handler(int
+@@ -643,7 +643,7 @@ static bool do_amd_gpio_irq_handler(int
  			if (!(regval & PIN_IRQ_PENDING) ||
  			    !(regval & BIT(INTERRUPT_MASK_OFF)))
  				continue;
@@ -120,7 +120,7 @@ Link: https://lore.kernel.org/r/YnkfWFzvusFFktSt@linutronix.de
  
 --- a/kernel/irq/irqdesc.c
 +++ b/kernel/irq/irqdesc.c
-@@ -706,6 +706,30 @@ int generic_handle_domain_irq(struct irq
+@@ -705,6 +705,30 @@ int generic_handle_domain_irq(struct irq
  }
  EXPORT_SYMBOL_GPL(generic_handle_domain_irq);
  

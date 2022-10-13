@@ -67,6 +67,7 @@ struct rxe_cq {
 	bool			is_dying;
 	bool			is_user;
 	struct tasklet_struct	comp_task;
+	atomic_t		num_wq;
 };
 
 enum wqe_state {
@@ -123,6 +124,7 @@ struct rxe_req_info {
 	int			need_rd_atomic;
 	int			wait_psn;
 	int			need_retry;
+	int			wait_for_rnr_timer;
 	int			noack_pkts;
 	struct rxe_task		task;
 };
@@ -287,17 +289,6 @@ struct rxe_map {
 	struct rxe_phys_buf	buf[RXE_BUF_PER_MAP];
 };
 
-struct rxe_map_set {
-	struct rxe_map		**map;
-	u64			va;
-	u64			iova;
-	size_t			length;
-	u32			offset;
-	u32			nbuf;
-	int			page_shift;
-	int			page_mask;
-};
-
 static inline int rkey_is_mw(u32 rkey)
 {
 	u32 index = rkey >> 8;
@@ -315,20 +306,26 @@ struct rxe_mr {
 	u32			rkey;
 	enum rxe_mr_state	state;
 	enum ib_mr_type		type;
+	u64			va;
+	u64			iova;
+	size_t			length;
+	u32			offset;
 	int			access;
 
+	int			page_shift;
+	int			page_mask;
 	int			map_shift;
 	int			map_mask;
 
 	u32			num_buf;
+	u32			nbuf;
 
 	u32			max_buf;
 	u32			num_map;
 
 	atomic_t		num_mw;
 
-	struct rxe_map_set	*cur_map_set;
-	struct rxe_map_set	*next_map_set;
+	struct rxe_map		**map;
 };
 
 enum rxe_mw_state {
@@ -373,7 +370,6 @@ struct rxe_port {
 	spinlock_t		port_lock; /* guard port */
 	unsigned int		mtu_cap;
 	/* special QPs */
-	u32			qp_smi_index;
 	u32			qp_gsi_index;
 };
 
@@ -394,7 +390,6 @@ struct rxe_dev {
 	struct rxe_pool		cq_pool;
 	struct rxe_pool		mr_pool;
 	struct rxe_pool		mw_pool;
-	struct rxe_pool		mc_grp_pool;
 
 	/* multicast support */
 	spinlock_t		mcg_lock;

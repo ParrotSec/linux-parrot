@@ -283,7 +283,7 @@ static bool iwl_mvm_power_is_radar(struct ieee80211_vif *vif)
 	bool radar_detect = false;
 
 	rcu_read_lock();
-	chanctx_conf = rcu_dereference(vif->chanctx_conf);
+	chanctx_conf = rcu_dereference(vif->bss_conf.chanctx_conf);
 	WARN_ON(!chanctx_conf);
 	if (chanctx_conf) {
 		chan = chanctx_conf->def.chan;
@@ -562,6 +562,9 @@ static void iwl_mvm_power_get_vifs_iterator(void *_data, u8 *mac,
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 	struct iwl_power_vifs *power_iterator = _data;
 	bool active = mvmvif->phy_ctxt && mvmvif->phy_ctxt->id < NUM_PHY_CTX;
+
+	if (!mvmvif->uploaded)
+		return;
 
 	switch (ieee80211_vif_type_p2p(vif)) {
 	case NL80211_IFTYPE_P2P_DEVICE:

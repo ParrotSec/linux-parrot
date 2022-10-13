@@ -74,7 +74,6 @@ CONFIG_PATA_CS5536=m
 CONFIG_PATA_SC1200=m
 CONFIG_PATA_ISAPNP=m
 CONFIG_PATA_OPTI=m
-CONFIG_PATA_LEGACY=m
 
 ##
 ## file: drivers/atm/Kconfig
@@ -298,7 +297,6 @@ CONFIG_WD80x3=m
 ## file: drivers/net/ethernet/amd/Kconfig
 ##
 CONFIG_LANCE=m
-CONFIG_NI65=m
 
 ##
 ## file: drivers/net/ethernet/cirrus/Kconfig
@@ -324,9 +322,6 @@ CONFIG_SMC9194=m
 ##
 ## file: drivers/net/wan/Kconfig
 ##
-CONFIG_HOSTESS_SV11=m
-CONFIG_COSA=m
-CONFIG_SEALEVEL_4021=m
 CONFIG_N2=m
 CONFIG_C101=m
 

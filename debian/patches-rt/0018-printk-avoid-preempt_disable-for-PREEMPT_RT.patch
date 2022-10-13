@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 4 Feb 2022 16:01:17 +0106
 Subject: [PATCH 18/18] printk: avoid preempt_disable() for PREEMPT_RT
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 During non-normal operation, printk() calls will attempt to
 write the messages directly to the consoles. This involves
@@ -31,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -1956,6 +1956,7 @@ static int console_lock_spinning_disable
+@@ -1984,6 +1984,7 @@ static int console_lock_spinning_disable
  	return 1;
  }
  
@@ -39,7 +39,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /**
   * console_trylock_spinning - try to get console_lock by busy waiting
   *
-@@ -2029,6 +2030,7 @@ static int console_trylock_spinning(void
+@@ -2057,6 +2058,7 @@ static int console_trylock_spinning(void
  
  	return 1;
  }
@@ -47,7 +47,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  /*
   * Call the specified console driver, asking it to write out the specified
-@@ -2368,6 +2370,18 @@ asmlinkage int vprintk_emit(int facility
+@@ -2396,6 +2398,18 @@ asmlinkage int vprintk_emit(int facility
  
  	/* If called from the scheduler, we can not call up(). */
  	if (!in_sched && allow_direct_printing()) {
@@ -66,7 +66,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		/*
  		 * The caller may be holding system-critical or
  		 * timing-sensitive locks. Disable preemption during direct
-@@ -2385,6 +2399,7 @@ asmlinkage int vprintk_emit(int facility
+@@ -2413,6 +2427,7 @@ asmlinkage int vprintk_emit(int facility
  		if (console_trylock_spinning())
  			console_unlock();
  		preempt_enable();
@@ -74,7 +74,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	wake_up_klogd();
-@@ -3075,8 +3090,12 @@ static bool console_emit_next_record_tra
+@@ -3103,8 +3118,12 @@ static bool console_emit_next_record_tra
  	/*
  	 * Handovers are only supported if threaded printers are atomically
  	 * blocked. The context taking over the console_lock may be atomic.

@@ -9,6 +9,7 @@ CONFIG_SECCOMP=y
 CONFIG_SMP=y
 CONFIG_NUMA=y
 CONFIG_KEXEC=y
+# CONFIG_COMPAT is not set
 
 ##
 ## file: arch/riscv/Kconfig.socs

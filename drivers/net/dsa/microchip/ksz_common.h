@@ -14,6 +14,8 @@
 #include <linux/regmap.h>
 #include <net/dsa.h>
 
+#define KSZ_MAX_NUM_PORTS 8
+
 struct vlan_table {
 	u32 table[3];
 };
@@ -24,6 +26,30 @@ struct ksz_port_mib {
 	u64 *counters;
 	struct rtnl_link_stats64 stats64;
 	struct spinlock stats64_lock;
+};
+
+struct ksz_mib_names {
+	int index;
+	char string[ETH_GSTRING_LEN];
+};
+
+struct ksz_chip_data {
+	u32 chip_id;
+	const char *dev_name;
+	int num_vlans;
+	int num_alus;
+	int num_statics;
+	int cpu_ports;
+	int port_cnt;
+	bool phy_errata_9477;
+	bool ksz87xx_eee_link_erratum;
+	const struct ksz_mib_names *mib_names;
+	int mib_cnt;
+	u8 reg_mib_cnt;
+	bool supports_mii[KSZ_MAX_NUM_PORTS];
+	bool supports_rmii[KSZ_MAX_NUM_PORTS];
+	bool supports_rgmii[KSZ_MAX_NUM_PORTS];
+	bool internal_phy[KSZ_MAX_NUM_PORTS];
 };
 
 struct ksz_port {
@@ -47,7 +73,7 @@ struct ksz_port {
 struct ksz_device {
 	struct dsa_switch *ds;
 	struct ksz_platform_data *pdata;
-	const char *name;
+	const struct ksz_chip_data *info;
 
 	struct mutex dev_mutex;		/* device access */
 	struct mutex regmap_mutex;	/* regmap access */
@@ -64,20 +90,10 @@ struct ksz_device {
 
 	/* chip specific data */
 	u32 chip_id;
-	int num_vlans;
-	int num_alus;
-	int num_statics;
+	u8 chip_rev;
 	int cpu_port;			/* port connected to CPU */
-	int cpu_ports;			/* port bitmap can be cpu port */
 	int phy_port_cnt;
-	int port_cnt;
-	u8 reg_mib_cnt;
-	int mib_cnt;
-	const struct mib_names *mib_names;
 	phy_interface_t compat_interface;
-	u32 regs_size;
-	bool phy_errata_9477;
-	bool ksz87xx_eee_link_erratum;
 	bool synclko_125;
 	bool synclko_disable;
 
@@ -89,9 +105,40 @@ struct ksz_device {
 	u16 mirror_rx;
 	u16 mirror_tx;
 	u32 features;			/* chip specific features */
-	u32 overrides;			/* chip functions set by user */
-	u16 host_mask;
 	u16 port_mask;
+};
+
+/* List of supported models */
+enum ksz_model {
+	KSZ8795,
+	KSZ8794,
+	KSZ8765,
+	KSZ8830,
+	KSZ9477,
+	KSZ9897,
+	KSZ9893,
+	KSZ9567,
+	LAN9370,
+	LAN9371,
+	LAN9372,
+	LAN9373,
+	LAN9374,
+};
+
+enum ksz_chip_id {
+	KSZ8795_CHIP_ID = 0x8795,
+	KSZ8794_CHIP_ID = 0x8794,
+	KSZ8765_CHIP_ID = 0x8765,
+	KSZ8830_CHIP_ID = 0x8830,
+	KSZ9477_CHIP_ID = 0x00947700,
+	KSZ9897_CHIP_ID = 0x00989700,
+	KSZ9893_CHIP_ID = 0x00989300,
+	KSZ9567_CHIP_ID = 0x00956700,
+	LAN9370_CHIP_ID = 0x00937000,
+	LAN9371_CHIP_ID = 0x00937100,
+	LAN9372_CHIP_ID = 0x00937200,
+	LAN9373_CHIP_ID = 0x00937300,
+	LAN9374_CHIP_ID = 0x00937400,
 };
 
 struct alu_struct {
@@ -133,10 +180,23 @@ struct ksz_dev_ops {
 	void (*r_mib_pkt)(struct ksz_device *dev, int port, u16 addr,
 			  u64 *dropped, u64 *cnt);
 	void (*r_mib_stat64)(struct ksz_device *dev, int port);
+	int  (*vlan_filtering)(struct ksz_device *dev, int port,
+			       bool flag, struct netlink_ext_ack *extack);
+	int  (*vlan_add)(struct ksz_device *dev, int port,
+			 const struct switchdev_obj_port_vlan *vlan,
+			 struct netlink_ext_ack *extack);
+	int  (*vlan_del)(struct ksz_device *dev, int port,
+			 const struct switchdev_obj_port_vlan *vlan);
+	int (*mirror_add)(struct ksz_device *dev, int port,
+			  struct dsa_mall_mirror_tc_entry *mirror,
+			  bool ingress, struct netlink_ext_ack *extack);
+	void (*mirror_del)(struct ksz_device *dev, int port,
+			   struct dsa_mall_mirror_tc_entry *mirror);
+	void (*get_caps)(struct ksz_device *dev, int port,
+			 struct phylink_config *config);
 	void (*freeze_mib)(struct ksz_device *dev, int port, bool freeze);
 	void (*port_init_cnt)(struct ksz_device *dev, int port);
 	int (*shutdown)(struct ksz_device *dev);
-	int (*detect)(struct ksz_device *dev);
 	int (*init)(struct ksz_device *dev);
 	void (*exit)(struct ksz_device *dev);
 };
@@ -151,6 +211,12 @@ int ksz9477_switch_register(struct ksz_device *dev);
 
 void ksz_update_port_member(struct ksz_device *dev, int port);
 void ksz_init_mib_timer(struct ksz_device *dev);
+void ksz_r_mib_stats64(struct ksz_device *dev, int port);
+void ksz_get_stats64(struct dsa_switch *ds, int port,
+		     struct rtnl_link_stats64 *s);
+void ksz_phylink_get_caps(struct dsa_switch *ds, int port,
+			  struct phylink_config *config);
+extern const struct ksz_chip_data ksz_switch_chips[];
 
 /* Common DSA access functions */
 
@@ -165,6 +231,8 @@ int ksz_port_bridge_join(struct dsa_switch *ds, int port,
 			 struct netlink_ext_ack *extack);
 void ksz_port_bridge_leave(struct dsa_switch *ds, int port,
 			   struct dsa_bridge bridge);
+void ksz_port_stp_state_set(struct dsa_switch *ds, int port,
+			    u8 state, int reg);
 void ksz_port_fast_age(struct dsa_switch *ds, int port);
 int ksz_port_fdb_dump(struct dsa_switch *ds, int port, dsa_fdb_dump_cb_t *cb,
 		      void *data);
@@ -175,6 +243,22 @@ int ksz_port_mdb_del(struct dsa_switch *ds, int port,
 		     const struct switchdev_obj_port_mdb *mdb,
 		     struct dsa_db db);
 int ksz_enable_port(struct dsa_switch *ds, int port, struct phy_device *phy);
+void ksz_get_strings(struct dsa_switch *ds, int port,
+		     u32 stringset, uint8_t *buf);
+enum dsa_tag_protocol ksz_get_tag_protocol(struct dsa_switch *ds,
+					   int port, enum dsa_tag_protocol mp);
+int ksz_port_vlan_filtering(struct dsa_switch *ds, int port,
+			    bool flag, struct netlink_ext_ack *extack);
+int ksz_port_vlan_add(struct dsa_switch *ds, int port,
+		      const struct switchdev_obj_port_vlan *vlan,
+		      struct netlink_ext_ack *extack);
+int ksz_port_vlan_del(struct dsa_switch *ds, int port,
+		      const struct switchdev_obj_port_vlan *vlan);
+int ksz_port_mirror_add(struct dsa_switch *ds, int port,
+			struct dsa_mall_mirror_tc_entry *mirror,
+			bool ingress, struct netlink_ext_ack *extack);
+void ksz_port_mirror_del(struct dsa_switch *ds, int port,
+			 struct dsa_mall_mirror_tc_entry *mirror);
 
 /* Common register access functions */
 
@@ -291,6 +375,28 @@ static inline void ksz_regmap_unlock(void *__mtx)
 	struct mutex *mtx = __mtx;
 	mutex_unlock(mtx);
 }
+
+/* STP State Defines */
+#define PORT_TX_ENABLE			BIT(2)
+#define PORT_RX_ENABLE			BIT(1)
+#define PORT_LEARN_DISABLE		BIT(0)
+
+/* Switch ID Defines */
+#define REG_CHIP_ID0			0x00
+
+#define SW_FAMILY_ID_M			GENMASK(15, 8)
+#define KSZ87_FAMILY_ID			0x87
+#define KSZ88_FAMILY_ID			0x88
+
+#define KSZ8_PORT_STATUS_0		0x08
+#define KSZ8_PORT_FIBER_MODE		BIT(7)
+
+#define SW_CHIP_ID_M			GENMASK(7, 4)
+#define KSZ87_CHIP_ID_94		0x6
+#define KSZ87_CHIP_ID_95		0x9
+#define KSZ88_CHIP_ID_63		0x3
+
+#define SW_REV_ID_M			GENMASK(7, 4)
 
 /* Regmap tables generation */
 #define KSZ_SPI_OP_RD		3

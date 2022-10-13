@@ -718,9 +718,6 @@ CONFIG_NLS=m
 ## choice: Compiler optimization level
 CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 ## end choice
-# CONFIG_USERFAULTFD is not set
-# CONFIG_SLUB_DEBUG is not set
-# CONFIG_SLAB_FREELIST_HARDENED is not set
 # CONFIG_PROFILING is not set
 # CONFIG_MODULE_SIG is not set
 
@@ -753,17 +750,20 @@ CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 ##
 ## file: mm/Kconfig
 ##
+# CONFIG_ZSWAP is not set
+# CONFIG_SLAB_FREELIST_HARDENED is not set
 ## choice: Memory model
 CONFIG_FLATMEM_MANUAL=y
 # CONFIG_SPARSEMEM_MANUAL is not set
 ## end choice
 # CONFIG_KSM is not set
-# CONFIG_ZSWAP is not set
+# CONFIG_USERFAULTFD is not set
 
 ##
 ## file: mm/Kconfig.debug
 ##
 # CONFIG_PAGE_EXTENSION is not set
+# CONFIG_SLUB_DEBUG is not set
 # CONFIG_PAGE_POISONING is not set
 
 ##

@@ -22,8 +22,8 @@ configs:
  kernelarch-mips/config.mips64r2
 
 [mips64r2el_description]
-hardware: MIPS Generic (mips64r2eb)
-hardware-long: MIPS Generic platform (mips64r2eb)
+hardware: MIPS Generic (mips64r2el)
+hardware-long: MIPS Generic platform (mips64r2el)
 
 [mips64r2el_image]
 configs:

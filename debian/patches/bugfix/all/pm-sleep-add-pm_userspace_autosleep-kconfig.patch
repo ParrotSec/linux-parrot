@@ -1,0 +1,89 @@
+From: Kalesh Singh <kaleshsingh@google.com>
+Date: Thu, 30 Jun 2022 19:12:29 +0000
+Subject: [1/2] pm/sleep: Add PM_USERSPACE_AUTOSLEEP Kconfig
+Origin: https://git.kernel.org/linus/261e224d6a5c43e2bb8a07b7662f9b4ec425cfec
+
+Systems that initiate frequent suspend/resume from userspace
+can make the kernel aware by enabling PM_USERSPACE_AUTOSLEEP
+config.
+
+This allows for certain sleep-sensitive code (wireguard/rng) to
+decide on what preparatory work should be performed (or not) in
+their pm_notification callbacks.
+
+This patch was prompted by the discussion at [1] which attempts
+to remove CONFIG_ANDROID that currently guards these code paths.
+
+[1] https://lore.kernel.org/r/20220629150102.1582425-1-hch@lst.de/
+
+Suggested-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Acked-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Signed-off-by: Kalesh Singh <kaleshsingh@google.com>
+Link: https://lore.kernel.org/r/20220630191230.235306-1-kaleshsingh@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/char/random.c          |  4 ++--
+ drivers/net/wireguard/device.c |  3 ++-
+ kernel/power/Kconfig           | 20 ++++++++++++++++++++
+ 3 files changed, 24 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/char/random.c b/drivers/char/random.c
+index e3dd1dd3dd22..8c90f535d149 100644
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -755,8 +755,8 @@ static int random_pm_notification(struct notifier_block *nb, unsigned long actio
+ 	spin_unlock_irqrestore(&input_pool.lock, flags);
+ 
+ 	if (crng_ready() && (action == PM_RESTORE_PREPARE ||
+-	    (action == PM_POST_SUSPEND &&
+-	     !IS_ENABLED(CONFIG_PM_AUTOSLEEP) && !IS_ENABLED(CONFIG_ANDROID)))) {
++	    (action == PM_POST_SUSPEND && !IS_ENABLED(CONFIG_PM_AUTOSLEEP) &&
++	     !IS_ENABLED(CONFIG_PM_USERSPACE_AUTOSLEEP)))) {
+ 		crng_reseed();
+ 		pr_notice("crng reseeded on system resumption\n");
+ 	}
+diff --git a/drivers/net/wireguard/device.c b/drivers/net/wireguard/device.c
+index aa9a7a5970fd..d58e9f818d3b 100644
+--- a/drivers/net/wireguard/device.c
++++ b/drivers/net/wireguard/device.c
+@@ -69,7 +69,8 @@ static int wg_pm_notification(struct notifier_block *nb, unsigned long action, v
+ 	 * its normal operation rather than as a somewhat rare event, then we
+ 	 * don't actually want to clear keys.
+ 	 */
+-	if (IS_ENABLED(CONFIG_PM_AUTOSLEEP) || IS_ENABLED(CONFIG_ANDROID))
++	if (IS_ENABLED(CONFIG_PM_AUTOSLEEP) ||
++	    IS_ENABLED(CONFIG_PM_USERSPACE_AUTOSLEEP))
+ 		return 0;
+ 
+ 	if (action != PM_HIBERNATION_PREPARE && action != PM_SUSPEND_PREPARE)
+diff --git a/kernel/power/Kconfig b/kernel/power/Kconfig
+index a12779650f15..60a1d3051cc7 100644
+--- a/kernel/power/Kconfig
++++ b/kernel/power/Kconfig
+@@ -143,6 +143,26 @@ config PM_AUTOSLEEP
+ 	Allow the kernel to trigger a system transition into a global sleep
+ 	state automatically whenever there are no active wakeup sources.
+ 
++config PM_USERSPACE_AUTOSLEEP
++	bool "Userspace opportunistic sleep"
++	depends on PM_SLEEP
++	help
++	Notify kernel of aggressive userspace autosleep power management policy.
++
++	This option changes the behavior of various sleep-sensitive code to deal
++	with frequent userspace-initiated transitions into a global sleep state.
++
++	Saying Y here, disables code paths that most users really should keep
++	enabled. In particular, only enable this if it is very common to be
++	asleep/awake for very short periods of time (<= 2 seconds).
++
++	Only platforms, such as Android, that implement opportunistic sleep from
++	a userspace power manager service should enable this option; and not
++	other machines. Therefore, you should say N here, unless you are
++	extremely certain that this is what you want. The option otherwise has
++	bad, undesirable effects, and should not be enabled just for fun.
++
++
+ config PM_WAKELOCKS
+ 	bool "User space wakeup sources interface"
+ 	depends on PM_SLEEP

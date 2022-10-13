@@ -9,7 +9,7 @@ sources.
 
 --- a/scripts/Makefile.build
 +++ b/scripts/Makefile.build
-@@ -223,6 +223,11 @@ cmd_record_mcount = $(if $(findstring $(
+@@ -210,6 +210,11 @@ cmd_record_mcount = $(if $(findstring $(
  	$(sub_cmd_record_mcount))
  endif # CONFIG_FTRACE_MCOUNT_USE_RECORDMCOUNT
  
@@ -18,6 +18,6 @@ sources.
 +recordmcount_source :=
 +endif
 +
- ifdef CONFIG_STACK_VALIDATION
- 
- objtool := $(objtree)/tools/objtool/objtool
+ # 'OBJECT_FILES_NON_STANDARD := y': skip objtool checking for a directory
+ # 'OBJECT_FILES_NON_STANDARD_foo.o := 'y': skip objtool checking for a file
+ # 'OBJECT_FILES_NON_STANDARD_foo.o := 'n': override directory skip for a file

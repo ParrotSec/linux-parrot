@@ -15,13 +15,14 @@ were not successfully verified.
 
 Signed-off-by: Robert Holmes <robeholmes@gmail.com>
 Signed-off-by: Jeremy Cline <jcline@redhat.com>
+[bwh: Forward-ported to 5.19: adjust filename]
 ---
- kernel/module_signing.c | 16 ++++++++++++----
+ kernel/module/signing.c | 16 ++++++++++++----
  1 file changed, 12 insertions(+), 4 deletions(-)
 
---- a/kernel/module_signing.c
-+++ b/kernel/module_signing.c
-@@ -135,6 +135,13 @@ int mod_verify_sig(const void *mod, stru
+--- a/kernel/module/signing.c
++++ b/kernel/module/signing.c
+@@ -116,6 +116,13 @@ int mod_verify_sig(const void *mod, stru
  				      VERIFYING_MODULE_SIGNATURE,
  				      NULL, NULL);
  	pr_devel("verify_pkcs7_signature() = %d\n", ret);

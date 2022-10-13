@@ -1,7 +1,7 @@
 Subject: arch/arm64: Add lazy preempt support
 From: Anders Roxell <anders.roxell@linaro.org>
 Date: Thu May 14 17:52:17 2015 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.18/older/patches-5.18-rt10.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
 
 From: Anders Roxell <anders.roxell@linaro.org>
 
@@ -26,7 +26,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
-@@ -194,6 +194,7 @@ config ARM64
+@@ -197,6 +197,7 @@ config ARM64
  	select HAVE_PERF_USER_STACK_DUMP
  	select HAVE_PREEMPT_DYNAMIC_KEY
  	select HAVE_REGS_AND_STACK_ACCESS_API
@@ -92,7 +92,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #define TIF_SYSCALL_TRACE	8	/* syscall trace active */
  #define TIF_SYSCALL_AUDIT	9	/* syscall auditing */
  #define TIF_SYSCALL_TRACEPOINT	10	/* syscall tracepoint for ftrace */
-@@ -98,8 +100,10 @@ int arch_dup_task_struct(struct task_str
+@@ -100,8 +102,10 @@ int arch_dup_task_struct(struct task_str
  #define _TIF_SVE		(1 << TIF_SVE)
  #define _TIF_MTE_ASYNC_FAULT	(1 << TIF_MTE_ASYNC_FAULT)
  #define _TIF_NOTIFY_SIGNAL	(1 << TIF_NOTIFY_SIGNAL)
@@ -104,7 +104,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  				 _TIF_NOTIFY_RESUME | _TIF_FOREIGN_FPSTATE | \
  				 _TIF_UPROBE | _TIF_MTE_ASYNC_FAULT | \
  				 _TIF_NOTIFY_SIGNAL)
-@@ -108,6 +112,8 @@ int arch_dup_task_struct(struct task_str
+@@ -110,6 +114,8 @@ int arch_dup_task_struct(struct task_str
  				 _TIF_SYSCALL_TRACEPOINT | _TIF_SECCOMP | \
  				 _TIF_SYSCALL_EMU)
  
@@ -125,7 +125,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
 --- a/arch/arm64/kernel/signal.c
 +++ b/arch/arm64/kernel/signal.c
-@@ -921,7 +921,7 @@ static void do_signal(struct pt_regs *re
+@@ -1089,7 +1089,7 @@ static void do_signal(struct pt_regs *re
  void do_notify_resume(struct pt_regs *regs, unsigned long thread_flags)
  {
  	do {

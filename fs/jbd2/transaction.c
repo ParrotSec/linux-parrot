@@ -1486,8 +1486,6 @@ int jbd2_journal_dirty_metadata(handle_t *handle, struct buffer_head *bh)
 	struct journal_head *jh;
 	int ret = 0;
 
-	if (is_handle_aborted(handle))
-		return -EROFS;
 	if (!buffer_jbd(bh))
 		return -EUCLEAN;
 
@@ -1533,6 +1531,18 @@ int jbd2_journal_dirty_metadata(handle_t *handle, struct buffer_head *bh)
 
 	journal = transaction->t_journal;
 	spin_lock(&jh->b_state_lock);
+
+	if (is_handle_aborted(handle)) {
+		/*
+		 * Check journal aborting with @jh->b_state_lock locked,
+		 * since 'jh->b_transaction' could be replaced with
+		 * 'jh->b_next_transaction' during old transaction
+		 * committing if journal aborted, which may fail
+		 * assertion on 'jh->b_frozen_data == NULL'.
+		 */
+		ret = -EROFS;
+		goto out_unlock_bh;
+	}
 
 	if (jh->b_modified == 0) {
 		/*
@@ -2114,7 +2124,7 @@ out:
 /**
  * jbd2_journal_try_to_free_buffers() - try to free page buffers.
  * @journal: journal for operation
- * @page: to try and free
+ * @folio: Folio to detach data from.
  *
  * For all the buffers on this page,
  * if they are fully written out ordered data, move them onto BUF_CLEAN
@@ -2143,17 +2153,17 @@ out:
  * cannot happen because we never reallocate freed data as metadata
  * while the data is part of a transaction.  Yes?
  *
- * Return 0 on failure, 1 on success
+ * Return false on failure, true on success
  */
-int jbd2_journal_try_to_free_buffers(journal_t *journal, struct page *page)
+bool jbd2_journal_try_to_free_buffers(journal_t *journal, struct folio *folio)
 {
 	struct buffer_head *head;
 	struct buffer_head *bh;
-	int ret = 0;
+	bool ret = false;
 
-	J_ASSERT(PageLocked(page));
+	J_ASSERT(folio_test_locked(folio));
 
-	head = page_buffers(page);
+	head = folio_buffers(folio);
 	bh = head;
 	do {
 		struct journal_head *jh;
@@ -2175,7 +2185,7 @@ int jbd2_journal_try_to_free_buffers(journal_t *journal, struct page *page)
 			goto busy;
 	} while ((bh = bh->b_this_page) != head);
 
-	ret = try_to_free_buffers(page);
+	ret = try_to_free_buffers(folio);
 busy:
 	return ret;
 }
@@ -2482,7 +2492,7 @@ int jbd2_journal_invalidate_folio(journal_t *journal, struct folio *folio,
 	} while (bh != head);
 
 	if (!partial_page) {
-		if (may_free && try_to_free_buffers(&folio->page))
+		if (may_free && try_to_free_buffers(folio))
 			J_ASSERT(!folio_buffers(folio));
 	}
 	return 0;

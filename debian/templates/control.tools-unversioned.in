@@ -129,3 +129,15 @@ Description: Support daemons for Linux running on Hyper-V
  .
  hv_vss_daemon provides the volume shadow copy service (VSS), allowing
  the host to freeze the guest filesystems while taking a snapshot.
+
+#Package: rtla
+#Build-Profiles: <!stage1 !pkg.linux.notools>
+#Architecture: amd64 arm64 armhf i386 x32
+#Build-Depends: libtracefs-dev, libtraceevent-dev, python3-docutils
+#Depends: ${shlibs:Depends}
+#Section: devel
+#Description: Real-Time Linux Analysis tools
+# rtla provides a set of commands for analysing the real-time
+# properties of Linux.  rtla uses kernel tracing capabilities to
+# provide precise information about the properties and root causes of
+# unexpected results.

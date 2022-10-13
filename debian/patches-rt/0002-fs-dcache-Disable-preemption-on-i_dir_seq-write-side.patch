@@ -1,0 +1,61 @@
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Sun, 12 Jun 2022 16:27:28 +0200
+Subject: [PATCH 2/4] fs/dcache: Disable preemption on i_dir_seq write side on
+ PREEMPT_RT
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+
+i_dir_seq is a sequence counter with a lock which is represented by the
+lowest bit. The writer atomically updates the counter which ensures that it
+can be modified by only one writer at a time. This requires preemption to
+be disabled across the write side critical section.
+
+On !PREEMPT_RT kernels this is implicit by the caller acquiring
+dentry::lock. On PREEMPT_RT kernels spin_lock() does not disable preemption
+which means that a preempting writer or reader would live lock. It's
+therefore required to disable preemption explicitly.
+
+An alternative solution would be to replace i_dir_seq with a seqlock_t for
+PREEMPT_RT, but that comes with its own set of problems due to arbitrary
+lock nesting. A pure sequence count with an associated spinlock is not
+possible because the locks held by the caller are not necessarily related.
+
+As the critical section is small, disabling preemption is a sensible
+solution.
+
+Reported-by: Oleg.Karfich@wago.com
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Link: https://lkml.kernel.org/r/20220613140712.77932-2-bigeasy@linutronix.de
+---
+ fs/dcache.c |   12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -2564,7 +2564,15 @@ EXPORT_SYMBOL(d_rehash);
+ 
+ static inline unsigned start_dir_add(struct inode *dir)
+ {
+-
++	/*
++	 * The caller holds a spinlock (dentry::d_lock). On !PREEMPT_RT
++	 * kernels spin_lock() implicitly disables preemption, but not on
++	 * PREEMPT_RT.  So for RT it has to be done explicitly to protect
++	 * the sequence count write side critical section against a reader
++	 * or another writer preempting, which would result in a live lock.
++	 */
++	if (IS_ENABLED(CONFIG_PREEMPT_RT))
++		preempt_disable();
+ 	for (;;) {
+ 		unsigned n = dir->i_dir_seq;
+ 		if (!(n & 1) && cmpxchg(&dir->i_dir_seq, n, n + 1) == n)
+@@ -2576,6 +2584,8 @@ static inline unsigned start_dir_add(str
+ static inline void end_dir_add(struct inode *dir, unsigned n)
+ {
+ 	smp_store_release(&dir->i_dir_seq, n + 2);
++	if (IS_ENABLED(CONFIG_PREEMPT_RT))
++		preempt_enable();
+ }
+ 
+ static void d_wait_lookup(struct dentry *dentry)
