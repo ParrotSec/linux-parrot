@@ -61,7 +61,7 @@ class Gencontrol(Base):
         makeflags['VERSION'] = self.version.linux_version
         makeflags['GENCONTROL_ARGS'] = (
             '-v%(imagebinaryversion)s '
-            '-DBuilt-Using="linux (= %(imagesourceversion)s)"' %
+            '-DBuilt-Using="%(source_basename)s%(source_suffix)s (= %(imagesourceversion)s)"' %
             vars)
         makeflags['PACKAGE_VERSION'] = vars['imagebinaryversion']
 

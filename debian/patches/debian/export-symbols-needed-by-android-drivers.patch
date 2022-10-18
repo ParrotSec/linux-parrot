@@ -20,9 +20,19 @@ Export the currently un-exported symbols they depend on.
  security/security.c | 4 ++++
  7 files changed, 10 insertions(+)
 
+--- a/fs/file.c
++++ b/fs/file.c
+@@ -813,6 +813,7 @@ struct file *close_fd_get_file(unsigned
+ 
+ 	return file;
+ }
++EXPORT_SYMBOL_GPL(close_fd_get_file);
+ 
+ void do_close_on_exec(struct files_struct *files)
+ {
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -7026,6 +7026,7 @@ static bool is_nice_reduction(const stru
+@@ -7052,6 +7052,7 @@ static bool is_nice_reduction(const stru
  
  	return (nice_rlim <= task_rlimit(p, RLIMIT_NICE));
  }
@@ -52,7 +62,7 @@ Export the currently un-exported symbols they depend on.
   * task_work_cancel_match - cancel a pending work added by task_work_add()
 --- a/mm/memory.c
 +++ b/mm/memory.c
-@@ -1749,6 +1749,7 @@ void zap_page_range(struct vm_area_struc
+@@ -1757,6 +1757,7 @@ void zap_page_range(struct vm_area_struc
  	mmu_notifier_invalidate_range_end(&range);
  	tlb_finish_mmu(&tlb);
  }
@@ -62,7 +72,7 @@ Export the currently un-exported symbols they depend on.
   * zap_page_range_single - remove user pages in a given range
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
-@@ -4173,6 +4173,7 @@ int shmem_zero_setup(struct vm_area_stru
+@@ -4245,6 +4245,7 @@ int shmem_zero_setup(struct vm_area_stru
  
  	return 0;
  }
@@ -100,14 +110,4 @@ Export the currently un-exported symbols they depend on.
 +EXPORT_SYMBOL_GPL(security_binder_transfer_file);
  
  int security_ptrace_access_check(struct task_struct *child, unsigned int mode)
- {
---- a/fs/file.c
-+++ b/fs/file.c
-@@ -813,6 +813,7 @@ struct file *close_fd_get_file(unsigned
- 
- 	return file;
- }
-+EXPORT_SYMBOL_GPL(close_fd_get_file);
- 
- void do_close_on_exec(struct files_struct *files)
  {

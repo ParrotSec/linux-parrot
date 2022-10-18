@@ -12,9 +12,9 @@ actually used.
 ---
 --- a/fs/notify/fanotify/fanotify_user.c
 +++ b/fs/notify/fanotify/fanotify_user.c
-@@ -1170,6 +1170,14 @@ static int do_fanotify_mark(int fanotify
- 	if (ignored)
- 		mask &= ~FANOTIFY_EVENT_FLAGS;
+@@ -1661,6 +1661,14 @@ static int do_fanotify_mark(int fanotify
+ 		umask = FANOTIFY_EVENT_FLAGS;
+ 	}
  
 +#ifdef CONFIG_FANOTIFY_ACCESS_PERMISSIONS
 +	if (mask & FANOTIFY_PERM_EVENTS) {

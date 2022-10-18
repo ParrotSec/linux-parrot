@@ -1,7 +1,7 @@
 Subject: x86: Enable RT also on 32bit
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu Nov  7 17:49:20 2019 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
@@ -23,7 +23,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	select ARCH_USE_CMPXCHG_LOCKREF
  	select HAVE_ARCH_SOFT_DIRTY
  	select MODULES_USE_ELF_RELA
-@@ -111,6 +110,7 @@ config X86
+@@ -110,6 +109,7 @@ config X86
  	select ARCH_SUPPORTS_KMAP_LOCAL_FORCE_MAP	if NR_CPUS <= 4096
  	select ARCH_SUPPORTS_LTO_CLANG
  	select ARCH_SUPPORTS_LTO_CLANG_THIN

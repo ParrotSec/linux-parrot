@@ -770,6 +770,7 @@ class SourcePackage(_ControlFileDict):
         ('Homepage', str),
         ('Vcs-Browser', str),
         ('Vcs-Git', str),
+        ('XS-Autobuild', str),
     ))
 
 
@@ -798,6 +799,7 @@ class BinaryPackage(_ControlFileDict):
         ('Multi-Arch', str),
         ('Kernel-Version', str),  # for udeb only
         ('Description', PackageDescription),
+        ('Homepage', str),
     ))
 
 

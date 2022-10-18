@@ -1,0 +1,9 @@
+#!/usr/bin/dh-exec
+
+# Some 32-bit architectures need 64-bit kernels and we still build
+# these as the "wrong" architecture rather than mandating multiarch.
+[mips mipsel] linux-image-6.0.0-2parrot1-mips32r6eb: binary-from-other-architecture *boot/vmlinu*
+[hppa mips mipsel powerpc] linux-image-6.0.0-2parrot1-mips32r6eb: binary-from-other-architecture *lib/modules/*
+
+# vmlinux needs extra sections that would normally be stripped.
+[mips64el mipsel ppc64el] linux-image-6.0.0-2parrot1-mips32r6eb: unstripped-binary-or-object *boot/vmlinu*

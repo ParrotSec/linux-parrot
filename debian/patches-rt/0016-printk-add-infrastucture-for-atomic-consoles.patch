@@ -1,7 +1,7 @@
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 4 Feb 2022 16:01:17 +0106
 Subject: [PATCH 16/18] printk: add infrastucture for atomic consoles
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 Many times it is not possible to see the console output on
 panic because printing threads cannot be scheduled and/or the
@@ -493,7 +493,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  /**
   * console_unlock - unlock the console system
   *
-@@ -3158,6 +3379,11 @@ void console_unblank(void)
+@@ -3148,6 +3369,11 @@ void console_unblank(void)
   */
  void console_flush_on_panic(enum con_flush_mode mode)
  {
@@ -505,7 +505,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/*
  	 * If someone else is holding the console lock, trylock will fail
  	 * and may_schedule may be set.  Ignore and proceed to unlock so
-@@ -3174,7 +3400,7 @@ void console_flush_on_panic(enum con_flu
+@@ -3164,7 +3390,7 @@ void console_flush_on_panic(enum con_flu
  
  		seq = prb_first_valid_seq(prb);
  		for_each_console(c)
@@ -514,7 +514,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  	console_unlock();
  }
-@@ -3417,19 +3643,22 @@ void register_console(struct console *ne
+@@ -3407,19 +3633,22 @@ void register_console(struct console *ne
  	if (newcon->flags & CON_EXTENDED)
  		nr_ext_console_drivers++;
  
@@ -540,7 +540,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	if (printk_kthreads_available)
-@@ -3518,6 +3747,10 @@ int unregister_console(struct console *c
+@@ -3508,6 +3737,10 @@ int unregister_console(struct console *c
  
  	console_sysfs_notify();
  
@@ -551,7 +551,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (console->exit)
  		res = console->exit(console);
  
-@@ -3648,7 +3881,7 @@ static bool __pr_flush(struct console *c
+@@ -3638,7 +3871,7 @@ static bool __pr_flush(struct console *c
  		for_each_console(c) {
  			if (con && con != c)
  				continue;
@@ -560,7 +560,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  				continue;
  			printk_seq = c->seq;
  			if (printk_seq < seq)
-@@ -3738,9 +3971,10 @@ static void printk_fallback_preferred_di
+@@ -3728,9 +3961,10 @@ static void printk_fallback_preferred_di
   * See __console_emit_next_record() for argument and return details.
   */
  static bool console_emit_next_record(struct console *con, char *text, char *ext_text,
@@ -573,7 +573,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  }
  
  static bool printer_should_wake(struct console *con, u64 seq)
-@@ -3781,6 +4015,11 @@ static int printk_kthread_func(void *dat
+@@ -3771,6 +4005,11 @@ static int printk_kthread_func(void *dat
  	char *text;
  	int error;
  
@@ -585,7 +585,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	text = kmalloc(CONSOLE_LOG_MAX, GFP_KERNEL);
  	if (!text) {
  		con_printk(KERN_ERR, con, "failed to allocate text buffer\n");
-@@ -3859,7 +4098,7 @@ static int printk_kthread_func(void *dat
+@@ -3849,7 +4088,7 @@ static int printk_kthread_func(void *dat
  		 * which can conditionally invoke cond_resched().
  		 */
  		console_may_schedule = 0;

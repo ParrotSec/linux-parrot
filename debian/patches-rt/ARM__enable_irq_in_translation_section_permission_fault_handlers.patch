@@ -1,7 +1,7 @@
 Subject: ARM: enable irq in translation/section permission fault handlers
 From: Yadi.hu <yadi.hu@windriver.com>
 Date: Wed Dec 10 10:32:09 2014 +0800
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 From: Yadi.hu <yadi.hu@windriver.com>
 
@@ -69,7 +69,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/arch/arm/mm/fault.c
 +++ b/arch/arm/mm/fault.c
-@@ -417,6 +417,9 @@ do_translation_fault(unsigned long addr,
+@@ -421,6 +421,9 @@ do_translation_fault(unsigned long addr,
  	if (addr < TASK_SIZE)
  		return do_page_fault(addr, fsr, regs);
  
@@ -79,7 +79,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  	if (user_mode(regs))
  		goto bad_area;
  
-@@ -487,6 +490,9 @@ do_translation_fault(unsigned long addr,
+@@ -491,6 +494,9 @@ do_translation_fault(unsigned long addr,
  static int
  do_sect_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
  {

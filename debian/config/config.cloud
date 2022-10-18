@@ -109,7 +109,6 @@ CONFIG_ATA_PIIX=m
 ## file: drivers/block/Kconfig
 ##
 # CONFIG_BLK_DEV_FD is not set
-# CONFIG_BLK_DEV_SX8 is not set
 # CONFIG_CDROM_PKTCDVD is not set
 CONFIG_XEN_BLKDEV_FRONTEND=m
 
@@ -1088,7 +1087,6 @@ CONFIG_SCSI_FC_ATTRS=m
 # CONFIG_SCSI_ACARD is not set
 # CONFIG_SCSI_AACRAID is not set
 # CONFIG_SCSI_MVUMI is not set
-# CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_SCSI_ADVANSYS is not set
 # CONFIG_SCSI_ARCMSR is not set
 # CONFIG_SCSI_HPTIOP is not set
@@ -1224,6 +1222,11 @@ CONFIG_HYPERV_STORAGE=m
 # CONFIG_STAGING is not set
 
 ##
+## file: drivers/staging/vme_user/Kconfig
+##
+# CONFIG_VME_BUS is not set
+
+##
 ## file: drivers/target/iscsi/cxgbit/Kconfig
 ##
 # CONFIG_ISCSI_TARGET_CXGB4 is not set
@@ -1333,11 +1336,6 @@ CONFIG_FB_HYPERV=m
 ## file: drivers/virt/Kconfig
 ##
 # CONFIG_VIRT_DRIVERS is not set
-
-##
-## file: drivers/vme/Kconfig
-##
-# CONFIG_VME_BUS is not set
 
 ##
 ## file: drivers/w1/Kconfig
@@ -1685,11 +1683,6 @@ CONFIG_NET_MPLS_GSO=m
 ## file: security/Kconfig
 ##
 CONFIG_SECURITY_INFINIBAND=y
-
-##
-## file: security/integrity/Kconfig
-##
-# CONFIG_INTEGRITY is not set
 
 ##
 ## file: sound/Kconfig

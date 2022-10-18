@@ -31,7 +31,7 @@ cc: linux-efi@vger.kernel.org
 
 --- a/arch/x86/kernel/setup.c
 +++ b/arch/x86/kernel/setup.c
-@@ -1126,19 +1126,7 @@
+@@ -1205,19 +1205,7 @@ void __init setup_arch(char **cmdline_p)
  	/* Allocate bigger log buffer */
  	setup_log_buf(1);
  
@@ -54,7 +54,7 @@ cc: linux-efi@vger.kernel.org
  
 --- a/drivers/firmware/efi/Makefile
 +++ b/drivers/firmware/efi/Makefile
-@@ -28,6 +28,7 @@
+@@ -27,6 +27,7 @@ obj-$(CONFIG_EFI_FAKE_MEMMAP)		+= fake_m
  obj-$(CONFIG_EFI_BOOTLOADER_CONTROL)	+= efibc.o
  obj-$(CONFIG_EFI_TEST)			+= test/
  obj-$(CONFIG_EFI_DEV_PATH_PARSER)	+= dev-path-parser.o
@@ -106,7 +106,7 @@ cc: linux-efi@vger.kernel.org
 +}
 --- a/include/linux/efi.h
 +++ b/include/linux/efi.h
-@@ -782,6 +782,14 @@
+@@ -849,6 +849,14 @@ extern int __init efi_setup_pcdp_console
  #define EFI_MEM_ATTR		10	/* Did firmware publish an EFI_MEMORY_ATTRIBUTES table? */
  #define EFI_MEM_NO_SOFT_RESERVE	11	/* Is the kernel configured to ignore soft reservations? */
  #define EFI_PRESERVE_BS_REGIONS	12	/* Are EFI boot-services memory segments available? */
@@ -121,23 +121,23 @@ cc: linux-efi@vger.kernel.org
  
  #ifdef CONFIG_EFI
  /*
-@@ -805,6 +813,7 @@
- {
+@@ -873,6 +881,7 @@ static inline bool efi_rt_services_suppo
  	return (efi.runtime_supported_mask & mask) == mask;
  }
+ extern void efi_find_mirror(void);
 +extern void __init efi_set_secure_boot(enum efi_secureboot_mode mode);
  #else
  static inline bool efi_enabled(int feature)
  {
-@@ -822,6 +831,7 @@
- {
- 	return false;
+@@ -892,6 +901,7 @@ static inline bool efi_rt_services_suppo
  }
+ 
+ static inline void efi_find_mirror(void) {}
 +static inline void efi_set_secure_boot(enum efi_secureboot_mode mode) {}
  #endif
  
  extern int efi_status_to_err(efi_status_t status);
-@@ -1077,13 +1087,6 @@
+@@ -1107,13 +1117,6 @@ static inline bool efi_runtime_disabled(
  extern void efi_call_virt_check_flags(unsigned long flags, const char *call);
  extern unsigned long efi_call_virt_save_flags(void);
  

@@ -17,7 +17,7 @@ are set.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -1193,7 +1193,7 @@ PHONY += prepare archprepare
+@@ -1198,7 +1198,7 @@ PHONY += prepare archprepare
  
  archprepare: outputmakefile archheaders archscripts scripts include/config/kernel.release \
  	asm-generic $(version_h) $(autoksyms_h) include/generated/utsrelease.h \
@@ -26,7 +26,7 @@ are set.
  
  prepare0: archprepare
  	$(Q)$(MAKE) $(build)=scripts/mod
-@@ -1247,6 +1247,16 @@ define filechk_version.h
+@@ -1252,6 +1252,16 @@ define filechk_version.h
  	echo \#define LINUX_VERSION_SUBLEVEL $(SUBLEVEL)
  endef
  
@@ -43,7 +43,7 @@ are set.
  $(version_h): PATCHLEVEL := $(or $(PATCHLEVEL), 0)
  $(version_h): SUBLEVEL := $(or $(SUBLEVEL), 0)
  $(version_h): FORCE
-@@ -1255,6 +1265,9 @@ $(version_h): FORCE
+@@ -1260,6 +1270,9 @@ $(version_h): FORCE
  include/generated/utsrelease.h: include/config/kernel.release FORCE
  	$(call filechk,utsrelease.h)
  
@@ -116,8 +116,8 @@ are set.
 +	printk(KERN_INFO "Pid: %d, comm: %.20s %s %s%s\n", task_pid_nr(current),
 +		current->comm, print_tainted(), init_utsname()->release,
 +		LINUX_PACKAGE_ID);
- 	printk(KERN_INFO "RIP: %04lx:[<%016lx>]\n", PT_REGS_CS(regs) & 0xffff,
- 	       PT_REGS_IP(regs));
+ 	printk(KERN_INFO "RIP: %04lx:%pS\n", PT_REGS_CS(regs) & 0xffff,
+ 	       (void *)PT_REGS_IP(regs));
  	printk(KERN_INFO "RSP: %016lx  EFLAGS: %08lx\n", PT_REGS_SP(regs),
 --- a/kernel/hung_task.c
 +++ b/kernel/hung_task.c
@@ -129,7 +129,7 @@ are set.
  
  /*
   * The number of tasks checked:
-@@ -133,10 +134,11 @@ static void check_hung_task(struct task_
+@@ -131,10 +132,11 @@ static void check_hung_task(struct task_
  			sysctl_hung_task_warnings--;
  		pr_err("INFO: task %s:%d blocked for more than %ld seconds.\n",
  		       t->comm, t->pid, (jiffies - t->last_switch_time) / HZ);

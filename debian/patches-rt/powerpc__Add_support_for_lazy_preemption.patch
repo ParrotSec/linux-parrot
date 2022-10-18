@@ -1,7 +1,7 @@
 Subject: powerpc: Add support for lazy preemption
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu Nov  1 10:14:11 2012 +0100
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
@@ -18,7 +18,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/arch/powerpc/Kconfig
 +++ b/arch/powerpc/Kconfig
-@@ -240,6 +240,7 @@ config PPC
+@@ -241,6 +241,7 @@ config PPC
  	select HAVE_PERF_EVENTS_NMI		if PPC64
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
@@ -84,7 +84,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  /* Don't move TLF_NAPPING without adjusting the code in entry_32.S */
 --- a/arch/powerpc/kernel/interrupt.c
 +++ b/arch/powerpc/kernel/interrupt.c
-@@ -345,7 +345,7 @@ interrupt_exit_user_prepare_main(unsigne
+@@ -184,7 +184,7 @@ interrupt_exit_user_prepare_main(unsigne
  	ti_flags = read_thread_flags();
  	while (unlikely(ti_flags & (_TIF_USER_WORK_MASK & ~_TIF_RESTORE_TM))) {
  		local_irq_enable();
@@ -93,7 +93,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  			schedule();
  		} else {
  			/*
-@@ -549,11 +549,15 @@ notrace unsigned long interrupt_exit_ker
+@@ -388,11 +388,15 @@ notrace unsigned long interrupt_exit_ker
  		/* Returning to a kernel context with local irqs enabled. */
  		WARN_ON_ONCE(!(regs->msr & MSR_EE));
  again:

@@ -16,7 +16,6 @@ CONFIG_TLAN=m
 ##
 ## file: drivers/scsi/Kconfig
 ##
-# CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_SCSI_NSP32 is not set
 
 ##

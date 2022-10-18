@@ -1,7 +1,7 @@
 # Include Ethernet switch, controller and PHY drivers by default
 drivers/net/dsa/** ?
 drivers/net/ethernet/**
-drivers/net/phy/*
+drivers/net/phy/**
 
 # Include paravirtual network drivers
 hv_netvsc ?

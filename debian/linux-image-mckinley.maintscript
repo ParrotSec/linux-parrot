@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/linux-image-mckinley linux-image-5.19.0-11parrot1-mckinley 5.7~rc5-1~exp1 linux-image-mckinley
+dir_to_symlink /usr/share/doc/linux-image-mckinley linux-image-6.0.0-2parrot1-mckinley 5.7~rc5-1~exp1 linux-image-mckinley

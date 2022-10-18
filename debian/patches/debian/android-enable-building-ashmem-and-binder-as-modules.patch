@@ -27,8 +27,8 @@ Consequently, the ashmem part of this patch has been removed.
 
 --- a/drivers/android/Kconfig
 +++ b/drivers/android/Kconfig
-@@ -9,7 +9,7 @@
- if ANDROID
+@@ -2,7 +2,7 @@
+ menu "Android"
  
  config ANDROID_BINDER_IPC
 -	bool "Android Binder IPC Driver"
@@ -51,7 +51,7 @@ Consequently, the ashmem part of this patch has been removed.
 +binder_linux-$(CONFIG_ANDROID_BINDER_IPC_SELFTEST) += binder_alloc_selftest.o
 --- a/drivers/android/binder_alloc.c
 +++ b/drivers/android/binder_alloc.c
-@@ -38,7 +38,7 @@
+@@ -38,7 +38,7 @@ enum {
  };
  static uint32_t binder_alloc_debug_mask = BINDER_DEBUG_USER_ERROR;
  

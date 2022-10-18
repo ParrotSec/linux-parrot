@@ -1,7 +1,7 @@
 Subject: arch/arm64: Add lazy preempt support
 From: Anders Roxell <anders.roxell@linaro.org>
 Date: Thu May 14 17:52:17 2015 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 From: Anders Roxell <anders.roxell@linaro.org>
 
@@ -26,7 +26,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
-@@ -197,6 +197,7 @@ config ARM64
+@@ -200,6 +200,7 @@ config ARM64
  	select HAVE_PERF_USER_STACK_DUMP
  	select HAVE_PREEMPT_DYNAMIC_KEY
  	select HAVE_REGS_AND_STACK_ACCESS_API
@@ -125,7 +125,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  #endif
 --- a/arch/arm64/kernel/signal.c
 +++ b/arch/arm64/kernel/signal.c
-@@ -1089,7 +1089,7 @@ static void do_signal(struct pt_regs *re
+@@ -1103,7 +1103,7 @@ static void do_signal(struct pt_regs *re
  void do_notify_resume(struct pt_regs *regs, unsigned long thread_flags)
  {
  	do {

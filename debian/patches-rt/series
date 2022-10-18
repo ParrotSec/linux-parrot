@@ -3,8 +3,6 @@
 ###########################################################################
 # Posted and applied
 ###########################################################################
-arch-Disable-softirq-stacks-on-PREEMPT_RT.patch
-blk-mq-Don-t-disable-preemption-around-__blk_mq_run_.patch
 
 # signal_x86__Delay_calling_signals_in_atomic.patch
 
@@ -12,25 +10,47 @@ blk-mq-Don-t-disable-preemption-around-__blk_mq_run_.patch
 # Posted
 ###########################################################################
 genirq-Provide-generic_handle_domain_irq_safe.patch
-printk-Skip-console-drivers-on-PREEMPT_RT.patch
 0001-lib-vsprintf-Remove-static_branch_likely-from-__ptr_.patch
 0002-lib-vsprintf-Initialize-vsprintf-s-pointer-hash-once.patch
+locking-Detect-includes-rwlock.h-outside-of-spinlock.patch
+vduse-Remove-include-of-rwlock.h.patch
 
 # Hacks to get ptrace to work.
 signal-Don-t-disable-preemption-in-ptrace_stop-on-PR.patch
 sched-Consider-task_struct-saved_state-in-wait_task_.patch
 
-###########################################################################
-# fs:
-###########################################################################
-0001-fs-dcache-d_add_ci-needs-to-complete-parallel-lookup.patch
-0002-fs-dcache-Disable-preemption-on-i_dir_seq-write-side.patch
-0003-fs-dcache-Move-the-wakeup-from-__d_lookup_done-to-th.patch
-0004-fs-dcache-Move-wakeup-out-of-i_seq_dir-write-held-re.patch
+# Vlastimil Babka [PATCH v2 0/5] mm/slub: fix validation races and cleanup locking
+# 20220823170400.26546-1-vbabka@suse.cz
+0001-mm-slub-move-free_debug_processing-further.patch
+0002-mm-slub-restrict-sysfs-validation-to-debug-caches-an.patch
+0003-mm-slub-remove-slab_lock-usage-for-debug-operations.patch
+0004-mm-slub-convert-object_map_lock-to-non-raw-spinlock.patch
+0005-mm-slub-simplify-__cmpxchg_double_slab-and-slab_-un-.patch
+
+# ifdef RT cleanups.
+# staged to slub
+0003-slub-Make-PREEMPT_RT-support-less-convoluted.patch
+# pending
+0001-preempt-Provide-preempt_-dis-en-able_nested.patch
+0002-dentry-Use-preempt_-dis-en-able_nested.patch
+0003-mm-vmstat-Use-preempt_-dis-en-able_nested.patch
+0004-mm-debug-Provide-VM_WARN_ON_IRQS_ENABLED.patch
+0005-mm-memcontrol-Replace-the-PREEMPT_RT-conditionals.patch
+0006-mm-compaction-Get-rid-of-RT-ifdeffery.patch
+0007-flex_proportions-Disable-preemption-entering-the-wri.patch
+0008-u64_stats-Streamline-the-implementation.patch
+# Wait until after the previous patch is upstream.
+0001-spi-Remove-the-obsolte-u64_stats_fetch_-_irq-users.patch
+0002-net-Remove-the-obsolte-u64_stats_fetch_-_irq-users.patch
+0003-net-Remove-the-obsolte-u64_stats_fetch_-_irq-users.patch
+0004-bpf-Remove-the-obsolte-u64_stats_fetch_-_irq-users.patch
+# Wait until previous four are upstream.
+u64_stat-Remove-the-obsolete-fetch_irq-variants.patch
 
 ###########################################################################
 # Post
 ###########################################################################
+net-Avoid-the-IPI-to-free-the.patch
 
 ###########################################################################
 # X86:
@@ -46,7 +66,6 @@ rcutorture-Also-force-sched-priority-to-timersd-on-b.patch
 tick-Fix-timer-storm-since-introduction-of-timersd.patch
 tpm_tis__fix_stall_after_iowrites.patch
 drivers_block_zram__Replace_bit_spinlocks_with_rtmutex_for_-rt.patch
-iio-adc-stm32-adc-Use-generic_handle_domain_irq.patch
 locking-lockdep-Remove-lockdep_init_map_crosslock.patch
 
 ###########################################################################
@@ -56,7 +75,6 @@ printk-Bring-back-the-RT-bits.patch
 0016-printk-add-infrastucture-for-atomic-consoles.patch
 0017-serial-8250-implement-write_atomic.patch
 0018-printk-avoid-preempt_disable-for-PREEMPT_RT.patch
-Revert-printk-Skip-console-drivers-on-PREEMPT_RT.patch
 
 ###########################################################################
 # DRM:

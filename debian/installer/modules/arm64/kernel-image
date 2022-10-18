@@ -14,6 +14,7 @@ drivers/soc/**
 
 # Watchdog needed for reboot
 sunxi_wdt ?
+imx2_wdt ?
 
 # For Turris MOX (u-boot enables the watchdog)
 armada_37xx_wdt ?
@@ -35,3 +36,6 @@ rockchip-io-domain ?
 
 # Pin controllers
 drivers/pinctrl/**
+
+# EFUSE/OTP drivers
+nvmem-imx-ocotp ?

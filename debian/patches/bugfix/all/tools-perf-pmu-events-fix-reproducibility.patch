@@ -3,179 +3,24 @@ Date: Sun, 25 Aug 2019 13:49:41 +0100
 Subject: tools/perf: pmu-events: Fix reproducibility
 Forwarded: https://lore.kernel.org/lkml/20190825131329.naqzd5kwg7mw5d3f@decadent.org.uk/T/#u
 
-jevents.c uses nftw() to enumerate files and outputs the corresponding
-C structs in the order they are found.  This makes it sensitive to
-directory ordering, so that the perf executable is not reproducible.
+jevents.py enumerates files and outputs the corresponding C structs in
+the order they are found.  This makes it sensitive to directory
+ordering, so that the perf executable is not reproducible.
 
-To avoid this, store all the files and directories found and then sort
-them by their (relative) path.  (This maintains the parent-first
-ordering that nftw() promises.)  Then apply the existing callbacks to
-them in the sorted order.
-
-Don't both storing the stat buffers as we don't need them.
+To avoid this, sort the entries returned by os.scandir() before
+processing them.
 
 References: https://tests.reproducible-builds.org/debian/dbdtxt/bullseye/i386/linux_4.19.37-6.diffoscope.txt.gz
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
---- a/tools/perf/pmu-events/jevents.c
-+++ b/tools/perf/pmu-events/jevents.c
-@@ -51,6 +51,18 @@
- #include "json.h"
- #include "pmu-events.h"
- 
-+struct ordered_ftw_entry {
-+	const char	*fpath;
-+	int		typeflag;
-+	struct FTW	ftwbuf;
-+};
-+
-+struct ordered_ftw_state {
-+	struct ordered_ftw_entry *entries;
-+	size_t		n;
-+	size_t		max;
-+};
-+
- int verbose;
- char *prog;
- 
-@@ -981,6 +993,79 @@ static int get_maxfds(void)
-  */
- static FILE *eventsfp;
- static char *mapfile;
-+static struct ordered_ftw_state *ordered_ftw_state;
-+
-+static int ordered_ftw_add(const char *fpath,
-+			   const struct stat *sb __maybe_unused,
-+			   int typeflag, struct FTW *ftwbuf)
-+{
-+	struct ordered_ftw_state *state = ordered_ftw_state;
-+	struct ordered_ftw_entry *entry;
-+
-+	if (ftwbuf->level == 0 || ftwbuf->level > 3)
-+		return 0;
-+
-+	/* Grow array if necessary */
-+	if (state->n >= state->max) {
-+		if (state->max == 0)
-+			state->max = 16;
-+		else
-+			state->max *= 2;
-+		state->entries = realloc(state->entries,
-+					 state->max * sizeof(*state->entries));
-+	}
-+
-+	entry = &state->entries[state->n++];
-+	entry->fpath = strdup(fpath);
-+	entry->typeflag = typeflag;
-+	entry->ftwbuf = *ftwbuf;
-+
-+	return 0;
-+}
-+
-+static int ordered_ftw_compare(const void *left, const void *right)
-+{
-+	const struct ordered_ftw_entry *left_entry = left;
-+	const struct ordered_ftw_entry *right_entry = right;
-+
-+	return strcmp(left_entry->fpath, right_entry->fpath);
-+}
-+
-+/*
-+ * Wrapper for nftw() that iterates files in ASCII-order to ensure
-+ * reproducible output
-+ */
-+static int ordered_ftw(const char *dirpath,
-+		       int (*fn)(const char *, int, struct FTW *),
-+		       int nopenfd, int flags)
-+{
-+	struct ordered_ftw_state state = { NULL, 0, 0 };
-+	size_t i;
-+	int rc;
-+
-+	ordered_ftw_state = &state;
-+	rc = nftw(dirpath, ordered_ftw_add, nopenfd, flags);
-+	if (rc)
-+		goto out;
-+
-+	qsort(state.entries, state.n, sizeof(*state.entries),
-+	      ordered_ftw_compare);
-+
-+	for (i = 0; i < state.n; i++) {
-+		rc = fn(state.entries[i].fpath,
-+			state.entries[i].typeflag,
-+			&state.entries[i].ftwbuf);
-+		if (rc)
-+			goto out;
-+	}
-+
-+out:
-+	for (i = 0; i < state.n; i++)
-+		free((char *)state.entries[i].fpath);
-+	free(state.entries);;
-+
-+	return rc;
-+}
- 
- static int is_leaf_dir(const char *fpath)
- {
-@@ -1033,19 +1118,19 @@ static int is_json_file(const char *name
- 	return 0;
- }
- 
--static int preprocess_arch_std_files(const char *fpath, const struct stat *sb,
-+static int preprocess_arch_std_files(const char *fpath,
- 				int typeflag, struct FTW *ftwbuf)
- {
- 	int level = ftwbuf->level;
- 	int is_file = typeflag == FTW_F;
- 
- 	if (level == 1 && is_file && is_json_file(fpath))
--		return json_events(fpath, save_arch_std_events, (void *)sb);
-+		return json_events(fpath, save_arch_std_events, NULL);
- 
- 	return 0;
- }
- 
--static int process_one_file(const char *fpath, const struct stat *sb,
-+static int process_one_file(const char *fpath,
- 			    int typeflag, struct FTW *ftwbuf)
- {
- 	char *tblname, *bname;
-@@ -1075,9 +1160,9 @@ static int process_one_file(const char *
- 	} else
- 		bname = (char *) fpath + ftwbuf->base;
- 
--	pr_debug("%s %d %7jd %-20s %s\n",
-+	pr_debug("%s %d %-20s %s\n",
- 		 is_file ? "f" : is_dir ? "d" : "x",
--		 level, sb->st_size, bname, fpath);
-+		 level, bname, fpath);
- 
- 	/* base dir or too deep */
- 	if (level == 0 || level > 4)
-@@ -1251,21 +1336,21 @@ int main(int argc, char *argv[])
- 	 */
- 
- 	maxfds = get_maxfds();
--	rc = nftw(ldirname, preprocess_arch_std_files, maxfds, 0);
-+	rc = ordered_ftw(ldirname, preprocess_arch_std_files, maxfds, 0);
- 	if (rc)
- 		goto err_processing_std_arch_event_dir;
- 
--	rc = nftw(ldirname, process_one_file, maxfds, 0);
-+	rc = ordered_ftw(ldirname, process_one_file, maxfds, 0);
- 	if (rc)
- 		goto err_processing_dir;
- 
- 	sprintf(ldirname, "%s/test", start_dirname);
- 
--	rc = nftw(ldirname, preprocess_arch_std_files, maxfds, 0);
-+	rc = ordered_ftw(ldirname, preprocess_arch_std_files, maxfds, 0);
- 	if (rc)
- 		goto err_processing_std_arch_event_dir;
- 
--	rc = nftw(ldirname, process_one_file, maxfds, 0);
-+	rc = ordered_ftw(ldirname, process_one_file, maxfds, 0);
- 	if (rc)
- 		goto err_processing_dir;
- 
+--- a/tools/perf/pmu-events/jevents.py
++++ b/tools/perf/pmu-events/jevents.py
+@@ -663,7 +663,7 @@ def main() -> None:
+   def ftw(path: str, parents: Sequence[str],
+           action: Callable[[Sequence[str], os.DirEntry], None]) -> None:
+     """Replicate the directory/file walking behavior of C's file tree walk."""
+-    for item in os.scandir(path):
++    for item in sorted(os.scandir(path), key=(lambda item: item.name)):
+       action(parents, item)
+       if item.is_dir():
+         ftw(item.path, parents + [item.name], action)

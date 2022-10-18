@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 11 Mar 2022 17:44:57 +0100
 Subject: [PATCH] locking/lockdep: Remove lockdep_init_map_crosslock.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 The cross-release bits have been removed, lockdep_init_map_crosslock() is
 a leftover.
@@ -18,7 +18,7 @@ Link: https://lore.kernel.org/r/YqITgY+2aPITu96z@linutronix.de
 
 --- a/include/linux/lockdep.h
 +++ b/include/linux/lockdep.h
-@@ -431,7 +431,6 @@ enum xhlock_context_t {
+@@ -435,7 +435,6 @@ enum xhlock_context_t {
  	XHLOCK_CTX_NR,
  };
  

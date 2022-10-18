@@ -1059,6 +1059,8 @@ CONFIG_SENSORS_NCT7904=m
 CONFIG_SENSORS_NPCM7XX=m
 # CONFIG_SENSORS_SHT15 is not set
 CONFIG_SENSORS_SHT21=m
+CONFIG_SENSORS_SHT3x=m
+CONFIG_SENSORS_SHT4x=m
 CONFIG_SENSORS_DME1737=m
 CONFIG_SENSORS_EMC1403=m
 CONFIG_SENSORS_EMC2103=m
@@ -2693,11 +2695,6 @@ CONFIG_SMS_USB_DRV=m
 CONFIG_VIDEO_STK1160_COMMON=m
 
 ##
-## file: drivers/media/usb/stkwebcam/Kconfig
-##
-CONFIG_USB_STKWEBCAM=m
-
-##
 ## file: drivers/media/usb/ttusb-budget/Kconfig
 ##
 CONFIG_DVB_TTUSB_BUDGET=m
@@ -2726,7 +2723,6 @@ CONFIG_USB_ZR364XX=m
 ##
 ## file: drivers/media/v4l2-core/Kconfig
 ##
-# CONFIG_VIDEO_V4L2_SUBDEV_API is not set
 # CONFIG_VIDEO_ADV_DEBUG is not set
 # CONFIG_VIDEO_FIXED_MINOR_RANGES is not set
 
@@ -3128,12 +3124,12 @@ CONFIG_IPDDP_ENCAP=y
 ##
 ## file: drivers/net/can/Kconfig
 ##
+CONFIG_CAN_DEV=m
 CONFIG_CAN_VCAN=m
 CONFIG_CAN_VXCAN=m
-CONFIG_CAN_SLCAN=m
-CONFIG_CAN_DEV=m
 CONFIG_CAN_CALC_BITTIMING=y
 # CONFIG_CAN_GRCAN is not set
+CONFIG_CAN_SLCAN=m
 # CONFIG_CAN_DEBUG_DEVICES is not set
 
 ##
@@ -3193,7 +3189,7 @@ CONFIG_CAN_MCP251X=m
 ##
 CONFIG_CAN_8DEV_USB=m
 CONFIG_CAN_EMS_USB=m
-CONFIG_CAN_ESD_USB2=m
+CONFIG_CAN_ESD_USB=m
 CONFIG_CAN_GS_USB=m
 CONFIG_CAN_KVASER_USB=m
 CONFIG_CAN_MCBA_USB=m
@@ -3529,8 +3525,6 @@ CONFIG_NS83820=m
 ##
 CONFIG_NET_VENDOR_NETERION=y
 CONFIG_S2IO=m
-CONFIG_VXGE=m
-# CONFIG_VXGE_DEBUG_TRACE_ALL is not set
 
 ##
 ## file: drivers/net/ethernet/netronome/Kconfig
@@ -4325,6 +4319,12 @@ CONFIG_NFC_PORT100=m
 # CONFIG_NFC_MICROREAD_MEI is not set
 
 ##
+## file: drivers/nfc/nxp-nci/Kconfig
+##
+CONFIG_NFC_NXP_NCI=m
+CONFIG_NFC_NXP_NCI_I2C=m
+
+##
 ## file: drivers/nfc/pn533/Kconfig
 ##
 CONFIG_NFC_PN533_USB=m
@@ -5042,6 +5042,11 @@ CONFIG_DVB_BUDGET_PATCH=m
 CONFIG_DVB_SP8870=m
 
 ##
+## file: drivers/staging/media/stkwebcam/Kconfig
+##
+CONFIG_VIDEO_STKWEBCAM=m
+
+##
 ## file: drivers/staging/qlge/Kconfig
 ##
 CONFIG_QLGE=m
@@ -5072,6 +5077,11 @@ CONFIG_R8188EU=m
 CONFIG_R8712U=m
 
 ##
+## file: drivers/staging/rtl8723bs/Kconfig
+##
+CONFIG_RTL8723BS=m
+
+##
 ## file: drivers/staging/rts5208/Kconfig
 ##
 # CONFIG_RTS5208 is not set
@@ -5080,6 +5090,11 @@ CONFIG_R8712U=m
 ## file: drivers/staging/sm750fb/Kconfig
 ##
 # CONFIG_FB_SM750 is not set
+
+##
+## file: drivers/staging/vme_user/Kconfig
+##
+# CONFIG_VME_BUS is not set
 
 ##
 ## file: drivers/staging/vt6655/Kconfig
@@ -5661,11 +5676,6 @@ CONFIG_VIRTIO_BALLOON=m
 CONFIG_VIRTIO_INPUT=m
 CONFIG_VIRTIO_MMIO=m
 # CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES is not set
-
-##
-## file: drivers/vme/Kconfig
-##
-# CONFIG_VME_BUS is not set
 
 ##
 ## file: drivers/w1/Kconfig
@@ -6422,26 +6432,6 @@ CONFIG_RSEQ=y
 CONFIG_PERF_EVENTS=y
 # CONFIG_DEBUG_PERF_USE_VMALLOC is not set
 CONFIG_PROFILING=y
-CONFIG_MODULES=y
-CONFIG_MODULE_FORCE_LOAD=y
-CONFIG_MODULE_UNLOAD=y
-CONFIG_MODULE_FORCE_UNLOAD=y
-CONFIG_MODVERSIONS=y
-# CONFIG_MODULE_SRCVERSION_ALL is not set
-#. This is overridden if the [build]signed-code setting is enabled
-# CONFIG_MODULE_SIG is not set
-#. Signature validation is a run-time option
-# CONFIG_MODULE_SIG_FORCE is not set
-#. Signatures are added in linux-signed
-# CONFIG_MODULE_SIG_ALL is not set
-## choice: Which hash algorithm should modules be signed with?
-# CONFIG_MODULE_SIG_SHA1 is not set
-# CONFIG_MODULE_SIG_SHA224 is not set
-CONFIG_MODULE_SIG_SHA256=y
-# CONFIG_MODULE_SIG_SHA384 is not set
-# CONFIG_MODULE_SIG_SHA512 is not set
-## end choice
-# CONFIG_TRIM_UNUSED_KSYMS is not set
 
 ##
 ## file: kernel/Kconfig.hz
@@ -6488,6 +6478,30 @@ CONFIG_BPF_LSM=y
 ## file: kernel/irq/Kconfig
 ##
 # CONFIG_GENERIC_IRQ_DEBUGFS is not set
+
+##
+## file: kernel/module/Kconfig
+##
+CONFIG_MODULES=y
+CONFIG_MODULE_FORCE_LOAD=y
+CONFIG_MODULE_UNLOAD=y
+CONFIG_MODULE_FORCE_UNLOAD=y
+CONFIG_MODVERSIONS=y
+# CONFIG_MODULE_SRCVERSION_ALL is not set
+#. This is overridden if the [build]signed-code setting is enabled
+# CONFIG_MODULE_SIG is not set
+#. Signature validation is a run-time option
+# CONFIG_MODULE_SIG_FORCE is not set
+#. Signatures are added in linux-signed
+# CONFIG_MODULE_SIG_ALL is not set
+## choice: Which hash algorithm should modules be signed with?
+# CONFIG_MODULE_SIG_SHA1 is not set
+# CONFIG_MODULE_SIG_SHA224 is not set
+CONFIG_MODULE_SIG_SHA256=y
+# CONFIG_MODULE_SIG_SHA384 is not set
+# CONFIG_MODULE_SIG_SHA512 is not set
+## end choice
+# CONFIG_TRIM_UNUSED_KSYMS is not set
 
 ##
 ## file: kernel/power/Kconfig
@@ -7452,7 +7466,7 @@ CONFIG_NFC_DIGITAL=m
 ##
 ## file: net/nfc/nci/Kconfig
 ##
-# CONFIG_NFC_NCI is not set
+CONFIG_NFC_NCI=m
 
 ##
 ## file: net/nsh/Kconfig

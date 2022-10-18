@@ -699,6 +699,10 @@ CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 ## end choice
 CONFIG_SGETMASK_SYSCALL=y
 CONFIG_SYSFS_SYSCALL=y
+
+##
+## file: kernel/module/Kconfig
+##
 # CONFIG_MODULE_SIG is not set
 
 ##

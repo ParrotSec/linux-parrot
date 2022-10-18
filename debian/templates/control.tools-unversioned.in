@@ -72,6 +72,7 @@ Build-Depends:
 # version in bullseye is too old
 # libopencsd-dev (>= 1.1.1),
  python3-dev:any,
+ python3-setuptools,
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends}, ${python3:Depends}
 Provides: linux-tools-@version@
 Conflicts: linux-tools-@version@

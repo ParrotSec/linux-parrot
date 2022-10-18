@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 9 May 2022 16:04:08 +0200
 Subject: [PATCH] genirq: Provide generic_handle_domain_irq_safe().
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 Provide generic_handle_domain_irq_safe() which can used from any context.
 This similar to commit
@@ -65,7 +65,7 @@ Link: https://lore.kernel.org/r/YnkfWFzvusFFktSt@linutronix.de
  }
 --- a/drivers/pinctrl/pinctrl-amd.c
 +++ b/drivers/pinctrl/pinctrl-amd.c
-@@ -643,7 +643,7 @@ static bool do_amd_gpio_irq_handler(int
+@@ -639,7 +639,7 @@ static bool do_amd_gpio_irq_handler(int
  			if (!(regval & PIN_IRQ_PENDING) ||
  			    !(regval & BIT(INTERRUPT_MASK_OFF)))
  				continue;

@@ -115,11 +115,6 @@ CONFIG_SPI_OCTEON=y
 CONFIG_OCTEON_ETHERNET=y
 
 ##
-## file: drivers/staging/octeon-usb/Kconfig
-##
-CONFIG_OCTEON_USB=y
-
-##
 ## file: drivers/tty/serial/8250/Kconfig
 ##
 CONFIG_SERIAL_8250_NR_UARTS=2
@@ -129,6 +124,7 @@ CONFIG_SERIAL_8250_DW=y
 ##
 ## file: drivers/usb/host/Kconfig
 ##
+CONFIG_USB_OCTEON_HCD=y
 CONFIG_USB_OCTEON_EHCI=y
 CONFIG_USB_OCTEON_OHCI=y
 

@@ -24,7 +24,6 @@ CONFIG_PATA_NS87410=m
 ## file: drivers/block/Kconfig
 ##
 CONFIG_BLK_DEV_FD=m
-CONFIG_BLK_DEV_SX8=m
 CONFIG_CDROM_PKTCDVD=m
 
 ##

@@ -18,7 +18,6 @@ debian/mips-boston-disable-its.patch
 debian/mips-ieee754-relaxed.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/tools-perf-perf-read-vdso-in-libexec.patch
-debian/tools-perf-install.patch
 debian/tools-perf-install-python-bindings.patch
 debian/wireless-add-debian-wireless-regdb-certificates.patch
 debian/export-symbols-needed-by-android-drivers.patch
@@ -39,7 +38,8 @@ bugfix/all/radeon-amdgpu-firmware-is-required-for-drm-and-kms-on-r600-onward.pat
 debian/firmware_class-refer-to-debian-wiki-firmware-page.patch
 
 # Parrot patches
-features/all/wifi-injection.patch
+#disabled as it fails on linux 6.0
+#features/all/wifi-injection.patch
 features/all/wireless-carl9170-Enable-sniffer-mode-promisc-flag-t.patch
 
 # Change some defaults for security reasons
@@ -85,8 +85,6 @@ features/arm64/arm64-compat-Implement-misalignment-fixups-for-multi.patch
 # Miscellaneous bug fixes
 bugfix/all/disable-some-marvell-phys.patch
 bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
-bugfix/all/pm-sleep-add-pm_userspace_autosleep-kconfig.patch
-bugfix/all/remove-config_android.patch
 
 # Miscellaneous features
 
@@ -122,12 +120,5 @@ bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
 bugfix/all/tools-perf-pmu-events-fix-reproducibility.patch
 bugfix/all/libapi-define-_fortify_source-as-2-not-empty.patch
 bugfix/all/tools-perf-fix-missing-ldflags-for-some-programs.patch
-bugfix/all/tools-build-add-feature-test-for-init_disassemble_info-api-changes.patch
-bugfix/all/tools-include-add-dis-asm-compat.h-to-handle-version-differences.patch
-bugfix/all/tools-perf-fix-compilation-error-with-new-binutils.patch
-bugfix/all/tools-bpf_jit_disasm-fix-compilation-error-with-new-binutils.patch
-bugfix/all/tools-bpftool-fix-compilation-error-with-new-binutils.patch
-bugfix/all/tools-perf-fix-build-without-libbfd.patch
-bugfix/all/tools-rtla-build-with-extra-c-ld-flags.patch
 
 # ABI maintenance

@@ -1,3 +1,148 @@
+linux (6.0.2-1parrot1) parrot-updates; urgency=medium
+
+  * Import new Debian unstable version.
+  * Use gcc-11 instead of gcc-12.
+  * perf: Disable use of libopencsd, as bullseye's version is too old
+  * Bump Parrot ABI number to 14parrot1.
+  * Increase timer frequency to 300Hz.
+  * Disable generation of signed kernel images.
+  * Import Parrot Wifi patches.
+
+ -- Lorenzo "Palinuro" Faletra <palinuro@parrotsec.org>  Tue, 18 Oct 2022 15:17:22 +0200
+
+linux (6.0.2-1) unstable; urgency=high
+
+  * New upstream stable update:
+    https://www.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.0.1
+    - xsk: Inherit need_wakeup flag for shared sockets
+    - fs: fix UAF/GPF bug in nilfs_mdt_destroy
+    - fix coredump breakage
+    - sparc: Unbreak the build
+    - Makefile.extrawarn: Move -Wcast-function-type-strict to W=1
+    - hardening: Remove Clang's enable flag for -ftrivial-auto-var-init=zero
+    - docs: update mediator information in CoC docs
+    - hwmon: (aquacomputer_d5next) Fix Quadro fan speed offsets
+    - usb: mon: make mmapped memory read only
+    - USB: serial: ftdi_sio: fix 300 bps rate for SIO
+    - gpiolib: acpi: Add support to ignore programming an interrupt
+    - gpiolib: acpi: Add a quirk for Asus UM325UAZ
+    - RISC-V: Print SSTC in canonical order
+    - bpf: Gate dynptr API behind CAP_BPF
+    - net: ethernet: mtk_eth_soc: fix state in __mtk_foe_entry_clear
+    - bpf: Fix resetting logic for unreferenced kptrs
+    - Bluetooth: use hdev->workqueue when queuing hdev->{cmd,ncmd}_timer works
+    https://www.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.0.2
+    - nilfs2: fix NULL pointer dereference at nilfs_bmap_lookup_at_level()
+    - nilfs2: fix use-after-free bug of struct nilfs_root
+    - nilfs2: fix leak of nilfs_root in case of writer thread creation failure
+    - nilfs2: replace WARN_ONs by nilfs_error for checkpoint acquisition failure
+    - nvme-pci: set min_align_mask before calculating max_hw_sectors
+    - random: restore O_NONBLOCK support
+    - random: clamp credited irq bits to maximum mixed
+    - ALSA: hda: Fix position reporting on Poulsbo
+    - ALSA: hda/realtek: Add quirk for HP Zbook Firefly 14 G9 model
+    - efi: Correct Macmini DMI match in uefi cert quirk
+    - scsi: qla2xxx: Revert "scsi: qla2xxx: Fix response queue handler reading stale packets"
+    - scsi: qla2xxx: Fix response queue handler reading stale packets
+    - scsi: stex: Properly zero out the passthrough command structure
+    - USB: serial: qcserial: add new usb-id for Dell branded EM7455
+    - Revert "USB: fixup for merge issue with "usb: dwc3: Don't switch OTG -> peripheral if extcon is present""
+    - Revert "usb: dwc3: Don't switch OTG -> peripheral if extcon is present"
+    - Revert "powerpc/rtas: Implement reentrant rtas call"
+    - Revert "crypto: qat - reduce size of mapped region"
+    - random: avoid reading two cache lines on irq randomness
+    - random: use expired timer rather than wq for mixing fast pool
+    - wifi: cfg80211: fix u8 overflow in cfg80211_update_notlisted_nontrans()
+      CVE-2022-41674
+    - wifi: cfg80211/mac80211: reject bad MBSSID elements
+    - wifi: mac80211: fix MBSSID parsing use-after-free
+      CVE-2022-42719
+    - wifi: cfg80211: ensure length byte is present before access
+    - wifi: cfg80211: fix BSS refcounting bugs
+      CVE-2022-42720
+    - wifi: cfg80211: avoid nontransmitted BSS list corruption
+      CVE-2022-42721
+    - wifi: mac80211_hwsim: avoid mac80211 warning on bad rate
+    - wifi: mac80211: fix crash in beacon protection for P2P-device
+      CVE-2022-42722
+    - wifi: cfg80211: update hidden BSSes to avoid WARN_ON
+    - mctp: prevent double key removal and unref
+    - Input: xpad - add supported devices as contributed on github
+    - Input: xpad - fix wireless 360 controller breaking after suspend
+    - misc: pci_endpoint_test: Aggregate params checking for xfer
+    - misc: pci_endpoint_test: Fix pci_endpoint_test_{copy,write,read}() panic
+
+  [ Bastian Blank]
+  * [cloud] Enable INTEGRITY.
+
+ -- Bastian Blank <waldi@debian.org>  Sun, 16 Oct 2022 18:25:05 +0200
+
+linux (6.0-1~exp1) experimental; urgency=medium
+
+  * New upstream release: https://kernelnewbies.org/Linux_6.0
+
+  [ Salvatore Bonaccorso ]
+  * drivers/hwmon: Enable SENSORS_SHT3x and SENSORS_SHT4x as module
+    (Closes: #1016092)
+  * [rt] Update to 6.0-rt11
+
+  [ Diederik de Haas ]
+  * [amd64] drivers/dma: Enable INTEL_IDXD as module and INTEL_IDXD_SVM as
+    builtin (Closes: #1021337)
+
+  [ Ben Hutchings ]
+  * d/salsa-ci.yml: Use !reference to include scripts from common pipeline
+  * d/salsa-ci.yml: Remove obsolete lintian error suppressions
+
+  [ Christopher Obbard ]
+  * [arm64] drivers/regulator: Enable MP8859 as module
+
+  [ Mateusz Łukasik ]
+  * Compile with gcc-12 on all architectures
+  * d/salsa-ci.yml: Add linux-compiler-* packages to build-signed job artifacts
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Sun, 09 Oct 2022 17:11:55 +0200
+
+linux (6.0~rc7-1~exp1) experimental; urgency=medium
+
+  * New upstream release candidate
+
+  [ Ben Hutchings ]
+  * Rewrite "tools/perf: pmu-events: Fix reproducibility" for new Python
+    generator
+  * Build-depend on python3-setuptools for linux-perf
+  * udeb: Move ledtrig-audio from sound-modules to kernel-image
+  * d/bin/gencontrol_signed.py: Fix source package name in Built-Using field
+  * [rt] Update to 6.0-rc5-rt7
+
+  [ Didier Raboud ]
+  * d/lib/python/debian_linux: Add two more known fields to
+    {Source,Binary}Package
+
+  [ Diederik de Haas ]
+  * [arm64] drivers/gpu/drm/v3d: Enable DRM_V3D as module (Closes: #977441)
+  * drivers/nfc/nxp-nci: Enable NFC_NXP_NCI and NFC_NXP_NCI_I2C and reenable
+    NFC_NCI as module (Closes: #1020276)
+
+  [ Frieder Schrempf ]
+  * [arm64] Add nvmem-imx-ocotp driver to kernel-image udeb
+  * [arm64] Add imx2_wdt driver to kernel-image udeb
+  * udeb: Also add drivers in subdirectories of drivers/net/phy
+  * [arm64] Add i2c-imx to i2c-modules udeb
+
+  [ Bastian Blank ]
+  * Make cross build of signed packages self contained.
+
+  [ Zhang Ning ]
+  * [armhf] enable multiple configs for rk3288
+  * [config] enable CONFIG_RTL8723BS for all arch
+
+  [ Zhang Boyang ]
+  * [riscv64] Enable AMDGPU
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Tue, 27 Sep 2022 17:39:09 +0200
+
+
 linux (5.19.11-11parrot1) parrot-updates; urgency=medium
 
   * Import new Debian backports version.

@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 19 Jul 2022 20:08:01 +0200
 Subject: [PATCH] printk: Bring back the RT bits.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 This is a revert of the commits:
 | 07a22b61946f0 Revert "printk: add functions to prefer direct printing"
@@ -175,7 +175,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		crash_smp_send_stop();
  	}
  
-@@ -603,6 +605,8 @@ void __warn(const char *file, int line,
+@@ -604,6 +606,8 @@ void __warn(const char *file, int line,
  {
  	disable_trace_on_warning();
  
@@ -184,7 +184,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (file)
  		pr_warn("WARNING: CPU: %d PID: %d at %s:%d %pS\n",
  			raw_smp_processor_id(), current->pid, file, line,
-@@ -632,6 +636,8 @@ void __warn(const char *file, int line,
+@@ -633,6 +637,8 @@ void __warn(const char *file, int line,
  
  	/* Just a warning, don't kill lockdep. */
  	add_taint(taint, LOCKDEP_STILL_OK);
@@ -695,7 +695,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  			}
  			if (*handover)
  				return false;
-@@ -2918,10 +3133,13 @@ void console_unblank(void)
+@@ -2908,10 +3123,13 @@ void console_unblank(void)
  	if (oops_in_progress) {
  		if (down_trylock_console_sem() != 0)
  			return;
@@ -710,7 +710,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	console_may_schedule = 0;
  	for_each_console(c)
  		if ((c->flags & CON_ENABLED) && c->unblank)
-@@ -3200,6 +3418,10 @@ void register_console(struct console *ne
+@@ -3190,6 +3408,10 @@ void register_console(struct console *ne
  		nr_ext_console_drivers++;
  
  	newcon->dropped = 0;
@@ -721,7 +721,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	if (newcon->flags & CON_PRINTBUFFER) {
  		/* Get a consistent copy of @syslog_seq. */
  		mutex_lock(&syslog_lock);
-@@ -3209,6 +3431,10 @@ void register_console(struct console *ne
+@@ -3199,6 +3421,10 @@ void register_console(struct console *ne
  		/* Begin with next message. */
  		newcon->seq = prb_next_seq(prb);
  	}
@@ -732,7 +732,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	console_unlock();
  	console_sysfs_notify();
  
-@@ -3235,6 +3461,7 @@ EXPORT_SYMBOL(register_console);
+@@ -3225,6 +3451,7 @@ EXPORT_SYMBOL(register_console);
  
  int unregister_console(struct console *console)
  {
@@ -740,7 +740,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	struct console *con;
  	int res;
  
-@@ -3275,7 +3502,20 @@ int unregister_console(struct console *c
+@@ -3265,7 +3492,20 @@ int unregister_console(struct console *c
  		console_drivers->flags |= CON_CONSDEV;
  
  	console->flags &= ~CON_ENABLED;
@@ -761,7 +761,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	console_sysfs_notify();
  
  	if (console->exit)
-@@ -3371,6 +3611,20 @@ static int __init printk_late_init(void)
+@@ -3361,6 +3601,20 @@ static int __init printk_late_init(void)
  }
  late_initcall(printk_late_init);
  
@@ -782,7 +782,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  #if defined CONFIG_PRINTK
  /* If @con is specified, only wait for that console. Otherwise wait for all. */
  static bool __pr_flush(struct console *con, int timeout_ms, bool reset_on_progress)
-@@ -3454,11 +3708,209 @@ bool pr_flush(int timeout_ms, bool reset
+@@ -3444,11 +3698,209 @@ bool pr_flush(int timeout_ms, bool reset
  }
  EXPORT_SYMBOL(pr_flush);
  
@@ -994,7 +994,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  
  static DEFINE_PER_CPU(int, printk_pending);
  
-@@ -3466,10 +3918,14 @@ static void wake_up_klogd_work_func(stru
+@@ -3456,10 +3908,14 @@ static void wake_up_klogd_work_func(stru
  {
  	int pending = this_cpu_xchg(printk_pending, 0);
  
@@ -1010,7 +1010,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	}
  
  	if (pending & PRINTK_PENDING_WAKEUP)
-@@ -3494,10 +3950,11 @@ static void __wake_up_klogd(int val)
+@@ -3484,10 +3940,11 @@ static void __wake_up_klogd(int val)
  	 * prepare_to_wait_event(), which is called after ___wait_event() adds
  	 * the waiter but before it has checked the wait condition.
  	 *
@@ -1024,7 +1024,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  		this_cpu_or(printk_pending, val);
  		irq_work_queue(this_cpu_ptr(&wake_up_klogd_work));
  	}
-@@ -3515,7 +3972,17 @@ void defer_console_output(void)
+@@ -3505,7 +3962,17 @@ void defer_console_output(void)
  	 * New messages may have been added directly to the ringbuffer
  	 * using vprintk_store(), so wake any waiters as well.
  	 */
@@ -1091,7 +1091,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +}
 --- a/kernel/rcu/tree_stall.h
 +++ b/kernel/rcu/tree_stall.h
-@@ -647,6 +647,7 @@ static void print_cpu_stall(unsigned lon
+@@ -643,6 +643,7 @@ static void print_cpu_stall(unsigned lon
  	 * See Documentation/RCU/stallwarn.rst for info on how to debug
  	 * RCU CPU stall warnings.
  	 */
@@ -1099,7 +1099,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	trace_rcu_stall_warning(rcu_state.name, TPS("SelfDetected"));
  	pr_err("INFO: %s self-detected stall on CPU\n", rcu_state.name);
  	raw_spin_lock_irqsave_rcu_node(rdp->mynode, flags);
-@@ -684,6 +685,7 @@ static void print_cpu_stall(unsigned lon
+@@ -677,6 +678,7 @@ static void print_cpu_stall(unsigned lon
  	 */
  	set_tsk_need_resched(current);
  	set_preempt_need_resched();

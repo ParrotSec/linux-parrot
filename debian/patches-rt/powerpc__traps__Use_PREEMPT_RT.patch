@@ -1,7 +1,7 @@
 Subject: powerpc: traps: Use PREEMPT_RT
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri Jul 26 11:30:49 2019 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 

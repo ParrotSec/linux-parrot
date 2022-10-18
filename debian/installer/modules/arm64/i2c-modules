@@ -2,3 +2,4 @@
 i2c-tegra
 i2c-rk3x
 i2c-mv64xxx
+i2c-imx

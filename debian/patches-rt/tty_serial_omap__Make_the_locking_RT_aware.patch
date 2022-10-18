@@ -1,7 +1,7 @@
 Subject: tty/serial/omap: Make the locking RT aware
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu Jul 28 13:32:57 2011 +0200
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
@@ -18,7 +18,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
 --- a/drivers/tty/serial/omap-serial.c
 +++ b/drivers/tty/serial/omap-serial.c
-@@ -1241,13 +1241,10 @@ serial_omap_console_write(struct console
+@@ -1240,13 +1240,10 @@ serial_omap_console_write(struct console
  	unsigned int ier;
  	int locked = 1;
  
@@ -35,7 +35,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  
  	/*
  	 * First save the IER then disable the interrupts
-@@ -1274,8 +1271,7 @@ serial_omap_console_write(struct console
+@@ -1273,8 +1270,7 @@ serial_omap_console_write(struct console
  		check_modem_status(up);
  
  	if (locked)

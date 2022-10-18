@@ -504,6 +504,11 @@ CONFIG_DRM_TEGRA=m
 CONFIG_DRM_TEGRA_STAGING=y
 
 ##
+## file: drivers/gpu/drm/v3d/Kconfig
+##
+CONFIG_DRM_V3D=m
+
+##
 ## file: drivers/gpu/drm/vc4/Kconfig
 ##
 CONFIG_DRM_VC4=m
@@ -1320,6 +1325,7 @@ CONFIG_REGULATOR_FAN53555=m
 CONFIG_REGULATOR_GPIO=m
 CONFIG_REGULATOR_HI655X=m
 CONFIG_REGULATOR_MAX77620=m
+CONFIG_REGULATOR_MP8859=m
 CONFIG_REGULATOR_PCA9450=m
 CONFIG_REGULATOR_PFUZE100=m
 CONFIG_REGULATOR_PWM=m
@@ -1484,11 +1490,6 @@ CONFIG_VIDEO_SUNXI=y
 ## file: drivers/staging/media/sunxi/cedrus/Kconfig
 ##
 CONFIG_VIDEO_SUNXI_CEDRUS=m
-
-##
-## file: drivers/staging/rtl8723bs/Kconfig
-##
-CONFIG_RTL8723BS=m
 
 ##
 ## file: drivers/staging/vc04_services/bcm2835-audio/Kconfig

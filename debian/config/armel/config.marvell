@@ -544,7 +544,6 @@ CONFIG_RTC_DRV_MV=m
 # CONFIG_BLK_DEV_3W_XXXX_RAID is not set
 # CONFIG_SCSI_3W_9XXX is not set
 # CONFIG_SCSI_AACRAID is not set
-# CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_SCSI_ARCMSR is not set
 # CONFIG_SCSI_HPTIOP is not set
 # CONFIG_SCSI_DMX3191D is not set
@@ -719,13 +718,17 @@ CONFIG_NLS=m
 CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 ## end choice
 # CONFIG_PROFILING is not set
-# CONFIG_MODULE_SIG is not set
 
 ##
 ## file: kernel/bpf/Kconfig
 ##
 #. Saves about 3K
 # CONFIG_BPF_JIT is not set
+
+##
+## file: kernel/module/Kconfig
+##
+# CONFIG_MODULE_SIG is not set
 
 ##
 ## file: kernel/power/Kconfig

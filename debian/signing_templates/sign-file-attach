@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+
+import argparse
+import pathlib
+import shutil
+import struct
+import sys
+
+
+module_magic = b'~Module signature appended~\n'
+# Only relevant fields are id_type and sig_len
+module_signature = struct.Struct('!2xB2x3xL')
+module_signature_PKEY_ID_PKCS7 = 2
+
+
+def sign_file_attach(sig_base: pathlib.Path, module_base: pathlib.Path, output_base: pathlib.Path) -> None:
+    for line in sys.stdin:
+        path, _, file = line.strip().rpartition('/')
+        name, _, _ = file.partition('.')
+
+        sig = sig_base / path / f'{name}.ko.sig'
+        module = module_base / path / f'{name}.ko'
+        output = output_base / path / f'{name}.ko'
+        output.parent.mkdir(parents=True, exist_ok=True)
+
+        with sig.open('rb') as f_sig, module.open('rb') as f_module, output.open('wb') as f_output:
+            shutil.copyfileobj(f_module, f_output)
+            shutil.copyfileobj(f_sig, f_output)
+            len_sig = f_sig.tell()
+            f_output.write(module_signature.pack(
+                module_signature_PKEY_ID_PKCS7,
+                len_sig,
+            ))
+            f_output.write(module_magic)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'sig_base',
+        metavar='SIGNATURE',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        'module_base',
+        metavar='MODULE',
+        type=pathlib.Path,
+    )
+    parser.add_argument(
+        'output_base',
+        metavar='OUTPUT',
+        type=pathlib.Path,
+    )
+    args = parser.parse_args()
+
+    sign_file_attach(**vars(args))

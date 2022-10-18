@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 1 Dec 2021 17:41:09 +0100
 Subject: [PATCH] softirq: Use a dedicated thread for timer wakeups.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 A timer/hrtimer softirq is raised in-IRQ context. With threaded
 interrupts enabled or on PREEMPT_RT this leads to waking the ksoftirqd
@@ -38,11 +38,11 @@ but this can already happen by a PI-boost by a force-threaded interrupt.
 Reported-by: kernel test robot <lkp@intel.com> [ static timer_threads ]
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/interrupt.h |   16 +++++++++
- kernel/softirq.c          |   76 ++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/interrupt.h |   16 ++++++++
+ kernel/softirq.c          |   92 ++++++++++++++++++++++++++++++++++++++++++++--
  kernel/time/hrtimer.c     |    4 +-
  kernel/time/timer.c       |    2 -
- 4 files changed, 95 insertions(+), 3 deletions(-)
+ 4 files changed, 108 insertions(+), 6 deletions(-)
 
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
@@ -71,10 +71,11 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  static inline struct task_struct *this_cpu_ksoftirqd(void)
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
-@@ -637,6 +637,22 @@ static inline void tick_irq_exit(void)
+@@ -637,6 +637,29 @@ static inline void tick_irq_exit(void)
  #endif
  }
  
++#ifdef CONFIG_PREEMPT_RT
 +static DEFINE_PER_CPU(struct task_struct *, timersd);
 +static DEFINE_PER_CPU(unsigned long, pending_timer_softirq);
 +
@@ -91,22 +92,36 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +                wake_up_process(tsk);
 +}
 +
++#else
++
++static inline void wake_timersd(void) { }
++
++#endif
++
  static inline void __irq_exit_rcu(void)
  {
  #ifndef __ARCH_IRQ_EXIT_IRQS_DISABLED
-@@ -648,6 +664,8 @@ static inline void __irq_exit_rcu(void)
+@@ -646,8 +669,13 @@ static inline void __irq_exit_rcu(void)
+ #endif
+ 	account_hardirq_exit(current);
  	preempt_count_sub(HARDIRQ_OFFSET);
- 	if (!in_interrupt() && local_softirq_pending())
- 		invoke_softirq();
-+	if (IS_ENABLED(CONFIG_PREEMPT_RT) && !in_interrupt() && local_pending_timers())
-+		wake_timersd();
+-	if (!in_interrupt() && local_softirq_pending())
+-		invoke_softirq();
++	if (!in_interrupt()) {
++		if (local_softirq_pending())
++			invoke_softirq();
++
++		if (IS_ENABLED(CONFIG_PREEMPT_RT) && local_pending_timers())
++			wake_timersd();
++	}
  
  	tick_irq_exit();
  }
-@@ -976,11 +994,69 @@ static struct smp_hotplug_thread softirq
+@@ -976,12 +1004,70 @@ static struct smp_hotplug_thread softirq
  	.thread_comm		= "ksoftirqd/%u",
  };
  
++#ifdef CONFIG_PREEMPT_RT
 +static void timersd_setup(unsigned int cpu)
 +{
 +        sched_set_fifo_low(current);
@@ -132,7 +147,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	ksoftirqd_run_end();
 +}
 +
-+#ifdef CONFIG_PREEMPT_RT
 +static void raise_ktimers_thread(unsigned int nr)
 +{
 +	trace_softirq_raise(nr);
@@ -153,7 +167,6 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +	wake_timersd();
 +	local_irq_restore(flags);
 +}
-+#endif
 +
 +static struct smp_hotplug_thread timer_threads = {
 +        .store                  = &timersd,
@@ -162,17 +175,20 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 +        .thread_fn              = run_timersd,
 +        .thread_comm            = "ktimers/%u",
 +};
++#endif
 +
  static __init int spawn_ksoftirqd(void)
  {
  	cpuhp_setup_state_nocalls(CPUHP_SOFTIRQ_DEAD, "softirq:dead", NULL,
  				  takeover_tasklets);
  	BUG_ON(smpboot_register_percpu_thread(&softirq_threads));
-+	if (IS_ENABLED(CONFIG_PREEMPT_RT))
-+		BUG_ON(smpboot_register_percpu_thread(&timer_threads));
- 
+-
++#ifdef CONFIG_PREEMPT_RT
++	BUG_ON(smpboot_register_percpu_thread(&timer_threads));
++#endif
  	return 0;
  }
+ early_initcall(spawn_ksoftirqd);
 --- a/kernel/time/hrtimer.c
 +++ b/kernel/time/hrtimer.c
 @@ -1805,7 +1805,7 @@ void hrtimer_interrupt(struct clock_even

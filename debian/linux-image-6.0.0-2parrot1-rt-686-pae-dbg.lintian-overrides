@@ -1,0 +1,20 @@
+#!/usr/bin/dh-exec
+
+# Kernel dbg packages contain a full image with debug data
+linux-image-6.0.0-2parrot1-rt-686-pae-dbg: dbg-package-missing-depends
+
+# glibc doesn't seem to check for a PT_GNU_STACK section in vDSOs, so
+# it's OK that they don't have it
+[arm64 armhf] linux-image-6.0.0-2parrot1-rt-686-pae-dbg: shared-library-lacks-stack-section *usr/lib/debug/lib/modules/6.0.0-2parrot1-rt-686-pae/vdso/vdso.so*
+[amd64 arm64 i386 ppc64el s390x] linux-image-6.0.0-2parrot1-rt-686-pae-dbg: shared-library-lacks-stack-section *usr/lib/debug/lib/modules/6.0.0-2parrot1-rt-686-pae/vdso/vdso32.so*
+[amd64 ppc64el s390x] linux-image-6.0.0-2parrot1-rt-686-pae-dbg: shared-library-lacks-stack-section *usr/lib/debug/lib/modules/6.0.0-2parrot1-rt-686-pae/vdso/vdso64.so*
+[amd64] linux-image-6.0.0-2parrot1-rt-686-pae-dbg: shared-library-lacks-stack-section *usr/lib/debug/lib/modules/6.0.0-2parrot1-rt-686-pae/vdso/vdsox32.so*
+
+# It is intended that 64-bit kernels provide vDSOs for 32-bit executables.
+# lintian currently allows i386 executables on amd64.
+[arm64 ppc64el s390x] linux-image-6.0.0-2parrot1-rt-686-pae-dbg: binary-from-other-architecture *usr/lib/debug/lib/modules/6.0.0-2parrot1-rt-686-pae/vdso/vdso32.so*
+[amd64] linux-image-6.0.0-2parrot1-rt-686-pae-dbg: binary-from-other-architecture *usr/lib/debug/lib/modules/6.0.0-2parrot1-rt-686-pae/vdso/vdsox32.so*
+
+# Some 32-bit architectures need 64-bit kernels and we still build
+# these as the "wrong" architecture rather than mandating multiarch.
+[hppa mips mipsel powerpc] linux-image-6.0.0-2parrot1-rt-686-pae-dbg: binary-from-other-architecture *usr/lib/debug/*

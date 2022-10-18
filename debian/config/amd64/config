@@ -100,6 +100,12 @@ CONFIG_AGP=y
 CONFIG_AGP_AMD64=y
 
 ##
+## file: drivers/dma/Kconfig
+##
+CONFIG_INTEL_IDXD=m
+CONFIG_INTEL_IDXD_SVM=y
+
+##
 ## file: drivers/edac/Kconfig
 ##
 CONFIG_EDAC_SBRIDGE=m
@@ -183,7 +189,7 @@ CONFIG_PCI_HYPERV=y
 CONFIG_PINCTRL_AMD=y
 
 ##
-## file: drivers/platform/x86/Kconfig
+## file: drivers/platform/x86/amd/Kconfig
 ##
 CONFIG_AMD_PMC=m
 

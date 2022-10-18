@@ -277,6 +277,7 @@ CONFIG_ARM_EXYNOS_CPUIDLE=y
 CONFIG_CRYPTO_DEV_OMAP=m
 CONFIG_CRYPTO_DEV_OMAP_SHAM=m
 CONFIG_CRYPTO_DEV_OMAP_AES=m
+CONFIG_CRYPTO_DEV_ROCKCHIP=m
 
 ##
 ## file: drivers/crypto/allwinner/Kconfig
@@ -470,6 +471,7 @@ CONFIG_DRM_ROCKCHIP=m
 CONFIG_ROCKCHIP_ANALOGIX_DP=y
 CONFIG_ROCKCHIP_DW_HDMI=y
 CONFIG_ROCKCHIP_DW_MIPI_DSI=y
+CONFIG_ROCKCHIP_LVDS=y
 
 ##
 ## file: drivers/gpu/drm/stm/Kconfig
@@ -712,6 +714,11 @@ CONFIG_VIDEO_MMP_CAMERA=m
 CONFIG_VIDEO_IMX_PXP=m
 
 ##
+## file: drivers/media/platform/rockchip/rga/Kconfig
+##
+CONFIG_VIDEO_ROCKCHIP_RGA=m
+
+##
 ## file: drivers/media/platform/ti/Kconfig
 ##
 CONFIG_VIDEO_TI_VPE=m
@@ -747,11 +754,6 @@ CONFIG_RADIO_WL128X=m
 ##
 CONFIG_IR_GPIO_CIR=m
 CONFIG_IR_SUNXI=m
-
-##
-## file: drivers/media/v4l2-core/Kconfig
-##
-CONFIG_VIDEO_V4L2_SUBDEV_API=y
 
 ##
 ## file: drivers/memory/Kconfig
@@ -1176,6 +1178,7 @@ CONFIG_POWER_RESET_GPIO_RESTART=y
 CONFIG_POWER_RESET_RESTART=y
 CONFIG_POWER_RESET_SYSCON=y
 CONFIG_POWER_RESET_SYSCON_POWEROFF=y
+CONFIG_SYSCON_REBOOT_MODE=m
 
 ##
 ## file: drivers/power/supply/Kconfig
@@ -1343,6 +1346,11 @@ CONFIG_SPI_SLAVE=y
 ## file: drivers/staging/media/Kconfig
 ##
 CONFIG_STAGING_MEDIA=y
+
+##
+## file: drivers/staging/media/hantro/Kconfig
+##
+CONFIG_VIDEO_HANTRO=m
 
 ##
 ## file: drivers/staging/media/imx/Kconfig

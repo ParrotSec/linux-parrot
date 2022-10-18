@@ -49,9 +49,9 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	depends on BROKEN && X86
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -303,14 +303,14 @@ static void domain_remove_dev_info(struc
+@@ -289,14 +289,14 @@ static LIST_HEAD(dmar_satc_units);
+ 
  static void dmar_remove_one_dev_info(struct device *dev);
- static void __dmar_remove_one_dev_info(struct device_domain_info *info);
  
 -int dmar_disabled = !IS_ENABLED(CONFIG_INTEL_IOMMU_DEFAULT_ON);
 +int dmar_disabled = IS_ENABLED(CONFIG_INTEL_IOMMU_DEFAULT_OFF);
@@ -66,7 +66,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  static int intel_iommu_superpage = 1;
  static int iommu_identity_mapping;
  static int iommu_skip_te_disable;
-@@ -378,6 +378,7 @@ static int __init intel_iommu_setup(char
+@@ -334,6 +334,7 @@ static int __init intel_iommu_setup(char
  	while (*str) {
  		if (!strncmp(str, "on", 2)) {
  			dmar_disabled = 0;

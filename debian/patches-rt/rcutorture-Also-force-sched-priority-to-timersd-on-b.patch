@@ -2,7 +2,7 @@ From: Frederic Weisbecker <frederic@kernel.org>
 Date: Tue, 5 Apr 2022 03:07:51 +0200
 Subject: [PATCH] rcutorture: Also force sched priority to timersd on
  boosting test.
-Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/5.19/older/patches-5.19-rc8-rt9.tar.xz
+Origin: https://www.kernel.org/pub/linux/kernel/projects/rt/6.0/older/patches-6.0-rt11.tar.xz
 
 ksoftirqd is statically boosted to the priority level right above the
 one of rcu_torture_boost() so that timers, which torture readers rely on,
@@ -60,10 +60,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  	/* Don't allow time recalculation while creating a new task. */
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
-@@ -637,7 +637,7 @@ static inline void tick_irq_exit(void)
- #endif
+@@ -638,7 +638,7 @@ static inline void tick_irq_exit(void)
  }
  
+ #ifdef CONFIG_PREEMPT_RT
 -static DEFINE_PER_CPU(struct task_struct *, timersd);
 +DEFINE_PER_CPU(struct task_struct *, timersd);
  static DEFINE_PER_CPU(unsigned long, pending_timer_softirq);
