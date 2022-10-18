@@ -229,7 +229,7 @@ static void crng_reseed(void)
 
 /*
  * This generates a ChaCha block using the provided key, and then
- * immediately overwites that key with half the block. It returns
+ * immediately overwrites that key with half the block. It returns
  * the resultant ChaCha state to the user, along with the second
  * half of the block containing 32 bytes of random data that may
  * be used; random_data_len may not be greater than 32.
@@ -596,12 +596,20 @@ static void extract_entropy(void *buf, size_t len)
 		unsigned long rdseed[32 / sizeof(long)];
 		size_t counter;
 	} block;
-	size_t i;
+	size_t i, longs;
 
-	for (i = 0; i < ARRAY_SIZE(block.rdseed); ++i) {
-		if (!arch_get_random_seed_long(&block.rdseed[i]) &&
-		    !arch_get_random_long(&block.rdseed[i]))
-			block.rdseed[i] = random_get_entropy();
+	for (i = 0; i < ARRAY_SIZE(block.rdseed);) {
+		longs = arch_get_random_seed_longs(&block.rdseed[i], ARRAY_SIZE(block.rdseed) - i);
+		if (longs) {
+			i += longs;
+			continue;
+		}
+		longs = arch_get_random_longs(&block.rdseed[i], ARRAY_SIZE(block.rdseed) - i);
+		if (longs) {
+			i += longs;
+			continue;
+		}
+		block.rdseed[i++] = random_get_entropy();
 	}
 
 	spin_lock_irqsave(&input_pool.lock, flags);
@@ -643,10 +651,10 @@ static void __cold _credit_init_bits(size_t bits)
 
 	add = min_t(size_t, bits, POOL_BITS);
 
+	orig = READ_ONCE(input_pool.init_bits);
 	do {
-		orig = READ_ONCE(input_pool.init_bits);
 		new = min_t(unsigned int, POOL_BITS, orig + add);
-	} while (cmpxchg(&input_pool.init_bits, orig, new) != orig);
+	} while (!try_cmpxchg(&input_pool.init_bits, &orig, new));
 
 	if (orig < POOL_READY_BITS && new >= POOL_READY_BITS) {
 		crng_reseed(); /* Sets crng_init to CRNG_READY under base_crng.lock. */
@@ -755,8 +763,8 @@ static int random_pm_notification(struct notifier_block *nb, unsigned long actio
 	spin_unlock_irqrestore(&input_pool.lock, flags);
 
 	if (crng_ready() && (action == PM_RESTORE_PREPARE ||
-	    (action == PM_POST_SUSPEND &&
-	     !IS_ENABLED(CONFIG_PM_AUTOSLEEP) && !IS_ENABLED(CONFIG_ANDROID)))) {
+	    (action == PM_POST_SUSPEND && !IS_ENABLED(CONFIG_PM_AUTOSLEEP) &&
+	     !IS_ENABLED(CONFIG_PM_USERSPACE_AUTOSLEEP)))) {
 		crng_reseed();
 		pr_notice("crng reseeded on system resumption\n");
 	}
@@ -776,22 +784,31 @@ static struct notifier_block pm_notifier = { .notifier_call = random_pm_notifica
 int __init random_init(const char *command_line)
 {
 	ktime_t now = ktime_get_real();
-	unsigned int i, arch_bits;
-	unsigned long entropy;
+	size_t i, longs, arch_bits;
+	unsigned long entropy[BLAKE2S_BLOCK_SIZE / sizeof(long)];
 
 #if defined(LATENT_ENTROPY_PLUGIN)
 	static const u8 compiletime_seed[BLAKE2S_BLOCK_SIZE] __initconst __latent_entropy;
 	_mix_pool_bytes(compiletime_seed, sizeof(compiletime_seed));
 #endif
 
-	for (i = 0, arch_bits = BLAKE2S_BLOCK_SIZE * 8;
-	     i < BLAKE2S_BLOCK_SIZE; i += sizeof(entropy)) {
-		if (!arch_get_random_seed_long_early(&entropy) &&
-		    !arch_get_random_long_early(&entropy)) {
-			entropy = random_get_entropy();
-			arch_bits -= sizeof(entropy) * 8;
+	for (i = 0, arch_bits = sizeof(entropy) * 8; i < ARRAY_SIZE(entropy);) {
+		longs = arch_get_random_seed_longs(entropy, ARRAY_SIZE(entropy) - i);
+		if (longs) {
+			_mix_pool_bytes(entropy, sizeof(*entropy) * longs);
+			i += longs;
+			continue;
 		}
-		_mix_pool_bytes(&entropy, sizeof(entropy));
+		longs = arch_get_random_longs(entropy, ARRAY_SIZE(entropy) - i);
+		if (longs) {
+			_mix_pool_bytes(entropy, sizeof(*entropy) * longs);
+			i += longs;
+			continue;
+		}
+		entropy[0] = random_get_entropy();
+		_mix_pool_bytes(entropy, sizeof(*entropy));
+		arch_bits -= sizeof(*entropy) * 8;
+		++i;
 	}
 	_mix_pool_bytes(&now, sizeof(now));
 	_mix_pool_bytes(utsname(), sizeof(*(utsname())));
@@ -903,20 +920,23 @@ EXPORT_SYMBOL_GPL(unregister_random_vmfork_notifier);
 #endif
 
 struct fast_pool {
-	struct work_struct mix;
 	unsigned long pool[4];
 	unsigned long last;
 	unsigned int count;
+	struct timer_list mix;
 };
+
+static void mix_interrupt_randomness(struct timer_list *work);
 
 static DEFINE_PER_CPU(struct fast_pool, irq_randomness) = {
 #ifdef CONFIG_64BIT
 #define FASTMIX_PERM SIPHASH_PERMUTATION
-	.pool = { SIPHASH_CONST_0, SIPHASH_CONST_1, SIPHASH_CONST_2, SIPHASH_CONST_3 }
+	.pool = { SIPHASH_CONST_0, SIPHASH_CONST_1, SIPHASH_CONST_2, SIPHASH_CONST_3 },
 #else
 #define FASTMIX_PERM HSIPHASH_PERMUTATION
-	.pool = { HSIPHASH_CONST_0, HSIPHASH_CONST_1, HSIPHASH_CONST_2, HSIPHASH_CONST_3 }
+	.pool = { HSIPHASH_CONST_0, HSIPHASH_CONST_1, HSIPHASH_CONST_2, HSIPHASH_CONST_3 },
 #endif
+	.mix = __TIMER_INITIALIZER(mix_interrupt_randomness, 0)
 };
 
 /*
@@ -958,7 +978,7 @@ int __cold random_online_cpu(unsigned int cpu)
 }
 #endif
 
-static void mix_interrupt_randomness(struct work_struct *work)
+static void mix_interrupt_randomness(struct timer_list *work)
 {
 	struct fast_pool *fast_pool = container_of(work, struct fast_pool, mix);
 	/*
@@ -989,7 +1009,7 @@ static void mix_interrupt_randomness(struct work_struct *work)
 	local_irq_enable();
 
 	mix_pool_bytes(pool, sizeof(pool));
-	credit_init_bits(max(1u, (count & U16_MAX) / 64));
+	credit_init_bits(clamp_t(unsigned int, (count & U16_MAX) / 64, 1, sizeof(pool) * 8));
 
 	memzero_explicit(pool, sizeof(pool));
 }
@@ -1012,10 +1032,11 @@ void add_interrupt_randomness(int irq)
 	if (new_count < 1024 && !time_is_before_jiffies(fast_pool->last + HZ))
 		return;
 
-	if (unlikely(!fast_pool->mix.func))
-		INIT_WORK(&fast_pool->mix, mix_interrupt_randomness);
 	fast_pool->count |= MIX_INFLIGHT;
-	queue_work_on(raw_smp_processor_id(), system_highpri_wq, &fast_pool->mix);
+	if (!timer_pending(&fast_pool->mix)) {
+		fast_pool->mix.expires = jiffies;
+		add_timer_on(&fast_pool->mix, raw_smp_processor_id());
+	}
 }
 EXPORT_SYMBOL_GPL(add_interrupt_randomness);
 
@@ -1329,6 +1350,11 @@ static ssize_t urandom_read_iter(struct kiocb *kiocb, struct iov_iter *iter)
 static ssize_t random_read_iter(struct kiocb *kiocb, struct iov_iter *iter)
 {
 	int ret;
+
+	if (!crng_ready() &&
+	    ((kiocb->ki_flags & (IOCB_NOWAIT | IOCB_NOIO)) ||
+	     (kiocb->ki_filp->f_flags & O_NONBLOCK)))
+		return -EAGAIN;
 
 	ret = wait_for_random_bytes();
 	if (ret != 0)
